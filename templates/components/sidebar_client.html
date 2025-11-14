@@ -1,0 +1,51 @@
+<!-- Client Sidebar -->
+<aside class="sidebar" id="sidebar" data-collapsed="{{ 'true' if current_user.sidebar_collapsed else 'false' }}">
+    <!-- Logo -->
+    <div class="sidebar-header">
+        <div class="sidebar-logo">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="logo-full">
+            <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="TO" class="logo-icon">
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+        <ul class="sidebar-menu">
+            <li class="sidebar-item">
+                <a href="{{ url_for('client.dashboard') }}"
+                   class="sidebar-link {% if request.endpoint == 'client.dashboard' %}active{% endif %}"
+                   data-tooltip="Dashboard">
+                    <img src="{{ url_for('static', filename='img/icons/dashboard.svg') }}" alt="Dashboard" class="sidebar-icon">
+                    <span class="sidebar-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="#"
+                   class="sidebar-link {% if request.endpoint and 'new' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Nowe zamówienie">
+                    <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Nowe zamówienie" class="sidebar-icon">
+                    <span class="sidebar-text">Nowe zamówienie</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="#"
+                   class="sidebar-link {% if request.endpoint and 'orders' in request.endpoint and 'new' not in request.endpoint %}active{% endif %}"
+                   data-tooltip="Moje zamówienia">
+                    <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Moje zamówienia" class="sidebar-icon">
+                    <span class="sidebar-text">Moje zamówienia</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="#"
+                   class="sidebar-link {% if request.endpoint and 'shipping' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Zlecenie wysyłki">
+                    <img src="{{ url_for('static', filename='img/icons/shipping.svg') }}" alt="Zlecenie wysyłki" class="sidebar-icon">
+                    <span class="sidebar-text">Zlecenie wysyłki</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</aside>

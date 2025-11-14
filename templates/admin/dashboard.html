@@ -1,0 +1,234 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Panel Administratora - ThunderOrders{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">Panel Administratora</h1>
+        <p class="dashboard-subtitle">Witaj z powrotem, {{ current_user.first_name }}!</p>
+    </div>
+
+    <!-- Kafelki z metrykami (placeholder) -->
+    <div class="dashboard-metrics">
+        <div class="metric-card">
+            <div class="metric-icon">📦</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Zamówienia</h3>
+                <p class="metric-value">0</p>
+                <p class="metric-subtitle">Wszystkie zamówienia</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">🕐</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Dzisiaj</h3>
+                <p class="metric-value">0</p>
+                <p class="metric-subtitle">Zamówienia dzisiaj</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📋</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Do pakowania</h3>
+                <p class="metric-value">0</p>
+                <p class="metric-subtitle">Oczekujące</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">💰</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Przychód</h3>
+                <p class="metric-value">0 PLN</p>
+                <p class="metric-subtitle">W tym miesiącu</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">👥</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Klienci</h3>
+                <p class="metric-value">0</p>
+                <p class="metric-subtitle">Aktywni klienci</p>
+            </div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-icon">📦</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Produkty</h3>
+                <p class="metric-value">0</p>
+                <p class="metric-subtitle">Aktywne produkty</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ostatnie zamówienia (placeholder) -->
+    <div class="dashboard-section">
+        <div class="section-header">
+            <h2 class="section-title">Ostatnie zamówienia</h2>
+            <a href="#" class="section-link">Zobacz wszystkie →</a>
+        </div>
+
+        <div class="empty-state">
+            <p class="empty-state-icon">📭</p>
+            <p class="empty-state-text">Brak zamówień do wyświetlenia</p>
+            <p class="empty-state-subtitle">Zamówienia pojawią się tutaj po utworzeniu pierwszego zamówienia</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.admin-dashboard {
+    /* Padding will be set dynamically by JavaScript */
+    padding-right: var(--space-8);
+    padding-bottom: var(--space-8);
+    transition: padding-left var(--transition-sidebar), padding-top var(--transition-sidebar);
+}
+
+.dashboard-header {
+    margin-bottom: var(--space-8);
+}
+
+.dashboard-title {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.dashboard-subtitle {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+}
+
+/* Metrics Grid */
+.dashboard-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-6);
+    margin-bottom: var(--space-8);
+}
+
+.metric-card {
+    background: white;
+    border-radius: 12px;
+    padding: var(--space-6);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.metric-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+}
+
+.metric-content {
+    flex: 1;
+}
+
+.metric-title {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-2);
+}
+
+.metric-value {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-bold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-1);
+}
+
+.metric-subtitle {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+}
+
+/* Dashboard Section */
+.dashboard-section {
+    background: white;
+    border-radius: 12px;
+    padding: var(--space-6);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-6);
+}
+
+.section-title {
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+}
+
+.section-link {
+    color: var(--orange-300);
+    font-weight: var(--font-medium);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.section-link:hover {
+    color: var(--orange-400);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: var(--space-12) var(--space-6);
+}
+
+.empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: var(--space-4);
+}
+
+.empty-state-text {
+    font-size: var(--text-lg);
+    font-weight: var(--font-medium);
+    color: var(--gray-700);
+    margin-bottom: var(--space-2);
+}
+
+.empty-state-subtitle {
+    font-size: var(--text-base);
+    color: var(--gray-500);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .admin-dashboard {
+        padding: var(--space-4);
+    }
+
+    .dashboard-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-title {
+        font-size: var(--text-2xl);
+    }
+}
+</style>
+{% endblock %}

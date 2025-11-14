@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}500 - Błąd serwera{% endblock %}
+
+{% block content %}
+<div class="error-page">
+    <div class="error-container">
+        <h1 class="error-code">500</h1>
+        <h2 class="error-title">Błąd wewnętrzny serwera</h2>
+        <p class="error-message">Przepraszamy, coś poszło nie tak. Nasz zespół został powiadomiony o problemie.</p>
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">Wróć do strony głównej</a>
+    </div>
+</div>
+
+<style>
+.error-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--purple-100) 0%, var(--purple-300) 100%);
+}
+
+.error-container {
+    text-align: center;
+    color: white;
+    padding: 2rem;
+}
+
+.error-code {
+    font-size: 8rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--error);
+}
+
+.error-title {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 1rem 0;
+}
+
+.error-message {
+    font-size: 1.125rem;
+    margin: 1rem 0 2rem;
+    opacity: 0.9;
+}
+
+.btn-primary {
+    display: inline-block;
+    padding: 0.75rem 2rem;
+    background: var(--orange-300);
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-primary:hover {
+    background: var(--orange-400);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

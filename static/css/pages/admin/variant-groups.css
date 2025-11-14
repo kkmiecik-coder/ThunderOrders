@@ -1,0 +1,266 @@
+/**
+ * Variant Groups System Styles
+ * Responsive grid layout for product tiles
+ */
+
+/* Variant Group Card */
+.variant-group-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.group-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.group-name-input {
+    flex: 1;
+    padding: 10px 15px;
+    font-size: 16px;
+    font-weight: 600;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    transition: border-color 0.2s;
+}
+
+.group-name-input:focus {
+    outline: none;
+    border-color: var(--orange-300, #FF8500);
+}
+
+.btn-delete-group {
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-delete-group:hover {
+    background: #d32f2f;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+}
+
+/* Search Container */
+.group-search-container {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.group-search-input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 15px;
+    transition: border-color 0.2s;
+}
+
+.group-search-input:focus {
+    outline: none;
+    border-color: var(--orange-300, #FF8500);
+}
+
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 5px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+    background-color: #f9f9f9;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item.no-results {
+    cursor: default;
+    color: #999;
+    font-style: italic;
+    justify-content: center;
+}
+
+.result-thumbnail {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+
+.result-info {
+    flex: 1;
+}
+
+.result-name {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.result-meta {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Products Grid */
+.variants-products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 15px;
+    min-height: 100px;
+}
+
+.variants-products-grid .text-muted {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px;
+    color: #999;
+}
+
+/* Product Tile */
+.variant-product-tile {
+    position: relative;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s;
+    cursor: default;
+}
+
+.variant-product-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.tile-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.variant-product-tile:hover .tile-remove-btn {
+    opacity: 1;
+}
+
+.tile-remove-btn:hover {
+    background: #d32f2f;
+    transform: scale(1.1);
+}
+
+.tile-image {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    display: block;
+}
+
+.tile-info {
+    padding: 12px;
+}
+
+.tile-name {
+    font-weight: 500;
+    font-size: 14px;
+    margin-bottom: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tile-meta {
+    font-size: 12px;
+    color: #666;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .variants-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .variants-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px;
+    }
+
+    .tile-image {
+        height: 150px;
+    }
+
+    .tile-info {
+        padding: 10px;
+    }
+
+    .tile-name {
+        font-size: 13px;
+    }
+
+    .tile-meta {
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .variants-products-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .group-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn-delete-group {
+        width: 100%;
+    }
+}

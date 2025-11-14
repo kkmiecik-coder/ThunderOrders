@@ -1,0 +1,5 @@
+<svg width="250" height="200" xmlns="http://www.w3.org/2000/svg">
+  <rect width="250" height="200" fill="#f0f0f0"/>
+  <text x="125" y="100" font-family="Arial" font-size="16" fill="#999" text-anchor="middle">Brak zdjęcia</text>
+  <path d="M90 80 L90 100 L110 100 L110 80 M140 80 L140 100 L160 100 L160 80 M80 120 Q125 140 170 120" stroke="#999" stroke-width="2" fill="none"/>
+</svg>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block body_content %}
+<!-- Sidebar -->
+{% include 'components/sidebar_client.html' %}
+
+<!-- Sidebar Backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Main Wrapper -->
+<div class="main-wrapper">
+    <!-- Topbar -->
+    {% include 'components/topbar.html' %}
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="alerts-container">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Main wrapper adjusted for sidebar */
+.main-wrapper {
+    margin-left: var(--sidebar-width);
+    transition: margin-left var(--transition-base);
+    min-height: 100vh;
+}
+
+.sidebar[data-collapsed="true"] ~ .main-wrapper {
+    margin-left: var(--sidebar-width-collapsed);
+}
+
+/* Main content below topbar */
+.main-content {
+    padding-top: var(--topbar-height);
+    background: var(--bg-secondary);
+    min-height: 100vh;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-wrapper {
+        margin-left: 0;
+    }
+
+    .main-content {
+        margin-top: 60px; /* Mobile navbar height */
+        padding: var(--space-4);
+    }
+}
+</style>
+{% endblock %}

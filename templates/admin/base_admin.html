@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block body_content %}
+<!-- Sidebar -->
+{% include 'components/sidebar_admin.html' %}
+
+<!-- Sidebar Backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Main Wrapper -->
+<div class="main-wrapper">
+    <!-- Topbar -->
+    {% include 'components/topbar.html' %}
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
+

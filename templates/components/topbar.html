@@ -1,0 +1,107 @@
+<!-- Topbar -->
+<header class="topbar">
+    <!-- Left: Sidebar Toggle -->
+    <div class="topbar-left">
+        <button class="topbar-btn topbar-sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+            <img src="{{ url_for('static', filename='img/icons/chevron-left.svg') }}" alt="Toggle">
+        </button>
+    </div>
+
+    <!-- Center: Search -->
+    <div class="topbar-center">
+        <button class="topbar-search-btn" id="globalSearchBtn">
+            <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search">
+            <span class="topbar-search-text">Szukaj... <kbd>⌘K</kbd></span>
+        </button>
+    </div>
+
+    <!-- Right: Actions -->
+    <div class="topbar-right">
+        <!-- Dark Mode Toggle -->
+        <button class="topbar-btn" id="darkModeToggle" aria-label="Toggle dark mode">
+            <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="Light mode" class="icon-light">
+            <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="Dark mode" class="icon-dark">
+        </button>
+
+        <!-- Notifications -->
+        <button class="topbar-btn topbar-btn-notifications" aria-label="Notifications">
+            <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Notifications">
+            <span class="topbar-notifications-badge">3</span>
+        </button>
+
+        <!-- User Dropdown -->
+        <div class="topbar-user-dropdown">
+            <button class="topbar-user-btn" id="userDropdownBtn" aria-label="User menu">
+                <div class="topbar-user-avatar">
+                    <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="{{ current_user.first_name }}">
+                </div>
+                <div class="topbar-user-info">
+                    <span class="topbar-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</span>
+                    <span class="topbar-user-role">{{ current_user.role|capitalize }}</span>
+                </div>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div class="topbar-dropdown-menu" id="userDropdownMenu">
+                <a href="#" class="topbar-dropdown-item">
+                    <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="Profile">
+                    <span>Profil</span>
+                </a>
+                <a href="#" class="topbar-dropdown-item">
+                    <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="Settings">
+                    <span>Ustawienia</span>
+                </a>
+                <div class="topbar-dropdown-divider"></div>
+                <a href="{{ url_for('auth.logout') }}" class="topbar-dropdown-item topbar-dropdown-item-danger">
+                    <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
+                    <span>Wyloguj</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Mobile Navbar -->
+<header class="mobile-navbar">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Toggle menu">
+        <img src="{{ url_for('static', filename='img/icons/menu.svg') }}" alt="Menu">
+    </button>
+
+    <div class="mobile-logo">
+        <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders">
+    </div>
+
+    <button class="mobile-search-btn" id="mobileSearchBtn" aria-label="Search">
+        <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search">
+    </button>
+</header>
+
+<!-- Mobile Menu Overlay -->
+<div class="mobile-menu-overlay" id="mobileMenuOverlay">
+    <div class="mobile-menu-content">
+        <div class="mobile-menu-header">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders">
+            <button class="mobile-menu-close" id="mobileMenuClose">×</button>
+        </div>
+
+        <nav class="mobile-menu-nav">
+            <!-- Content będzie kopiowany z sidebara przez JS -->
+        </nav>
+
+        <div class="mobile-menu-footer">
+            <div class="mobile-menu-user">
+                <div class="mobile-menu-user-avatar">
+                    <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="{{ current_user.first_name }}">
+                </div>
+                <div class="mobile-menu-user-info">
+                    <span class="mobile-menu-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</span>
+                    <span class="mobile-menu-user-role">{{ current_user.role|capitalize }}</span>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="mobile-menu-logout">
+                <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
+                <span>Wyloguj</span>
+            </a>
+        </div>
+    </div>
+</div>

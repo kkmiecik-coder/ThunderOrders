@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="{{ 'dark' if current_user.is_authenticated and current_user.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ThunderOrders{% endblock %}</title>
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Modal Container -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div id="modal-content" class="modal">
+            <!-- Modal content will be inserted here -->
+        </div>
+    </div>
+
+    {% block body_content %}
+    <!-- Default content for pages without sidebar -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    {% endblock %}
+
+    {% block scripts %}
+    <!-- Custom JS - UPDATED VERSION 2025-01-13 23:56 -->
+    <script src="{{ url_for('static', filename='js/core/app.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/components/toast.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/components/sidebar.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=3"></script>
+
+    {% block extra_js %}{% endblock %}
+
+    <!-- Flash messages as toasts -->
+    <script>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    window.showToast('{{ message }}', '{{ category }}');
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
+    {% endblock %}
+</body>
+</html>

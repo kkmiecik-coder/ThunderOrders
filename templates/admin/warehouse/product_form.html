@@ -1,0 +1,374 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}
+    {% if product %}Edytuj produkt{% else %}Nowy produkt{% endif %} - Magazyn
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/variant-groups.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="product-form-page">
+    <!-- Header -->
+    <div class="form-header">
+        <div class="form-title">
+            <h1>{% if product %}{{ product.name }}{% else %}Brak nazwy produktu{% endif %}</h1>
+            <p class="subtitle">
+                {% if product %}
+                    Edycja produktu
+                {% else %}
+                    Dodawanie nowego produktu
+                {% endif %}
+            </p>
+        </div>
+        <div class="form-actions-header">
+            <a href="{{ url_for('products.list_products') }}" class="btn btn-secondary">
+                ← Wróć do listy
+            </a>
+        </div>
+    </div>
+
+    <form method="POST" enctype="multipart/form-data" class="product-form" data-price-rounding="{{ price_rounding }}">
+        {{ form.hidden_tag() }}
+
+        <!-- Tabs Navigation -->
+        <div class="tabs-navigation">
+            <button type="button" class="tab-btn active" data-tab="product">Produkt</button>
+            <button type="button" class="tab-btn" data-tab="sales">Sprzedaż i magazyn</button>
+            <button type="button" class="tab-btn" data-tab="info">Informacje</button>
+            <button type="button" class="tab-btn" data-tab="media">Media</button>
+            <button type="button" class="tab-btn" data-tab="variants">Warianty</button>
+            <button type="button" class="tab-btn" data-tab="tags">Tagi</button>
+        </div>
+
+        <!-- Tab: Produkt -->
+        <div class="tab-content active" data-tab="product">
+            <div class="form-card">
+                <h2 class="card-title">Podstawowe informacje</h2>
+
+                <!-- Product Name -->
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label class="form-label required">{{ form.name.label.text }}</label>
+                        {{ form.name(class="form-input", placeholder="Nazwa produktu") }}
+                        {% if form.name.errors %}
+                            <span class="form-error">{{ form.name.errors[0] }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Category & Manufacturer -->
+                <div class="form-row two-cols">
+                    <div class="form-group">
+                        <label class="form-label">{{ form.category_id.label.text }}</label>
+                        {{ form.category_id(class="form-select") }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ form.manufacturer.label.text }}</label>
+                        {{ form.manufacturer(class="form-input", placeholder="-- Wybierz producenta --") }}
+                    </div>
+                </div>
+
+                <!-- SKU & EAN -->
+                <div class="form-row three-cols">
+                    <div class="form-group">
+                        <label class="form-label">{{ form.sku.label.text }}</label>
+                        {{ form.sku(class="form-input") }}
+                        {% if form.sku.errors %}
+                            <span class="form-error">{{ form.sku.errors[0] }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ form.ean.label.text }}</label>
+                        {{ form.ean(class="form-input") }}
+                        {% if form.ean.errors %}
+                            <span class="form-error">{{ form.ean.errors[0] }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ form.series.label.text }}</label>
+                        {{ form.series(class="form-input", placeholder="Seria produktowa") }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dimensions & Weight -->
+            <div class="form-card">
+                <h2 class="card-title">Wymiary i waga</h2>
+
+                <div class="form-row four-cols">
+                    <div class="form-group">
+                        <label class="form-label">{{ form.weight.label.text }}</label>
+                        <div class="input-with-unit">
+                            {{ form.weight(class="form-input") }}
+                            <span class="input-unit">kg</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ form.width.label.text }}</label>
+                        <div class="input-with-unit">
+                            {{ form.width(class="form-input") }}
+                            <span class="input-unit">cm</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ form.height.label.text }}</label>
+                        <div class="input-with-unit">
+                            {{ form.height(class="form-input") }}
+                            <span class="input-unit">cm</span>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">{{ form.length.label.text }}</label>
+                        <div class="input-with-unit">
+                            {{ form.length(class="form-input") }}
+                            <span class="input-unit">cm</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Sprzedaż i magazyn -->
+        <div class="tab-content" data-tab="sales">
+            <div class="form-card">
+                <h2 class="card-title">Ceny</h2>
+
+                <!-- Sale Price -->
+                <div class="form-row two-cols">
+                    <div class="form-group">
+                        <label class="form-label required">{{ form.sale_price.label.text }}</label>
+                        <div class="input-with-unit">
+                            {{ form.sale_price(class="form-input", placeholder="0.00") }}
+                            <span class="input-unit">PLN</span>
+                        </div>
+                        {% if form.sale_price.errors %}
+                            <span class="form-error">{{ form.sale_price.errors[0] }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if current_user.role == 'admin' %}
+                <!-- Purchase Price (Admin only) -->
+                <div class="form-card purchase-price-section">
+                    <h3 class="card-subtitle">Cena zakupu (tylko admin)</h3>
+
+                    <div class="form-row three-cols">
+                        <div class="form-group">
+                            <label class="form-label">{{ form.purchase_price.label.text }}</label>
+                            <div class="input-with-unit">
+                                {{ form.purchase_price(class="form-input", id="purchase_price", placeholder="0.00") }}
+                                <span class="input-unit" id="currency_unit">
+                                    {{ form.purchase_currency.data if form.purchase_currency.data else 'PLN' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">{{ form.purchase_currency.label.text }}</label>
+                            {{ form.purchase_currency(class="form-select", id="purchase_currency") }}
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Cena zakupu w PLN</label>
+                            <div class="input-with-unit">
+                                {{ form.purchase_price_pln(class="form-input", id="purchase_price_pln", readonly=true, placeholder="0.00") }}
+                                <span class="input-unit">PLN</span>
+                            </div>
+                            <div id="exchange-rate-info" class="info-text"></div>
+                        </div>
+                    </div>
+
+                    <!-- Margin -->
+                    <div class="form-row two-cols">
+                        <div class="form-group">
+                            <label class="form-label">{{ form.margin.label.text }}</label>
+                            <div class="input-with-unit">
+                                {{ form.margin(class="form-input", id="margin", readonly=true, placeholder="0.00") }}
+                                <span class="input-unit">%</span>
+                            </div>
+                            <div class="info-text">Marża obliczana automatycznie</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Stock & Supplier -->
+            <div class="form-card">
+                <h2 class="card-title">Magazyn</h2>
+
+                <div class="form-row {% if current_user.role == 'admin' %}two-cols{% else %}full-width{% endif %}">
+                    <div class="form-group">
+                        <label class="form-label required">{{ form.quantity.label.text }}</label>
+                        <div class="input-with-unit">
+                            {{ form.quantity(class="form-input", placeholder="0") }}
+                            <span class="input-unit">szt.</span>
+                        </div>
+                        {% if form.quantity.errors %}
+                            <span class="form-error">{{ form.quantity.errors[0] }}</span>
+                        {% endif %}
+                    </div>
+
+                    {% if current_user.role == 'admin' %}
+                    <div class="form-group">
+                        <label class="form-label">{{ form.supplier_id.label.text }}</label>
+                        {{ form.supplier_id(class="form-select") }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Status -->
+            <div class="form-card">
+                <h2 class="card-title">Status</h2>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            {{ form.is_active(class="form-checkbox") }}
+                            <span>{{ form.is_active.label.text }}</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Informacje -->
+        <div class="tab-content" data-tab="info">
+            <div class="form-card">
+                <h2 class="card-title">Opis produktu</h2>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label class="form-label">{{ form.description.label.text }}</label>
+                        {{ form.description(class="form-textarea", rows=8, placeholder="Szczegółowy opis produktu...") }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Media -->
+        <div class="tab-content" data-tab="media">
+            <div class="form-card">
+                <h2 class="card-title">Zdjęcia produktu</h2>
+
+                {% if product %}
+                <!-- Existing Images Grid -->
+                <div class="images-grid" id="images-grid">
+                    {% for image in product.images.order_by('sort_order').all() %}
+                    <div class="image-item" data-image-id="{{ image.id }}">
+                        <img src="{{ url_for('static', filename=image.path_compressed) }}"
+                             alt="{{ product.name }}"
+                             class="image-preview">
+                        <div class="image-overlay">
+                            {% if image.is_primary %}
+                            <span class="badge badge-primary">Główne</span>
+                            {% else %}
+                            <button type="button" class="btn-icon-small btn-set-primary"
+                                    onclick="setPrimaryImage({{ image.id }})">
+                                ⭐ Ustaw jako główne
+                            </button>
+                            {% endif %}
+                            <button type="button" class="btn-icon-small btn-delete-image"
+                                    onclick="deleteImage({{ image.id }})">
+                                🗑️ Usuń
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- Upload Placeholder -->
+                    <div class="image-item image-upload-placeholder">
+                        <label for="image-upload" class="upload-label">
+                            <div class="upload-icon">📷</div>
+                            <div class="upload-text">Załaduj wiele zdjęć</div>
+                            <div class="upload-hint">JPG, PNG, GIF, WEBP. Maksymalny rozmiar: 2MB</div>
+                        </label>
+                        <input type="file" id="image-upload" name="images" multiple
+                               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                               style="display: none;"
+                               onchange="uploadImages()">
+                    </div>
+                </div>
+                {% else %}
+                <!-- New Product - Upload after creation -->
+                <div class="info-box">
+                    <p>Zdjęcia będą dostępne po zapisaniu produktu.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tab: Warianty (New System) -->
+        <div class="tab-content" data-tab="variants">
+            <div class="form-card">
+                <h2 class="card-title">Grupy wariantowe</h2>
+                <p class="info-text" style="margin-bottom: 20px;">
+                    Ten produkt może należeć do wielu grup wariantowych jednocześnie. Każda grupa jest niezależna.
+                </p>
+
+                <!-- Variant Groups Container (Will be populated by JavaScript) -->
+                <div id="variantGroupsContainer">
+                    <!-- Groups will be inserted here by JS -->
+                </div>
+
+                <!-- Add New Group Button -->
+                <button type="button" class="btn btn-secondary" onclick="addNewVariantGroup()" style="margin-top: 15px;">
+                    + Dodaj nową grupę wariantową
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab: Tagi -->
+        <div class="tab-content" data-tab="tags">
+            <div class="form-card">
+                <h2 class="card-title">Tagi produktu</h2>
+
+                <div class="form-row">
+                    <div class="form-group full-width">
+                        <label class="form-label">{{ form.tags.label.text }}</label>
+                        <div class="tags-checkboxes">
+                            {% for tag in form.tags %}
+                            <label class="tag-checkbox-label">
+                                {{ tag }}
+                                <span class="tag-label-text">{{ tag.label.text }}</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Footer - Submit Buttons -->
+        <div class="form-footer">
+            <div class="form-footer-actions">
+                <a href="{{ url_for('products.list_products') }}" class="btn btn-secondary">
+                    Anuluj
+                </a>
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/pages/admin/product-form.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/variant-groups.js') }}"></script>
+<script>
+// Initialize variant groups system
+if (typeof initVariantGroupsSystem === 'function') {
+    {% if product %}
+        const existingGroups = {{ variant_groups_data|tojson|safe }} || [];
+        const productId = {{ product.id }};
+        initVariantGroupsSystem(productId, existingGroups);
+    {% else %}
+        initVariantGroupsSystem(null, []);
+    {% endif %}
+}
+</script>
+{% endblock %}

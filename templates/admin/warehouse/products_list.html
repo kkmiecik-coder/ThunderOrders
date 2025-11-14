@@ -1,0 +1,1097 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Produkty - Magazyn{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/variant-groups.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="products-page">
+    <!-- Top Bar -->
+    <div class="products-top-bar">
+        <!-- Center: Filtrowanie produktów search -->
+        <div class="top-bar-center">
+            <form method="GET" action="{{ url_for('products.list_products') }}" class="search-form">
+                <button type="button" class="filter-toggle-btn" onclick="toggleFilters()">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M0 0h6v2H0V0zm0 7h3v2H0V7zm0 7h9v2H0v-2zm7-14v2h9V0H7zm0 7v2h9V7H7zm2 7v2h7v-2H9z"/>
+                    </svg>
+                    Filtrowanie produktów
+                </button>
+                <input type="text"
+                       name="search"
+                       class="search-input"
+                       placeholder="Szukaj produktu (nazwa, SKU, EAN)..."
+                       value="{{ request.args.get('search', '') }}">
+            </form>
+        </div>
+
+        <!-- Right: Import CSV + Dodaj produkt -->
+        <div class="top-bar-right">
+            <button type="button" class="btn-import-csv" onclick="openImportModal()" title="Importuj produkty z CSV">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <g transform="rotate(180 8 8)">
+                        <path d="M8 0a.5.5 0 01.5.5v11.793l3.146-3.147a.5.5 0 01.708.708l-4 4a.5.5 0 01-.708 0l-4-4a.5.5 0 01.708-.708L7.5 12.293V.5A.5.5 0 018 0z"/>
+                        <path d="M1 14h14v1H1v-1z"/>
+                    </g>
+                </svg>
+            </button>
+            <button type="button" class="btn-add-product" onclick="openProductModal()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 0a1 1 0 011 1v6h6a1 1 0 110 2H9v6a1 1 0 11-2 0V9H1a1 1 0 010-2h6V1a1 1 0 011-1z"/>
+                </svg>
+                Dodaj produkt
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters Panel (collapsible) -->
+    <div id="filtersPanel" class="filters-panel" style="display: none;">
+        <form method="GET" action="{{ url_for('products.list_products') }}" class="filters-form">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Kategoria</label>
+                    {{ search_form.category_id(class="filter-select") }}
+                </div>
+                <div class="filter-group">
+                    <label>Producent</label>
+                    {{ search_form.manufacturer(class="filter-select") }}
+                </div>
+                <div class="filter-group">
+                    <label>Seria</label>
+                    {{ search_form.series(class="filter-select") }}
+                </div>
+                <div class="filter-group">
+                    <label>Status</label>
+                    {{ search_form.is_active(class="filter-select") }}
+                </div>
+                <div class="filter-group">
+                    <label>Stan magazynowy</label>
+                    {{ search_form.stock_filter(class="filter-select") }}
+                </div>
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary btn-sm">Filtruj</button>
+                    <a href="{{ url_for('products.list_products') }}" class="btn btn-secondary btn-sm">Wyczyść</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="products-toolbar">
+        <div class="toolbar-left">
+            <!-- Select Dropdown -->
+            <select class="toolbar-select toolbar-select-grouped" id="bulk-select-dropdown" onchange="handleBulkSelect(this.value)">
+                <option value="">Zaznacz</option>
+                <optgroup label="NA TEJ STRONIE">
+                    <option value="select-page">✓ Zaznacz wszystkie</option>
+                    <option value="deselect-page">✗ Odznacz wszystkie</option>
+                </optgroup>
+                <optgroup label="NA WSZYSTKICH STRONACH">
+                    <option value="select-all">✓ Zaznacz wszystkie</option>
+                    <option value="deselect-all">✗ Odznacz wszystkie</option>
+                </optgroup>
+            </select>
+
+            <!-- Operation Buttons -->
+            <button type="button" class="toolbar-btn-operation" onclick="activateProducts()" title="Aktywuj produkty">
+                <img src="{{ url_for('static', filename='img/icons/check-circle.svg') }}" alt="" class="toolbar-icon">
+                <span>Aktywuj produkty</span>
+            </button>
+
+            <button type="button" class="toolbar-btn-operation" onclick="deactivateProducts()" title="Dezaktywuj produkty">
+                <img src="{{ url_for('static', filename='img/icons/x-circle.svg') }}" alt="" class="toolbar-icon">
+                <span>Dezaktywuj produkty</span>
+            </button>
+
+            <button type="button" class="toolbar-btn-operation" onclick="createSalesForm()" title="Utwórz formularz sprzedażowy">
+                <img src="{{ url_for('static', filename='img/icons/form.svg') }}" alt="" class="toolbar-icon">
+                <span>Utwórz formularz sprzedażowy</span>
+            </button>
+
+            <button type="button" class="toolbar-btn-operation" onclick="duplicateProducts()" title="Duplikuj produkty">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" class="toolbar-icon">
+                    <path d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H6zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1H2z"/>
+                </svg>
+                <span>Duplikuj produkty</span>
+            </button>
+
+            <button type="button" class="toolbar-btn-operation btn-delete" onclick="deleteProducts()" title="Usuń produkty">
+                <img src="{{ url_for('static', filename='img/icons/trash.svg') }}" alt="" class="toolbar-icon">
+                <span>Usuń produkty</span>
+            </button>
+        </div>
+
+        <div class="toolbar-right">
+            <span class="products-count">
+                Produktów na stronę: <strong>{{ pagination.per_page }} z {{ pagination.total }}</strong>
+            </span>
+
+            <!-- Per Page Selector -->
+            <select class="toolbar-select" id="per-page-select" onchange="changePerPage(this.value)">
+                <option value="10" {% if pagination.per_page == 10 %}selected{% endif %}>10</option>
+                <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
+                <option value="150" {% if pagination.per_page == 150 %}selected{% endif %}>150</option>
+            </select>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination-compact">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('products.list_products', page=pagination.prev_num, per_page=pagination.per_page, **request.args) }}"
+                   class="pagination-arrow">‹</a>
+                {% else %}
+                <span class="pagination-arrow disabled">‹</span>
+                {% endif %}
+
+                <input type="number"
+                       class="pagination-input"
+                       value="{{ pagination.page }}"
+                       min="1"
+                       max="{{ pagination.pages }}"
+                       onchange="window.location.href='{{ url_for('products.list_products', per_page=pagination.per_page, **request.args) }}&page=' + this.value">
+
+                <span class="pagination-sep">/</span>
+                <span class="pagination-total">{{ pagination.pages }}</span>
+
+                {% if pagination.has_next %}
+                <a href="{{ url_for('products.list_products', page=pagination.next_num, per_page=pagination.per_page, **request.args) }}"
+                   class="pagination-arrow">›</a>
+                {% else %}
+                <span class="pagination-arrow disabled">›</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Products Table -->
+    {% if products %}
+    <div class="products-table-container">
+        <table class="products-table">
+            <thead>
+                <tr>
+                    <th class="col-checkbox">
+                        <input type="checkbox" id="select-all">
+                    </th>
+                    <th class="col-photo">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                            <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/>
+                        </svg>
+                    </th>
+                    <th class="col-name">NAZWA, EAN, SKU</th>
+                    <th class="col-series">SERIA</th>
+                    <th class="col-type">TYP</th>
+                    <th class="col-tags">TAGI</th>
+                    <th class="col-variants">WARIANTY</th>
+                    <th class="col-active">AKTYWNY</th>
+                    <th class="col-stock">STAN</th>
+                    <th class="col-price">CENA</th>
+                    <th class="col-menu"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for product in products %}
+                <tr class="product-row {% if not product.is_active %}inactive{% endif %}">
+                    <!-- Checkbox -->
+                    <td class="col-checkbox">
+                        <input type="checkbox" class="product-checkbox" value="{{ product.id }}">
+                    </td>
+
+                    <!-- Photo -->
+                    <td class="col-photo">
+                        <div class="product-thumbnail-wrapper">
+                            {% if product.primary_image %}
+                            <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}"
+                                 alt="{{ product.name }}"
+                                 class="product-thumbnail">
+                            {% else %}
+                            <div class="product-thumbnail-placeholder">
+                                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                                    <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/>
+                                </svg>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Name, IDs -->
+                    <td class="col-name">
+                        <a href="#" onclick="openProductModal({{ product.id }}); return false;" class="product-name-link">
+                            {{ product.name }}
+                        </a>
+                        <div class="product-ids">
+                            {% if product.id %}
+                            <span class="product-id">
+                                <strong>ID</strong>
+                                <span class="copyable-value" onclick="copyToClipboard('{{ product.id }}', 'ID')" title="Kliknij aby skopiować">{{ product.id }}</span>
+                            </span>
+                            {% endif %}
+                            {% if product.sku %}
+                            <span class="product-id">
+                                <strong>SKU</strong>
+                                <span class="copyable-value" onclick="copyToClipboard('{{ product.sku }}', 'SKU')" title="Kliknij aby skopiować">{{ product.sku }}</span>
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Series -->
+                    <td class="col-series">
+                        {% if product.series %}
+                            <span class="series-name">{{ product.series.name }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Product Type -->
+                    <td class="col-type">
+                        {% if product.product_type %}
+                            <span class="type-badge type-{{ product.product_type.slug }}">{{ product.product_type.name }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Tags -->
+                    <td class="col-tags">
+                        {% if product.tags %}
+                            <div class="tags-list">
+                                {% for tag in product.tags[:3] %}
+                                    <span class="tag-badge-xs">{{ tag.name }}</span>
+                                {% endfor %}
+                                {% if product.tags|length > 3 %}
+                                    <span class="tag-badge-xs tag-more">+{{ product.tags|length - 3 }}</span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Variants -->
+                    <td class="col-variants">
+                        {% if product.variant_groups|length > 0 %}
+                            <span class="variants-badge"
+                                  onclick="openProductModal({{ product.id }}, 'variants'); return false;"
+                                  title="{{ product.variant_groups|length }} grup wariantowych">
+                                {{ product.variant_groups|length }}
+                            </span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Active Status -->
+                    <td class="col-active">
+                        {% if product.is_active %}
+                            <span class="status-badge status-active">Aktywowany</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">Dezaktywowany</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Stock -->
+                    <td class="col-stock">
+                        <span class="stock-value {% if product.quantity == 0 %}out-of-stock{% elif product.quantity < 10 %}low-stock{% else %}in-stock{% endif %}">
+                            {{ product.quantity }} szt.
+                        </span>
+                    </td>
+
+                    <!-- Price -->
+                    <td class="col-price">
+                        <span class="price-value">{{ "%.2f"|format(product.sale_price) }} PLN</span>
+                    </td>
+
+                    <!-- Menu - Removed per user request -->
+                    <td class="col-menu">
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <h3>Brak produktów</h3>
+        <p>Nie znaleziono produktów spełniających kryteria wyszukiwania.</p>
+        {% if request.args %}
+        <a href="{{ url_for('products.list_products') }}" class="btn btn-secondary">Wyczyść filtry</a>
+        {% else %}
+        <button type="button" class="btn btn-primary" onclick="openProductModal()">Dodaj pierwszy produkt</button>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Product Modal -->
+<div id="productModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header">
+            <h2 id="modalTitle">Dodaj produkt</h2>
+            <button type="button" class="modal-close" onclick="closeProductModal()">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body" id="modalBody">
+            <!-- Content loaded via AJAX or include form here -->
+            <p>Ładowanie...</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Get CSRF Token
+function getCsrfToken() {
+    // Try to get from meta tag
+    const metaTag = document.querySelector('meta[name="csrf-token"]');
+    if (metaTag) {
+        return metaTag.getAttribute('content');
+    }
+
+    // Try to get from form
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+    if (csrfInput) {
+        return csrfInput.value;
+    }
+
+    return '';
+}
+
+// Initialize Event Listeners (called on page load and after refresh)
+function initializeEventListeners() {
+    console.log('[PRODUCTS LIST] Initializing event listeners...');
+
+    // Select All Checkbox
+    const selectAllCheckbox = document.getElementById('select-all');
+    if (selectAllCheckbox) {
+        // Remove old listener if exists (to avoid duplicates)
+        const newSelectAll = selectAllCheckbox.cloneNode(true);
+        selectAllCheckbox.parentNode.replaceChild(newSelectAll, selectAllCheckbox);
+
+        // Add new listener
+        newSelectAll.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.product-checkbox');
+            checkboxes.forEach(cb => cb.checked = this.checked);
+        });
+    }
+
+    console.log('[PRODUCTS LIST] Event listeners initialized');
+}
+
+// Initialize on page load
+initializeEventListeners();
+
+// Toggle Filters Panel
+function toggleFilters() {
+    const panel = document.getElementById('filtersPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// Change Per Page
+function changePerPage(perPage) {
+    const urlParams = new URLSearchParams(window.location.search);
+    urlParams.set('per_page', perPage);
+    urlParams.set('page', '1'); // Reset to first page when changing per_page
+    window.location.href = '{{ url_for('products.list_products') }}?' + urlParams.toString();
+}
+
+// Global variable to store all product IDs (for select all pages functionality)
+let allProductIds = null;
+
+// Handle Bulk Select
+function handleBulkSelect(action) {
+    const checkboxes = document.querySelectorAll('.product-checkbox');
+    const selectAll = document.getElementById('select-all');
+
+    switch(action) {
+        // NA TEJ STRONIE
+        case 'select-page':
+            checkboxes.forEach(cb => cb.checked = true);
+            if (selectAll) selectAll.checked = true;
+            // Clear global selection
+            allProductIds = null;
+            break;
+
+        case 'deselect-page':
+            checkboxes.forEach(cb => cb.checked = false);
+            if (selectAll) selectAll.checked = false;
+            // Clear global selection
+            allProductIds = null;
+            break;
+
+        // NA WSZYSTKICH STRONACH
+        case 'select-all':
+            // Fetch all product IDs matching current filters
+            const currentUrl = new URL(window.location.href);
+            const params = currentUrl.searchParams;
+
+            fetch('{{ url_for('products.get_all_product_ids') }}?' + params.toString())
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        allProductIds = data.product_ids;
+                        // Check all visible checkboxes
+                        checkboxes.forEach(cb => cb.checked = true);
+                        if (selectAll) selectAll.checked = true;
+                        showToast(`Zaznaczono wszystkie produkty (${data.count} produktów na wszystkich stronach)`, 'success');
+                    } else {
+                        showToast('Błąd podczas pobierania listy produktów', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('Wystąpił błąd podczas zaznaczania produktów', 'error');
+                });
+            break;
+
+        case 'deselect-all':
+            // Clear global selection
+            allProductIds = null;
+            // Uncheck all visible checkboxes
+            checkboxes.forEach(cb => cb.checked = false);
+            if (selectAll) selectAll.checked = false;
+            showToast('Odznaczono wszystkie produkty', 'info');
+            break;
+    }
+
+    // Reset dropdown to default
+    document.getElementById('bulk-select-dropdown').value = '';
+}
+
+// Get Selected Product IDs
+function getSelectedProductIds() {
+    // If global selection is active (select all pages), use that
+    if (allProductIds !== null && allProductIds.length > 0) {
+        return allProductIds;
+    }
+
+    // Otherwise, use checked checkboxes on current page
+    const checkboxes = document.querySelectorAll('.product-checkbox:checked');
+    return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+// Activate Products
+function activateProducts() {
+    const selectedIds = getSelectedProductIds();
+
+    if (selectedIds.length === 0) {
+        alert('Nie zaznaczono żadnych produktów');
+        return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz aktywować ${selectedIds.length} produktów?`)) {
+        return;
+    }
+
+    // Send AJAX request
+    fetch('{{ url_for('products.bulk_activate') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ product_ids: selectedIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show updated statuses
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.error || 'Wystąpił błąd', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Wystąpił błąd podczas aktywacji produktów', 'error');
+    });
+}
+
+// Deactivate Products
+function deactivateProducts() {
+    const selectedIds = getSelectedProductIds();
+
+    if (selectedIds.length === 0) {
+        alert('Nie zaznaczono żadnych produktów');
+        return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz dezaktywować ${selectedIds.length} produktów?`)) {
+        return;
+    }
+
+    // Send AJAX request
+    fetch('{{ url_for('products.bulk_deactivate') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ product_ids: selectedIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show updated statuses
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.error || 'Wystąpił błąd', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Wystąpił błąd podczas dezaktywacji produktów', 'error');
+    });
+}
+
+// Create Sales Form
+function createSalesForm() {
+    const selectedIds = getSelectedProductIds();
+
+    if (selectedIds.length === 0) {
+        alert('Nie zaznaczono żadnych produktów');
+        return;
+    }
+
+    // TODO: Implement create sales form
+    console.log('Creating sales form for products:', selectedIds);
+    alert('Funkcja "Utwórz formularz sprzedażowy" zostanie wkrótce zaimplementowana');
+}
+
+// Duplicate Products
+function duplicateProducts() {
+    const selectedIds = getSelectedProductIds();
+
+    if (selectedIds.length === 0) {
+        alert('Nie zaznaczono żadnych produktów');
+        return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz zduplikować ${selectedIds.length} produktów?\n\nZostaną utworzone nowe produkty z tymi samymi danymi, ale nowymi ID.`)) {
+        return;
+    }
+
+    // Send AJAX request
+    fetch('{{ url_for('products.bulk_duplicate') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ product_ids: selectedIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show duplicated products
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.error || 'Wystąpił błąd', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Wystąpił błąd podczas duplikowania produktów', 'error');
+    });
+}
+
+// Delete Products
+function deleteProducts() {
+    const selectedIds = getSelectedProductIds();
+
+    if (selectedIds.length === 0) {
+        alert('Nie zaznaczono żadnych produktów');
+        return;
+    }
+
+    if (!confirm(`⚠️ UWAGA!\n\nCzy na pewno chcesz USUNĄĆ ${selectedIds.length} produktów?\n\nTej operacji nie można cofnąć!`)) {
+        return;
+    }
+
+    // Send AJAX request
+    fetch('{{ url_for('products.bulk_delete') }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ product_ids: selectedIds })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show updated list
+            setTimeout(() => window.location.reload(), 1000);
+        } else {
+            showToast(data.error || 'Wystąpił błąd', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Wystąpił błąd podczas usuwania produktów', 'error');
+    });
+}
+
+// Open Product Modal
+function openProductModal(productId = null, tab = 'product') {
+    const modal = document.getElementById('productModal');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+
+    if (productId) {
+        modalTitle.textContent = 'Edytuj produkt';
+        // Load product data via AJAX with modal=1 parameter
+        fetch(`/admin/products/${productId}/edit?modal=1`)
+            .then(response => response.text())
+            .then(html => {
+                modalBody.innerHTML = html;
+
+                // Initialize JavaScript for the loaded form
+                console.log('Modal content loaded for edit, initializing...');
+
+                // Initialize directly (inline scripts don't execute with innerHTML)
+                setTimeout(() => {
+                    console.log('[PRODUCTS LIST] Initializing modal form...');
+
+                    // Initialize basic form functions
+                    if (window.initCurrencyCalculator) {
+                        window.initCurrencyCalculator();
+                    }
+                    if (window.initTagsSystem) {
+                        window.initTagsSystem();
+                    }
+                    if (window.initVariantsSystem) {
+                        window.initVariantsSystem();
+                    }
+                    if (window.initFormSubmission) {
+                        window.initFormSubmission();
+                    }
+                    if (window.initProductTypeToggle) {
+                        window.initProductTypeToggle();
+                    }
+
+                    // Initialize variant groups system with data from data attributes
+                    console.log('[PRODUCTS LIST] Initializing variant groups...');
+
+                    if (typeof window.initVariantGroupsSystem === 'function') {
+                        const container = document.getElementById('variantGroupsContainer');
+                        if (container) {
+                            const productIdStr = container.getAttribute('data-product-id');
+                            const variantGroupsStr = container.getAttribute('data-variant-groups');
+
+                            console.log('[PRODUCTS LIST] Raw data-product-id:', productIdStr);
+                            console.log('[PRODUCTS LIST] Raw data-variant-groups:', variantGroupsStr);
+
+                            const productId = productIdStr && productIdStr !== '' ? parseInt(productIdStr) : null;
+                            let existingGroups = [];
+
+                            try {
+                                existingGroups = variantGroupsStr ? JSON.parse(variantGroupsStr) : [];
+                            } catch (e) {
+                                console.error('[PRODUCTS LIST] Error parsing variant groups JSON:', e);
+                                existingGroups = [];
+                            }
+
+                            console.log('[PRODUCTS LIST] Parsed Product ID:', productId, 'type:', typeof productId);
+                            console.log('[PRODUCTS LIST] Parsed Existing groups:', existingGroups);
+
+                            window.initVariantGroupsSystem(productId, existingGroups);
+                        } else {
+                            console.error('[PRODUCTS LIST] variantGroupsContainer element NOT FOUND!');
+                        }
+                    } else {
+                        console.error('[PRODUCTS LIST] initVariantGroupsSystem function NOT FOUND!');
+                    }
+
+                    if (window.switchTab) {
+                        window.switchTab(tab); // Switch to specified tab (default: 'product')
+                    }
+                }, 100); // Small delay to let DOM settle
+            })
+            .catch(error => {
+                console.error('Error loading product form:', error);
+                modalBody.innerHTML = '<p class="error-message">Błąd podczas ładowania formularza produktu.</p>';
+            });
+    } else {
+        modalTitle.textContent = 'Dodaj produkt';
+        // Load create form via AJAX with modal=1 parameter
+        fetch('/admin/products/create?modal=1')
+            .then(response => response.text())
+            .then(html => {
+                modalBody.innerHTML = html;
+
+                // Initialize JavaScript for the loaded form
+                console.log('Modal content loaded for create, initializing...');
+
+                // Initialize directly (inline scripts don't execute with innerHTML)
+                setTimeout(() => {
+                    console.log('[PRODUCTS LIST] Initializing modal form...');
+
+                    // Initialize basic form functions
+                    if (window.initCurrencyCalculator) {
+                        window.initCurrencyCalculator();
+                    }
+                    if (window.initTagsSystem) {
+                        window.initTagsSystem();
+                    }
+                    if (window.initVariantsSystem) {
+                        window.initVariantsSystem();
+                    }
+                    if (window.initFormSubmission) {
+                        window.initFormSubmission();
+                    }
+                    if (window.initProductTypeToggle) {
+                        window.initProductTypeToggle();
+                    }
+
+                    // Initialize variant groups system with data from data attributes
+                    console.log('[PRODUCTS LIST] Initializing variant groups...');
+
+                    if (typeof window.initVariantGroupsSystem === 'function') {
+                        const container = document.getElementById('variantGroupsContainer');
+                        if (container) {
+                            const productIdStr = container.getAttribute('data-product-id');
+                            const variantGroupsStr = container.getAttribute('data-variant-groups');
+
+                            console.log('[PRODUCTS LIST] Raw data-product-id:', productIdStr);
+                            console.log('[PRODUCTS LIST] Raw data-variant-groups:', variantGroupsStr);
+
+                            const productId = productIdStr && productIdStr !== '' ? parseInt(productIdStr) : null;
+                            let existingGroups = [];
+
+                            try {
+                                existingGroups = variantGroupsStr ? JSON.parse(variantGroupsStr) : [];
+                            } catch (e) {
+                                console.error('[PRODUCTS LIST] Error parsing variant groups JSON:', e);
+                                existingGroups = [];
+                            }
+
+                            console.log('[PRODUCTS LIST] Parsed Product ID:', productId, 'type:', typeof productId);
+                            console.log('[PRODUCTS LIST] Parsed Existing groups:', existingGroups);
+
+                            window.initVariantGroupsSystem(productId, existingGroups);
+                        } else {
+                            console.error('[PRODUCTS LIST] variantGroupsContainer element NOT FOUND!');
+                        }
+                    } else {
+                        console.error('[PRODUCTS LIST] initVariantGroupsSystem function NOT FOUND!');
+                    }
+
+                    if (window.switchTab) {
+                        window.switchTab('product'); // Set first tab as active
+                    }
+                }, 100); // Small delay to let DOM settle
+            })
+            .catch(error => {
+                console.error('Error loading product form:', error);
+                modalBody.innerHTML = '<p class="error-message">Błąd podczas ładowania formularza produktu.</p>';
+            });
+    }
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Prevent scrolling
+}
+
+// Refresh Products List
+function refreshProductsList() {
+    console.log('[PRODUCTS LIST] Refreshing products list...');
+
+    // Get current URL with all query parameters (filters, search, page, etc.)
+    const currentUrl = window.location.href;
+
+    fetch(currentUrl, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest' // Mark as AJAX request
+        }
+    })
+    .then(response => response.text())
+    .then(html => {
+        // Parse the HTML
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Extract the products-page content from the response
+        const newContent = doc.querySelector('.products-page');
+
+        if (newContent) {
+            // Replace current products-page content
+            const currentContent = document.querySelector('.products-page');
+            if (currentContent) {
+                currentContent.innerHTML = newContent.innerHTML;
+                console.log('[PRODUCTS LIST] Products list refreshed successfully');
+
+                // Re-attach event listeners (select-all checkbox, etc.)
+                initializeEventListeners();
+            }
+        } else {
+            console.error('[PRODUCTS LIST] Could not find products-page in response');
+        }
+    })
+    .catch(error => {
+        console.error('[PRODUCTS LIST] Error refreshing products list:', error);
+        showToast('Nie udało się odświeżyć listy produktów', 'error');
+    });
+}
+
+// Close Product Modal
+function closeProductModal() {
+    const modal = document.getElementById('productModal');
+    modal.classList.remove('active');
+    document.body.style.overflow = ''; // Restore scrolling
+}
+
+// Close modal on backdrop click
+document.getElementById('productModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeProductModal();
+    }
+});
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('productModal');
+        if (modal && modal.classList.contains('active')) {
+            closeProductModal();
+        }
+    }
+});
+
+// Copy to Clipboard Function
+function copyToClipboard(value, label) {
+    // Use modern Clipboard API
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(value)
+            .then(() => {
+                showToast(`${label} "${value}" skopiowano do schowka`, 'success');
+            })
+            .catch(err => {
+                console.error('Error copying to clipboard:', err);
+                showToast('Błąd podczas kopiowania do schowka', 'error');
+            });
+    } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = value;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+
+        try {
+            document.execCommand('copy');
+            showToast(`${label} "${value}" skopiowano do schowka`, 'success');
+        } catch (err) {
+            console.error('Fallback copy failed:', err);
+            showToast('Błąd podczas kopiowania do schowka', 'error');
+        }
+
+        document.body.removeChild(textArea);
+    }
+}
+
+// Simple Toast Function
+function showToast(message, type = 'info') {
+    // Check if there's a global toast function available
+    if (window.toast && typeof window.toast === 'function') {
+        window.toast(message, type);
+        return;
+    }
+
+    // Create simple toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10001;
+        font-size: 14px;
+        font-weight: 500;
+        animation: slideInUp 0.3s ease-out;
+    `;
+
+    document.body.appendChild(toast);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOutDown 0.3s ease-in';
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
+// Add CSS animations if not already present
+if (!document.getElementById('toast-animations')) {
+    const style = document.createElement('style');
+    style.id = 'toast-animations';
+    style.textContent = `
+        @keyframes slideInUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOutDown {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+</script>
+
+<!-- CSV Import Modal -->
+<div id="importModal" class="modal-overlay">
+    <div class="modal-container modal-import">
+        <div class="modal-header">
+            <h2>Import produktów z CSV</h2>
+            <button type="button" class="modal-close" onclick="closeImportModal()">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <!-- Upload Area -->
+            <div class="csv-upload-area" id="csvUploadArea">
+                <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/>
+                    <path d="M7.646 1.146a.5.5 0 01.708 0l3 3a.5.5 0 01-.708.708L8.5 2.707V11.5a.5.5 0 01-1 0V2.707L5.354 4.854a.5.5 0 11-.708-.708l3-3z"/>
+                </svg>
+                <p>Kliknij lub przeciągnij plik CSV</p>
+                <input type="file" id="csvFileInput" accept=".csv" style="display:none;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('csvFileInput').click()">
+                    Wybierz plik
+                </button>
+                <p class="upload-hint">
+                    <a href="{{ url_for('static', filename='uploads/csv/templates/product_import_template.csv') }}" download>
+                        Pobierz szablon CSV
+                    </a>
+                </p>
+            </div>
+
+            <!-- Import History -->
+            <div class="import-history-section">
+                <h3>Historia importów</h3>
+                <div id="importHistoryTable">
+                    <p class="text-muted">Ładowanie...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSV Column Mapping Modal -->
+<div id="mappingModal" class="modal-overlay">
+    <div class="modal-container modal-mapping">
+        <div class="modal-header">
+            <h2>Mapowanie kolumn CSV</h2>
+            <button type="button" class="modal-close" onclick="closeMappingModal()">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <!-- Import Options (above table) -->
+            <div class="import-options">
+                <div class="form-group-inline">
+                    <input type="checkbox" id="csvHasHeaders" checked>
+                    <label for="csvHasHeaders">Pomiń pierwszy wiersz</label>
+                </div>
+
+                <div class="form-group-inline">
+                    <input type="checkbox" id="skipEmptyValues" checked>
+                    <label for="skipEmptyValues">Nie aktualizuj pustych wartości</label>
+                </div>
+            </div>
+
+            <!-- Match Column Selection (below options) -->
+            <div class="import-match-section">
+                <label>Kolumna główna (Powiązanie):</label>
+                <select id="matchColumn" class="form-control-inline">
+                    <option value="id">ID</option>
+                    <option value="sku" selected>SKU</option>
+                    <option value="ean">EAN</option>
+                </select>
+            </div>
+
+            <!-- Preview Table with Column Mapping -->
+            <div class="csv-preview-section">
+                <div id="csvPreviewTable">
+                    <!-- Will be populated dynamically with dropdowns -->
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeMappingModal()">Anuluj</button>
+                <button type="button" class="btn btn-primary" onclick="startCsvImport()">Rozpocznij import</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSV Progress Modal -->
+<div id="progressModal" class="modal-overlay modal-no-close">
+    <div class="modal-container modal-progress">
+        <div class="modal-header">
+            <h2>Import w toku...</h2>
+        </div>
+        <div class="modal-body">
+            <div class="progress-info">
+                <p id="progressText">Przetwarzanie: 0 / 0</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+                </div>
+                <p class="progress-percent" id="progressPercent">0%</p>
+            </div>
+            <div class="progress-warning">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8.982 1.566a1.13 1.13 0 00-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 01-1.1 0L7.1 5.995A.905.905 0 018 5zm.002 6a1 1 0 110 2 1 1 0 010-2z"/>
+                </svg>
+                Nie zamykaj tej strony podczas importu
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Load product form JavaScript for modal functionality -->
+<script src="{{ url_for('static', filename='js/pages/admin/product-form.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/product-form-extended.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/variant-groups.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/csv-import.js') }}"></script>
+{% endblock %}

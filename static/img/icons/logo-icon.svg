@@ -1,0 +1,11 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Thunder icon only (for collapsed sidebar) -->
+  <path d="M16 2L6 16H13L11 28L26 14H19L21 2H16Z" fill="url(#thunder-gradient)" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <defs>
+    <linearGradient id="thunder-gradient" x1="6" y1="2" x2="26" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF8500"/>
+      <stop offset="100%" stop-color="#FF6D00"/>
+    </linearGradient>
+  </defs>
+</svg>

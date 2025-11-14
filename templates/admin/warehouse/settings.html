@@ -1,0 +1,509 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Ustawienia magazynu - ThunderOrders{% endblock %}
+
+{# Macro for rendering category tree - must be defined before use #}
+{% macro render_category(category, all_categories, level=0) %}
+    <li class="category-item" data-level="{{ level }}" data-category-id="{{ category.id }}">
+        <div class="category-content">
+            <span class="category-name">{{ category.name }}</span>
+            <div class="category-actions">
+                <button type="button" class="action-link category-edit" data-category-id="{{ category.id }}">Edytuj</button>
+                <button type="button" class="action-link category-delete" data-category-id="{{ category.id }}">Usuń</button>
+            </div>
+        </div>
+        {% set children = all_categories | selectattr('parent_id', 'equalto', category.id) | list %}
+        {% if children %}
+            <ul class="category-children">
+                {% for child in children %}
+                    {{ render_category(child, all_categories, level + 1) }}
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </li>
+{% endmacro %}
+
+{% block content %}
+<div class="warehouse-settings-page">
+    <!-- Settings Tabs -->
+    <div class="settings-container">
+        <!-- Tab Navigation -->
+        <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="categories">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                </svg>
+                <span class="tab-label">Kategorie</span>
+            </button>
+
+            <button class="settings-tab" data-tab="tags">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M17.707 9.293a1 1 0 010 1.414l-7 7a1 1 0 01-1.414 0l-7-7A.997.997 0 012 10V5a3 3 0 013-3h5c.256 0 .512.098.707.293l7 7zM5 6a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Tagi</span>
+            </button>
+
+            <button class="settings-tab" data-tab="suppliers">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                </svg>
+                <span class="tab-label">Dostawcy</span>
+            </button>
+
+            <button class="settings-tab" data-tab="images">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Zdjęcia</span>
+            </button>
+
+            <button class="settings-tab" data-tab="stock">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M3 1a1 1 0 000 2h1.22l.305 1.222a.997.997 0 00.01.042l1.358 5.43-.893.892C3.74 11.846 4.632 14 6.414 14H15a1 1 0 000-2H6.414l1-1H14a1 1 0 00.894-.553l3-6A1 1 0 0017 3H6.28l-.31-1.243A1 1 0 005 1H3zM16 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM6.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                </svg>
+                <span class="tab-label">Stany magazynowe</span>
+            </button>
+
+            <button class="settings-tab" data-tab="pricing">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Cennik i waluty</span>
+            </button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="settings-content">
+            <!-- Tab 1: Categories -->
+            <div class="tab-panel active" id="tab-categories">
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <h3>Lista kategorii</h3>
+                            <button type="button" class="btn btn-secondary btn-sm" id="add-category-btn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                                </svg>
+                                Dodaj kategorię
+                            </button>
+                        </div>
+
+                        <div class="category-tree">
+                            {% if categories %}
+                                <ul class="category-list">
+                                    {% for category in categories %}
+                                        {% if not category.parent_id %}
+                                            {{ render_category(category, categories) }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="empty-state">
+                                    <p>Brak kategorii. Dodaj pierwszą kategorię.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Tags -->
+                <div class="tab-panel" id="tab-tags">
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <h3>Lista tagów</h3>
+                            <button type="button" class="btn btn-secondary btn-sm" id="add-tag-btn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                                </svg>
+                                Dodaj tag
+                            </button>
+                        </div>
+
+                        <div class="tags-grid">
+                            {% if tags %}
+                                {% for tag in tags %}
+                                    <div class="tag-item" data-tag-id="{{ tag.id }}">
+                                        <span class="tag-name">{{ tag.name }}</span>
+                                        <div class="tag-actions">
+                                            <button type="button" class="tag-action tag-edit" data-tag-id="{{ tag.id }}">Edytuj</button>
+                                            <button type="button" class="tag-action tag-delete" data-tag-id="{{ tag.id }}">Usuń</button>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-state">
+                                    <p>Brak tagów. Dodaj pierwszy tag.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Suppliers -->
+                <div class="tab-panel" id="tab-suppliers">
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <h3>Lista dostawców</h3>
+                            <button type="button" class="btn btn-secondary btn-sm" id="add-supplier-btn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                                </svg>
+                                Dodaj dostawcę
+                            </button>
+                        </div>
+
+                        <div class="suppliers-table">
+                            {% if suppliers %}
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nazwa</th>
+                                            <th>Kraj</th>
+                                            <th>Email</th>
+                                            <th>Telefon</th>
+                                            <th>Status</th>
+                                            <th>Akcje</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for supplier in suppliers %}
+                                            <tr data-supplier-id="{{ supplier.id }}">
+                                                <td>{{ supplier.name }}</td>
+                                                <td>{{ supplier.country or '-' }}</td>
+                                                <td>{{ supplier.contact_email or '-' }}</td>
+                                                <td>{{ supplier.contact_phone or '-' }}</td>
+                                                <td>
+                                                    {% if supplier.is_active %}
+                                                        <span class="badge badge-success">Aktywny</span>
+                                                    {% else %}
+                                                        <span class="badge badge-error">Nieaktywny</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="action-link supplier-edit" data-supplier-id="{{ supplier.id }}">Edytuj</button>
+                                                    <button type="button" class="action-link supplier-delete" data-supplier-id="{{ supplier.id }}">Usuń</button>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% else %}
+                                <div class="empty-state">
+                                    <p>Brak dostawców. Dodaj pierwszego dostawcę.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Form (for SKU, Images, Stock, Pricing tabs) -->
+                <form method="POST" action="{{ url_for('products.warehouse_settings') }}" class="settings-form">
+                    {{ form.hidden_tag() }}
+                    <input type="hidden" name="active_tab" id="active-tab-input" value="{{ request.args.get('tab', 'categories') }}">
+
+                    <!-- Tab 4: Images -->
+                <div class="tab-panel" id="tab-images">
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.image_max_size_mb.label(class="form-label") }}
+                            {{ form.image_max_size_mb(class="form-input", type="number", min="1", max="50") }}
+                            <span class="input-hint">Maksymalny rozmiar pliku w MB</span>
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.image_max_dimension.label(class="form-label") }}
+                            {{ form.image_max_dimension(class="form-input", type="number", min="800", max="4000", step="100") }}
+                            <span class="input-hint">Maksymalna szerokość/wysokość w pikselach</span>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.image_quality.label(class="form-label") }}
+                            {{ form.image_quality(class="form-input", type="number", min="50", max="100") }}
+                            <span class="input-hint">Jakość kompresji JPEG (50-100)</span>
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.image_dpi.label(class="form-label") }}
+                            {{ form.image_dpi(class="form-input", type="number", min="72", max="300") }}
+                            <span class="input-hint">DPI dla zdjęć (72 dla web, 300 dla druku)</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        {{ form.image_max_per_product.label(class="form-label") }}
+                        {{ form.image_max_per_product(class="form-input", type="number", min="1", max="50") }}
+                        <span class="input-hint">Maksymalna liczba zdjęć na produkt</span>
+                    </div>
+
+                    <div class="form-group">
+                        {{ form.image_formats.label(class="form-label") }}
+                        {{ form.image_formats(class="form-input", placeholder="jpg,jpeg,png,webp,gif") }}
+                        <span class="input-hint">Dozwolone formaty oddzielone przecinkami</span>
+                    </div>
+                </div>
+
+                <!-- Tab 5: Stock -->
+                <div class="tab-panel" id="tab-stock">
+                    <div class="form-group">
+                        <label class="form-label">
+                            {{ form.stock_alert_enabled.label }}
+                            <span class="label-hint">Powiadamiaj o niskich stanach magazynowych</span>
+                        </label>
+                        <div class="toggle-switch">
+                            {{ form.stock_alert_enabled(class="toggle-input") }}
+                            <label for="{{ form.stock_alert_enabled.id }}" class="toggle-label"></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        {{ form.stock_alert_threshold.label(class="form-label") }}
+                        {{ form.stock_alert_threshold(class="form-input", type="number", min="0", max="100") }}
+                        <span class="input-hint">Próg ostrzeżenia (ilość sztuk)</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            {{ form.stock_allow_negative.label }}
+                            <span class="label-hint">Pozwól na ujemne stany magazynowe (produkty mogą mieć ilość < 0)</span>
+                        </label>
+                        <div class="toggle-switch">
+                            {{ form.stock_allow_negative(class="toggle-input") }}
+                            <label for="{{ form.stock_allow_negative.id }}" class="toggle-label"></label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            {{ form.stock_show_out_of_stock.label }}
+                            <span class="label-hint">Wyświetlaj produkty wyczerpane na liście</span>
+                        </label>
+                        <div class="toggle-switch">
+                            {{ form.stock_show_out_of_stock(class="toggle-input") }}
+                            <label for="{{ form.stock_show_out_of_stock.id }}" class="toggle-label"></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 6: Pricing & Currency -->
+                <div class="tab-panel" id="tab-pricing">
+                    <div class="form-group">
+                        {{ form.default_purchase_currency.label(class="form-label") }}
+                        {{ form.default_purchase_currency(class="form-select") }}
+                        <span class="input-hint">Domyślna waluta przy dodawaniu produktu</span>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.currency_source.label(class="form-label") }}
+                            {{ form.currency_source(class="form-select") }}
+                            <span class="input-hint">Źródło aktualizacji kursów walut</span>
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.currency_update_frequency.label(class="form-label") }}
+                            {{ form.currency_update_frequency(class="form-input", type="number", min="1", max="168") }}
+                            <span class="input-hint">Co ile godzin aktualizować kursy</span>
+                        </div>
+                    </div>
+
+                    <div class="currency-rates">
+                        <h4>Aktualne kursy walut</h4>
+                        <div class="rates-grid">
+                            <div class="rate-item">
+                                <label class="rate-label">KRW → PLN</label>
+                                {{ form.currency_krw_rate(class="form-input", type="number", step="0.0001") }}
+                            </div>
+                            <div class="rate-item">
+                                <label class="rate-label">USD → PLN</label>
+                                {{ form.currency_usd_rate(class="form-input", type="number", step="0.01") }}
+                            </div>
+                        </div>
+                        <p class="rates-updated">
+                            Ostatnia aktualizacja: <strong>{{ currency_last_update or 'Nigdy' }}</strong>
+                        </p>
+                        <button type="button" class="btn btn-secondary" id="refresh-rates">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8 3a5 5 0 104.546 2.914.5.5 0 00-.908-.417A4 4 0 118 4v1H4.5a.5.5 0 000 1h4A.5.5 0 009 5.5v-4a.5.5 0 00-1 0V3z"/>
+                            </svg>
+                            Odśwież kursy teraz
+                        </button>
+                    </div>
+
+                    <hr class="divider">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.default_margin.label(class="form-label") }}
+                            {{ form.default_margin(class="form-input", type="number", min="0", max="500") }}
+                            <span class="input-hint">Domyślna marża w procentach</span>
+                        </div>
+
+                        <div class="form-group">
+                            {{ form.price_rounding.label(class="form-label") }}
+                            {{ form.price_rounding(class="form-select") }}
+                            <span class="input-hint">Sposób zaokrąglania cen sprzedaży</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M15.854 3.646a.5.5 0 01.146.354v10a.5.5 0 01-.5.5h-13a.5.5 0 01-.5-.5v-10a.5.5 0 01.146-.354l2-2A.5.5 0 014.5 1h7a.5.5 0 01.354.146l2 2zM5 2v5a.5.5 0 00.5.5h5a.5.5 0 00.5-.5V2H5z"/>
+                        </svg>
+                        Zapisz ustawienia
+                    </button>
+                    <a href="{{ url_for('products.list_products') }}" class="btn btn-secondary">Anuluj</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Category Modal -->
+<div id="category-modal-overlay" class="modal-overlay"></div>
+<div id="category-modal" class="modal">
+    <div class="modal-header">
+        <h3 class="modal-title" id="category-modal-title">Dodaj kategorię</h3>
+        <button type="button" class="modal-close" id="close-category-modal">&times;</button>
+    </div>
+    <form id="category-form">
+        <input type="hidden" id="category-id" name="category_id">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="category-name" class="form-label">Nazwa kategorii *</label>
+                <input type="text" id="category-name" name="name" class="form-input" required>
+                <span class="form-error" id="error-name"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="category-parent" class="form-label">Kategoria nadrzędna</label>
+                <select id="category-parent" name="parent_id" class="form-select">
+                    <!-- Options will be populated by JavaScript -->
+                </select>
+                <span class="form-error" id="error-parent_id"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" id="category-active" name="is_active" checked>
+                    <span>Aktywna</span>
+                </label>
+                <span class="form-error" id="error-is_active"></span>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancel-category-btn">Anuluj</button>
+            <button type="submit" class="btn btn-primary" id="save-category-btn">Zapisz</button>
+        </div>
+    </form>
+</div>
+
+<!-- Tag Modal -->
+<div id="tag-modal-overlay" class="modal-overlay"></div>
+<div id="tag-modal" class="modal">
+    <div class="modal-header">
+        <h2 class="modal-title" id="tag-modal-title">Dodaj tag</h2>
+        <button type="button" class="modal-close" id="close-tag-modal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+
+    <form id="tag-form" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" id="tag-id" name="tag_id" value="">
+
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="tag-name" class="form-label">Nazwa taga *</label>
+                <input type="text" id="tag-name" name="name" class="form-input" required>
+                <span class="form-error" id="error-tag-name"></span>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancel-tag-btn">Anuluj</button>
+            <button type="submit" class="btn btn-primary" id="save-tag-btn">Zapisz</button>
+        </div>
+    </form>
+</div>
+
+<!-- Supplier Modal -->
+<div id="supplier-modal-overlay" class="modal-overlay"></div>
+<div id="supplier-modal" class="modal">
+    <div class="modal-header">
+        <h2 class="modal-title" id="supplier-modal-title">Dodaj dostawcę</h2>
+        <button type="button" class="modal-close" id="close-supplier-modal">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+
+    <form id="supplier-form" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" id="supplier-id" name="supplier_id" value="">
+
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="supplier-name" class="form-label">Nazwa dostawcy *</label>
+                <input type="text" id="supplier-name" name="name" class="form-input" required>
+                <span class="form-error" id="error-supplier-name"></span>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="supplier-email" class="form-label">Email kontaktowy</label>
+                    <input type="email" id="supplier-email" name="contact_email" class="form-input">
+                    <span class="form-error" id="error-supplier-contact_email"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="supplier-phone" class="form-label">Telefon kontaktowy</label>
+                    <input type="tel" id="supplier-phone" name="contact_phone" class="form-input">
+                    <span class="form-error" id="error-supplier-contact_phone"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="supplier-country" class="form-label">Kraj</label>
+                <input type="text" id="supplier-country" name="country" class="form-input">
+                <span class="form-error" id="error-supplier-country"></span>
+            </div>
+
+            <div class="form-group">
+                <label for="supplier-notes" class="form-label">Notatki</label>
+                <textarea id="supplier-notes" name="notes" class="form-input" rows="3"></textarea>
+                <span class="form-error" id="error-supplier-notes"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <input type="checkbox" id="supplier-active" name="is_active" checked>
+                    <span>Aktywny</span>
+                </label>
+                <span class="form-error" id="error-supplier-is_active"></span>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancel-supplier-btn">Anuluj</button>
+            <button type="submit" class="btn btn-primary" id="save-supplier-btn">Zapisz</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/warehouse-settings.js') }}?v=11"></script>
+{% endblock %}

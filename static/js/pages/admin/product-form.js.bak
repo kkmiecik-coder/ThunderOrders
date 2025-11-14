@@ -1,0 +1,825 @@
+/**
+ * Product Form JavaScript
+ * Multi-currency calculator, image upload, tab switching
+ */
+
+// ==========================================
+// Tab Switching (Global function accessible from modal)
+// ==========================================
+window.switchTab = function(tabName) {
+    // Hide all tab contents
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // Deactivate all tab buttons
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    tabButtons.forEach(btn => {
+        btn.classList.remove('active');
+    });
+
+    // Show selected tab content
+    const selectedContent = document.querySelector(`.tab-content[data-tab="${tabName}"]`);
+    if (selectedContent) {
+        selectedContent.classList.add('active');
+    }
+
+    // Activate selected tab button
+    const selectedButton = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+    if (selectedButton) {
+        selectedButton.classList.add('active');
+    }
+}
+
+// Initialize tabs on page load (for full page form)
+document.addEventListener('DOMContentLoaded', function() {
+    // Only run if not in modal context
+    if (!document.getElementById('productModal')) {
+        // Set first tab as active by default
+        switchTab('product');
+
+        // Initialize currency calculator if we're editing a product
+        initCurrencyCalculator();
+    }
+});
+
+// ==========================================
+// Multi-Currency Calculator
+// ==========================================
+let exchangeRates = {
+    'PLN': 1.0,
+    'KRW': null,
+    'USD': null,
+    'EUR': null
+};
+
+let isCalculating = false; // Prevent infinite loops
+let isUpdatingFromMargin = false; // Prevent loops when updating from margin
+
+/**
+ * Initialize currency calculator (Global function accessible from modal)
+ */
+window.initCurrencyCalculator = function() {
+    console.log('=== initCurrencyCalculator called ===');
+
+    // Try both normal IDs and modal IDs
+    const purchasePriceInput = document.getElementById('purchase_price') || document.getElementById('purchase_price_modal');
+    const purchaseCurrencySelect = document.getElementById('purchase_currency') || document.getElementById('purchase_currency_modal');
+    const purchasePricePlnInput = document.getElementById('purchase_price_pln') || document.getElementById('purchase_price_pln_modal');
+    const salePriceInput = document.querySelector('#sale_price, input[name="sale_price"]');
+    const marginInput = document.getElementById('margin') || document.getElementById('margin_modal');
+    const marginAmountInput = document.getElementById('margin_amount_modal');
+
+    console.log('Found elements:', {
+        purchasePriceInput: !!purchasePriceInput,
+        purchaseCurrencySelect: !!purchaseCurrencySelect,
+        purchasePricePlnInput: !!purchasePricePlnInput,
+        salePriceInput: !!salePriceInput,
+        marginInput: !!marginInput,
+        marginAmountInput: !!marginAmountInput
+    });
+
+    if (!purchasePriceInput || !purchaseCurrencySelect) {
+        console.warn('Currency calculator elements not found, exiting');
+        return; // Not on a page with these fields
+    }
+
+    // Remove any existing listeners to avoid duplication
+    const newPurchasePriceInput = purchasePriceInput.cloneNode(true);
+    purchasePriceInput.parentNode.replaceChild(newPurchasePriceInput, purchasePriceInput);
+
+    const newPurchaseCurrencySelect = purchaseCurrencySelect.cloneNode(true);
+    purchaseCurrencySelect.parentNode.replaceChild(newPurchaseCurrencySelect, purchaseCurrencySelect);
+
+    // Listen to changes on purchase price and currency
+    console.log('Adding event listeners...');
+    newPurchasePriceInput.addEventListener('input', debounce(calculatePricePLN, 300));
+    newPurchaseCurrencySelect.addEventListener('change', calculatePricePLN);
+    console.log('Event listeners added');
+
+    // Listen to changes on sale price to recalculate margin
+    if (salePriceInput) {
+        const newSalePriceInput = salePriceInput.cloneNode(true);
+        salePriceInput.parentNode.replaceChild(newSalePriceInput, salePriceInput);
+        newSalePriceInput.addEventListener('input', debounce(calculateMargin, 300));
+        console.log('Sale price listener added');
+    }
+
+    // Listen to changes on margin % to recalculate sale price
+    if (marginInput) {
+        const newMarginInput = marginInput.cloneNode(true);
+        marginInput.parentNode.replaceChild(newMarginInput, marginInput);
+        newMarginInput.addEventListener('input', debounce(calculateSalePriceFromMarginPercent, 300));
+        console.log('Margin % listener added');
+    }
+
+    // Listen to changes on margin amount to recalculate sale price
+    if (marginAmountInput) {
+        const newMarginAmountInput = marginAmountInput.cloneNode(true);
+        marginAmountInput.parentNode.replaceChild(newMarginAmountInput, marginAmountInput);
+        newMarginAmountInput.addEventListener('input', debounce(calculateSalePriceFromMarginAmount, 300));
+        console.log('Margin amount listener added');
+    }
+
+    // If editing existing product, fetch current rates
+    const currentCurrency = newPurchaseCurrencySelect.value;
+    console.log('Current currency:', currentCurrency);
+    if (currentCurrency && currentCurrency !== 'PLN') {
+        console.log('Fetching exchange rate for:', currentCurrency);
+        fetchExchangeRate(currentCurrency);
+    }
+}
+
+/**
+ * Fetch exchange rate from API
+ */
+async function fetchExchangeRate(currency) {
+    console.log('=== fetchExchangeRate called ===', currency);
+
+    if (currency === 'PLN') {
+        console.log('Currency is PLN, no conversion needed');
+        exchangeRates['PLN'] = 1.0;
+        updateExchangeRateInfo(currency, 1.0, false, null);
+        return 1.0;
+    }
+
+    try {
+        console.log('Fetching from API:', `/api/exchange-rate?currency=${currency}`);
+        const response = await fetch(`/api/exchange-rate?currency=${currency}`);
+        console.log('API Response status:', response.status);
+
+        const data = await response.json();
+        console.log('API Response data:', data);
+
+        if (data.success) {
+            exchangeRates[currency] = data.rate;
+            console.log('Exchange rate cached:', exchangeRates);
+            updateExchangeRateInfo(currency, data.rate, data.cached, data.cached_at);
+            return data.rate;
+        } else {
+            console.error('API returned error:', data.message);
+            showToast('error', `Błąd pobierania kursu: ${data.message}`);
+            return null;
+        }
+    } catch (error) {
+        console.error('Error fetching exchange rate:', error);
+        showToast('error', 'Nie udało się pobrać kursu waluty. Sprawdź połączenie z internetem.');
+        return null;
+    }
+}
+
+/**
+ * Calculate purchase price in PLN
+ */
+async function calculatePricePLN() {
+    console.log('=== calculatePricePLN called ===');
+
+    if (isCalculating) {
+        console.log('Already calculating, skipping');
+        return;
+    }
+    isCalculating = true;
+
+    const purchasePriceInput = document.getElementById('purchase_price') || document.getElementById('purchase_price_modal');
+    const purchaseCurrencySelect = document.getElementById('purchase_currency') || document.getElementById('purchase_currency_modal');
+    const purchasePricePlnInput = document.getElementById('purchase_price_pln') || document.getElementById('purchase_price_pln_modal');
+    const currencyUnitSpan = document.getElementById('currency_unit') || document.getElementById('currency_unit_modal');
+
+    console.log('Rechecked elements:', {
+        purchasePriceInput: !!purchasePriceInput,
+        purchaseCurrencySelect: !!purchaseCurrencySelect,
+        purchasePricePlnInput: !!purchasePricePlnInput
+    });
+
+    if (!purchasePriceInput || !purchaseCurrencySelect || !purchasePricePlnInput) {
+        console.warn('Missing elements in calculatePricePLN');
+        isCalculating = false;
+        return;
+    }
+
+    const purchasePrice = parseFloat(purchasePriceInput.value);
+    const currency = purchaseCurrencySelect.value;
+
+    console.log('Values:', { purchasePrice, currency });
+
+    // Update currency unit display
+    if (currencyUnitSpan) {
+        currencyUnitSpan.textContent = currency;
+        console.log('Updated currency unit to:', currency);
+    }
+
+    if (!purchasePrice || isNaN(purchasePrice)) {
+        console.log('No valid purchase price');
+        purchasePricePlnInput.value = '';
+        isCalculating = false;
+        calculateMargin(); // Recalculate margin even if empty
+        return;
+    }
+
+    if (currency === 'PLN') {
+        console.log('Currency is PLN, no conversion needed');
+        // No conversion needed
+        purchasePricePlnInput.value = purchasePrice.toFixed(2);
+        isCalculating = false;
+        calculateMargin();
+        return;
+    }
+
+    // Fetch exchange rate if not cached
+    let rate = exchangeRates[currency];
+    console.log('Cached rate:', rate);
+
+    if (!rate) {
+        console.log('Rate not cached, fetching...');
+        rate = await fetchExchangeRate(currency);
+        if (!rate) {
+            console.error('Failed to fetch exchange rate');
+            isCalculating = false;
+            return;
+        }
+    }
+
+    // Calculate PLN price
+    const pricePLN = purchasePrice * rate;
+    console.log('Calculated PLN price:', pricePLN, '=', purchasePrice, 'x', rate);
+    purchasePricePlnInput.value = pricePLN.toFixed(2);
+
+    isCalculating = false;
+    calculateMargin();
+}
+
+/**
+ * Calculate margin percentage and amount from sale and purchase prices
+ */
+function calculateMargin() {
+    console.log('=== calculateMargin called ===');
+
+    if (isCalculating || isUpdatingFromMargin) {
+        console.log('Currently calculating or updating from margin, skipping');
+        return;
+    }
+
+    const salePriceInput = document.querySelector('#sale_price, input[name="sale_price"]');
+    const purchasePricePlnInput = document.getElementById('purchase_price_pln') || document.getElementById('purchase_price_pln_modal');
+    const marginInput = document.getElementById('margin') || document.getElementById('margin_modal');
+    const marginAmountInput = document.getElementById('margin_amount_modal');
+
+    console.log('Margin calculation elements:', {
+        salePriceInput: !!salePriceInput,
+        purchasePricePlnInput: !!purchasePricePlnInput,
+        marginInput: !!marginInput,
+        marginAmountInput: !!marginAmountInput
+    });
+
+    if (!salePriceInput || !purchasePricePlnInput || !marginInput) {
+        console.warn('Missing elements for margin calculation');
+        return;
+    }
+
+    const salePrice = parseFloat(salePriceInput.value);
+    const purchasePricePLN = parseFloat(purchasePricePlnInput.value);
+
+    console.log('Margin values:', { salePrice, purchasePricePLN });
+
+    if (!salePrice || !purchasePricePLN || isNaN(salePrice) || isNaN(purchasePricePLN)) {
+        console.log('Invalid prices for margin calculation');
+        marginInput.value = '';
+        if (marginAmountInput) {
+            marginAmountInput.value = '';
+        }
+        return;
+    }
+
+    if (purchasePricePLN === 0) {
+        console.log('Purchase price is 0, cannot calculate margin');
+        marginInput.value = '';
+        if (marginAmountInput) {
+            marginAmountInput.value = '';
+        }
+        return;
+    }
+
+    // Calculate margin percentage: ((sale - purchase) / purchase) * 100
+    const marginPercent = ((salePrice - purchasePricePLN) / purchasePricePLN) * 100;
+
+    // Calculate margin amount: sale - purchase
+    const marginAmount = salePrice - purchasePricePLN;
+
+    console.log('Calculated margin:', marginPercent.toFixed(2) + '%', '(' + marginAmount.toFixed(2) + ' PLN)');
+
+    marginInput.value = marginPercent.toFixed(2);
+    if (marginAmountInput) {
+        marginAmountInput.value = marginAmount.toFixed(2);
+    }
+}
+
+/**
+ * Calculate sale price from margin percentage
+ * Formula: sale_price = purchase_price_pln * (1 + margin_percent / 100)
+ */
+function calculateSalePriceFromMarginPercent() {
+    console.log('=== calculateSalePriceFromMarginPercent called ===');
+
+    if (isCalculating) {
+        console.log('Currently calculating, skipping');
+        return;
+    }
+
+    isUpdatingFromMargin = true;
+
+    const marginInput = document.getElementById('margin') || document.getElementById('margin_modal');
+    const purchasePricePlnInput = document.getElementById('purchase_price_pln') || document.getElementById('purchase_price_pln_modal');
+    const salePriceInput = document.querySelector('#sale_price, input[name="sale_price"]');
+    const marginAmountInput = document.getElementById('margin_amount_modal');
+
+    if (!marginInput || !purchasePricePlnInput || !salePriceInput) {
+        console.warn('Missing elements for sale price calculation from margin %');
+        isUpdatingFromMargin = false;
+        return;
+    }
+
+    const marginPercent = parseFloat(marginInput.value);
+    const purchasePricePLN = parseFloat(purchasePricePlnInput.value);
+
+    console.log('Values:', { marginPercent, purchasePricePLN });
+
+    if (isNaN(marginPercent) || !purchasePricePLN || isNaN(purchasePricePLN) || purchasePricePLN === 0) {
+        console.log('Invalid values for calculation');
+        isUpdatingFromMargin = false;
+        return;
+    }
+
+    // Calculate sale price: purchase * (1 + margin% / 100)
+    const salePrice = purchasePricePLN * (1 + marginPercent / 100);
+    const marginAmount = salePrice - purchasePricePLN;
+
+    console.log('Calculated sale price:', salePrice.toFixed(2), 'PLN');
+
+    salePriceInput.value = salePrice.toFixed(2);
+
+    // Update margin amount
+    if (marginAmountInput) {
+        marginAmountInput.value = marginAmount.toFixed(2);
+    }
+
+    isUpdatingFromMargin = false;
+}
+
+/**
+ * Calculate sale price from margin amount
+ * Formula: sale_price = purchase_price_pln + margin_amount
+ */
+function calculateSalePriceFromMarginAmount() {
+    console.log('=== calculateSalePriceFromMarginAmount called ===');
+
+    if (isCalculating) {
+        console.log('Currently calculating, skipping');
+        return;
+    }
+
+    isUpdatingFromMargin = true;
+
+    const marginAmountInput = document.getElementById('margin_amount_modal');
+    const purchasePricePlnInput = document.getElementById('purchase_price_pln') || document.getElementById('purchase_price_pln_modal');
+    const salePriceInput = document.querySelector('#sale_price, input[name="sale_price"]');
+    const marginInput = document.getElementById('margin') || document.getElementById('margin_modal');
+
+    if (!marginAmountInput || !purchasePricePlnInput || !salePriceInput) {
+        console.warn('Missing elements for sale price calculation from margin amount');
+        isUpdatingFromMargin = false;
+        return;
+    }
+
+    const marginAmount = parseFloat(marginAmountInput.value);
+    const purchasePricePLN = parseFloat(purchasePricePlnInput.value);
+
+    console.log('Values:', { marginAmount, purchasePricePLN });
+
+    if (isNaN(marginAmount) || !purchasePricePLN || isNaN(purchasePricePLN) || purchasePricePLN === 0) {
+        console.log('Invalid values for calculation');
+        isUpdatingFromMargin = false;
+        return;
+    }
+
+    // Calculate sale price: purchase + margin_amount
+    const salePrice = purchasePricePLN + marginAmount;
+    const marginPercent = (marginAmount / purchasePricePLN) * 100;
+
+    console.log('Calculated sale price:', salePrice.toFixed(2), 'PLN');
+
+    salePriceInput.value = salePrice.toFixed(2);
+
+    // Update margin percentage
+    if (marginInput) {
+        marginInput.value = marginPercent.toFixed(2);
+    }
+
+    isUpdatingFromMargin = false;
+}
+
+/**
+ * Initialize form submission handler for AJAX
+ */
+window.initFormSubmission = function() {
+    console.log('=== initFormSubmission called ===');
+
+    const form = document.getElementById('productFormModal');
+    if (!form) {
+        console.log('Form not found');
+        return;
+    }
+
+    console.log('Form found, attaching submit listener');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        console.log('Form submission intercepted');
+
+        const formData = new FormData(form);
+        const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+
+        // Disable submit button to prevent double submission
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Zapisywanie...';
+        }
+
+        try {
+            console.log('Sending POST to:', form.action);
+            console.log('Headers being sent:', {
+                'X-Requested-With': 'XMLHttpRequest'
+            });
+
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            console.log('Response status:', response.status);
+            console.log('Response headers:', Array.from(response.headers.entries()));
+
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                console.log('JSON response:', data);
+
+                if (data.success) {
+                    // Show success message
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(data.message, 'success');
+                    } else {
+                        alert(data.message);
+                    }
+
+                    // Close modal
+                    if (typeof closeProductModal === 'function') {
+                        closeProductModal();
+                    }
+
+                    // Redirect to products list
+                    if (data.redirect) {
+                        window.location.href = data.redirect;
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    // Show error message
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(data.error || 'Wystąpił błąd podczas zapisywania produktu.', 'error');
+                    } else {
+                        alert(data.error || 'Wystąpił błąd podczas zapisywania produktu.');
+                    }
+
+                    // Re-enable submit button
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Zapisz';
+                    }
+                }
+            } else {
+                // Response is HTML (probably validation errors), reload the form
+                const html = await response.text();
+                console.log('HTML response received (validation errors)');
+
+                // Parse HTML to extract validation errors
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const errorElements = doc.querySelectorAll('.form-error');
+
+                // Collect all error messages
+                const errors = [];
+                errorElements.forEach(el => {
+                    const errorText = el.textContent.trim();
+                    if (errorText && !errors.includes(errorText)) {
+                        errors.push(errorText);
+                    }
+                });
+
+                // Show toast with errors
+                if (errors.length > 0 && typeof window.showToast === 'function') {
+                    const errorMessage = errors.length === 1
+                        ? errors[0]
+                        : `Formularz zawiera błędy:\n• ${errors.join('\n• ')}`;
+                    window.showToast(errorMessage, 'error');
+                }
+
+                // Replace modal body with new form (with validation errors)
+                const modalBody = document.getElementById('modalBody');
+                if (modalBody) {
+                    modalBody.innerHTML = html;
+
+                    // Re-initialize after replacing content
+                    if (typeof initCurrencyCalculator === 'function') {
+                        initCurrencyCalculator();
+                    }
+                    if (typeof initTagsSystem === 'function') {
+                        initTagsSystem();
+                    }
+                    if (typeof initFormSubmission === 'function') {
+                        initFormSubmission();
+                    }
+                }
+
+                // Re-enable submit button
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.textContent = 'Zapisz';
+                }
+            }
+        } catch (error) {
+            console.error('Error submitting form:', error);
+
+            if (typeof window.showToast === 'function') {
+                window.showToast('Wystąpił błąd podczas zapisywania produktu.', 'error');
+            } else {
+                alert('Wystąpił błąd podczas zapisywania produktu.');
+            }
+
+            // Re-enable submit button
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Zapisz';
+            }
+        }
+    });
+
+    console.log('Form submit listener attached');
+}
+
+/**
+ * Update exchange rate info text
+ */
+function updateExchangeRateInfo(currency, rate, cached, cachedAt) {
+    const infoElement = document.getElementById('exchange-rate-info') || document.getElementById('exchange-rate-info-modal');
+    if (!infoElement) return;
+
+    if (currency === 'PLN') {
+        infoElement.textContent = '';
+        return;
+    }
+
+    let infoText = `1 ${currency} = ${rate.toFixed(4)} PLN`;
+
+    if (cached && cachedAt) {
+        const cacheDate = new Date(cachedAt);
+        const now = new Date();
+        const diffHours = Math.round((now - cacheDate) / 1000 / 60 / 60);
+        infoText += ` (cache: ${diffHours}h temu)`;
+    }
+
+    infoElement.textContent = infoText;
+}
+
+/**
+ * Debounce function to limit API calls
+ */
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ==========================================
+// Image Upload
+// ==========================================
+async function uploadImages() {
+    const fileInput = document.getElementById('image-upload');
+    const files = fileInput.files;
+
+    if (!files || files.length === 0) {
+        showToast('warning', 'Nie wybrano żadnych plików.');
+        return;
+    }
+
+    // Validate file types
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    for (let file of files) {
+        if (!allowedTypes.includes(file.type)) {
+            showToast('error', `Nieprawidłowy typ pliku: ${file.name}. Dozwolone: JPG, PNG, GIF, WEBP.`);
+            return;
+        }
+    }
+
+    // Get product ID from URL
+    const pathParts = window.location.pathname.split('/');
+    const productId = pathParts[pathParts.indexOf('products') + 1];
+
+    if (!productId || productId === 'create') {
+        showToast('error', 'Najpierw zapisz produkt, a następnie dodaj zdjęcia.');
+        return;
+    }
+
+    // Prepare FormData
+    const formData = new FormData();
+    for (let file of files) {
+        formData.append('images', file);
+    }
+
+    try {
+        const response = await fetch(`/admin/products/${productId}/images/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('success', data.message);
+
+            // Add uploaded images to grid
+            for (let image of data.images) {
+                addImageToGrid(image);
+            }
+
+            // Clear file input
+            fileInput.value = '';
+        } else {
+            showToast('error', data.error || 'Nie udało się przesłać zdjęć.');
+        }
+    } catch (error) {
+        console.error('Error uploading images:', error);
+        showToast('error', 'Wystąpił błąd podczas przesyłania zdjęć.');
+    }
+}
+
+/**
+ * Add image to grid after upload
+ */
+function addImageToGrid(image) {
+    const imagesGrid = document.querySelector('.images-grid');
+    if (!imagesGrid) return;
+
+    // Remove placeholder if this is the first image
+    const placeholder = imagesGrid.querySelector('.image-upload-placeholder');
+
+    // Create image item
+    const imageItem = document.createElement('div');
+    imageItem.className = 'image-item';
+    imageItem.dataset.imageId = image.id;
+
+    imageItem.innerHTML = `
+        <img src="/${image.path_compressed}" alt="${image.filename}" class="image-preview">
+        <div class="image-overlay">
+            ${!image.is_primary ? `<button type="button" class="btn-icon-small btn-set-primary" onclick="setPrimaryImage(${image.id})">Ustaw jako główne</button>` : '<span class="badge-primary">Główne zdjęcie</span>'}
+            <button type="button" class="btn-icon-small btn-delete-image" onclick="deleteImage(${image.id})">Usuń</button>
+        </div>
+    `;
+
+    // Insert before placeholder
+    if (placeholder) {
+        imagesGrid.insertBefore(imageItem, placeholder);
+    } else {
+        imagesGrid.appendChild(imageItem);
+    }
+}
+
+/**
+ * Delete image
+ */
+async function deleteImage(imageId) {
+    if (!confirm('Czy na pewno chcesz usunąć to zdjęcie?')) {
+        return;
+    }
+
+    // Get product ID from URL
+    const pathParts = window.location.pathname.split('/');
+    const productId = pathParts[pathParts.indexOf('products') + 1];
+
+    try {
+        const response = await fetch(`/admin/products/${productId}/images/${imageId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('success', data.message);
+
+            // Remove image from grid
+            const imageItem = document.querySelector(`[data-image-id="${imageId}"]`);
+            if (imageItem) {
+                imageItem.remove();
+            }
+
+            // If this was primary image, reload page to update primary status
+            if (data.new_primary_id) {
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            }
+        } else {
+            showToast('error', data.error || 'Nie udało się usunąć zdjęcia.');
+        }
+    } catch (error) {
+        console.error('Error deleting image:', error);
+        showToast('error', 'Wystąpił błąd podczas usuwania zdjęcia.');
+    }
+}
+
+/**
+ * Set image as primary
+ */
+async function setPrimaryImage(imageId) {
+    // Get product ID from URL
+    const pathParts = window.location.pathname.split('/');
+    const productId = pathParts[pathParts.indexOf('products') + 1];
+
+    try {
+        const response = await fetch(`/admin/products/${productId}/images/${imageId}/set-primary`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('success', data.message);
+
+            // Reload page to update UI
+            setTimeout(() => {
+                location.reload();
+            }, 500);
+        } else {
+            showToast('error', data.error || 'Nie udało się ustawić głównego zdjęcia.');
+        }
+    } catch (error) {
+        console.error('Error setting primary image:', error);
+        showToast('error', 'Wystąpił błąd podczas ustawiania głównego zdjęcia.');
+    }
+}
+
+// ==========================================
+// Toast Notifications
+// ==========================================
+// Removed local showToast function - using global window.showToast instead
+
+// Add CSS animations
+if (!document.getElementById('toast-animations')) {
+    const style = document.createElement('style');
+    style.id = 'toast-animations';
+    style.textContent = `
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
