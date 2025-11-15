@@ -231,3 +231,77 @@ product_tags = db.Table('product_tags',
     db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), nullable=False),
     db.UniqueConstraint('product_id', 'tag_id', name='unique_product_tag')
 )
+
+
+class StockOrder(db.Model):
+    """Stock Order - zamówienia produktów od dostawców"""
+    __tablename__ = 'stock_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(50), unique=True, nullable=False)  # Format: SO/PROXY/00001 lub SO/PL/00001
+    order_type = db.Column(db.Enum('proxy', 'polska', name='stock_order_types'), nullable=False)
+
+    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
+
+    # Status based on PRD order statuses
+    status = db.Column(db.Enum(
+        'nowe',
+        'oczekujace',
+        'dostarczone_proxy',
+        'w_drodze_polska',
+        'urzad_celny',
+        'dostarczone_gom',
+        'anulowane',
+        name='stock_order_status'
+    ), default='nowe', nullable=False)
+
+    # Financial
+    total_amount = db.Column(db.Numeric(10, 2), default=0.00)
+    currency = db.Column(db.Enum('PLN', 'KRW', 'USD', name='order_currency_types'), default='PLN')
+    total_amount_pln = db.Column(db.Numeric(10, 2), default=0.00)  # Converted to PLN
+
+    # Dates
+    order_date = db.Column(db.DateTime, default=datetime.now)
+    expected_delivery_date = db.Column(db.DateTime, nullable=True)
+    actual_delivery_date = db.Column(db.DateTime, nullable=True)
+
+    # Notes
+    notes = db.Column(db.Text, nullable=True)
+    admin_notes = db.Column(db.Text, nullable=True)
+
+    # Tracking
+    tracking_number = db.Column(db.String(100), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # Relationships
+    supplier = db.relationship('Supplier', backref='stock_orders')
+    items = db.relationship('StockOrderItem', back_populates='stock_order', lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<StockOrder {self.order_number}>'
+
+
+class StockOrderItem(db.Model):
+    """Stock Order Item - produkty w zamówieniu magazynowym"""
+    __tablename__ = 'stock_order_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    stock_order_id = db.Column(db.Integer, db.ForeignKey('stock_orders.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    unit_price = db.Column(db.Numeric(10, 2), nullable=False)
+    total_price = db.Column(db.Numeric(10, 2), nullable=False)
+
+    received_quantity = db.Column(db.Integer, default=0)  # Ilość otrzymana
+
+    created_at = db.Column(db.DateTime, default=datetime.now)
+
+    # Relationships
+    stock_order = db.relationship('StockOrder', back_populates='items')
+    product = db.relationship('Product', backref='stock_order_items')
+
+    def __repr__(self):
+        return f'<StockOrderItem {self.id} - Product {self.product_id}>'

@@ -1353,3 +1353,53 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ========================================
+   IMAGE PREVIEW TOOLTIP
+   ======================================== */
+
+/* Product thumbnail hover effect */
+.product-thumbnail-hover {
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.product-thumbnail-hover:hover {
+  transform: scale(1.05);
+}
+
+/* Image preview tooltip */
+.image-preview-tooltip {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.image-preview-tooltip.show {
+  opacity: 1;
+}
+
+.image-preview-tooltip-inner {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  width: 400px;
+  height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview-tooltip img {
+  display: block;
+  max-width: 384px; /* 400px - 16px padding */
+  max-height: 384px; /* 400px - 16px padding */
+  width: auto;
+  height: auto;
+  border-radius: 4px;
+  object-fit: contain;
+}

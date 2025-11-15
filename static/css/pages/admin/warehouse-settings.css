@@ -440,11 +440,13 @@
     text-decoration: underline;
 }
 
-.tag-delete {
+.tag-delete,
+.series-delete {
     color: var(--error);
 }
 
-.tag-delete:hover {
+.tag-delete:hover,
+.series-delete:hover {
     color: #d32f2f;
 }
 
@@ -570,7 +572,6 @@
 .action-link svg {
     display: inline-block;
     vertical-align: middle;
-    margin-right: var(--space-2);
 }
 
 /* ==================== */

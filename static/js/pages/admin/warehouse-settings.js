@@ -31,6 +31,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 initializeTagManagement();
             }
 
+            // Initialize Series Management if series tab is active
+            if (activeTab === 'series') {
+                initializeSeriesManagement();
+            }
+
+            // Initialize Manufacturers Management if manufacturers tab is active
+            if (activeTab === 'manufacturers') {
+                initializeManufacturersManagement();
+            }
+
             // Initialize Supplier Management if suppliers tab is active
             if (activeTab === 'suppliers') {
                 initializeSupplierManagement();
@@ -40,7 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Form actions visibility control
     const formActions = document.querySelector('.form-actions');
-    const tabsWithoutForm = ['categories', 'tags', 'suppliers'];
+    const tabsWithoutForm = ['categories', 'tags', 'series', 'manufacturers', 'suppliers'];
 
     function toggleFormActions(tabName) {
         if (formActions) {
@@ -80,6 +90,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (targetTab === 'tags') {
                 console.log('Tags tab activated, initializing Tag Management...');
                 initializeTagManagement();
+            }
+
+            // Initialize Series Management when Series tab is clicked
+            if (targetTab === 'series') {
+                console.log('Series tab activated, initializing Series Management...');
+                initializeSeriesManagement();
+            }
+
+            // Initialize Manufacturers Management when Manufacturers tab is clicked
+            if (targetTab === 'manufacturers') {
+                console.log('Manufacturers tab activated, initializing Manufacturers Management...');
+                initializeManufacturersManagement();
             }
 
             // Initialize Supplier Management when Suppliers tab is clicked
@@ -614,6 +636,344 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     } // End of initializeTagManagement function
+
+    // ==========================================
+    // SERIES MANAGEMENT
+    // ==========================================
+
+    let seriesManagementInitialized = false;
+
+    function initializeSeriesManagement() {
+        if (seriesManagementInitialized) {
+            return;
+        }
+
+        seriesManagementInitialized = true;
+
+        // Series management uses inline prompts like tags, not a modal
+        // Add series button
+        const addSeriesBtn = document.getElementById('add-series-btn');
+        if (addSeriesBtn) {
+            addSeriesBtn.addEventListener('click', function() {
+                const seriesName = prompt('Wprowadź nazwę serii:');
+                if (seriesName) {
+                    createSeries(seriesName);
+                }
+            });
+        }
+
+        // Edit series
+        document.querySelectorAll('.series-edit').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const seriesId = this.dataset.seriesId;
+                const currentName = this.closest('.tag-item').querySelector('.tag-name').textContent;
+                const newName = prompt('Wprowadź nową nazwę serii:', currentName);
+                if (newName && newName !== currentName) {
+                    await editSeries(seriesId, newName);
+                }
+            });
+        });
+
+        // Delete series
+        document.querySelectorAll('.series-delete').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const seriesId = this.dataset.seriesId;
+                if (confirm('Czy na pewno chcesz usunąć tę serię?')) {
+                    await deleteSeries(seriesId);
+                }
+            });
+        });
+
+        async function createSeries(name) {
+            try {
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+                const response = await fetch('/admin/products/series/create', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Add new series to the grid
+                    const seriesGrid = document.querySelector('#tab-series .tags-grid');
+                    const emptyState = seriesGrid.querySelector('.empty-state');
+                    if (emptyState) {
+                        emptyState.remove();
+                    }
+
+                    const newSeriesHTML = `
+                        <div class="tag-item" data-series-id="${data.series.id}">
+                            <span class="tag-name">${data.series.name}</span>
+                            <div class="tag-actions">
+                                <button type="button" class="tag-action series-edit" data-series-id="${data.series.id}">Edytuj</button>
+                                <button type="button" class="tag-action series-delete" data-series-id="${data.series.id}">Usuń</button>
+                            </div>
+                        </div>
+                    `;
+
+                    seriesGrid.insertAdjacentHTML('beforeend', newSeriesHTML);
+
+                    // Add event listeners to new series buttons
+                    const newSeriesItem = seriesGrid.querySelector(`.tag-item[data-series-id="${data.series.id}"]`);
+                    newSeriesItem.querySelector('.series-edit').addEventListener('click', async function() {
+                        const currentName = this.closest('.tag-item').querySelector('.tag-name').textContent;
+                        const newName = prompt('Wprowadź nową nazwę serii:', currentName);
+                        if (newName && newName !== currentName) {
+                            await editSeries(data.series.id, newName);
+                        }
+                    });
+                    newSeriesItem.querySelector('.series-delete').addEventListener('click', async function() {
+                        if (confirm('Czy na pewno chcesz usunąć tę serię?')) {
+                            await deleteSeries(data.series.id);
+                        }
+                    });
+                } else {
+                    const errorMsg = data.errors?.name || data.message || 'Błąd podczas dodawania serii';
+                    window.showToast(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Error creating series:', error);
+                window.showToast('Błąd podczas dodawania serii', 'error');
+            }
+        }
+
+        async function editSeries(seriesId, newName) {
+            try {
+                const formData = new FormData();
+                formData.append('name', newName);
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+                const response = await fetch(`/admin/products/series/${seriesId}/edit`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Update series name in DOM
+                    const seriesItem = document.querySelector(`.tag-item[data-series-id="${seriesId}"]`);
+                    if (seriesItem) {
+                        seriesItem.querySelector('.tag-name').textContent = data.series.name;
+                    }
+                } else {
+                    const errorMsg = data.errors?.name || data.message || 'Błąd podczas aktualizacji serii';
+                    window.showToast(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating series:', error);
+                window.showToast('Błąd podczas aktualizacji serii', 'error');
+            }
+        }
+
+        async function deleteSeries(seriesId) {
+            try {
+                const response = await fetch(`/admin/products/series/${seriesId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Remove series from DOM
+                    const seriesItem = document.querySelector(`.tag-item[data-series-id="${seriesId}"]`);
+                    if (seriesItem) {
+                        seriesItem.remove();
+                    }
+
+                    // Check if grid is empty and show empty state
+                    const seriesGrid = document.querySelector('#tab-series .tags-grid');
+                    if (seriesGrid && seriesGrid.children.length === 0) {
+                        seriesGrid.innerHTML = '<div class="empty-state"><p>Brak serii produktowych. Dodaj pierwszą serię.</p></div>';
+                    }
+                } else {
+                    window.showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting series:', error);
+                window.showToast('Błąd podczas usuwania serii', 'error');
+            }
+        }
+    } // End of initializeSeriesManagement function
+
+    // ==========================================
+    // MANUFACTURERS MANAGEMENT
+    // ==========================================
+
+    let manufacturersManagementInitialized = false;
+
+    function initializeManufacturersManagement() {
+        if (manufacturersManagementInitialized) {
+            return;
+        }
+
+        manufacturersManagementInitialized = true;
+
+        // Manufacturers management uses inline prompts like tags and series
+        // Add manufacturer button
+        const addManufacturerBtn = document.getElementById('add-manufacturer-btn');
+        if (addManufacturerBtn) {
+            addManufacturerBtn.addEventListener('click', function() {
+                const manufacturerName = prompt('Wprowadź nazwę producenta:');
+                if (manufacturerName) {
+                    createManufacturer(manufacturerName);
+                }
+            });
+        }
+
+        // Edit manufacturer
+        document.querySelectorAll('.manufacturer-edit').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const manufacturerId = this.dataset.manufacturerId;
+                const currentName = this.closest('.tag-item').querySelector('.tag-name').textContent;
+                const newName = prompt('Wprowadź nową nazwę producenta:', currentName);
+                if (newName && newName !== currentName) {
+                    await editManufacturer(manufacturerId, newName);
+                }
+            });
+        });
+
+        // Delete manufacturer
+        document.querySelectorAll('.manufacturer-delete').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const manufacturerId = this.dataset.manufacturerId;
+                if (confirm('Czy na pewno chcesz usunąć tego producenta?')) {
+                    await deleteManufacturer(manufacturerId);
+                }
+            });
+        });
+
+        async function createManufacturer(name) {
+            try {
+                const formData = new FormData();
+                formData.append('name', name);
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+                const response = await fetch('/admin/products/manufacturers/create', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Add new manufacturer to the grid
+                    const manufacturersGrid = document.querySelector('#tab-manufacturers .tags-grid');
+                    const emptyState = manufacturersGrid.querySelector('.empty-state');
+                    if (emptyState) {
+                        emptyState.remove();
+                    }
+
+                    const newManufacturerHTML = `
+                        <div class="tag-item" data-manufacturer-id="${data.manufacturer.id}">
+                            <span class="tag-name">${data.manufacturer.name}</span>
+                            <div class="tag-actions">
+                                <button type="button" class="tag-action manufacturer-edit" data-manufacturer-id="${data.manufacturer.id}">Edytuj</button>
+                                <button type="button" class="tag-action manufacturer-delete" data-manufacturer-id="${data.manufacturer.id}">Usuń</button>
+                            </div>
+                        </div>
+                    `;
+
+                    manufacturersGrid.insertAdjacentHTML('beforeend', newManufacturerHTML);
+
+                    // Add event listeners to new manufacturer buttons
+                    const newManufacturerItem = manufacturersGrid.querySelector(`.tag-item[data-manufacturer-id="${data.manufacturer.id}"]`);
+                    newManufacturerItem.querySelector('.manufacturer-edit').addEventListener('click', async function() {
+                        const currentName = this.closest('.tag-item').querySelector('.tag-name').textContent;
+                        const newName = prompt('Wprowadź nową nazwę producenta:', currentName);
+                        if (newName && newName !== currentName) {
+                            await editManufacturer(data.manufacturer.id, newName);
+                        }
+                    });
+                    newManufacturerItem.querySelector('.manufacturer-delete').addEventListener('click', async function() {
+                        if (confirm('Czy na pewno chcesz usunąć tego producenta?')) {
+                            await deleteManufacturer(data.manufacturer.id);
+                        }
+                    });
+                } else {
+                    const errorMsg = data.errors?.name || data.message || 'Błąd podczas dodawania producenta';
+                    window.showToast(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Error creating manufacturer:', error);
+                window.showToast('Błąd podczas dodawania producenta', 'error');
+            }
+        }
+
+        async function editManufacturer(manufacturerId, newName) {
+            try {
+                const formData = new FormData();
+                formData.append('name', newName);
+                formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+
+                const response = await fetch(`/admin/products/manufacturers/${manufacturerId}/edit`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Update manufacturer name in DOM
+                    const manufacturerItem = document.querySelector(`.tag-item[data-manufacturer-id="${manufacturerId}"]`);
+                    if (manufacturerItem) {
+                        manufacturerItem.querySelector('.tag-name').textContent = data.manufacturer.name;
+                    }
+                } else {
+                    const errorMsg = data.errors?.name || data.message || 'Błąd podczas aktualizacji producenta';
+                    window.showToast(errorMsg, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating manufacturer:', error);
+                window.showToast('Błąd podczas aktualizacji producenta', 'error');
+            }
+        }
+
+        async function deleteManufacturer(manufacturerId) {
+            try {
+                const response = await fetch(`/admin/products/manufacturers/${manufacturerId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Remove manufacturer from DOM
+                    const manufacturerItem = document.querySelector(`.tag-item[data-manufacturer-id="${manufacturerId}"]`);
+                    if (manufacturerItem) {
+                        manufacturerItem.remove();
+                    }
+
+                    // Check if grid is empty and show empty state
+                    const manufacturersGrid = document.querySelector('#tab-manufacturers .tags-grid');
+                    if (manufacturersGrid && manufacturersGrid.children.length === 0) {
+                        manufacturersGrid.innerHTML = '<div class="empty-state"><p>Brak producentów. Dodaj pierwszego producenta.</p></div>';
+                    }
+                } else {
+                    window.showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting manufacturer:', error);
+                window.showToast('Błąd podczas usuwania producenta', 'error');
+            }
+        }
+    } // End of initializeManufacturersManagement function
 
     // ==========================================
     // SUPPLIER MANAGEMENT

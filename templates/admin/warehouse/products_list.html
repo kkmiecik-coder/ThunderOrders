@@ -208,7 +208,8 @@
                             {% if product.primary_image %}
                             <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}"
                                  alt="{{ product.name }}"
-                                 class="product-thumbnail">
+                                 class="product-thumbnail product-thumbnail-hover"
+                                 data-full-image="{{ url_for('static', filename=product.primary_image.path_original) }}">
                             {% else %}
                             <div class="product-thumbnail-placeholder">
                                 <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
@@ -971,6 +972,76 @@ if (!document.getElementById('toast-animations')) {
     `;
     document.head.appendChild(style);
 }
+
+// ========================================
+// IMAGE PREVIEW TOOLTIP
+// ========================================
+
+// Initialize image preview tooltip
+function initImagePreviewTooltip() {
+    // Create tooltip element
+    const tooltip = document.createElement('div');
+    tooltip.className = 'image-preview-tooltip';
+    tooltip.innerHTML = '<div class="image-preview-tooltip-inner"><img src="" alt="Product preview"></div>';
+    document.body.appendChild(tooltip);
+
+    const tooltipImg = tooltip.querySelector('img');
+
+    // Get all product thumbnails with hover class
+    const thumbnails = document.querySelectorAll('.product-thumbnail-hover');
+
+    thumbnails.forEach(thumbnail => {
+        // Show tooltip on mouseenter
+        thumbnail.addEventListener('mouseenter', function(e) {
+            const fullImagePath = this.getAttribute('data-full-image');
+            if (fullImagePath) {
+                tooltipImg.src = fullImagePath;
+                tooltip.classList.add('show');
+            }
+        });
+
+        // Update tooltip position on mousemove
+        thumbnail.addEventListener('mousemove', function(e) {
+            const offsetX = 20; // Distance from cursor
+            const offsetY = 20;
+
+            let left = e.pageX + offsetX;
+            let top = e.pageY + offsetY;
+
+            // Prevent tooltip from going off-screen on the right
+            const tooltipWidth = tooltip.offsetWidth;
+            const tooltipHeight = tooltip.offsetHeight;
+
+            if (left + tooltipWidth > window.innerWidth + window.scrollX) {
+                left = e.pageX - tooltipWidth - offsetX;
+            }
+
+            // Prevent tooltip from going off-screen on the bottom
+            if (top + tooltipHeight > window.innerHeight + window.scrollY) {
+                top = e.pageY - tooltipHeight - offsetY;
+            }
+
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        });
+
+        // Hide tooltip on mouseleave
+        thumbnail.addEventListener('mouseleave', function() {
+            tooltip.classList.remove('show');
+            // Clear image source after fade out to save memory
+            setTimeout(() => {
+                if (!tooltip.classList.contains('show')) {
+                    tooltipImg.src = '';
+                }
+            }, 200); // Match CSS transition duration
+        });
+    });
+
+    console.log('[IMAGE PREVIEW] Tooltip initialized for', thumbnails.length, 'thumbnails');
+}
+
+// Initialize tooltip on page load
+initImagePreviewTooltip();
 </script>
 
 <!-- CSV Import Modal -->

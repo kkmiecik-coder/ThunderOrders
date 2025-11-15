@@ -58,6 +58,13 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
+                        <a href="{{ url_for('products.stock_orders') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'products.stock_orders' %}active{% endif %}"
+                           data-tooltip="Zamówienia produktów">
+                            <span class="sidebar-text">Zamówienia produktów</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
                         <a href="{{ url_for('products.warehouse_settings') }}"
                            class="sidebar-sublink {% if request.endpoint == 'products.warehouse_settings' %}active{% endif %}"
                            data-tooltip="Ustawienia">

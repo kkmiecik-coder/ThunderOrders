@@ -278,6 +278,44 @@ class TagForm(FlaskForm):
                 raise ValidationError('Tag o tej nazwie już istnieje.')
 
 
+class SeriesForm(FlaskForm):
+    """Form for creating/editing product series"""
+
+    name = StringField(
+        'Nazwa serii',
+        validators=[DataRequired(message='Nazwa serii jest wymagana'), Length(max=100)]
+    )
+
+    submit = SubmitField('Zapisz serię')
+
+    def validate_name(self, field):
+        """Validate series name uniqueness"""
+        from modules.products.models import ProductSeries
+        series = ProductSeries.query.filter_by(name=field.data).first()
+        if series:
+            if not hasattr(self, 'series_id') or series.id != self.series_id:
+                raise ValidationError('Seria o tej nazwie już istnieje.')
+
+
+class ManufacturerForm(FlaskForm):
+    """Form for creating/editing manufacturers"""
+
+    name = StringField(
+        'Nazwa producenta',
+        validators=[DataRequired(message='Nazwa producenta jest wymagana'), Length(max=100)]
+    )
+
+    submit = SubmitField('Zapisz producenta')
+
+    def validate_name(self, field):
+        """Validate manufacturer name uniqueness"""
+        from modules.products.models import Manufacturer
+        manufacturer = Manufacturer.query.filter_by(name=field.data).first()
+        if manufacturer:
+            if not hasattr(self, 'manufacturer_id') or manufacturer.id != self.manufacturer_id:
+                raise ValidationError('Producent o tej nazwie już istnieje.')
+
+
 class SupplierForm(FlaskForm):
     """Form for creating/editing suppliers"""
 

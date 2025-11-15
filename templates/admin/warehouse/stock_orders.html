@@ -1,0 +1,1265 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Zamówienia produktów - ThunderOrders{% endblock %}
+
+{% block content %}
+<div class="stock-orders-page">
+    <!-- Tabs Navigation -->
+    <div class="tabs-navigation">
+        <a href="{{ url_for('products.stock_orders', tab='proxy') }}"
+           class="tab-link {% if active_tab == 'proxy' %}active{% endif %}"
+           data-tab="proxy">
+            PROXY
+        </a>
+        <a href="{{ url_for('products.stock_orders', tab='polska') }}"
+           class="tab-link {% if active_tab == 'polska' %}active{% endif %}"
+           data-tab="polska">
+            POLSKA
+        </a>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content active" id="tab-{{ active_tab }}">
+        <div class="tab-pane">
+            <div class="tab-header">
+                <h2>Zamówienia {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</h2>
+                <button class="btn btn-primary" id="btnNewOrder">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Nowe zamówienie
+                </button>
+            </div>
+
+            <!-- Orders List -->
+            <div class="orders-list">
+                {% if stock_orders %}
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th class="sortable" data-column="order_number" onclick="sortTable('order_number')">Nr zamówienia</th>
+                                    <th class="sortable" data-column="product" onclick="sortTable('product')">Produkt</th>
+                                    <th class="sortable" data-column="supplier" onclick="sortTable('supplier')">Dostawca</th>
+                                    <th class="sortable" data-column="status" onclick="sortTable('status')">Status</th>
+                                    <th class="sortable" data-column="date" onclick="sortTable('date')">Data zamówienia</th>
+                                    <th class="sortable" data-column="amount" onclick="sortTable('amount')">Kwota</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in stock_orders %}
+                                {% set first_item = order.items.first() %}
+                                {% set product = first_item.product if first_item else None %}
+                                {% set primary_image = product.primary_image if product else None %}
+                                <tr id="order-row-{{ order.id }}"
+                                    data-order-number="{{ order.order_number }}"
+                                    data-product="{{ product.name if product else '' }}"
+                                    data-supplier="{{ order.supplier.name if order.supplier else '' }}"
+                                    data-status="{{ order.status }}"
+                                    data-date="{{ order.created_at.timestamp() }}"
+                                    data-amount="{{ order.total_amount_pln }}">
+                                    <td class="font-semibold">{{ order.order_number }}</td>
+                                    <td>
+                                        <div class="product-cell">
+                                            {% if primary_image %}
+                                                <img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
+                                                     alt="{{ product.name }}"
+                                                     class="product-thumbnail-small">
+                                            {% else %}
+                                                <div class="product-thumbnail-small product-thumbnail-placeholder-small">
+                                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                        <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
+                                                        <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"></path>
+                                                    </svg>
+                                                </div>
+                                            {% endif %}
+                                            <span class="product-name-small">{{ product.name if product else '-' }}</span>
+                                        </div>
+                                    </td>
+                                    <td>{{ order.supplier.name if order.supplier else '-' }}</td>
+                                    <td>
+                                        <div class="status-dropdown-wrapper">
+                                            <button class="status-badge-button badge badge-{{ order.status }}" onclick="toggleStatusDropdown({{ order.id }})">
+                                                {{ order.status|replace('_', ' ')|title }}
+                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style="margin-left: 4px;">
+                                                    <path d="M6 8L2 4h8L6 8z"/>
+                                                </svg>
+                                            </button>
+                                            <div id="status-dropdown-{{ order.id }}" class="status-dropdown" style="display: none;">
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'nowe')">
+                                                    <span class="badge badge-nowe">Nowe</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'oczekujace')">
+                                                    <span class="badge badge-oczekujace">Oczekujące</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'dostarczone_proxy')">
+                                                    <span class="badge badge-dostarczone_proxy">Dostarczone Proxy</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'w_drodze_polska')">
+                                                    <span class="badge badge-w_drodze_polska">W Drodze Polska</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'urzad_celny')">
+                                                    <span class="badge badge-urzad_celny">Urząd Celny</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'dostarczone_gom')">
+                                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'anulowane')">
+                                                    <span class="badge badge-anulowane">Anulowane</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td class="font-semibold">
+                                        {{ '%.2f'|format(order.total_amount_pln) }} PLN
+                                    </td>
+                                    <td>
+                                        {% if current_user.role == 'admin' %}
+                                        <button class="btn btn-sm btn-danger" title="Usuń" onclick="deleteOrder({{ order.id }})">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            </svg>
+                                        </button>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                            <line x1="1" y1="10" x2="23" y2="10"></line>
+                        </svg>
+                        <h3>Brak zamówień</h3>
+                        <p>Nie znaleziono żadnych zamówień dla kategorii {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</p>
+                        <button class="btn btn-primary" id="btnNewOrderEmpty">
+                            Utwórz pierwsze zamówienie
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Stock Order -->
+<div id="newOrderModal" class="modal-overlay">
+    <div class="modal modal-xl">
+        <div class="modal-header">
+            <h2 class="modal-title">Nowe zamówienie {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</h2>
+            <button class="modal-close" onclick="closeNewOrderModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Search & Filters Section -->
+            <div class="search-section">
+                <div class="search-bar">
+                    <input type="text" id="productSearch" placeholder="Szukaj produktu po nazwie, SKU, EAN..." class="search-input">
+                    <button class="btn-filter" onclick="toggleFilters()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                        </svg>
+                        Filtry
+                    </button>
+                </div>
+
+                <!-- Filters Panel -->
+                <div id="filtersPanel" class="filters-panel-wrapper" style="display: none;">
+                    <div class="filters-grid">
+                        <div class="filter-group">
+                            <label>Kategoria</label>
+                            <select id="filterCategory" class="filter-select">
+                                <option value="">Wszystkie</option>
+                                {% for category in categories %}
+                                <option value="{{ category.id }}">{{ category.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Producent</label>
+                            <select id="filterManufacturer" class="filter-select">
+                                <option value="">Wszystkie</option>
+                                {% for manufacturer in manufacturers %}
+                                <option value="{{ manufacturer.id }}">{{ manufacturer.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Dostawca</label>
+                            <select id="filterSupplier" class="filter-select">
+                                <option value="">Wszystkie</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Seria</label>
+                            <select id="filterSeries" class="filter-select">
+                                <option value="">Wszystkie</option>
+                                {% for series in series_list %}
+                                <option value="{{ series.id }}">{{ series.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label>Tagi</label>
+                            <select id="filterTag" class="filter-select" multiple>
+                                {% for tag in tags %}
+                                <option value="{{ tag.id }}">{{ tag.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="filters-actions">
+                        <button class="btn btn-secondary" onclick="clearFilters()">Wyczyść filtry</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="searchResults" class="search-results">
+                <p class="text-muted">Wpisz nazwę produktu lub użyj filtrów, aby wyszukać produkty</p>
+            </div>
+
+            <!-- Selected Products Table -->
+            <div id="selectedProductsSection" class="selected-products-section" style="display: none;">
+                <h3>Wybrane produkty do zamówienia</h3>
+                <div class="table-responsive">
+                    <table class="selected-products-table">
+                        <thead>
+                            <tr>
+                                <th>Zdjęcie</th>
+                                <th>Nazwa</th>
+                                <th>SKU</th>
+                                <th>Dostawca</th>
+                                <th>Cena zakupu</th>
+                                <th>Ilość</th>
+                                <th>Suma</th>
+                                <th>Akcje</th>
+                            </tr>
+                        </thead>
+                        <tbody id="selectedProductsTableBody">
+                            <!-- Products will be added here dynamically -->
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="6" class="text-right font-semibold">Łącznie:</td>
+                                <td class="font-semibold" id="totalAmount">0.00 PLN</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeNewOrderModal()">Anuluj</button>
+            <button class="btn btn-primary" id="btnSubmitOrders" onclick="submitStockOrders()" disabled>
+                Złóż zamówienia (<span id="orderCount">0</span>)
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.stock-orders-page {
+    padding: 0;
+}
+
+/* Tabs Navigation */
+.tabs-navigation {
+    display: flex;
+    gap: 8px;
+    border-bottom: 2px solid #e5e7eb;
+    background: white;
+}
+
+.tab-link {
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    text-decoration: none;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    position: relative;
+    bottom: -2px;
+}
+
+.tab-link:hover {
+    color: #FF8500;
+    background-color: #fff5ec;
+}
+
+.tab-link.active {
+    color: #FF8500;
+    border-bottom-color: #FF8500;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+    padding: 24px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.tab-pane {
+    background: white;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tab-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.tab-header h2 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0;
+}
+
+/* Table Styling */
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+    max-height: calc(100vh - 250px);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table thead {
+    background-color: #f9fafb;
+    border-bottom: 2px solid #e5e7eb;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.data-table th:hover {
+    background-color: #f3f4f6;
+}
+
+.data-table th.sortable::after {
+    content: '⇅';
+    position: absolute;
+    right: 8px;
+    opacity: 0.3;
+    font-size: 14px;
+}
+
+.data-table th.sorted-asc::after {
+    content: '↑';
+    opacity: 1;
+    color: #FF8500;
+}
+
+.data-table th.sorted-desc::after {
+    content: '↓';
+    opacity: 1;
+    color: #FF8500;
+}
+
+.data-table tbody tr {
+    border-bottom: 1px solid #e5e7eb;
+    transition: background-color 0.2s;
+}
+
+.data-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.data-table td {
+    padding: 16px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+/* Badge Styling */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-nowe {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.badge-oczekujace {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.badge-dostarczone_proxy {
+    background-color: #ddd6fe;
+    color: #5b21b6;
+}
+
+.badge-w_drodze_polska {
+    background-color: #fce7f3;
+    color: #9f1239;
+}
+
+.badge-urzad_celny {
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+
+.badge-dostarczone_gom {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.badge-anulowane {
+    background-color: #f3f4f6;
+    color: #6b7280;
+}
+
+/* Actions Group */
+.actions-group {
+    display: flex;
+    gap: 8px;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background-color: #FF8500;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #FF9100;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 133, 0, 0.3);
+}
+
+.btn-secondary {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.btn-secondary:hover {
+    background-color: #e5e7eb;
+}
+
+.btn-danger {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.btn-danger:hover {
+    background-color: #fee2e2;
+}
+
+.btn-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 64px 24px;
+}
+
+.empty-state svg {
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.empty-state h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 8px 0;
+}
+
+.empty-state p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 24px 0;
+}
+
+/* Search Section */
+.search-section {
+    margin-bottom: 24px;
+}
+
+.search-bar {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #FF8500;
+    box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
+}
+
+.btn-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-filter:hover {
+    background: #e5e7eb;
+}
+
+/* Filters Panel */
+.filters-panel-wrapper {
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.filters-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+@media (max-width: 1024px) {
+    .filters-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.filters-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.filter-select {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #FF8500;
+}
+
+/* Search Results */
+.search-results {
+    margin-bottom: 24px;
+    min-height: 200px;
+}
+
+.text-muted {
+    color: #9ca3af;
+    font-size: 14px;
+    text-align: center;
+    padding: 40px 0;
+}
+
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.product-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.product-card:hover {
+    border-color: #FF8500;
+    box-shadow: 0 4px 12px rgba(255, 133, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.product-card-image {
+    width: 100%;
+    max-width: 140px;
+    height: 120px;
+    object-fit: contain;
+    border-radius: 4px;
+    margin: 0 auto 10px auto;
+    display: block;
+}
+
+.product-thumbnail-placeholder {
+    width: 100%;
+    max-width: 140px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    color: #bbb;
+    margin: 0 auto 10px auto;
+}
+
+.product-image {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.product-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+}
+
+.product-sku {
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.product-price {
+    font-size: 14px;
+    font-weight: 600;
+    color: #FF8500;
+}
+
+/* Selected Products Section */
+.selected-products-section {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 2px solid #e5e7eb;
+}
+
+.selected-products-section h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 16px 0;
+}
+
+.selected-products-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.selected-products-table th {
+    padding: 12px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.selected-products-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 14px;
+}
+
+.selected-products-table tfoot td {
+    border-top: 2px solid #e5e7eb;
+    border-bottom: none;
+    padding-top: 16px;
+}
+
+.product-thumbnail {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+img.table-product-image {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+}
+
+div.table-product-image {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    border: 1px dashed #ddd;
+    border-radius: 4px;
+    color: #bbb;
+}
+
+.quantity-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.qty-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 18px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.qty-btn:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+}
+
+.qty-input {
+    width: 60px;
+    padding: 6px 8px;
+    text-align: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.qty-input:focus {
+    outline: none;
+    border-color: #FF8500;
+}
+
+.btn-remove {
+    padding: 6px;
+    background: transparent;
+    color: #dc2626;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove:hover {
+    background: #fef2f2;
+}
+
+.btn-remove svg {
+    width: 16px;
+    height: 16px;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.no-products {
+    text-align: center;
+    color: #9ca3af;
+    padding: 40px 20px;
+    font-style: italic;
+}
+
+.product-card-info {
+    text-align: center;
+}
+
+.product-card-info h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0 0 6px 0;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.product-card-info .product-sku,
+.product-card-info .product-supplier,
+.product-card-info .product-price {
+    margin: 3px 0;
+    font-size: 11px;
+}
+
+.product-supplier {
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.product-card-info .product-price {
+    font-size: 12px;
+    font-weight: 600;
+    color: #FF8500;
+}
+
+/* Product cell in orders table */
+.product-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.product-thumbnail-small {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.product-thumbnail-placeholder-small {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f5f5f5;
+    border: 1px dashed #ddd;
+    color: #bbb;
+}
+
+.product-name-small {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1a1a1a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Colored status badges */
+.badge-nowe {
+    background: #3b82f6;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-oczekujace {
+    background: #f59e0b;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-dostarczone_proxy {
+    background: #10b981;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-w_drodze_polska {
+    background: #f97316;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-urzad_celny {
+    background: #8b5cf6;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-dostarczone_gom {
+    background: #059669;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-anulowane {
+    background: #dc2626;
+    color: white;
+    padding: 6px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Status dropdown */
+.status-dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.status-badge-button {
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.status-badge-button:hover {
+    opacity: 0.8;
+    transform: translateY(-1px);
+}
+
+.status-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    min-width: 180px;
+    padding: 4px;
+}
+
+.status-dropdown-option {
+    padding: 6px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.status-dropdown-option:hover {
+    background: #f3f4f6;
+}
+
+.status-dropdown-option .badge {
+    width: 100%;
+    display: block;
+    text-align: center;
+    cursor: pointer;
+}
+</style>
+
+<script src="{{ url_for('static', filename='js/pages/admin/stock-orders.js') }}"></script>
+
+<script>
+/**
+ * Toggle status dropdown
+ */
+function toggleStatusDropdown(orderId) {
+    const dropdown = document.getElementById(`status-dropdown-${orderId}`);
+    const allDropdowns = document.querySelectorAll('.status-dropdown');
+
+    // Close all other dropdowns
+    allDropdowns.forEach(d => {
+        if (d.id !== `status-dropdown-${orderId}`) {
+            d.style.display = 'none';
+        }
+    });
+
+    // Toggle current dropdown
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+/**
+ * Close dropdowns when clicking outside
+ */
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.status-dropdown-wrapper')) {
+        document.querySelectorAll('.status-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+    }
+});
+
+/**
+ * Change order status
+ */
+function changeOrderStatus(orderId, newStatus) {
+    fetch(`/admin/products/stock-orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the badge text and class
+            const button = document.querySelector(`#status-dropdown-${orderId}`).previousElementSibling;
+            const statusText = newStatus.replace(/_/g, ' ');
+            const statusTextCapitalized = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+
+            // Remove old status classes
+            button.className = button.className.replace(/badge-\w+/g, '');
+            // Add new status class
+            button.classList.add(`badge-${newStatus}`);
+            // Update text (keep the chevron SVG)
+            button.childNodes[0].textContent = statusTextCapitalized + ' ';
+
+            // Close dropdown
+            document.getElementById(`status-dropdown-${orderId}`).style.display = 'none';
+
+            if (window.Toast) {
+                window.Toast.show('Status zamówienia został zmieniony', 'success');
+            }
+        } else {
+            if (window.Toast) {
+                window.Toast.show('Błąd: ' + data.error, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Status change error:', error);
+        if (window.Toast) {
+            window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
+        }
+    });
+}
+
+/**
+ * Table sorting
+ */
+let currentSortColumn = null;
+let currentSortDirection = 'asc';
+
+function sortTable(column) {
+    const table = document.querySelector('.data-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Determine sort direction
+    if (currentSortColumn === column) {
+        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+        currentSortDirection = 'asc';
+    }
+    currentSortColumn = column;
+
+    // Update header indicators
+    const headers = table.querySelectorAll('th.sortable');
+    headers.forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.column === column) {
+            th.classList.add(currentSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+
+    // Sort rows
+    rows.sort((a, b) => {
+        let aValue = a.dataset[column === 'order_number' ? 'orderNumber' :
+                              column === 'date' ? 'date' :
+                              column === 'amount' ? 'amount' : column];
+        let bValue = b.dataset[column === 'order_number' ? 'orderNumber' :
+                              column === 'date' ? 'date' :
+                              column === 'amount' ? 'amount' : column];
+
+        // Handle numeric columns
+        if (column === 'date' || column === 'amount') {
+            aValue = parseFloat(aValue) || 0;
+            bValue = parseFloat(bValue) || 0;
+        } else {
+            aValue = aValue.toLowerCase();
+            bValue = bValue.toLowerCase();
+        }
+
+        if (aValue < bValue) return currentSortDirection === 'asc' ? -1 : 1;
+        if (aValue > bValue) return currentSortDirection === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+/**
+ * Delete order
+ */
+function deleteOrder(orderId) {
+    if (confirm('Czy na pewno chcesz usunąć to zamówienie?\n\nTa operacja jest nieodwracalna.')) {
+        fetch(`/admin/products/stock-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the row from table
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.remove();
+
+                        // Check if table is now empty
+                        const tbody = row.parentElement;
+                        if (tbody && tbody.children.length === 0) {
+                            // Reload page to show empty state
+                            location.reload();
+                        }
+                    }, 300);
+                }
+
+                if (window.Toast) {
+                    window.Toast.show('Zamówienie zostało usunięte', 'success');
+                }
+            } else {
+                if (window.Toast) {
+                    window.Toast.show('Błąd: ' + data.error, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            if (window.Toast) {
+                window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

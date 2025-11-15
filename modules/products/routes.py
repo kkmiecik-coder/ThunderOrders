@@ -12,7 +12,10 @@ import shutil
 from uuid import uuid4
 
 from modules.products import products_bp
-from modules.products.models import Product, Category, Tag, Supplier, ProductImage, product_tags
+from modules.products.models import (
+    Product, Category, Tag, Supplier, ProductImage, product_tags,
+    StockOrder, StockOrderItem, Manufacturer, ProductSeries
+)
 from modules.products.forms import (
     ProductForm, CategoryForm, TagForm, SupplierForm,
     QuickTagForm, ProductSearchForm
@@ -1178,9 +1181,12 @@ def warehouse_settings():
     form.default_margin.data = Settings.get_value('warehouse_default_margin', 30)
     form.price_rounding.data = Settings.get_value('warehouse_price_rounding', 'full')
 
-    # Load categories, tags, suppliers for display in tabs
+    # Load categories, tags, series, suppliers for display in tabs
     categories = Category.query.order_by(Category.sort_order, Category.name).all()
     tags = Tag.query.order_by(Tag.name).all()
+    from modules.products.models import ProductSeries, Manufacturer
+    series = ProductSeries.query.filter_by(is_active=True).order_by(ProductSeries.name).all()
+    manufacturers = Manufacturer.query.filter_by(is_active=True).order_by(Manufacturer.name).all()
     suppliers = Supplier.query.order_by(Supplier.name).all()
 
     # Get last currency update
@@ -1190,6 +1196,8 @@ def warehouse_settings():
                            form=form,
                            categories=categories,
                            tags=tags,
+                           series=series,
+                           manufacturers=manufacturers,
                            suppliers=suppliers,
                            currency_last_update=currency_last_update)
 
@@ -1455,6 +1463,276 @@ def delete_tag(id):
         return jsonify({'success': False, 'message': 'Błąd podczas usuwania taga'}), 500
 
 
+# ==========================================
+# Series Management
+# ==========================================
+
+@products_bp.route('/series/create', methods=['POST'])
+@login_required
+@role_required('admin')
+def create_series():
+    """Create new product series"""
+    from modules.products.forms import SeriesForm
+    from modules.products.models import ProductSeries
+
+    form = SeriesForm()
+
+    if form.validate_on_submit():
+        try:
+            # Check if series already exists
+            existing_series = ProductSeries.query.filter_by(name=form.name.data).first()
+            if existing_series:
+                return jsonify({
+                    'success': False,
+                    'errors': {'name': 'Seria o tej nazwie już istnieje'}
+                }), 400
+
+            series = ProductSeries(name=form.name.data)
+            db.session.add(series)
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Seria została dodana',
+                'series': {
+                    'id': series.id,
+                    'name': series.name
+                }
+            })
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating series: {str(e)}")
+            return jsonify({'success': False, 'message': 'Błąd podczas dodawania serii'}), 500
+
+    # Return validation errors
+    errors = {field: errors[0] for field, errors in form.errors.items()}
+    return jsonify({'success': False, 'errors': errors}), 400
+
+
+@products_bp.route('/series/<int:id>/edit', methods=['POST'])
+@login_required
+@role_required('admin')
+def edit_series(id):
+    """Edit existing product series"""
+    from modules.products.forms import SeriesForm
+    from modules.products.models import ProductSeries
+
+    series = ProductSeries.query.get_or_404(id)
+    form = SeriesForm(obj=series)
+
+    if form.validate_on_submit():
+        try:
+            # Check if another series with this name exists
+            existing_series = ProductSeries.query.filter(
+                ProductSeries.name == form.name.data,
+                ProductSeries.id != id
+            ).first()
+
+            if existing_series:
+                return jsonify({
+                    'success': False,
+                    'errors': {'name': 'Seria o tej nazwie już istnieje'}
+                }), 400
+
+            series.name = form.name.data
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Seria została zaktualizowana',
+                'series': {
+                    'id': series.id,
+                    'name': series.name
+                }
+            })
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating series: {str(e)}")
+            return jsonify({'success': False, 'message': 'Błąd podczas aktualizacji serii'}), 500
+
+    # Return validation errors
+    errors = {field: errors[0] for field, errors in form.errors.items()}
+    return jsonify({'success': False, 'errors': errors}), 400
+
+
+@products_bp.route('/series/<int:id>', methods=['DELETE'])
+@login_required
+@role_required('admin')
+def delete_series(id):
+    """Delete product series"""
+    from modules.products.models import ProductSeries
+
+    series = ProductSeries.query.get_or_404(id)
+
+    try:
+        # Check if series is assigned to products
+        products_count = Product.query.filter_by(series_id=id).count()
+        if products_count > 0:
+            return jsonify({
+                'success': False,
+                'message': f'Nie można usunąć serii. Jest przypisana do {products_count} produktów.'
+            }), 400
+
+        db.session.delete(series)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Seria została usunięta'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting series: {str(e)}")
+        return jsonify({'success': False, 'message': 'Błąd podczas usuwania serii'}), 500
+
+
+@products_bp.route('/series/<int:id>', methods=['GET'])
+@login_required
+@role_required('admin')
+def get_series(id):
+    """Get series data for editing"""
+    from modules.products.models import ProductSeries
+
+    series = ProductSeries.query.get_or_404(id)
+
+    return jsonify({
+        'id': series.id,
+        'name': series.name
+    })
+
+
+# ==========================================
+# MANUFACTURERS MANAGEMENT ENDPOINTS
+# ==========================================
+
+@products_bp.route('/manufacturers/create', methods=['POST'])
+@login_required
+@role_required('admin')
+def create_manufacturer():
+    """Create new manufacturer"""
+    from modules.products.forms import ManufacturerForm
+    from modules.products.models import Manufacturer
+
+    form = ManufacturerForm()
+
+    if form.validate_on_submit():
+        try:
+            # Check if manufacturer already exists
+            existing_manufacturer = Manufacturer.query.filter_by(name=form.name.data).first()
+            if existing_manufacturer:
+                return jsonify({
+                    'success': False,
+                    'errors': {'name': 'Producent o tej nazwie już istnieje'}
+                }), 400
+
+            manufacturer = Manufacturer(name=form.name.data)
+            db.session.add(manufacturer)
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Producent został dodany',
+                'manufacturer': {
+                    'id': manufacturer.id,
+                    'name': manufacturer.name
+                }
+            })
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating manufacturer: {str(e)}")
+            return jsonify({'success': False, 'message': 'Błąd podczas dodawania producenta'}), 500
+
+    # Return validation errors
+    errors = {field: errors[0] for field, errors in form.errors.items()}
+    return jsonify({'success': False, 'errors': errors}), 400
+
+
+@products_bp.route('/manufacturers/<int:id>/edit', methods=['POST'])
+@login_required
+@role_required('admin')
+def edit_manufacturer(id):
+    """Edit existing manufacturer"""
+    from modules.products.forms import ManufacturerForm
+    from modules.products.models import Manufacturer
+
+    manufacturer = Manufacturer.query.get_or_404(id)
+    form = ManufacturerForm(obj=manufacturer)
+
+    if form.validate_on_submit():
+        try:
+            # Check if another manufacturer with this name exists
+            existing_manufacturer = Manufacturer.query.filter(
+                Manufacturer.name == form.name.data,
+                Manufacturer.id != id
+            ).first()
+
+            if existing_manufacturer:
+                return jsonify({
+                    'success': False,
+                    'errors': {'name': 'Producent o tej nazwie już istnieje'}
+                }), 400
+
+            manufacturer.name = form.name.data
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Producent został zaktualizowany',
+                'manufacturer': {
+                    'id': manufacturer.id,
+                    'name': manufacturer.name
+                }
+            })
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating manufacturer: {str(e)}")
+            return jsonify({'success': False, 'message': 'Błąd podczas aktualizacji producenta'}), 500
+
+    # Return validation errors
+    errors = {field: errors[0] for field, errors in form.errors.items()}
+    return jsonify({'success': False, 'errors': errors}), 400
+
+
+@products_bp.route('/manufacturers/<int:id>', methods=['DELETE'])
+@login_required
+@role_required('admin')
+def delete_manufacturer(id):
+    """Delete manufacturer"""
+    from modules.products.models import Manufacturer
+
+    manufacturer = Manufacturer.query.get_or_404(id)
+
+    try:
+        # Check if manufacturer is assigned to products
+        products_count = Product.query.filter_by(manufacturer_id=id).count()
+        if products_count > 0:
+            return jsonify({
+                'success': False,
+                'message': f'Nie można usunąć producenta. Jest przypisany do {products_count} produktów.'
+            }), 400
+
+        db.session.delete(manufacturer)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Producent został usunięty'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting manufacturer: {str(e)}")
+        return jsonify({'success': False, 'message': 'Błąd podczas usuwania producenta'}), 500
+
+
+@products_bp.route('/manufacturers/<int:id>', methods=['GET'])
+@login_required
+@role_required('admin')
+def get_manufacturer(id):
+    """Get manufacturer data for editing"""
+    from modules.products.models import Manufacturer
+
+    manufacturer = Manufacturer.query.get_or_404(id)
+
+    return jsonify({
+        'id': manufacturer.id,
+        'name': manufacturer.name
+    })
+
+
 # ==================== Supplier Management ====================
 
 @products_bp.route('/suppliers/<int:id>', methods=['GET'])
@@ -1619,3 +1897,272 @@ def get_tag(id):
             'name': tag.name
         }
     })
+
+
+# ==========================================
+# Stock Orders (Zamówienia produktów)
+# ==========================================
+
+@products_bp.route('/stock-orders', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def stock_orders():
+    """Stock orders page with tabs for PROXY and Polska"""
+    from modules.products.models import StockOrder, ProductSeries, Manufacturer
+
+    # Get active tab from query parameter (default: proxy)
+    active_tab = request.args.get('tab', 'proxy')
+
+    # Ensure valid tab
+    if active_tab not in ['proxy', 'polska']:
+        active_tab = 'proxy'
+
+    # Get stock orders based on active tab
+    if active_tab == 'proxy':
+        stock_orders = StockOrder.query.filter_by(order_type='proxy').order_by(StockOrder.created_at.desc()).all()
+    else:  # polska
+        stock_orders = StockOrder.query.filter_by(order_type='polska').order_by(StockOrder.created_at.desc()).all()
+
+    # Get filter data for modal
+    categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
+    manufacturers = Manufacturer.query.filter_by(is_active=True).order_by(Manufacturer.name).all()
+    suppliers = Supplier.query.filter_by(is_active=True).order_by(Supplier.name).all()
+    series_list = ProductSeries.query.filter_by(is_active=True).order_by(ProductSeries.name).all()
+    tags = Tag.query.order_by(Tag.name).all()
+
+    return render_template(
+        'admin/warehouse/stock_orders.html',
+        active_tab=active_tab,
+        stock_orders=stock_orders,
+        categories=categories,
+        manufacturers=manufacturers,
+        suppliers=suppliers,
+        series_list=series_list,
+        tags=tags
+    )
+
+
+@products_bp.route('/api/search-products', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def search_products():
+    """AJAX endpoint for searching products with filters"""
+    query = request.args.get('q', '').strip()
+    category_id = request.args.get('category_id', type=int)
+    manufacturer_id = request.args.get('manufacturer_id', type=int)
+    supplier_id = request.args.get('supplier_id', type=int)
+    series_id = request.args.get('series_id', type=int)
+    tag_id = request.args.get('tag_id', type=int)
+
+    # Base query - only active products
+    products_query = Product.query.filter_by(is_active=True)
+
+    # Apply search filter
+    if query:
+        search_conditions = [
+            Product.name.ilike(f'%{query}%'),
+            Product.sku.ilike(f'%{query}%'),
+            Product.ean.ilike(f'%{query}%')
+        ]
+        # Add ID search if query is a number
+        if query.isdigit():
+            search_conditions.append(Product.id == int(query))
+
+        products_query = products_query.filter(or_(*search_conditions))
+
+    # Apply filters
+    if category_id:
+        products_query = products_query.filter_by(category_id=category_id)
+    if manufacturer_id:
+        products_query = products_query.filter_by(manufacturer_id=manufacturer_id)
+    if supplier_id:
+        products_query = products_query.filter_by(supplier_id=supplier_id)
+    if series_id:
+        products_query = products_query.filter_by(series_id=series_id)
+    if tag_id:
+        products_query = products_query.join(Product.tags).filter(Tag.id == tag_id)
+
+    # Limit results
+    products = products_query.limit(20).all()
+
+    # Serialize products
+    results = []
+    for product in products:
+        primary_image = product.primary_image
+        image_url = url_for('static', filename=f'uploads/products/compressed/{primary_image.filename}') if primary_image else url_for('static', filename='img/product-placeholder.svg')
+
+        # Calculate purchase_price_pln - if NULL and currency is PLN, use purchase_price
+        purchase_price_pln = float(product.purchase_price_pln) if product.purchase_price_pln else 0
+        if purchase_price_pln == 0 and product.purchase_currency == 'PLN' and product.purchase_price:
+            purchase_price_pln = float(product.purchase_price)
+
+        results.append({
+            'id': product.id,
+            'name': product.name,
+            'sku': product.sku or 'Brak SKU',
+            'ean': product.ean or '',
+            'image_url': image_url,
+            'purchase_price': float(product.purchase_price) if product.purchase_price else 0,
+            'purchase_currency': product.purchase_currency,
+            'purchase_price_pln': purchase_price_pln,
+            'supplier_id': product.supplier_id,
+            'supplier_name': product.supplier.name if product.supplier else 'Brak dostawcy',
+            'quantity': product.quantity
+        })
+
+    return jsonify(results)
+
+
+@products_bp.route('/api/create-stock-orders', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def create_stock_orders():
+    """Create multiple stock orders (one per product)"""
+    try:
+        data = request.get_json()
+        order_type = data.get('order_type', 'proxy')
+        products = data.get('products', [])
+
+        if not products:
+            return jsonify({'success': False, 'error': 'Brak produktów w zamówieniu'}), 400
+
+        orders_created = 0
+
+        for product_data in products:
+            product_id = product_data.get('product_id')
+            quantity = product_data.get('quantity', 1)
+            unit_price = product_data.get('unit_price', 0)
+            currency = product_data.get('currency', 'PLN')
+
+            # Get product from database
+            product = Product.query.get(product_id)
+            if not product:
+                continue
+
+            # Generate unique order number
+            order_number = generate_stock_order_number(order_type)
+
+            # Calculate total
+            total_price = unit_price * quantity
+
+            # Create stock order
+            stock_order = StockOrder(
+                order_number=order_number,
+                order_type=order_type,
+                supplier_id=product.supplier_id,
+                status='nowe',
+                total_amount=total_price,
+                currency='PLN',  # Already converted to PLN
+                total_amount_pln=total_price,
+                notes=f'Automatycznie utworzone zamówienie dla produktu: {product.name}'
+            )
+
+            db.session.add(stock_order)
+            db.session.flush()  # Get stock_order.id
+
+            # Create stock order item
+            stock_order_item = StockOrderItem(
+                stock_order_id=stock_order.id,
+                product_id=product_id,
+                quantity=quantity,
+                unit_price=unit_price,
+                total_price=total_price
+            )
+
+            db.session.add(stock_order_item)
+            orders_created += 1
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'orders_created': orders_created,
+            'message': f'Utworzono {orders_created} zamówień'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating stock orders: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/stock-orders/<int:id>/status', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def update_stock_order_status(id):
+    """Update stock order status"""
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+
+        # Validate status
+        valid_statuses = ['nowe', 'oczekujace', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny', 'dostarczone_gom', 'anulowane']
+        if new_status not in valid_statuses:
+            return jsonify({'success': False, 'error': 'Nieprawidłowy status'}), 400
+
+        stock_order = StockOrder.query.get_or_404(id)
+        old_status = stock_order.status
+
+        # Update status
+        stock_order.status = new_status
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Status zamówienia {stock_order.order_number} został zmieniony z {old_status} na {new_status}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating stock order status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/stock-orders/<int:id>/delete', methods=['DELETE'])
+@login_required
+@role_required('admin')
+@csrf.exempt
+def delete_stock_order(id):
+    """Delete stock order (admin only)"""
+    try:
+        stock_order = StockOrder.query.get_or_404(id)
+
+        # Delete associated items (should cascade automatically, but being explicit)
+        StockOrderItem.query.filter_by(stock_order_id=id).delete()
+
+        # Delete the order
+        db.session.delete(stock_order)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Zamówienie {stock_order.order_number} zostało usunięte'
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting stock order: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def generate_stock_order_number(order_type):
+    """Generate unique order number in format SO/PROXY/00001 or SO/PL/00001"""
+    prefix = 'SO/PROXY/' if order_type == 'proxy' else 'SO/PL/'
+
+    # Find the latest order number with this prefix
+    latest_order = StockOrder.query.filter(
+        StockOrder.order_number.like(f'{prefix}%')
+    ).order_by(StockOrder.id.desc()).first()
+
+    if latest_order:
+        # Extract number from order_number (e.g., "SO/PROXY/00001" -> 1)
+        try:
+            last_number = int(latest_order.order_number.split('/')[-1])
+            next_number = last_number + 1
+        except ValueError:
+            next_number = 1
+    else:
+        next_number = 1
+
+    # Format: SO/PROXY/00001 (5 digits with leading zeros)
+    return f'{prefix}{next_number:05d}'

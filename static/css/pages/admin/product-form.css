@@ -40,7 +40,6 @@
 .tabs-navigation {
   display: flex;
   gap: var(--space-2);
-  margin-bottom: var(--space-6);
   border-bottom: 2px solid var(--border-primary);
   background: var(--card-bg);
   border-radius: 8px 8px 0 0;
