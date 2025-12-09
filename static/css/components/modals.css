@@ -1,26 +1,257 @@
 /**
  * ThunderOrders - Modal Component
- * System modalnych okien
+ * System modalnych okien - K-pop Slide & Glow
+ *
+ * Ten plik zawiera WSZYSTKIE style modali.
+ * NIE dodawaj stylów modali w innych plikach CSS!
  */
 
+/* ==========================================
+   Modal Overlay - Wspólny dla wszystkich modali
+   ========================================== */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(180, 80, 200, 0.5), rgba(200, 50, 90, 0.45), rgba(120, 40, 100, 0.6));
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
   display: none;
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  animation: modal-fade-in 0.2s ease;
+  padding: 20px;
+  opacity: 0;
 }
 
 .modal-overlay.active {
   display: flex;
+  animation: overlay-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* Animacja wejścia overlay */
+@keyframes overlay-fade-in {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+}
+
+/* ==========================================
+   Modal Content - Zagnieżdżone w overlay (flex centered)
+   Używane: products_list, stock_orders, tasks/list
+   ========================================== */
+.modal,
+.modal-container,
+.modal-content {
+  background: var(--white, #ffffff);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl, 0 8px 32px rgba(0, 0, 0, 0.2));
+  max-width: 600px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: modal-slide-glow 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Specjalny styl dla modal-container w products (większy) */
+.modal-overlay .modal-container {
+  max-width: 1200px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================
+   Modal Centered - Pozycjonowane fixed (translate centered)
+   Używane: settings (category, tag, supplier modals)
+   ========================================== */
+.modal-centered {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
+  background: var(--white, #ffffff);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl, 0 8px 32px rgba(0, 0, 0, 0.2));
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.modal-centered.show {
+  display: block;
+  animation: modal-slide-glow-center 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Backward compatibility - ID-based selectors for settings modals */
+#category-modal,
+#tag-modal,
+#supplier-modal {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10001;
+  background: var(--white, #ffffff);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: var(--shadow-xl, 0 8px 32px rgba(0, 0, 0, 0.2));
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+#category-modal.show,
+#tag-modal.show,
+#supplier-modal.show {
+  display: block;
+  animation: modal-slide-glow-center 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ==========================================
+   Animacje K-pop Slide & Glow
+   ========================================== */
+
+/* Animacja dla modali w flex container (zagnieżdżone w overlay) */
+@keyframes modal-slide-glow {
+  0% {
+    transform: translateY(60px) scale(0.96);
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(240, 147, 251, 0);
+  }
+  60% {
+    transform: translateY(-8px) scale(1.005);
+    opacity: 1;
+    box-shadow:
+      0 0 50px rgba(240, 147, 251, 0.35),
+      0 0 100px rgba(245, 87, 108, 0.15),
+      0 25px 80px rgba(0, 0, 0, 0.12);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    box-shadow:
+      0 0 25px rgba(240, 147, 251, 0.12),
+      0 0 50px rgba(245, 87, 108, 0.06),
+      0 10px 40px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* Animacja dla modali z translate(-50%, -50%) - centered position */
+@keyframes modal-slide-glow-center {
+  0% {
+    transform: translate(-50%, calc(-50% + 60px)) scale(0.96);
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(240, 147, 251, 0);
+  }
+  60% {
+    transform: translate(-50%, calc(-50% - 8px)) scale(1.005);
+    opacity: 1;
+    box-shadow:
+      0 0 50px rgba(240, 147, 251, 0.35),
+      0 0 100px rgba(245, 87, 108, 0.15),
+      0 25px 80px rgba(0, 0, 0, 0.12);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    box-shadow:
+      0 0 25px rgba(240, 147, 251, 0.12),
+      0 0 50px rgba(245, 87, 108, 0.06),
+      0 20px 60px rgba(0, 0, 0, 0.2);
+  }
+}
+
+/* ==========================================
+   Animacje zamykania - Scale & Fade + Dynamic Blur
+   ========================================== */
+
+/* Animacja zamykania dla modali w flex container */
+@keyframes modal-close-blur {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  40% {
+    transform: translateY(-5px) scale(0.98);
+    opacity: 0.8;
+    filter: blur(2px);
+  }
+  100% {
+    transform: translateY(30px) scale(0.92);
+    opacity: 0;
+    filter: blur(8px);
+  }
+}
+
+/* Animacja zamykania dla modali z translate(-50%, -50%) */
+@keyframes modal-close-blur-center {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    filter: blur(0px);
+  }
+  40% {
+    transform: translate(-50%, calc(-50% - 5px)) scale(0.98);
+    opacity: 0.8;
+    filter: blur(2px);
+  }
+  100% {
+    transform: translate(-50%, calc(-50% + 30px)) scale(0.92);
+    opacity: 0;
+    filter: blur(8px);
+  }
+}
+
+/* Animacja zamykania overlay */
+@keyframes overlay-fade-out {
+  0% {
+    opacity: 1;
+    backdrop-filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+}
+
+/* Stany zamykania - Overlay */
+.modal-overlay.closing {
+  animation: overlay-fade-out 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Stany zamykania - Modale w flex container */
+.modal-overlay.closing .modal,
+.modal-overlay.closing .modal-container,
+.modal-overlay.closing .modal-content {
+  animation: modal-close-blur 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Stany zamykania - Modale centered */
+.modal-centered.closing,
+#category-modal.closing,
+#tag-modal.closing,
+#supplier-modal.closing {
+  animation: modal-close-blur-center 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Legacy animation name for backward compatibility */
 @keyframes modal-fade-in {
   from {
     opacity: 0;
@@ -28,17 +259,6 @@
   to {
     opacity: 1;
   }
-}
-
-.modal {
-  background: var(--white);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  max-width: 600px;
-  width: 90%;
-  max-height: 90vh;
-  overflow: hidden;
-  animation: modal-slide-up 0.3s ease;
 }
 
 @keyframes modal-slide-up {
@@ -52,66 +272,95 @@
   }
 }
 
+/* ==========================================
+   Modal Header
+   ========================================== */
 .modal-header {
-  padding: var(--space-6);
-  border-bottom: 1px solid var(--gray-200);
+  padding: var(--space-6, 24px);
+  border-bottom: 1px solid var(--gray-200, #e0e0e0);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 
+.modal-header h2,
 .modal-title {
-  font-size: var(--text-xl);
-  font-weight: var(--font-semibold);
-  color: var(--gray-800);
+  font-size: var(--text-xl, 20px);
+  font-weight: var(--font-semibold, 600);
+  color: var(--gray-800, #333);
   margin: 0;
 }
 
 .modal-close {
   background: none;
   border: none;
-  font-size: var(--text-2xl);
-  color: var(--gray-400);
+  font-size: var(--text-2xl, 24px);
+  color: var(--gray-400, #9e9e9e);
   cursor: pointer;
   padding: 0;
   line-height: 1;
-  transition: color var(--transition-fast);
+  transition: color var(--transition-fast, 150ms ease);
 }
 
 .modal-close:hover {
-  color: var(--gray-700);
+  color: var(--gray-700, #424242);
 }
 
+/* ==========================================
+   Modal Body
+   ========================================== */
 .modal-body {
-  padding: var(--space-6);
+  padding: var(--space-6, 24px);
   overflow-y: auto;
   max-height: calc(90vh - 140px);
 }
 
+/* ==========================================
+   Modal Footer
+   ========================================== */
 .modal-footer {
-  padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--gray-200);
+  padding: var(--space-4, 16px) var(--space-6, 24px);
+  border-top: 1px solid var(--gray-200, #e0e0e0);
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-3, 12px);
 }
 
-/* Modal sizes */
-.modal-sm {
-  max-width: 400px;
+/* ==========================================
+   Modal Sizes
+   ========================================== */
+.modal-sm,
+.modal.modal-sm,
+.modal-container.modal-sm,
+.modal-content.modal-sm {
+  max-width: 600px;
 }
 
-.modal-lg {
+.modal-lg,
+.modal.modal-lg,
+.modal-container.modal-lg,
+.modal-content.modal-lg {
   max-width: 800px;
 }
 
-.modal-xl {
+.modal-xl,
+.modal.modal-xl,
+.modal-container.modal-xl,
+.modal-content.modal-xl {
   max-width: 1200px;
 }
 
-/* Mobile */
+/* ==========================================
+   Mobile Responsive
+   ========================================== */
 @media (max-width: 768px) {
-  .modal {
+  .modal,
+  .modal-container,
+  .modal-content,
+  .modal-centered,
+  #category-modal,
+  #tag-modal,
+  #supplier-modal {
     width: 95%;
     max-height: 95vh;
   }
@@ -119,4 +368,92 @@
   .modal-body {
     max-height: calc(95vh - 140px);
   }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+}
+
+/* ==========================================
+   Form Elements in Modals (Universal)
+   ========================================== */
+.modal-overlay .form-group,
+.modal-centered .form-group {
+  margin-bottom: var(--space-4, 16px);
+}
+
+.modal-overlay .form-group:last-child,
+.modal-centered .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.modal-overlay .form-label,
+.modal-centered .form-label {
+  display: block;
+  margin-bottom: var(--space-2, 8px);
+  font-weight: var(--font-medium, 500);
+  color: var(--text-primary, #424242);
+}
+
+.modal-overlay .form-label .required,
+.modal-centered .form-label .required {
+  color: var(--error, #F44336);
+}
+
+.modal-overlay .form-control,
+.modal-centered .form-control {
+  width: 100%;
+  padding: var(--space-3, 12px);
+  border: 1px solid var(--border-color, #e0e0e0);
+  border-radius: var(--radius-md, 8px);
+  font-size: var(--text-base, 16px);
+  background: var(--bg-primary, #ffffff);
+  color: var(--text-primary, #212121);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modal-overlay .form-control:focus,
+.modal-centered .form-control:focus {
+  outline: none;
+  border-color: var(--primary-color, #FF8500);
+  box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
+}
+
+.modal-overlay textarea.form-control,
+.modal-centered textarea.form-control {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.modal-overlay .input-hint,
+.modal-centered .input-hint {
+  display: block;
+  font-size: var(--text-sm, 14px);
+  color: var(--text-secondary, #757575);
+  margin-top: var(--space-1, 4px);
+}
+
+/* Backward compatibility for settings modals */
+#category-modal .form-group,
+#tag-modal .form-group,
+#supplier-modal .form-group {
+  margin-bottom: var(--space-4, 16px);
+}
+
+#category-modal .form-label,
+#tag-modal .form-label,
+#supplier-modal .form-label {
+  display: block;
+  margin-bottom: var(--space-2, 8px);
+  font-weight: var(--font-medium, 500);
+  color: var(--gray-700, #424242);
+}
+
+#category-modal .input-hint,
+#tag-modal .input-hint,
+#supplier-modal .input-hint {
+  display: block;
+  font-size: var(--text-sm, 14px);
+  color: var(--gray-500, #757575);
+  margin-top: var(--space-1, 4px);
 }

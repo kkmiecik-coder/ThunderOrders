@@ -1,0 +1,456 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Klienci{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/clients-list.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="clients-page">
+    <!-- Top Bar -->
+    <div class="clients-top-bar">
+        <!-- Center: Search -->
+        <div class="top-bar-center">
+            <form method="GET" action="{{ url_for('admin.clients_list') }}" class="search-form">
+                <input type="text"
+                       name="search"
+                       class="search-input"
+                       placeholder="Szukaj klienta (imię, nazwisko, email, telefon)..."
+                       value="{{ search }}">
+                <!-- Preserve other filters -->
+                {% if status_filter %}
+                <input type="hidden" name="status" value="{{ status_filter }}">
+                {% endif %}
+                {% if role_filter %}
+                <input type="hidden" name="role" value="{{ role_filter }}">
+                {% endif %}
+            </form>
+        </div>
+
+        <!-- Right: Stats -->
+        <div class="top-bar-right">
+            <div class="stats-badges">
+                <span class="stat-badge stat-total">
+                    <span class="stat-label">Wszyscy:</span>
+                    <span class="stat-value">{{ total_clients }}</span>
+                </span>
+                <span class="stat-badge stat-active">
+                    <span class="stat-label">Aktywni:</span>
+                    <span class="stat-value">{{ active_clients }}</span>
+                </span>
+                <span class="stat-badge stat-inactive">
+                    <span class="stat-label">Nieaktywni:</span>
+                    <span class="stat-value">{{ inactive_clients }}</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="clients-toolbar">
+        <div class="toolbar-left">
+            <!-- Status Filter -->
+            <select class="toolbar-select" id="status-filter" onchange="applyStatusFilter(this.value)">
+                <option value="" {% if not status_filter %}selected{% endif %}>Wszystkie statusy</option>
+                <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Aktywni</option>
+                <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Nieaktywni</option>
+            </select>
+
+            {% if current_user.is_admin() %}
+            <!-- Role Filter (tylko admin) -->
+            <select class="toolbar-select" id="role-filter" onchange="applyRoleFilter(this.value)">
+                <option value="client" {% if role_filter == 'client' or not role_filter %}selected{% endif %}>Klienci</option>
+                <option value="mod" {% if role_filter == 'mod' %}selected{% endif %}>Moderatorzy</option>
+                <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Administratorzy</option>
+                <option value="" {% if role_filter == '' and role_filter is not none %}selected{% endif %}>Wszyscy użytkownicy</option>
+            </select>
+            {% endif %}
+        </div>
+
+        <div class="toolbar-right">
+            <span class="clients-count">
+                Klientów na stronę: <strong>{{ pagination.per_page }} z {{ pagination.total }}</strong>
+            </span>
+
+            <!-- Per Page Selector -->
+            <select class="toolbar-select" id="per-page-select" onchange="changePerPage(this.value)">
+                <option value="25" {% if pagination.per_page == 25 %}selected{% endif %}>25</option>
+                <option value="50" {% if pagination.per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if pagination.per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <div class="pagination-compact">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('admin.clients_list', page=pagination.prev_num, per_page=pagination.per_page, search=search, status=status_filter, role=role_filter) }}"
+                   class="pagination-arrow">‹</a>
+                {% else %}
+                <span class="pagination-arrow disabled">‹</span>
+                {% endif %}
+
+                <span class="pagination-info">{{ pagination.page }} / {{ pagination.pages }}</span>
+
+                {% if pagination.has_next %}
+                <a href="{{ url_for('admin.clients_list', page=pagination.next_num, per_page=pagination.per_page, search=search, status=status_filter, role=role_filter) }}"
+                   class="pagination-arrow">›</a>
+                {% else %}
+                <span class="pagination-arrow disabled">›</span>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Clients Table -->
+    <div class="table-container">
+        {% if clients %}
+        <div class="table-responsive">
+            <table class="data-table clients-table">
+                <thead>
+                    <tr>
+                        <th class="sortable {% if sort_by == 'name' %}sorted-{{ sort_dir }}{% endif %}"
+                            onclick="sortBy('name')">Imię i nazwisko</th>
+                        <th class="sortable {% if sort_by == 'email' %}sorted-{{ sort_dir }}{% endif %}"
+                            onclick="sortBy('email')">Email</th>
+                        <th>Telefon</th>
+                        <th>Rola</th>
+                        <th>Status</th>
+                        <th class="sortable {% if sort_by == 'created_at' %}sorted-{{ sort_dir }}{% endif %}"
+                            onclick="sortBy('created_at')">Data rejestracji</th>
+                        <th class="sortable {% if sort_by == 'last_login' %}sorted-{{ sort_dir }}{% endif %}"
+                            onclick="sortBy('last_login')">Ostatnie logowanie</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for client in clients %}
+                    <tr class="{% if not client.is_active %}row-inactive{% endif %}">
+                        <td>
+                            <a href="{{ url_for('admin.client_detail', id=client.id) }}" class="client-name-link">
+                                {% if client.has_avatar %}
+                                <div class="client-avatar has-avatar">
+                                    <img src="{{ client.avatar_url }}" alt="{{ client.first_name }}">
+                                </div>
+                                {% else %}
+                                <div class="client-avatar">
+                                    {{ client.first_name[0] }}{{ client.last_name[0] }}
+                                </div>
+                                {% endif %}
+                                <span class="client-name">{{ client.full_name }}</span>
+                            </a>
+                        </td>
+                        <td>
+                            <a href="mailto:{{ client.email }}" class="email-link">{{ client.email }}</a>
+                        </td>
+                        <td>
+                            {% if client.phone %}
+                            <a href="tel:{{ client.phone }}" class="phone-link">{{ client.phone }}</a>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="role-badge role-{{ client.role }}">
+                                {% if client.role == 'admin' %}Admin
+                                {% elif client.role == 'mod' %}Moderator
+                                {% else %}Klient{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if client.is_active %}
+                            <span class="status-badge status-active">Aktywny</span>
+                            {% else %}
+                            <span class="status-badge status-inactive"
+                                  title="{{ client.deactivation_reason or 'Brak powodu' }}">Nieaktywny</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="date-cell">{{ client.created_at.strftime('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ client.created_at.strftime('%H:%M') }}</span>
+                        </td>
+                        <td>
+                            {% if client.last_login %}
+                            <span class="date-cell">{{ client.last_login.strftime('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ client.last_login.strftime('%H:%M') }}</span>
+                            {% else %}
+                            <span class="text-muted">Nigdy</span>
+                            {% endif %}
+                        </td>
+                        <td class="actions-cell">
+                            <div class="action-buttons">
+                                <a href="{{ url_for('admin.client_detail', id=client.id) }}"
+                                   class="btn-action btn-view" title="Szczegóły">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                                    </svg>
+                                </a>
+                                {% if current_user.is_admin() %}
+                                {% if client.is_active %}
+                                <button type="button" class="btn-action btn-deactivate"
+                                        onclick="openDeactivateModal({{ client.id }}, '{{ client.full_name }}')"
+                                        title="Dezaktywuj">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                    </svg>
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn-action btn-reactivate"
+                                        onclick="reactivateClient({{ client.id }}, '{{ client.full_name }}')"
+                                        title="Reaktywuj">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                                    </svg>
+                                </button>
+                                {% endif %}
+                                <button type="button" class="btn-action btn-delete"
+                                        onclick="openDeleteModal({{ client.id }}, '{{ client.full_name }}')"
+                                        title="Usuń">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                    </svg>
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
+                <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+            </svg>
+            <h3>Brak klientów</h3>
+            <p>
+                {% if search %}
+                    Nie znaleziono klientów pasujących do wyszukiwania "{{ search }}".
+                {% elif status_filter %}
+                    Nie znaleziono klientów o wybranym statusie.
+                {% else %}
+                    Brak zarejestrowanych klientów w systemie.
+                {% endif %}
+            </p>
+            {% if search or status_filter %}
+            <a href="{{ url_for('admin.clients_list') }}" class="btn btn-secondary">Wyczyść filtry</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Deactivate Modal -->
+<div id="deactivateModal" class="modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeDeactivateModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Dezaktywacja konta</h3>
+            <button type="button" class="modal-close" onclick="closeDeactivateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Czy na pewno chcesz dezaktywować konto użytkownika <strong id="deactivateClientName"></strong>?</p>
+            <div class="form-group">
+                <label for="deactivateReason">Powód dezaktywacji (wymagany):</label>
+                <textarea id="deactivateReason" class="form-textarea" rows="3"
+                          placeholder="Podaj powód dezaktywacji konta..."></textarea>
+            </div>
+            <p class="modal-note">Klient zostanie powiadomiony o dezaktywacji emailem.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeactivateModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDeactivate()">Dezaktywuj</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="deleteModal" class="modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeDeleteModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Usunięcie konta</h3>
+            <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Czy na pewno chcesz <strong>trwale usunąć</strong> konto użytkownika <strong id="deleteClientName"></strong>?</p>
+            <p class="modal-warning">Ta operacja jest nieodwracalna!</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDelete()">Usuń</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global variables for modals
+let currentClientId = null;
+
+// Filter functions
+function applyStatusFilter(status) {
+    const url = new URL(window.location.href);
+    if (status) {
+        url.searchParams.set('status', status);
+    } else {
+        url.searchParams.delete('status');
+    }
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function applyRoleFilter(role) {
+    const url = new URL(window.location.href);
+    if (role) {
+        url.searchParams.set('role', role);
+    } else {
+        url.searchParams.delete('role');
+    }
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function changePerPage(perPage) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', perPage);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function sortBy(column) {
+    const url = new URL(window.location.href);
+    const currentSort = url.searchParams.get('sort');
+    const currentDir = url.searchParams.get('dir') || 'desc';
+
+    url.searchParams.set('sort', column);
+    if (currentSort === column) {
+        url.searchParams.set('dir', currentDir === 'asc' ? 'desc' : 'asc');
+    } else {
+        url.searchParams.set('dir', 'asc');
+    }
+    window.location.href = url.toString();
+}
+
+// Deactivate Modal
+function openDeactivateModal(clientId, clientName) {
+    currentClientId = clientId;
+    document.getElementById('deactivateClientName').textContent = clientName;
+    document.getElementById('deactivateReason').value = '';
+    document.getElementById('deactivateModal').style.display = 'flex';
+}
+
+function closeDeactivateModal() {
+    document.getElementById('deactivateModal').style.display = 'none';
+    currentClientId = null;
+}
+
+function confirmDeactivate() {
+    const reason = document.getElementById('deactivateReason').value.trim();
+
+    if (!reason) {
+        alert('Podanie powodu dezaktywacji jest wymagane.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('reason', reason);
+
+    fetch(`/admin/clients/${currentClientId}/deactivate`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Wystąpił błąd');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas dezaktywacji konta.');
+    });
+}
+
+// Reactivate
+function reactivateClient(clientId, clientName) {
+    if (!confirm(`Czy na pewno chcesz reaktywować konto użytkownika ${clientName}?`)) {
+        return;
+    }
+
+    fetch(`/admin/clients/${clientId}/reactivate`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Wystąpił błąd');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas reaktywacji konta.');
+    });
+}
+
+// Delete Modal
+function openDeleteModal(clientId, clientName) {
+    currentClientId = clientId;
+    document.getElementById('deleteClientName').textContent = clientName;
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+    currentClientId = null;
+}
+
+function confirmDelete() {
+    fetch(`/admin/clients/${currentClientId}/delete`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Wystąpił błąd');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas usuwania konta.');
+    });
+}
+
+// Close modals on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDeactivateModal();
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}

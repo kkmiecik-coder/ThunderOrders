@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Wybierz avatar - ThunderOrders{% endblock %}
+
+{% block body_content %}
+<div class="avatar-select-page">
+    <!-- Background with K-pop gradient -->
+    <div class="avatar-select-bg"></div>
+
+    <div class="avatar-select-container">
+        <!-- Header -->
+        <div class="avatar-select-header">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="logo">
+            <h1>Wybierz swój avatar</h1>
+            <p>Wybierz zdjęcie profilowe, które będzie Cię reprezentować w systemie</p>
+        </div>
+
+        {% if has_avatars %}
+        <!-- Avatar Selection Form -->
+        <form action="{{ url_for('profile.save_avatar') }}" method="POST" id="avatarForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="avatar_id" id="selectedAvatarId" value="{{ current_avatar_id or '' }}">
+
+            <!-- Series Carousels -->
+            <div class="avatar-series-container">
+                {% for series in series_list %}
+                {% if series.avatar_count > 0 %}
+                <div class="avatar-series-row">
+                    <h2 class="series-title">{{ series.name }}</h2>
+                    <div class="avatar-carousel">
+                        <div class="avatar-carousel-track">
+                            {% for avatar in series.avatars %}
+                            <div class="avatar-option {% if current_avatar_id == avatar.id %}selected{% endif %}"
+                                 data-avatar-id="{{ avatar.id }}"
+                                 onclick="selectAvatar({{ avatar.id }}, this)">
+                                <div class="avatar-image-wrapper">
+                                    <img src="{{ avatar.url }}" alt="{{ series.name }}">
+                                    <div class="avatar-glow"></div>
+                                </div>
+                                <div class="avatar-check">
+                                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                    </svg>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Submit Button -->
+            <div class="avatar-select-actions">
+                <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                    <span class="btn-text">Zapisz avatar</span>
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" class="btn-icon">
+                        <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8z"/>
+                    </svg>
+                </button>
+            </div>
+        </form>
+
+        {% else %}
+        <!-- No avatars available -->
+        <div class="no-avatars-message">
+            <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+            </svg>
+            <h2>Brak dostępnych avatarów</h2>
+            <p>Administrator nie dodał jeszcze żadnych avatarów do wyboru.</p>
+            {% if current_user.is_admin() %}
+            <a href="{{ url_for('profile.avatars_admin') }}" class="btn btn-primary">
+                Dodaj avatary
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Avatar Select Page - K-pop Style */
+.avatar-select-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.avatar-select-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg,
+        var(--purple-100) 0%,
+        var(--purple-200) 25%,
+        var(--purple-300) 50%,
+        #5c1a6b 75%,
+        var(--purple-200) 100%
+    );
+    z-index: -2;
+}
+
+.avatar-select-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(ellipse at 20% 30%, rgba(240, 147, 251, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(245, 87, 108, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 70%);
+    z-index: -1;
+}
+
+.avatar-select-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6);
+}
+
+/* Header */
+.avatar-select-header {
+    text-align: center;
+    margin-bottom: var(--space-10);
+}
+
+.avatar-select-header .logo {
+    height: 48px;
+    margin-bottom: var(--space-6);
+    filter: brightness(0) invert(1);
+}
+
+.avatar-select-header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 var(--space-3);
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-select-header p {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+}
+
+/* Series Row */
+.avatar-series-row {
+    margin-bottom: var(--space-8);
+}
+
+.series-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 var(--space-4);
+    padding-left: var(--space-2);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Carousel */
+.avatar-carousel {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: var(--space-4) 0;
+    margin: 0 calc(-1 * var(--space-6));
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.avatar-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+.avatar-carousel-track {
+    display: flex;
+    gap: var(--space-4);
+}
+
+/* Avatar Option */
+.avatar-option {
+    flex-shrink: 0;
+    width: 120px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.avatar-option:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+.avatar-image-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.3s;
+}
+
+.avatar-option:hover .avatar-image-wrapper {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.avatar-option img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.avatar-option:hover img {
+    transform: scale(1.05);
+}
+
+/* Avatar Glow Effect (K-pop style) */
+.avatar-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    box-shadow: inset 0 0 30px rgba(240, 147, 251, 0.5);
+}
+
+.avatar-option:hover .avatar-glow {
+    opacity: 0.5;
+}
+
+.avatar-option.selected .avatar-glow {
+    opacity: 1;
+    box-shadow:
+        inset 0 0 30px rgba(240, 147, 251, 0.6),
+        0 0 30px rgba(240, 147, 251, 0.4),
+        0 0 60px rgba(245, 87, 108, 0.2);
+}
+
+/* Selected state */
+.avatar-option.selected .avatar-image-wrapper {
+    box-shadow:
+        0 0 0 3px rgba(240, 147, 251, 0.8),
+        0 8px 30px rgba(240, 147, 251, 0.4);
+}
+
+/* Check mark */
+.avatar-check {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 2px 10px rgba(240, 147, 251, 0.5);
+}
+
+.avatar-option.selected .avatar-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Actions */
+.avatar-select-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-10);
+    padding-bottom: var(--space-8);
+}
+
+.btn-lg {
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    border-radius: 12px;
+}
+
+.btn-lg .btn-icon {
+    transition: transform 0.3s;
+}
+
+.btn-lg:hover .btn-icon {
+    transform: translateX(4px);
+}
+
+.btn-lg:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-lg:disabled:hover .btn-icon {
+    transform: none;
+}
+
+/* No avatars message */
+.no-avatars-message {
+    text-align: center;
+    padding: var(--space-16) var(--space-6);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.no-avatars-message svg {
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: var(--space-4);
+}
+
+.no-avatars-message h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 var(--space-2);
+}
+
+.no-avatars-message p {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 var(--space-6);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .avatar-select-header h1 {
+        font-size: 28px;
+    }
+
+    .avatar-option {
+        width: 100px;
+    }
+
+    .avatar-image-wrapper {
+        width: 100px;
+        height: 100px;
+    }
+
+    .series-title {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .avatar-option {
+        width: 80px;
+    }
+
+    .avatar-image-wrapper {
+        width: 80px;
+        height: 80px;
+    }
+
+    .avatar-check {
+        width: 24px;
+        height: 24px;
+        top: 4px;
+        right: 4px;
+    }
+
+    .avatar-check svg {
+        width: 16px;
+        height: 16px;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedAvatarId = {{ current_avatar_id or 'null' }};
+
+function selectAvatar(avatarId, element) {
+    // Remove previous selection
+    document.querySelectorAll('.avatar-option.selected').forEach(el => {
+        el.classList.remove('selected');
+    });
+
+    // Add selection to clicked element
+    element.classList.add('selected');
+
+    // Update hidden input
+    selectedAvatarId = avatarId;
+    document.getElementById('selectedAvatarId').value = avatarId;
+
+    // Enable submit button
+    document.getElementById('submitBtn').disabled = false;
+}
+
+// Initial state - enable button if avatar already selected
+if (selectedAvatarId) {
+    document.getElementById('submitBtn').disabled = false;
+}
+</script>
+{% endblock %}

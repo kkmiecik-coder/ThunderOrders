@@ -1,0 +1,542 @@
+/**
+ * Exclusive Page - Status Pages (K-pop Style)
+ * Styles for draft, paused, ended, and thank you pages
+ * Animated background with floating orbs & glassmorphism
+ */
+
+/* ==========================================
+   Base Layout
+   ========================================== */
+.status-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Page-specific gradients */
+.status-page.status-draft {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.status-page.status-ended {
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+}
+
+.status-page.status-paused {
+    background: linear-gradient(135deg, #2d1b4e 0%, #4a1942 50%, #1a1a2e 100%);
+}
+
+.status-page.status-thankyou {
+    background: linear-gradient(135deg, #134e5e 0%, #1a4a5e 50%, #0f3460 100%);
+}
+
+/* ==========================================
+   Animated Background
+   ========================================== */
+.animated-bg {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Floating Orbs */
+.orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.6;
+}
+
+.orb-1 {
+    width: 400px;
+    height: 400px;
+    top: -100px;
+    left: -100px;
+    animation: float1 20s ease-in-out infinite;
+}
+
+.orb-2 {
+    width: 350px;
+    height: 350px;
+    top: 50%;
+    right: -80px;
+    animation: float2 24s ease-in-out infinite;
+}
+
+.orb-3 {
+    width: 300px;
+    height: 300px;
+    bottom: -80px;
+    left: 30%;
+    animation: float3 18s ease-in-out infinite;
+}
+
+/* Draft page - blue/cyan orbs */
+.status-draft .orb-1 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.status-draft .orb-2 { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.status-draft .orb-3 { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+/* Ended page - pink/purple orbs */
+.status-ended .orb-1 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.status-ended .orb-2 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.status-ended .orb-3 { background: linear-gradient(135deg, #ee9f9f 0%, #fed6e3 100%); }
+
+/* Paused page - orange/yellow orbs */
+.status-paused .orb-1 { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.status-paused .orb-2 { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
+.status-paused .orb-3 { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+
+/* Thank you page - green/teal orbs */
+.status-thankyou .orb-1 { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+.status-thankyou .orb-2 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.status-thankyou .orb-3 { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+@keyframes float1 {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+    }
+    25% {
+        transform: translate(60px, 40px) rotate(90deg) scale(1.1);
+    }
+    50% {
+        transform: translate(100px, -30px) rotate(180deg) scale(0.95);
+    }
+    75% {
+        transform: translate(40px, -60px) rotate(270deg) scale(1.05);
+    }
+}
+
+@keyframes float2 {
+    0%, 100% {
+        transform: translate(0, 0) rotate(0deg) scale(1);
+    }
+    25% {
+        transform: translate(-80px, 60px) rotate(-90deg) scale(1.15);
+    }
+    50% {
+        transform: translate(-50px, -50px) rotate(-180deg) scale(0.9);
+    }
+    75% {
+        transform: translate(-100px, 20px) rotate(-270deg) scale(1.1);
+    }
+}
+
+@keyframes float3 {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(80px, -60px) scale(1.15);
+    }
+    66% {
+        transform: translate(-40px, -80px) scale(0.9);
+    }
+}
+
+/* Sparkles */
+.sparkle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 0 10px 2px rgba(255, 255, 255, 0.8);
+    animation: sparkle 3s ease-in-out infinite;
+}
+
+.sparkle-1 { top: 15%; left: 20%; animation-delay: 0s; }
+.sparkle-2 { top: 25%; right: 25%; animation-delay: 0.5s; }
+.sparkle-3 { top: 60%; left: 15%; animation-delay: 1s; }
+.sparkle-4 { top: 70%; right: 30%; animation-delay: 1.5s; }
+.sparkle-5 { bottom: 20%; left: 50%; animation-delay: 2s; }
+
+@keyframes sparkle {
+    0%, 100% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* ==========================================
+   Glass Container
+   ========================================== */
+.status-container {
+    position: relative;
+    z-index: 10;
+    text-align: center;
+    max-width: 550px;
+    width: 100%;
+    padding: var(--space-10) var(--space-8);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 0 80px rgba(255, 255, 255, 0.03);
+    animation: containerGlow 4s ease-in-out infinite alternate;
+}
+
+@keyframes containerGlow {
+    0% {
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            inset 0 0 80px rgba(255, 255, 255, 0.03),
+            0 0 60px rgba(240, 147, 251, 0.1);
+    }
+    100% {
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            inset 0 0 80px rgba(255, 255, 255, 0.03),
+            0 0 80px rgba(102, 126, 234, 0.15);
+    }
+}
+
+/* ==========================================
+   Logo
+   ========================================== */
+.status-logo {
+    margin-bottom: var(--space-6);
+}
+
+.status-logo img {
+    height: 56px;
+    width: auto;
+    filter: drop-shadow(0 4px 20px rgba(240, 147, 251, 0.3));
+}
+
+/* ==========================================
+   Status Icon
+   ========================================== */
+.status-icon {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--space-6) auto;
+    animation: iconPulse 3s ease-in-out infinite;
+}
+
+/* Draft icon - blue */
+.status-draft .status-icon {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(79, 172, 254, 0.3));
+    border: 2px solid rgba(102, 126, 234, 0.4);
+    color: #4facfe;
+    box-shadow: 0 0 30px rgba(79, 172, 254, 0.3);
+}
+
+/* Ended icon - pink/success */
+.status-ended .status-icon {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.3), rgba(245, 87, 108, 0.3));
+    border: 2px solid rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+    box-shadow: 0 0 30px rgba(240, 147, 251, 0.3);
+}
+
+/* Paused icon - warning/orange */
+.status-paused .status-icon {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 193, 7, 0.3));
+    border: 2px solid rgba(255, 152, 0, 0.4);
+    color: #ffb74d;
+    box-shadow: 0 0 30px rgba(255, 152, 0, 0.3);
+}
+
+/* Thank you icon - green */
+.status-thankyou .status-icon {
+    background: linear-gradient(135deg, rgba(17, 153, 142, 0.3), rgba(56, 239, 125, 0.3));
+    border: 2px solid rgba(56, 239, 125, 0.4);
+    color: #38ef7d;
+    box-shadow: 0 0 30px rgba(56, 239, 125, 0.3);
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+/* ==========================================
+   Badge
+   ========================================== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: var(--space-4);
+    animation: badgePulse 2s ease-in-out infinite;
+}
+
+.status-draft .status-badge {
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.3), rgba(102, 126, 234, 0.3));
+    border: 1px solid rgba(79, 172, 254, 0.4);
+    color: #4facfe;
+}
+
+.status-ended .status-badge {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.3), rgba(245, 87, 108, 0.3));
+    border: 1px solid rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+}
+
+.status-paused .status-badge {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.3), rgba(255, 193, 7, 0.3));
+    border: 1px solid rgba(255, 152, 0, 0.4);
+    color: #ffb74d;
+}
+
+.status-thankyou .status-badge {
+    background: linear-gradient(135deg, rgba(17, 153, 142, 0.3), rgba(56, 239, 125, 0.3));
+    border: 1px solid rgba(56, 239, 125, 0.4);
+    color: #38ef7d;
+}
+
+@keyframes badgePulse {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+    }
+}
+
+/* ==========================================
+   Typography
+   ========================================== */
+.status-container h1 {
+    font-size: clamp(24px, 5vw, 36px);
+    font-weight: 800;
+    color: white;
+    margin: 0 0 var(--space-2) 0;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 50%, #e8d5f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.status-container h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0 0 var(--space-4) 0;
+}
+
+.status-container p {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 var(--space-3) 0;
+    line-height: 1.7;
+    font-size: var(--text-base);
+}
+
+.status-container .text-muted {
+    font-size: var(--text-sm);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================
+   Info Card
+   ========================================== */
+.status-info-card {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin: var(--space-4) 0;
+}
+
+.status-info-card svg {
+    flex-shrink: 0;
+}
+
+.status-draft .status-info-card svg { color: #4facfe; }
+.status-ended .status-info-card svg { color: #f093fb; }
+.status-paused .status-info-card svg { color: #ffb74d; }
+.status-thankyou .status-info-card svg { color: #38ef7d; }
+
+.status-info-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+}
+
+.status-info-label {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.status-info-value {
+    font-size: var(--text-base);
+    color: white;
+    font-weight: 600;
+}
+
+/* ==========================================
+   Action Button
+   ========================================== */
+.status-action,
+.status-actions {
+    margin-top: var(--space-6);
+}
+
+.btn,
+.status-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-6);
+    border: none;
+    border-radius: 12px;
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.3);
+}
+
+.btn:hover,
+.status-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(240, 147, 251, 0.5);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.3);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(240, 147, 251, 0.5);
+}
+
+.btn-secondary,
+.status-btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+}
+
+.btn-secondary:hover,
+.status-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.1);
+}
+
+/* ==========================================
+   Guest Info
+   ========================================== */
+.guest-info {
+    margin-top: var(--space-6);
+    padding-top: var(--space-6);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.guest-info p {
+    font-size: var(--text-sm);
+}
+
+.guest-info a {
+    color: #f093fb;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.guest-info a:hover {
+    color: #f5576c;
+    text-decoration: underline;
+}
+
+/* ==========================================
+   Responsive
+   ========================================== */
+@media (max-width: 600px) {
+    .status-page {
+        padding: var(--space-4);
+    }
+
+    .status-container {
+        padding: var(--space-8) var(--space-5);
+        border-radius: 24px;
+    }
+
+    .status-icon {
+        width: 80px;
+        height: 80px;
+    }
+
+    .status-icon svg {
+        width: 40px;
+        height: 40px;
+    }
+
+    .orb {
+        filter: blur(40px);
+    }
+
+    .orb-1 { width: 200px; height: 200px; }
+    .orb-2 { width: 180px; height: 180px; }
+    .orb-3 { width: 150px; height: 150px; }
+
+    .status-badge {
+        font-size: 10px;
+        padding: 6px 12px;
+    }
+
+    .status-info-card {
+        padding: var(--space-3) var(--space-4);
+    }
+}
+
+/* ==========================================
+   Reduced Motion
+   ========================================== */
+@media (prefers-reduced-motion: reduce) {
+    .orb,
+    .sparkle,
+    .status-icon {
+        animation: none;
+    }
+
+    .status-container {
+        animation: none;
+    }
+
+    .status-badge {
+        animation: none;
+    }
+}

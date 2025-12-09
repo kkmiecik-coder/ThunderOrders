@@ -18,9 +18,15 @@
   --purple-400: #7B2CBF;
   --purple-500: #9D4EDD;
 
+  /* KPop Purple Palette */
+  --kpop-purple: #5A189A;
+  --kpop-purple-light: #E0D4F7;
+  --kpop-pink: #E040FB;
+
   /* Neutralne */
   --black: #000000;
   --white: #FFFFFF;
+  --gray-50: #FAFAFA;
   --gray-100: #F5F5F5;
   --gray-200: #E0E0E0;
   --gray-300: #BDBDBD;
@@ -35,6 +41,12 @@
   --warning: #FFC107;
   --error: #F44336;
   --info: #2196F3;
+
+  /* Primary colors (aliases) */
+  --primary-color: #FF8500;
+  --primary-hover: #FF9100;
+  --border-color: #E0E0E0;
+  --bg-hover: #F5F5F5;
 
   /* ============================ */
   /* Light Mode (Default)         */
@@ -151,6 +163,12 @@
 
   --card-bg: #16213e;
   --card-border: #2d2d44;
+
+  /* Primary colors (dark mode) */
+  --primary-color: #FF8500;
+  --primary-hover: #FF9100;
+  --border-color: #2d2d44;
+  --bg-hover: #1f2a47;
 
   /* Dark mode shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);

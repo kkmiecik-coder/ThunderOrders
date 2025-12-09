@@ -20,18 +20,38 @@
                 </a>
             </li>
 
-            <li class="sidebar-item">
-                <a href="#"
-                   class="sidebar-link {% if request.endpoint and 'orders' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Zamówienia">
-                    <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Zamówienia" class="sidebar-icon">
-                    <span class="sidebar-text">Zamówienia</span>
-                </a>
+            <!-- Zamówienia (Collapsible Category) -->
+            <li class="sidebar-item sidebar-category">
+                <div class="sidebar-category-header" onclick="toggleSidebarCategory(this)" data-tooltip="Zamówienia">
+                    <div class="sidebar-category-main">
+                        <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Zamówienia" class="sidebar-icon">
+                        <span class="sidebar-text">Zamówienia</span>
+                    </div>
+                    <svg class="category-chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z"/>
+                    </svg>
+                </div>
+                <ul class="sidebar-subcategories" data-category-name="Zamówienia">
+                    <li class="sidebar-subitem">
+                        <a href="#"
+                           class="sidebar-sublink disabled"
+                           data-tooltip="Standard">
+                            <span class="sidebar-text">Standard</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('admin.exclusive_list') }}"
+                           class="sidebar-sublink {% if request.endpoint and 'exclusive' in request.endpoint %}active{% endif %}"
+                           data-tooltip="Exclusive">
+                            <span class="sidebar-text">Exclusive</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
 
             <li class="sidebar-item">
-                <a href="#"
-                   class="sidebar-link {% if request.endpoint and 'clients' in request.endpoint %}active{% endif %}"
+                <a href="{{ url_for('admin.clients_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'client' in request.endpoint %}active{% endif %}"
                    data-tooltip="Klienci">
                     <img src="{{ url_for('static', filename='img/icons/clients.svg') }}" alt="Klienci" class="sidebar-icon">
                     <span class="sidebar-text">Klienci</span>
@@ -76,19 +96,19 @@
 
             <li class="sidebar-item">
                 <a href="#"
-                   class="sidebar-link {% if request.endpoint and 'exclusive' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Exclusive">
-                    <img src="{{ url_for('static', filename='img/icons/exclusive.svg') }}" alt="Exclusive" class="sidebar-icon">
-                    <span class="sidebar-text">Exclusive</span>
-                </a>
-            </li>
-
-            <li class="sidebar-item">
-                <a href="#"
                    class="sidebar-link {% if request.endpoint and 'statistics' in request.endpoint %}active{% endif %}"
                    data-tooltip="Statystyki">
                     <img src="{{ url_for('static', filename='img/icons/dashboard.svg') }}" alt="Statystyki" class="sidebar-icon">
                     <span class="sidebar-text">Statystyki</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="{{ url_for('admin.tasks_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'task' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Moje zadania">
+                    <img src="{{ url_for('static', filename='img/icons/tasks.svg') }}" alt="Moje zadania" class="sidebar-icon">
+                    <span class="sidebar-text">Moje zadania</span>
                 </a>
             </li>
         </ul>

@@ -142,6 +142,10 @@ def login():
 
         flash(f'Witaj, {user.first_name}!', 'success')
 
+        # Sprawdź czy użytkownik ma wybrany avatar
+        if not user.has_avatar:
+            return redirect(url_for('profile.select_avatar'))
+
         # Redirect na odpowiedni dashboard
         next_page = request.args.get('next')
         if next_page:

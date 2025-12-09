@@ -1,0 +1,616 @@
+/* ==========================================
+   Client Detail Page
+   ========================================== */
+
+.client-detail-page {
+  padding: 0;
+  background: #f5f5f5;
+}
+
+/* ==========================================
+   Page Header
+   ========================================== */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 24px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.back-link:hover {
+  color: #FF8500;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+}
+
+.client-avatar-large {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5A189A, #7B2CBF);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.client-avatar-large.has-avatar {
+  background: transparent;
+  border: 2px solid #FF006E;
+}
+
+.client-avatar-large.has-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.inactive-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #ffebee;
+  color: #c62828;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* ==========================================
+   Content Layout
+   ========================================== */
+.detail-content {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  padding: 24px;
+}
+
+.detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.detail-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+@media (max-width: 1024px) {
+  .detail-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ==========================================
+   Info Cards
+   ========================================== */
+.info-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+
+.info-card.card-warning {
+  border-color: #f57c00;
+  background: #fff8e1;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.card-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.btn-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-size: 13px;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-edit:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+  color: #FF8500;
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.card-actions {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* ==========================================
+   Info Grid
+   ========================================== */
+.info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.info-label {
+  flex: 0 0 160px;
+  color: #666;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.info-value {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-value a {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.info-value a:hover {
+  text-decoration: underline;
+}
+
+.verified-badge {
+  color: #4CAF50;
+}
+
+/* ==========================================
+   Role & Status Badges
+   ========================================== */
+.role-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.role-client {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.role-mod {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.role-admin {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.status-active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-inactive {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.text-muted {
+  color: #999;
+}
+
+/* ==========================================
+   Edit Form
+   ========================================== */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  color: #333;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #FF8500;
+  box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: #999;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+/* ==========================================
+   Stats Grid
+   ========================================== */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+}
+
+.stat-item .stat-value {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.stat-item .stat-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* ==========================================
+   Action Buttons
+   ========================================== */
+.action-buttons-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ==========================================
+   Empty State
+   ========================================== */
+.empty-state-small {
+  text-align: center;
+  padding: 32px 20px;
+  color: #666;
+}
+
+.empty-state-small .empty-icon {
+  opacity: 0.3;
+  margin-bottom: 12px;
+}
+
+.empty-state-small p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* ==========================================
+   Buttons
+   ========================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #45a049;
+}
+
+.btn-secondary {
+  background: white;
+  color: #555;
+  border: 1px solid #ddd;
+}
+
+.btn-secondary:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.btn-warning {
+  background: #f57c00;
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #e65100;
+}
+
+.btn-success {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #45a049;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* ==========================================
+   Modal Styles - Specific selectors to override global modals.css
+   ========================================== */
+/* Hidden by default - JS toggles display via inline style */
+#deactivateModal,
+#deleteModal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+#deactivateModal .modal-backdrop,
+#deleteModal .modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 1;
+}
+
+#deactivateModal .modal-content,
+#deleteModal .modal-content {
+  position: relative !important;
+  background: white !important;
+  border-radius: 8px !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+  z-index: 2;
+  margin: 20px;
+}
+
+#deactivateModal .modal-header,
+#deleteModal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+#deactivateModal .modal-header h3,
+#deleteModal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+#deactivateModal .modal-close,
+#deleteModal .modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  color: #999;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+#deactivateModal .modal-close:hover,
+#deleteModal .modal-close:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+#deactivateModal .modal-body,
+#deleteModal .modal-body {
+  padding: 24px;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#deactivateModal .modal-body p,
+#deleteModal .modal-body p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #555;
+}
+
+.modal-note {
+  font-size: 13px;
+  color: #999;
+  margin-top: 16px !important;
+}
+
+.modal-warning {
+  color: #c62828;
+  font-weight: 500;
+}
+
+#deactivateModal .modal-footer,
+#deleteModal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+  border-radius: 0 0 8px 8px;
+}
+
+/* ==========================================
+   Responsive
+   ========================================== */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .info-label {
+    flex: 0 0 120px;
+  }
+}

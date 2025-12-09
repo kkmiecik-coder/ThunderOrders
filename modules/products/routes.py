@@ -2107,6 +2107,33 @@ def update_stock_order_status(id):
 
         # Update status
         stock_order.status = new_status
+
+        # When status CHANGES TO "dostarczone_gom", move order to POLSKA tab AND ADD to product stock
+        if new_status == 'dostarczone_gom' and old_status != 'dostarczone_gom':
+            stock_order.order_type = 'polska'
+
+            # Update product stock for each item in the order (ADD)
+            for item in stock_order.items:
+                if item.product:
+                    item.product.quantity = (item.product.quantity or 0) + item.quantity
+                    current_app.logger.info(
+                        f"Stock ADDED for product {item.product.id} ({item.product.name}): "
+                        f"+{item.quantity}, new quantity: {item.product.quantity}"
+                    )
+
+        # When status CHANGES FROM "dostarczone_gom" to something else, SUBTRACT from product stock
+        elif old_status == 'dostarczone_gom' and new_status != 'dostarczone_gom':
+            stock_order.order_type = 'proxy'  # Move back to PROXY tab
+
+            # Update product stock for each item in the order (SUBTRACT)
+            for item in stock_order.items:
+                if item.product:
+                    item.product.quantity = (item.product.quantity or 0) - item.quantity
+                    current_app.logger.info(
+                        f"Stock SUBTRACTED for product {item.product.id} ({item.product.name}): "
+                        f"-{item.quantity}, new quantity: {item.product.quantity}"
+                    )
+
         db.session.commit()
 
         return jsonify({

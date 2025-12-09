@@ -3,232 +3,913 @@
 {% block title %}Panel Administratora - ThunderOrders{% endblock %}
 
 {% block content %}
-<div class="admin-dashboard">
+<div class="kpop-dashboard">
+    <!-- Header -->
     <div class="dashboard-header">
-        <h1 class="dashboard-title">Panel Administratora</h1>
-        <p class="dashboard-subtitle">Witaj z powrotem, {{ current_user.first_name }}!</p>
+        <div class="header-content">
+            <h1 class="dashboard-title">
+                Witaj z powrotem, <span class="title-gradient">{{ current_user.first_name }}!</span>
+            </h1>
+        </div>
     </div>
 
-    <!-- Kafelki z metrykami (placeholder) -->
-    <div class="dashboard-metrics">
-        <div class="metric-card">
-            <div class="metric-icon">📦</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Zamówienia</h3>
-                <p class="metric-value">0</p>
-                <p class="metric-subtitle">Wszystkie zamówienia</p>
+    <!-- Statistics Cards Grid -->
+    <div class="stats-grid">
+        <!-- Revenue Card -->
+        <div class="stat-card stat-card-gradient-purple">
+            <div class="stat-icon">💰</div>
+            <div class="stat-content">
+                <h3 class="stat-label">Przychód</h3>
+                <p class="stat-value">{{ "%.2f"|format(revenue.month) }} PLN</p>
+                <div class="stat-meta">
+                    <div><strong>Miesiąc:</strong> {{ "%.2f"|format(revenue.month) }} PLN</div>
+                    <div><strong>Tydzień:</strong> {{ "%.2f"|format(revenue.week) }} PLN</div>
+                    <div><strong>Dzisiaj:</strong> {{ "%.2f"|format(revenue.today) }} PLN</div>
+                </div>
             </div>
         </div>
 
-        <div class="metric-card">
-            <div class="metric-icon">🕐</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Dzisiaj</h3>
-                <p class="metric-value">0</p>
-                <p class="metric-subtitle">Zamówienia dzisiaj</p>
+        <!-- Orders Card -->
+        <div class="stat-card stat-card-gradient-pink">
+            <div class="stat-icon">📦</div>
+            <div class="stat-content">
+                <h3 class="stat-label">Zamówienia</h3>
+                <p class="stat-value">{{ orders.all }}</p>
+                <div class="stat-meta">
+                    <div><strong>Miesiąc:</strong> {{ orders.all }}</div>
+                    <div><strong>Tydzień:</strong> 0</div>
+                    <div><strong>Dzisiaj:</strong> {{ orders.today }}</div>
+                </div>
             </div>
         </div>
 
-        <div class="metric-card">
-            <div class="metric-icon">📋</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Do pakowania</h3>
-                <p class="metric-value">0</p>
-                <p class="metric-subtitle">Oczekujące</p>
-            </div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-icon">💰</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Przychód</h3>
-                <p class="metric-value">0 PLN</p>
-                <p class="metric-subtitle">W tym miesiącu</p>
-            </div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-icon">👥</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Klienci</h3>
-                <p class="metric-value">0</p>
-                <p class="metric-subtitle">Aktywni klienci</p>
-            </div>
-        </div>
-
-        <div class="metric-card">
-            <div class="metric-icon">📦</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Produkty</h3>
-                <p class="metric-value">0</p>
-                <p class="metric-subtitle">Aktywne produkty</p>
+        <!-- Clients Card -->
+        <div class="stat-card stat-card-gradient-cyan">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <h3 class="stat-label">Wszyscy klienci</h3>
+                <p class="stat-value">{{ clients.total }}</p>
+                <div class="stat-meta">
+                    <div><strong>Nowi w tym miesiącu:</strong> {{ clients.new }}</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Ostatnie zamówienia (placeholder) -->
-    <div class="dashboard-section">
-        <div class="section-header">
-            <h2 class="section-title">Ostatnie zamówienia</h2>
-            <a href="#" class="section-link">Zobacz wszystkie →</a>
+    <!-- Main Content Grid (2 columns) -->
+    <div class="dashboard-grid">
+        <!-- Left Column -->
+        <div class="dashboard-column">
+            <!-- Sales Chart -->
+            <div class="widget widget-chart">
+                <div class="widget-header">
+                    <h2 class="widget-title">📈 Sprzedaż (7 dni)</h2>
+                </div>
+                <div class="widget-body">
+                    <canvas id="salesChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Orders Widget -->
+            <div class="widget widget-orders">
+                <div class="widget-header">
+                    <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
+                    {# Link will be enabled when orders module is created #}
+                    {# <a href="{{ url_for('admin.orders_list') }}" class="widget-link">Zobacz wszystkie →</a> #}
+                </div>
+                <div class="widget-body">
+                    {% if recent_orders|length > 0 %}
+                        <div class="orders-list">
+                            {% for order in recent_orders %}
+                                <div class="order-item">
+                                    <div class="order-info">
+                                        {# <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" class="order-number"> #}
+                                        <span class="order-number">
+                                            {{ order.order_number }}
+                                        {# </a> #}
+                                        </span>
+                                        <p class="order-client">{{ order.client_name }}</p>
+                                    </div>
+                                    <div class="order-meta">
+                                        <span class="order-status order-status-{{ order.status }}">
+                                            {{ order.status|replace('_', ' ')|title }}
+                                        </span>
+                                        <p class="order-amount">{{ "%.2f"|format(order.total_amount) }} PLN</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty-state">
+                            <p class="empty-icon">📭</p>
+                            <p class="empty-text">Brak zamówień</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
-        <div class="empty-state">
-            <p class="empty-state-icon">📭</p>
-            <p class="empty-state-text">Brak zamówień do wyświetlenia</p>
-            <p class="empty-state-subtitle">Zamówienia pojawią się tutaj po utworzeniu pierwszego zamówienia</p>
+        <!-- Right Column -->
+        <div class="dashboard-column">
+            <!-- Top Products Chart -->
+            <div class="widget widget-chart">
+                <div class="widget-header">
+                    <h2 class="widget-title">🔥 Top Produkty</h2>
+                </div>
+                <div class="widget-body">
+                    <canvas id="productsChart" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- TODO Widget -->
+            <div class="widget widget-todo">
+                <div class="widget-header">
+                    <h2 class="widget-title">✅ Moje TODO</h2>
+                    <button class="widget-link" onclick="openTaskModal()">+ Dodaj</button>
+                </div>
+                <div class="widget-body">
+                    {% if tasks.recent_tasks|length > 0 %}
+                        <div class="todo-list">
+                            {% for task in tasks.recent_tasks %}
+                                <div class="todo-item todo-status-{{ task.status }}" onclick="openTaskPreview({{ task.id }})" style="cursor: pointer;">
+                                    <div class="todo-content">
+                                        <p class="todo-name">{{ task.name }}</p>
+                                        <div class="todo-meta">
+                                            <span class="todo-priority todo-priority-{{ task.priority }}">
+                                                {% if task.priority == 'high' %}Pilne{% elif task.priority == 'medium' %}Średni{% else %}Niski{% endif %}
+                                            </span>
+                                            {% if task.due_date %}
+                                                <span class="todo-date">
+                                                    🗓️ {{ task.due_date.strftime('%d.%m.%Y') }}
+                                                </span>
+                                            {% endif %}
+                                            {% if task.is_overdue() %}
+                                                <span class="todo-overdue">⚠️ Po terminie</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        {% if tasks.total > 5 %}
+                            <a href="{{ url_for('admin.tasks_list') }}" class="view-all-link">
+                                Zobacz wszystkie ({{ tasks.total }}) →
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        <div class="empty-state">
+                            <p class="empty-icon">✨</p>
+                            <p class="empty-text">Brak zadań</p>
+                            <button class="btn-kpop btn-kpop-secondary" onclick="openTaskModal()">
+                                Dodaj pierwsze TODO
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.admin-dashboard {
-    /* Padding will be set dynamically by JavaScript */
-    padding-right: var(--space-8);
-    padding-bottom: var(--space-8);
-    transition: padding-left var(--transition-sidebar), padding-top var(--transition-sidebar);
+/* ====================================
+   K-POP DASHBOARD THEME
+   ==================================== */
+
+/* K-pop Color Palette */
+:root {
+    --kpop-pink: #FF006E;
+    --kpop-purple: #8338EC;
+    --kpop-cyan: #00F5FF;
+    --kpop-orange: #FF8500;
+    --kpop-dark: #0A0E27;
+    --kpop-light: #F0F4FF;
+
+    /* Gradients */
+    --gradient-purple: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-pink: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-cyan: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --gradient-orange: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 
+.kpop-dashboard {
+    padding: 0 var(--space-6);
+}
+
+/* ====================================
+   HEADER
+   ==================================== */
 .dashboard-header {
-    margin-bottom: var(--space-8);
-}
-
-.dashboard-title {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
-
-.dashboard-subtitle {
-    font-size: var(--text-lg);
-    color: var(--text-secondary);
-}
-
-/* Metrics Grid */
-.dashboard-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-6);
-    margin-bottom: var(--space-8);
-}
-
-.metric-card {
-    background: white;
-    border-radius: 12px;
-    padding: var(--space-6);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    transition: all 0.3s ease;
-}
-
-.metric-card:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-}
-
-.metric-icon {
-    font-size: 2.5rem;
-    line-height: 1;
-}
-
-.metric-content {
-    flex: 1;
-}
-
-.metric-title {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--gray-600);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: var(--space-2);
-}
-
-.metric-value {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: var(--gray-800);
-    margin-bottom: var(--space-1);
-}
-
-.metric-subtitle {
-    font-size: var(--text-sm);
-    color: var(--gray-500);
-}
-
-/* Dashboard Section */
-.dashboard-section {
-    background: white;
-    border-radius: 12px;
-    padding: var(--space-6);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: var(--space-6);
+    padding: var(--space-6) 0;
 }
 
-.section-title {
-    font-size: var(--text-xl);
-    font-weight: var(--font-semibold);
-    color: var(--gray-800);
+.header-content {
+    flex: 1;
 }
 
-.section-link {
-    color: var(--orange-300);
-    font-weight: var(--font-medium);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.section-link:hover {
-    color: var(--orange-400);
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: var(--space-12) var(--space-6);
-}
-
-.empty-state-icon {
-    font-size: 4rem;
-    margin-bottom: var(--space-4);
-}
-
-.empty-state-text {
-    font-size: var(--text-lg);
-    font-weight: var(--font-medium);
-    color: var(--gray-700);
+.dashboard-title {
+    font-size: 2.5rem;
+    font-weight: 800;
     margin-bottom: var(--space-2);
 }
 
-.empty-state-subtitle {
-    font-size: var(--text-base);
+/* Animated gradient for name */
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.title-gradient {
+    background: linear-gradient(
+        135deg,
+        var(--kpop-purple),
+        var(--kpop-pink),
+        var(--kpop-cyan),
+        var(--kpop-purple)
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 3s ease infinite;
+}
+
+.dashboard-subtitle {
+    font-size: 1.125rem;
+    color: var(--gray-600);
+}
+
+.header-actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+/* ====================================
+   K-POP BUTTONS
+   ==================================== */
+.btn-kpop {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-kpop-primary {
+    background: var(--gradient-purple);
+    color: white;
+}
+
+.btn-kpop-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(131, 56, 236, 0.4);
+}
+
+.btn-kpop-secondary {
+    background: white;
+    color: var(--kpop-purple);
+    border: 2px solid var(--kpop-purple);
+}
+
+.btn-kpop-secondary:hover {
+    background: var(--kpop-light);
+}
+
+/* ====================================
+   STATS GRID
+   ==================================== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.stat-card {
+    position: relative;
+    padding: var(--space-4);
+    border-radius: 12px;
+    color: white;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card-gradient-purple {
+    background: var(--gradient-purple);
+}
+
+.stat-card-gradient-pink {
+    background: var(--gradient-pink);
+}
+
+.stat-card-gradient-cyan {
+    background: var(--gradient-cyan);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    flex-shrink: 0;
+}
+
+.stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    margin-bottom: 2px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    line-height: 1;
+}
+
+.stat-meta {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    display: flex;
+    flex-direction: row;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+/* ====================================
+   DASHBOARD GRID (2 columns)
+   ==================================== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+}
+
+.dashboard-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+/* ====================================
+   WIDGETS
+   ==================================== */
+.widget {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.widget:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-5);
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.widget-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+
+.widget-link {
+    color: var(--kpop-purple);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.widget-link:hover {
+    color: var(--kpop-pink);
+}
+
+.widget-body {
+    padding: var(--space-5);
+}
+
+/* ====================================
+   ORDERS LIST
+   ==================================== */
+.orders-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4);
+    background: var(--gray-50);
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.order-item:hover {
+    background: var(--kpop-light);
+    transform: translateX(4px);
+}
+
+.order-info {
+    flex: 1;
+}
+
+.order-number {
+    font-weight: 700;
+    color: var(--kpop-purple);
+    text-decoration: none;
+    display: block;
+    margin-bottom: var(--space-1);
+}
+
+.order-number:hover {
+    color: var(--kpop-pink);
+}
+
+.order-client {
+    font-size: 0.875rem;
+    color: var(--gray-600);
+    margin: 0;
+}
+
+.order-meta {
+    text-align: right;
+}
+
+.order-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: var(--space-1);
+}
+
+.order-status-nowe { background: #E0F2FE; color: #0369A1; }
+.order-status-oczekujace { background: #FEF3C7; color: #92400E; }
+.order-status-spakowane { background: #DBEAFE; color: #1E40AF; }
+.order-status-wyslane { background: #DDD6FE; color: #6B21A8; }
+.order-status-dostarczone { background: #D1FAE5; color: #065F46; }
+
+.order-amount {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0;
+}
+
+/* ====================================
+   TODO LIST
+   ==================================== */
+.todo-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.todo-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--gray-50);
+    border-radius: 12px;
+    border-left: 4px solid transparent;
+    transition: all 0.2s;
+}
+
+.todo-item:hover {
+    background: var(--kpop-light);
+}
+
+.todo-status-pending { border-left-color: var(--gray-400); }
+.todo-status-in_progress { border-left-color: var(--kpop-purple); }
+.todo-status-completed {
+    border-left-color: #10b981;
+    opacity: 0.6;
+}
+
+.todo-checkbox {
+    position: relative;
+}
+
+.todo-checkbox input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    appearance: none;
+    border: 2px solid var(--kpop-purple);
+    border-radius: 6px;
+    background: white;
+    transition: all 0.2s;
+}
+
+.todo-checkbox input[type="checkbox"]:checked {
+    background: var(--gradient-purple);
+    border-color: var(--kpop-purple);
+}
+
+.todo-checkbox input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: bold;
+}
+
+.todo-content {
+    flex: 1;
+}
+
+.todo-name {
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 var(--space-1);
+}
+
+.todo-status-completed .todo-name {
+    text-decoration: line-through;
     color: var(--gray-500);
 }
 
-/* Responsive */
+.todo-meta {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+}
+
+.todo-priority {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.todo-priority-low { background: #D1FAE5; color: #065F46; }
+.todo-priority-medium { background: #FEF3C7; color: #92400E; }
+.todo-priority-high { background: #FEE2E2; color: #991B1B; }
+
+.todo-date {
+    color: var(--gray-600);
+}
+
+.todo-overdue {
+    color: #DC2626;
+    font-weight: 600;
+}
+
+.todo-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.todo-action-btn {
+    background: none;
+    border: none;
+    font-size: 1.125rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.todo-action-btn:hover {
+    opacity: 1;
+}
+
+.view-all-link {
+    display: block;
+    text-align: center;
+    margin-top: var(--space-4);
+    color: var(--kpop-purple);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.view-all-link:hover {
+    color: var(--kpop-pink);
+}
+
+/* ====================================
+   EMPTY STATES
+   ==================================== */
+.empty-state {
+    text-align: center;
+    padding: var(--space-8);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-3);
+}
+
+.empty-text {
+    font-size: 1rem;
+    color: var(--gray-500);
+    margin-bottom: var(--space-4);
+}
+
+/* ====================================
+   MODAL (placeholder)
+   ==================================== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-5);
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--gray-500);
+    transition: color 0.2s;
+}
+
+.modal-close:hover {
+    color: var(--gray-800);
+}
+
+.modal-body {
+    padding: var(--space-5);
+}
+
+/* ====================================
+   RESPONSIVE
+   ==================================== */
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 768px) {
-    .admin-dashboard {
-        padding: var(--space-4);
+    .kpop-dashboard {
+        /* Padding is now handled by .main-content in admin-layout.css */
     }
 
-    .dashboard-metrics {
-        grid-template-columns: 1fr;
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
     }
 
     .dashboard-title {
-        font-size: var(--text-2xl);
+        font-size: 2rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+
+    .stat-icon {
+        font-size: 1.5rem;
+    }
+
+    .stat-value {
+        font-size: 1.5rem;
     }
 }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// ====================================
+// CHARTS
+// ====================================
+
+// Sales Chart (7 days)
+const salesData = {{ sales_chart|tojson }};
+const salesCtx = document.getElementById('salesChart');
+if (salesCtx) {
+    new Chart(salesCtx, {
+        type: 'line',
+        data: {
+            labels: salesData.map(d => d.date_label),
+            datasets: [{
+                label: 'Przychód (PLN)',
+                data: salesData.map(d => d.revenue),
+                borderColor: '#8338EC',
+                backgroundColor: 'rgba(131, 56, 236, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                pointBackgroundColor: '#8338EC',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return value.toFixed(2) + ' PLN'; },
+                        font: { size: 12 }
+                    },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                },
+                x: {
+                    ticks: { font: { size: 12 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// Top Products Chart
+const productsData = {{ top_products|tojson }};
+const productsCtx = document.getElementById('productsChart');
+if (productsCtx && productsData.length > 0) {
+    new Chart(productsCtx, {
+        type: 'bar',
+        data: {
+            labels: productsData.map(p => p.name.substring(0, 20) + (p.name.length > 20 ? '...' : '')),
+            datasets: [{
+                label: 'Sprzedane sztuki',
+                data: productsData.map(p => p.total_quantity),
+                backgroundColor: [
+                    'rgba(131, 56, 236, 0.8)',
+                    'rgba(255, 0, 110, 0.8)',
+                    'rgba(0, 245, 255, 0.8)',
+                    'rgba(255, 133, 0, 0.8)',
+                    'rgba(102, 126, 234, 0.8)'
+                ],
+                borderRadius: 8,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    cornerRadius: 8
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1,
+                        font: { size: 12 }
+                    },
+                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                },
+                x: {
+                    ticks: { font: { size: 11 } },
+                    grid: { display: false }
+                }
+            }
+        }
+    });
+}
+
+// ====================================
+// TODO FUNCTIONS
+// ====================================
+
+function toggleTaskStatus(taskId) {
+    fetch(`/admin/tasks/${taskId}/toggle-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload page to update stats
+            location.reload();
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function openTaskModal(taskId) {
+    // Redirect to tasks page with modal open
+    if (taskId) {
+        window.location.href = `/admin/tasks?edit=${taskId}`;
+    } else {
+        window.location.href = '/admin/tasks?new=1';
+    }
+}
+
+function openTaskPreview(taskId) {
+    // Redirect to tasks page and open preview modal for this task
+    window.location.href = `/admin/tasks?view=${taskId}`;
+}
+</script>
 {% endblock %}

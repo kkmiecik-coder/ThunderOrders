@@ -31,8 +31,14 @@ window.showToast = function(message, type = 'info', duration = 5000) {
             <div class="toast-title">${titles[type] || titles.info}</div>
             <div class="toast-message">${message}</div>
         </div>
-        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        <button class="toast-close" aria-label="Zamknij">×</button>
     `;
+
+    // Close on click anywhere on toast
+    toast.addEventListener('click', () => {
+        toast.style.animation = 'toast-slide-out 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    });
 
     container.appendChild(toast);
 

@@ -32,8 +32,12 @@
         <!-- User Dropdown -->
         <div class="topbar-user-dropdown">
             <button class="topbar-user-btn" id="userDropdownBtn" aria-label="User menu">
-                <div class="topbar-user-avatar">
+                <div class="topbar-user-avatar {% if current_user.has_avatar %}has-avatar{% endif %}">
+                    {% if current_user.has_avatar %}
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.first_name }}">
+                    {% else %}
                     <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="{{ current_user.first_name }}">
+                    {% endif %}
                 </div>
                 <div class="topbar-user-info">
                     <span class="topbar-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</span>
@@ -43,13 +47,9 @@
 
             <!-- Dropdown Menu -->
             <div class="topbar-dropdown-menu" id="userDropdownMenu">
-                <a href="#" class="topbar-dropdown-item">
+                <a href="{{ url_for('profile.index') }}" class="topbar-dropdown-item">
                     <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="Profile">
-                    <span>Profil</span>
-                </a>
-                <a href="#" class="topbar-dropdown-item">
-                    <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="Settings">
-                    <span>Ustawienia</span>
+                    <span>Mój Profil</span>
                 </a>
                 <div class="topbar-dropdown-divider"></div>
                 <a href="{{ url_for('auth.logout') }}" class="topbar-dropdown-item topbar-dropdown-item-danger">
@@ -90,8 +90,12 @@
 
         <div class="mobile-menu-footer">
             <div class="mobile-menu-user">
-                <div class="mobile-menu-user-avatar">
+                <div class="mobile-menu-user-avatar {% if current_user.has_avatar %}has-avatar{% endif %}">
+                    {% if current_user.has_avatar %}
+                    <img src="{{ current_user.avatar_url }}" alt="{{ current_user.first_name }}">
+                    {% else %}
                     <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="{{ current_user.first_name }}">
+                    {% endif %}
                 </div>
                 <div class="mobile-menu-user-info">
                     <span class="mobile-menu-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</span>

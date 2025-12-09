@@ -16,9 +16,8 @@
 @import 'components/modals.css';
 
 /* Pages - Admin */
-@import 'pages/admin/products-list.css';
-@import 'pages/admin/product-form.css';
-@import 'pages/admin/warehouse-settings.css';
+/* Note: Page-specific CSS should be loaded via {% block extra_css %} in templates */
+/* Do NOT import page CSS globally to avoid style conflicts */
 
 /* Reset & Base */
 * {

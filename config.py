@@ -32,7 +32,7 @@ class Config:
 
     # Upload Configuration
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
-    MAX_CONTENT_LENGTH = int(os.getenv('MAX_UPLOAD_SIZE', 10 * 1024 * 1024))  # 10MB
+    MAX_CONTENT_LENGTH = int(os.getenv('MAX_UPLOAD_SIZE', 50 * 1024 * 1024))  # 50MB
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
     # Pagination
@@ -60,6 +60,10 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     SESSION_COOKIE_SECURE = False  # HTTP dozwolone lokalnie
+
+    # Wyłącz cache dla plików statycznych w development
+    SEND_FILE_MAX_AGE_DEFAULT = 0  # Brak cache dla plików statycznych
+    TEMPLATES_AUTO_RELOAD = True  # Auto-reload templates
 
     # Więcej logów w development
     SQLALCHEMY_ECHO = False  # True jeśli chcesz widzieć SQL queries w konsoli

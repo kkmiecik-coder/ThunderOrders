@@ -2,6 +2,10 @@
 
 {% block title %}Ustawienia magazynu - ThunderOrders{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/warehouse-settings.css') }}">
+{% endblock %}
+
 {# Macro for rendering category tree - must be defined before use #}
 {% macro render_category(category, all_categories, level=0) %}
     <li class="category-item" data-level="{{ level }}" data-category-id="{{ category.id }}">

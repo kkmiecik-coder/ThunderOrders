@@ -1,0 +1,1863 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Zadania - ThunderOrders{% endblock %}
+
+{% block content %}
+<div class="tasks-page">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">Zadania TODO</h1>
+            <p class="page-subtitle">Zarządzaj swoimi zadaniami i projektami</p>
+        </div>
+        <div class="header-actions">
+            <button class="btn-kpop btn-kpop-primary" onclick="openTaskModal()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 2V14M2 8H14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                <span>Nowe zadanie</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-bar">
+        <form method="GET" action="{{ url_for('admin.tasks_list') }}" class="filters-form">
+            <div class="filter-group">
+                <label>Status</label>
+                <select name="status" onchange="this.form.submit()">
+                    <option value="">Wszystkie</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Oczekujące</option>
+                    <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>W trakcie</option>
+                    <option value="completed" {% if status_filter == 'completed' %}selected{% endif %}>Ukończone</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Priorytet</label>
+                <select name="priority" onchange="this.form.submit()">
+                    <option value="">Wszystkie</option>
+                    <option value="low" {% if priority_filter == 'low' %}selected{% endif %}>Niski</option>
+                    <option value="medium" {% if priority_filter == 'medium' %}selected{% endif %}>Średni</option>
+                    <option value="high" {% if priority_filter == 'high' %}selected{% endif %}>Wysoki</option>
+                </select>
+            </div>
+
+            {% if status_filter or priority_filter %}
+            <a href="{{ url_for('admin.tasks_list') }}" class="btn-clear-filters">
+                Wyczyść filtry
+            </a>
+            {% endif %}
+        </form>
+    </div>
+
+    <!-- Tasks List -->
+    <div class="tasks-container">
+        {% if tasks|length > 0 %}
+            <div class="tasks-list">
+                {% for task in tasks %}
+                <div class="task-card task-status-{{ task.status }} task-priority-{{ task.priority }}" data-task-id="{{ task.id }}" onclick="openTaskViewModal({{ task.id }})" style="cursor: pointer;">
+                    <!-- Task Header -->
+                    <div class="task-header">
+                        <div class="task-main-content">
+                            <div class="task-title-row">
+                                <h3 class="task-title">{{ task.name }}</h3>
+                                <div class="task-badges">
+                                    <span class="task-priority-badge priority-{{ task.priority }}">
+                                        {% if task.priority == 'high' %}🔴 WYSOKI{% elif task.priority == 'medium' %}🟡 ŚREDNI{% else %}🟢 NISKI{% endif %}
+                                    </span>
+                                    <span class="task-status-badge status-{{ task.status }}">
+                                        {% if task.status == 'pending' %}OCZEKUJĄCE{% elif task.status == 'in_progress' %}W TRAKCIE{% elif task.status == 'completed' %}UKOŃCZONE{% endif %}
+                                    </span>
+                                    {% if task.is_overdue() %}
+                                        <span class="task-overdue-badge">⚠️ Przeterminowane</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {% if task.description %}
+                            <div class="task-description">
+                                {{ task.description|striptags|truncate(150) }}
+                            </div>
+                            {% endif %}
+
+                            <div class="task-meta">
+                                <div class="task-meta-item">
+                                    <span class="meta-icon">👤</span>
+                                    <span class="meta-text">
+                                        {% if task.assignees|length > 0 %}
+                                            {{ task.assignees|map(attribute='first_name')|join(', ') }}
+                                        {% else %}
+                                            Nieprzydzie lone
+                                        {% endif %}
+                                    </span>
+                                </div>
+
+                                {% if task.due_date %}
+                                <div class="task-meta-item">
+                                    <span class="meta-icon">📅</span>
+                                    <span class="meta-text">{{ task.due_date.strftime('%d.%m.%Y %H:%M') }}</span>
+                                </div>
+                                {% endif %}
+
+                                {% if task.subtasks|length > 0 %}
+                                <div class="task-meta-item">
+                                    <span class="meta-icon">📋</span>
+                                    <span class="meta-text">Podzadania: {{ task.completed_subtasks_count() }}/{{ task.subtasks|length }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <!-- Subtasks -->
+                            {% if task.subtasks|length > 0 %}
+                            <div class="subtasks-section" onclick="event.stopPropagation()">
+                                <div class="subtasks-header" onclick="toggleSubtasks({{ task.id }})" style="cursor: pointer;">
+                                    <span>Podzadania ({{ task.subtasks|length }})</span>
+                                    <span class="toggle-icon">▼</span>
+                                </div>
+                                <div class="subtasks-list" id="subtasks-{{ task.id }}" style="display: none;">
+                                    {% for subtask in task.subtasks %}
+                                    <div class="subtask-item">
+                                        <input
+                                            type="checkbox"
+                                            id="subtask-{{ subtask.id }}"
+                                            {% if subtask.status == 'completed' %}checked{% endif %}
+                                            onchange="toggleSubtaskStatus({{ subtask.id }})"
+                                        >
+                                        <label for="subtask-{{ subtask.id }}">{{ subtask.name }}</label>
+                                    </div>
+                                    {% endfor %}
+                                    <button class="btn-add-subtask" onclick="openSubtaskModal({{ task.id }})">
+                                        + Dodaj podzadanie
+                                    </button>
+                                </div>
+                            </div>
+                            {% else %}
+                            <button class="btn-add-subtask-inline" onclick="openSubtaskModal({{ task.id }}); event.stopPropagation();">
+                                + Dodaj podzadanie
+                            </button>
+                            {% endif %}
+                        </div>
+
+                        <div class="task-actions" onclick="event.stopPropagation()">
+                            <button class="btn-task-action" onclick="openTaskEditModal({{ task.id }})" title="Edytuj">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.33301 14.6667L2.66634 10.6667L11.333 2.00004Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            {% if current_user.role == 'admin' %}
+                            <button class="btn-task-action btn-delete" onclick="deleteTask({{ task.id }})" title="Usuń">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M2 4H14M12.6667 4V13.3333C12.6667 14 12 14.6667 11.3333 14.6667H4.66667C4 14.6667 3.33333 14 3.33333 13.3333V4M5.33333 4V2.66667C5.33333 2 6 1.33333 6.66667 1.33333H9.33333C10 1.33333 10.6667 2 10.6667 2.66667V4M6.66667 7.33333V11.3333M9.33333 7.33333V11.3333" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar (dla tasków z podzadaniami) -->
+                    {% if task.subtasks|length > 0 %}
+                    <div class="task-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ task.get_progress() }}%"></div>
+                        </div>
+                        <span class="progress-text">{{ task.get_progress()|int }}%</span>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">✨</div>
+                <h3 class="empty-title">Brak zadań</h3>
+                <p class="empty-text">
+                    {% if status_filter or priority_filter %}
+                        Nie znaleziono zadań pasujących do filtrów.
+                    {% else %}
+                        Nie masz jeszcze żadnych zadań. Utwórz pierwsze zadanie klikając przycisk "Nowe zadanie".
+                    {% endif %}
+                </p>
+                {% if not status_filter and not priority_filter %}
+                <button class="btn-kpop btn-kpop-primary" onclick="openTaskModal()">
+                    Utwórz pierwsze zadanie
+                </button>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Task View Modal (Interactive) -->
+<div id="taskViewModal" class="modal-overlay" onclick="closeTaskViewModal()">
+    <div class="modal-content modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2 class="modal-title" id="viewModalTitle">Szczegóły zadania</h2>
+            <button class="modal-close" onclick="closeTaskViewModal()">✕</button>
+        </div>
+        <div class="modal-body task-view-body" id="taskViewBody">
+            <!-- Content will be loaded dynamically -->
+            <div class="loading-spinner" style="text-align: center; padding: 40px;">
+                Ładowanie...
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Task Edit Modal -->
+<div id="taskModal" class="modal-overlay" onclick="closeTaskModal()">
+    <div class="modal-content modal-large" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modalTitle">Nowe zadanie</h2>
+            <button class="modal-close" onclick="closeTaskModal()">✕</button>
+        </div>
+        <form id="taskForm" class="modal-body">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="taskId" name="task_id">
+
+            <div class="form-group">
+                <label for="taskName">Nazwa zadania <span class="required">*</span></label>
+                <input
+                    type="text"
+                    id="taskName"
+                    name="name"
+                    class="form-input"
+                    placeholder="np. Dodać funkcję eksportu do PDF"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="taskDescription">Opis</label>
+                <div id="editor" class="editor-container"></div>
+                <textarea
+                    id="taskDescription"
+                    name="description"
+                    class="form-textarea"
+                    style="display: none;"
+                    rows="6"
+                    placeholder="Opisz zadanie w szczegółach..."
+                ></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="taskPriority">Priorytet</label>
+                    <select id="taskPriority" name="priority" class="form-select">
+                        <option value="low">🟢 Niski</option>
+                        <option value="medium" selected>🟡 Średni</option>
+                        <option value="high">🔴 Wysoki</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="taskDueDate">Termin wykonania</label>
+                    <input
+                        type="datetime-local"
+                        id="taskDueDate"
+                        name="due_date"
+                        class="form-input"
+                    >
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="taskAssignees">Przypisz do</label>
+                <select id="taskAssignees" name="assigned_users" class="form-select" multiple>
+                    {% for user in assignable_users %}
+                    <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-hint">Przytrzymaj Ctrl/Cmd aby wybrać wielu użytkowników</small>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-kpop btn-kpop-secondary" onclick="closeTaskModal()">
+                    Anuluj
+                </button>
+                <button type="submit" class="btn-kpop btn-kpop-primary" id="submitBtn">
+                    Zapisz zadanie
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Subtask Modal -->
+<div id="subtaskModal" class="modal-overlay" onclick="closeSubtaskModal()">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h2 class="modal-title">Dodaj podzadanie</h2>
+            <button class="modal-close" onclick="closeSubtaskModal()">✕</button>
+        </div>
+        <form id="subtaskForm" class="modal-body">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="parentTaskId" name="parent_task_id">
+
+            <div class="form-group">
+                <label for="subtaskName">Nazwa podzadania <span class="required">*</span></label>
+                <input
+                    type="text"
+                    id="subtaskName"
+                    name="name"
+                    class="form-input"
+                    placeholder="np. Przygotować szablon PDF"
+                    required
+                >
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-kpop btn-kpop-secondary" onclick="closeSubtaskModal()">
+                    Anuluj
+                </button>
+                <button type="submit" class="btn-kpop btn-kpop-primary">
+                    Dodaj podzadanie
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<style>
+/* K-pop Buttons */
+.btn-kpop {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-kpop-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white !important;
+}
+
+.btn-kpop-primary span {
+    color: white !important;
+}
+
+.btn-kpop-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(131, 56, 236, 0.4);
+}
+
+.btn-kpop-secondary {
+    background: white;
+    color: #8338EC;
+    border: 2px solid #8338EC;
+}
+
+.btn-kpop-secondary:hover {
+    background: #F0F4FF;
+}
+
+/* Page Layout */
+.tasks-page {
+    padding: var(--space-6);
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-6);
+}
+
+.page-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: var(--space-2);
+}
+
+.page-subtitle {
+    color: var(--gray-600);
+    font-size: 1rem;
+}
+
+/* Filters Bar */
+.filters-bar {
+    background: white;
+    padding: var(--space-4);
+    border-radius: 12px;
+    margin-bottom: var(--space-6);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.filters-form {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.filter-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.filter-group select {
+    padding: var(--space-2) var(--space-3);
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    background: white;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.filter-group select:hover,
+.filter-group select:focus {
+    border-color: var(--kpop-purple);
+    outline: none;
+}
+
+.btn-clear-filters {
+    padding: var(--space-2) var(--space-4);
+    background: var(--gray-100);
+    color: var(--gray-700);
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.btn-clear-filters:hover {
+    background: var(--gray-200);
+}
+
+/* Tasks List */
+.tasks-container {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    padding: var(--space-6);
+}
+
+.tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+/* Task Card */
+.task-card {
+    border: 2px solid var(--gray-200);
+    border-radius: 12px;
+    padding: var(--space-5);
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.task-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.task-card.task-status-completed {
+    opacity: 0.7;
+    border-color: var(--gray-300);
+}
+
+.task-card.task-priority-high {
+    border-left: 4px solid #DC2626;
+}
+
+.task-card.task-priority-medium {
+    border-left: 4px solid #F59E0B;
+}
+
+.task-card.task-priority-low {
+    border-left: 4px solid #10B981;
+}
+
+/* Task Header */
+.task-header {
+    display: flex;
+    gap: var(--space-4);
+    align-items: flex-start;
+}
+
+.task-main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.task-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+}
+
+.task-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--gray-800);
+}
+
+.task-status-completed .task-title {
+    text-decoration: line-through;
+    color: var(--gray-500);
+}
+
+.task-badges {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.task-priority-badge,
+.task-status-badge,
+.task-overdue-badge {
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.task-priority-badge.priority-high {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.task-priority-badge.priority-medium {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.task-priority-badge.priority-low {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.task-status-badge.status-pending {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.task-status-badge.status-in_progress {
+    background: #E0E7FF;
+    color: #3730A3;
+}
+
+.task-status-badge.status-completed {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.task-overdue-badge {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.task-description {
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-3);
+    line-height: 1.6;
+}
+
+.task-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-bottom: var(--space-3);
+}
+
+.task-meta-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.meta-icon {
+    font-size: 1rem;
+}
+
+/* Subtasks */
+.subtasks-section {
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--gray-200);
+}
+
+.subtasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-toggle-subtasks {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: var(--space-1);
+    transition: transform 0.2s;
+}
+
+.btn-toggle-subtasks .toggle-icon {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+.btn-toggle-subtasks.open .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.subtasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-left: var(--space-4);
+}
+
+.subtask-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    background: var(--gray-50);
+    border-radius: 8px;
+}
+
+.subtask-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.subtask-item label {
+    flex: 1;
+    cursor: pointer;
+    font-size: 0.875rem;
+}
+
+.btn-add-subtask,
+.btn-add-subtask-inline {
+    background: none;
+    border: 2px dashed var(--kpop-purple);
+    color: var(--kpop-purple);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: var(--space-2);
+}
+
+.btn-add-subtask:hover,
+.btn-add-subtask-inline:hover {
+    background: var(--kpop-light);
+    border-style: solid;
+}
+
+/* Task Actions */
+.task-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-shrink: 0;
+}
+
+.btn-task-action {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    padding: var(--space-2);
+}
+
+.btn-task-action:hover {
+    opacity: 1;
+}
+
+.btn-task-action.btn-delete:hover {
+    opacity: 1;
+    filter: brightness(1.2);
+}
+
+/* Progress Bar */
+.task-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--gray-200);
+}
+
+.progress-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--gray-200);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--kpop-purple), var(--kpop-pink));
+    transition: width 0.3s ease;
+}
+
+.progress-text {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    min-width: 40px;
+    text-align: right;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: var(--space-12);
+}
+
+.empty-icon {
+    font-size: 4rem;
+    margin-bottom: var(--space-4);
+}
+
+.empty-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: var(--space-2);
+}
+
+.empty-text {
+    color: var(--gray-600);
+    margin-bottom: var(--space-6);
+}
+
+/* Modal styles are now in modals.css */
+
+/* Task-specific modal overrides */
+.modal-content.modal-large {
+    max-width: 800px;
+}
+
+.modal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+/* Task modal footer adjustments */
+.modal-footer {
+    padding-top: var(--space-6);
+    border-top: 2px solid var(--gray-100);
+    margin-top: var(--space-6);
+}
+
+/* Form Elements */
+.form-group {
+    margin-bottom: var(--space-5);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+    color: var(--gray-700);
+}
+
+.required {
+    color: #DC2626;
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+    width: 100%;
+    padding: var(--space-3);
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--kpop-purple);
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-select[multiple] {
+    min-height: 120px;
+}
+
+.form-hint {
+    display: block;
+    margin-top: var(--space-2);
+    font-size: 0.875rem;
+    color: var(--gray-500);
+}
+
+/* Quill Editor */
+.editor-container {
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    background: white;
+    transition: border-color 0.2s;
+}
+
+.editor-container:focus-within {
+    border-color: var(--kpop-purple);
+}
+
+.ql-toolbar {
+    border: none;
+    border-bottom: 2px solid var(--gray-100) !important;
+}
+
+.ql-container {
+    border: none !important;
+    font-size: 1rem;
+    min-height: 200px;
+}
+
+/* Task View Modal Styles */
+.task-view-body {
+    padding: 0;
+    max-height: calc(90vh - 80px);
+    overflow-y: auto;
+}
+
+.task-view-content {
+    padding: var(--space-6);
+}
+
+.task-view-section {
+    margin-bottom: var(--space-8);
+}
+
+.task-view-section:last-child {
+    margin-bottom: 0;
+}
+
+.section-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin-bottom: var(--space-4);
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--gray-100);
+}
+
+.task-view-badges {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.task-view-description {
+    background: var(--gray-50);
+    padding: var(--space-4);
+    border-radius: 8px;
+    line-height: 1.6;
+}
+
+.task-view-description p {
+    margin: 0 0 var(--space-3) 0;
+}
+
+.task-view-description p:last-child {
+    margin-bottom: 0;
+}
+
+.task-view-details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.detail-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--gray-700);
+    min-width: 180px;
+}
+
+.detail-value {
+    flex: 1;
+    color: var(--gray-800);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.assigned-user-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-3);
+    background: var(--kpop-purple);
+    color: white;
+    border-radius: 16px;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.text-muted {
+    color: var(--gray-500);
+    font-style: italic;
+}
+
+.task-activity-placeholder {
+    background: var(--gray-50);
+    padding: var(--space-6);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.loading-spinner {
+    color: var(--gray-500);
+}
+
+.error-message {
+    color: var(--error);
+}
+
+/* Task View Header */
+.task-view-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-6);
+}
+
+.task-view-badges-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+/* Status Dropdown Selector */
+.status-selector-wrapper {
+    position: relative;
+}
+
+.status-badge-interactive {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.status-badge-interactive:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.status-badge-interactive.status-pending {
+    background-color: #FEF3C7;
+    color: #92400E;
+}
+
+.status-badge-interactive.status-in_progress {
+    background-color: #DBEAFE;
+    color: #1E40AF;
+}
+
+.status-badge-interactive.status-completed {
+    background-color: #D1FAE5;
+    color: #065F46;
+}
+
+.status-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.status-dropdown-icon {
+    transition: transform 0.2s;
+}
+
+.status-badge-interactive:hover .status-dropdown-icon {
+    transform: translateY(2px);
+}
+
+.status-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 180px;
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 4px;
+    display: none;
+    z-index: 1000;
+}
+
+.status-dropdown-menu.active {
+    display: block;
+}
+
+.status-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: background 0.15s;
+    color: var(--gray-700);
+}
+
+.status-dropdown-item:hover {
+    background: var(--gray-50);
+}
+
+.status-dropdown-item.active {
+    background: var(--kpop-purple-light);
+    color: var(--kpop-purple);
+    font-weight: 600;
+}
+
+.status-dropdown-item .status-icon {
+    font-size: 1.1rem;
+}
+
+/* Comment Form */
+.comment-form {
+    background: var(--gray-50);
+    padding: var(--space-4);
+    border-radius: 8px;
+    margin-bottom: var(--space-6);
+}
+
+.comment-textarea {
+    width: 100%;
+    padding: var(--space-3);
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s;
+}
+
+.comment-textarea:focus {
+    outline: none;
+    border-color: var(--kpop-purple);
+}
+
+.comment-form-actions {
+    margin-top: var(--space-3);
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Comments List */
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.no-comments {
+    text-align: center;
+    padding: var(--space-6);
+    background: var(--gray-50);
+    border-radius: 8px;
+}
+
+.comment-item {
+    background: white;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: var(--space-4);
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.comment-author {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.comment-date {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+.comment-text {
+    color: var(--gray-700);
+    line-height: 1.6;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
+    }
+
+    .filters-form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .task-header {
+        flex-wrap: wrap;
+    }
+
+    .task-title-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .task-badges {
+        flex-wrap: wrap;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-content {
+        width: 95%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<script>
+// Helper function to get CSRF token
+function getCSRFToken() {
+    const tokenInput = document.querySelector('input[name="csrf_token"]');
+    return tokenInput ? tokenInput.value : '';
+}
+
+// Quill Editor
+let quill;
+
+document.addEventListener('DOMContentLoaded', function() {
+    quill = new Quill('#editor', {
+        theme: 'snow',
+        placeholder: 'Opisz zadanie w szczegółach...',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline', 'strike'],
+                ['blockquote', 'code-block'],
+                [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                [{ 'header': [1, 2, 3, false] }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+});
+
+// Modal Functions
+function openTaskModal(taskId = null) {
+    const modal = document.getElementById('taskModal');
+    const form = document.getElementById('taskForm');
+    const title = document.getElementById('modalTitle');
+
+    form.reset();
+    quill.setContents([]);
+
+    if (taskId) {
+        // Edit mode
+        title.textContent = 'Edytuj zadanie';
+        document.getElementById('taskId').value = taskId;
+        // TODO: Load task data via AJAX
+        loadTaskData(taskId);
+    } else {
+        // Create mode
+        title.textContent = 'Nowe zadanie';
+        document.getElementById('taskId').value = '';
+    }
+
+    modal.classList.add('active');
+}
+
+function closeTaskModal() {
+    document.getElementById('taskModal').classList.remove('active');
+}
+
+function openSubtaskModal(parentTaskId) {
+    const modal = document.getElementById('subtaskModal');
+    document.getElementById('parentTaskId').value = parentTaskId;
+    document.getElementById('subtaskForm').reset();
+    modal.classList.add('active');
+}
+
+function closeSubtaskModal() {
+    document.getElementById('subtaskModal').classList.remove('active');
+}
+
+// Task View Modal Functions (Read-only view)
+let currentViewTaskId = null;
+
+async function openTaskViewModal(taskId) {
+    currentViewTaskId = taskId;
+    const modal = document.getElementById('taskViewModal');
+    const viewBody = document.getElementById('taskViewBody');
+
+    // Show loading state
+    viewBody.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 40px;">Ładowanie...</div>';
+    modal.classList.add('active');
+
+    try {
+        const response = await fetch(`/admin/tasks/${taskId}`);
+
+        if (!response.ok) {
+            viewBody.innerHTML = '<div class="error-message" style="text-align: center; padding: 40px; color: var(--error);">Nie udało się załadować danych zadania</div>';
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            renderTaskView(data.task);
+        }
+    } catch (error) {
+        console.error('Error loading task:', error);
+        viewBody.innerHTML = '<div class="error-message" style="text-align: center; padding: 40px; color: var(--error);">Wystąpił błąd podczas ładowania zadania</div>';
+    }
+}
+
+function closeTaskViewModal() {
+    document.getElementById('taskViewModal').classList.remove('active');
+    currentViewTaskId = null;
+    // Close any open dropdowns
+    const openDropdown = document.querySelector('.status-dropdown-menu.active');
+    if (openDropdown) {
+        openDropdown.classList.remove('active');
+    }
+}
+
+function openTaskEditModal(taskId) {
+    // Open edit modal directly (called from task card edit icon)
+    openTaskModal(taskId);
+}
+
+// Toggle Status Dropdown
+function toggleStatusDropdown(event) {
+    event.stopPropagation();
+    const button = event.currentTarget;
+    const dropdown = button.nextElementSibling;
+
+    // Close all other dropdowns
+    document.querySelectorAll('.status-dropdown-menu.active').forEach(menu => {
+        if (menu !== dropdown) {
+            menu.classList.remove('active');
+        }
+    });
+
+    // Toggle this dropdown
+    dropdown.classList.toggle('active');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.status-selector-wrapper')) {
+        document.querySelectorAll('.status-dropdown-menu.active').forEach(menu => {
+            menu.classList.remove('active');
+        });
+    }
+});
+
+// Close dropdown on Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        document.querySelectorAll('.status-dropdown-menu.active').forEach(menu => {
+            menu.classList.remove('active');
+        });
+    }
+});
+
+function renderTaskView(task) {
+    const viewBody = document.getElementById('taskViewBody');
+    const modalTitle = document.getElementById('viewModalTitle');
+
+    // Update modal title
+    modalTitle.textContent = task.name;
+
+    // Priority badge text
+    const priorityText = {
+        'high': '🔴 WYSOKI',
+        'medium': '🟡 ŚREDNI',
+        'low': '🟢 NISKI'
+    };
+
+    // Status badge text
+    const statusText = {
+        'pending': 'OCZEKUJĄCE',
+        'in_progress': 'W TRAKCIE',
+        'completed': 'UKOŃCZONE'
+    };
+
+    // Assigned users names
+    const assignedUsersHTML = task.assigned_users && task.assigned_users.length > 0
+        ? task.assigned_users.map(userId => {
+            const user = assignableUsers.find(u => u.id === userId);
+            return user ? `<span class="assigned-user-badge">${user.first_name} ${user.last_name}</span>` : '';
+        }).join('')
+        : '<span class="text-muted">Brak przypisanych użytkowników</span>';
+
+    // Render task view
+    viewBody.innerHTML = `
+        <div class="task-view-content">
+            <!-- Header with badges and status selector -->
+            <div class="task-view-header">
+                <div class="task-view-badges-row">
+                    <span class="task-priority-badge priority-${task.priority}">${priorityText[task.priority]}</span>
+
+                    <!-- Interactive Status Badge with Dropdown -->
+                    <div class="status-selector-wrapper">
+                        <button class="status-badge-interactive status-${task.status}" onclick="toggleStatusDropdown(event)">
+                            <span class="status-icon">${task.status === 'pending' ? '⏳' : task.status === 'in_progress' ? '⚡' : '✓'}</span>
+                            <span class="status-text">${statusText[task.status]}</span>
+                            <svg class="status-dropdown-icon" width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div class="status-dropdown-menu" id="statusDropdown-${task.id}">
+                            <button class="status-dropdown-item ${task.status === 'pending' ? 'active' : ''}" onclick="changeTaskStatusFromView(${task.id}, 'pending')">
+                                <span class="status-icon">⏳</span>
+                                <span>Oczekujące</span>
+                                ${task.status === 'pending' ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3332 4L5.99984 11.3333L2.6665 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+                            </button>
+                            <button class="status-dropdown-item ${task.status === 'in_progress' ? 'active' : ''}" onclick="changeTaskStatusFromView(${task.id}, 'in_progress')">
+                                <span class="status-icon">⚡</span>
+                                <span>W trakcie</span>
+                                ${task.status === 'in_progress' ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3332 4L5.99984 11.3333L2.6665 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+                            </button>
+                            <button class="status-dropdown-item ${task.status === 'completed' ? 'active' : ''}" onclick="changeTaskStatusFromView(${task.id}, 'completed')">
+                                <span class="status-icon">✓</span>
+                                <span>Ukończone</span>
+                                ${task.status === 'completed' ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13.3332 4L5.99984 11.3333L2.6665 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Description Section -->
+            <div class="task-view-section">
+                <h3 class="section-title">Opis</h3>
+                <div class="task-view-description">
+                    ${task.description || '<p class="text-muted">Brak opisu</p>'}
+                </div>
+            </div>
+
+            <!-- Details Section -->
+            <div class="task-view-section">
+                <h3 class="section-title">Szczegóły</h3>
+                <div class="task-view-details">
+                    <div class="detail-row">
+                        <span class="detail-label">Termin:</span>
+                        <span class="detail-value">${task.due_date ? new Date(task.due_date).toLocaleString('pl-PL') : 'Nie ustawiono'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Przypisani użytkownicy:</span>
+                        <div class="detail-value">${assignedUsersHTML}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="task-view-section">
+                <h3 class="section-title">Komentarze</h3>
+
+                <!-- Add Comment Form -->
+                <div class="comment-form">
+                    <textarea
+                        id="newCommentText"
+                        class="comment-textarea"
+                        placeholder="Dodaj komentarz do zadania..."
+                        rows="3"
+                    ></textarea>
+                    <div class="comment-form-actions">
+                        <button class="btn-kpop btn-kpop-primary" onclick="addCommentToTask(${task.id})">
+                            Dodaj komentarz
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Comments List -->
+                <div class="comments-list" id="commentsList-${task.id}">
+                    ${task.comments && task.comments.length > 0
+                        ? task.comments.map(comment => `
+                            <div class="comment-item">
+                                <div class="comment-header">
+                                    <span class="comment-author">${comment.user_name}</span>
+                                    <span class="comment-date">${new Date(comment.created_at).toLocaleString('pl-PL')}</span>
+                                </div>
+                                <div class="comment-text">${comment.comment}</div>
+                            </div>
+                        `).join('')
+                        : '<div class="no-comments"><p class="text-muted">Brak komentarzy. Dodaj pierwszy komentarz powyżej.</p></div>'
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Make assignable users available to JavaScript
+const assignableUsers = [
+    {% for user in assignable_users %}
+    {
+        id: {{ user.id }},
+        first_name: "{{ user.first_name }}",
+        last_name: "{{ user.last_name }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+// Load Task Data for Editing
+async function loadTaskData(taskId) {
+    try {
+        const response = await fetch(`/admin/tasks/${taskId}`);
+
+        if (!response.ok) {
+            alert('Nie udało się załadować danych zadania');
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            const task = data.task;
+
+            // Wypełnij formularz
+            document.getElementById('taskName').value = task.name;
+            quill.root.innerHTML = task.description;
+            document.getElementById('taskPriority').value = task.priority;
+            document.getElementById('taskDueDate').value = task.due_date;
+
+            // Zaznacz przypisanych użytkowników
+            const checkboxes = document.querySelectorAll('input[name="assigned_users"]');
+            checkboxes.forEach(cb => {
+                cb.checked = task.assigned_users.includes(parseInt(cb.value));
+            });
+        }
+    } catch (error) {
+        console.error('Error loading task data:', error);
+        alert('Wystąpił błąd podczas ładowania danych zadania');
+    }
+}
+
+// Form Submission
+document.getElementById('taskForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const taskId = document.getElementById('taskId').value;
+    const url = taskId ? `/admin/tasks/${taskId}/update` : '/admin/tasks/create';
+
+    // Get Quill content
+    const description = quill.root.innerHTML;
+
+    const formData = new FormData(this);
+    formData.set('description', description);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            // Sprawdź content-type
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+            } else {
+                const text = await response.text();
+                console.error('Server error:', text);
+                alert('Wystąpił błąd serwera. Sprawdź konsolę przeglądarki.');
+            }
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Błąd: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas zapisywania zadania.');
+    }
+});
+
+// Subtask Form Submission
+document.getElementById('subtaskForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const parentTaskId = document.getElementById('parentTaskId').value;
+    const url = `/admin/tasks/${parentTaskId}/subtask`;
+
+    const formData = new FormData(this);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+            } else {
+                const text = await response.text();
+                console.error('Server error:', text);
+                alert('Wystąpił błąd serwera. Sprawdź konsolę przeglądarki.');
+            }
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Błąd: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas dodawania podzadania.');
+    }
+});
+
+// Change Task Status from View Modal
+async function changeTaskStatusFromView(taskId, newStatus) {
+    // Close dropdown immediately
+    document.querySelectorAll('.status-dropdown-menu.active').forEach(menu => {
+        menu.classList.remove('active');
+    });
+
+    try {
+        const formData = new FormData();
+        formData.append('csrf_token', getCSRFToken());
+        formData.append('status', newStatus);
+
+        const response = await fetch(`/admin/tasks/${taskId}/toggle-status`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+            } else {
+                alert('Wystąpił błąd serwera.');
+            }
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Reload task view
+            openTaskViewModal(taskId);
+        } else {
+            alert('Błąd: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas zmiany statusu.');
+    }
+}
+
+// Add Comment to Task
+async function addCommentToTask(taskId) {
+    const commentText = document.getElementById('newCommentText');
+    const text = commentText.value.trim();
+
+    if (!text) {
+        alert('Proszę wpisać treść komentarza');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('csrf_token', getCSRFToken());
+        formData.append('comment', text);
+
+        const response = await fetch(`/admin/tasks/${taskId}/comment`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+            } else {
+                alert('Wystąpił błąd serwera.');
+            }
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Clear textarea
+            commentText.value = '';
+            // Reload task view to show new comment
+            openTaskViewModal(taskId);
+        } else {
+            alert('Błąd: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas dodawania komentarza.');
+    }
+}
+
+// Toggle Subtask Status (checkbox change)
+async function toggleSubtaskStatus(subtaskId) {
+    const checkbox = document.getElementById(`subtask-${subtaskId}`);
+    const originalChecked = !checkbox.checked; // Original state before change
+
+    try {
+        const formData = new FormData();
+        formData.append('csrf_token', getCSRFToken());
+        // Set status based on checkbox state
+        const newStatus = checkbox.checked ? 'completed' : 'pending';
+        formData.append('status', newStatus);
+
+        const response = await fetch(`/admin/tasks/${subtaskId}/toggle-status`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+            } else {
+                alert('Wystąpił błąd serwera.');
+            }
+            // Revert checkbox state on error
+            checkbox.checked = originalChecked;
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Update checkbox state based on new status
+            checkbox.checked = (data.new_status === 'completed');
+
+            // Update parent task's progress bar
+            const subtaskItem = checkbox.closest('.subtask-item');
+            if (subtaskItem) {
+                const subtasksList = subtaskItem.closest('.subtasks-list');
+                if (subtasksList) {
+                    const parentTaskId = subtasksList.id.replace('subtasks-', '');
+                    updateParentTaskProgress(parentTaskId);
+                }
+            }
+        } else {
+            alert('Błąd: ' + data.error);
+            // Revert checkbox state on error
+            checkbox.checked = originalChecked;
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas zmiany statusu podzadania.');
+        // Revert checkbox state on error
+        checkbox.checked = originalChecked;
+    }
+}
+
+// Update parent task progress bar
+function updateParentTaskProgress(parentTaskId) {
+    const subtasksList = document.getElementById(`subtasks-${parentTaskId}`);
+    if (!subtasksList) return;
+
+    const allSubtasks = subtasksList.querySelectorAll('.subtask-item input[type="checkbox"]');
+    const completedSubtasks = Array.from(allSubtasks).filter(cb => cb.checked).length;
+    const totalSubtasks = allSubtasks.length;
+    const progressPercent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+
+    // Update progress bar
+    const taskCard = document.querySelector(`[data-task-id="${parentTaskId}"]`);
+    if (taskCard) {
+        const progressFill = taskCard.querySelector('.progress-fill');
+        const progressText = taskCard.querySelector('.progress-text');
+
+        if (progressFill) {
+            progressFill.style.width = `${progressPercent}%`;
+        }
+        if (progressText) {
+            progressText.textContent = `${progressPercent}%`;
+        }
+
+        // Update subtasks count in task meta
+        const metaItems = taskCard.querySelectorAll('.task-meta-item .meta-text');
+        metaItems.forEach(metaText => {
+            if (metaText.textContent.includes('Podzadania:')) {
+                metaText.textContent = `Podzadania: ${completedSubtasks}/${totalSubtasks}`;
+            }
+        });
+    }
+}
+
+// Delete Task
+async function deleteTask(taskId) {
+    if (!confirm('Czy na pewno chcesz usunąć to zadanie?')) {
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('csrf_token', getCSRFToken());
+
+        const response = await fetch(`/admin/tasks/${taskId}/delete`, {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                alert('Błąd: ' + (data.error || 'Nieznany błąd'));
+            } else {
+                alert('Wystąpił błąd serwera.');
+            }
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Błąd: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas usuwania zadania.');
+    }
+}
+
+// Toggle Subtasks Visibility
+function toggleSubtasks(taskId) {
+    const subtasksList = document.getElementById(`subtasks-${taskId}`);
+    const btn = event.currentTarget;
+
+    if (subtasksList.style.display === 'none') {
+        subtasksList.style.display = 'flex';
+        btn.classList.add('open');
+    } else {
+        subtasksList.style.display = 'none';
+        btn.classList.remove('open');
+    }
+}
+
+// Close modals on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeTaskModal();
+        closeSubtaskModal();
+    }
+});
+
+// Auto-open modal from URL params
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.has('new')) {
+        openTaskModal();
+    } else if (urlParams.has('edit')) {
+        const taskId = urlParams.get('edit');
+        openTaskModal(parseInt(taskId));
+    } else if (urlParams.has('view')) {
+        const taskId = urlParams.get('view');
+        openTaskViewModal(parseInt(taskId));
+    }
+});
+</script>
+{% endblock %}

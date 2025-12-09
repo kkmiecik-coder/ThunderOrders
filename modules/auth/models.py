@@ -43,6 +43,11 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     email_verified = db.Column(db.Boolean, default=False)
 
+    # Deactivation (by admin)
+    deactivation_reason = db.Column(db.Text)
+    deactivated_at = db.Column(db.DateTime)
+    deactivated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+
     # Verification & Reset Tokens
     email_verification_token = db.Column(db.String(255), index=True)
     password_reset_token = db.Column(db.String(255), index=True)
@@ -55,6 +60,9 @@ class User(UserMixin, db.Model):
     dark_mode_enabled = db.Column(db.Boolean, default=False)
     sidebar_collapsed = db.Column(db.Boolean, default=False)
 
+    # Avatar
+    avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(
         db.DateTime,
@@ -62,7 +70,8 @@ class User(UserMixin, db.Model):
         onupdate=datetime.utcnow
     )
 
-    # Relationships (będą dodane w kolejnych etapach)
+    # Relationships
+    avatar = db.relationship('Avatar', backref='users', foreign_keys=[avatar_id])
     # orders = db.relationship('Order', backref='user', lazy='dynamic')
     # activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic')
 
@@ -166,6 +175,18 @@ class User(UserMixin, db.Model):
         """Zwraca pełne imię i nazwisko"""
         return f"{self.first_name} {self.last_name}"
 
+    @property
+    def has_avatar(self):
+        """Sprawdza czy użytkownik ma wybrany avatar"""
+        return self.avatar_id is not None
+
+    @property
+    def avatar_url(self):
+        """Zwraca URL avatara lub None jeśli nie ma"""
+        if self.avatar:
+            return self.avatar.url
+        return None
+
     def is_admin(self):
         """Sprawdza czy użytkownik jest adminem"""
         return self.role == 'admin'
@@ -198,6 +219,26 @@ class User(UserMixin, db.Model):
         """Aktualizuje timestamp ostatniego logowania"""
         self.last_login = datetime.utcnow()
         db.session.commit()
+
+    def deactivate(self, reason, deactivated_by_user_id):
+        """
+        Dezaktywuje konto użytkownika
+
+        Args:
+            reason (str): Powód dezaktywacji
+            deactivated_by_user_id (int): ID admina który dezaktywował
+        """
+        self.is_active = False
+        self.deactivation_reason = reason
+        self.deactivated_at = datetime.utcnow()
+        self.deactivated_by = deactivated_by_user_id
+
+    def reactivate(self):
+        """Reaktywuje konto użytkownika"""
+        self.is_active = True
+        self.deactivation_reason = None
+        self.deactivated_at = None
+        self.deactivated_by = None
 
     # ============================================
     # Class Methods

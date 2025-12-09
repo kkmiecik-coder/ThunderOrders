@@ -1,0 +1,502 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Klient: {{ client.full_name }}{% endblock %}
+
+{% block content %}
+<div class="client-detail-page">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-left">
+            <a href="{{ url_for('admin.clients_list') }}" class="back-link">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
+                Powrót do listy
+            </a>
+            <h1 class="page-title">
+                {% if client.has_avatar %}
+                <div class="client-avatar-large has-avatar">
+                    <img src="{{ client.avatar_url }}" alt="{{ client.first_name }}">
+                </div>
+                {% else %}
+                <div class="client-avatar-large">
+                    {{ client.first_name[0] }}{{ client.last_name[0] }}
+                </div>
+                {% endif %}
+                {{ client.full_name }}
+                <span class="role-badge role-{{ client.role }}">
+                    {% if client.role == 'admin' %}Admin
+                    {% elif client.role == 'mod' %}Moderator
+                    {% else %}Klient{% endif %}
+                </span>
+            </h1>
+        </div>
+        <div class="header-right">
+            {% if not client.is_active %}
+            <div class="inactive-banner">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+                Konto nieaktywne
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="detail-content">
+        <!-- Left Column - Info -->
+        <div class="detail-main">
+            <!-- Basic Info Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Informacje o kliencie</h2>
+                    {% if current_user.is_admin() %}
+                    <button type="button" class="btn-edit" onclick="toggleEditMode()">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                        </svg>
+                        Edytuj
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- View Mode -->
+                    <div id="viewMode" class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Imię:</span>
+                            <span class="info-value">{{ client.first_name }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Nazwisko:</span>
+                            <span class="info-value">{{ client.last_name }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value">
+                                <a href="mailto:{{ client.email }}">{{ client.email }}</a>
+                                {% if client.email_verified %}
+                                <span class="verified-badge" title="Email zweryfikowany">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M10.067.87a2.89 2.89 0 0 0-4.134 0l-.622.638-.89-.011a2.89 2.89 0 0 0-2.924 2.924l.01.89-.636.622a2.89 2.89 0 0 0 0 4.134l.637.622-.011.89a2.89 2.89 0 0 0 2.924 2.924l.89-.01.622.636a2.89 2.89 0 0 0 4.134 0l.622-.637.89.011a2.89 2.89 0 0 0 2.924-2.924l-.01-.89.636-.622a2.89 2.89 0 0 0 0-4.134l-.637-.622.011-.89a2.89 2.89 0 0 0-2.924-2.924l-.89.01-.622-.636zm.287 5.984-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7 8.793l2.646-2.647a.5.5 0 0 1 .708.708z"/>
+                                    </svg>
+                                </span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Telefon:</span>
+                            <span class="info-value">
+                                {% if client.phone %}
+                                <a href="tel:{{ client.phone }}">{{ client.phone }}</a>
+                                {% else %}
+                                <span class="text-muted">Nie podano</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Rola:</span>
+                            <span class="info-value">
+                                <span class="role-badge role-{{ client.role }}">
+                                    {% if client.role == 'admin' %}Administrator
+                                    {% elif client.role == 'mod' %}Moderator
+                                    {% else %}Klient{% endif %}
+                                </span>
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status:</span>
+                            <span class="info-value">
+                                {% if client.is_active %}
+                                <span class="status-badge status-active">Aktywny</span>
+                                {% else %}
+                                <span class="status-badge status-inactive">Nieaktywny</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Edit Mode (hidden by default) -->
+                    <form id="editMode" class="edit-form" style="display: none;"
+                          method="POST" action="{{ url_for('admin.client_edit', id=client.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="first_name">Imię</label>
+                                <input type="text" id="first_name" name="first_name"
+                                       class="form-input" value="{{ client.first_name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="last_name">Nazwisko</label>
+                                <input type="text" id="last_name" name="last_name"
+                                       class="form-input" value="{{ client.last_name }}" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email"
+                                   class="form-input" value="{{ client.email }}" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone">Telefon</label>
+                            <input type="tel" id="phone" name="phone"
+                                   class="form-input" value="{{ client.phone or '' }}"
+                                   placeholder="np. +48 123 456 789">
+                        </div>
+
+                        {% if current_user.is_admin() %}
+                        <div class="form-group">
+                            <label for="role">Rola</label>
+                            <select id="role" name="role" class="form-select">
+                                <option value="client" {% if client.role == 'client' %}selected{% endif %}>Klient</option>
+                                <option value="mod" {% if client.role == 'mod' %}selected{% endif %}>Moderator</option>
+                                <option value="admin" {% if client.role == 'admin' %}selected{% endif %}>Administrator</option>
+                            </select>
+                        </div>
+                        {% endif %}
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="toggleEditMode()">Anuluj</button>
+                            <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Deactivation Info (if inactive) -->
+            {% if not client.is_active and client.deactivation_reason %}
+            <div class="info-card card-warning">
+                <div class="card-header">
+                    <h2>Informacje o dezaktywacji</h2>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Powód:</span>
+                            <span class="info-value">{{ client.deactivation_reason }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data dezaktywacji:</span>
+                            <span class="info-value">
+                                {% if client.deactivated_at %}
+                                {{ client.deactivated_at.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                <span class="text-muted">Brak danych</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Dezaktywowany przez:</span>
+                            <span class="info-value">
+                                {% if deactivated_by_user %}
+                                {{ deactivated_by_user.full_name }}
+                                {% else %}
+                                <span class="text-muted">Brak danych</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+
+                    {% if current_user.is_admin() %}
+                    <div class="card-actions">
+                        <button type="button" class="btn btn-success" onclick="reactivateClient()">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                            </svg>
+                            Reaktywuj konto
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- History placeholder - for future orders -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Historia zamówień</h2>
+                </div>
+                <div class="card-body">
+                    <div class="empty-state-small">
+                        <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
+                            <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
+                        </svg>
+                        <p>Moduł zamówień będzie dostępny wkrótce.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Stats & Actions -->
+        <div class="detail-sidebar">
+            <!-- Stats Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Statystyki</h2>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value">0</span>
+                            <span class="stat-label">Zamówień</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">0,00 zł</span>
+                            <span class="stat-label">Łączna wartość</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">0,00 zł</span>
+                            <span class="stat-label">Średnia wartość</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">-</span>
+                            <span class="stat-label">Ostatnie zamówienie</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timestamps Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Daty</h2>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Rejestracja:</span>
+                            <span class="info-value">{{ client.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Ostatnie logowanie:</span>
+                            <span class="info-value">
+                                {% if client.last_login %}
+                                {{ client.last_login.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                <span class="text-muted">Nigdy</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Ostatnia aktualizacja:</span>
+                            <span class="info-value">
+                                {% if client.updated_at %}
+                                {{ client.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Card -->
+            {% if current_user.is_admin() and client.id != current_user.id %}
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Akcje</h2>
+                </div>
+                <div class="card-body">
+                    <div class="action-buttons-vertical">
+                        {% if client.is_active %}
+                        <button type="button" class="btn btn-warning btn-block" onclick="openDeactivateModal()">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                            Dezaktywuj konto
+                        </button>
+                        {% endif %}
+                        <button type="button" class="btn btn-danger btn-block" onclick="openDeleteModal()">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            </svg>
+                            Usuń konto
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Deactivate Modal -->
+<div id="deactivateModal" class="modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeDeactivateModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Dezaktywacja konta</h3>
+            <button type="button" class="modal-close" onclick="closeDeactivateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Czy na pewno chcesz dezaktywować konto użytkownika <strong>{{ client.full_name }}</strong>?</p>
+            <div class="form-group">
+                <label for="deactivateReason">Powód dezaktywacji (wymagany):</label>
+                <textarea id="deactivateReason" class="form-textarea" rows="3"
+                          placeholder="Podaj powód dezaktywacji konta..."></textarea>
+            </div>
+            <p class="modal-note">Klient zostanie powiadomiony o dezaktywacji emailem.</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeactivateModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDeactivate()">Dezaktywuj</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal -->
+<div id="deleteModal" class="modal" style="display: none;">
+    <div class="modal-backdrop" onclick="closeDeleteModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Usunięcie konta</h3>
+            <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Czy na pewno chcesz <strong>trwale usunąć</strong> konto użytkownika <strong>{{ client.full_name }}</strong>?</p>
+            <p class="modal-warning">Ta operacja jest nieodwracalna!</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDelete()">Usuń</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/client-detail.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const clientId = {{ client.id }};
+
+// Toggle Edit Mode
+function toggleEditMode() {
+    const viewMode = document.getElementById('viewMode');
+    const editMode = document.getElementById('editMode');
+
+    if (viewMode.style.display === 'none') {
+        viewMode.style.display = 'flex';
+        editMode.style.display = 'none';
+    } else {
+        viewMode.style.display = 'none';
+        editMode.style.display = 'flex';
+    }
+}
+
+// Deactivate Modal
+function openDeactivateModal() {
+    document.getElementById('deactivateReason').value = '';
+    document.getElementById('deactivateModal').style.display = 'flex';
+}
+
+function closeDeactivateModal() {
+    document.getElementById('deactivateModal').style.display = 'none';
+}
+
+function confirmDeactivate() {
+    const reason = document.getElementById('deactivateReason').value.trim();
+
+    if (!reason) {
+        alert('Podanie powodu dezaktywacji jest wymagane.');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('reason', reason);
+
+    fetch(`/admin/clients/${clientId}/deactivate`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Wystąpił błąd');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas dezaktywacji konta.');
+    });
+}
+
+// Reactivate
+function reactivateClient() {
+    if (!confirm('Czy na pewno chcesz reaktywować to konto?')) {
+        return;
+    }
+
+    fetch(`/admin/clients/${clientId}/reactivate`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Wystąpił błąd');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas reaktywacji konta.');
+    });
+}
+
+// Delete Modal
+function openDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+
+function confirmDelete() {
+    fetch(`/admin/clients/${clientId}/delete`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '{{ url_for("admin.clients_list") }}';
+        } else {
+            alert(data.error || 'Wystąpił błąd');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Wystąpił błąd podczas usuwania konta.');
+    });
+}
+
+// Close modals on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDeactivateModal();
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}

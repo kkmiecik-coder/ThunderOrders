@@ -1,0 +1,729 @@
+/* ==========================================
+   Clients List - Consistent with Products List
+   ========================================== */
+
+.clients-page {
+  padding: 0;
+  background: #f5f5f5;
+}
+
+/* ==========================================
+   Top Bar
+   ========================================== */
+.clients-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 20px;
+  gap: 20px;
+}
+
+.top-bar-center {
+  flex: 1;
+  max-width: 600px;
+}
+
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  color: #333;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Stats Badges */
+.stats-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.stat-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #f5f5f5;
+}
+
+.stat-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-weight: 700;
+  color: #333;
+}
+
+.stat-total {
+  background: #f5f5f5;
+}
+
+.stat-active {
+  background: #e8f5e9;
+}
+
+.stat-active .stat-value {
+  color: #2e7d32;
+}
+
+.stat-inactive {
+  background: #ffebee;
+}
+
+.stat-inactive .stat-value {
+  color: #c62828;
+}
+
+/* ==========================================
+   Toolbar
+   ========================================== */
+.clients-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 10px 20px;
+  gap: 20px;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.toolbar-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #555;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.toolbar-select:hover {
+  background: #f0f0f0;
+}
+
+.clients-count {
+  font-size: 13px;
+  color: #666;
+}
+
+.clients-count strong {
+  color: #333;
+  font-weight: 600;
+}
+
+/* ==========================================
+   Pagination Compact
+   ========================================== */
+.pagination-compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  color: #555;
+  text-decoration: none;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.pagination-arrow:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.pagination-arrow.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+  background: #fafafa;
+}
+
+.pagination-arrow.disabled:hover {
+  background: #fafafa;
+  border-color: #ddd;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+
+/* ==========================================
+   Table
+   ========================================== */
+.table-container {
+  background: white;
+  overflow-x: auto;
+}
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table thead {
+  background: #fafafa;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.data-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.data-table th.sortable:hover {
+  color: #FF8500;
+}
+
+.data-table th.sorted-asc::after {
+  content: ' ↑';
+  color: #FF8500;
+}
+
+.data-table th.sorted-desc::after {
+  content: ' ↓';
+  color: #FF8500;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.data-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.data-table tbody tr.row-inactive {
+  opacity: 0.5;
+  background: #fff5f5;
+}
+
+.data-table td {
+  padding: 12px;
+  vertical-align: middle;
+}
+
+/* ==========================================
+   Client Name Cell
+   ========================================== */
+.client-name-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #333;
+}
+
+.client-name-link:hover .client-name {
+  color: #1976d2;
+  text-decoration: underline;
+}
+
+.client-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5A189A, #7B2CBF);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.client-avatar.has-avatar {
+  background: transparent;
+  border: 2px solid #FF006E;
+}
+
+.client-avatar.has-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.client-name {
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+/* ==========================================
+   Links
+   ========================================== */
+.email-link,
+.phone-link {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.email-link:hover,
+.phone-link:hover {
+  text-decoration: underline;
+  color: #1565c0;
+}
+
+/* ==========================================
+   Badges
+   ========================================== */
+.role-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.role-client {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.role-mod {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.role-admin {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-active {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-inactive {
+  background: #ffebee;
+  color: #c62828;
+  cursor: help;
+}
+
+/* ==========================================
+   Date/Time Cells
+   ========================================== */
+.date-cell {
+  display: block;
+  font-weight: 500;
+  color: #333;
+}
+
+.time-cell {
+  display: block;
+  font-size: 11px;
+  color: #999;
+}
+
+.text-muted {
+  color: #999;
+}
+
+/* ==========================================
+   Action Buttons
+   ========================================== */
+.actions-cell {
+  width: 120px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #999;
+  background: transparent;
+  text-decoration: none;
+}
+
+.btn-action:hover {
+  background: #f0f0f0;
+}
+
+.btn-view:hover {
+  color: #1976d2;
+  background: #e3f2fd;
+}
+
+.btn-deactivate:hover {
+  color: #f57c00;
+  background: #fff3e0;
+}
+
+.btn-reactivate:hover {
+  color: #388e3c;
+  background: #e8f5e9;
+}
+
+.btn-delete:hover {
+  color: #c62828;
+  background: #ffebee;
+}
+
+/* ==========================================
+   Empty State
+   ========================================== */
+.empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  background: white;
+}
+
+.empty-icon {
+  opacity: 0.3;
+  margin-bottom: 20px;
+}
+
+.empty-state h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0 0 10px 0;
+}
+
+.empty-state p {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 24px 0;
+}
+
+/* ==========================================
+   Modal Styles - Specific selectors to override global modals.css
+   ========================================== */
+/* Hidden by default - JS toggles display via inline style */
+#deactivateModal,
+#deleteModal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  max-width: none !important;
+  max-height: none !important;
+  overflow: visible !important;
+  animation: none !important;
+  transform: none !important;
+}
+
+#deactivateModal .modal-backdrop,
+#deleteModal .modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(0, 0, 0, 0.5) !important;
+  z-index: 1;
+}
+
+#deactivateModal .modal-content,
+#deleteModal .modal-content {
+  position: relative !important;
+  background: white !important;
+  border-radius: 8px !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
+  z-index: 2;
+  margin: 20px;
+}
+
+#deactivateModal .modal-header,
+#deleteModal .modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+#deactivateModal .modal-header h3,
+#deleteModal .modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+#deactivateModal .modal-close,
+#deleteModal .modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  color: #999;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+#deactivateModal .modal-close:hover,
+#deleteModal .modal-close:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+#deactivateModal .modal-body,
+#deleteModal .modal-body {
+  padding: 24px;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+#deactivateModal .modal-body p,
+#deleteModal .modal-body p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: #555;
+}
+
+.modal-note {
+  font-size: 13px;
+  color: #999;
+  margin-top: 16px !important;
+}
+
+.modal-warning {
+  color: #c62828;
+  font-weight: 500;
+}
+
+#deactivateModal .modal-footer,
+#deleteModal .modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+  border-radius: 0 0 8px 8px;
+}
+
+/* ==========================================
+   Form Elements
+   ========================================== */
+.form-group {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  background: white;
+  color: #333;
+  min-height: 80px;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: #FF8500;
+  box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
+}
+
+.form-textarea::placeholder {
+  color: #999;
+}
+
+/* ==========================================
+   Buttons
+   ========================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #45a049;
+}
+
+.btn-secondary {
+  background: white;
+  color: #555;
+  border: 1px solid #ddd;
+}
+
+.btn-secondary:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.btn-danger {
+  background: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+/* ==========================================
+   Responsive
+   ========================================== */
+@media (max-width: 1024px) {
+  .clients-top-bar {
+    flex-wrap: wrap;
+  }
+
+  .top-bar-center {
+    order: 3;
+    flex-basis: 100%;
+    max-width: none;
+    margin-top: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .clients-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    justify-content: center;
+  }
+
+  .stats-badges {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .data-table {
+    min-width: 800px;
+  }
+}

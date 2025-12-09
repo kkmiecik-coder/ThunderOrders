@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.name }} - Wkrótce{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/exclusive/countdown.css') }}">
+{% endblock %}
+
+{% block body_content %}
+<div class="countdown-page">
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="orb orb-5"></div>
+        <div class="sparkle sparkle-1"></div>
+        <div class="sparkle sparkle-2"></div>
+        <div class="sparkle sparkle-3"></div>
+        <div class="sparkle sparkle-4"></div>
+        <div class="sparkle sparkle-5"></div>
+        <div class="sparkle sparkle-6"></div>
+        <!-- Dynamic pulse rings container -->
+        <div class="pulse-rings-container" id="pulseRingsContainer"></div>
+    </div>
+
+    <!-- Glass Container -->
+    <div class="countdown-container">
+        <!-- Logo -->
+        <div class="countdown-logo">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="Logo">
+        </div>
+
+        <!-- Header -->
+        <div class="countdown-header">
+            <span class="countdown-badge">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12,6 12,12 16,14"/>
+                </svg>
+                Wkrótce
+            </span>
+            <h1 class="countdown-title">{{ page.name }}</h1>
+            <p class="countdown-subtitle">Sprzedaż rozpocznie się za</p>
+        </div>
+
+        <!-- Timer -->
+        <div class="countdown-timer" id="countdownTimer" data-target="{{ page.starts_at.isoformat() }}" data-order-url="{{ url_for('exclusive.order_page', token=page.token) }}">
+            <div class="countdown-unit">
+                <div class="countdown-value-wrapper">
+                    <span class="countdown-value" id="days">00</span>
+                </div>
+                <span class="countdown-label">dni</span>
+            </div>
+            <div class="countdown-separator">
+                <span></span>
+                <span></span>
+            </div>
+            <div class="countdown-unit">
+                <div class="countdown-value-wrapper">
+                    <span class="countdown-value" id="hours">00</span>
+                </div>
+                <span class="countdown-label">godzin</span>
+            </div>
+            <div class="countdown-separator">
+                <span></span>
+                <span></span>
+            </div>
+            <div class="countdown-unit">
+                <div class="countdown-value-wrapper">
+                    <span class="countdown-value" id="minutes">00</span>
+                </div>
+                <span class="countdown-label">minut</span>
+            </div>
+            <div class="countdown-separator">
+                <span></span>
+                <span></span>
+            </div>
+            <div class="countdown-unit">
+                <div class="countdown-value-wrapper">
+                    <span class="countdown-value" id="seconds">00</span>
+                </div>
+                <span class="countdown-label">sekund</span>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="countdown-info">
+            <div class="start-date-card">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <div class="start-date-text">
+                    <span class="start-date-label">Data startu</span>
+                    <span class="start-date-value">{{ page.starts_at.strftime('%d.%m.%Y, godz. %H:%M') }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA Hint -->
+        <div class="countdown-cta">
+            <p>Przygotuj się na ekskluzywną ofertę!</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const timer = document.getElementById('countdownTimer');
+    const targetDate = new Date(timer.dataset.target).getTime();
+    const orderPageUrl = timer.dataset.orderUrl;
+
+    function updateCountdown() {
+        const now = new Date().getTime();
+        const distance = targetDate - now;
+
+        if (distance < 0) {
+            // Countdown finished - redirect to order page
+            window.location.href = orderPageUrl;
+            return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        // Animate value changes
+        updateValue('days', days);
+        updateValue('hours', hours);
+        updateValue('minutes', minutes);
+        updateValue('seconds', seconds);
+    }
+
+    function updateValue(id, value) {
+        const el = document.getElementById(id);
+        const newValue = String(value).padStart(2, '0');
+        if (el.textContent !== newValue) {
+            el.classList.add('flip');
+            setTimeout(() => {
+                el.textContent = newValue;
+                el.classList.remove('flip');
+            }, 150);
+        }
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+
+    // Check page status every 10 seconds (for manual activation by admin)
+    const statusCheckUrl = '{{ url_for("exclusive.check_status", token=page.token) }}';
+
+    async function checkPageStatus() {
+        try {
+            const response = await fetch(statusCheckUrl);
+            const data = await response.json();
+
+            if (data.status === 'active') {
+                // Admin manually activated the page - redirect to order page
+                window.location.href = orderPageUrl;
+            }
+        } catch (error) {
+            // Silently fail - network issues shouldn't break the countdown
+            console.log('Status check failed:', error);
+        }
+    }
+
+    // Check every 10 seconds
+    setInterval(checkPageStatus, 10000);
+})();
+
+// Dynamic Pulse Rings
+(function() {
+    const container = document.getElementById('pulseRingsContainer');
+    const colors = [
+        'rgba(240, 147, 251, 0.4)',  // Pink
+        'rgba(102, 126, 234, 0.4)',  // Purple
+        'rgba(79, 172, 254, 0.35)',  // Blue
+        'rgba(245, 87, 108, 0.35)',  // Red-pink
+        'rgba(238, 159, 159, 0.4)'   // Light pink
+    ];
+
+    function createPulseRing() {
+        const ring = document.createElement('div');
+        ring.className = 'dynamic-pulse-ring';
+
+        // Random position
+        const x = Math.random() * 100;
+        const y = Math.random() * 100;
+
+        // Random size (100-300px)
+        const size = 100 + Math.random() * 200;
+
+        // Random color
+        const color = colors[Math.floor(Math.random() * colors.length)];
+
+        // Random animation duration (2-4s)
+        const duration = 2 + Math.random() * 2;
+
+        ring.style.cssText = `
+            left: ${x}%;
+            top: ${y}%;
+            width: ${size}px;
+            height: ${size}px;
+            border-color: ${color};
+            animation-duration: ${duration}s;
+        `;
+
+        container.appendChild(ring);
+
+        // Remove after animation completes
+        setTimeout(() => {
+            ring.remove();
+        }, duration * 1000);
+    }
+
+    // Create initial rings
+    for (let i = 0; i < 5; i++) {
+        setTimeout(() => createPulseRing(), i * 400);
+    }
+
+    // Create new rings periodically
+    setInterval(createPulseRing, 800);
+})();
+</script>
+{% endblock %}

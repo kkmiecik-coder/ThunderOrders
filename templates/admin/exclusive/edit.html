@@ -1,0 +1,541 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Edycja: {{ page.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/exclusive-builder.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="builder-page" data-page-id="{{ page.id }}">
+    <!-- Top Bar -->
+    <div class="builder-topbar">
+        <div class="topbar-left">
+            <a href="{{ url_for('admin.exclusive_list') }}" class="btn-back">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
+                Powrót do listy
+            </a>
+        </div>
+        <div class="topbar-center">
+            <span class="status-indicator status-{{ page.status }}">
+                {% if page.status == 'draft' %}Draft
+                {% elif page.status == 'scheduled' %}Zaplanowana
+                {% elif page.status == 'active' %}Aktywna
+                {% elif page.status == 'paused' %}Wstrzymana
+                {% elif page.status == 'ended' %}Zakończona
+                {% endif %}
+            </span>
+            <span class="last-saved" id="lastSaved">
+                {% if page.updated_at %}
+                Ostatni zapis: {{ page.updated_at.strftime('%H:%M:%S') }}
+                {% endif %}
+            </span>
+        </div>
+        <div class="topbar-right">
+            <a href="{{ url_for('exclusive.preview_page', token=page.token) }}" target="_blank" class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                </svg>
+                Podgląd
+            </a>
+            <button type="button" class="btn btn-secondary" id="btnCopyLink" onclick="copyPageLink()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
+                    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+                </svg>
+                Kopiuj link
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Builder Area -->
+    <div class="builder-main">
+        <!-- Sidebar - Settings -->
+        <div class="builder-sidebar">
+            <div class="sidebar-section">
+                <h3>Ustawienia strony</h3>
+
+                <div class="form-group">
+                    <label for="pageName">Nazwa strony</label>
+                    <input type="text" id="pageName" class="form-input" value="{{ page.name }}"
+                           placeholder="Nazwa strony">
+                </div>
+
+                <div class="form-group">
+                    <label for="pageDescription">Opis (pod nagłówkiem)</label>
+                    <textarea id="pageDescription" class="form-textarea" rows="3"
+                              placeholder="Krótki opis wyświetlany pod nazwą strony">{{ page.description or '' }}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="startsAt">Data rozpoczęcia</label>
+                    <input type="datetime-local" id="startsAt" class="form-input"
+                           value="{{ page.starts_at.strftime('%Y-%m-%dT%H:%M') if page.starts_at else '' }}">
+                    <small class="form-hint">Puste = ręczna publikacja</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="endsAt">Data zakończenia</label>
+                    <input type="datetime-local" id="endsAt" class="form-input"
+                           value="{{ page.ends_at.strftime('%Y-%m-%dT%H:%M') if page.ends_at else '' }}">
+                    <small class="form-hint">Puste = bez limitu czasu</small>
+                </div>
+            </div>
+
+            <div class="sidebar-section sidebar-actions">
+                <h3>Akcje</h3>
+
+                {% if page.status == 'draft' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="saveAsDraft()">
+                    Zapisz draft
+                </button>
+                <button type="button" class="btn btn-primary btn-block" onclick="saveAndSchedule()">
+                    Zapisz i zaplanuj
+                </button>
+                <button type="button" class="btn btn-success btn-block" onclick="publishNow()">
+                    Opublikuj teraz
+                </button>
+                {% elif page.status == 'scheduled' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                    Zapisz zmiany
+                </button>
+                <button type="button" class="btn btn-success btn-block" onclick="publishNow()">
+                    Opublikuj teraz
+                </button>
+                <button type="button" class="btn btn-outline btn-block" onclick="backToDraft()">
+                    Cofnij do draftu
+                </button>
+                {% elif page.status == 'active' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                    Zapisz zmiany
+                </button>
+                <button type="button" class="btn btn-warning btn-block" onclick="pauseSales()">
+                    Wstrzymaj sprzedaż
+                </button>
+                <button type="button" class="btn btn-outline btn-block" onclick="endSales()">
+                    Zakończ sprzedaż
+                </button>
+                {% elif page.status == 'paused' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                    Zapisz zmiany
+                </button>
+                <button type="button" class="btn btn-success btn-block" onclick="resumeSales()">
+                    Wznów sprzedaż
+                </button>
+                <button type="button" class="btn btn-outline btn-block" onclick="endSales()">
+                    Zakończ sprzedaż
+                </button>
+                {% elif page.status == 'ended' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                    Zapisz zmiany
+                </button>
+                <button type="button" class="btn btn-outline btn-block" onclick="backToDraft()">
+                    Cofnij do draftu
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Content Area - Page Builder -->
+        <div class="builder-content">
+            <div class="content-header">
+                <h2>Zawartość strony</h2>
+                <div class="add-section-dropdown">
+                    <button type="button" class="btn btn-primary" id="addSectionBtn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                        </svg>
+                        Dodaj sekcję
+                    </button>
+                    <div class="dropdown-menu" id="addSectionMenu">
+                        <button type="button" onclick="addSection('heading')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8.637 13V3.669H7.379V7.62H2.758V3.67H1.5V13h1.258V8.728h4.62V13h1.259zm5.329 0V3.669h-1.244L10.5 5.316v1.265l2.16-1.565h.062V13h1.244z"/>
+                            </svg>
+                            Nagłówek (H2)
+                        </button>
+                        <button type="button" onclick="addSection('paragraph')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path fill-rule="evenodd" d="M2 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                            </svg>
+                            Paragraf
+                        </button>
+                        <button type="button" onclick="addSection('product')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+                            </svg>
+                            Produkt
+                        </button>
+                        <button type="button" onclick="addSection('set')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v8A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5zm1.886 6.914L15 7.151V12.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V7.15l6.614 1.764a1.5 1.5 0 0 0 .772 0zM1.5 4h13a.5.5 0 0 1 .5.5v1.616l-6.614 1.764a.5.5 0 0 1-.772 0L1 6.116V4.5a.5.5 0 0 1 .5-.5z"/>
+                            </svg>
+                            Set produktów
+                        </button>
+                        {% if variant_groups %}
+                        <button type="button" onclick="addSection('variant_group')">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                            </svg>
+                            Grupa wariantowa
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page Preview Header -->
+            <div class="preview-header" id="previewHeader">
+                <h1 class="preview-title" id="previewTitle">{{ page.name }}</h1>
+                <p class="preview-description" id="previewDescription">{{ page.description or '' }}</p>
+            </div>
+
+            <!-- Sections Container (sortable) -->
+            <div class="sections-container" id="sectionsContainer">
+                {% for section in sections %}
+                <div class="section-card" data-section-id="{{ section.id }}" data-section-type="{{ section.section_type }}">
+                    <div class="section-header">
+                        <div class="section-drag-handle">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                            </svg>
+                        </div>
+                        <span class="section-type-label">
+                            {% if section.section_type == 'heading' %}Nagłówek
+                            {% elif section.section_type == 'paragraph' %}Paragraf
+                            {% elif section.section_type == 'product' %}Produkt
+                            {% elif section.section_type == 'set' %}Set produktów
+                            {% elif section.section_type == 'variant_group' %}Grupa wariantowa
+                            {% endif %}
+                        </span>
+                        <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="section-body">
+                        {% if section.section_type == 'heading' %}
+                        <input type="text" class="form-input section-content" value="{{ section.content or '' }}"
+                               placeholder="Treść nagłówka H2">
+                        {% elif section.section_type == 'paragraph' %}
+                        <textarea class="form-textarea section-content" rows="3"
+                                  placeholder="Treść paragrafu">{{ section.content or '' }}</textarea>
+                        {% elif section.section_type == 'product' %}
+                        <div class="product-section">
+                            <div class="product-selection-row">
+                                <div class="product-thumbnail" id="thumb-{{ section.id }}">
+                                    {% if section.product and section.product.primary_image %}
+                                    <img src="{{ url_for('static', filename=section.product.primary_image.path_compressed) }}" alt="{{ section.product.name }}">
+                                    {% else %}
+                                    <div class="no-thumbnail">
+                                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                        </svg>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="product-select-wrapper">
+                                    <label>Produkt</label>
+                                    <select class="form-select product-select" data-product-id="{{ section.product_id or '' }}" onchange="updateProductThumbnail(this)">
+                                        <option value="">Wybierz produkt...</option>
+                                        {% for product in products %}
+                                        <option value="{{ product.id }}"
+                                                data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}"
+                                                {% if section.product_id == product.id %}selected{% endif %}>
+                                            {{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="qty-counters-inline">
+                                    <div class="qty-counter-group">
+                                        <span class="qty-counter-label">Min</span>
+                                        <div class="qty-counter">
+                                            <button type="button" class="counter-btn counter-plus" onclick="adjustMinQty(this, 1)">+</button>
+                                            <span class="counter-value" data-value="{{ section.min_quantity or 0 }}">{{ section.min_quantity or 0 }}</span>
+                                            <button type="button" class="counter-btn counter-minus" onclick="adjustMinQty(this, -1)">−</button>
+                                        </div>
+                                        <input type="hidden" class="min-qty-value" value="{{ section.min_quantity or 0 }}">
+                                    </div>
+                                    <div class="qty-counter-group">
+                                        <span class="qty-counter-label">Max</span>
+                                        <div class="qty-counter">
+                                            <button type="button" class="counter-btn counter-plus" onclick="adjustMaxQty(this, 1)">+</button>
+                                            <span class="counter-value" data-value="{{ section.max_quantity or 0 }}">{{ section.max_quantity or 0 }}</span>
+                                            <button type="button" class="counter-btn counter-minus" onclick="adjustMaxQty(this, -1)">−</button>
+                                        </div>
+                                        <input type="hidden" class="max-qty-value" value="{{ section.max_quantity or 0 }}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% elif section.section_type == 'set' %}
+                        <div class="set-section">
+                            <div class="set-header-row">
+                                <div class="set-name-group">
+                                    <label class="set-name-label">Nazwa setu:</label>
+                                    <input type="text" class="form-input set-name" value="{{ section.set_name or '' }}"
+                                           placeholder="np. Karty BTS - komplet 8 szt">
+                                </div>
+                                <div class="set-header-buttons">
+                                    <button type="button" class="btn btn-outline btn-sm btn-set-image{% if section.set_image %} has-image{% endif %}" onclick="document.getElementById('setImageInput-{{ section.id }}').click()">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                        </svg>
+                                        {% if section.set_image %}Zmień tło seta{% else %}Dodaj tło seta{% endif %}
+                                    </button>
+                                    <input type="file" class="set-image-input" id="setImageInput-{{ section.id }}"
+                                           accept="image/*" onchange="uploadSetImage(this, {{ section.id }})" style="display:none;">
+                                    <input type="hidden" class="set-image-path" value="{{ section.set_image or '' }}">
+                                    <div class="set-add-buttons">
+                                        <button type="button" class="btn btn-outline btn-sm" onclick="addSetItem(this)">
+                                            + Dodaj produkt
+                                        </button>
+                                        {% if variant_groups %}
+                                        <button type="button" class="btn btn-outline btn-sm" onclick="addSetVariantGroup(this)">
+                                            + Dodaj grupę wariantową
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                    <div class="set-max-counter">
+                                        <span class="counter-label">Max/produkt</span>
+                                        <div class="counter-controls">
+                                            <button type="button" class="counter-btn counter-plus" onclick="adjustMaxPerProduct(this, 1)">+</button>
+                                            <span class="counter-value" data-value="{{ section.set_max_per_product or 0 }}">{{ section.set_max_per_product or 0 }}</span>
+                                            <button type="button" class="counter-btn counter-minus" onclick="adjustMaxPerProduct(this, -1)">−</button>
+                                        </div>
+                                        <input type="hidden" class="set-max-per-product" value="{{ section.set_max_per_product or 0 }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Set Image Row (appears only when image is set) -->
+                            <div class="set-image-row{% if not section.set_image %} hidden{% endif %}" id="setImageRow-{{ section.id }}">
+                                <div class="set-image-preview has-image" id="setImagePreview-{{ section.id }}">
+                                    {% if section.set_image %}
+                                    <img src="{{ url_for('static', filename=section.set_image) }}" alt="Tło setu">
+                                    {% endif %}
+                                </div>
+                                <button type="button" class="btn-remove-set-image" onclick="removeSetImage(this, {{ section.id }})">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div class="set-items">
+                                <label>Składniki setu:</label>
+                                <div class="set-items-list">
+                                    {% if not section.get_set_items_ordered() %}
+                                    <div class="set-items-empty">
+                                        <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                        </svg>
+                                        <p>Brak produktów w secie</p>
+                                        <span>Dodaj produkty lub grupy wariantowe używając przycisków powyżej</span>
+                                    </div>
+                                    {% endif %}
+                                    {% for item in section.get_set_items_ordered() %}
+                                    {% if item.is_variant_group %}
+                                    {# Variant Group Card - nowy układ z listą produktów #}
+                                    <div class="set-item-variant-group-card" data-item-id="{{ item.id }}" data-item-type="variant_group">
+                                        <div class="variant-group-header">
+                                            <div class="variant-group-icon">
+                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
+                                                </svg>
+                                            </div>
+                                            <select class="form-select variant-group-select set-item-variant-group" onchange="updateSetVariantGroupProducts(this)">
+                                                <option value="">Wybierz grupę...</option>
+                                                {% for vg in variant_groups %}
+                                                <option value="{{ vg.id }}" data-products="{{ vg.products|length }}"
+                                                        {% if item.variant_group_id == vg.id %}selected{% endif %}>
+                                                    {{ vg.name }} ({{ vg.products|length }} produktów)
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                            <span class="set-item-badge badge-variant">Grupa</span>
+                                        </div>
+                                        <div class="variant-group-products">
+                                            {% if item.variant_group and item.variant_group.products %}
+                                            {% for product in item.variant_group.products %}
+                                            <div class="variant-product-item">
+                                                {% if product.primary_image %}
+                                                <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}" alt="{{ product.name }}">
+                                                {% else %}
+                                                <div class="no-thumb">
+                                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                        <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                                        <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                                    </svg>
+                                                </div>
+                                                {% endif %}
+                                                <span class="product-name">{{ product.name }}</span>
+                                            </div>
+                                            {% endfor %}
+                                            {% else %}
+                                            <div class="variant-products-empty">Wybierz grupę wariantową</div>
+                                            {% endif %}
+                                        </div>
+                                        <button type="button" class="btn-remove-item" onclick="removeSetItem(this)">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    {% else %}
+                                    {# Product Item - standardowy kafelek #}
+                                    <div class="set-item" data-item-id="{{ item.id }}" data-item-type="product">
+                                        <div class="set-item-thumbnail">
+                                            {% if item.product and item.product.primary_image %}
+                                            <img src="{{ url_for('static', filename=item.product.primary_image.path_compressed) }}" alt="{{ item.product.name }}">
+                                            {% else %}
+                                            <div class="no-thumbnail-sm">
+                                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                    <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                                    <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <select class="form-select set-item-product" onchange="updateSetItemThumbnail(this)">
+                                            <option value="">Wybierz produkt...</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}"
+                                                    data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}"
+                                                    {% if item.product_id == product.id %}selected{% endif %}>
+                                                {{ product.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <span class="set-item-badge badge-product">Produkt</span>
+                                        <button type="button" class="btn-remove-item" onclick="removeSetItem(this)">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% elif section.section_type == 'variant_group' %}
+                        <div class="variant-group-section">
+                            <div class="variant-group-selection-row">
+                                <div class="variant-group-select-wrapper">
+                                    <label>Grupa wariantowa</label>
+                                    <select class="form-select variant-group-select" data-variant-group-id="{{ section.variant_group_id or '' }}" onchange="updateVariantGroupPreview(this)">
+                                        <option value="">Wybierz grupę wariantową...</option>
+                                        {% for vg in variant_groups %}
+                                        <option value="{{ vg.id }}"
+                                                data-products="{{ vg.products|length }}"
+                                                {% if section.variant_group_id == vg.id %}selected{% endif %}>
+                                            {{ vg.name }} ({{ vg.products|length }} produktów)
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="qty-counters-inline">
+                                    <div class="qty-counter-group">
+                                        <span class="qty-counter-label">Min</span>
+                                        <div class="qty-counter">
+                                            <button type="button" class="counter-btn counter-plus" onclick="adjustMinQty(this, 1)">+</button>
+                                            <span class="counter-value" data-value="{{ section.min_quantity or 0 }}">{{ section.min_quantity or 0 }}</span>
+                                            <button type="button" class="counter-btn counter-minus" onclick="adjustMinQty(this, -1)">−</button>
+                                        </div>
+                                        <input type="hidden" class="min-qty-value" value="{{ section.min_quantity or 0 }}">
+                                    </div>
+                                    <div class="qty-counter-group">
+                                        <span class="qty-counter-label">Max</span>
+                                        <div class="qty-counter">
+                                            <button type="button" class="counter-btn counter-plus" onclick="adjustMaxQty(this, 1)">+</button>
+                                            <span class="counter-value" data-value="{{ section.max_quantity or 0 }}">{{ section.max_quantity or 0 }}</span>
+                                            <button type="button" class="counter-btn counter-minus" onclick="adjustMaxQty(this, -1)">−</button>
+                                        </div>
+                                        <input type="hidden" class="max-qty-value" value="{{ section.max_quantity or 0 }}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="variant-group-preview">
+                                {% if section.variant_group %}
+                                <p class="variant-info-text">Produkty w grupie: {{ section.variant_group.products|length }}</p>
+                                <div class="variant-products-grid">
+                                    {% for product in section.get_variant_group_products() %}
+                                    <div class="variant-product-item">
+                                        {% if product.primary_image %}
+                                        <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}" alt="{{ product.name }}">
+                                        {% else %}
+                                        <div class="no-thumbnail-sm">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                                <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                            </svg>
+                                        </div>
+                                        {% endif %}
+                                        <span class="variant-product-name">{{ product.name }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <p class="variant-info-text text-muted">Wybierz grupę wariantową aby zobaczyć produkty</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Empty State -->
+            {% if not sections %}
+            <div class="empty-sections" id="emptySections">
+                <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
+                </svg>
+                <p>Strona jest pusta. Dodaj pierwszą sekcję.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Product Select Template (hidden) -->
+<template id="productOptionTemplate">
+    {% for product in products %}
+    <option value="{{ product.id }}" data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}">{{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}</option>
+    {% endfor %}
+</template>
+
+<!-- Variant Group Select Template (hidden) -->
+<template id="variantGroupOptionTemplate">
+    {% for vg in variant_groups %}
+    <option value="{{ vg.id }}" data-products="{{ vg.products|length }}">{{ vg.name }} ({{ vg.products|length }} produktów)</option>
+    {% endfor %}
+</template>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/exclusive-builder.js') }}"></script>
+<script>
+    // Initialize builder
+    document.addEventListener('DOMContentLoaded', function() {
+        initExclusiveBuilder({
+            pageId: {{ page.id }},
+            csrfToken: '{{ csrf_token() }}',
+            pageToken: '{{ page.token }}'
+        });
+    });
+</script>
+{% endblock %}

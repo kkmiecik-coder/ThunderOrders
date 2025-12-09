@@ -33,13 +33,20 @@ function openNewOrderModal() {
 }
 
 /**
- * Close the new order modal
+ * Close the new order modal with animation
  */
 function closeNewOrderModal() {
     const modal = document.getElementById('newOrderModal');
-    if (modal) {
-        modal.classList.remove('active');
-        document.body.style.overflow = '';
+    if (modal && modal.classList.contains('active')) {
+        // Dodaj klasę closing dla animacji
+        modal.classList.add('closing');
+
+        // Po zakończeniu animacji usuń klasy
+        setTimeout(() => {
+            modal.classList.remove('active');
+            modal.classList.remove('closing');
+            document.body.style.overflow = '';
+        }, 350); // 350ms = czas trwania animacji
     }
 }
 

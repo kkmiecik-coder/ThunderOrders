@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.name }} - Wstrzymana{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/exclusive/status.css') }}">
+{% endblock %}
+
+{% block body_content %}
+<div class="status-page status-paused">
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="sparkle sparkle-1"></div>
+        <div class="sparkle sparkle-2"></div>
+        <div class="sparkle sparkle-3"></div>
+        <div class="sparkle sparkle-4"></div>
+        <div class="sparkle sparkle-5"></div>
+    </div>
+
+    <!-- Glass Container -->
+    <div class="status-container">
+        <!-- Logo -->
+        <div class="status-logo">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="Logo">
+        </div>
+
+        <!-- Badge -->
+        <span class="status-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="4" width="4" height="16" rx="1"/>
+                <rect x="14" y="4" width="4" height="16" rx="1"/>
+            </svg>
+            Wstrzymana
+        </span>
+
+        <!-- Icon -->
+        <div class="status-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <circle cx="12" cy="12" r="10"/>
+                <rect x="9" y="8" width="2" height="8" rx="0.5"/>
+                <rect x="13" y="8" width="2" height="8" rx="0.5"/>
+            </svg>
+        </div>
+
+        <!-- Content -->
+        <h1>{{ page.name }}</h1>
+        <p>Sprzedaż została chwilowo wstrzymana. Przepraszamy za utrudnienia.</p>
+
+        <!-- Info Card -->
+        <div class="status-info-card">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12,6 12,12 16,14"/>
+            </svg>
+            <div class="status-info-text">
+                <span class="status-info-label">Status</span>
+                <span class="status-info-value">Wkrótce wznowiona</span>
+            </div>
+        </div>
+
+        <p class="text-muted">Odśwież stronę za chwilę, aby sprawdzić dostępność.</p>
+
+        <!-- Auto-refresh hint -->
+        <div class="status-actions">
+            <button onclick="location.reload()" class="status-btn status-btn-secondary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="23,4 23,10 17,10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Odśwież stronę
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Auto-refresh every 30 seconds to check if page is unpaused
+setTimeout(function() {
+    location.reload();
+}, 30000);
+</script>
+{% endblock %}

@@ -291,17 +291,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Show modal and overlay
         categoryOverlay.classList.add('active');
-        categoryModal.style.display = 'block';
+        categoryModal.classList.add('show');
     }
 
     /**
-     * Close category modal
+     * Close category modal with animation
      */
     function closeCategoryModal() {
-        categoryOverlay.classList.remove('active');
-        categoryModal.style.display = 'none';
-        categoryForm.reset();
-        clearFormErrors();
+        // Dodaj klasę closing dla animacji
+        categoryOverlay.classList.add('closing');
+        categoryModal.classList.add('closing');
+
+        // Po zakończeniu animacji usuń klasy
+        setTimeout(() => {
+            categoryOverlay.classList.remove('active');
+            categoryOverlay.classList.remove('closing');
+            categoryModal.classList.remove('show');
+            categoryModal.classList.remove('closing');
+            categoryForm.reset();
+            clearFormErrors();
+        }, 350); // 350ms = czas trwania animacji
     }
 
     /**
@@ -499,17 +508,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Show modal and overlay
             tagOverlay.classList.add('active');
-            tagModal.style.display = 'block';
+            tagModal.classList.add('show');
         }
 
         /**
-         * Close tag modal
+         * Close tag modal with animation
          */
         function closeTagModal() {
-            tagOverlay.classList.remove('active');
-            tagModal.style.display = 'none';
-            tagForm.reset();
-            clearTagFormErrors();
+            // Dodaj klasę closing dla animacji
+            tagOverlay.classList.add('closing');
+            tagModal.classList.add('closing');
+
+            // Po zakończeniu animacji usuń klasy
+            setTimeout(() => {
+                tagOverlay.classList.remove('active');
+                tagOverlay.classList.remove('closing');
+                tagModal.classList.remove('show');
+                tagModal.classList.remove('closing');
+                tagForm.reset();
+                clearTagFormErrors();
+            }, 350); // 350ms = czas trwania animacji
         }
 
         /**
@@ -1046,17 +1064,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Show modal and overlay
             supplierOverlay.classList.add('active');
-            supplierModal.style.display = 'block';
+            supplierModal.classList.add('show');
         }
 
         /**
-         * Close supplier modal
+         * Close supplier modal with animation
          */
         function closeSupplierModal() {
-            supplierOverlay.classList.remove('active');
-            supplierModal.style.display = 'none';
-            supplierForm.reset();
-            clearSupplierFormErrors();
+            // Dodaj klasę closing dla animacji
+            supplierOverlay.classList.add('closing');
+            supplierModal.classList.add('closing');
+
+            // Po zakończeniu animacji usuń klasy
+            setTimeout(() => {
+                supplierOverlay.classList.remove('active');
+                supplierOverlay.classList.remove('closing');
+                supplierModal.classList.remove('show');
+                supplierModal.classList.remove('closing');
+                supplierForm.reset();
+                clearSupplierFormErrors();
+            }, 350); // 350ms = czas trwania animacji
         }
 
         /**

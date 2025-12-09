@@ -1,0 +1,479 @@
+{% extends "base.html" %}
+
+{% block title %}Zarządzanie avatarami - ThunderOrders{% endblock %}
+
+{% block body_content %}
+{% include 'components/sidebar_admin.html' %}
+
+<!-- Sidebar Backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Main Wrapper -->
+<div class="main-wrapper">
+    {% include 'components/topbar.html' %}
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <div class="avatars-admin-page">
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="page-header-content">
+                    <h1>Zarządzanie avatarami</h1>
+                    <p class="page-subtitle">Twórz serie avatarów i dodawaj zdjęcia profilowe dla użytkowników</p>
+                </div>
+                <button class="btn btn-primary" onclick="openNewSeriesModal()">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2z"/>
+                    </svg>
+                    Nowa seria
+                </button>
+            </div>
+
+            <!-- Series List -->
+            <div class="avatar-series-list">
+                {% if series_list %}
+                    {% for series in series_list %}
+                    <div class="avatar-series-card" data-series-id="{{ series.id }}">
+                        <div class="series-header">
+                            <div class="series-info">
+                                <h3>{{ series.name }}</h3>
+                                <span class="series-slug">/{{ series.slug }}/</span>
+                                <span class="series-count">{{ series.avatar_count }} avatarów</span>
+                            </div>
+                            <div class="series-actions">
+                                <form action="{{ url_for('profile.upload_avatars', series_id=series.id) }}"
+                                      method="POST"
+                                      enctype="multipart/form-data"
+                                      class="upload-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <label class="btn btn-secondary btn-sm upload-btn">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                                        </svg>
+                                        Dodaj avatary
+                                        <input type="file"
+                                               name="files"
+                                               multiple
+                                               accept="image/jpeg,image/png,image/gif,image/webp"
+                                               onchange="this.form.submit()"
+                                               hidden>
+                                    </label>
+                                </form>
+                                <button class="btn btn-danger btn-sm btn-icon"
+                                        onclick="deleteSeries({{ series.id }}, '{{ series.name }}')"
+                                        title="Usuń serię">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="avatars-grid">
+                            {% for avatar in series.avatars %}
+                            <div class="avatar-item" data-avatar-id="{{ avatar.id }}">
+                                <img src="{{ avatar.url }}" alt="{{ series.name }} {{ avatar.sort_order }}">
+                                <button class="avatar-delete-btn"
+                                        onclick="deleteAvatar({{ avatar.id }})"
+                                        title="Usuń avatar">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% else %}
+                            <div class="avatars-empty">
+                                <p>Brak avatarów w tej serii. Kliknij "Dodaj avatary" aby przesłać zdjęcia.</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
+                        <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                    </svg>
+                    <h3>Brak serii avatarów</h3>
+                    <p>Utwórz pierwszą serię avatarów, aby użytkownicy mogli wybierać swoje zdjęcia profilowe.</p>
+                    <button class="btn btn-primary" onclick="openNewSeriesModal()">
+                        Utwórz pierwszą serię
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal: Nowa seria -->
+<div class="modal-overlay" id="newSeriesModal">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3 class="modal-title">Nowa seria avatarów</h3>
+            <button class="modal-close" onclick="closeNewSeriesModal()">&times;</button>
+        </div>
+        <form action="{{ url_for('profile.create_avatar_series') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="series-name">Nazwa serii</label>
+                    <input type="text"
+                           id="series-name"
+                           name="name"
+                           required
+                           maxlength="100"
+                           placeholder="np. K-pop Stars">
+                </div>
+                <div class="form-group">
+                    <label for="series-slug">Slug (URL)</label>
+                    <input type="text"
+                           id="series-slug"
+                           name="slug"
+                           required
+                           maxlength="100"
+                           pattern="[a-z0-9-]+"
+                           placeholder="np. k-pop-stars">
+                    <span class="form-hint">Tylko małe litery, cyfry i myślniki. Będzie używany w nazwie folderu.</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeNewSeriesModal()">Anuluj</button>
+                <button type="submit" class="btn btn-primary">Utwórz serię</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/profile.css') }}">
+<style>
+/* Avatars Admin Page */
+.avatars-admin-page {
+    padding: var(--space-6);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-8);
+    gap: var(--space-4);
+}
+
+.page-header-content h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 var(--space-2);
+}
+
+/* Series Card */
+.avatar-series-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: var(--space-6);
+    overflow: hidden;
+}
+
+.series-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-5) var(--space-6);
+    border-bottom: 1px solid var(--gray-200);
+    background: var(--gray-50);
+}
+
+.series-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0;
+}
+
+.series-slug {
+    font-size: 13px;
+    color: var(--gray-500);
+    font-family: monospace;
+    margin-left: var(--space-2);
+}
+
+.series-count {
+    font-size: 13px;
+    color: var(--gray-500);
+    margin-left: var(--space-3);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--gray-300);
+}
+
+.series-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+/* Avatars Grid */
+.avatars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: var(--space-4);
+    padding: var(--space-6);
+}
+
+.avatar-item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.avatar-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.avatar-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.avatar-item:hover .avatar-delete-btn {
+    opacity: 1;
+}
+
+.avatar-delete-btn:hover {
+    background: var(--error);
+}
+
+/* Avatars Empty */
+.avatars-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--gray-500);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-6);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.empty-icon {
+    color: var(--gray-300);
+    margin-bottom: var(--space-4);
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 var(--space-2);
+}
+
+.empty-state p {
+    color: var(--gray-500);
+    margin: 0 0 var(--space-6);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Button styles */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn-icon {
+    padding: 6px;
+}
+
+.upload-btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Dark mode */
+[data-theme="dark"] .avatar-series-card {
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .series-header {
+    background: var(--gray-700);
+    border-bottom-color: var(--gray-600);
+}
+
+[data-theme="dark"] .series-info h3,
+[data-theme="dark"] .page-header-content h1 {
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .empty-state {
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .empty-state h3 {
+    color: var(--gray-100);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+    }
+
+    .series-header {
+        flex-direction: column;
+        gap: var(--space-3);
+        align-items: flex-start;
+    }
+
+    .avatars-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: var(--space-3);
+        padding: var(--space-4);
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openNewSeriesModal() {
+    document.getElementById('newSeriesModal').classList.add('active');
+    document.getElementById('series-name').focus();
+}
+
+function closeNewSeriesModal() {
+    const modal = document.getElementById('newSeriesModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.getElementById('series-name').value = '';
+        document.getElementById('series-slug').value = '';
+    }, 350);
+}
+
+// Auto-generate slug from name
+document.getElementById('series-name').addEventListener('input', function() {
+    const slug = this.value
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+    document.getElementById('series-slug').value = slug;
+});
+
+function deleteSeries(seriesId, seriesName) {
+    if (!confirm(`Czy na pewno chcesz usunąć serię "${seriesName}"?\n\nWszystkie avatary w tej serii zostaną usunięte.`)) {
+        return;
+    }
+
+    fetch(`/profile/avatars/series/${seriesId}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove card from DOM
+            const card = document.querySelector(`[data-series-id="${seriesId}"]`);
+            if (card) {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(-10px)';
+                setTimeout(() => card.remove(), 300);
+            }
+            window.showToast('Seria została usunięta.', 'success');
+        } else {
+            window.showToast(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        window.showToast('Wystąpił błąd podczas usuwania serii.', 'error');
+    });
+}
+
+function deleteAvatar(avatarId) {
+    if (!confirm('Czy na pewno chcesz usunąć ten avatar?')) {
+        return;
+    }
+
+    fetch(`/profile/avatars/${avatarId}`, {
+        method: 'DELETE',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token() }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Remove avatar from DOM
+            const item = document.querySelector(`[data-avatar-id="${avatarId}"]`);
+            if (item) {
+                item.style.opacity = '0';
+                item.style.transform = 'scale(0.8)';
+                setTimeout(() => item.remove(), 300);
+            }
+            window.showToast('Avatar został usunięty.', 'success');
+        } else {
+            window.showToast(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        window.showToast('Wystąpił błąd podczas usuwania avatara.', 'error');
+    });
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeNewSeriesModal();
+    }
+});
+
+// Close modal on overlay click
+document.getElementById('newSeriesModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeNewSeriesModal();
+    }
+});
+</script>
+{% endblock %}

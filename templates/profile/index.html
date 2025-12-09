@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Mój Profil - ThunderOrders{% endblock %}
+
+{% block body_content %}
+<!-- Sidebar - wybierz odpowiedni na podstawie roli -->
+{% if current_user.role in ['admin', 'mod'] %}
+    {% include 'components/sidebar_admin.html' %}
+{% else %}
+    {% include 'components/sidebar_client.html' %}
+{% endif %}
+
+<!-- Sidebar Backdrop (mobile) -->
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<!-- Main Wrapper -->
+<div class="main-wrapper">
+    <!-- Topbar -->
+    {% include 'components/topbar.html' %}
+
+    <!-- Main Content -->
+    <main class="main-content" id="mainContent">
+        <div class="profile-page">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1>Mój Profil</h1>
+                <p class="page-subtitle">Zarządzaj swoimi danymi osobowymi i hasłem</p>
+            </div>
+
+            <div class="profile-grid">
+                <!-- Dane osobowe -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2>Dane osobowe</h2>
+                    </div>
+                    <form action="{{ url_for('profile.update_profile') }}" method="POST" class="profile-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="first_name">Imię</label>
+                                <input type="text"
+                                       id="first_name"
+                                       name="first_name"
+                                       value="{{ current_user.first_name }}"
+                                       required
+                                       maxlength="100">
+                            </div>
+                            <div class="form-group">
+                                <label for="last_name">Nazwisko</label>
+                                <input type="text"
+                                       id="last_name"
+                                       name="last_name"
+                                       value="{{ current_user.last_name }}"
+                                       required
+                                       maxlength="100">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Email</label>
+                            <div class="form-value-readonly">{{ current_user.email }}</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone">Telefon <span class="optional">(opcjonalnie)</span></label>
+                            <input type="tel"
+                                   id="phone"
+                                   name="phone"
+                                   value="{{ current_user.phone or '' }}"
+                                   maxlength="20"
+                                   placeholder="+48 123 456 789">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Zmiana hasła -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2>Zmiana hasła</h2>
+                    </div>
+                    <form action="{{ url_for('profile.change_password') }}" method="POST" class="profile-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="form-group">
+                            <label for="current_password">Obecne hasło</label>
+                            <input type="password"
+                                   id="current_password"
+                                   name="current_password"
+                                   required
+                                   autocomplete="current-password">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="new_password">Nowe hasło</label>
+                            <input type="password"
+                                   id="new_password"
+                                   name="new_password"
+                                   required
+                                   minlength="8"
+                                   autocomplete="new-password">
+                            <span class="form-hint">Min. 8 znaków, duża litera, mała litera, cyfra</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="confirm_password">Potwierdź nowe hasło</label>
+                            <input type="password"
+                                   id="confirm_password"
+                                   name="confirm_password"
+                                   required
+                                   autocomplete="new-password">
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Zmień hasło</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Zmiana avatara -->
+                <div class="profile-card profile-card-avatar">
+                    <div class="profile-card-header">
+                        <h2>Avatar</h2>
+                    </div>
+                    <div class="avatar-section">
+                        <div class="current-avatar">
+                            {% if current_user.avatar %}
+                                <img src="{{ current_user.avatar.url }}" alt="Twój avatar" class="avatar-preview">
+                            {% else %}
+                                <div class="avatar-placeholder">
+                                    <span>{{ current_user.first_name[0] }}{{ current_user.last_name[0] }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="avatar-info">
+                            {% if current_user.avatar %}
+                                <p class="avatar-status">Masz ustawiony avatar z serii <strong>{{ current_user.avatar.series.name }}</strong></p>
+                            {% else %}
+                                <p class="avatar-status">Nie masz jeszcze ustawionego avatara</p>
+                            {% endif %}
+                            <a href="{{ url_for('profile.select_avatar') }}" class="btn btn-primary">
+                                {% if current_user.avatar %}Zmień avatar{% else %}Wybierz avatar{% endif %}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informacje o koncie -->
+                <div class="profile-card profile-card-info">
+                    <div class="profile-card-header">
+                        <h2>Informacje o koncie</h2>
+                    </div>
+                    <div class="account-info">
+                        <div class="info-row">
+                            <span class="info-label">Rola</span>
+                            <span class="info-value">
+                                {% if current_user.role == 'admin' %}
+                                    <span class="badge badge-admin">Administrator</span>
+                                {% elif current_user.role == 'mod' %}
+                                    <span class="badge badge-mod">Moderator</span>
+                                {% else %}
+                                    <span class="badge badge-client">Klient</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status konta</span>
+                            <span class="info-value">
+                                {% if current_user.is_active %}
+                                    <span class="status-dot status-active"></span> Aktywne
+                                {% else %}
+                                    <span class="status-dot status-inactive"></span> Nieaktywne
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email zweryfikowany</span>
+                            <span class="info-value">
+                                {% if current_user.email_verified %}
+                                    <span class="status-dot status-active"></span> Tak
+                                {% else %}
+                                    <span class="status-dot status-inactive"></span> Nie
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Data rejestracji</span>
+                            <span class="info-value">{{ current_user.created_at.strftime('%d.%m.%Y, %H:%M') }}</span>
+                        </div>
+                        {% if current_user.last_login %}
+                        <div class="info-row">
+                            <span class="info-label">Ostatnie logowanie</span>
+                            <span class="info-value">{{ current_user.last_login.strftime('%d.%m.%Y, %H:%M') }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if current_user.is_admin() %}
+                <!-- Zarządzanie avatarami (tylko admin) -->
+                <div class="profile-card profile-card-info">
+                    <div class="profile-card-header">
+                        <h2>Zarządzanie avatarami</h2>
+                    </div>
+                    <div class="account-info" style="display: flex; flex-direction: column; gap: var(--space-4);">
+                        <p style="color: var(--gray-600); margin: 0;">
+                            Zarządzaj seriami avatarów dostępnymi dla wszystkich użytkowników systemu.
+                        </p>
+                        <a href="{{ url_for('profile.avatars_admin') }}" class="btn btn-primary" style="align-self: flex-start;">
+                            Zarządzaj avatarami
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/profile.css') }}">
+{% endblock %}

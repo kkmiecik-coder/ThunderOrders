@@ -206,6 +206,160 @@ def process_upload(file, upload_folder):
         raise ValueError(f'Error processing image: {str(e)}')
 
 
+def process_avatar(file, series_slug, avatar_number, target_size=256):
+    """
+    Process avatar image: validate, resize, compress, save to series folder
+
+    Args:
+        file: FileStorage object from form
+        series_slug (str): Slug of avatar series
+        avatar_number (int): Sequential number for avatar filename
+        target_size (int): Target size in pixels (default 256x256)
+
+    Returns:
+        str: Filename of saved avatar
+
+    Raises:
+        ValueError: If file is invalid or processing fails
+    """
+    # Validate file
+    if not file or file.filename == '':
+        raise ValueError('No file provided')
+
+    if not allowed_file(file.filename):
+        raise ValueError('Invalid file type. Allowed: JPG, PNG, GIF, WEBP')
+
+    # Check minimum resolution (200x200)
+    try:
+        img = Image.open(file.stream)
+        width, height = img.size
+
+        if width < 200 or height < 200:
+            raise ValueError('Obraz musi mieć co najmniej 200x200 pikseli')
+
+        # Reset file stream position
+        file.stream.seek(0)
+
+    except Exception as e:
+        if 'pikseli' in str(e):
+            raise
+        raise ValueError(f'Nie można odczytać obrazu: {str(e)}')
+
+    # Create avatar folder
+    static_folder = os.path.join(current_app.root_path, 'static')
+    avatar_folder = os.path.join(static_folder, 'uploads', 'avatars', series_slug)
+    os.makedirs(avatar_folder, exist_ok=True)
+
+    # Generate filename as PNG to preserve transparency
+    filename = f"{series_slug}-{avatar_number}.png"
+    file_path = os.path.join(avatar_folder, filename)
+
+    try:
+        # Open and process image
+        img = Image.open(file.stream)
+
+        # Pre-resize large images to reduce memory usage
+        # If image is very large, first resize to 1024px max dimension
+        max_dim = max(img.size)
+        if max_dim > 1024:
+            scale = 1024 / max_dim
+            new_size = (int(img.size[0] * scale), int(img.size[1] * scale))
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
+
+        # Convert to RGBA to preserve transparency
+        if img.mode != 'RGBA':
+            img = img.convert('RGBA')
+
+        # Crop to square (center crop)
+        width, height = img.size
+        min_dim = min(width, height)
+        left = (width - min_dim) // 2
+        top = (height - min_dim) // 2
+        right = left + min_dim
+        bottom = top + min_dim
+        img = img.crop((left, top, right, bottom))
+
+        # Resize to target size (256x256)
+        img = img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+
+        # Check if image has actual transparency
+        has_transparency = False
+        if img.mode == 'RGBA':
+            # Check alpha channel for non-opaque pixels
+            alpha = img.split()[3]
+            if alpha.getextrema()[0] < 255:
+                has_transparency = True
+
+        # Save with optimal compression
+        if has_transparency:
+            # Keep PNG for transparent images
+            img.save(file_path, 'PNG', optimize=True, compress_level=9)
+        else:
+            # Convert to RGB and save as optimized PNG (smaller file size)
+            img_rgb = Image.new('RGB', img.size, (255, 255, 255))
+            img_rgb.paste(img, mask=img.split()[3])
+            img_rgb.save(file_path, 'PNG', optimize=True, compress_level=9)
+
+        return filename
+
+    except Exception as e:
+        # Clean up on error
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise ValueError(f'Error processing avatar: {str(e)}')
+
+
+def delete_avatar_file(series_slug, filename):
+    """
+    Delete avatar file
+
+    Args:
+        series_slug (str): Slug of avatar series
+        filename (str): Avatar filename
+
+    Returns:
+        bool: True if deleted successfully
+    """
+    try:
+        static_folder = os.path.join(current_app.root_path, 'static')
+        file_path = os.path.join(static_folder, 'uploads', 'avatars', series_slug, filename)
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return True
+        return False
+
+    except Exception as e:
+        current_app.logger.error(f"Error deleting avatar: {str(e)}")
+        return False
+
+
+def delete_avatar_series_folder(series_slug):
+    """
+    Delete entire avatar series folder
+
+    Args:
+        series_slug (str): Slug of avatar series
+
+    Returns:
+        bool: True if deleted successfully
+    """
+    import shutil
+
+    try:
+        static_folder = os.path.join(current_app.root_path, 'static')
+        folder_path = os.path.join(static_folder, 'uploads', 'avatars', series_slug)
+
+        if os.path.exists(folder_path):
+            shutil.rmtree(folder_path)
+            return True
+        return False
+
+    except Exception as e:
+        current_app.logger.error(f"Error deleting avatar series folder: {str(e)}")
+        return False
+
+
 def delete_image_files(path_original, path_compressed):
     """
     Delete image files (original and compressed)

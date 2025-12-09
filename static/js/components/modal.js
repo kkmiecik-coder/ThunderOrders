@@ -25,8 +25,15 @@ window.showModal = function(title, body, footer = '') {
 
 window.hideModal = function() {
     const overlay = document.getElementById('modal-overlay');
-    if (overlay) {
-        overlay.classList.remove('active');
+    if (overlay && overlay.classList.contains('active')) {
+        // Dodaj klasę closing dla animacji
+        overlay.classList.add('closing');
+
+        // Po zakończeniu animacji usuń klasy
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            overlay.classList.remove('closing');
+        }, 350); // 350ms = czas trwania animacji
     }
 };
 

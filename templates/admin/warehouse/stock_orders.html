@@ -23,6 +23,7 @@
         <div class="tab-pane">
             <div class="tab-header">
                 <h2>Zamówienia {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</h2>
+                {% if active_tab == 'proxy' %}
                 <button class="btn btn-primary" id="btnNewOrder">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -30,6 +31,79 @@
                     </svg>
                     Nowe zamówienie
                 </button>
+                {% endif %}
+            </div>
+
+            <!-- Filters Section -->
+            <div class="orders-filters">
+                <div class="filter-group">
+                    <label>Data od</label>
+                    <input type="date" id="filterDateFrom" class="filter-input" onchange="applyFilters()">
+                </div>
+                <div class="filter-group">
+                    <label>Data do</label>
+                    <input type="date" id="filterDateTo" class="filter-input" onchange="applyFilters()">
+                </div>
+                <div class="filter-group filter-group-status">
+                    <label>Status</label>
+                    <div class="multi-select-wrapper">
+                        <button type="button" class="multi-select-trigger" onclick="toggleStatusMultiSelect()">
+                            <span id="statusSelectText">Wszystkie statusy</span>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                <path d="M6 8L2 4h8L6 8z"/>
+                            </svg>
+                        </button>
+                        <div id="statusMultiSelect" class="multi-select-dropdown" style="display: none;">
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="nowe" onchange="updateStatusFilter()">
+                                    <span class="badge badge-nowe">Nowe</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="oczekujace" onchange="updateStatusFilter()">
+                                    <span class="badge badge-oczekujace">Oczekujące</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="dostarczone_proxy" onchange="updateStatusFilter()">
+                                    <span class="badge badge-dostarczone_proxy">Dostarczone Proxy</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="w_drodze_polska" onchange="updateStatusFilter()">
+                                    <span class="badge badge-w_drodze_polska">W Drodze Polska</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="urzad_celny" onchange="updateStatusFilter()">
+                                    <span class="badge badge-urzad_celny">Urząd Celny</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="dostarczone_gom" onchange="updateStatusFilter()">
+                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="anulowane" onchange="updateStatusFilter()">
+                                    <span class="badge badge-anulowane">Anulowane</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-actions-inline">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFilters()">
+                        Wyczyść filtry
+                    </button>
+                </div>
             </div>
 
             <!-- Orders List -->
@@ -39,9 +113,13 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th class="col-checkbox">
+                                        <input type="checkbox" id="selectAllOrders" onchange="toggleSelectAll(this)">
+                                    </th>
                                     <th class="sortable" data-column="order_number" onclick="sortTable('order_number')">Nr zamówienia</th>
                                     <th class="sortable" data-column="product" onclick="sortTable('product')">Produkt</th>
                                     <th class="sortable" data-column="supplier" onclick="sortTable('supplier')">Dostawca</th>
+                                    <th class="sortable text-center" data-column="quantity" onclick="sortTable('quantity')">Ilość</th>
                                     <th class="sortable" data-column="status" onclick="sortTable('status')">Status</th>
                                     <th class="sortable" data-column="date" onclick="sortTable('date')">Data zamówienia</th>
                                     <th class="sortable" data-column="amount" onclick="sortTable('amount')">Kwota</th>
@@ -54,12 +132,18 @@
                                 {% set product = first_item.product if first_item else None %}
                                 {% set primary_image = product.primary_image if product else None %}
                                 <tr id="order-row-{{ order.id }}"
+                                    data-order-id="{{ order.id }}"
                                     data-order-number="{{ order.order_number }}"
                                     data-product="{{ product.name if product else '' }}"
                                     data-supplier="{{ order.supplier.name if order.supplier else '' }}"
+                                    data-quantity="{{ first_item.quantity if first_item else 0 }}"
                                     data-status="{{ order.status }}"
                                     data-date="{{ order.created_at.timestamp() }}"
+                                    data-date-formatted="{{ order.created_at.strftime('%Y-%m-%d') }}"
                                     data-amount="{{ order.total_amount_pln }}">
+                                    <td class="col-checkbox">
+                                        <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="handleCheckboxChange()">
+                                    </td>
                                     <td class="font-semibold">{{ order.order_number }}</td>
                                     <td>
                                         <div class="product-cell">
@@ -79,11 +163,12 @@
                                         </div>
                                     </td>
                                     <td>{{ order.supplier.name if order.supplier else '-' }}</td>
+                                    <td class="text-center">{{ first_item.quantity if first_item else '-' }}</td>
                                     <td>
                                         <div class="status-dropdown-wrapper">
-                                            <button class="status-badge-button badge badge-{{ order.status }}" onclick="toggleStatusDropdown({{ order.id }})">
+                                            <button class="status-badge-button badge-{{ order.status }}" onclick="toggleStatusDropdown({{ order.id }})">
                                                 {{ order.status|replace('_', ' ')|title }}
-                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" style="margin-left: 4px;">
+                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                                                     <path d="M6 8L2 4h8L6 8z"/>
                                                 </svg>
                                             </button>
@@ -140,14 +225,73 @@
                             <line x1="1" y1="10" x2="23" y2="10"></line>
                         </svg>
                         <h3>Brak zamówień</h3>
-                        <p>Nie znaleziono żadnych zamówień dla kategorii {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</p>
+                        {% if active_tab == 'proxy' %}
+                        <p>Nie znaleziono żadnych zamówień dla kategorii PROXY</p>
                         <button class="btn btn-primary" id="btnNewOrderEmpty">
                             Utwórz pierwsze zamówienie
                         </button>
+                        {% else %}
+                        <p>Zamówienia pojawią się tutaj po zmianie statusu na "Dostarczone GOM" w zakładce PROXY</p>
+                        <a href="{{ url_for('products.stock_orders', tab='proxy') }}" class="btn btn-primary" id="btnGoToProxy">
+                            Przejdź do PROXY
+                        </a>
+                        {% endif %}
                     </div>
                 {% endif %}
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Bulk Actions Sliding Modal -->
+<div id="bulkActionsModal" class="bulk-actions-modal">
+    <div class="bulk-actions-content">
+        <div class="bulk-actions-info">
+            <span class="selected-count">Zaznaczono: <strong id="selectedCount">0</strong></span>
+        </div>
+        <div class="bulk-actions-buttons">
+            <button type="button" class="bulk-action-btn bulk-action-status" onclick="openBulkStatusChange()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+                    <path d="M12 6v6l4 2"/>
+                </svg>
+                Zmień status
+            </button>
+            {% if current_user.role == 'admin' %}
+            <button type="button" class="bulk-action-btn bulk-action-delete" onclick="bulkDeleteOrders()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Usuń
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Status Change Dropdown -->
+<div id="bulkStatusDropdown" class="bulk-status-dropdown" style="display: none;">
+    <div class="bulk-status-option" onclick="applyBulkStatus('nowe')">
+        <span class="badge badge-nowe">Nowe</span>
+    </div>
+    <div class="bulk-status-option" onclick="applyBulkStatus('oczekujace')">
+        <span class="badge badge-oczekujace">Oczekujące</span>
+    </div>
+    <div class="bulk-status-option" onclick="applyBulkStatus('dostarczone_proxy')">
+        <span class="badge badge-dostarczone_proxy">Dostarczone Proxy</span>
+    </div>
+    <div class="bulk-status-option" onclick="applyBulkStatus('w_drodze_polska')">
+        <span class="badge badge-w_drodze_polska">W Drodze Polska</span>
+    </div>
+    <div class="bulk-status-option" onclick="applyBulkStatus('urzad_celny')">
+        <span class="badge badge-urzad_celny">Urząd Celny</span>
+    </div>
+    <div class="bulk-status-option" onclick="applyBulkStatus('dostarczone_gom')">
+        <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+    </div>
+    <div class="bulk-status-option" onclick="applyBulkStatus('anulowane')">
+        <span class="badge badge-anulowane">Anulowane</span>
     </div>
 </div>
 
@@ -350,15 +494,266 @@
     margin: 0;
 }
 
+/* Orders Filters */
+.orders-filters {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.orders-filters .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.orders-filters .filter-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.orders-filters .filter-input {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    min-width: 150px;
+}
+
+.orders-filters .filter-input:focus {
+    outline: none;
+    border-color: #FF8500;
+    box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
+}
+
+.filter-group-status {
+    min-width: 200px;
+}
+
+.multi-select-wrapper {
+    position: relative;
+}
+
+.multi-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    min-width: 180px;
+    text-align: left;
+}
+
+.multi-select-trigger:hover {
+    border-color: #d1d5db;
+}
+
+.multi-select-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    min-width: 200px;
+    padding: 4px;
+}
+
+.multi-select-option {
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.multi-select-option:hover {
+    background: #f3f4f6;
+}
+
+.multi-select-option label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-transform: none;
+    font-weight: normal;
+}
+
+.multi-select-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.filter-actions-inline {
+    margin-left: auto;
+}
+
+/* Checkbox column */
+.col-checkbox {
+    width: 40px;
+    text-align: center;
+}
+
+.col-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+/* Bulk Actions Modal */
+.bulk-actions-modal {
+    position: fixed;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    transition: bottom 0.3s ease;
+    min-width: 400px;
+}
+
+.bulk-actions-modal.visible {
+    bottom: 0;
+}
+
+.bulk-actions-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    gap: 24px;
+}
+
+.bulk-actions-info {
+    font-size: 14px;
+    color: #374151;
+}
+
+.bulk-actions-info strong {
+    color: #FF8500;
+    font-size: 16px;
+}
+
+.bulk-actions-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.bulk-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bulk-action-status {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.bulk-action-status:hover {
+    background: #e5e7eb;
+}
+
+.bulk-action-delete {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.bulk-action-delete:hover {
+    background: #fee2e2;
+}
+
+/* Bulk Status Dropdown */
+.bulk-status-dropdown {
+    position: fixed;
+    bottom: 70px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    min-width: 200px;
+    padding: 4px;
+}
+
+.bulk-status-option {
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.bulk-status-option:hover {
+    background: #f3f4f6;
+}
+
+.bulk-status-option .badge {
+    width: 100%;
+    display: block;
+    text-align: center;
+}
+
+/* Row highlight when selected */
+.data-table tbody tr.selected {
+    background-color: #fff5ec !important;
+}
+
 /* Table Styling */
 .table-responsive {
     overflow-x: auto;
     overflow-y: visible;
     max-height: calc(100vh - 250px);
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
 .data-table {
     width: 100%;
+    min-width: 900px; /* Force horizontal scroll on smaller screens */
     border-collapse: collapse;
 }
 
@@ -429,7 +824,7 @@
 /* Badge Styling */
 .badge {
     display: inline-block;
-    padding: 4px 12px;
+    padding: 6px 14px;
     border-radius: 12px;
     font-size: 12px;
     font-weight: 600;
@@ -883,6 +1278,12 @@ div.table-product-image {
     text-align: right;
 }
 
+.text-center,
+.data-table th.text-center,
+.data-table td.text-center {
+    text-align: center !important;
+}
+
 .font-semibold {
     font-weight: 600;
 }
@@ -967,7 +1368,7 @@ div.table-product-image {
 .badge-nowe {
     background: #3b82f6;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -976,7 +1377,7 @@ div.table-product-image {
 .badge-oczekujace {
     background: #f59e0b;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -985,7 +1386,7 @@ div.table-product-image {
 .badge-dostarczone_proxy {
     background: #10b981;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -994,7 +1395,7 @@ div.table-product-image {
 .badge-w_drodze_polska {
     background: #f97316;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -1003,7 +1404,7 @@ div.table-product-image {
 .badge-urzad_celny {
     background: #8b5cf6;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -1012,7 +1413,7 @@ div.table-product-image {
 .badge-dostarczone_gom {
     background: #059669;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -1021,7 +1422,7 @@ div.table-product-image {
 .badge-anulowane {
     background: #dc2626;
     color: white;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
     font-weight: 600;
@@ -1033,24 +1434,67 @@ div.table-product-image {
     display: inline-block;
 }
 
-.status-badge-button {
-    cursor: pointer;
-    border: none;
-    padding: 0;
+/* Status badge button - clean reset */
+.status-badge-button,
+.status-badge-button:hover,
+.status-badge-button:focus,
+.status-badge-button:active {
+    all: unset;
     display: inline-flex;
     align-items: center;
-    transition: all 0.2s;
+    gap: 4px;
+    padding: 4px 12px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-sizing: border-box;
 }
 
 .status-badge-button:hover {
-    opacity: 0.8;
-    transform: translateY(-1px);
+    opacity: 0.85;
+}
+
+/* Status colors - applied to button */
+.status-badge-button.badge-nowe {
+    background: #3b82f6;
+    color: white;
+}
+
+.status-badge-button.badge-oczekujace {
+    background: #f59e0b;
+    color: white;
+}
+
+.status-badge-button.badge-dostarczone_proxy {
+    background: #10b981;
+    color: white;
+}
+
+.status-badge-button.badge-w_drodze_polska {
+    background: #f97316;
+    color: white;
+}
+
+.status-badge-button.badge-urzad_celny {
+    background: #8b5cf6;
+    color: white;
+}
+
+.status-badge-button.badge-dostarczone_gom {
+    background: #059669;
+    color: white;
+}
+
+.status-badge-button.badge-anulowane {
+    background: #dc2626;
+    color: white;
 }
 
 .status-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
+    position: fixed;
     margin-top: 4px;
     background: white;
     border: 1px solid #e5e7eb;
@@ -1083,11 +1527,380 @@ div.table-product-image {
 <script src="{{ url_for('static', filename='js/pages/admin/stock-orders.js') }}"></script>
 
 <script>
+// ============================================
+// Filter Functions
+// ============================================
+
+let selectedStatuses = [];
+
+/**
+ * Toggle status multi-select dropdown
+ */
+function toggleStatusMultiSelect() {
+    const dropdown = document.getElementById('statusMultiSelect');
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+/**
+ * Update status filter when checkboxes change
+ */
+function updateStatusFilter() {
+    const checkboxes = document.querySelectorAll('#statusMultiSelect input[type="checkbox"]:checked');
+    selectedStatuses = Array.from(checkboxes).map(cb => cb.value);
+
+    // Update trigger button text
+    const statusText = document.getElementById('statusSelectText');
+    if (selectedStatuses.length === 0) {
+        statusText.textContent = 'Wszystkie statusy';
+    } else if (selectedStatuses.length === 1) {
+        statusText.textContent = `1 status`;
+    } else {
+        statusText.textContent = `${selectedStatuses.length} statusy`;
+    }
+
+    applyFilters();
+}
+
+/**
+ * Apply all filters (date + status)
+ */
+function applyFilters() {
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
+
+    const rows = document.querySelectorAll('.data-table tbody tr');
+
+    rows.forEach(row => {
+        let showRow = true;
+
+        // Date filter
+        const rowDate = row.dataset.dateFormatted;
+        if (rowDate) {
+            if (dateFrom && rowDate < dateFrom) {
+                showRow = false;
+            }
+            if (dateTo && rowDate > dateTo) {
+                showRow = false;
+            }
+        }
+
+        // Status filter
+        if (selectedStatuses.length > 0) {
+            const rowStatus = row.dataset.status;
+            if (!selectedStatuses.includes(rowStatus)) {
+                showRow = false;
+            }
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    });
+
+    // Update select all checkbox state
+    updateSelectAllState();
+}
+
+/**
+ * Clear all filters
+ */
+function clearAllFilters() {
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
+
+    // Uncheck all status checkboxes
+    document.querySelectorAll('#statusMultiSelect input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    selectedStatuses = [];
+    document.getElementById('statusSelectText').textContent = 'Wszystkie statusy';
+
+    // Show all rows
+    document.querySelectorAll('.data-table tbody tr').forEach(row => {
+        row.style.display = '';
+    });
+
+    updateSelectAllState();
+}
+
+// Close multi-select when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.multi-select-wrapper')) {
+        const dropdown = document.getElementById('statusMultiSelect');
+        if (dropdown) dropdown.style.display = 'none';
+    }
+});
+
+// ============================================
+// Checkbox & Bulk Actions Functions
+// ============================================
+
+/**
+ * Toggle select all checkboxes
+ */
+function toggleSelectAll(selectAllCheckbox) {
+    const visibleRows = document.querySelectorAll('.data-table tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.order-checkbox'));
+
+    checkboxes.forEach(checkbox => {
+        if (checkbox) {
+            checkbox.checked = selectAllCheckbox.checked;
+            const row = checkbox.closest('tr');
+            if (selectAllCheckbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+        }
+    });
+
+    updateBulkActionsModal();
+}
+
+/**
+ * Handle individual checkbox change
+ */
+function handleCheckboxChange() {
+    const checkbox = event.target;
+    const row = checkbox.closest('tr');
+
+    if (checkbox.checked) {
+        row.classList.add('selected');
+    } else {
+        row.classList.remove('selected');
+    }
+
+    updateSelectAllState();
+    updateBulkActionsModal();
+}
+
+/**
+ * Update select all checkbox state based on individual checkboxes
+ */
+function updateSelectAllState() {
+    const selectAllCheckbox = document.getElementById('selectAllOrders');
+    if (!selectAllCheckbox) return;
+
+    const visibleRows = document.querySelectorAll('.data-table tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.order-checkbox')).filter(cb => cb);
+
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    const someChecked = checkboxes.some(cb => cb.checked);
+
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = someChecked && !allChecked;
+}
+
+/**
+ * Update bulk actions modal visibility
+ */
+function updateBulkActionsModal() {
+    const checkedBoxes = document.querySelectorAll('.order-checkbox:checked');
+    const modal = document.getElementById('bulkActionsModal');
+    const countSpan = document.getElementById('selectedCount');
+
+    if (checkedBoxes.length > 0) {
+        modal.classList.add('visible');
+        countSpan.textContent = checkedBoxes.length;
+    } else {
+        modal.classList.remove('visible');
+        hideBulkStatusDropdown();
+    }
+}
+
+/**
+ * Get selected order IDs
+ */
+function getSelectedOrderIds() {
+    return Array.from(document.querySelectorAll('.order-checkbox:checked')).map(cb => cb.value);
+}
+
+/**
+ * Open bulk status change dropdown
+ */
+function openBulkStatusChange() {
+    const dropdown = document.getElementById('bulkStatusDropdown');
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+/**
+ * Hide bulk status dropdown
+ */
+function hideBulkStatusDropdown() {
+    const dropdown = document.getElementById('bulkStatusDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+/**
+ * Apply bulk status change
+ */
+function applyBulkStatus(newStatus) {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    const activeTab = '{{ active_tab }}';
+
+    // Process each order
+    let completed = 0;
+    let errors = 0;
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                const row = document.getElementById(`order-row-${orderId}`);
+
+                // If status is "dostarczone_gom" and we're on PROXY tab, remove row
+                if (newStatus === 'dostarczone_gom' && activeTab === 'proxy') {
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s';
+                        row.style.opacity = '0';
+                        setTimeout(() => row.remove(), 300);
+                    }
+                } else {
+                    // Update the badge
+                    const button = row.querySelector('.status-badge-button');
+                    if (button) {
+                        const statusText = newStatus.replace(/_/g, ' ');
+                        const statusTextCapitalized = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+                        button.className = `status-badge-button badge-${newStatus}`;
+                        button.childNodes[0].textContent = statusTextCapitalized + ' ';
+                    }
+
+                    // Uncheck the checkbox
+                    const checkbox = row.querySelector('.order-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        row.classList.remove('selected');
+                    }
+                }
+            } else {
+                errors++;
+            }
+
+            // When all requests complete
+            if (completed === orderIds.length) {
+                hideBulkStatusDropdown();
+                updateBulkActionsModal();
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Status ${orderIds.length} zamówień został zmieniony`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Zmieniono status ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Bulk status change error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+/**
+ * Bulk delete orders
+ */
+function bulkDeleteOrders() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień?\n\nTa operacja jest nieodwracalna.`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 300);
+                }
+            } else {
+                errors++;
+            }
+
+            // When all requests complete
+            if (completed === orderIds.length) {
+                updateBulkActionsModal();
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+
+                // Check if table is empty
+                const tbody = document.querySelector('.data-table tbody');
+                if (tbody && tbody.children.length === 0) {
+                    showEmptyState();
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Bulk delete error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+// Close bulk status dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.bulk-action-status') && !event.target.closest('.bulk-status-dropdown')) {
+        hideBulkStatusDropdown();
+    }
+});
+
+// ============================================
+// Existing Functions
+// ============================================
+
 /**
  * Toggle status dropdown
  */
 function toggleStatusDropdown(orderId) {
     const dropdown = document.getElementById(`status-dropdown-${orderId}`);
+    const button = dropdown.previousElementSibling;
     const allDropdowns = document.querySelectorAll('.status-dropdown');
 
     // Close all other dropdowns
@@ -1098,7 +1911,15 @@ function toggleStatusDropdown(orderId) {
     });
 
     // Toggle current dropdown
-    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    if (dropdown.style.display === 'none' || !dropdown.style.display) {
+        // Position dropdown below button
+        const rect = button.getBoundingClientRect();
+        dropdown.style.top = `${rect.bottom + 4}px`;
+        dropdown.style.left = `${rect.left}px`;
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
 }
 
 /**
@@ -1111,6 +1932,19 @@ document.addEventListener('click', function(event) {
         });
     }
 });
+
+/**
+ * Re-position dropdowns on scroll (for fixed position)
+ */
+const tableResponsive = document.querySelector('.table-responsive');
+if (tableResponsive) {
+    tableResponsive.addEventListener('scroll', function() {
+        // Close all dropdowns on scroll
+        document.querySelectorAll('.status-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+    });
+}
 
 /**
  * Change order status
@@ -1126,15 +1960,35 @@ function changeOrderStatus(orderId, newStatus) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // If status is "dostarczone_gom" and we're on PROXY tab, remove row (it moved to POLSKA)
+            const activeTab = '{{ active_tab }}';
+            if (newStatus === 'dostarczone_gom' && activeTab === 'proxy') {
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    const tbody = row.parentElement; // Get tbody BEFORE removing
+                    row.style.transition = 'opacity 0.3s';
+                    row.style.opacity = '0';
+                    setTimeout(() => {
+                        row.remove();
+                        // Check if table is now empty
+                        if (tbody && tbody.children.length === 0) {
+                            showEmptyState();
+                        }
+                    }, 300);
+                }
+                if (window.Toast) {
+                    window.Toast.show('Zamówienie przeniesione do zakładki POLSKA', 'success');
+                }
+                return;
+            }
+
             // Update the badge text and class
             const button = document.querySelector(`#status-dropdown-${orderId}`).previousElementSibling;
             const statusText = newStatus.replace(/_/g, ' ');
             const statusTextCapitalized = statusText.charAt(0).toUpperCase() + statusText.slice(1);
 
-            // Remove old status classes
-            button.className = button.className.replace(/badge-\w+/g, '');
-            // Add new status class
-            button.classList.add(`badge-${newStatus}`);
+            // Reset to base class + new status
+            button.className = `status-badge-button badge-${newStatus}`;
             // Update text (keep the chevron SVG)
             button.childNodes[0].textContent = statusTextCapitalized + ' ';
 
@@ -1190,13 +2044,15 @@ function sortTable(column) {
     rows.sort((a, b) => {
         let aValue = a.dataset[column === 'order_number' ? 'orderNumber' :
                               column === 'date' ? 'date' :
-                              column === 'amount' ? 'amount' : column];
+                              column === 'amount' ? 'amount' :
+                              column === 'quantity' ? 'quantity' : column];
         let bValue = b.dataset[column === 'order_number' ? 'orderNumber' :
                               column === 'date' ? 'date' :
-                              column === 'amount' ? 'amount' : column];
+                              column === 'amount' ? 'amount' :
+                              column === 'quantity' ? 'quantity' : column];
 
         // Handle numeric columns
-        if (column === 'date' || column === 'amount') {
+        if (column === 'date' || column === 'amount' || column === 'quantity') {
             aValue = parseFloat(aValue) || 0;
             bValue = parseFloat(bValue) || 0;
         } else {
@@ -1230,16 +2086,15 @@ function deleteOrder(orderId) {
                 // Remove the row from table
                 const row = document.getElementById(`order-row-${orderId}`);
                 if (row) {
+                    const tbody = row.parentElement; // Get tbody BEFORE removing
                     row.style.transition = 'opacity 0.3s';
                     row.style.opacity = '0';
                     setTimeout(() => {
                         row.remove();
 
                         // Check if table is now empty
-                        const tbody = row.parentElement;
                         if (tbody && tbody.children.length === 0) {
-                            // Reload page to show empty state
-                            location.reload();
+                            showEmptyState();
                         }
                     }, 300);
                 }
@@ -1259,6 +2114,48 @@ function deleteOrder(orderId) {
                 window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
             }
         });
+    }
+}
+
+/**
+ * Show empty state when table becomes empty
+ */
+function showEmptyState() {
+    const tableResponsive = document.querySelector('.table-responsive');
+    if (tableResponsive) {
+        tableResponsive.remove();
+    }
+
+    const ordersList = document.querySelector('.orders-list');
+    if (ordersList) {
+        const activeTab = '{{ active_tab }}';
+        let emptyStateHTML = `
+            <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                    <line x1="1" y1="10" x2="23" y2="10"></line>
+                </svg>
+                <h3>Brak zamówień</h3>
+        `;
+
+        if (activeTab === 'proxy') {
+            emptyStateHTML += `
+                <p>Nie znaleziono żadnych zamówień dla kategorii PROXY</p>
+                <button class="btn btn-primary" id="btnNewOrderEmpty" onclick="openNewOrderModal()">
+                    Utwórz pierwsze zamówienie
+                </button>
+            `;
+        } else {
+            emptyStateHTML += `
+                <p>Zamówienia pojawią się tutaj po zmianie statusu na "Dostarczone GOM" w zakładce PROXY</p>
+                <a href="{{ url_for('products.stock_orders', tab='proxy') }}" class="btn btn-primary">
+                    Przejdź do PROXY
+                </a>
+            `;
+        }
+
+        emptyStateHTML += '</div>';
+        ordersList.innerHTML = emptyStateHTML;
     }
 }
 </script>

@@ -657,80 +657,8 @@
     display: block;
 }
 
-/* ==================== */
-/* Modal Adjustments */
-/* ==================== */
-#category-modal {
-    display: none; /* Hidden by default */
-    z-index: 10001; /* Above overlay which is 10000 */
-    position: fixed; /* Position fixed for centering */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) !important; /* Center the modal - override animation */
-    animation: none !important; /* Disable slide-up animation that conflicts with centering */
-}
-
-#category-modal .form-group {
-    margin-bottom: var(--space-4);
-}
-
-#category-modal .form-label {
-    display: block;
-    margin-bottom: var(--space-2);
-    font-weight: var(--font-medium);
-    color: var(--gray-700);
-}
-
-#category-modal .input-hint {
-    display: block;
-    font-size: var(--text-sm);
-    color: var(--gray-500);
-    margin-top: var(--space-1);
-}
-
-/* Tag Modal Adjustments */
-#tag-modal {
-    display: none; /* Hidden by default */
-    z-index: 10001; /* Above overlay which is 10000 */
-    position: fixed; /* Position fixed for centering */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) !important; /* Center the modal - override animation */
-    animation: none !important; /* Disable slide-up animation that conflicts with centering */
-}
-
-#tag-modal .form-group {
-    margin-bottom: var(--space-4);
-}
-
-#tag-modal .form-label {
-    display: block;
-    margin-bottom: var(--space-2);
-    font-weight: var(--font-medium);
-    color: var(--gray-700);
-}
-
-#tag-modal .input-hint {
-    display: block;
-    font-size: var(--text-sm);
-    color: var(--gray-500);
-    margin-top: var(--space-1);
-}
-
-/* Supplier Modal Adjustments */
-#supplier-modal {
-    display: none; /* Hidden by default */
-    z-index: 10001; /* Above overlay which is 10000 */
-    position: fixed; /* Position fixed for centering */
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) !important; /* Center the modal - override animation */
-    animation: none !important; /* Disable slide-up animation that conflicts with centering */
-}
-
-#supplier-modal .form-group {
-    margin-bottom: var(--space-4);
-}
+/* Modal styles are now in modals.css */
+/* Form styles for modals are also in modals.css */
 
 #supplier-modal .form-label {
     display: block;

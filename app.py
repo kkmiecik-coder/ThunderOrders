@@ -83,9 +83,9 @@ def register_blueprints(app):
     # from modules.orders.routes import orders_bp
     # app.register_blueprint(orders_bp, url_prefix='/orders')
 
-    # Exclusive module
-    # from modules.exclusive.routes import exclusive_bp
-    # app.register_blueprint(exclusive_bp, url_prefix='/exclusive')
+    # Exclusive module (publiczne strony zamówień pre-order)
+    from modules.exclusive import exclusive_bp
+    app.register_blueprint(exclusive_bp)
 
     # API module (CSRF exempt for AJAX requests)
     from modules.api import api_bp
@@ -96,6 +96,10 @@ def register_blueprints(app):
     from modules.imports import imports_bp
     csrf.exempt(imports_bp)
     app.register_blueprint(imports_bp)
+
+    # Profile module (wspólny dla wszystkich ról)
+    from modules.profile import profile_bp
+    app.register_blueprint(profile_bp, url_prefix='/profile')
 
     # Strona główna - smart redirect
     @app.route('/')

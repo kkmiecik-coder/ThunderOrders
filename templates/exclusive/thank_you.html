@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Dziękujemy za zamówienie{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/exclusive/status.css') }}">
+{% endblock %}
+
+{% block body_content %}
+<div class="status-page status-success">
+    <div class="status-container">
+        <div class="status-icon success">
+            <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+            </svg>
+        </div>
+        <h1>Dziękujemy za zamówienie!</h1>
+        <p>Twoje zamówienie zostało przyjęte i oczekuje na realizację.</p>
+
+        {% if current_user.is_authenticated %}
+        <div class="status-action">
+            <a href="{{ url_for('client.dashboard') }}" class="btn btn-primary">
+                Przejdź do swoich zamówień
+            </a>
+        </div>
+        {% else %}
+        <div class="guest-info">
+            <p>Szczegóły zamówienia zostały wysłane na podany adres email.</p>
+            <p class="text-muted">Chcesz śledzić swoje zamówienia? <a href="{{ url_for('auth.register') }}">Załóż konto</a></p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

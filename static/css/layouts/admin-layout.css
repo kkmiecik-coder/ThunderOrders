@@ -26,7 +26,7 @@ body {
 /* Main content below topbar */
 .main-content {
     flex: 1;
-    padding-top: var(--topbar-height);
+    padding: var(--topbar-height) 0;
     background: var(--bg-secondary);
     min-height: 100vh;
 }
@@ -38,6 +38,11 @@ body {
     }
 
     .main-wrapper {
+        margin-left: 0;
+    }
+
+    /* Fix: Collapsed sidebar on mobile should have no margin */
+    .sidebar[data-collapsed="true"] ~ .main-wrapper {
         margin-left: 0;
     }
 

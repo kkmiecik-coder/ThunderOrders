@@ -1,0 +1,482 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/exclusive/order-page.css') }}">
+{% endblock %}
+
+{% block body_content %}
+<div class="exclusive-order-page">
+    <!-- Animated Background -->
+    <div class="order-animated-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+    </div>
+
+    {% if preview_mode %}
+    <!-- Preview Mode Banner -->
+    <div class="preview-mode-banner">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+            <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+        </svg>
+        <span>Tryb podglądu - Status strony: <strong>{{ page.status|upper }}</strong></span>
+        <a href="{{ url_for('admin.exclusive_edit', page_id=page.id) }}" class="preview-back-link">Wróć do edycji</a>
+    </div>
+    {% endif %}
+
+    <!-- Header -->
+    <header class="page-header">
+        <div class="header-content">
+            <h1>{{ page.name }}</h1>
+            {% if page.description %}
+            <p class="page-description">{{ page.description }}</p>
+            {% endif %}
+
+            {% if page.ends_at %}
+            <div class="deadline-banner">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                </svg>
+                <span>Koniec zamówień: <strong>{{ page.ends_at.strftime('%d.%m.%Y, %H:%M') }}</strong></span>
+            </div>
+            {% else %}
+            <div class="deadline-banner deadline-unknown">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+                </svg>
+                <span>Data zakończenia nieznana - <strong>śpiesz się!</strong></span>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="page-content">
+        <main class="sections-list">
+            {% for section in sections %}
+                {% if section.is_heading %}
+                <section class="section section-heading">
+                    <h2>{{ section.content }}</h2>
+                </section>
+
+                {% elif section.is_paragraph %}
+                <section class="section section-paragraph">
+                    <p>{{ section.content }}</p>
+                </section>
+
+                {% elif section.is_product %}
+                <section class="section section-product" data-section-id="{{ section.id }}" data-product-id="{{ section.product_id }}">
+                    {% if section.product %}
+                    <div class="product-card">
+                        <div class="product-image">
+                            {% if section.product.primary_image %}
+                            <img src="{{ url_for('static', filename=section.product.primary_image.path_compressed) }}"
+                                 alt="{{ section.product.name }}">
+                            {% else %}
+                            <div class="no-image">
+                                <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                    <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                </svg>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="product-info">
+                            <h3 class="product-name">{{ section.product.name }}</h3>
+                            <p class="product-price">{{ "%.2f"|format(section.product.sale_price) }} PLN</p>
+
+                            {% if section.has_min_quantity or section.has_max_quantity %}
+                            <div class="product-limits">
+                                {% if section.has_min_quantity %}
+                                <span class="limit-badge limit-min">Min: {{ section.min_quantity }}</span>
+                                {% endif %}
+                                {% if section.has_max_quantity %}
+                                <span class="limit-badge limit-max">Max: {{ section.max_quantity }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <div class="product-actions">
+                                <div class="quantity-control">
+                                    <button type="button" class="qty-btn qty-minus" onclick="decreaseQty(this)">-</button>
+                                    <input type="number" class="qty-input" value="0" min="0"
+                                           {% if section.has_max_quantity %}max="{{ section.max_quantity }}"{% endif %}
+                                           onchange="updateQty(this)">
+                                    <button type="button" class="qty-btn qty-plus" onclick="increaseQty(this)">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="product-unavailable">
+                        <p>Produkt niedostępny</p>
+                    </div>
+                    {% endif %}
+                </section>
+
+                {% elif section.is_set %}
+                <section class="section section-set" data-section-id="{{ section.id }}">
+                    <div class="set-card {% if section.set_image %}has-image{% endif %}">
+                        {% if section.set_image %}
+                        <!-- Tło seta -->
+                        <div class="set-background">
+                            <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.set_name }}">
+                        </div>
+                        {% endif %}
+
+                        <div class="set-content">
+                            <div class="set-header">
+                                <h3 class="set-name">{{ section.set_name }}</h3>
+                                {% if section.set_min_sets > 1 or section.set_max_sets %}
+                                <div class="set-limits">
+                                    {% if section.set_min_sets > 1 %}
+                                    <span class="limit-badge limit-min">Min setów: {{ section.set_min_sets }}</span>
+                                    {% endif %}
+                                    {% if section.set_max_sets %}
+                                    <span class="limit-badge limit-max">Max setów: {{ section.set_max_sets }}</span>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="set-items">
+                                {% for item in section.get_set_items_ordered() %}
+                                    {% if item.is_product and item.product %}
+                                    <!-- Pojedynczy produkt -->
+                                    <div class="set-item" data-item-id="{{ item.id }}" data-product-id="{{ item.product_id }}">
+                                        <div class="set-item-info">
+                                            <span class="set-item-name">{{ item.product.name }}</span>
+                                            <span class="set-item-price">{{ "%.2f"|format(item.product.sale_price) }} PLN</span>
+                                        </div>
+                                        <div class="set-item-qty">
+                                            <div class="quantity-control quantity-control-sm">
+                                                <button type="button" class="qty-btn qty-minus" onclick="decreaseQty(this)">-</button>
+                                                <input type="number" class="qty-input" value="0" min="0" onchange="updateQty(this)">
+                                                <button type="button" class="qty-btn qty-plus" onclick="increaseQty(this)">+</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% elif item.is_variant_group and item.variant_group %}
+                                    <!-- Grupa wariantowa w secie -->
+                                    <div class="set-item-group" data-item-id="{{ item.id }}" data-variant-group-id="{{ item.variant_group_id }}">
+                                        <div class="set-item-group-header">
+                                            <span class="set-item-group-name">{{ item.variant_group.name }}</span>
+                                            <span class="set-item-group-badge">{{ item.get_products()|length }} wariantów</span>
+                                        </div>
+                                        <div class="set-item-group-products">
+                                            {% for product in item.get_products() %}
+                                            <div class="set-item" data-product-id="{{ product.id }}">
+                                                <div class="set-item-info">
+                                                    <span class="set-item-name">{{ product.name }}</span>
+                                                    <span class="set-item-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
+                                                </div>
+                                                <div class="set-item-qty">
+                                                    <div class="quantity-control quantity-control-sm">
+                                                        <button type="button" class="qty-btn qty-minus" onclick="decreaseQty(this)">-</button>
+                                                        <input type="number" class="qty-input" value="0" min="0" onchange="updateQty(this)">
+                                                        <button type="button" class="qty-btn qty-plus" onclick="increaseQty(this)">+</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {% elif section.is_variant_group %}
+                <section class="section section-variant-group" data-section-id="{{ section.id }}">
+                    {% if section.variant_group %}
+                    <div class="variant-group-card">
+                        <div class="variant-group-header">
+                            <h3 class="variant-group-name">{{ section.variant_group.name }}</h3>
+                            {% if section.has_min_quantity or section.has_max_quantity %}
+                            <div class="variant-group-limits">
+                                {% if section.has_min_quantity %}
+                                <span class="limit-badge limit-min">Min/produkt: {{ section.min_quantity }}</span>
+                                {% endif %}
+                                {% if section.has_max_quantity %}
+                                <span class="limit-badge limit-max">Max/produkt: {{ section.max_quantity }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="variant-group-products">
+                            {% for product in section.get_variant_group_products() %}
+                            {% if product.is_active %}
+                            <div class="variant-product" data-product-id="{{ product.id }}">
+                                <div class="variant-product-image">
+                                    {% if product.primary_image %}
+                                    <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}"
+                                         alt="{{ product.name }}">
+                                    {% else %}
+                                    <div class="no-image-sm">
+                                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                        </svg>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="variant-product-info">
+                                    <span class="variant-product-name">{{ product.name }}</span>
+                                    <span class="variant-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
+                                </div>
+                                <div class="variant-product-qty">
+                                    <div class="quantity-control quantity-control-sm">
+                                        <button type="button" class="qty-btn qty-minus" onclick="decreaseQty(this)">-</button>
+                                        <input type="number" class="qty-input" value="0" min="0"
+                                               {% if section.has_max_quantity %}max="{{ section.max_quantity }}"{% endif %}
+                                               onchange="updateQty(this)">
+                                        <button type="button" class="qty-btn qty-plus" onclick="increaseQty(this)">+</button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="product-unavailable">
+                        <p>Grupa wariantowa niedostępna</p>
+                    </div>
+                    {% endif %}
+                </section>
+                {% endif %}
+            {% endfor %}
+        </main>
+
+        <!-- Cart Sidebar -->
+        <aside class="cart-sidebar">
+            <div class="cart-header">
+                <h3>Twoje zamówienie</h3>
+                <span class="cart-count" id="cartCount">0</span>
+            </div>
+
+            <div class="cart-items" id="cartItems">
+                <div class="cart-empty">
+                    <p>Koszyk jest pusty</p>
+                </div>
+            </div>
+
+            <div class="cart-footer">
+                <div class="cart-total">
+                    <span>Suma:</span>
+                    <span class="total-amount" id="cartTotal">0.00 PLN</span>
+                </div>
+
+                <button type="button" class="btn btn-primary btn-block" id="submitOrderBtn" disabled onclick="openOrderModal()">
+                    Złóż zamówienie
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Footer -->
+    {% if page.footer_content %}
+    <footer class="page-footer">
+        <div class="footer-content">
+            {{ page.footer_content|safe }}
+        </div>
+    </footer>
+    {% endif %}
+</div>
+
+<!-- Order Modal -->
+<div id="orderModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Złóż zamówienie</h2>
+            <button type="button" class="modal-close" onclick="closeOrderModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            {% if current_user.is_authenticated %}
+            <!-- Logged in user -->
+            <div class="order-summary">
+                <p>Zalogowano jako: <strong>{{ current_user.full_name }}</strong></p>
+                <p>Email: {{ current_user.email }}</p>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="orderNote">Notatka do zamówienia (opcjonalnie)</label>
+                <textarea id="orderNote" class="form-control" rows="3" placeholder="Dodatkowe informacje..."></textarea>
+            </div>
+            {% else %}
+            <!-- Guest checkout -->
+            <form id="guestForm">
+                <div class="form-group">
+                    <label class="form-label" for="guestName">Imię i nazwisko <span class="required">*</span></label>
+                    <input type="text" id="guestName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="guestEmail">Email <span class="required">*</span></label>
+                    <input type="email" id="guestEmail" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="guestPhone">Telefon <span class="required">*</span></label>
+                    <input type="tel" id="guestPhone" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="orderNote">Notatka do zamówienia (opcjonalnie)</label>
+                    <textarea id="orderNote" class="form-control" rows="3" placeholder="Dodatkowe informacje..."></textarea>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeOrderModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" onclick="submitOrder()">Potwierdź zamówienie</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ============================================
+// Auto-refresh when sale ends
+// ============================================
+{% if page.ends_at and not preview_mode %}
+(function() {
+    const endDate = new Date('{{ page.ends_at.isoformat() }}').getTime();
+    const orderPageUrl = '{{ url_for("exclusive.order_page", token=page.token) }}';
+
+    function checkSaleEnd() {
+        const now = new Date().getTime();
+        if (now >= endDate) {
+            // Sale ended - redirect to refresh (will show ended page)
+            window.location.href = orderPageUrl;
+        }
+    }
+
+    // Check every second
+    setInterval(checkSaleEnd, 1000);
+
+    // Also check immediately
+    checkSaleEnd();
+})();
+{% endif %}
+
+// ============================================
+// Cart state
+// ============================================
+let cart = [];
+
+function updateCart() {
+    const cartItems = document.getElementById('cartItems');
+    const cartCount = document.getElementById('cartCount');
+    const cartTotal = document.getElementById('cartTotal');
+    const submitBtn = document.getElementById('submitOrderBtn');
+
+    // Collect all items with quantity > 0
+    cart = [];
+    document.querySelectorAll('.qty-input').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        if (qty > 0) {
+            const section = input.closest('.section-product, .set-item, .variant-product');
+            const productId = section.dataset.productId;
+            const name = section.querySelector('.product-name, .set-item-name, .variant-product-name').textContent;
+            const priceText = section.querySelector('.product-price, .set-item-price, .variant-product-price').textContent;
+            const price = parseFloat(priceText.replace(/[^\d.,]/g, '').replace(',', '.'));
+
+            cart.push({ productId, name, qty, price });
+        }
+    });
+
+    // Update UI
+    const totalItems = cart.reduce((sum, item) => sum + item.qty, 0);
+    const totalPrice = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
+
+    cartCount.textContent = totalItems;
+    cartTotal.textContent = totalPrice.toFixed(2) + ' PLN';
+    submitBtn.disabled = totalItems === 0;
+
+    // Update cart items list
+    if (cart.length === 0) {
+        cartItems.innerHTML = '<div class="cart-empty"><p>Koszyk jest pusty</p></div>';
+    } else {
+        cartItems.innerHTML = cart.map(item => `
+            <div class="cart-item">
+                <span class="cart-item-name">${item.name}</span>
+                <span class="cart-item-qty">x${item.qty}</span>
+                <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
+            </div>
+        `).join('');
+    }
+}
+
+function increaseQty(btn) {
+    const input = btn.parentElement.querySelector('.qty-input');
+    const max = input.getAttribute('max');
+    let val = parseInt(input.value) || 0;
+    if (!max || val < parseInt(max)) {
+        input.value = val + 1;
+        updateCart();
+    }
+}
+
+function decreaseQty(btn) {
+    const input = btn.parentElement.querySelector('.qty-input');
+    let val = parseInt(input.value) || 0;
+    if (val > 0) {
+        input.value = val - 1;
+        updateCart();
+    }
+}
+
+function updateQty(input) {
+    let val = parseInt(input.value) || 0;
+    const max = input.getAttribute('max');
+    if (val < 0) val = 0;
+    if (max && val > parseInt(max)) val = parseInt(max);
+    input.value = val;
+    updateCart();
+}
+
+function openOrderModal() {
+    const modal = document.getElementById('orderModal');
+    modal.classList.add('active');
+}
+
+function closeOrderModal() {
+    const modal = document.getElementById('orderModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+    }, 350);
+}
+
+function submitOrder() {
+    // TODO: Implement order submission
+    alert('Funkcja składania zamówień będzie dostępna po implementacji modułu Orders.');
+    closeOrderModal();
+}
+
+// Close modal on Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('orderModal');
+        if (modal.classList.contains('active')) {
+            closeOrderModal();
+        }
+    }
+});
+
+// Close modal on backdrop click
+document.getElementById('orderModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeOrderModal();
+    }
+});
+</script>
+{% endblock %}

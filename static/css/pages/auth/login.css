@@ -35,6 +35,12 @@
   margin-bottom: 3rem;
 }
 
+.auth-logo {
+  max-width: 400px;
+  height: auto;
+  margin-bottom: 1.5rem;
+}
+
 .auth-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
