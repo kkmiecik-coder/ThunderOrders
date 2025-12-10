@@ -3,6 +3,11 @@
  * Styles for the page builder interface
  */
 
+/* Disable scroll on body when builder page is present */
+body:has(.builder-page) {
+    overflow: hidden;
+}
+
 /* Layout */
 .builder-page {
     display: flex;
@@ -13,6 +18,9 @@
 
 /* Top Bar */
 .builder-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -279,6 +287,9 @@
     padding: var(--space-1);
     color: var(--text-secondary);
     margin-right: var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .section-drag-handle:active {
@@ -444,8 +455,21 @@
     flex: 1;
 }
 
-/* Max per product counter - vertical layout */
+/* Max per product counter - horizontal layout with label */
 .set-max-counter {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.set-max-counter .counter-label {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.set-max-counter .counter-controls {
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -454,16 +478,6 @@
     border-radius: 6px;
     min-width: 50px;
     overflow: hidden;
-}
-
-.set-max-counter .counter-label {
-    display: none;
-}
-
-.set-max-counter .counter-controls {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
 }
 
 .set-max-counter .counter-btn {
@@ -1273,7 +1287,6 @@
         width: 100%;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
-        max-height: 300px;
     }
 
     .builder-content {

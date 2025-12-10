@@ -5,6 +5,7 @@ Zarządzanie stronami ekskluzywnych zamówień (Page Builder)
 
 from flask import render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
+from markupsafe import Markup
 from modules.admin import admin_bp
 from utils.decorators import admin_required
 from extensions import db
@@ -356,7 +357,7 @@ def exclusive_delete(page_id):
     db.session.delete(page)
     db.session.commit()
 
-    flash(f'Strona "{name}" została usunięta.', 'success')
+    flash(Markup(f'Strona <strong style="color: #7B2CBF;">{name}</strong> została usunięta.'), 'success')
 
     # Sprawdź czy to AJAX request
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':

@@ -448,3 +448,59 @@ class ExclusiveSetItem(db.Model):
         elif self.variant_group:
             return self.variant_group.name
         return "Nieznany element"
+
+
+class ExclusiveReservation(db.Model):
+    """
+    Rezerwacja produktu na stronie exclusive
+
+    System rezerwacji:
+    - 10 minut od dodania PIERWSZEGO produktu
+    - Możliwość przedłużenia o 2 minuty (jednokrotnie)
+    - First-come-first-served (atomic operations)
+    - Lazy cleanup (bez cron jobs)
+    """
+    __tablename__ = 'exclusive_reservations'
+
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.String(36), nullable=False, index=True)  # UUID
+    exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='CASCADE'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    reserved_at = db.Column(db.BigInteger, nullable=False)  # UNIX timestamp (seconds)
+    expires_at = db.Column(db.BigInteger, nullable=False, index=True)  # UNIX timestamp (seconds)
+    extended = db.Column(db.Boolean, default=False)  # Czy przedłużono
+    ip_address = db.Column(db.String(45))
+    user_agent = db.Column(db.String(500))
+    created_at = db.Column(db.BigInteger, default=lambda: int(__import__('time').time()))
+
+    # Relationships
+    page = db.relationship('ExclusivePage', backref=db.backref('reservations', cascade='all, delete-orphan'))
+    product = db.relationship('Product', backref=db.backref('exclusive_reservations', cascade='all, delete-orphan'))
+
+    # Unique constraint - session can reserve same product on different pages
+    __table_args__ = (
+        db.UniqueConstraint('session_id', 'exclusive_page_id', 'product_id', name='unique_session_page_product'),
+    )
+
+    def __repr__(self):
+        return f'<ExclusiveReservation session={self.session_id[:8]}... product={self.product_id} qty={self.quantity}>'
+
+    # ============================================
+    # Status Helpers
+    # ============================================
+
+    def is_expired(self):
+        """Sprawdza czy rezerwacja wygasła"""
+        import time
+        return int(time.time()) > self.expires_at
+
+    def can_extend(self):
+        """Sprawdza czy można przedłużyć rezerwację"""
+        return not self.extended and not self.is_expired()
+
+    def time_remaining(self):
+        """Zwraca pozostały czas w sekundach (lub 0 jeśli wygasło)"""
+        import time
+        remaining = self.expires_at - int(time.time())
+        return max(0, remaining)

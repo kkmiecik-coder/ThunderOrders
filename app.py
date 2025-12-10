@@ -84,7 +84,9 @@ def register_blueprints(app):
     # app.register_blueprint(orders_bp, url_prefix='/orders')
 
     # Exclusive module (publiczne strony zamówień pre-order)
+    # CSRF exempt dla API endpoints rezerwacji (reserve, release, extend, restore, availability)
     from modules.exclusive import exclusive_bp
+    csrf.exempt(exclusive_bp)
     app.register_blueprint(exclusive_bp)
 
     # API module (CSRF exempt for AJAX requests)

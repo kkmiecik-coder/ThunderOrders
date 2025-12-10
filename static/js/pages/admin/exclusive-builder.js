@@ -48,6 +48,10 @@ function initExclusiveBuilder(config) {
             e.returnValue = 'Masz niezapisane zmiany. Czy na pewno chcesz opuścić stronę?';
         }
     });
+
+    // Initialize product dependencies management
+    updateAllSetsButtons();
+    updateProductDropdowns();
 }
 
 /**
@@ -228,6 +232,9 @@ function addSection(type) {
     // Close dropdown
     document.getElementById('addSectionMenu').classList.remove('show');
 
+    // Update product dropdowns to reflect dependencies
+    updateProductDropdowns();
+
     markDirty();
     showToast('Sekcja dodana', 'success');
 }
@@ -317,15 +324,6 @@ function getSectionTemplate(type) {
                             </div>
                             <div class="qty-counters-inline">
                                 <div class="qty-counter-group">
-                                    <span class="qty-counter-label">Min</span>
-                                    <div class="qty-counter">
-                                        <button type="button" class="counter-btn counter-plus" onclick="adjustMinQty(this, 1)">+</button>
-                                        <span class="counter-value" data-value="0">0</span>
-                                        <button type="button" class="counter-btn counter-minus" onclick="adjustMinQty(this, -1)">−</button>
-                                    </div>
-                                    <input type="hidden" class="min-qty-value" value="0">
-                                </div>
-                                <div class="qty-counter-group">
                                     <span class="qty-counter-label">Max</span>
                                     <div class="qty-counter">
                                         <button type="button" class="counter-btn counter-plus" onclick="adjustMaxQty(this, 1)">+</button>
@@ -382,13 +380,13 @@ function getSectionTemplate(type) {
                                     </button>
                                 </div>
                                 <div class="set-max-counter">
-                                    <span class="counter-label">Max/produkt</span>
+                                    <span class="counter-label">Max</span>
                                     <div class="counter-controls">
-                                        <button type="button" class="counter-btn counter-plus" onclick="adjustMaxPerProduct(this, 1)">+</button>
+                                        <button type="button" class="counter-btn counter-plus" onclick="adjustSetMaxSets(this, 1)">+</button>
                                         <span class="counter-value" data-value="0">0</span>
-                                        <button type="button" class="counter-btn counter-minus" onclick="adjustMaxPerProduct(this, -1)">−</button>
+                                        <button type="button" class="counter-btn counter-minus" onclick="adjustSetMaxSets(this, -1)">−</button>
                                     </div>
-                                    <input type="hidden" class="set-max-per-product" value="0">
+                                    <input type="hidden" class="set-max-sets" value="0">
                                 </div>
                             </div>
                         </div>
@@ -443,15 +441,6 @@ function getSectionTemplate(type) {
                                 </select>
                             </div>
                             <div class="qty-counters-inline">
-                                <div class="qty-counter-group">
-                                    <span class="qty-counter-label">Min</span>
-                                    <div class="qty-counter">
-                                        <button type="button" class="counter-btn counter-plus" onclick="adjustMinQty(this, 1)">+</button>
-                                        <span class="counter-value" data-value="0">0</span>
-                                        <button type="button" class="counter-btn counter-minus" onclick="adjustMinQty(this, -1)">−</button>
-                                    </div>
-                                    <input type="hidden" class="min-qty-value" value="0">
-                                </div>
                                 <div class="qty-counter-group">
                                     <span class="qty-counter-label">Max</span>
                                     <div class="qty-counter">
@@ -520,7 +509,7 @@ function addSetItem(btn) {
                     </svg>
                 </div>
             </div>
-            <select class="form-select set-item-product" onchange="updateSetItemThumbnail(this)">
+            <select class="form-select set-item-product" onchange="updateSetItemThumbnail(this); updateProductDropdowns(); updateSetButtons(this.closest('.section-card[data-section-type=\\'set\\']'));">
                 <option value="">Wybierz produkt...</option>
                 ${productOptions}
             </select>
@@ -534,6 +523,16 @@ function addSetItem(btn) {
     `;
 
     setItemsList.insertAdjacentHTML('beforeend', itemHtml);
+
+    // Update set buttons state
+    const setSection = btn.closest('.section-card[data-section-type="set"]');
+    if (setSection) {
+        updateSetButtons(setSection);
+    }
+
+    // Update product dropdowns
+    updateProductDropdowns();
+
     markDirty();
 }
 
@@ -545,7 +544,18 @@ function removeSetItem(btn) {
     const item = btn.closest('.set-item') || btn.closest('.set-item-variant-group-card');
     if (item) {
         const setItemsList = item.closest('.set-items-list');
+        const setSection = item.closest('.section-card[data-section-type="set"]');
+
         item.remove();
+
+        // Update set buttons state
+        if (setSection) {
+            updateSetButtons(setSection);
+        }
+
+        // Update product dropdowns
+        updateProductDropdowns();
+
         markDirty();
 
         // Pokaż pustostan jeśli lista jest pusta
@@ -589,19 +599,17 @@ function collectPageData() {
             sectionData.content = section.querySelector('.section-content').value;
         } else if (type === 'product') {
             sectionData.product_id = parseInt(section.querySelector('.product-select').value) || null;
-            const minQtyInput = section.querySelector('.min-qty-value');
             const maxQtyInput = section.querySelector('.max-qty-value');
-            const minVal = minQtyInput ? parseInt(minQtyInput.value) : 0;
             const maxVal = maxQtyInput ? parseInt(maxQtyInput.value) : 0;
-            sectionData.min_quantity = minVal > 0 ? minVal : null;
             sectionData.max_quantity = maxVal > 0 ? maxVal : null;
         } else if (type === 'set') {
             sectionData.set_name = section.querySelector('.set-name').value;
             sectionData.set_image = section.querySelector('.set-image-path')?.value || null;
             sectionData.set_min_sets = 1;
-            sectionData.set_max_sets = null;
-            const maxPerProductInput = section.querySelector('.set-max-per-product');
-            sectionData.set_max_per_product = maxPerProductInput ? parseInt(maxPerProductInput.value) || 0 : 0;
+            const maxSetsInput = section.querySelector('.set-max-sets');
+            const maxSetsVal = maxSetsInput ? parseInt(maxSetsInput.value) : 0;
+            sectionData.set_max_sets = maxSetsVal > 0 ? maxSetsVal : null;
+            sectionData.set_max_per_product = null;
 
             // Collect set items (products and variant groups)
             sectionData.set_items = [];
@@ -631,11 +639,8 @@ function collectPageData() {
             });
         } else if (type === 'variant_group') {
             sectionData.variant_group_id = parseInt(section.querySelector('.variant-group-select').value) || null;
-            const minQtyInput = section.querySelector('.min-qty-value');
             const maxQtyInput = section.querySelector('.max-qty-value');
-            const minVal = minQtyInput ? parseInt(minQtyInput.value) : 0;
             const maxVal = maxQtyInput ? parseInt(maxQtyInput.value) : 0;
-            sectionData.min_quantity = minVal > 0 ? minVal : null;
             sectionData.max_quantity = maxVal > 0 ? maxVal : null;
         }
 
@@ -800,6 +805,9 @@ function updateProductThumbnail(select) {
         `;
     }
 
+    // Update product dropdowns
+    updateProductDropdowns();
+
     markDirty();
 }
 
@@ -870,6 +878,13 @@ function addSetVariantGroup(btn) {
     `;
 
     setItemsList.insertAdjacentHTML('beforeend', itemHtml);
+
+    // Update set buttons state
+    const setSection = btn.closest('.section-card[data-section-type="set"]');
+    if (setSection) {
+        updateSetButtons(setSection);
+    }
+
     markDirty();
 }
 
@@ -1090,14 +1105,14 @@ async function uploadSetImage(input, sectionId) {
 }
 
 /**
- * Adjust max per product counter
+ * Adjust max sets counter for set sections
  * @param {HTMLButtonElement} btn - The +/- button clicked
  * @param {number} delta - Amount to add (1 or -1)
  */
-function adjustMaxPerProduct(btn, delta) {
+function adjustSetMaxSets(btn, delta) {
     const counter = btn.closest('.set-max-counter');
     const valueSpan = counter.querySelector('.counter-value');
-    const hiddenInput = counter.querySelector('.set-max-per-product');
+    const hiddenInput = counter.querySelector('.set-max-sets');
 
     let currentValue = parseInt(valueSpan.dataset.value) || 0;
     let newValue = currentValue + delta;
@@ -1229,4 +1244,171 @@ async function updateVariantGroupPreview(select) {
     }
 
     markDirty();
+}
+
+/**
+ * ========================================
+ * Product Dependencies Management
+ * ========================================
+ */
+
+/**
+ * Get all selected product IDs across all sections
+ * @returns {Object} Object with productSections (array) and setProducts (object)
+ */
+function getAllSelectedProducts() {
+    const result = {
+        productSections: [], // Product IDs from "Produkt" sections
+        setProducts: {}      // Set ID -> array of product IDs
+    };
+
+    // Get products from "Produkt" sections
+    document.querySelectorAll('.section-card[data-section-type="product"]').forEach(section => {
+        const select = section.querySelector('.product-select');
+        const productId = select ? parseInt(select.value) : null;
+        if (productId) {
+            result.productSections.push(productId);
+        }
+    });
+
+    // Get products from "Set" sections
+    document.querySelectorAll('.section-card[data-section-type="set"]').forEach(section => {
+        const setId = section.dataset.sectionId || section.getAttribute('data-temp-id') || Math.random().toString();
+        result.setProducts[setId] = [];
+
+        section.querySelectorAll('.set-item[data-item-type="product"]').forEach(item => {
+            const select = item.querySelector('.set-item-product');
+            const productId = select ? parseInt(select.value) : null;
+            if (productId) {
+                result.setProducts[setId].push(productId);
+            }
+        });
+    });
+
+    return result;
+}
+
+/**
+ * Update all product dropdowns to hide/show options based on selections
+ */
+function updateProductDropdowns() {
+    const selected = getAllSelectedProducts();
+
+    // Update "Produkt" section dropdowns
+    document.querySelectorAll('.section-card[data-section-type="product"]').forEach(section => {
+        const select = section.querySelector('.product-select');
+        if (!select) return;
+
+        const currentValue = select.value;
+        const options = select.querySelectorAll('option');
+
+        options.forEach(option => {
+            const productId = parseInt(option.value);
+            if (!productId) return; // Skip empty option
+
+            // Hide if selected in another "Produkt" section
+            if (selected.productSections.includes(productId) && productId !== parseInt(currentValue)) {
+                option.disabled = true;
+                option.style.display = 'none';
+            } else {
+                option.disabled = false;
+                option.style.display = '';
+            }
+        });
+    });
+
+    // Update "Set" section product dropdowns
+    document.querySelectorAll('.section-card[data-section-type="set"]').forEach(section => {
+        const setId = section.dataset.sectionId || section.getAttribute('data-temp-id') || Math.random().toString();
+        const setProductIds = selected.setProducts[setId] || [];
+
+        section.querySelectorAll('.set-item[data-item-type="product"]').forEach(item => {
+            const select = item.querySelector('.set-item-product');
+            if (!select) return;
+
+            const currentValue = select.value;
+            const options = select.querySelectorAll('option');
+
+            options.forEach(option => {
+                const productId = parseInt(option.value);
+                if (!productId) return; // Skip empty option
+
+                // Hide if selected in this set
+                if (setProductIds.includes(productId) && productId !== parseInt(currentValue)) {
+                    option.disabled = true;
+                    option.style.display = 'none';
+                } else {
+                    option.disabled = false;
+                    option.style.display = '';
+                }
+            });
+        });
+    });
+}
+
+/**
+ * Check if set has variant group added
+ * @param {HTMLElement} setSection - The set section element
+ * @returns {boolean}
+ */
+function setHasVariantGroup(setSection) {
+    return setSection.querySelector('.set-item-variant-group-card') !== null;
+}
+
+/**
+ * Check if set has products added
+ * @param {HTMLElement} setSection - The set section element
+ * @returns {boolean}
+ */
+function setHasProducts(setSection) {
+    return setSection.querySelector('.set-item[data-item-type="product"]') !== null;
+}
+
+/**
+ * Update set buttons state (enable/disable based on content)
+ * @param {HTMLElement} setSection - The set section element
+ */
+function updateSetButtons(setSection) {
+    const addProductBtn = setSection.querySelector('[onclick*="addSetItem"]');
+    const addVariantGroupBtn = setSection.querySelector('[onclick*="addSetVariantGroup"]');
+
+    if (!addProductBtn || !addVariantGroupBtn) return;
+
+    const hasVariantGroup = setHasVariantGroup(setSection);
+    const hasProducts = setHasProducts(setSection);
+
+    if (hasVariantGroup) {
+        // Disable both buttons if variant group is added
+        addProductBtn.disabled = true;
+        addVariantGroupBtn.disabled = true;
+        addProductBtn.style.opacity = '0.5';
+        addVariantGroupBtn.style.opacity = '0.5';
+        addProductBtn.style.cursor = 'not-allowed';
+        addVariantGroupBtn.style.cursor = 'not-allowed';
+    } else if (hasProducts) {
+        // If products added, disable only variant group button
+        addProductBtn.disabled = false;
+        addVariantGroupBtn.disabled = true;
+        addProductBtn.style.opacity = '1';
+        addVariantGroupBtn.style.opacity = '0.5';
+        addProductBtn.style.cursor = 'pointer';
+        addVariantGroupBtn.style.cursor = 'not-allowed';
+    } else {
+        // Enable both if nothing is added
+        addProductBtn.disabled = false;
+        addVariantGroupBtn.disabled = false;
+        addProductBtn.style.opacity = '1';
+        addVariantGroupBtn.style.opacity = '1';
+        addProductBtn.style.cursor = 'pointer';
+        addVariantGroupBtn.style.cursor = 'pointer';
+    }
+}
+
+/**
+ * Update all sets buttons state
+ */
+function updateAllSetsButtons() {
+    document.querySelectorAll('.section-card[data-section-type="set"]').forEach(setSection => {
+        updateSetButtons(setSection);
+    });
 }

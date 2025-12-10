@@ -460,14 +460,30 @@ def edit_product(product_id):
 @role_required('admin')  # Only admin can delete
 def delete_product(product_id):
     """Delete product"""
+    from markupsafe import Markup
 
     product = Product.query.get_or_404(product_id)
     product_name = product.name
 
     try:
-        db.session.delete(product)
-        db.session.commit()
-        flash(f'Produkt "{product_name}" został usunięty.', 'success')
+        # Check if product is referenced in stock_order_items
+        is_in_stock_orders = db.session.query(StockOrderItem).filter(
+            StockOrderItem.product_id == product_id
+        ).first() is not None
+
+        if is_in_stock_orders:
+            # Soft delete - just deactivate
+            product.is_active = False
+            db.session.commit()
+            flash(Markup(
+                f'Produkt <strong style="color: #7B2CBF;">{product_name}</strong> został '
+                f'<strong style="color: #FFC107;">dezaktywowany</strong> (był używany w zamówieniach magazynowych).'
+            ), 'warning')
+        else:
+            # Hard delete
+            db.session.delete(product)
+            db.session.commit()
+            flash(Markup(f'Produkt <strong style="color: #7B2CBF;">{product_name}</strong> został usunięty.'), 'success')
 
     except Exception as e:
         db.session.rollback()
@@ -752,6 +768,7 @@ def bulk_deactivate():
 @csrf.exempt
 def bulk_delete():
     """Bulk delete products"""
+    from markupsafe import Markup
 
     data = request.get_json()
     product_ids = data.get('product_ids', [])
@@ -760,16 +777,60 @@ def bulk_delete():
         return jsonify({'error': 'Nie wybrano żadnych produktów.'}), 400
 
     try:
-        # Delete all selected products
-        deleted_count = Product.query.filter(Product.id.in_(product_ids)).delete(
-            synchronize_session=False
-        )
+        # Check which products are referenced in stock_order_items
+        products_in_stock_orders = db.session.query(Product.id).join(
+            StockOrderItem, Product.id == StockOrderItem.product_id
+        ).filter(Product.id.in_(product_ids)).distinct().all()
+
+        products_in_stock_orders_ids = [p.id for p in products_in_stock_orders]
+
+        # Products that can be safely deleted (not in stock orders)
+        products_to_delete = [pid for pid in product_ids if pid not in products_in_stock_orders_ids]
+
+        # Products that need soft delete (in stock orders)
+        products_to_deactivate = products_in_stock_orders_ids
+
+        deleted_count = 0
+        deactivated_count = 0
+
+        # Hard delete products not in stock orders
+        if products_to_delete:
+            deleted_count = Product.query.filter(Product.id.in_(products_to_delete)).delete(
+                synchronize_session=False
+            )
+
+        # Soft delete products in stock orders
+        if products_to_deactivate:
+            Product.query.filter(Product.id.in_(products_to_deactivate)).update(
+                {'is_active': False},
+                synchronize_session=False
+            )
+            deactivated_count = len(products_to_deactivate)
+
         db.session.commit()
+
+        # Build response message
+        if deleted_count > 0 and deactivated_count > 0:
+            message = Markup(
+                f'Usunięto <strong style="color: #4CAF50;">{deleted_count}</strong> produktów. '
+                f'<strong style="color: #FFC107;">{deactivated_count}</strong> produktów zostało '
+                f'dezaktywowanych (były używane w zamówieniach magazynowych).'
+            )
+        elif deleted_count > 0:
+            message = f'Usunięto {deleted_count} produktów.'
+        elif deactivated_count > 0:
+            message = Markup(
+                f'<strong style="color: #FFC107;">{deactivated_count}</strong> produktów zostało '
+                f'dezaktywowanych (były używane w zamówieniach magazynowych i nie mogą być usunięte).'
+            )
+        else:
+            message = 'Nie usunięto żadnych produktów.'
 
         return jsonify({
             'success': True,
-            'message': f'Usunięto {deleted_count} produktów.',
-            'count': deleted_count
+            'message': message,
+            'deleted': deleted_count,
+            'deactivated': deactivated_count
         })
 
     except Exception as e:
