@@ -58,29 +58,41 @@ def record_login_attempt(email, ip_address, success):
 def send_verification_email(user):
     """
     Wysyła email weryfikacyjny
-    TODO: Pełna implementacja w ETAPIE 14 (Email Module)
 
     Args:
         user (User): Użytkownik
     """
-    # Na razie tylko print (mock)
-    print(f"[EMAIL MOCK] Verification email sent to {user.email}")
-    print(f"[EMAIL MOCK] Token: {user.email_verification_token}")
-    print(f"[EMAIL MOCK] Link: http://localhost:5001/auth/verify-email/{user.email_verification_token}")
+    from utils.email_sender import send_verification_email as send_email
+
+    try:
+        send_email(
+            user_email=user.email,
+            verification_token=user.email_verification_token,
+            user_name=user.first_name
+        )
+        current_app.logger.info(f"Verification email sent to {user.email}")
+    except Exception as e:
+        current_app.logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
 
 
 def send_password_reset_email(user):
     """
     Wysyła email z linkiem do resetu hasła
-    TODO: Pełna implementacja w ETAPIE 14 (Email Module)
 
     Args:
         user (User): Użytkownik
     """
-    # Na razie tylko print (mock)
-    print(f"[EMAIL MOCK] Password reset email sent to {user.email}")
-    print(f"[EMAIL MOCK] Token: {user.password_reset_token}")
-    print(f"[EMAIL MOCK] Link: http://localhost:5001/auth/reset-password/{user.password_reset_token}")
+    from utils.email_sender import send_password_reset_email as send_email
+
+    try:
+        send_email(
+            user_email=user.email,
+            reset_token=user.password_reset_token,
+            user_name=user.first_name
+        )
+        current_app.logger.info(f"Password reset email sent to {user.email}")
+    except Exception as e:
+        current_app.logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
 
 
 # =============================================
