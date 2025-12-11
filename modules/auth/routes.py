@@ -3,7 +3,7 @@ Auth Module - Routes
 Endpointy autentykacji: login, register, logout, password reset
 """
 
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
 from datetime import datetime
 
