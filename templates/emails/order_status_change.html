@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zmiana statusu zamówienia - ThunderOrders</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #FF8500;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #240046;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .order-number {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #240046;
+            margin: 20px 0;
+        }
+        .status-change {
+            background-color: #e8f5e9;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .status-old {
+            background-color: #e0e0e0;
+            color: #616161;
+        }
+        .status-new {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .arrow {
+            font-size: 24px;
+            margin: 0 10px;
+            color: #757575;
+        }
+        .button {
+            display: inline-block;
+            background-color: #FF8500;
+            color: white;
+            padding: 12px 28px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #757575;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <div class="logo">⚡ ThunderOrders</div>
+        </div>
+
+        <h1>Status zamówienia zaktualizowany</h1>
+
+        <p>Witaj, {{ user_name }}!</p>
+
+        <p>Informujemy, że status Twojego zamówienia został zmieniony:</p>
+
+        <div class="order-number">
+            📦 Zamówienie {{ order_number }}
+        </div>
+
+        <div class="status-change">
+            <span class="status-badge status-old">{{ old_status }}</span>
+            <span class="arrow">→</span>
+            <span class="status-badge status-new">{{ new_status }}</span>
+        </div>
+
+        <p style="text-align: center; margin-top: 30px;">
+            <a href="https://thunderorders.cloud/client/orders" class="button">Sprawdź szczegóły zamówienia</a>
+        </p>
+
+        <div class="footer">
+            <p><strong>ThunderOrders</strong><br>
+            Twój partner w imporcie z Azji</p>
+            <p>thunderorders.cloud | noreply@thunderorders.cloud</p>
+        </div>
+    </div>
+</body>
+</html>

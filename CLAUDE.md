@@ -1,9 +1,409 @@
 # ThunderOrders - Product Requirements Document (PRD)
 
-**Version:** 1.0  
-**Date:** 31 października 2025  
-**Author:** Konrad  
+**Version:** 1.0
+**Date:** 31 października 2025
+**Author:** Konrad
 **Status:** Draft - Ready for Implementation
+
+---
+
+## ⚠️ WAŻNE UWAGI DLA CLAUDE
+
+### 🔄 Workflow Rozwoju Aplikacji
+
+**ZASADA GŁÓWNA:** Pracujemy na kopii lokalnej (Mac + XAMPP), dopiero po wdrożeniu pełnej funkcjonalności robimy push na Git i aktualizujemy serwer produkcyjny.
+
+**Etapy pracy:**
+1. **Rozwój lokalny** (Mac, VSCode, XAMPP MariaDB)
+2. **Testowanie lokalne** (http://localhost:5001)
+3. **Commit & Push do GitHub** (gdy funkcjonalność działa)
+4. **Deploy na VPS** (aktualizacja serwera produkcyjnego)
+
+---
+
+### 📦 Deployment na Serwer VPS (PRODUKCJA)
+
+**KRYTYCZNE:** Podczas pracy nad deploymentem aplikacji na serwer VPS:
+- **NIE używaj komend Bash** bezpośrednio w VSCode/Claude Code
+- **Wszystkie komendy** muszą być wykonywane przez użytkownika **ręcznie w terminalu SSH na Macu**
+- **Podawaj komendy** użytkownikowi do skopiowania i wykonania
+- **Czekaj na wyniki** od użytkownika przed kontynuowaniem
+
+**Dane serwera:**
+- **Serwer:** VPS Hostinger (Ubuntu 24.04)
+- **IP:** 191.96.53.209
+- **User:** konrad
+- **Domena:** thunderorders.cloud (HTTPS z Let's Encrypt)
+- **SSH:** `ssh konrad@191.96.53.209`
+
+---
+
+### ✅ Status Serwera Produkcyjnego (DEPLOYMENT ZAKOŃCZONY)
+
+**Infrastruktura:**
+- ✅ Aplikacja w `/var/www/ThunderOrders`
+- ✅ Baza danych MariaDB: `thunder_orders`, user: `thunder`
+- ✅ Gunicorn na porcie 8000 (4 workers)
+- ✅ Systemd service: `thunderorders.service` (auto-start)
+- ✅ Nginx reverse proxy (port 80/443 → 8000)
+- ✅ SSL/TLS: Let's Encrypt (auto-renewal)
+- ✅ phpMyAdmin: https://thunderorders.cloud/admin/db/phpmyadmin (HTTP Basic Auth)
+- ✅ DNS rekord A: 191.96.53.209
+
+**Aplikacja działa:**
+- 🌐 **Publiczny URL:** https://thunderorders.cloud
+- 🔒 **SSL:** Ważny do 2026-03-10 (auto-renewal)
+- 🗄️ **phpMyAdmin:** Zabezpieczony HTTP Basic Auth + login MariaDB
+
+---
+
+### 🚀 Jak Aktualizować Aplikację na Serwerze
+
+#### **Scenariusz 1: Zmiany w KODZIE (bez zmian w bazie danych)**
+
+**Na Macu (lokalnie):**
+```bash
+# 1. Wprowadź zmiany w kodzie
+# 2. Commituj i pushuj
+git add .
+git commit -m "Opis zmian"
+git push origin main
+```
+
+**Na serwerze (SSH):**
+```bash
+# 1. Połącz się SSH
+ssh konrad@191.96.53.209
+
+# 2. Przejdź do katalogu aplikacji
+cd /var/www/ThunderOrders
+
+# 3. Pobierz najnowszy kod
+git pull origin main
+
+# 4. Restartuj aplikację
+sudo systemctl restart thunderorders
+
+# 5. Sprawdź status
+sudo systemctl status thunderorders
+
+# 6. Sprawdź logi (jeśli coś nie działa)
+sudo journalctl -u thunderorders -n 50 --no-pager
+sudo tail -50 /var/www/ThunderOrders/logs/gunicorn-error.log
+```
+
+---
+
+#### **Scenariusz 2: Zmiany w BAZIE DANYCH (tabele/kolumny)**
+
+**KRYTYCZNE: KAŻDA zmiana w bazie danych MUSI być zapisana w migracji Flask-Migrate!**
+
+**Co wymaga migracji:**
+- ✅ Dodanie nowej tabeli
+- ✅ Dodanie kolumny do istniejącej tabeli
+- ✅ Zmiana typu kolumny
+- ✅ Usunięcie kolumny/tabeli
+- ✅ Dodanie indeksu/klucza obcego
+- ✅ Zmiana constraintów
+
+**Workflow:**
+
+**Na Macu (lokalnie):**
+```bash
+# 1. Wprowadź zmiany w modelach (np. modules/products/models.py)
+# 2. Wygeneruj migrację
+flask db migrate -m "Added new column: product.barcode"
+
+# 3. Sprawdź wygenerowaną migrację
+# Plik: migrations/versions/xxxxx_added_new_column.py
+
+# 4. Wykonaj migrację lokalnie (test)
+flask db upgrade
+
+# 5. Sprawdź czy działa lokalnie
+# Test w XAMPP phpMyAdmin + aplikacja
+
+# 6. Commituj migrację + zmiany w kodzie
+git add migrations/versions/*.py
+git add modules/products/models.py
+git commit -m "Added product barcode field with migration"
+git push origin main
+```
+
+**Na serwerze (SSH):**
+```bash
+# 1. Backup bazy danych (ZAWSZE przed migracją!)
+mysqldump -u thunder -p thunder_orders > ~/backup_$(date +%Y%m%d_%H%M%S).sql
+
+# 2. Pobierz kod + migracje
+cd /var/www/ThunderOrders
+git pull origin main
+
+# 3. Aktywuj venv
+source venv/bin/activate
+
+# 4. Wykonaj migrację
+flask db upgrade
+
+# 5. Sprawdź tabele w phpMyAdmin
+# https://thunderorders.cloud/admin/db/phpmyadmin
+
+# 6. Restartuj aplikację
+sudo systemctl restart thunderorders
+
+# 7. Sprawdź logi
+sudo journalctl -u thunderorders -n 30
+```
+
+**Jeśli coś pójdzie nie tak - rollback:**
+```bash
+# 1. Przywróć backup bazy
+mysql -u thunder -p thunder_orders < ~/backup_YYYYMMDD_HHMMSS.sql
+
+# 2. Cofnij migrację
+flask db downgrade
+
+# 3. Restartuj
+sudo systemctl restart thunderorders
+```
+
+---
+
+#### **Scenariusz 3: Aktualizacja Dependencies (nowe pakiety Python)**
+
+**Na Macu (lokalnie):**
+```bash
+# 1. Dodaj pakiet
+pip install nowy-pakiet
+
+# 2. Zaktualizuj requirements.txt
+pip freeze > requirements.txt
+
+# 3. Commituj
+git add requirements.txt
+git commit -m "Added nowy-pakiet dependency"
+git push origin main
+```
+
+**Na serwerze (SSH):**
+```bash
+cd /var/www/ThunderOrders
+git pull origin main
+source venv/bin/activate
+pip install -r requirements.txt
+sudo systemctl restart thunderorders
+```
+
+---
+
+#### **Scenariusz 4: Zmiany w Nginx/Gunicorn/Systemd**
+
+**Gunicorn config (`gunicorn_config.py`):**
+```bash
+# Po zmianach
+git pull origin main
+sudo systemctl restart thunderorders
+```
+
+**Nginx config (`/etc/nginx/sites-available/thunderorders`):**
+```bash
+# Po edycji ręcznej (przez nano)
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+**Systemd service (`/etc/systemd/system/thunderorders.service`):**
+```bash
+# Po edycji ręcznej (przez nano)
+sudo systemctl daemon-reload
+sudo systemctl restart thunderorders
+```
+
+---
+
+### 🔧 Zarządzanie Serwerem Produkcyjnym
+
+#### **Podstawowe komendy:**
+
+**Aplikacja (Gunicorn):**
+```bash
+# Status
+sudo systemctl status thunderorders
+
+# Start/Stop/Restart
+sudo systemctl start thunderorders
+sudo systemctl stop thunderorders
+sudo systemctl restart thunderorders
+
+# Logi na żywo
+sudo journalctl -u thunderorders -f
+
+# Ostatnie 50 linii logów
+sudo journalctl -u thunderorders -n 50 --no-pager
+
+# Logi Gunicorn
+sudo tail -50 /var/www/ThunderOrders/logs/gunicorn-error.log
+sudo tail -50 /var/www/ThunderOrders/logs/gunicorn-access.log
+```
+
+**Nginx:**
+```bash
+# Status
+sudo systemctl status nginx
+
+# Test konfiguracji
+sudo nginx -t
+
+# Restart
+sudo systemctl restart nginx
+
+# Logi
+sudo tail -50 /var/log/nginx/error.log
+sudo tail -50 /var/log/nginx/access.log
+```
+
+**Baza danych (MariaDB):**
+```bash
+# Status
+sudo systemctl status mariadb
+
+# Połączenie CLI
+mysql -u thunder -p thunder_orders
+
+# Backup
+mysqldump -u thunder -p thunder_orders > ~/backup.sql
+
+# Restore
+mysql -u thunder -p thunder_orders < ~/backup.sql
+```
+
+**SSL (Certbot):**
+```bash
+# Status certyfikatów
+sudo certbot certificates
+
+# Odnawianie (auto, ale można manualnie)
+sudo certbot renew
+
+# Test auto-renewal
+sudo certbot renew --dry-run
+```
+
+---
+
+### 🗄️ Dostęp do phpMyAdmin
+
+**URL:** https://thunderorders.cloud/admin/db/phpmyadmin
+
+**Dwuetapowe logowanie:**
+1. **HTTP Basic Auth:**
+   - User: `admin`
+   - Password: (ustalone przy konfiguracji)
+2. **MariaDB Login:**
+   - User: `thunder`
+   - Password: `HN2Nm0LiCdLhGHXx`
+
+**Bezpieczeństwo:**
+- Ukryty URL (`/admin/db/phpmyadmin`)
+- HTTP Basic Auth (pierwsza warstwa)
+- HTTPS (szyfrowanie)
+- Dostęp tylko przez HTTPS
+
+---
+
+### 📂 Struktura Katalogów na Serwerze
+
+```
+/var/www/ThunderOrders/
+├── app.py                    # Główny plik aplikacji
+├── config.py                 # Konfiguracja (production)
+├── gunicorn_config.py        # Konfiguracja Gunicorn
+├── .env                      # Zmienne środowiskowe (PRODUCTION)
+├── requirements.txt          # Dependencies Python
+├── venv/                     # Virtual environment
+├── modules/                  # Moduły aplikacji
+├── templates/                # Szablony HTML
+├── static/                   # CSS, JS, images
+│   └── uploads/              # Uploaded files
+├── migrations/               # Flask-Migrate migrations
+│   └── versions/             # Pliki migracji
+└── logs/                     # Logi aplikacji
+    ├── gunicorn-access.log
+    └── gunicorn-error.log
+```
+
+**Konfiguracje systemowe:**
+```
+/etc/systemd/system/thunderorders.service    # Systemd service
+/etc/nginx/sites-available/thunderorders     # Nginx config
+/etc/nginx/sites-enabled/thunderorders       # Symlink
+/etc/letsencrypt/live/thunderorders.cloud/   # SSL certificates
+```
+
+---
+
+### 🐛 Troubleshooting
+
+**Problem: Aplikacja nie odpowiada**
+```bash
+# 1. Sprawdź status
+sudo systemctl status thunderorders
+
+# 2. Sprawdź logi
+sudo journalctl -u thunderorders -n 100
+
+# 3. Sprawdź czy Gunicorn działa lokalnie
+curl http://127.0.0.1:8000/
+
+# 4. Restart
+sudo systemctl restart thunderorders
+```
+
+**Problem: Nginx 502 Bad Gateway**
+```bash
+# Gunicorn nie działa
+sudo systemctl status thunderorders
+sudo systemctl start thunderorders
+```
+
+**Problem: 500 Internal Server Error**
+```bash
+# Błąd w aplikacji Flask
+sudo tail -100 /var/www/ThunderOrders/logs/gunicorn-error.log
+```
+
+**Problem: Baza danych connection error**
+```bash
+# 1. Sprawdź czy MariaDB działa
+sudo systemctl status mariadb
+
+# 2. Sprawdź .env
+cat /var/www/ThunderOrders/.env | grep DB_
+
+# 3. Test połączenia
+mysql -u thunder -p thunder_orders -e "SELECT 1;"
+```
+
+**Problem: SSL certificate expired**
+```bash
+# Odśwież certyfikat
+sudo certbot renew
+sudo systemctl restart nginx
+```
+
+---
+
+### 📝 Ważne Zasady
+
+1. **ZAWSZE testuj lokalnie** przed push na Git
+2. **ZAWSZE rób backup bazy** przed migracją na produkcji
+3. **NIGDY nie edytuj kodu bezpośrednio na serwerze** - tylko przez Git
+4. **ZAWSZE używaj migracji** do zmian w bazie danych
+5. **SPRAWDZAJ logi** po każdej aktualizacji
+6. **NIE commituj haseł** do Git (używaj .env, który jest w .gitignore)
+7. **Restartuj aplikację** po każdej zmianie kodu
+
+---
 
 ---
 

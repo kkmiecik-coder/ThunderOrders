@@ -38,13 +38,14 @@ class Config:
     # Pagination
     ITEMS_PER_PAGE = 20
 
-    # Email Configuration (z .env lub z bazy danych - settings)
-    MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-    MAIL_PORT = int(os.getenv('MAIL_PORT', 587))
-    MAIL_USE_TLS = os.getenv('MAIL_USE_TLS', 'True').lower() == 'true'
-    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+    # Email Configuration (Hostinger SMTP)
+    MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.hostinger.com')
+    MAIL_PORT = int(os.getenv('MAIL_PORT', 465))
+    MAIL_USE_SSL = os.getenv('MAIL_USE_SSL', 'True').lower() == 'true'  # SSL na porcie 465
+    MAIL_USE_TLS = False  # TLS wyłączony, bo używamy SSL
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME', 'noreply@thunderorders.cloud')
     MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@thunderorders.pl')
+    MAIL_DEFAULT_SENDER = os.getenv('MAIL_DEFAULT_SENDER', 'noreply@thunderorders.cloud')
 
     # Exchange Rate API
     EXCHANGE_RATE_API_KEY = os.getenv('EXCHANGE_RATE_API_KEY')
