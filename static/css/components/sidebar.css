@@ -665,7 +665,7 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
   z-index: 1002;
 }
 
@@ -682,7 +682,7 @@
   border-color: transparent #44318d transparent transparent;
   opacity: 0;
   pointer-events: none;
-  transition: none;
+  transition: opacity 0.2s ease;
   z-index: 1003;
   filter: drop-shadow(-3px 0 5px rgba(240, 147, 251, 0.3));
 }

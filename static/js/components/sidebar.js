@@ -89,47 +89,83 @@ function setupCategoryTooltips() {
 
     categories.forEach((category) => {
         const subcategories = category.querySelector('.sidebar-subcategories');
-        const arrow = category; // The ::before pseudo-element is on the category itself
+        let hoverTimeout = null; // Track timeout for cleanup
 
         if (subcategories) {
 
             // Function to show tooltip
             const showTooltip = function() {
                 const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (isCollapsed) {
-                    // Calculate position: align tooltip with category icon
-                    const categoryRect = category.getBoundingClientRect();
-                    const arrowVerticalCenter = categoryRect.top + (categoryRect.height / 2);
+                if (!isCollapsed) return;
 
-                    // Position tooltip
-                    subcategories.style.setProperty('top', `${categoryRect.top}px`, 'important');
-
-                    // Position arrow (centered with icon)
-                    const arrowTop = arrowVerticalCenter;
-                    category.style.setProperty('--arrow-top', `${arrowTop}px`);
-
-                    // Show subcategories tooltip
-                    subcategories.style.setProperty('opacity', '1', 'important');
-                    subcategories.style.setProperty('visibility', 'visible', 'important');
-                    subcategories.style.setProperty('pointer-events', 'auto', 'important');
-                    category.classList.add('tooltip-visible');
+                // Clear any pending hide timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
                 }
+
+                // Calculate position: align tooltip with category icon
+                const categoryRect = category.getBoundingClientRect();
+                const arrowVerticalCenter = categoryRect.top + (categoryRect.height / 2);
+
+                // Position tooltip
+                subcategories.style.setProperty('top', `${categoryRect.top}px`, 'important');
+
+                // Position arrow (centered with icon)
+                const arrowTop = arrowVerticalCenter;
+                category.style.setProperty('--arrow-top', `${arrowTop}px`);
+
+                // Show subcategories tooltip
+                subcategories.style.setProperty('opacity', '1', 'important');
+                subcategories.style.setProperty('visibility', 'visible', 'important');
+                subcategories.style.setProperty('pointer-events', 'auto', 'important');
+                subcategories.style.setProperty('display', 'block', 'important');
+                category.classList.add('tooltip-visible');
             };
 
             // Function to hide tooltip
             const hideTooltip = function() {
                 const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (isCollapsed) {
-                    // Hide subcategories tooltip
-                    subcategories.style.removeProperty('opacity');
-                    subcategories.style.removeProperty('visibility');
-                    subcategories.style.removeProperty('pointer-events');
-                    subcategories.style.removeProperty('top');
-                    category.style.removeProperty('--arrow-top');
+                if (!isCollapsed) return;
 
-                    // Remove class to hide ::before arrow
-                    category.classList.remove('tooltip-visible');
+                // Clear any pending timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                    hoverTimeout = null;
                 }
+
+                // Hide subcategories tooltip
+                subcategories.style.removeProperty('opacity');
+                subcategories.style.removeProperty('visibility');
+                subcategories.style.removeProperty('pointer-events');
+                subcategories.style.removeProperty('display');
+                subcategories.style.removeProperty('top');
+                category.style.removeProperty('--arrow-top');
+
+                // Remove class to hide ::before arrow
+                category.classList.remove('tooltip-visible');
+            };
+
+            // Delayed hide with proper cleanup
+            const scheduleHide = function() {
+                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
+                if (!isCollapsed) return;
+
+                // Clear any existing timeout
+                if (hoverTimeout) {
+                    clearTimeout(hoverTimeout);
+                }
+
+                // Schedule hide with longer delay
+                hoverTimeout = setTimeout(() => {
+                    // Only hide if we're not hovering over category OR tooltip
+                    const tooltipHovered = subcategories.matches(':hover');
+                    const categoryHovered = category.matches(':hover');
+
+                    if (!tooltipHovered && !categoryHovered) {
+                        hideTooltip();
+                    }
+                }, 150); // Increased from 50ms to 150ms for smoother transition
             };
 
             // Show tooltip on mouseenter on category
@@ -142,28 +178,20 @@ function setupCategoryTooltips() {
 
             // Keep tooltip visible when hovering over it
             subcategories.addEventListener('mouseenter', function() {
-                showTooltip(); // Keep it visible
+                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
+                if (isCollapsed) {
+                    showTooltip(); // Keep it visible and cancel any pending hide
+                }
             });
 
             // Hide tooltip when leaving the tooltip
             subcategories.addEventListener('mouseleave', function() {
-                hideTooltip();
+                scheduleHide();
             });
 
-            // Hide tooltip on mouseleave from category (with small delay to allow moving to tooltip)
-            category.addEventListener('mouseleave', function(e) {
-                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-
-                if (isCollapsed) {
-                    // Check if we're moving to the tooltip
-                    setTimeout(() => {
-                        // Only hide if we're not hovering over the tooltip
-                        const tooltipHovered = subcategories.matches(':hover');
-                        if (!tooltipHovered && !category.matches(':hover')) {
-                            hideTooltip();
-                        }
-                    }, 50); // Small delay to detect if moving to tooltip
-                }
+            // Hide tooltip on mouseleave from category (with delay to allow moving to tooltip)
+            category.addEventListener('mouseleave', function() {
+                scheduleHide();
             });
         }
     });
