@@ -1,8 +1,13 @@
 import os
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
 from extensions import db, migrate, login_manager, mail, csrf, executor
+
+# Strefa czasowa dla Polski
+POLAND_TZ = ZoneInfo('Europe/Warsaw')
 
 
 def create_app(config_name=None):
@@ -48,6 +53,9 @@ def create_app(config_name=None):
     # Context processors (zmienne globalne w templates)
     register_context_processors(app)
 
+    # Template filters (filtry Jinja2)
+    register_template_filters(app)
+
     # Utwórz folder uploads jeśli nie istnieje
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -80,8 +88,8 @@ def register_blueprints(app):
     app.register_blueprint(products_bp)
 
     # Orders module
-    # from modules.orders.routes import orders_bp
-    # app.register_blueprint(orders_bp, url_prefix='/orders')
+    from modules.orders import orders_bp
+    app.register_blueprint(orders_bp)
 
     # Exclusive module (publiczne strony zamówień pre-order)
     # CSRF exempt dla API endpoints rezerwacji (reserve, release, extend, restore, availability)
@@ -154,6 +162,98 @@ def register_context_processors(app):
             'app_name': 'ThunderOrders',
             'app_version': '1.0.0-MVP',
         }
+
+
+def register_template_filters(app):
+    """
+    Rejestruje filtry Jinja2 do użycia w szablonach
+    """
+
+    @app.template_filter('to_poland_tz')
+    def to_poland_tz_filter(dt):
+        """
+        Konwertuje datetime UTC na czas polski (Europe/Warsaw).
+        Użycie w template: {{ date|to_poland_tz }}
+        """
+        if dt is None:
+            return None
+        # Jeśli datetime nie ma timezone, zakładamy że jest UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(POLAND_TZ)
+
+    @app.template_filter('format_datetime')
+    def format_datetime_filter(dt, fmt='%Y-%m-%d %H:%M'):
+        """
+        Formatuje datetime z automatyczną konwersją na czas polski.
+        Użycie: {{ date|format_datetime }} lub {{ date|format_datetime('%d.%m.%Y %H:%M') }}
+        """
+        if dt is None:
+            return ''
+        # Konwertuj na czas polski
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_poland = dt.astimezone(POLAND_TZ)
+        return dt_poland.strftime(fmt)
+
+    @app.template_filter('format_date')
+    def format_date_filter(dt, fmt='%Y-%m-%d'):
+        """
+        Formatuje tylko datę z konwersją na czas polski.
+        Użycie: {{ date|format_date }} lub {{ date|format_date('%d.%m.%Y') }}
+        """
+        if dt is None:
+            return ''
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_poland = dt.astimezone(POLAND_TZ)
+        return dt_poland.strftime(fmt)
+
+    @app.template_filter('format_time')
+    def format_time_filter(dt, fmt='%H:%M'):
+        """
+        Formatuje tylko godzinę z konwersją na czas polski.
+        Użycie: {{ date|format_time }} lub {{ date|format_time('%H:%M:%S') }}
+        """
+        if dt is None:
+            return ''
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_poland = dt.astimezone(POLAND_TZ)
+        return dt_poland.strftime(fmt)
+
+    @app.template_filter('format_datetime_local')
+    def format_datetime_local_filter(dt):
+        """
+        Formatuje datetime dla input type="datetime-local" z konwersją na czas polski.
+        Użycie: {{ date|format_datetime_local }}
+        """
+        if dt is None:
+            return ''
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        dt_poland = dt.astimezone(POLAND_TZ)
+        return dt_poland.strftime('%Y-%m-%dT%H:%M')
+
+    @app.template_filter('reject_key')
+    def reject_key_filter(d, key):
+        """
+        Zwraca kopię słownika bez podanego klucza.
+        Użycie: {{ request.args|reject_key('status') }}
+        """
+        if not isinstance(d, dict):
+            # Dla ImmutableMultiDict (request.args)
+            result = {}
+            for k in d.keys():
+                if k != key:
+                    # Pobierz wszystkie wartości dla klucza (dla multi-value)
+                    values = d.getlist(k)
+                    if len(values) == 1:
+                        result[k] = values[0]
+                    else:
+                        result[k] = values
+            return result
+        return {k: v for k, v in d.items() if k != key}
 
 
 # Uruchomienie aplikacji (tylko dla development)

@@ -99,16 +99,16 @@
                         </td>
                         <td>
                             {% if page.starts_at %}
-                            <span class="date-cell">{{ page.starts_at.strftime('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ page.starts_at.strftime('%H:%M') }}</span>
+                            <span class="date-cell">{{ page.starts_at|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ page.starts_at|format_time }}</span>
                             {% else %}
                             <span class="text-muted">—</span>
                             {% endif %}
                         </td>
                         <td>
                             {% if page.ends_at %}
-                            <span class="date-cell">{{ page.ends_at.strftime('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ page.ends_at.strftime('%H:%M') }}</span>
+                            <span class="date-cell">{{ page.ends_at|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ page.ends_at|format_time }}</span>
                             {% else %}
                             <span class="text-muted">Bez limitu</span>
                             {% endif %}
@@ -117,8 +117,8 @@
                             <span class="sections-count">{{ page.sections.count() }}</span>
                         </td>
                         <td>
-                            <span class="date-cell">{{ page.created_at.strftime('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ page.created_at.strftime('%H:%M') }}</span>
+                            <span class="date-cell">{{ page.created_at|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ page.created_at|format_time }}</span>
                         </td>
                         <td class="actions-cell">
                             <div class="action-buttons">

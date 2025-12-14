@@ -1,0 +1,384 @@
+{% extends "admin/base_admin.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/orders-list.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="orders-list-page">
+    <!-- Page Header + Quick Filters -->
+    <div class="page-header">
+        <h1>Zamówienia</h1>
+        <div class="quick-filters">
+            <a href="{{ url_for('orders.admin_list') }}"
+               class="filter-btn {% if not request.args.get('order_type') %}active{% endif %}">
+                Wszystkie
+            </a>
+            <a href="{{ url_for('orders.admin_list', order_type='pre_order') }}"
+               class="filter-btn {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
+                Pre-order
+            </a>
+            <a href="{{ url_for('orders.admin_list', order_type='on_hand') }}"
+               class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
+                On-hand
+            </a>
+            <a href="{{ url_for('orders.admin_list', order_type='exclusive') }}"
+               class="filter-btn {% if request.args.get('order_type') == 'exclusive' %}active{% endif %}">
+                Exclusive
+            </a>
+        </div>
+    </div>
+
+    <!-- Advanced Filters (collapsible) -->
+    <div class="filters-panel" id="filtersPanel">
+        <div class="filters-header" onclick="toggleFilters()">
+            <div class="filters-header-left">
+                <svg class="filters-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span>Filtry zaawansowane</span>
+                {% set active_filters = namespace(count=0) %}
+                {% if request.args.get('status') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+                {% if request.args.get('date_from') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+                {% if request.args.get('date_to') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+                {% if request.args.get('search') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+                {% if active_filters.count > 0 %}
+                <span class="filters-badge">{{ active_filters.count }}</span>
+                {% endif %}
+            </div>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z"/>
+            </svg>
+        </div>
+        <div class="filters-content">
+            <form method="get" action="{{ url_for('orders.admin_list') }}" id="filterForm">
+                <div class="filters-grid">
+                    <!-- Search - full width -->
+                    <div class="form-group form-group-search">
+                        <div class="input-icon-wrapper">
+                            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                            {{ filter_form.search(class="form-input form-input-icon", placeholder="Szukaj po numerze, kliencie, emailu...") }}
+                        </div>
+                    </div>
+
+                    <!-- Status multi-select -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                            Status
+                        </label>
+                        {{ filter_form.status(class="form-select-multiple") }}
+                    </div>
+
+                    <!-- Date range -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            Data od
+                        </label>
+                        {{ filter_form.date_from(class="form-input") }}
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            Data do
+                        </label>
+                        {{ filter_form.date_to(class="form-input") }}
+                    </div>
+
+                </div>
+
+                <!-- Action buttons -->
+                <div class="filters-actions">
+                    <a href="{{ url_for('orders.admin_list') }}" class="btn btn-ghost">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M3 6h18"></path>
+                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                        Wyczyść filtry
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                        </svg>
+                        Zastosuj filtry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Active Filters Tags -->
+    {% set has_active_filters = request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') or request.args.get('search') or request.args.get('order_type') %}
+    {% if has_active_filters %}
+    <div class="active-filters-bar">
+        <span class="active-filters-label">Aktywne filtry:</span>
+        <div class="active-filters-tags">
+            {% if request.args.get('order_type') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('order_type')) }}" class="filter-tag">
+                <span>Typ:
+                    {% if request.args.get('order_type') == 'pre_order' %}Pre-order
+                    {% elif request.args.get('order_type') == 'on_hand' %}On-hand
+                    {% elif request.args.get('order_type') == 'exclusive' %}Exclusive
+                    {% else %}{{ request.args.get('order_type') }}{% endif %}
+                </span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('status') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('status')) }}" class="filter-tag">
+                <span>Status: {{ request.args.getlist('status')|length }} wybrano</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('date_from') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('date_from')) }}" class="filter-tag">
+                <span>Od: {{ request.args.get('date_from') }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('date_to') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('date_to')) }}" class="filter-tag">
+                <span>Do: {{ request.args.get('date_to') }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('search') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('search')) }}" class="filter-tag">
+                <span>Szukaj: "{{ request.args.get('search') }}"</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+        </div>
+        <a href="{{ url_for('orders.admin_list') }}" class="clear-all-filters">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+            </svg>
+            Wyczyść wszystkie
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Bulk Actions Toolbar (floating, shows when checkboxes checked) -->
+    <div id="bulkToolbar" class="bulk-toolbar hidden">
+        <div class="bulk-toolbar-content">
+            <span class="selected-count" id="selectedCount">0 zaznaczonych</span>
+            <div class="bulk-actions">
+                <button class="btn-bulk" data-action="status" title="Zmień status">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                    </svg>
+                    Zmień status
+                </button>
+                <button class="btn-bulk" data-action="export" title="Export CSV">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                    </svg>
+                    Export CSV
+                </button>
+                <button class="btn-bulk" data-action="wms" title="Zabierz do WMS">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
+                    </svg>
+                    Zabierz do WMS
+                </button>
+                {% if current_user.is_admin %}
+                <button class="btn-bulk btn-bulk-danger" data-action="delete" title="Usuń">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                    </svg>
+                    Usuń
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Table Header Bar (results count + per page) -->
+    <div class="table-header-bar">
+        <div class="results-count">
+            {% if orders.total %}
+            Wyświetlanie {{ ((orders.page - 1) * orders.per_page) + 1 }}-{{ [orders.page * orders.per_page, orders.total]|min }} z {{ orders.total }} zamówień
+            {% else %}
+            Brak zamówień
+            {% endif %}
+        </div>
+        <div class="per-page-selector">
+            <label for="perPageSelect">Na stronę:</label>
+            <select id="perPageSelect" onchange="changePerPage(this.value)">
+                <option value="20" {% if request.args.get('per_page', '20') == '20' %}selected{% endif %}>20</option>
+                <option value="50" {% if request.args.get('per_page') == '50' %}selected{% endif %}>50</option>
+                <option value="100" {% if request.args.get('per_page') == '100' %}selected{% endif %}>100</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="table-container" id="ordersTable">
+        {% if orders.items %}
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th class="checkbox-col">
+                        <input type="checkbox" id="selectAll" aria-label="Zaznacz wszystkie">
+                    </th>
+                    <th>Numer zamówienia</th>
+                    <th>Klient</th>
+                    <th>Status</th>
+                    <th>Typ</th>
+                    <th>Data</th>
+                    <th class="text-right">Kwota</th>
+                    <th class="actions-col">Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders.items %}
+                <tr data-order-id="{{ order.id }}">
+                    <td class="checkbox-col">
+                        <input type="checkbox" class="order-checkbox" value="{{ order.id }}" aria-label="Zaznacz zamówienie {{ order.order_number }}">
+                    </td>
+                    <td>
+                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number-link">
+                            {{ order.order_number }}
+                        </a>
+                    </td>
+                    <td>
+                        <div class="customer-cell">
+                            {% if order.is_guest_order %}
+                                <span>{{ order.guest_name }}</span>
+                                <span class="badge badge-guest">Gość</span>
+                            {% elif order.user %}
+                                <a href="{{ url_for('admin.client_detail', id=order.user.id) }}">
+                                    {{ order.user.full_name }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted">Nieznany</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">
+                            {{ order.status_display_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">
+                            {{ order.type_display_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="date-cell" title="{{ order.created_at|format_datetime('%Y-%m-%d %H:%M:%S') }}">
+                            {{ order.created_at|format_date }}
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <span class="amount-cell">{{ "%.2f"|format(order.total_amount or 0) }} PLN</span>
+                    </td>
+                    <td class="actions-col">
+                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}"
+                           class="btn-icon"
+                           title="Szczegóły">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                            </svg>
+                        </a>
+                        {% if current_user.is_admin %}
+                        <button class="btn-icon btn-delete"
+                                data-order-id="{{ order.id }}"
+                                data-order-number="{{ order.order_number }}"
+                                title="Usuń">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            </svg>
+                        </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if orders.pages > 1 %}
+        <div class="pagination">
+            <div class="pagination-info">
+                Strona {{ orders.page }} z {{ orders.pages }} ({{ orders.total }} zamówień)
+            </div>
+            <div class="pagination-controls">
+                {% if orders.has_prev %}
+                <a href="{{ url_for('orders.admin_list', page=orders.prev_num, **request.args) }}"
+                   class="pagination-btn">
+                    « Poprzednia
+                </a>
+                {% endif %}
+
+                {% for page_num in orders.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <a href="{{ url_for('orders.admin_list', page=page_num, **request.args) }}"
+                           class="pagination-btn {% if page_num == orders.page %}active{% endif %}">
+                            {{ page_num }}
+                        </a>
+                    {% else %}
+                        <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if orders.has_next %}
+                <a href="{{ url_for('orders.admin_list', page=orders.next_num, **request.args) }}"
+                   class="pagination-btn">
+                    Następna »
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
+            </svg>
+            <h3>Brak zamówień</h3>
+            <p>Nie znaleziono żadnych zamówień spełniających kryteria</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/orders-list.js') }}"></script>
+{% endblock %}

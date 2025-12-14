@@ -1,0 +1,12 @@
+<div class="timeline-item comment {% if comment.is_from_admin %}from-admin{% else %}from-client{% endif %}">
+    <div class="timeline-avatar">
+        {{ comment.author_initials }}
+    </div>
+    <div class="timeline-content">
+        <div class="timeline-header">
+            <strong>{{ comment.author_name }}</strong>
+            <span class="timeline-date">{{ comment.created_at|format_datetime }}</span>
+        </div>
+        <p>{{ comment.comment }}</p>
+    </div>
+</div>

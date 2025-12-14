@@ -182,7 +182,7 @@
                             <span class="info-label">Data dezaktywacji:</span>
                             <span class="info-value">
                                 {% if client.deactivated_at %}
-                                {{ client.deactivated_at.strftime('%d.%m.%Y %H:%M') }}
+                                {{ client.deactivated_at|format_datetime('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 <span class="text-muted">Brak danych</span>
                                 {% endif %}
@@ -269,13 +269,13 @@
                     <div class="info-grid">
                         <div class="info-row">
                             <span class="info-label">Rejestracja:</span>
-                            <span class="info-value">{{ client.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="info-value">{{ client.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Ostatnie logowanie:</span>
                             <span class="info-value">
                                 {% if client.last_login %}
-                                {{ client.last_login.strftime('%d.%m.%Y %H:%M') }}
+                                {{ client.last_login|format_datetime('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 <span class="text-muted">Nigdy</span>
                                 {% endif %}
@@ -285,7 +285,7 @@
                             <span class="info-label">Ostatnia aktualizacja:</span>
                             <span class="info-value">
                                 {% if client.updated_at %}
-                                {{ client.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                                {{ client.updated_at|format_datetime('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}

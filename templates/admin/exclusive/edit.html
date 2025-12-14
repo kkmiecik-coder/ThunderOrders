@@ -29,7 +29,7 @@
             </span>
             <span class="last-saved" id="lastSaved">
                 {% if page.updated_at %}
-                Ostatni zapis: {{ page.updated_at.strftime('%H:%M:%S') }}
+                Ostatni zapis: {{ page.updated_at|format_time('%H:%M:%S') }}
                 {% endif %}
             </span>
         </div>
@@ -73,14 +73,14 @@
                 <div class="form-group">
                     <label for="startsAt">Data rozpoczęcia</label>
                     <input type="datetime-local" id="startsAt" class="form-input"
-                           value="{{ page.starts_at.strftime('%Y-%m-%dT%H:%M') if page.starts_at else '' }}">
+                           value="{{ page.starts_at|format_datetime_local if page.starts_at else '' }}">
                     <small class="form-hint">Puste = ręczna publikacja</small>
                 </div>
 
                 <div class="form-group">
                     <label for="endsAt">Data zakończenia</label>
                     <input type="datetime-local" id="endsAt" class="form-input"
-                           value="{{ page.ends_at.strftime('%Y-%m-%dT%H:%M') if page.ends_at else '' }}">
+                           value="{{ page.ends_at|format_datetime_local if page.ends_at else '' }}">
                     <small class="form-hint">Puste = bez limitu czasu</small>
                 </div>
             </div>

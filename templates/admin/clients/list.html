@@ -167,13 +167,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="date-cell">{{ client.created_at.strftime('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ client.created_at.strftime('%H:%M') }}</span>
+                            <span class="date-cell">{{ client.created_at|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ client.created_at|format_time }}</span>
                         </td>
                         <td>
                             {% if client.last_login %}
-                            <span class="date-cell">{{ client.last_login.strftime('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ client.last_login.strftime('%H:%M') }}</span>
+                            <span class="date-cell">{{ client.last_login|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ client.last_login|format_time }}</span>
                             {% else %}
                             <span class="text-muted">Nigdy</span>
                             {% endif %}

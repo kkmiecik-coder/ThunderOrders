@@ -59,7 +59,7 @@
             </svg>
             <div class="status-info-text">
                 <span class="status-info-label">Zakończono</span>
-                <span class="status-info-value">{{ page.ends_at.strftime('%d.%m.%Y, godz. %H:%M') }}</span>
+                <span class="status-info-value">{{ page.ends_at|format_datetime('%d.%m.%Y, godz. %H:%M') }}</span>
             </div>
         </div>
         {% endif %}

@@ -1,0 +1,148 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/orders.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="order-detail-page client-view">
+    <!-- Header -->
+    <div class="order-header">
+        <div class="order-header-main">
+            <a href="{{ url_for('orders.client_list') }}" class="back-link">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
+                Powrót do listy
+            </a>
+            <h1>Zamówienie {{ order.order_number }}</h1>
+        </div>
+        <div class="order-meta">
+            <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">{{ order.type_display_name }}</span>
+            <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
+        </div>
+    </div>
+
+    <!-- Order Information -->
+    <div class="card">
+        <h2>Informacje o zamówieniu</h2>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Status:</label>
+                <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
+            </div>
+            <div class="info-item">
+                <label>Data utworzenia:</label>
+                <span>{{ order.created_at|format_datetime('%Y-%m-%d %H:%M:%S') }}</span>
+            </div>
+            <div class="info-item">
+                <label>Ostatnia aktualizacja:</label>
+                <span>{{ order.updated_at|format_datetime('%Y-%m-%d %H:%M:%S') }}</span>
+            </div>
+            <div class="info-item">
+                <label>Suma całkowita:</label>
+                <span class="amount-highlight">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tracking Information -->
+    {% if order.tracking_number %}
+    <div class="card">
+        <h2>Śledzenie przesyłki</h2>
+        <div class="tracking-info">
+            <p><strong>Kurier:</strong> {{ order.courier }}</p>
+            <p><strong>Numer przesyłki:</strong> {{ order.tracking_number }}</p>
+            {% if order.tracking_url %}
+            <a href="{{ order.tracking_url }}" target="_blank" class="btn btn-primary">
+                Śledź przesyłkę →
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Products -->
+    <div class="card">
+        <h2>Produkty</h2>
+        <table class="products-table">
+            <thead>
+                <tr>
+                    <th>Produkt</th>
+                    <th>SKU</th>
+                    <th class="text-center">Ilość</th>
+                    <th class="text-right">Cena</th>
+                    <th class="text-right">Suma</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order_items %}
+                <tr>
+                    <td>
+                        <div class="product-cell">
+                            <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
+                            <span class="product-name">{{ item.product_name }}</span>
+                        </div>
+                    </td>
+                    <td>{{ item.product_sku }}</td>
+                    <td class="text-center">{{ item.quantity }}</td>
+                    <td class="text-right">{{ "%.2f"|format(item.price) }} PLN</td>
+                    <td class="text-right">{{ "%.2f"|format(item.total) }} PLN</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-right"><strong>Suma całkowita:</strong></td>
+                    <td class="text-right"><strong>{{ "%.2f"|format(order.total_amount) }} PLN</strong></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Timeline / Messages -->
+    <div class="card">
+        <h2>Wiadomości</h2>
+        <div class="timeline" id="timeline">
+            {% for event in timeline %}
+                {% if event.type == 'comment' %}
+                    <div class="timeline-item comment {% if event.is_from_admin %}from-admin{% else %}from-client{% endif %}">
+                        <div class="timeline-avatar">
+                            {{ event.user.first_name[0] }}{{ event.user.last_name[0] }}
+                        </div>
+                        <div class="timeline-content">
+                            <div class="timeline-header">
+                                <strong>{{ event.user.full_name }}</strong>
+                                <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
+                            </div>
+                            <p>{{ event.comment }}</p>
+                        </div>
+                    </div>
+                {% elif event.type == 'created' %}
+                    <div class="timeline-item created">
+                        <div class="timeline-icon">📦</div>
+                        <div class="timeline-content">
+                            <p>{{ event.message }}</p>
+                            <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
+                        </div>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <!-- Add Message Form -->
+        <form hx-post="{{ url_for('orders.client_add_comment', order_id=order.id) }}"
+              hx-target="#timeline"
+              hx-swap="afterbegin"
+              class="comment-form">
+            {{ comment_form.hidden_tag() }}
+            <div class="form-group">
+                {{ comment_form.comment(class="form-textarea", placeholder="Napisz wiadomość do sprzedawcy...", rows=4) }}
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Wyślij wiadomość</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

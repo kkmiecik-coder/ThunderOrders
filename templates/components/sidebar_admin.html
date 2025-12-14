@@ -22,7 +22,7 @@
 
             <!-- Zamówienia (Collapsible Category) -->
             <li class="sidebar-item sidebar-category">
-                <div class="sidebar-category-header" onclick="toggleSidebarCategory(this)" data-tooltip="Zamówienia">
+                <div class="sidebar-category-header {% if request.endpoint and 'orders' in request.endpoint %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Zamówienia">
                     <div class="sidebar-category-main">
                         <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Zamówienia" class="sidebar-icon">
                         <span class="sidebar-text">Zamówienia</span>
@@ -33,17 +33,31 @@
                 </div>
                 <ul class="sidebar-subcategories" data-category-name="Zamówienia">
                     <li class="sidebar-subitem">
+                        <a href="{{ url_for('orders.admin_list') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'orders.admin_list' %}active{% endif %}"
+                           data-tooltip="Lista zamówień">
+                            <span class="sidebar-text">Lista zamówień</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
                         <a href="#"
                            class="sidebar-sublink disabled"
-                           data-tooltip="Standard">
-                            <span class="sidebar-text">Standard</span>
+                           data-tooltip="Standartowe (wkrótce)">
+                            <span class="sidebar-text">Standartowe</span>
                         </a>
                     </li>
                     <li class="sidebar-subitem">
                         <a href="{{ url_for('admin.exclusive_list') }}"
-                           class="sidebar-sublink {% if request.endpoint and 'exclusive' in request.endpoint %}active{% endif %}"
+                           class="sidebar-sublink {% if request.endpoint == 'admin.exclusive_list' or request.endpoint == 'admin.exclusive_edit' %}active{% endif %}"
                            data-tooltip="Exclusive">
                             <span class="sidebar-text">Exclusive</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('orders.settings') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'orders.settings' %}active{% endif %}"
+                           data-tooltip="Ustawienia">
+                            <span class="sidebar-text">Ustawienia</span>
                         </a>
                     </li>
                 </ul>
@@ -60,7 +74,7 @@
 
             <!-- Magazyn (Collapsible Category) -->
             <li class="sidebar-item sidebar-category">
-                <div class="sidebar-category-header" onclick="toggleSidebarCategory(this)" data-tooltip="Magazyn">
+                <div class="sidebar-category-header {% if request.endpoint in ['products.list_products', 'products.stock_orders', 'products.warehouse_settings'] %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Magazyn">
                     <div class="sidebar-category-main">
                         <img src="{{ url_for('static', filename='img/icons/warehouse.svg') }}" alt="Magazyn" class="sidebar-icon">
                         <span class="sidebar-text">Magazyn</span>

@@ -392,3 +392,45 @@ def restore(token):
         'expired': expired,
         'session': session_info
     })
+
+
+# ============================================
+# Order Placement Endpoint
+# ============================================
+
+@exclusive_bp.route('/<token>/place-order', methods=['POST'])
+def place_order(token):
+    """
+    Place an order from exclusive page
+    Supports both authenticated users and guests
+    """
+    from modules.exclusive.place_order import place_exclusive_order
+
+    page = ExclusivePage.get_by_token(token)
+    if not page:
+        return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    # Check if page is active
+    if not page.is_active:
+        return jsonify({'success': False, 'error': 'page_not_active', 'message': 'Sprzedaż nie jest aktywna'}), 403
+
+    data = request.get_json()
+    session_id = data.get('session_id')
+    guest_data = data.get('guest_data')
+    order_note = data.get('order_note')
+
+    if not session_id:
+        return jsonify({'success': False, 'error': 'missing_session_id'}), 400
+
+    # Place order
+    success, result = place_exclusive_order(
+        page=page,
+        session_id=session_id,
+        guest_data=guest_data,
+        order_note=order_note
+    )
+
+    if success:
+        return jsonify({'success': True, **result})
+    else:
+        return jsonify({'success': False, **result}), 400

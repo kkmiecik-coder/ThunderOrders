@@ -140,7 +140,7 @@
                                             </span>
                                             {% if task.due_date %}
                                                 <span class="todo-date">
-                                                    🗓️ {{ task.due_date.strftime('%d.%m.%Y') }}
+                                                    🗓️ {{ task.due_date|format_date('%d.%m.%Y') }}
                                                 </span>
                                             {% endif %}
                                             {% if task.is_overdue() %}

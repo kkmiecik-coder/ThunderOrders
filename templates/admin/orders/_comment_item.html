@@ -1,0 +1,15 @@
+<div class="message {% if comment.is_internal %}internal{% endif %} {% if comment.is_from_admin %}from-admin{% else %}from-client{% endif %}">
+    <div class="message-avatar">
+        {{ comment.author_initials }}
+    </div>
+    <div class="message-content">
+        <div class="message-header">
+            <strong>{{ comment.author_name }}</strong>
+            {% if comment.is_internal %}
+                <span class="badge badge-internal">Wewnętrzna</span>
+            {% endif %}
+            <span class="message-date">{{ comment.created_at|format_datetime }}</span>
+        </div>
+        <p>{{ comment.comment }}</p>
+    </div>
+</div>

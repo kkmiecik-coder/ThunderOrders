@@ -1,0 +1,154 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/orders.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="orders-list-page client-view">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>Moje zamówienia</h1>
+        <a href="{{ url_for('client.new_order') }}" class="btn btn-primary">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Nowe zamówienie
+        </a>
+    </div>
+
+    <!-- Simple Filters -->
+    <div class="filters-panel">
+        <form method="get" action="{{ url_for('orders.client_list') }}" class="client-filters">
+            <div class="form-group">
+                <label for="status">Status:</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">Wszystkie</option>
+                    {% for status in statuses %}
+                    <option value="{{ status.slug }}" {% if request.args.get('status') == status.slug %}selected{% endif %}>
+                        {{ status.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="date_from">Od:</label>
+                <input type="date" name="date_from" id="date_from" class="form-input" value="{{ request.args.get('date_from', '') }}">
+            </div>
+
+            <div class="form-group">
+                <label for="date_to">Do:</label>
+                <input type="date" name="date_to" id="date_to" class="form-input" value="{{ request.args.get('date_to', '') }}">
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-secondary">Filtruj</button>
+                <a href="{{ url_for('orders.client_list') }}" class="btn btn-link">Wyczyść</a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="table-container">
+        {% if orders.items %}
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th>Numer zamówienia</th>
+                    <th>Status</th>
+                    <th>Typ</th>
+                    <th>Data</th>
+                    <th class="text-right">Kwota</th>
+                    <th class="actions-col">Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders.items %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link">
+                            {{ order.order_number }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">
+                            {{ order.status_display_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">
+                            {{ order.type_display_name }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="date-cell" title="{{ order.created_at|format_datetime('%Y-%m-%d %H:%M:%S') }}">
+                            {{ order.created_at|format_date }}
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <span class="amount-cell">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+                    </td>
+                    <td class="actions-col">
+                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}"
+                           class="btn-icon"
+                           title="Szczegóły">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                            </svg>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if orders.pages > 1 %}
+        <div class="pagination">
+            <div class="pagination-info">
+                Strona {{ orders.page }} z {{ orders.pages }} ({{ orders.total }} zamówień)
+            </div>
+            <div class="pagination-controls">
+                {% if orders.has_prev %}
+                <a href="{{ url_for('orders.client_list', page=orders.prev_num, **request.args) }}"
+                   class="pagination-btn">
+                    « Poprzednia
+                </a>
+                {% endif %}
+
+                {% for page_num in orders.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <a href="{{ url_for('orders.client_list', page=page_num, **request.args) }}"
+                           class="pagination-btn {% if page_num == orders.page %}active{% endif %}">
+                            {{ page_num }}
+                        </a>
+                    {% else %}
+                        <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if orders.has_next %}
+                <a href="{{ url_for('orders.client_list', page=orders.next_num, **request.args) }}"
+                   class="pagination-btn">
+                    Następna »
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
+            </svg>
+            <h3>Brak zamówień</h3>
+            <p>Nie masz jeszcze żadnych zamówień</p>
+            <a href="{{ url_for('client.new_order') }}" class="btn btn-primary">Złóż pierwsze zamówienie</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

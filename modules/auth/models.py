@@ -72,7 +72,8 @@ class User(UserMixin, db.Model):
 
     # Relationships
     avatar = db.relationship('Avatar', backref='users', foreign_keys=[avatar_id])
-    # orders = db.relationship('Order', backref='user', lazy='dynamic')
+    orders = db.relationship('Order', back_populates='user', lazy='dynamic')
+    order_comments = db.relationship('OrderComment', back_populates='user', lazy='dynamic')
     # activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic')
 
     def __repr__(self):

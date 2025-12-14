@@ -3,6 +3,10 @@
  * Handles collapsible categories and state management
  */
 
+// Flyout menu state
+let currentFlyout = null;
+let flyoutHideTimeout = null;
+
 /**
  * Toggle sidebar category expand/collapse
  * @param {HTMLElement} headerElement - The category header element that was clicked
@@ -11,7 +15,7 @@ function toggleSidebarCategory(headerElement) {
     const sidebar = document.getElementById('sidebar');
     const isCollapsed = sidebar && sidebar.getAttribute('data-collapsed') === 'true';
 
-    // Don't toggle if sidebar is collapsed (show tooltip menu instead)
+    // Don't toggle if sidebar is collapsed - flyout menu will handle this
     if (isCollapsed) {
         return;
     }
@@ -75,130 +79,149 @@ function restoreCategoryStates() {
 }
 
 /**
- * Handle category tooltip display in collapsed sidebar
- * Uses JavaScript hover because CSS :hover had specificity issues
+ * Show flyout menu for a category
+ * @param {HTMLElement} categoryHeader - The category header element
  */
-function setupCategoryTooltips() {
+function showFlyout(categoryHeader) {
     const sidebar = document.getElementById('sidebar');
-    if (!sidebar) {
-        // Sidebar not present on this page (e.g., exclusive pages) - this is OK
+    const isCollapsed = sidebar && sidebar.getAttribute('data-collapsed') === 'true';
+
+    // Only show flyout when sidebar is collapsed
+    if (!isCollapsed) {
         return;
     }
 
-    const categories = sidebar.querySelectorAll('.sidebar-category');
+    // Clear any pending hide timeout
+    if (flyoutHideTimeout) {
+        clearTimeout(flyoutHideTimeout);
+        flyoutHideTimeout = null;
+    }
 
-    categories.forEach((category) => {
-        const subcategories = category.querySelector('.sidebar-subcategories');
-        let hoverTimeout = null; // Track timeout for cleanup
+    const categoryItem = categoryHeader.closest('.sidebar-category');
+    if (!categoryItem) return;
 
-        if (subcategories) {
+    const subcategoriesContainer = categoryItem.querySelector('.sidebar-subcategories');
+    if (!subcategoriesContainer) return;
 
-            // Function to show tooltip
-            const showTooltip = function() {
-                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (!isCollapsed) return;
+    // Get category position
+    const headerRect = categoryHeader.getBoundingClientRect();
 
-                // Clear any pending hide timeout
-                if (hoverTimeout) {
-                    clearTimeout(hoverTimeout);
-                    hoverTimeout = null;
-                }
+    // Create or get flyout element
+    let flyout = document.getElementById('sidebar-flyout');
+    if (!flyout) {
+        flyout = document.createElement('div');
+        flyout.id = 'sidebar-flyout';
+        flyout.className = 'sidebar-flyout';
+        document.body.appendChild(flyout);
 
-                // Calculate position: align tooltip with category icon
-                const categoryRect = category.getBoundingClientRect();
-                const arrowVerticalCenter = categoryRect.top + (categoryRect.height / 2);
+        // Add mouse leave handler to flyout
+        flyout.addEventListener('mouseenter', () => {
+            if (flyoutHideTimeout) {
+                clearTimeout(flyoutHideTimeout);
+                flyoutHideTimeout = null;
+            }
+        });
 
-                // Position tooltip
-                subcategories.style.setProperty('top', `${categoryRect.top}px`, 'important');
+        flyout.addEventListener('mouseleave', () => {
+            hideFlyout();
+        });
+    }
 
-                // Position arrow (centered with icon)
-                const arrowTop = arrowVerticalCenter;
-                category.style.setProperty('--arrow-top', `${arrowTop}px`);
+    // Clone subcategories content
+    const subcategoryItems = subcategoriesContainer.querySelectorAll('.sidebar-subitem');
+    const flyoutList = document.createElement('ul');
+    flyoutList.className = 'sidebar-flyout-list';
 
-                // Show subcategories tooltip
-                subcategories.style.setProperty('opacity', '1', 'important');
-                subcategories.style.setProperty('visibility', 'visible', 'important');
-                subcategories.style.setProperty('pointer-events', 'auto', 'important');
-                subcategories.style.setProperty('display', 'block', 'important');
-                category.classList.add('tooltip-visible');
-            };
+    subcategoryItems.forEach(item => {
+        const link = item.querySelector('.sidebar-sublink');
+        if (!link) return;
 
-            // Function to hide tooltip
-            const hideTooltip = function() {
-                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (!isCollapsed) return;
+        const flyoutItem = document.createElement('li');
+        flyoutItem.className = 'sidebar-flyout-item';
 
-                // Clear any pending timeout
-                if (hoverTimeout) {
-                    clearTimeout(hoverTimeout);
-                    hoverTimeout = null;
-                }
+        const flyoutLink = document.createElement('a');
+        flyoutLink.href = link.href;
+        flyoutLink.className = 'sidebar-flyout-link';
 
-                // Hide subcategories tooltip
-                subcategories.style.removeProperty('opacity');
-                subcategories.style.removeProperty('visibility');
-                subcategories.style.removeProperty('pointer-events');
-                subcategories.style.removeProperty('display');
-                subcategories.style.removeProperty('top');
-                category.style.removeProperty('--arrow-top');
-
-                // Remove class to hide ::before arrow
-                category.classList.remove('tooltip-visible');
-            };
-
-            // Delayed hide with proper cleanup
-            const scheduleHide = function() {
-                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (!isCollapsed) return;
-
-                // Clear any existing timeout
-                if (hoverTimeout) {
-                    clearTimeout(hoverTimeout);
-                }
-
-                // Schedule hide with longer delay
-                hoverTimeout = setTimeout(() => {
-                    // Only hide if we're not hovering over category OR tooltip
-                    const tooltipHovered = subcategories.matches(':hover');
-                    const categoryHovered = category.matches(':hover');
-
-                    if (!tooltipHovered && !categoryHovered) {
-                        hideTooltip();
-                    }
-                }, 150); // Increased from 50ms to 150ms for smoother transition
-            };
-
-            // Show tooltip on mouseenter on category
-            category.addEventListener('mouseenter', function() {
-                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (isCollapsed) {
-                    showTooltip();
-                }
-            });
-
-            // Keep tooltip visible when hovering over it
-            subcategories.addEventListener('mouseenter', function() {
-                const isCollapsed = sidebar.getAttribute('data-collapsed') === 'true';
-                if (isCollapsed) {
-                    showTooltip(); // Keep it visible and cancel any pending hide
-                }
-            });
-
-            // Hide tooltip when leaving the tooltip
-            subcategories.addEventListener('mouseleave', function() {
-                scheduleHide();
-            });
-
-            // Hide tooltip on mouseleave from category (with delay to allow moving to tooltip)
-            category.addEventListener('mouseleave', function() {
-                scheduleHide();
-            });
+        if (link.classList.contains('active')) {
+            flyoutLink.classList.add('active');
         }
+        if (link.classList.contains('disabled')) {
+            flyoutLink.classList.add('disabled');
+        }
+
+        const textSpan = link.querySelector('.sidebar-text');
+        if (textSpan) {
+            flyoutLink.textContent = textSpan.textContent;
+        }
+
+        flyoutItem.appendChild(flyoutLink);
+        flyoutList.appendChild(flyoutItem);
+    });
+
+    // Update flyout content
+    flyout.innerHTML = '';
+    flyout.appendChild(flyoutList);
+
+    // Position flyout (align top with header top)
+    flyout.style.top = `${headerRect.top}px`;
+
+    // Check if flyout would go off-screen (bottom)
+    const flyoutHeight = flyout.offsetHeight;
+    const viewportHeight = window.innerHeight;
+
+    if (headerRect.top + flyoutHeight > viewportHeight) {
+        // Adjust position to keep it on screen
+        flyout.style.top = `${Math.max(10, viewportHeight - flyoutHeight - 10)}px`;
+    }
+
+    // Show flyout
+    currentFlyout = flyout;
+    requestAnimationFrame(() => {
+        flyout.classList.add('visible');
+    });
+}
+
+/**
+ * Hide flyout menu with delay
+ */
+function hideFlyout() {
+    if (flyoutHideTimeout) {
+        clearTimeout(flyoutHideTimeout);
+    }
+
+    flyoutHideTimeout = setTimeout(() => {
+        const flyout = document.getElementById('sidebar-flyout');
+        if (flyout) {
+            flyout.classList.remove('visible');
+        }
+        currentFlyout = null;
+        flyoutHideTimeout = null;
+    }, 250); // 250ms delay
+}
+
+/**
+ * Initialize flyout event listeners for all categories
+ */
+function initializeFlyoutListeners() {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+
+    const categoryHeaders = sidebar.querySelectorAll('.sidebar-category-header');
+
+    categoryHeaders.forEach(header => {
+        header.addEventListener('mouseenter', () => {
+            showFlyout(header);
+        });
+
+        header.addEventListener('mouseleave', () => {
+            hideFlyout();
+        });
     });
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     restoreCategoryStates();
-    setupCategoryTooltips();
+    initializeFlyoutListeners();
 });

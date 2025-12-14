@@ -1,0 +1,15 @@
+<div id="trackingInfo" class="tracking-info-display">
+    {% if order.tracking_number %}
+    <div class="tracking-info">
+        <p><strong>Kurier:</strong> {{ order.courier }}</p>
+        <p><strong>Numer:</strong> {{ order.tracking_number }}</p>
+        {% if order.tracking_url %}
+        <a href="{{ order.tracking_url }}" target="_blank" class="btn btn-link btn-block">
+            Śledź przesyłkę →
+        </a>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="text-muted">Brak informacji o śledzeniu przesyłki</p>
+    {% endif %}
+</div>

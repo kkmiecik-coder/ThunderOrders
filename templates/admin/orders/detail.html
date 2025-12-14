@@ -1,0 +1,1720 @@
+{% extends "admin/base_admin.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/order-detail.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="order-detail-page">
+    <!-- Header -->
+    <div class="order-header">
+        <div class="order-header-main">
+            <a href="{{ url_for('orders.admin_list') }}" class="back-link">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
+                Powrót do listy
+            </a>
+            <h1>{{ order.order_number }}</h1>
+            <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">{{ order.type_display_name }}</span>
+            <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;" id="statusBadge">{{ order.status_display_name }}</span>
+        </div>
+        <div class="order-header-right">
+            <span class="order-total">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+        </div>
+    </div>
+
+    <!-- ROW 1: Produkty -->
+    <div class="card products-card">
+        <div class="card-header">
+            <h2>Zamówione produkty</h2>
+            <span class="items-count">{{ order.items|length }} pozycji</span>
+        </div>
+        <table class="products-table">
+            <thead>
+                <tr>
+                    <th class="col-image"></th>
+                    <th class="col-id">ID</th>
+                    <th class="col-name">Nazwa</th>
+                    <th class="col-qty text-center">Ilość</th>
+                    <th class="col-price text-right">Cena</th>
+                    <th class="col-total text-right">Wartość</th>
+                    <th class="col-wms text-center">WMS</th>
+                    <th class="col-actions"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order_items %}
+                <tr data-item-id="{{ item.id }}">
+                    <td class="col-image">
+                        <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
+                    </td>
+                    <td class="col-id">
+                        <span class="product-id">{{ item.product_id }}</span>
+                    </td>
+                    <td class="col-name">
+                        <div class="product-name-cell">
+                            <span class="product-name">{{ item.product_name }}</span>
+                            {% if item.product_sku or item.product_ean %}
+                            <span class="product-codes">
+                                {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+                                {% if item.product_sku and item.product_ean %} · {% endif %}
+                                {% if item.product_ean %}EAN: {{ item.product_ean }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="col-qty text-center">{{ item.quantity }}</td>
+                    <td class="col-price text-right">{{ "%.2f"|format(item.price) }} PLN</td>
+                    <td class="col-total text-right"><strong>{{ "%.2f"|format(item.total) }} PLN</strong></td>
+                    <td class="col-wms text-center">
+                        <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
+                            {{ item.wms_status_name }}
+                        </span>
+                    </td>
+                    <td class="col-actions">
+                        <div class="item-actions-wrapper">
+                            <button type="button" class="btn-item-actions" onclick="toggleItemActions(this, {{ item.id }})">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                                </svg>
+                            </button>
+                            <div class="item-actions-dropdown" id="itemActions-{{ item.id }}">
+                                <button type="button" class="dropdown-item btn-edit-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}"
+                                        data-quantity="{{ item.quantity }}"
+                                        data-price="{{ item.price }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                    </svg>
+                                    Edytuj produkt
+                                </button>
+                                <button type="button" class="dropdown-item dropdown-item-danger btn-delete-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                    </svg>
+                                    Usuń produkt
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6" class="text-right"><strong>Suma:</strong></td>
+                    <td class="text-right"><strong class="total-amount">{{ "%.2f"|format(order.total_amount) }} PLN</strong></td>
+                    <td colspan="2"></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Przycisk: Dodaj produkty -->
+    <div class="add-products-section">
+        <button class="btn btn-secondary" onclick="openAddProductsModal()">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Dodaj produkty do zamówienia
+        </button>
+    </div>
+
+    <!-- ROW 2: Informacje o zamówieniu (jedna karta, 2 kolumny wewnątrz) -->
+    <div class="card order-info-card">
+        <h3>Informacje o zamówieniu</h3>
+        <div class="order-info-two-col">
+            <!-- Lewa kolumna: Płatność, Klient, Dostawa -->
+            <div class="info-col-left">
+                <!-- Zapłacono -->
+                <div class="info-item payment-row">
+                    <label>Zapłacono:</label>
+                    <div class="payment-display" id="paymentDisplay">
+                        <span class="payment-badge {% if order.is_overpaid %}payment-badge-overpaid{% elif order.is_fully_paid %}payment-badge-paid{% elif order.is_partially_paid %}payment-badge-partial{% else %}payment-badge-unpaid{% endif %}"
+                              id="paidAmountBadge">{{ "%.2f"|format(order.paid_amount) }} PLN</span>
+                        <span class="payment-total" id="grandTotalDisplay">z {{ "%.2f"|format(order.grand_total) }} PLN</span>
+                        <button type="button" class="btn-edit-payment" onclick="togglePaymentEditor()" title="Edytuj płatność">
+                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="payment-editor" id="paymentEditor" style="display: none;">
+                        <input type="number"
+                               class="payment-input"
+                               id="paidAmountInput"
+                               step="0.01"
+                               min="0"
+                               value="{{ "%.2f"|format(order.paid_amount) }}"
+                               data-order-id="{{ order.id }}"
+                               data-total="{{ "%.2f"|format(order.grand_total) }}"
+                               data-products-total="{{ "%.2f"|format(order.total_amount) }}"
+                               data-shipping-cost="{{ "%.2f"|format(order.shipping_cost) }}">
+                        <span class="payment-total">z <span id="grandTotalEditor">{{ "%.2f"|format(order.grand_total) }}</span> PLN</span>
+                        <button type="button" class="btn-payment-save" onclick="savePayment()" title="Zapisz">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-payment-full" onclick="setFullPayment()" title="Ustaw jako opłacone" id="btnPaymentFull">
+                            {{ "%.2f"|format(order.grand_total) }}
+                        </button>
+                        <button type="button" class="btn-payment-zero" onclick="setZeroPayment()" title="Ustaw jako nieopłacone">
+                            0.00
+                        </button>
+                        <button type="button" class="btn-payment-cancel" onclick="cancelPaymentEdit()" title="Anuluj">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Separator 1 -->
+                <div class="info-separator"></div>
+
+                <!-- Klient -->
+                <div class="info-item">
+                    <label>Klient:</label>
+                    {% if order.is_guest_order %}
+                        <span>{{ order.guest_name }} <span class="badge badge-guest">Gość</span></span>
+                    {% elif order.user %}
+                        <a href="{{ url_for('admin.client_detail', id=order.user.id) }}" class="customer-link">{{ order.user.full_name }}</a>
+                    {% else %}
+                        <span class="text-muted">Nieznany</span>
+                    {% endif %}
+                </div>
+                <div class="info-item">
+                    <label>Email:</label>
+                    <span>{{ order.guest_email if order.is_guest_order else (order.user.email if order.user else '-') }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Telefon:</label>
+                    <span>{{ order.guest_phone if order.is_guest_order else (order.user.phone if order.user and order.user.phone else '-') }}</span>
+                </div>
+
+                <!-- Separator 2 -->
+                <div class="info-separator"></div>
+
+                <!-- Sposób dostawy - edytowalny -->
+                <div class="info-item editable-row" data-field="delivery_method">
+                    <label>Sposób dostawy:</label>
+                    <div class="editable-display" id="deliveryMethodDisplay">
+                        <span class="editable-value" id="deliveryMethodValue">{{ order.delivery_method_display }}</span>
+                        <button type="button" class="btn-edit-inline" onclick="toggleInlineEditor('deliveryMethod')" title="Edytuj">
+                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="editable-editor" id="deliveryMethodEditor" style="display: none;">
+                        <select class="form-select form-select-sm" id="deliveryMethodSelect" data-original="{{ order.delivery_method or '' }}">
+                            <option value="">-- Wybierz --</option>
+                            <option value="kurier" {% if order.delivery_method == 'kurier' %}selected{% endif %}>Kurier</option>
+                            <option value="paczkomat" {% if order.delivery_method == 'paczkomat' %}selected{% endif %}>Paczkomat</option>
+                            <option value="odbior_osobisty" {% if order.delivery_method == 'odbior_osobisty' %}selected{% endif %}>Odbiór osobisty</option>
+                            <option value="poczta" {% if order.delivery_method == 'poczta' %}selected{% endif %}>Poczta Polska</option>
+                            <option value="dpd_pickup" {% if order.delivery_method == 'dpd_pickup' %}selected{% endif %}>DPD Pickup</option>
+                            <option value="orlen_paczka" {% if order.delivery_method == 'orlen_paczka' %}selected{% endif %}>Orlen Paczka</option>
+                        </select>
+                        <button type="button" class="btn-inline-save" onclick="saveInlineField('deliveryMethod')" title="Zapisz">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-inline-cancel" onclick="cancelInlineEditor('deliveryMethod')" title="Anuluj">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Koszt wysyłki - edytowalny -->
+                <div class="info-item editable-row" data-field="shipping_cost">
+                    <label>Koszt wysyłki:</label>
+                    <div class="editable-display" id="shippingCostDisplay">
+                        <span class="editable-value" id="shippingCostValue">{{ "%.2f"|format(order.shipping_cost) }} PLN</span>
+                        <button type="button" class="btn-edit-inline" onclick="toggleInlineEditor('shippingCost')" title="Edytuj">
+                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="editable-editor" id="shippingCostEditor" style="display: none;">
+                        <input type="number"
+                               class="form-input-sm"
+                               id="shippingCostInput"
+                               step="0.01"
+                               min="0"
+                               value="{{ "%.2f"|format(order.shipping_cost) }}"
+                               data-original="{{ "%.2f"|format(order.shipping_cost) }}">
+                        <span class="input-suffix">PLN</span>
+                        <button type="button" class="btn-inline-save" onclick="saveInlineField('shippingCost')" title="Zapisz">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-inline-cancel" onclick="cancelInlineEditor('shippingCost')" title="Anuluj">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sposób zapłaty - edytowalny -->
+                <div class="info-item editable-row" data-field="payment_method">
+                    <label>Sposób zapłaty:</label>
+                    <div class="editable-display" id="paymentMethodDisplay">
+                        <span class="editable-value" id="paymentMethodValue">{{ order.payment_method_display }}</span>
+                        <button type="button" class="btn-edit-inline" onclick="toggleInlineEditor('paymentMethod')" title="Edytuj">
+                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="editable-editor" id="paymentMethodEditor" style="display: none;">
+                        <select class="form-select form-select-sm" id="paymentMethodSelect" data-original="{{ order.payment_method or '' }}">
+                            <option value="">-- Wybierz --</option>
+                            <option value="przelew" {% if order.payment_method == 'przelew' %}selected{% endif %}>Przelew bankowy</option>
+                            <option value="pobranie" {% if order.payment_method == 'pobranie' %}selected{% endif %}>Pobranie</option>
+                            <option value="gotowka" {% if order.payment_method == 'gotowka' %}selected{% endif %}>Gotówka</option>
+                            <option value="blik" {% if order.payment_method == 'blik' %}selected{% endif %}>BLIK</option>
+                            <option value="karta" {% if order.payment_method == 'karta' %}selected{% endif %}>Karta płatnicza</option>
+                            <option value="paypal" {% if order.payment_method == 'paypal' %}selected{% endif %}>PayPal</option>
+                        </select>
+                        <button type="button" class="btn-inline-save" onclick="saveInlineField('paymentMethod')" title="Zapisz">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-inline-cancel" onclick="cancelInlineEditor('paymentMethod')" title="Anuluj">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prawa kolumna: Status + Akcje -->
+            <div class="info-col-right">
+                <!-- Status -->
+                <div class="status-section">
+                    <label>Status zamówienia</label>
+                    <div class="status-change-form">
+                        <form id="statusChangeForm"
+                              hx-post="{{ url_for('orders.admin_update_status', order_id=order.id) }}"
+                              hx-target="#statusBadge"
+                              hx-swap="outerHTML">
+                            {{ status_form.hidden_tag() }}
+
+                            <!-- Custom Status Dropdown -->
+                            <div class="custom-status-dropdown" id="statusDropdown">
+                                <!-- Trigger button showing current status -->
+                                <button type="button" class="status-dropdown-trigger" onclick="toggleStatusDropdown()">
+                                    <span class="status-color-box" style="background-color: {{ order.status_badge_color }}"></span>
+                                    <span class="status-name">{{ order.status_rel.name if order.status_rel else order.status }}</span>
+                                    <svg class="dropdown-chevron" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                    </svg>
+                                </button>
+
+                                <!-- Dropdown menu -->
+                                <div class="status-dropdown-menu" id="statusDropdownMenu">
+                                    <!-- Search input -->
+                                    <div class="status-search-wrapper">
+                                        <input type="text"
+                                               class="status-search-input"
+                                               placeholder="Szukaj..."
+                                               oninput="filterStatuses(this.value)">
+                                        <svg class="search-icon" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                                        </svg>
+                                    </div>
+
+                                    <!-- Status options -->
+                                    <div class="status-options-list">
+                                        {% for status in statuses_with_colors %}
+                                        <div class="status-option {% if status.slug == order.status %}selected{% endif %}"
+                                             data-value="{{ status.slug }}"
+                                             data-name="{{ status.name }}"
+                                             data-color="{{ status.color }}"
+                                             onclick="selectStatus('{{ status.slug }}', '{{ status.name }}', '{{ status.color }}')">
+                                            <span class="status-color-box" style="background-color: {{ status.color }}"></span>
+                                            <span class="status-option-name">{{ status.name }}</span>
+                                            {% if status.slug == order.status %}
+                                            <svg class="check-icon" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                            </svg>
+                                            {% endif %}
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+
+                                <!-- Hidden input for form submission -->
+                                <input type="hidden" name="status" id="statusHiddenInput" value="{{ order.status }}">
+                            </div>
+
+                            <button type="submit" class="btn btn-sm btn-primary">Przenieś</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Akcje -->
+                <div class="actions-section">
+                    <label>Szybkie akcje</label>
+                    <div class="actions-grid">
+                        <button class="btn btn-secondary btn-sm" onclick="alert('Funkcja WMS w budowie')">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5z"/>
+                            </svg>
+                            Zabierz do WMS
+                        </button>
+                        {% if current_user.is_admin %}
+                        <button class="btn btn-danger btn-sm" onclick="confirmDeleteOrder({{ order.id }}, '{{ order.order_number }}')">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            </svg>
+                            Usuń zamówienie
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 3: Wysyłka i śledzenie (3 kolumny) -->
+    <div class="shipping-section">
+        <!-- Kolumna 1: Adres dostawy -->
+        <div class="card shipping-card">
+            <h3>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A31.493 31.493 0 0 1 8 14.58a31.481 31.481 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z"/>
+                    <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                </svg>
+                Adres dostawy
+            </h3>
+            <form hx-post="{{ url_for('orders.admin_update_shipping_address', order_id=order.id) }}"
+                  hx-target="#shippingAddressStatus"
+                  hx-swap="innerHTML"
+                  class="shipping-form">
+                {{ shipping_address_form.hidden_tag() }}
+                <div class="form-group">
+                    <label class="form-label">Imię i nazwisko</label>
+                    {{ shipping_address_form.shipping_name(class="form-input form-input-sm") }}
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adres</label>
+                    {{ shipping_address_form.shipping_address(class="form-input form-input-sm") }}
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label">Kod pocztowy</label>
+                        {{ shipping_address_form.shipping_postal_code(class="form-input form-input-sm", id="shippingPostalCode") }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Miejscowość</label>
+                        {{ shipping_address_form.shipping_city(class="form-input form-input-sm") }}
+                    </div>
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label">Województwo</label>
+                        {{ shipping_address_form.shipping_voivodeship(class="form-select form-select-sm", id="shippingVoivodeship") }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kraj</label>
+                        {{ shipping_address_form.shipping_country(class="form-input form-input-sm") }}
+                    </div>
+                </div>
+                <div class="form-actions-row">
+                    <button type="submit" class="btn btn-sm btn-secondary">Zapisz adres</button>
+                    <div id="shippingAddressStatus"></div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Kolumna 2: Odbiór w punkcie -->
+        <div class="card shipping-card">
+            <h3>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.97 1.35A1 1 0 0 1 3.73 1h8.54a1 1 0 0 1 .76.35l2.609 3.044A1.5 1.5 0 0 1 16 5.37v.255a2.375 2.375 0 0 1-4.25 1.458A2.371 2.371 0 0 1 9.875 8 2.37 2.37 0 0 1 8 7.083 2.37 2.37 0 0 1 6.125 8a2.37 2.37 0 0 1-1.875-.917A2.375 2.375 0 0 1 0 5.625V5.37a1.5 1.5 0 0 1 .361-.976l2.61-3.045zm1.78 4.275a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 1 0 2.75 0V5.37a.5.5 0 0 0-.12-.325L12.27 2H3.73L1.12 5.045A.5.5 0 0 0 1 5.37v.255a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0zM1.5 8.5A.5.5 0 0 1 2 9v6h12V9a.5.5 0 0 1 1 0v6h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1V9a.5.5 0 0 1 .5-.5zm2 .5a.5.5 0 0 1 .5.5V13h8V9.5a.5.5 0 0 1 1 0V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a.5.5 0 0 1 .5-.5z"/>
+                </svg>
+                Odbiór w punkcie
+            </h3>
+            <form hx-post="{{ url_for('orders.admin_update_pickup_point', order_id=order.id) }}"
+                  hx-target="#pickupPointStatus"
+                  hx-swap="innerHTML"
+                  class="shipping-form">
+                {{ pickup_point_form.hidden_tag() }}
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label">Kurier</label>
+                        {{ pickup_point_form.pickup_courier(class="form-select form-select-sm") }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ID punktu</label>
+                        {{ pickup_point_form.pickup_point_id(class="form-input form-input-sm") }}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Adres punktu</label>
+                    {{ pickup_point_form.pickup_address(class="form-input form-input-sm") }}
+                </div>
+                <div class="form-row-2">
+                    <div class="form-group">
+                        <label class="form-label">Kod pocztowy</label>
+                        {{ pickup_point_form.pickup_postal_code(class="form-input form-input-sm") }}
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Miasto</label>
+                        {{ pickup_point_form.pickup_city(class="form-input form-input-sm") }}
+                    </div>
+                </div>
+                <div class="form-actions-row">
+                    <button type="submit" class="btn btn-sm btn-secondary">Zapisz punkt</button>
+                    <div id="pickupPointStatus"></div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Kolumna 3: Przesyłki -->
+        <div class="card shipping-card shipments-card">
+            <h3>
+                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                </svg>
+                Przesyłki
+                {% if order.shipments %}
+                <span class="shipments-count">{{ order.shipments|length }}</span>
+                {% endif %}
+            </h3>
+
+            <!-- Formularz dodawania przesyłki -->
+            <div class="add-shipment-form">
+                <div class="form-row-inline">
+                    <div class="form-group flex-grow">
+                        <input type="text"
+                               id="newShipmentTracking"
+                               class="form-input form-input-sm"
+                               placeholder="Numer przesyłki">
+                    </div>
+                    <div class="form-group">
+                        <select id="newShipmentCourier" class="form-select form-select-sm">
+                            <option value="">Kurier</option>
+                            <option value="inpost">InPost</option>
+                            <option value="dpd">DPD</option>
+                            <option value="dhl">DHL</option>
+                            <option value="gls">GLS</option>
+                            <option value="poczta_polska">Poczta Polska</option>
+                            <option value="orlen">Orlen Paczka</option>
+                            <option value="ups">UPS</option>
+                            <option value="fedex">FedEx</option>
+                            <option value="other">Inny</option>
+                        </select>
+                    </div>
+                    <button type="button"
+                            class="btn btn-sm btn-primary btn-add-shipment"
+                            onclick="addShipment({{ order.id }})"
+                            title="Dodaj przesyłkę">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Lista przesyłek -->
+            <div class="shipments-list" id="shipmentsList">
+                {% if order.shipments %}
+                    {% for shipment in order.shipments %}
+                    <div class="shipment-item" data-shipment-id="{{ shipment.id }}">
+                        <div class="shipment-courier-icon courier-{{ shipment.courier }}">
+                            {{ shipment.courier_display_name[:2]|upper }}
+                        </div>
+                        <div class="shipment-info">
+                            {% if shipment.tracking_url %}
+                            <a href="{{ shipment.tracking_url }}"
+                               target="_blank"
+                               rel="noopener noreferrer"
+                               class="shipment-tracking-link"
+                               title="Śledź przesyłkę">
+                                {{ shipment.tracking_number }}
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                </svg>
+                            </a>
+                            {% else %}
+                            <span class="shipment-tracking-number">{{ shipment.tracking_number }}</span>
+                            {% endif %}
+                            <span class="shipment-courier-name">{{ shipment.courier_display_name }}</span>
+                        </div>
+                        <button type="button"
+                                class="btn-delete-shipment"
+                                onclick="deleteShipment({{ order.id }}, {{ shipment.id }})"
+                                title="Usuń przesyłkę">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="shipments-empty" id="shipmentsEmpty">
+                        <span class="text-muted">Brak przesyłek</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 4: Wymiana wiadomości + Informacje dodatkowe -->
+    <div class="two-col-row align-start">
+        <!-- Wymiana wiadomości -->
+        <div class="card messages-card">
+            <h3>Wymiana wiadomości</h3>
+            <div class="messages-container" id="messagesContainer">
+                {% for event in timeline %}
+                    {% if event.type == 'comment' %}
+                        <div class="message {% if event.is_internal %}internal{% endif %} {% if event.is_from_admin %}from-admin{% else %}from-client{% endif %}">
+                            <div class="message-avatar">
+                                {{ event.user.first_name[0] }}{{ event.user.last_name[0] }}
+                            </div>
+                            <div class="message-content">
+                                <div class="message-header">
+                                    <strong>{{ event.user.full_name }}</strong>
+                                    {% if event.is_internal %}
+                                        <span class="badge badge-internal">Wewnętrzna</span>
+                                    {% endif %}
+                                    <span class="message-date">{{ event.created_at|format_datetime }}</span>
+                                </div>
+                                <p>{{ event.comment }}</p>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <!-- Add Comment Form -->
+            <form hx-post="{{ url_for('orders.admin_add_comment', order_id=order.id) }}"
+                  hx-target="#messagesContainer"
+                  hx-swap="beforeend"
+                  hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('messagesContainer').scrollTop = document.getElementById('messagesContainer').scrollHeight; }"
+                  class="message-form">
+                {{ comment_form.hidden_tag() }}
+                <div class="form-group">
+                    {{ comment_form.comment(class="form-textarea", placeholder="Napisz wiadomość...", rows=3) }}
+                </div>
+                <div class="form-actions">
+                    {% if current_user.role in ['admin', 'mod'] %}
+                    <label class="checkbox-label">
+                        {{ comment_form.is_internal(class="form-checkbox") }}
+                        <span>Notatka wewnętrzna</span>
+                    </label>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">Wyślij</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Informacje dodatkowe -->
+        <div class="card additional-info-card">
+            <h3>Informacje dodatkowe</h3>
+
+            <!-- Daty -->
+            <div class="collapsible-section open">
+                <button class="collapsible-trigger" onclick="toggleSection(this)">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="chevron">
+                        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                    Daty
+                </button>
+                <div class="collapsible-content">
+                    <div class="dates-info">
+                        <p><strong>Utworzone:</strong> {{ order.created_at|format_datetime }}</p>
+                        <p><strong>Ostatnia aktualizacja:</strong> {{ order.updated_at|format_datetime }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Uwagi klienta -->
+            {% if order.notes %}
+            <div class="collapsible-section">
+                <button class="collapsible-trigger" onclick="toggleSection(this)">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="chevron">
+                        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                    Uwagi klienta
+                </button>
+                <div class="collapsible-content">
+                    <p>{{ order.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Historia zmian -->
+            <div class="collapsible-section">
+                <button class="collapsible-trigger" onclick="toggleSection(this)">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="chevron">
+                        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                    Historia zmian
+                </button>
+                <div class="collapsible-content">
+                    <div class="history-list">
+                        {% for event in timeline %}
+                            {% if event.type == 'created' %}
+                            <div class="history-item">
+                                <span class="history-icon">📦</span>
+                                <span class="history-text">Zamówienie utworzone</span>
+                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                            </div>
+                            {% elif event.type == 'refund' %}
+                            <div class="history-item">
+                                <span class="history-icon">💰</span>
+                                <span class="history-text">Zwrot {{ "%.2f"|format(event.amount) }} PLN - {{ event.status }}</span>
+                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                            </div>
+                            {% elif event.type == 'activity' %}
+                            <div class="history-item">
+                                {% if event.action == 'order_products_added' %}
+                                <span class="history-icon">➕</span>
+                                <span class="history-text">
+                                    Dodano {{ event.new_value.added_products }} produkt(ów)
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'order_status_change' %}
+                                <span class="history-icon">🔄</span>
+                                <span class="history-text">
+                                    Zmiana statusu: {{ event.old_value.status }} → {{ event.new_value.status }}
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'order_created' %}
+                                <span class="history-icon">📦</span>
+                                <span class="history-text">Zamówienie utworzone</span>
+                                {% elif event.action == 'order_item_updated' %}
+                                <span class="history-icon">✏️</span>
+                                <span class="history-text">
+                                    Edytowano produkt "{{ event.new_value.product_name }}":
+                                    ilość {{ event.old_value.quantity }} → {{ event.new_value.quantity }},
+                                    cena {{ "%.2f"|format(event.old_value.price) }} → {{ "%.2f"|format(event.new_value.price) }} PLN
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'order_item_deleted' %}
+                                <span class="history-icon">🗑️</span>
+                                <span class="history-text">
+                                    Usunięto produkt "{{ event.old_value.product_name }}" ({{ event.old_value.quantity }} szt.)
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% else %}
+                                <span class="history-icon">📝</span>
+                                <span class="history-text">
+                                    {{ event.action }}
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% endif %}
+                                <span class="history-date">{{ event.created_at|format_datetime }}</span>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zwroty -->
+            {% if order.refunds %}
+            <div class="collapsible-section">
+                <button class="collapsible-trigger" onclick="toggleSection(this)">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="chevron">
+                        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                    Zwroty ({{ order.refunds|length }})
+                </button>
+                <div class="collapsible-content">
+                    {% for refund in order.refunds %}
+                    <div class="refund-item">
+                        <div class="refund-amount">{{ "%.2f"|format(refund.amount) }} PLN</div>
+                        <div class="refund-reason">{{ refund.reason }}</div>
+                        <div class="refund-meta">
+                            <span class="badge badge-{{ refund.status }}">{{ refund.status }}</span>
+                            <span>{{ refund.created_at|format_date }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Dodaj produkty do zamówienia -->
+<div class="modal-overlay" id="addProductsModal">
+    <div class="modal-container modal-xl add-products-modal">
+        <div class="modal-header">
+            <h2>Dodaj produkty do zamówienia</h2>
+            <button type="button" class="modal-close" onclick="closeAddProductsModal()">&times;</button>
+        </div>
+
+        <div class="modal-body add-products-body">
+            <!-- Left: Products List -->
+            <div class="products-list-panel">
+                <!-- Filters -->
+                <div class="products-filters">
+                    <div class="search-input-wrapper">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                        </svg>
+                        <input type="text"
+                               id="productSearchInput"
+                               class="form-input"
+                               placeholder="Szukaj produktu..."
+                               oninput="debounceSearch()">
+                    </div>
+                    <select id="categoryFilter" class="form-select" onchange="loadProducts()">
+                        <option value="">Wszystkie kategorie</option>
+                        {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="seriesFilter" class="form-select" onchange="loadProducts()">
+                        <option value="">Wszystkie serie</option>
+                        {% for series in product_series %}
+                        <option value="{{ series.id }}">{{ series.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Products list -->
+                <div class="products-list-scroll" id="productsListContainer">
+                    <div class="loading-products">
+                        <div class="spinner"></div>
+                        <p>Ładowanie produktów...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Selected Products -->
+            <div class="selected-products-panel" id="selectedProductsPanel">
+                <h3>Wybrane produkty</h3>
+                <div class="selected-products-list" id="selectedProductsContainer">
+                    <div class="empty-selection">
+                        <p>Wybierz produkty z listy</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAddProductsModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" onclick="submitAddProducts()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Dodaj do zamówienia
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edytuj produkt w zamówieniu -->
+<div class="modal-overlay" id="editItemModal">
+    <div class="modal-container modal-sm">
+        <div class="modal-header">
+            <h2>Edytuj produkt</h2>
+            <button type="button" class="modal-close" onclick="closeEditItemModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editItemId">
+            <div class="edit-item-product-name" id="editItemProductName"></div>
+
+            <div class="form-group">
+                <label class="form-label">Ilość</label>
+                <input type="number" id="editItemQuantity" class="form-control" min="1" step="1">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Cena jednostkowa (PLN)</label>
+                <input type="number" id="editItemPrice" class="form-control" min="0" step="0.01">
+            </div>
+
+            <div class="edit-item-summary">
+                <span>Wartość:</span>
+                <strong id="editItemTotal">0.00 PLN</strong>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeEditItemModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" onclick="submitEditItem()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                </svg>
+                Zapisz zmiany
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Potwierdź usunięcie produktu -->
+<div class="modal-overlay" id="deleteItemModal">
+    <div class="modal-container modal-sm">
+        <div class="modal-header">
+            <h2>Usuń produkt</h2>
+            <button type="button" class="modal-close" onclick="closeDeleteItemModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="deleteItemId">
+            <div class="delete-confirm-content">
+                <div class="delete-icon">
+                    <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+                    </svg>
+                </div>
+                <p>Czy na pewno chcesz usunąć produkt</p>
+                <p class="delete-item-name" id="deleteItemName"></p>
+                <p class="delete-warning">Ta operacja jest nieodwracalna.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteItemModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="submitDeleteItem()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Usuń produkt
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/order-detail.js') }}"></script>
+<script>
+function toggleSection(button) {
+    const section = button.closest('.collapsible-section');
+    section.classList.toggle('open');
+}
+
+// Scroll messages to bottom on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const messagesContainer = document.getElementById('messagesContainer');
+    if (messagesContainer) {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+});
+
+// ========================================
+// ADD PRODUCTS MODAL
+// ========================================
+
+// Store for selected products
+let selectedProducts = {};
+const orderId = {{ order.id }};
+
+function openAddProductsModal() {
+    const modal = document.getElementById('addProductsModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    // Load products
+    loadProducts();
+}
+
+function closeAddProductsModal() {
+    const modal = document.getElementById('addProductsModal');
+    modal.classList.add('closing');
+
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+        // Reset state
+        selectedProducts = {};
+        const modalBody = document.querySelector('.add-products-body');
+        const selectedPanel = document.getElementById('selectedProductsPanel');
+        modalBody.classList.remove('has-selection');
+        selectedPanel.classList.remove('has-products');
+        document.getElementById('selectedProductsContainer').innerHTML = `
+            <div class="empty-selection">
+                <p>Wybierz produkty z listy</p>
+            </div>
+        `;
+        document.getElementById('productSearchInput').value = '';
+        document.getElementById('categoryFilter').value = '';
+        document.getElementById('seriesFilter').value = '';
+    }, 350);
+}
+
+function loadProducts() {
+    const search = document.getElementById('productSearchInput').value;
+    const category = document.getElementById('categoryFilter').value;
+    const series = document.getElementById('seriesFilter').value;
+
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (category) params.append('category_id', category);
+    if (series) params.append('series_id', series);
+
+    fetch(`/admin/orders/api/products?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            renderProductsList(data.products);
+        })
+        .catch(error => {
+            console.error('Error loading products:', error);
+            showToast('Błąd podczas ładowania produktów', 'error');
+        });
+}
+
+function renderProductsList(products) {
+    const container = document.getElementById('productsListContainer');
+
+    if (products.length === 0) {
+        container.innerHTML = `
+            <div class="no-products-message">
+                <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.5 1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-11z"/>
+                </svg>
+                <p>Nie znaleziono produktów</p>
+            </div>
+        `;
+        return;
+    }
+
+    const defaultImage = '/static/img/placeholders/product.svg';
+    container.innerHTML = products.map(product => {
+        const imgUrl = product.image_url || defaultImage;
+        return `
+        <div class="product-row" data-product-id="${product.id}">
+            <div class="product-image">
+                <img src="${imgUrl}" alt="${product.name}" onerror="this.src='${defaultImage}'">
+            </div>
+            <div class="product-info">
+                <div class="product-name">${product.name}</div>
+                <div class="product-meta">
+                    ${product.category_name ? `<span>${product.category_name}</span>` : ''}
+                    ${product.series_name ? `<span>${product.series_name}</span>` : ''}
+                </div>
+                <div class="product-price">${parseFloat(product.sale_price).toFixed(2)} PLN</div>
+            </div>
+            <div class="product-stock ${product.quantity > 0 ? 'in-stock' : 'out-of-stock'}">
+                Stan: ${product.quantity}
+            </div>
+            <button type="button" class="btn btn-sm btn-add-product" onclick="addProductToSelection(${product.id}, '${escapeHtml(product.name)}', ${product.sale_price}, '${imgUrl}')">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Dodaj
+            </button>
+        </div>
+    `;
+    }).join('');
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML.replace(/'/g, "\\'");
+}
+
+function addProductToSelection(productId, productName, price, imageUrl) {
+    if (selectedProducts[productId]) {
+        selectedProducts[productId].quantity++;
+    } else {
+        selectedProducts[productId] = {
+            id: productId,
+            name: productName,
+            price: price,
+            image_url: imageUrl,
+            quantity: 1
+        };
+    }
+    updateSelectedProductsPanel();
+}
+
+function removeProductFromSelection(productId) {
+    delete selectedProducts[productId];
+    updateSelectedProductsPanel();
+}
+
+function updateProductQuantity(productId, change) {
+    if (selectedProducts[productId]) {
+        selectedProducts[productId].quantity += change;
+        if (selectedProducts[productId].quantity <= 0) {
+            removeProductFromSelection(productId);
+        } else {
+            updateSelectedProductsPanel();
+        }
+    }
+}
+
+function updateSelectedProductsPanel() {
+    const container = document.getElementById('selectedProductsContainer');
+    const selectedPanel = document.getElementById('selectedProductsPanel');
+    const modalBody = document.querySelector('.add-products-body');
+    const productIds = Object.keys(selectedProducts);
+
+    if (productIds.length === 0) {
+        selectedPanel.classList.remove('has-products');
+        modalBody.classList.remove('has-selection');
+        container.innerHTML = `
+            <div class="empty-selection">
+                <p>Wybierz produkty z listy</p>
+            </div>
+        `;
+        return;
+    }
+
+    selectedPanel.classList.add('has-products');
+    modalBody.classList.add('has-selection');
+
+    let totalValue = 0;
+    const defaultImage = '/static/img/placeholders/product.svg';
+    const html = productIds.map(id => {
+        const product = selectedProducts[id];
+        const itemTotal = product.price * product.quantity;
+        totalValue += itemTotal;
+        const imgUrl = product.image_url || defaultImage;
+
+        return `
+            <div class="selected-product-item">
+                <img src="${imgUrl}" alt="${product.name}" class="selected-product-image" onerror="this.src='${defaultImage}'">
+                <div class="selected-product-info">
+                    <div class="selected-product-name">${product.name}</div>
+                    <div class="selected-product-price">${parseFloat(product.price).toFixed(2)} PLN</div>
+                </div>
+                <div class="quantity-controls">
+                    <button type="button" class="qty-btn" onclick="updateProductQuantity(${id}, -1)">-</button>
+                    <span class="qty-value">${product.quantity}</span>
+                    <button type="button" class="qty-btn" onclick="updateProductQuantity(${id}, 1)">+</button>
+                </div>
+                <button type="button" class="btn-remove" onclick="removeProductFromSelection(${id})">
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = html + `
+        <div class="selected-products-total">
+            <strong>Suma:</strong>
+            <span>${totalValue.toFixed(2)} PLN</span>
+        </div>
+    `;
+}
+
+function submitAddProducts() {
+    const productIds = Object.keys(selectedProducts);
+
+    if (productIds.length === 0) {
+        showToast('Wybierz przynajmniej jeden produkt', 'error');
+        return;
+    }
+
+    const products = productIds.map(id => ({
+        product_id: parseInt(id),
+        quantity: selectedProducts[id].quantity
+    }));
+
+    fetch(`/admin/orders/${orderId}/add-products`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        },
+        body: JSON.stringify({ products: products })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Produkty zostały dodane do zamówienia', 'success');
+            closeAddProductsModal();
+            // Reload page to see updated products
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            showToast(data.message || 'Błąd podczas dodawania produktów', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding products:', error);
+        showToast('Wystąpił błąd podczas dodawania produktów', 'error');
+    });
+}
+
+// Debounce function for search
+let searchTimeout;
+function debounceSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(loadProducts, 300);
+}
+
+// Close modal on overlay click
+document.addEventListener('click', function(e) {
+    if (e.target.id === 'addProductsModal') {
+        closeAddProductsModal();
+    }
+    if (e.target.id === 'editItemModal') {
+        closeEditItemModal();
+    }
+    if (e.target.id === 'deleteItemModal') {
+        closeDeleteItemModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const addModal = document.getElementById('addProductsModal');
+        if (addModal && addModal.classList.contains('active')) {
+            closeAddProductsModal();
+        }
+        const editModal = document.getElementById('editItemModal');
+        if (editModal && editModal.classList.contains('active')) {
+            closeEditItemModal();
+        }
+        const deleteModal = document.getElementById('deleteItemModal');
+        if (deleteModal && deleteModal.classList.contains('active')) {
+            closeDeleteItemModal();
+        }
+    }
+});
+
+// Close all dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.item-actions-wrapper')) {
+        document.querySelectorAll('.item-actions-dropdown.active').forEach(dropdown => {
+            dropdown.classList.remove('active');
+        });
+    }
+});
+
+// ========================================
+// ITEM ACTIONS DROPDOWN
+// ========================================
+
+function toggleItemActions(button, itemId) {
+    event.stopPropagation();
+
+    // Close all other dropdowns
+    document.querySelectorAll('.item-actions-dropdown.active').forEach(dropdown => {
+        dropdown.classList.remove('active');
+    });
+
+    const dropdown = document.getElementById('itemActions-' + itemId);
+    dropdown.classList.toggle('active');
+}
+
+// ========================================
+// EDIT ITEM MODAL
+// ========================================
+
+// Event listener dla przycisków edycji
+document.querySelectorAll('.btn-edit-item').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const itemId = this.dataset.itemId;
+        const productName = this.dataset.productName;
+        const quantity = this.dataset.quantity;
+        const price = this.dataset.price;
+        openEditItemModal(itemId, productName, quantity, price);
+    });
+});
+
+function openEditItemModal(itemId, productName, quantity, price) {
+    // Close dropdown first
+    document.querySelectorAll('.item-actions-dropdown.active').forEach(dropdown => {
+        dropdown.classList.remove('active');
+    });
+
+    document.getElementById('editItemId').value = itemId;
+    document.getElementById('editItemProductName').textContent = productName;
+    document.getElementById('editItemQuantity').value = quantity;
+    document.getElementById('editItemPrice').value = parseFloat(price).toFixed(2);
+
+    updateEditItemTotal();
+
+    const modal = document.getElementById('editItemModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeEditItemModal() {
+    const modal = document.getElementById('editItemModal');
+    modal.classList.add('closing');
+
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+    }, 350);
+}
+
+function updateEditItemTotal() {
+    const quantity = parseInt(document.getElementById('editItemQuantity').value) || 0;
+    const price = parseFloat(document.getElementById('editItemPrice').value) || 0;
+    const total = quantity * price;
+    document.getElementById('editItemTotal').textContent = total.toFixed(2) + ' PLN';
+}
+
+// Add event listeners for live total update
+document.getElementById('editItemQuantity').addEventListener('input', updateEditItemTotal);
+document.getElementById('editItemPrice').addEventListener('input', updateEditItemTotal);
+
+function submitEditItem() {
+    const itemId = document.getElementById('editItemId').value;
+    const quantity = parseInt(document.getElementById('editItemQuantity').value);
+    const price = parseFloat(document.getElementById('editItemPrice').value);
+
+    if (quantity < 1) {
+        showToast('Ilość musi być większa niż 0', 'error');
+        return;
+    }
+
+    if (price < 0) {
+        showToast('Cena nie może być ujemna', 'error');
+        return;
+    }
+
+    fetch(`/admin/orders/${orderId}/items/${itemId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        },
+        body: JSON.stringify({ quantity, price })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Produkt został zaktualizowany', 'success');
+            closeEditItemModal();
+            // Reload page to see updated data
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            showToast(data.message || 'Błąd podczas aktualizacji', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating item:', error);
+        showToast('Wystąpił błąd podczas aktualizacji', 'error');
+    });
+}
+
+// ========================================
+// DELETE ITEM MODAL
+// ========================================
+
+// Event listener dla przycisków usuwania
+document.querySelectorAll('.btn-delete-item').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const itemId = this.dataset.itemId;
+        const productName = this.dataset.productName;
+        confirmDeleteItem(itemId, productName);
+    });
+});
+
+function confirmDeleteItem(itemId, productName) {
+    // Close dropdown first
+    document.querySelectorAll('.item-actions-dropdown.active').forEach(dropdown => {
+        dropdown.classList.remove('active');
+    });
+
+    document.getElementById('deleteItemId').value = itemId;
+    document.getElementById('deleteItemName').textContent = '"' + productName + '"';
+
+    const modal = document.getElementById('deleteItemModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteItemModal() {
+    const modal = document.getElementById('deleteItemModal');
+    modal.classList.add('closing');
+
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+    }, 350);
+}
+
+function submitDeleteItem() {
+    const itemId = document.getElementById('deleteItemId').value;
+
+    fetch(`/admin/orders/${orderId}/items/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeDeleteItemModal();
+            // Reload page to see updated data
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            showToast(data.message || 'Błąd podczas usuwania', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting item:', error);
+        showToast('Wystąpił błąd podczas usuwania', 'error');
+    });
+}
+
+// ========================================
+// PAYMENT EDITOR
+// ========================================
+
+let originalPaidAmount = null;
+
+function togglePaymentEditor() {
+    const display = document.getElementById('paymentDisplay');
+    const editor = document.getElementById('paymentEditor');
+    const input = document.getElementById('paidAmountInput');
+
+    // Store original value for cancel
+    originalPaidAmount = input.value;
+
+    display.style.display = 'none';
+    editor.style.display = 'flex';
+    input.focus();
+    input.select();
+}
+
+function cancelPaymentEdit() {
+    const display = document.getElementById('paymentDisplay');
+    const editor = document.getElementById('paymentEditor');
+    const input = document.getElementById('paidAmountInput');
+
+    // Restore original value
+    if (originalPaidAmount !== null) {
+        input.value = originalPaidAmount;
+    }
+
+    editor.style.display = 'none';
+    display.style.display = 'flex';
+}
+
+function setFullPayment() {
+    const input = document.getElementById('paidAmountInput');
+    const total = parseFloat(input.dataset.total) || 0;
+    input.value = total.toFixed(2);
+}
+
+function setZeroPayment() {
+    const input = document.getElementById('paidAmountInput');
+    input.value = '0.00';
+}
+
+function savePayment() {
+    const input = document.getElementById('paidAmountInput');
+    const paidAmount = parseFloat(input.value) || 0;
+    const total = parseFloat(input.dataset.total) || 0;
+
+    if (paidAmount < 0) {
+        showToast('Kwota nie może być ujemna', 'error');
+        return;
+    }
+
+    fetch(`/admin/orders/${orderId}/payment`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        },
+        body: JSON.stringify({ paid_amount: paidAmount })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update UI without reload
+            updatePaymentDisplay(paidAmount, total);
+            showToast('Płatność została zaktualizowana', 'success');
+        } else {
+            showToast(data.message || 'Błąd podczas aktualizacji płatności', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating payment:', error);
+        showToast('Wystąpił błąd podczas aktualizacji płatności', 'error');
+    });
+}
+
+function updatePaymentDisplay(paidAmount, total) {
+    const display = document.getElementById('paymentDisplay');
+    const editor = document.getElementById('paymentEditor');
+    const badge = document.getElementById('paidAmountBadge');
+    const input = document.getElementById('paidAmountInput');
+
+    // Update badge text
+    badge.textContent = paidAmount.toFixed(2) + ' PLN';
+
+    // Update badge class
+    badge.classList.remove('payment-badge-paid', 'payment-badge-partial', 'payment-badge-unpaid', 'payment-badge-overpaid');
+    if (paidAmount > total && total > 0) {
+        badge.classList.add('payment-badge-overpaid');
+    } else if (paidAmount === total && total > 0) {
+        badge.classList.add('payment-badge-paid');
+    } else if (paidAmount > 0) {
+        badge.classList.add('payment-badge-partial');
+    } else {
+        badge.classList.add('payment-badge-unpaid');
+    }
+
+    // Update input value
+    input.value = paidAmount.toFixed(2);
+    originalPaidAmount = paidAmount.toFixed(2);
+
+    // Hide editor, show display
+    editor.style.display = 'none';
+    display.style.display = 'flex';
+}
+
+// Allow Enter key to save payment
+document.getElementById('paidAmountInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        savePayment();
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelPaymentEdit();
+    }
+});
+
+// Click on badge also opens editor
+document.getElementById('paidAmountBadge').addEventListener('click', function() {
+    togglePaymentEditor();
+});
+
+// ========================================
+// INLINE FIELD EDITORS
+// ========================================
+
+// Store original values
+const originalValues = {
+    deliveryMethod: null,
+    shippingCost: null,
+    paymentMethod: null
+};
+
+// Display names mappings
+const deliveryMethodNames = {
+    '': '-',
+    'kurier': 'Kurier',
+    'paczkomat': 'Paczkomat',
+    'odbior_osobisty': 'Odbiór osobisty',
+    'poczta': 'Poczta Polska',
+    'dpd_pickup': 'DPD Pickup',
+    'orlen_paczka': 'Orlen Paczka'
+};
+
+const paymentMethodNames = {
+    '': '-',
+    'przelew': 'Przelew bankowy',
+    'pobranie': 'Pobranie',
+    'gotowka': 'Gotówka',
+    'blik': 'BLIK',
+    'karta': 'Karta płatnicza',
+    'paypal': 'PayPal'
+};
+
+function toggleInlineEditor(fieldName) {
+    const display = document.getElementById(fieldName + 'Display');
+    const editor = document.getElementById(fieldName + 'Editor');
+
+    // Store original value
+    if (fieldName === 'deliveryMethod') {
+        originalValues.deliveryMethod = document.getElementById('deliveryMethodSelect').value;
+    } else if (fieldName === 'shippingCost') {
+        originalValues.shippingCost = document.getElementById('shippingCostInput').value;
+    } else if (fieldName === 'paymentMethod') {
+        originalValues.paymentMethod = document.getElementById('paymentMethodSelect').value;
+    }
+
+    display.style.display = 'none';
+    editor.style.display = 'flex';
+
+    // Focus on input/select
+    if (fieldName === 'shippingCost') {
+        const input = document.getElementById('shippingCostInput');
+        input.focus();
+        input.select();
+    } else if (fieldName === 'deliveryMethod') {
+        document.getElementById('deliveryMethodSelect').focus();
+    } else if (fieldName === 'paymentMethod') {
+        document.getElementById('paymentMethodSelect').focus();
+    }
+}
+
+function cancelInlineEditor(fieldName) {
+    const display = document.getElementById(fieldName + 'Display');
+    const editor = document.getElementById(fieldName + 'Editor');
+
+    // Restore original value
+    if (fieldName === 'deliveryMethod' && originalValues.deliveryMethod !== null) {
+        document.getElementById('deliveryMethodSelect').value = originalValues.deliveryMethod;
+    } else if (fieldName === 'shippingCost' && originalValues.shippingCost !== null) {
+        document.getElementById('shippingCostInput').value = originalValues.shippingCost;
+    } else if (fieldName === 'paymentMethod' && originalValues.paymentMethod !== null) {
+        document.getElementById('paymentMethodSelect').value = originalValues.paymentMethod;
+    }
+
+    editor.style.display = 'none';
+    display.style.display = 'flex';
+}
+
+function saveInlineField(fieldName) {
+    let value, apiField;
+
+    if (fieldName === 'deliveryMethod') {
+        value = document.getElementById('deliveryMethodSelect').value;
+        apiField = 'delivery_method';
+    } else if (fieldName === 'shippingCost') {
+        value = parseFloat(document.getElementById('shippingCostInput').value) || 0;
+        apiField = 'shipping_cost';
+        if (value < 0) {
+            showToast('Koszt wysyłki nie może być ujemny', 'error');
+            return;
+        }
+    } else if (fieldName === 'paymentMethod') {
+        value = document.getElementById('paymentMethodSelect').value;
+        apiField = 'payment_method';
+    }
+
+    fetch(`/admin/orders/${orderId}/update-field`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        },
+        body: JSON.stringify({
+            field: apiField,
+            value: value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateInlineDisplay(fieldName, value, data);
+            showToast('Zaktualizowano pomyślnie', 'success');
+        } else {
+            showToast(data.message || 'Błąd podczas aktualizacji', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating field:', error);
+        showToast('Wystąpił błąd podczas aktualizacji', 'error');
+    });
+}
+
+function updateInlineDisplay(fieldName, value, data) {
+    const display = document.getElementById(fieldName + 'Display');
+    const editor = document.getElementById(fieldName + 'Editor');
+    const valueSpan = document.getElementById(fieldName + 'Value');
+
+    if (fieldName === 'deliveryMethod') {
+        valueSpan.textContent = deliveryMethodNames[value] || value || '-';
+    } else if (fieldName === 'shippingCost') {
+        valueSpan.textContent = parseFloat(value).toFixed(2) + ' PLN';
+        // Update grand_total displays after shipping cost change
+        if (data.grand_total !== undefined) {
+            updateGrandTotalDisplays(data.grand_total, data.paid_amount);
+        }
+    } else if (fieldName === 'paymentMethod') {
+        valueSpan.textContent = paymentMethodNames[value] || value || '-';
+    }
+
+    editor.style.display = 'none';
+    display.style.display = 'flex';
+}
+
+function updateGrandTotalDisplays(grandTotal, paidAmount) {
+    // Update grand total text displays
+    const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+    const grandTotalEditor = document.getElementById('grandTotalEditor');
+    const btnPaymentFull = document.getElementById('btnPaymentFull');
+    const paidAmountInput = document.getElementById('paidAmountInput');
+    const paidAmountBadge = document.getElementById('paidAmountBadge');
+
+    if (grandTotalDisplay) {
+        grandTotalDisplay.textContent = 'z ' + grandTotal.toFixed(2) + ' PLN';
+    }
+    if (grandTotalEditor) {
+        grandTotalEditor.textContent = grandTotal.toFixed(2);
+    }
+    if (btnPaymentFull) {
+        btnPaymentFull.textContent = grandTotal.toFixed(2);
+    }
+    if (paidAmountInput) {
+        paidAmountInput.dataset.total = grandTotal.toFixed(2);
+    }
+
+    // Update payment badge color based on new grand_total
+    if (paidAmountBadge && paidAmount !== undefined) {
+        paidAmountBadge.classList.remove('payment-badge-paid', 'payment-badge-partial', 'payment-badge-unpaid', 'payment-badge-overpaid');
+        if (paidAmount > grandTotal && grandTotal > 0) {
+            paidAmountBadge.classList.add('payment-badge-overpaid');
+        } else if (paidAmount === grandTotal && grandTotal > 0) {
+            paidAmountBadge.classList.add('payment-badge-paid');
+        } else if (paidAmount > 0) {
+            paidAmountBadge.classList.add('payment-badge-partial');
+        } else {
+            paidAmountBadge.classList.add('payment-badge-unpaid');
+        }
+    }
+}
+
+// Keyboard shortcuts for inline editors
+document.getElementById('shippingCostInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveInlineField('shippingCost');
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelInlineEditor('shippingCost');
+    }
+});
+
+document.getElementById('deliveryMethodSelect').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveInlineField('deliveryMethod');
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelInlineEditor('deliveryMethod');
+    }
+});
+
+document.getElementById('paymentMethodSelect').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        saveInlineField('paymentMethod');
+    } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelInlineEditor('paymentMethod');
+    }
+});
+</script>
+{% endblock %}

@@ -183,6 +183,7 @@ class Product(db.Model):
     images = db.relationship('ProductImage', back_populates='product', lazy='dynamic', cascade='all, delete-orphan')
     tags = db.relationship('Tag', secondary='product_tags', backref='products')
     variant_groups = db.relationship('VariantGroup', secondary=variant_products, backref='products')
+    order_items = db.relationship('OrderItem', back_populates='product', lazy='dynamic')
 
     def __repr__(self):
         return f'<Product {self.name}>'

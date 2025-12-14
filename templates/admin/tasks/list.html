@@ -96,7 +96,7 @@
                                 {% if task.due_date %}
                                 <div class="task-meta-item">
                                     <span class="meta-icon">📅</span>
-                                    <span class="meta-text">{{ task.due_date.strftime('%d.%m.%Y %H:%M') }}</span>
+                                    <span class="meta-text">{{ task.due_date|format_datetime('%d.%m.%Y %H:%M') }}</span>
                                 </div>
                                 {% endif %}
 

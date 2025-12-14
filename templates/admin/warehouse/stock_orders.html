@@ -139,7 +139,7 @@
                                     data-quantity="{{ first_item.quantity if first_item else 0 }}"
                                     data-status="{{ order.status }}"
                                     data-date="{{ order.created_at.timestamp() }}"
-                                    data-date-formatted="{{ order.created_at.strftime('%Y-%m-%d') }}"
+                                    data-date-formatted="{{ order.created_at|format_date }}"
                                     data-amount="{{ order.total_amount_pln }}">
                                     <td class="col-checkbox">
                                         <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="handleCheckboxChange()">
@@ -197,7 +197,7 @@
                                             </div>
                                         </div>
                                     </td>
-                                    <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td>{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</td>
                                     <td class="font-semibold">
                                         {{ '%.2f'|format(order.total_amount_pln) }} PLN
                                     </td>

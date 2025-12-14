@@ -193,3 +193,55 @@ class AdminTaskComment(db.Model):
 
     def __repr__(self):
         return f'<AdminTaskComment task={self.task_id} by user={self.user_id}>'
+
+
+class ActivityLog(db.Model):
+    """
+    Model logowania aktywności użytkowników w systemie
+    Tabela: activity_log
+    """
+    __tablename__ = 'activity_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    action = db.Column(db.String(100), nullable=False)  # 'login', 'order_status_change', etc.
+    entity_type = db.Column(db.String(50), nullable=True)  # 'order', 'product', 'user', etc.
+    entity_id = db.Column(db.Integer, nullable=True)
+    old_value = db.Column(db.Text, nullable=True)  # JSON
+    new_value = db.Column(db.Text, nullable=True)  # JSON
+    ip_address = db.Column(db.String(45), nullable=True)
+    user_agent = db.Column(db.String(500), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = db.relationship('User', backref='activity_logs')
+
+    def __repr__(self):
+        return f'<ActivityLog {self.id}: {self.action} by user={self.user_id}>'
+
+    @property
+    def user_name(self):
+        """Zwraca imię i nazwisko użytkownika lub 'System'"""
+        if self.user:
+            return f"{self.user.first_name} {self.user.last_name}"
+        return 'System'
+
+    @property
+    def formatted_action(self):
+        """Zwraca sformatowaną nazwę akcji"""
+        action_names = {
+            'login': 'Logowanie',
+            'logout': 'Wylogowanie',
+            'order_created': 'Utworzenie zamówienia',
+            'order_status_change': 'Zmiana statusu zamówienia',
+            'order_deleted': 'Usunięcie zamówienia',
+            'product_created': 'Dodanie produktu',
+            'product_updated': 'Edycja produktu',
+            'product_deleted': 'Usunięcie produktu',
+            'user_created': 'Utworzenie użytkownika',
+            'user_updated': 'Edycja użytkownika',
+            'user_deleted': 'Usunięcie użytkownika',
+            'settings_updated': 'Zmiana ustawień',
+            'refund_issued': 'Wydanie zwrotu',
+        }
+        return action_names.get(self.action, self.action)

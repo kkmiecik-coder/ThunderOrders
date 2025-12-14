@@ -55,6 +55,7 @@ class ExclusivePage(db.Model):
 
     # Relationships
     creator = db.relationship('User', backref='exclusive_pages', foreign_keys=[created_by])
+    orders = db.relationship('Order', back_populates='exclusive_page', lazy='dynamic')
     sections = db.relationship(
         'ExclusiveSection',
         back_populates='page',
