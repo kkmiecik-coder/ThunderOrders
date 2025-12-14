@@ -531,6 +531,81 @@
 }
 
 /* ==========================================
+   Mute Button (Floating)
+   ========================================== */
+.mute-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    box-shadow:
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.mute-btn:hover {
+    transform: scale(1.1);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+    box-shadow:
+        0 6px 30px rgba(240, 147, 251, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.mute-btn:active {
+    transform: scale(0.95);
+}
+
+.mute-btn svg {
+    color: white;
+}
+
+.mute-btn .icon-muted {
+    display: none;
+}
+
+.mute-btn .icon-sound {
+    display: block;
+}
+
+/* When muted */
+.mute-btn.muted .icon-sound {
+    display: none;
+}
+
+.mute-btn.muted .icon-muted {
+    display: block;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Mobile adjustment */
+@media (max-width: 600px) {
+    .mute-btn {
+        bottom: 16px;
+        right: 16px;
+        width: 42px;
+        height: 42px;
+    }
+
+    .mute-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* ==========================================
    Dark mode adjustments (already dark theme)
    ========================================== */
 @media (prefers-reduced-motion: reduce) {

@@ -5,29 +5,64 @@
 {% endblock %}
 
 {% block content %}
-<div class="orders-list-page">
-    <!-- Page Header + Quick Filters -->
-    <div class="page-header">
-        <h1>Zamówienia</h1>
-        <div class="quick-filters">
-            <a href="{{ url_for('orders.admin_list') }}"
-               class="filter-btn {% if not request.args.get('order_type') %}active{% endif %}">
-                Wszystkie
-            </a>
-            <a href="{{ url_for('orders.admin_list', order_type='pre_order') }}"
-               class="filter-btn {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
-                Pre-order
-            </a>
-            <a href="{{ url_for('orders.admin_list', order_type='on_hand') }}"
-               class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
-                On-hand
-            </a>
-            <a href="{{ url_for('orders.admin_list', order_type='exclusive') }}"
-               class="filter-btn {% if request.args.get('order_type') == 'exclusive' %}active{% endif %}">
-                Exclusive
-            </a>
+<div class="orders-page-wrapper">
+    <!-- Status Filter Sidebar -->
+    <aside class="status-sidebar">
+        <div class="status-sidebar-header">
+            <h3>Statusy</h3>
         </div>
-    </div>
+        <div class="status-list">
+            <!-- All orders -->
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('status')) }}"
+               class="status-item {% if not request.args.get('status') %}active{% endif %}">
+                <span class="status-name">Wszystkie</span>
+                <span class="status-count">{{ total_orders_count }}</span>
+            </a>
+
+            <!-- Individual statuses -->
+            {% for status in statuses_with_counts %}
+            <a href="{{ url_for('orders.admin_list', status=status.slug) }}"
+               class="status-item {% if request.args.get('status') == status.slug %}active{% endif %}">
+                <span class="status-dot" style="background-color: {{ status.badge_color }};"></span>
+                <span class="status-name">{{ status.name }}</span>
+                <span class="status-count" style="background-color: {{ status.badge_color }};">{{ status.count }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <div class="orders-list-page">
+        <!-- Page Header + Quick Filters -->
+        <div class="page-header">
+            <div class="page-header-left">
+                <h1>Zamówienia</h1>
+                <button class="btn btn-primary" id="addOrderBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
+                    </svg>
+                    Dodaj zamówienie
+                </button>
+            </div>
+            <div class="quick-filters">
+                <a href="{{ url_for('orders.admin_list') }}"
+                   class="filter-btn {% if not request.args.get('order_type') %}active{% endif %}">
+                    Wszystkie
+                </a>
+                <a href="{{ url_for('orders.admin_list', order_type='pre_order') }}"
+                   class="filter-btn {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
+                    Pre-order
+                </a>
+                <a href="{{ url_for('orders.admin_list', order_type='on_hand') }}"
+                   class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
+                    On-hand
+                </a>
+                <a href="{{ url_for('orders.admin_list', order_type='exclusive') }}"
+                   class="filter-btn {% if request.args.get('order_type') == 'exclusive' %}active{% endif %}">
+                    Exclusive
+                </a>
+            </div>
+        </div>
 
     <!-- Advanced Filters (collapsible) -->
     <div class="filters-panel" id="filtersPanel">
@@ -38,7 +73,6 @@
                 </svg>
                 <span>Filtry zaawansowane</span>
                 {% set active_filters = namespace(count=0) %}
-                {% if request.args.get('status') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
                 {% if request.args.get('date_from') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
                 {% if request.args.get('date_to') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
                 {% if request.args.get('search') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
@@ -62,18 +96,6 @@
                             </svg>
                             {{ filter_form.search(class="form-input form-input-icon", placeholder="Szukaj po numerze, kliencie, emailu...") }}
                         </div>
-                    </div>
-
-                    <!-- Status multi-select -->
-                    <div class="form-group">
-                        <label class="form-label">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                            </svg>
-                            Status
-                        </label>
-                        {{ filter_form.status(class="form-select-multiple") }}
                     </div>
 
                     <!-- Date range -->
@@ -127,7 +149,7 @@
     </div>
 
     <!-- Active Filters Tags -->
-    {% set has_active_filters = request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') or request.args.get('search') or request.args.get('order_type') %}
+    {% set has_active_filters = request.args.get('date_from') or request.args.get('date_to') or request.args.get('search') or request.args.get('order_type') %}
     {% if has_active_filters %}
     <div class="active-filters-bar">
         <span class="active-filters-label">Aktywne filtry:</span>
@@ -140,14 +162,6 @@
                     {% elif request.args.get('order_type') == 'exclusive' %}Exclusive
                     {% else %}{{ request.args.get('order_type') }}{% endif %}
                 </span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
-            </a>
-            {% endif %}
-            {% if request.args.get('status') %}
-            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('status')) }}" class="filter-tag">
-                <span>Status: {{ request.args.getlist('status')|length }} wybrano</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
@@ -375,6 +389,98 @@
             <p>Nie znaleziono żadnych zamówień spełniających kryteria</p>
         </div>
         {% endif %}
+    </div>
+    </div><!-- /.orders-list-page -->
+</div><!-- /.orders-page-wrapper -->
+
+<!-- Add Order Modal -->
+<div class="modal-overlay" id="addOrderModal">
+    <div class="modal-content modal-medium">
+        <div class="modal-header">
+            <h2>Dodaj zamówienie</h2>
+            <button class="modal-close" onclick="closeAddOrderModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <!-- New Client Button -->
+            <button class="btn btn-secondary btn-full-width mb-4" id="newClientBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="8.5" cy="7" r="4"/>
+                    <line x1="20" y1="8" x2="20" y2="14"/>
+                    <line x1="23" y1="11" x2="17" y2="11"/>
+                </svg>
+                Nowy klient
+            </button>
+
+            <!-- Search Client -->
+            <div class="form-group">
+                <label class="form-label">Wyszukaj istniejącego klienta</label>
+                <div class="input-icon-wrapper">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" class="form-input form-input-icon" id="clientSearchInput"
+                           placeholder="Wpisz min. 3 znaki (imię, nazwisko, email...)"
+                           autocomplete="off">
+                </div>
+                <small class="form-hint">Szukaj po imieniu, nazwisku lub emailu</small>
+            </div>
+
+            <!-- Search Results -->
+            <div class="client-search-results" id="clientSearchResults">
+                <!-- Results will be loaded here via JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Client Modal -->
+<div class="modal-overlay" id="newClientModal">
+    <div class="modal-content modal-medium">
+        <div class="modal-header">
+            <h2>Nowy klient</h2>
+            <button class="modal-close" onclick="closeNewClientModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="newClientForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Imię *</label>
+                        <input type="text" class="form-input" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Nazwisko *</label>
+                        <input type="text" class="form-input" name="last_name" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email *</label>
+                    <input type="email" class="form-input" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Telefon</label>
+                    <input type="tel" class="form-input" name="phone">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-ghost" onclick="closeNewClientModal()">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Utwórz i przejdź do zamówienia
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 {% endblock %}

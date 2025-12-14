@@ -9,7 +9,7 @@ Includes HTMX endpoints for partial updates.
 import json
 from flask import render_template, request, redirect, url_for, flash, jsonify, abort, make_response
 from flask_login import login_required, current_user
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from datetime import datetime
 from decimal import Decimal
 
@@ -100,11 +100,142 @@ def admin_list():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
+    # Get status counts for sidebar
+    status_counts = db.session.query(
+        Order.status,
+        func.count(Order.id)
+    ).group_by(Order.status).all()
+    status_counts_dict = {status: count for status, count in status_counts}
+
+    # Get all statuses with their counts
+    all_statuses = OrderStatus.query.filter_by(is_active=True).order_by(OrderStatus.sort_order).all()
+    statuses_with_counts = []
+    total_count = 0
+    for status in all_statuses:
+        count = status_counts_dict.get(status.slug, 0)
+        total_count += count
+        statuses_with_counts.append({
+            'slug': status.slug,
+            'name': status.name,
+            'badge_color': status.badge_color,
+            'count': count
+        })
+
     return render_template(
         'admin/orders/list.html',
         orders=pagination,
         filter_form=filter_form,
+        statuses_with_counts=statuses_with_counts,
+        total_orders_count=total_count,
         page_title='Zamówienia'
+    )
+
+
+@orders_bp.route('/admin/orders/create', methods=['GET', 'POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_create_order():
+    """
+    Admin order creation page.
+    Creates a new manual order for a selected client.
+    """
+    from modules.auth.models import User
+    from modules.products.models import Product
+
+    client_id = request.args.get('client_id', type=int)
+
+    # Validate client exists
+    client = None
+    if client_id:
+        client = User.query.get(client_id)
+        if not client or client.role != 'client':
+            flash('Nie znaleziono klienta', 'error')
+            return redirect(url_for('orders.admin_list'))
+
+    if request.method == 'POST':
+        # Handle order creation
+        try:
+            # Get client from form or URL
+            form_client_id = request.form.get('client_id', type=int)
+            if not client and form_client_id:
+                client = User.query.get(form_client_id)
+
+            if not client:
+                flash('Wybierz klienta', 'error')
+                return redirect(url_for('orders.admin_create_order'))
+
+            # Get products from form
+            product_ids = request.form.getlist('product_id[]', type=int)
+            quantities = request.form.getlist('quantity[]', type=int)
+
+            if not product_ids or not quantities:
+                flash('Dodaj przynajmniej jeden produkt', 'error')
+                return redirect(url_for('orders.admin_create_order', client_id=client.id))
+
+            # Generate order number (use 'on_hand' type for manual orders)
+            order_number = generate_order_number('on_hand')
+
+            # Create order
+            new_order = Order(
+                order_number=order_number,
+                user_id=client.id,
+                order_type='on_hand',  # Manual orders use on_hand type
+                status='nowe',
+                total_amount=0
+            )
+            db.session.add(new_order)
+            db.session.flush()  # Get order ID
+
+            # Add order items
+            total = 0
+            for pid, qty in zip(product_ids, quantities):
+                if qty <= 0:
+                    continue
+                product = Product.query.get(pid)
+                if not product:
+                    continue
+
+                item_total = product.sale_price * qty
+                total += item_total
+
+                order_item = OrderItem(
+                    order_id=new_order.id,
+                    product_id=pid,
+                    quantity=qty,
+                    price=product.sale_price,
+                    total=item_total
+                )
+                db.session.add(order_item)
+
+            new_order.total_amount = total
+            db.session.commit()
+
+            # Log activity
+            log_activity(
+                user=current_user,
+                action='order_created',
+                entity_type='order',
+                entity_id=new_order.id,
+                new_value={'order_number': order_number, 'client': client.full_name}
+            )
+
+            flash(f'Zamówienie {order_number} zostało utworzone', 'success')
+            return redirect(url_for('orders.admin_detail', order_id=new_order.id))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Błąd podczas tworzenia zamówienia: {str(e)}', 'error')
+            return redirect(url_for('orders.admin_create_order', client_id=client_id))
+
+    # GET request - show form
+    # Get all active products for selection
+    products = Product.query.filter_by(is_active=True).order_by(Product.name).all()
+
+    return render_template(
+        'admin/orders/create.html',
+        client=client,
+        products=products,
+        page_title='Nowe zamówienie'
     )
 
 

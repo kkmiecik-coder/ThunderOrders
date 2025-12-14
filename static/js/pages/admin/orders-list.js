@@ -301,4 +301,259 @@
 
     // Initialize on load
     updateBulkToolbar();
+
+    // ====================
+    // ADD ORDER MODAL
+    // ====================
+
+    const addOrderBtn = document.getElementById('addOrderBtn');
+    const addOrderModal = document.getElementById('addOrderModal');
+    const newClientBtn = document.getElementById('newClientBtn');
+    const newClientModal = document.getElementById('newClientModal');
+    const clientSearchInput = document.getElementById('clientSearchInput');
+    const clientSearchResults = document.getElementById('clientSearchResults');
+    const newClientForm = document.getElementById('newClientForm');
+
+    let searchTimeout = null;
+
+    /**
+     * Open Add Order Modal
+     */
+    if (addOrderBtn) {
+        addOrderBtn.addEventListener('click', function() {
+            openAddOrderModal();
+        });
+    }
+
+    window.openAddOrderModal = function() {
+        if (addOrderModal) {
+            addOrderModal.classList.add('active');
+            if (clientSearchInput) {
+                clientSearchInput.value = '';
+                clientSearchInput.focus();
+            }
+            if (clientSearchResults) {
+                clientSearchResults.innerHTML = '';
+            }
+        }
+    };
+
+    window.closeAddOrderModal = function() {
+        if (addOrderModal) {
+            addOrderModal.classList.remove('active');
+        }
+    };
+
+    /**
+     * Open New Client Modal
+     */
+    if (newClientBtn) {
+        newClientBtn.addEventListener('click', function() {
+            closeAddOrderModal();
+            openNewClientModal();
+        });
+    }
+
+    window.openNewClientModal = function() {
+        if (newClientModal) {
+            newClientModal.classList.add('active');
+            const firstInput = newClientModal.querySelector('input[name="first_name"]');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }
+    };
+
+    window.closeNewClientModal = function() {
+        if (newClientModal) {
+            newClientModal.classList.remove('active');
+            if (newClientForm) {
+                newClientForm.reset();
+            }
+        }
+    };
+
+    /**
+     * Close modal on backdrop click
+     */
+    [addOrderModal, newClientModal].forEach(modal => {
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        }
+    });
+
+    /**
+     * Close modals on ESC key
+     */
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeAddOrderModal();
+            closeNewClientModal();
+        }
+    });
+
+    /**
+     * Client Search
+     */
+    if (clientSearchInput) {
+        clientSearchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+
+            // Clear previous timeout
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+
+            // Clear results if query is too short
+            if (query.length < 3) {
+                if (clientSearchResults) {
+                    clientSearchResults.innerHTML = '<div class="search-empty-state">Wpisz min. 3 znaki, aby wyszukać</div>';
+                }
+                return;
+            }
+
+            // Debounce search
+            searchTimeout = setTimeout(() => {
+                searchClients(query);
+            }, 300);
+        });
+    }
+
+    /**
+     * Search clients via API
+     */
+    function searchClients(query) {
+        if (clientSearchResults) {
+            clientSearchResults.innerHTML = '<div class="search-empty-state">Szukam...</div>';
+        }
+
+        fetch(`/api/clients/search?q=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                displaySearchResults(data.clients || []);
+            })
+            .catch(error => {
+                console.error('Search error:', error);
+                if (clientSearchResults) {
+                    clientSearchResults.innerHTML = '<div class="search-empty-state">Błąd wyszukiwania</div>';
+                }
+            });
+    }
+
+    /**
+     * Display search results
+     */
+    function displaySearchResults(clients) {
+        if (!clientSearchResults) return;
+
+        if (clients.length === 0) {
+            clientSearchResults.innerHTML = `
+                <div class="search-empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <p>Nie znaleziono klientów</p>
+                </div>
+            `;
+            return;
+        }
+
+        const html = clients.map(client => `
+            <div class="client-search-item" onclick="selectClient(${client.id})">
+                <div class="client-info">
+                    <span class="client-name">${escapeHtml(client.full_name)}</span>
+                    <span class="client-email">${escapeHtml(client.email)}</span>
+                </div>
+                <button type="button" class="client-select-btn">Wybierz</button>
+            </div>
+        `).join('');
+
+        clientSearchResults.innerHTML = html;
+    }
+
+    /**
+     * Select client and redirect to create order page
+     */
+    window.selectClient = function(clientId) {
+        // Redirect to order creation page with selected client
+        window.location.href = `/admin/orders/create?client_id=${clientId}`;
+    };
+
+    /**
+     * Handle new client form submission
+     */
+    if (newClientForm) {
+        newClientForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const data = {
+                first_name: formData.get('first_name'),
+                last_name: formData.get('last_name'),
+                email: formData.get('email'),
+                phone: formData.get('phone') || ''
+            };
+
+            // Disable submit button
+            const submitBtn = this.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = 'Tworzę...';
+            }
+
+            fetch('/api/clients/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Redirect to order creation with new client
+                    window.location.href = `/admin/orders/create?client_id=${result.client_id}`;
+                } else {
+                    alert(result.error || 'Nie udało się utworzyć klienta');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            Utwórz i przejdź do zamówienia
+                        `;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Create client error:', error);
+                alert('Wystąpił błąd podczas tworzenia klienta');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Utwórz i przejdź do zamówienia
+                    `;
+                }
+            });
+        });
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 })();

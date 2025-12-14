@@ -9,6 +9,29 @@
 
 ## ⚠️ WAŻNE UWAGI DLA CLAUDE
 
+### 🗄️ KRYTYCZNE: Zmiany w Bazie Danych
+
+**ZASADA:** KAŻDA zmiana w strukturze bazy danych (nowa tabela, nowa kolumna, zmiana typu, indeksy, klucze) MUSI być wykonana przez **plik migracyjny Flask-Migrate**, a NIE bezpośrednio w kodzie modeli.
+
+**Dlaczego?**
+- Lokalna baza (XAMPP) i produkcyjna (VPS) muszą być zsynchronizowane
+- Bez migracji zmiany nie zostaną zastosowane na serwerze produkcyjnym
+- Powoduje to błędy typu "Field 'id' doesn't have a default value"
+
+**Workflow zmian w bazie:**
+1. Zmień model w kodzie (np. `models.py`)
+2. Wygeneruj migrację: `flask db migrate -m "Opis zmiany"`
+3. Sprawdź wygenerowany plik w `migrations/versions/`
+4. Zastosuj lokalnie: `flask db upgrade`
+5. Commit migrację razem z kodem
+6. Na serwerze: `flask db upgrade`
+
+**NIE RÓB:**
+- Nie dodawaj kolumn tylko w modelu bez migracji
+- Nie zmieniaj struktury bazy ręcznie przez phpMyAdmin/MySQL bez migracji
+
+---
+
 ### 🔄 Workflow Rozwoju Aplikacji
 
 **ZASADA GŁÓWNA:** Pracujemy na kopii lokalnej (Mac + XAMPP), dopiero po wdrożeniu pełnej funkcjonalności robimy push na Git i aktualizujemy serwer produkcyjny.

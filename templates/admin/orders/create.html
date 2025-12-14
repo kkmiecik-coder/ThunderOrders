@@ -1,0 +1,576 @@
+{% extends "admin/base_admin.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/orders-list.css') }}">
+<style>
+    .create-order-page {
+        padding: 2rem;
+        max-width: 1200px;
+    }
+
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #240046;
+        margin: 0;
+    }
+
+    .client-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(36, 0, 70, 0.08);
+        border: 1px solid rgba(157, 78, 221, 0.1);
+    }
+
+    .client-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .client-card-header h3 {
+        color: #5A189A;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
+
+    .client-info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+    }
+
+    .client-info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .client-info-label {
+        font-size: 0.75rem;
+        color: #757575;
+        text-transform: uppercase;
+    }
+
+    .client-info-value {
+        font-size: 1rem;
+        color: #240046;
+        font-weight: 600;
+    }
+
+    .products-section {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(36, 0, 70, 0.08);
+        border: 1px solid rgba(157, 78, 221, 0.1);
+    }
+
+    .products-section h3 {
+        color: #5A189A;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0 0 1.5rem 0;
+    }
+
+    .product-search-wrapper {
+        margin-bottom: 1.5rem;
+    }
+
+    .cart-items {
+        min-height: 100px;
+    }
+
+    .cart-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border: 1px solid #E0E0E0;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        background: #fafafa;
+    }
+
+    .cart-item-image {
+        width: 50px;
+        height: 50px;
+        border-radius: 6px;
+        object-fit: cover;
+        background: #f0f0f0;
+    }
+
+    .cart-item-info {
+        flex: 1;
+    }
+
+    .cart-item-name {
+        font-weight: 600;
+        color: #240046;
+    }
+
+    .cart-item-sku {
+        font-size: 0.75rem;
+        color: #757575;
+    }
+
+    .cart-item-price {
+        font-weight: 600;
+        color: #5A189A;
+    }
+
+    .cart-item-quantity {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .cart-item-quantity input {
+        width: 60px;
+        padding: 0.5rem;
+        border: 1px solid #E0E0E0;
+        border-radius: 6px;
+        text-align: center;
+    }
+
+    .cart-item-remove {
+        background: none;
+        border: none;
+        color: #F44336;
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+
+    .cart-item-remove:hover {
+        background: #FFEBEE;
+    }
+
+    .cart-empty {
+        text-align: center;
+        padding: 3rem;
+        color: #9E9E9E;
+    }
+
+    .cart-summary {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1.5rem;
+        border-top: 2px solid #E0E0E0;
+        margin-top: 1.5rem;
+    }
+
+    .cart-total {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #240046;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        border: none;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);
+        color: white;
+        box-shadow: 0 4px 12px rgba(255, 133, 0, 0.3);
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(255, 133, 0, 0.4);
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+
+    .btn-ghost {
+        background: transparent;
+        color: #757575;
+        border: 2px solid #E0E0E0;
+    }
+
+    .btn-ghost:hover {
+        background: #F5F5F5;
+        color: #424242;
+    }
+
+    /* Product search results */
+    .product-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #E0E0E0;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 100;
+        display: none;
+    }
+
+    .product-search-results.active {
+        display: block;
+    }
+
+    .product-search-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .product-search-item:hover {
+        background: rgba(157, 78, 221, 0.08);
+    }
+
+    .product-search-item img {
+        width: 40px;
+        height: 40px;
+        border-radius: 4px;
+        object-fit: cover;
+    }
+
+    .product-search-info {
+        flex: 1;
+    }
+
+    .product-search-name {
+        font-weight: 600;
+        color: #240046;
+    }
+
+    .product-search-sku {
+        font-size: 0.75rem;
+        color: #757575;
+    }
+
+    .product-search-price {
+        font-weight: 600;
+        color: #5A189A;
+    }
+
+    .input-wrapper {
+        position: relative;
+    }
+
+    @media (max-width: 768px) {
+        .client-info-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="create-order-page">
+    <div class="page-header">
+        <h1>Nowe zamówienie</h1>
+        <a href="{{ url_for('orders.admin_list') }}" class="btn btn-ghost">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Powrót do listy
+        </a>
+    </div>
+
+    {% if client %}
+    <!-- Client Info -->
+    <div class="client-card">
+        <div class="client-card-header">
+            <h3>Klient</h3>
+            <a href="{{ url_for('orders.admin_create_order') }}" class="btn btn-ghost" style="padding: 0.5rem 1rem; font-size: 0.75rem;">
+                Zmień klienta
+            </a>
+        </div>
+        <div class="client-info-grid">
+            <div class="client-info-item">
+                <span class="client-info-label">Imię i nazwisko</span>
+                <span class="client-info-value">{{ client.full_name }}</span>
+            </div>
+            <div class="client-info-item">
+                <span class="client-info-label">Email</span>
+                <span class="client-info-value">{{ client.email }}</span>
+            </div>
+            <div class="client-info-item">
+                <span class="client-info-label">Telefon</span>
+                <span class="client-info-value">{{ client.phone or '-' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Products Section -->
+    <form method="POST" id="orderForm">
+        <input type="hidden" name="client_id" value="{{ client.id }}">
+
+        <div class="products-section">
+            <h3>Produkty</h3>
+
+            <!-- Product Search -->
+            <div class="product-search-wrapper">
+                <div class="input-wrapper">
+                    <input type="text" class="form-input" id="productSearchInput"
+                           placeholder="Wyszukaj produkt po nazwie, SKU lub EAN..."
+                           autocomplete="off">
+                    <div class="product-search-results" id="productSearchResults"></div>
+                </div>
+            </div>
+
+            <!-- Cart Items -->
+            <div class="cart-items" id="cartItems">
+                <div class="cart-empty" id="cartEmpty">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <path d="M16 10a4 4 0 0 1-8 0"/>
+                    </svg>
+                    <p>Dodaj produkty do zamówienia</p>
+                </div>
+            </div>
+
+            <!-- Cart Summary -->
+            <div class="cart-summary">
+                <span class="cart-total">Suma: <span id="cartTotal">0.00</span> PLN</span>
+                <div class="form-actions">
+                    <a href="{{ url_for('orders.admin_list') }}" class="btn btn-ghost">Anuluj</a>
+                    <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Utwórz zamówienie
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    {% else %}
+    <!-- No client selected - show selection UI -->
+    <div class="products-section">
+        <h3>Wybierz klienta</h3>
+        <p style="color: #757575; margin-bottom: 1.5rem;">
+            Użyj przycisku "Dodaj zamówienie" na liście zamówień, aby wybrać lub utworzyć klienta.
+        </p>
+        <a href="{{ url_for('orders.admin_list') }}" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+            Powrót do listy zamówień
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if client %}
+<script>
+(function() {
+    'use strict';
+
+    const productSearchInput = document.getElementById('productSearchInput');
+    const productSearchResults = document.getElementById('productSearchResults');
+    const cartItems = document.getElementById('cartItems');
+    const cartEmpty = document.getElementById('cartEmpty');
+    const cartTotal = document.getElementById('cartTotal');
+    const submitBtn = document.getElementById('submitBtn');
+    const orderForm = document.getElementById('orderForm');
+
+    let cart = [];
+    let searchTimeout = null;
+
+    // Product search
+    productSearchInput.addEventListener('input', function() {
+        const query = this.value.trim();
+
+        if (searchTimeout) clearTimeout(searchTimeout);
+
+        if (query.length < 2) {
+            productSearchResults.classList.remove('active');
+            return;
+        }
+
+        searchTimeout = setTimeout(() => searchProducts(query), 300);
+    });
+
+    productSearchInput.addEventListener('focus', function() {
+        if (this.value.trim().length >= 2) {
+            productSearchResults.classList.add('active');
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!productSearchInput.contains(e.target) && !productSearchResults.contains(e.target)) {
+            productSearchResults.classList.remove('active');
+        }
+    });
+
+    function searchProducts(query) {
+        fetch(`/api/products/search?q=${encodeURIComponent(query)}&limit=10`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.products.length > 0) {
+                    displaySearchResults(data.products);
+                } else {
+                    productSearchResults.innerHTML = '<div class="product-search-item"><span>Brak wyników</span></div>';
+                    productSearchResults.classList.add('active');
+                }
+            })
+            .catch(err => {
+                console.error('Search error:', err);
+            });
+    }
+
+    function displaySearchResults(products) {
+        const html = products.map(p => `
+            <div class="product-search-item" onclick="addToCart(${p.id}, '${escapeHtml(p.name)}', '${escapeHtml(p.sku || '')}', ${p.price || 0}, '${p.image_url || ''}')">
+                <img src="${p.image_url || '/static/img/placeholder.png'}" alt="${escapeHtml(p.name)}">
+                <div class="product-search-info">
+                    <div class="product-search-name">${escapeHtml(p.name)}</div>
+                    <div class="product-search-sku">${escapeHtml(p.sku || '-')}</div>
+                </div>
+                <div class="product-search-price">${p.price.toFixed(2)} PLN</div>
+            </div>
+        `).join('');
+
+        productSearchResults.innerHTML = html;
+        productSearchResults.classList.add('active');
+    }
+
+    // Add product to cart
+    window.addToCart = function(productId, name, sku, price, imageUrl) {
+        // Check if already in cart
+        const existing = cart.find(item => item.id === productId);
+        if (existing) {
+            existing.quantity++;
+            renderCart();
+            return;
+        }
+
+        cart.push({
+            id: productId,
+            name: name,
+            sku: sku,
+            price: price,
+            quantity: 1,
+            image: imageUrl
+        });
+
+        renderCart();
+        productSearchInput.value = '';
+        productSearchResults.classList.remove('active');
+    };
+
+    function renderCart() {
+        if (cart.length === 0) {
+            cartEmpty.style.display = 'block';
+            submitBtn.disabled = true;
+            cartTotal.textContent = '0.00';
+            // Remove all cart items except empty state
+            const items = cartItems.querySelectorAll('.cart-item');
+            items.forEach(item => item.remove());
+            return;
+        }
+
+        cartEmpty.style.display = 'none';
+        submitBtn.disabled = false;
+
+        // Clear existing items
+        const existingItems = cartItems.querySelectorAll('.cart-item');
+        existingItems.forEach(item => item.remove());
+
+        let total = 0;
+
+        cart.forEach((item, index) => {
+            const itemTotal = item.price * item.quantity;
+            total += itemTotal;
+
+            const div = document.createElement('div');
+            div.className = 'cart-item';
+            div.innerHTML = `
+                <img src="${item.image || '/static/img/placeholder.png'}" alt="${escapeHtml(item.name)}" class="cart-item-image">
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${escapeHtml(item.name)}</div>
+                    <div class="cart-item-sku">${escapeHtml(item.sku || '-')}</div>
+                </div>
+                <div class="cart-item-price">${item.price.toFixed(2)} PLN</div>
+                <div class="cart-item-quantity">
+                    <input type="hidden" name="product_id[]" value="${item.id}">
+                    <input type="number" name="quantity[]" value="${item.quantity}" min="1" onchange="updateQuantity(${index}, this.value)">
+                </div>
+                <button type="button" class="cart-item-remove" onclick="removeFromCart(${index})">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
+            `;
+            cartItems.insertBefore(div, cartEmpty);
+        });
+
+        cartTotal.textContent = total.toFixed(2);
+    }
+
+    window.updateQuantity = function(index, value) {
+        const qty = parseInt(value);
+        if (qty > 0) {
+            cart[index].quantity = qty;
+            renderCart();
+        }
+    };
+
+    window.removeFromCart = function(index) {
+        cart.splice(index, 1);
+        renderCart();
+    };
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

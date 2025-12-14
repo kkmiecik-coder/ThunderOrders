@@ -4,11 +4,112 @@
  */
 
 /* ====================
-   PAGE LAYOUT
+   PAGE LAYOUT WITH STATUS SIDEBAR
+   ==================== */
+
+.orders-page-wrapper {
+    display: flex;
+    gap: 0;
+    min-height: calc(100vh - 60px);
+}
+
+/* ====================
+   STATUS SIDEBAR
+   ==================== */
+
+.status-sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: linear-gradient(180deg, #f8f5ff 0%, #fff 100%);
+    border-right: 1px solid rgba(157, 78, 221, 0.15);
+    padding: 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.status-sidebar-header {
+    padding: 0 1.25rem 1rem;
+    border-bottom: 1px solid rgba(157, 78, 221, 0.1);
+    margin-bottom: 0.75rem;
+}
+
+.status-sidebar-header h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #5A189A;
+    margin: 0;
+}
+
+.status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    text-decoration: none;
+    color: #424242;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.status-item:hover {
+    background: rgba(157, 78, 221, 0.08);
+    color: #5A189A;
+}
+
+.status-item.active {
+    background: rgba(157, 78, 221, 0.12);
+    border-left-color: #9D4EDD;
+    color: #5A189A;
+    font-weight: 600;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-count {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    min-width: 24px;
+    text-align: center;
+    color: #fff;
+    background: #9E9E9E;
+}
+
+.status-item:first-child .status-count {
+    background: #5A189A;
+}
+
+/* ====================
+   MAIN CONTENT AREA
    ==================== */
 
 .orders-list-page {
+    flex: 1;
     padding: 2rem;
+    overflow-x: hidden;
 }
 
 /* ====================
@@ -20,6 +121,14 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
 }
 
 .page-header h1 {
@@ -906,4 +1015,216 @@
     .orders-table td {
         padding: 0.5rem;
     }
+
+    /* Hide status sidebar on mobile */
+    .status-sidebar {
+        display: none;
+    }
+
+    .page-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .page-header-left .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ====================
+   MODAL STYLES
+   ==================== */
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(36, 0, 70, 0.6);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(36, 0, 70, 0.4);
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-medium {
+    width: 100%;
+    max-width: 500px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.modal-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #240046;
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #757575;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    background: #F5F5F5;
+    color: #424242;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Form Utilities */
+.btn-full-width {
+    width: 100%;
+    justify-content: center;
+}
+
+.mb-4 {
+    margin-bottom: 1rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.form-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: #9E9E9E;
+    margin-top: 0.5rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #E0E0E0;
+}
+
+/* Client Search Results */
+.client-search-results {
+    margin-top: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.client-search-results.loading::before {
+    content: 'Szukam...';
+    display: block;
+    text-align: center;
+    padding: 2rem;
+    color: #757575;
+}
+
+.client-search-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    border: 1px solid #E0E0E0;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.client-search-item:hover {
+    border-color: #9D4EDD;
+    background: rgba(157, 78, 221, 0.05);
+}
+
+.client-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.client-name {
+    font-weight: 600;
+    color: #240046;
+}
+
+.client-email {
+    font-size: 0.8125rem;
+    color: #757575;
+}
+
+.client-select-btn {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.client-select-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 133, 0, 0.3);
+}
+
+.search-empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #9E9E9E;
+}
+
+.search-empty-state svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.75rem;
+    opacity: 0.5;
 }

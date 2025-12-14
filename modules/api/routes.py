@@ -5,8 +5,10 @@ Internal API endpoints for user preferences and AJAX requests
 
 from flask import jsonify, request
 from flask_login import login_required, current_user
+from sqlalchemy import or_
 from extensions import db
 from . import api_bp
+from utils.decorators import role_required
 
 
 @api_bp.route('/preferences/sidebar', methods=['POST'])
@@ -249,6 +251,7 @@ def search_products():
                 'name': product.name,
                 'sku': product.sku or '',
                 'ean': product.ean or '',
+                'price': float(product.sale_price) if product.sale_price else 0,
                 'image_url': image_url
             })
 
@@ -261,4 +264,154 @@ def search_products():
         return jsonify({
             'success': False,
             'message': f'Error searching products: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/clients/search', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def search_clients():
+    """
+    Search clients by name or email
+    Used for order creation and client lookup
+
+    Query params:
+        q: Search query (min 3 characters)
+        limit: Max results to return (default 10)
+
+    Returns:
+        JSON: {
+            'success': True,
+            'clients': [
+                {
+                    'id': int,
+                    'full_name': str,
+                    'email': str,
+                    'phone': str or None
+                }
+            ]
+        }
+    """
+    try:
+        from modules.auth.models import User
+
+        query = request.args.get('q', '').strip()
+        limit = request.args.get('limit', 10, type=int)
+
+        if len(query) < 3:
+            return jsonify({
+                'success': False,
+                'message': 'Search query must be at least 3 characters'
+            }), 400
+
+        # Search clients (users with role 'client')
+        clients = User.query.filter(
+            User.role == 'client',
+            User.is_active == True,
+            or_(
+                User.first_name.ilike(f'%{query}%'),
+                User.last_name.ilike(f'%{query}%'),
+                User.email.ilike(f'%{query}%'),
+                db.func.concat(User.first_name, ' ', User.last_name).ilike(f'%{query}%')
+            )
+        ).limit(limit).all()
+
+        # Format results
+        results = []
+        for client in clients:
+            results.append({
+                'id': client.id,
+                'full_name': client.full_name,
+                'email': client.email,
+                'phone': client.phone or ''
+            })
+
+        return jsonify({
+            'success': True,
+            'clients': results
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error searching clients: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/clients/create', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def create_client():
+    """
+    Create a new client (user with role 'client')
+    Used for quick client creation during order creation
+
+    Request JSON:
+        {
+            'first_name': str,
+            'last_name': str,
+            'email': str,
+            'phone': str (optional)
+        }
+
+    Returns:
+        JSON: {
+            'success': True,
+            'client_id': int,
+            'message': str
+        }
+    """
+    try:
+        from modules.auth.models import User
+        import secrets
+
+        data = request.get_json()
+
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        email = data.get('email', '').strip().lower()
+        phone = data.get('phone', '').strip()
+
+        # Validate required fields
+        if not first_name or not last_name or not email:
+            return jsonify({
+                'success': False,
+                'error': 'Imię, nazwisko i email są wymagane'
+            }), 400
+
+        # Check if email already exists
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({
+                'success': False,
+                'error': 'Użytkownik z tym adresem email już istnieje'
+            }), 400
+
+        # Create new client with random password (they can reset it later)
+        random_password = secrets.token_urlsafe(16)
+        new_client = User(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone=phone if phone else None,
+            role='client',
+            is_active=True,
+            email_verified=True  # Skip verification for admin-created clients
+        )
+        new_client.set_password(random_password)
+
+        db.session.add(new_client)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'client_id': new_client.id,
+            'message': f'Klient {new_client.full_name} został utworzony'
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Błąd podczas tworzenia klienta: {str(e)}'
         }), 500

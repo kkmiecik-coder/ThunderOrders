@@ -231,7 +231,9 @@ class Order(db.Model):
 
     @property
     def type_display_name(self):
-        """Returns formatted type name"""
+        """Returns formatted type name. For exclusive orders, includes page name."""
+        if self.is_exclusive and self.exclusive_page:
+            return f"Exclusive - {self.exclusive_page.name}"
         if self.type_rel:
             return self.type_rel.name
         return self.order_type
