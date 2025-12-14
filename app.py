@@ -199,41 +199,44 @@ def register_template_filters(app):
     @app.template_filter('format_date')
     def format_date_filter(dt, fmt='%Y-%m-%d'):
         """
-        Formatuje tylko datę z konwersją na czas polski.
+        Formatuje tylko datę.
+        Naive datetime traktowany jako czas polski (nie konwertujemy).
         Użycie: {{ date|format_date }} lub {{ date|format_date('%d.%m.%Y') }}
         """
         if dt is None:
             return ''
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        dt_poland = dt.astimezone(POLAND_TZ)
-        return dt_poland.strftime(fmt)
+        # Naive datetime = już czas polski, nie konwertujemy
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(POLAND_TZ)
+        return dt.strftime(fmt)
 
     @app.template_filter('format_time')
     def format_time_filter(dt, fmt='%H:%M'):
         """
-        Formatuje tylko godzinę z konwersją na czas polski.
+        Formatuje tylko godzinę.
+        Naive datetime traktowany jako czas polski (nie konwertujemy).
         Użycie: {{ date|format_time }} lub {{ date|format_time('%H:%M:%S') }}
         """
         if dt is None:
             return ''
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        dt_poland = dt.astimezone(POLAND_TZ)
-        return dt_poland.strftime(fmt)
+        # Naive datetime = już czas polski, nie konwertujemy
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(POLAND_TZ)
+        return dt.strftime(fmt)
 
     @app.template_filter('format_datetime_local')
     def format_datetime_local_filter(dt):
         """
-        Formatuje datetime dla input type="datetime-local" z konwersją na czas polski.
+        Formatuje datetime dla input type="datetime-local".
+        Naive datetime traktowany jako czas polski (nie konwertujemy).
         Użycie: {{ date|format_datetime_local }}
         """
         if dt is None:
             return ''
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        dt_poland = dt.astimezone(POLAND_TZ)
-        return dt_poland.strftime('%Y-%m-%dT%H:%M')
+        # Naive datetime = już czas polski, nie konwertujemy
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(POLAND_TZ)
+        return dt.strftime('%Y-%m-%dT%H:%M')
 
     @app.template_filter('reject_key')
     def reject_key_filter(d, key):
