@@ -1599,18 +1599,24 @@ function startPolling() {
 
 async function checkAvailability() {
     try {
-        const response = await fetch(
-            `/exclusive/{{ page.token }}/availability?session_id=${reservationState.sessionId}`
-        );
+        const url = `/exclusive/{{ page.token }}/availability?session_id=${reservationState.sessionId}`;
+        console.log('[Availability] Fetching:', url);
+
+        const response = await fetch(url);
+        console.log('[Availability] Response status:', response.status);
 
         if (!response.ok) {
-            console.warn(`Availability check returned ${response.status}`);
+            console.warn(`[Availability] Check returned ${response.status}`);
+            const text = await response.text();
+            console.warn('[Availability] Response body:', text);
             return;
         }
 
         const result = await response.json();
+        console.log('[Availability] Result:', result);
 
         if (result.success) {
+            console.log('[Availability] Products count:', Object.keys(result.products).length);
             // Update button states based on availability
             Object.entries(result.products).forEach(([productId, data]) => {
                 updateProductAvailability(productId, data);
@@ -1624,10 +1630,12 @@ async function checkAvailability() {
             } else {
                 hideReservationHeader();
             }
+        } else {
+            console.warn('[Availability] Success was false:', result);
         }
     } catch (error) {
-        // Network error - silently fail (probably offline)
-        console.debug('Availability check failed (network):', error.message);
+        // Network error - log it clearly
+        console.error('[Availability] Check failed:', error.message, error);
     }
 }
 
@@ -1670,6 +1678,8 @@ function updateProductAvailability(productId, data) {
 // Render availability info (used for both backend updates and optimistic updates)
 function renderAvailabilityInfo(productId, available) {
     const availabilityElements = document.querySelectorAll(`[data-availability-for="${productId}"]`);
+    console.log(`[Availability] renderAvailabilityInfo: productId=${productId}, available=${available}, elements found=${availabilityElements.length}`);
+
     availabilityElements.forEach(el => {
         // Remove all state classes
         el.classList.remove('availability-low', 'availability-none', 'availability-unlimited', 'availability-loading', 'availability-updating');
