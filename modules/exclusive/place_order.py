@@ -62,15 +62,8 @@ def check_product_availability(reservations, page_id):
     for reservation in reservations:
         product = reservation.product
 
-        # Check global product stock
-        if product.quantity < reservation.quantity:
-            return False, {
-                'error': 'insufficient_stock',
-                'product_id': product.id,
-                'product_name': product.name,
-                'requested': reservation.quantity,
-                'available': product.quantity
-            }
+        # NOTE: Exclusive orders do NOT check global product stock (product.quantity)
+        # Availability is controlled only by section limits (max_quantity)
 
         # Check section max_quantity limits
         # 1. Direct product section
@@ -199,7 +192,7 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     db.session.add(order)
     db.session.flush()  # Get order.id
 
-    # 7. Create order items and decrease stock
+    # 7. Create order items (exclusive orders do NOT affect global stock)
     total_amount = Decimal('0.00')
 
     for reservation in reservations:
@@ -220,8 +213,8 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
 
         db.session.add(order_item)
 
-        # Decrease global stock
-        product.quantity -= quantity
+        # NOTE: Exclusive orders do NOT decrease global stock (product.quantity)
+        # Stock is managed separately for exclusive orders
 
         # Update total
         total_amount += item_total

@@ -1464,8 +1464,8 @@ async function restoreReservation(data) {
     }
 }
 
-// Modified increaseQty with reservation
-async function increaseQtyWithReservation(btn) {
+// Modified increaseQty with reservation (non-blocking)
+function increaseQtyWithReservation(btn) {
     if (btn.disabled) return;
 
     const quantityControl = btn.closest('.quantity-control');
@@ -1480,61 +1480,69 @@ async function increaseQtyWithReservation(btn) {
 
     let val = parseInt(input.value) || 0;
 
-    // Optimistic update - immediately decrease displayed availability
+    // Check max limit before updating
+    const max = input.getAttribute('max');
+    if (max && val >= parseInt(max)) {
+        return;
+    }
+
+    // Check set max limit
+    const setSection = input.closest('.section-set');
+    if (setSection) {
+        const setMax = parseInt(setSection.dataset.setMax) || 0;
+        if (setMax > 0 && val >= setMax) {
+            return;
+        }
+    }
+
+    // Check availability
+    const available = productAvailability[productId];
+    if (available !== undefined && available < 999999 && available <= 0) {
+        return;
+    }
+
+    // IMMEDIATE UI update
+    input.value = val + 1;
     optimisticUpdateAvailability(productId, -1);
+    updateCart();
+    saveToLocalStorage();
 
-    // Try to reserve
-    try {
-        const response = await fetch(`/exclusive/{{ page.token }}/reserve`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: 1,
-                action: val === 0 ? 'add' : 'increase'
-            })
-        });
-
-        const result = await response.json();
-
+    // Background reservation (fire and forget)
+    fetch(`/exclusive/{{ page.token }}/reserve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            session_id: reservationState.sessionId,
+            product_id: productId,
+            quantity: 1,
+            action: val === 0 ? 'add' : 'increase'
+        })
+    }).then(r => r.json()).then(result => {
         if (result.success) {
-            // Update input
-            input.value = val + 1;
-
-            // Update reservation state
             if (result.reservation.first_reservation_at) {
                 reservationState.firstReservedAt = result.reservation.first_reservation_at;
                 reservationState.expiresAt = result.reservation.expires_at;
                 showReservationHeader();
             }
-
-            updateCart();
-            saveToLocalStorage();
         } else {
-            // Rollback optimistic update
+            // Rollback on error
+            input.value = Math.max(0, parseInt(input.value) - 1);
             optimisticUpdateAvailability(productId, +1);
-
-            // Show error
+            updateCart();
             if (result.error === 'insufficient_availability') {
                 showUnavailablePopup(result.message, result.check_back_at);
-            } else {
-                showToast(result.message || 'Błąd rezerwacji', 'error');
             }
         }
-    } catch (error) {
-        // Rollback optimistic update
+    }).catch(() => {
+        // Rollback on network error
+        input.value = Math.max(0, parseInt(input.value) - 1);
         optimisticUpdateAvailability(productId, +1);
-
-        console.error('Reservation failed:', error);
-        showToast('Błąd połączenia. Spróbuj ponownie.', 'error');
-    }
+        updateCart();
+    });
 }
 
-// Modified decreaseQty with release
-async function decreaseQtyWithReservation(btn) {
+// Modified decreaseQty with release (non-blocking)
+function decreaseQtyWithReservation(btn) {
     if (btn.disabled) return;
 
     const quantityControl = btn.closest('.quantity-control');
@@ -1549,43 +1557,30 @@ async function decreaseQtyWithReservation(btn) {
     const productSection = input.closest('.section-product, .set-item, .variant-product');
     const productId = productSection.dataset.productId;
 
-    // Optimistic update - immediately increase displayed availability
+    // IMMEDIATE UI update
+    input.value = val - 1;
     optimisticUpdateAvailability(productId, +1);
+    updateCart();
+    saveToLocalStorage();
 
-    try {
-        const response = await fetch(`/exclusive/{{ page.token }}/release`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: 1,
-                action: 'decrease'
-            })
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            input.value = val - 1;
-            updateCart();
-            saveToLocalStorage();
-
-            // If no more reservations, hide header
-            if (cart.length === 0) {
-                hideReservationHeader();
-            }
-        } else {
-            // Rollback optimistic update
-            optimisticUpdateAvailability(productId, -1);
-        }
-    } catch (error) {
-        // Rollback optimistic update
-        optimisticUpdateAvailability(productId, -1);
-        console.error('Release failed:', error);
+    // If no more items in cart, hide header
+    if (cart.length === 0) {
+        hideReservationHeader();
     }
+
+    // Background release (fire and forget)
+    fetch(`/exclusive/{{ page.token }}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            session_id: reservationState.sessionId,
+            product_id: productId,
+            quantity: 1,
+            action: 'decrease'
+        })
+    }).catch(() => {
+        // Silent fail - polling will sync state
+    });
 }
 
 // Polling availability (every 1 second)

@@ -301,13 +301,15 @@ def get_availability_snapshot(page_id, section_products, session_id):
     Returns:
         tuple: (products_data: dict, session_info: dict)
     """
+    from modules.orders.models import Order, OrderItem
+
     cleanup_expired_reservations(page_id)
 
     result = {}
     now = int(time.time())
 
     for product_id, section_max in section_products.items():
-        # Total reserved (all users)
+        # Total reserved (all users) - temporary reservations
         total_reserved = db.session.query(
             func.sum(ExclusiveReservation.quantity)
         ).filter(
@@ -316,20 +318,30 @@ def get_availability_snapshot(page_id, section_products, session_id):
             ExclusiveReservation.expires_at > now
         ).scalar() or 0
 
+        # Total already ordered (permanent) - from completed exclusive orders for this product
+        total_ordered = db.session.query(
+            func.sum(OrderItem.quantity)
+        ).join(Order).filter(
+            Order.exclusive_page_id == page_id,
+            Order.status != 'anulowane',
+            OrderItem.product_id == product_id
+        ).scalar() or 0
+
         # User reserved
         user_reservation = get_user_reservation(session_id, page_id, product_id)
         user_reserved = user_reservation.quantity if user_reservation else 0
 
-        # Available
+        # Available = max - reserved - already ordered
         if section_max and section_max > 0:
-            available = max(0, section_max - total_reserved)
+            available = max(0, section_max - total_reserved - total_ordered)
         else:
             available = float('inf')
 
         result[str(product_id)] = {
             'available': int(available) if available != float('inf') else 999999,
             'user_reserved': user_reserved,
-            'total_reserved': int(total_reserved)
+            'total_reserved': int(total_reserved),
+            'total_ordered': int(total_ordered)
         }
 
     # Session info
