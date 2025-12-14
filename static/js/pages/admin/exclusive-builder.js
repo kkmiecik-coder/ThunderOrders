@@ -609,6 +609,8 @@ function collectPageData() {
             const maxSetsInput = section.querySelector('.set-max-sets');
             const maxSetsVal = maxSetsInput ? parseInt(maxSetsInput.value) : 0;
             sectionData.set_max_sets = maxSetsVal > 0 ? maxSetsVal : null;
+            // Also save as max_quantity for availability calculation
+            sectionData.max_quantity = maxSetsVal > 0 ? maxSetsVal : null;
             sectionData.set_max_per_product = null;
 
             // Collect set items (products and variant groups)
