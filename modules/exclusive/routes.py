@@ -292,13 +292,14 @@ def availability(token):
 
         elif section.section_type == 'set':
             # SET section - get all products from set items
-            # The limit for products in sets is set_max_per_product (GLOBAL limit)
+            # Use set_max_per_product if set, otherwise fall back to max_quantity
+            product_limit = section.set_max_per_product if section.set_max_per_product else section.max_quantity
             set_items = ExclusiveSetItem.query.filter_by(section_id=section.id).all()
 
             for set_item in set_items:
                 if set_item.product_id:
                     # Direct product in set
-                    section_products[set_item.product_id] = section.set_max_per_product
+                    section_products[set_item.product_id] = product_limit
                 elif set_item.variant_group_id:
                     # Variant group in set - get all products from the group
                     vg_products = Product.query.join(
@@ -308,7 +309,7 @@ def availability(token):
                         Product.is_active == True
                     ).all()
                     for product in vg_products:
-                        section_products[product.id] = section.set_max_per_product
+                        section_products[product.id] = product_limit
 
     products_data, session_info = get_availability_snapshot(
         page_id=page.id,
