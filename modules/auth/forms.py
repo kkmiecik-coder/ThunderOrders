@@ -152,3 +152,93 @@ class ResetPasswordForm(FlaskForm):
     )
 
     submit = SubmitField('Zmień hasło')
+
+
+class VerificationCodeForm(FlaskForm):
+    """Formularz weryfikacji kodem 6-cyfrowym"""
+
+    digit1 = StringField(
+        validators=[
+            DataRequired(message=''),
+            Length(min=1, max=1),
+            Regexp(r'^\d$', message='')
+        ],
+        render_kw={
+            'maxlength': '1',
+            'pattern': '[0-9]',
+            'inputmode': 'numeric',
+            'autocomplete': 'one-time-code',
+            'autofocus': True
+        }
+    )
+
+    digit2 = StringField(
+        validators=[
+            DataRequired(message=''),
+            Length(min=1, max=1),
+            Regexp(r'^\d$', message='')
+        ],
+        render_kw={
+            'maxlength': '1',
+            'pattern': '[0-9]',
+            'inputmode': 'numeric'
+        }
+    )
+
+    digit3 = StringField(
+        validators=[
+            DataRequired(message=''),
+            Length(min=1, max=1),
+            Regexp(r'^\d$', message='')
+        ],
+        render_kw={
+            'maxlength': '1',
+            'pattern': '[0-9]',
+            'inputmode': 'numeric'
+        }
+    )
+
+    digit4 = StringField(
+        validators=[
+            DataRequired(message=''),
+            Length(min=1, max=1),
+            Regexp(r'^\d$', message='')
+        ],
+        render_kw={
+            'maxlength': '1',
+            'pattern': '[0-9]',
+            'inputmode': 'numeric'
+        }
+    )
+
+    digit5 = StringField(
+        validators=[
+            DataRequired(message=''),
+            Length(min=1, max=1),
+            Regexp(r'^\d$', message='')
+        ],
+        render_kw={
+            'maxlength': '1',
+            'pattern': '[0-9]',
+            'inputmode': 'numeric'
+        }
+    )
+
+    digit6 = StringField(
+        validators=[
+            DataRequired(message=''),
+            Length(min=1, max=1),
+            Regexp(r'^\d$', message='')
+        ],
+        render_kw={
+            'maxlength': '1',
+            'pattern': '[0-9]',
+            'inputmode': 'numeric'
+        }
+    )
+
+    submit = SubmitField('Weryfikuj')
+
+    def get_full_code(self):
+        """Zwraca pełny 6-cyfrowy kod z połączonych pól"""
+        return f"{self.digit1.data}{self.digit2.data}{self.digit3.data}{self.digit4.data}{self.digit5.data}{self.digit6.data}"

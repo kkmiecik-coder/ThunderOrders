@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/login.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/verify-code.css') }}">
+{% endblock %}
+
+{% block title %}Weryfikacja email - ThunderOrders{% endblock %}
+
+{% block body_content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <!-- Left side - Form -->
+        <div class="auth-form-section">
+            <div class="auth-header">
+                <img src="{{ url_for('static', filename='img/icons/logo-full-black.svg') }}" alt="ThunderOrders" class="auth-logo">
+                <h1 class="auth-title">Weryfikacja email</h1>
+                <p class="auth-subtitle">
+                    Wysłaliśmy 6-cyfrowy kod weryfikacyjny na adres:<br>
+                    <strong>{{ user_email }}</strong>
+                </p>
+            </div>
+
+            <form method="POST" action="{{ url_for('auth.verify_email_code', token=token) }}" class="auth-form" id="verification-form">
+                {{ form.hidden_tag() }}
+
+                <!-- 6-digit Code Inputs -->
+                <div class="code-inputs-container">
+                    <div class="code-inputs">
+                        {{ form.digit1(class="code-input", id="digit1", data_index="0") }}
+                        {{ form.digit2(class="code-input", id="digit2", data_index="1") }}
+                        {{ form.digit3(class="code-input", id="digit3", data_index="2") }}
+                        {{ form.digit4(class="code-input", id="digit4", data_index="3") }}
+                        {{ form.digit5(class="code-input", id="digit5", data_index="4") }}
+                        {{ form.digit6(class="code-input", id="digit6", data_index="5") }}
+                    </div>
+                    {% if form.digit1.errors or form.digit2.errors or form.digit3.errors or form.digit4.errors or form.digit5.errors or form.digit6.errors %}
+                        <div class="form-error code-error">
+                            Wprowadź wszystkie 6 cyfr kodu.
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="auth-submit" id="verify-btn">
+                    Weryfikuj
+                </button>
+
+                <!-- Resend Code -->
+                <div class="resend-container">
+                    <p class="resend-text" id="resend-text">
+                        {% if can_resend %}
+                            Nie otrzymałeś kodu?
+                        {% else %}
+                            Wyślij kod ponownie za <span id="countdown">{{ seconds_remaining }}</span>s
+                        {% endif %}
+                    </p>
+                    <button type="button"
+                            class="resend-btn {% if not can_resend %}disabled{% endif %}"
+                            id="resend-btn"
+                            data-token="{{ token }}"
+                            {% if not can_resend %}disabled{% endif %}>
+                        Wyślij ponownie
+                    </button>
+                </div>
+
+                <!-- Back to Login -->
+                <div class="auth-register-link">
+                    <a href="{{ url_for('auth.login') }}">Powrót do logowania</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Right side - Image/Gradient -->
+        <div class="auth-image-section">
+            <div class="auth-image-content">
+                <img src="{{ url_for('static', filename='img/auth-bg.jpg') }}" alt="Welcome" class="auth-image">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/auth/verify-code.js') }}"></script>
+<script>
+    // Initialize countdown if needed
+    {% if not can_resend %}
+    initCountdown({{ seconds_remaining }});
+    {% endif %}
+</script>
+{% endblock %}

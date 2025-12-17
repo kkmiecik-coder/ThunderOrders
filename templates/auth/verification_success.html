@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/login.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/verify-code.css') }}">
+{% endblock %}
+
+{% block title %}Weryfikacja zakończona - ThunderOrders{% endblock %}
+
+{% block body_content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <!-- Left side - Success Message -->
+        <div class="auth-form-section">
+            <div class="auth-header">
+                <img src="{{ url_for('static', filename='img/icons/logo-full-black.svg') }}" alt="ThunderOrders" class="auth-logo">
+
+                <div class="success-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="m9 12 2 2 4-4"></path>
+                    </svg>
+                </div>
+
+                <h1 class="auth-title success-title">Konto aktywowane!</h1>
+                <p class="auth-subtitle">
+                    Twój adres email został pomyślnie zweryfikowany.<br>
+                    Możesz teraz zalogować się na swoje konto.
+                </p>
+            </div>
+
+            <div class="auth-form">
+                <a href="{{ url_for('auth.login') }}" class="auth-submit success-btn">
+                    Przejdź do logowania
+                </a>
+            </div>
+        </div>
+
+        <!-- Right side - Image/Gradient -->
+        <div class="auth-image-section">
+            <div class="auth-image-content">
+                <img src="{{ url_for('static', filename='img/auth-bg.jpg') }}" alt="Welcome" class="auth-image">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

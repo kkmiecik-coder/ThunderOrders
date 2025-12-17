@@ -62,7 +62,7 @@ def send_email(to, subject, template, **kwargs):
 
 def send_verification_email(user_email, verification_token, user_name):
     """
-    Wysyła email weryfikacyjny po rejestracji
+    Wysyła email weryfikacyjny po rejestracji (legacy - stary system z linkami)
 
     Args:
         user_email (str): Email użytkownika
@@ -77,6 +77,27 @@ def send_verification_email(user_email, verification_token, user_name):
         template='verify_email',
         user_name=user_name,
         verification_url=verification_url
+    )
+
+
+def send_verification_code_email(user_email, verification_code, user_name):
+    """
+    Wysyła email z 6-cyfrowym kodem weryfikacyjnym
+
+    Args:
+        user_email (str): Email użytkownika
+        verification_code (str): 6-cyfrowy kod weryfikacyjny
+        user_name (str): Imię użytkownika
+
+    Returns:
+        bool: True jeśli email został wysłany
+    """
+    return send_email(
+        to=user_email,
+        subject='Twój kod weryfikacyjny - ThunderOrders',
+        template='verification_code',
+        user_name=user_name,
+        verification_code=verification_code
     )
 
 

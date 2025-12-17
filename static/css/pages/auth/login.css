@@ -110,6 +110,60 @@
   padding: 0 0.5rem;
 }
 
+/* Autofill detection - Safari/Chrome autofill styles */
+@keyframes onAutoFillStart {
+  from { /* empty */ }
+  to { /* empty */ }
+}
+
+@keyframes onAutoFillCancel {
+  from { /* empty */ }
+  to { /* empty */ }
+}
+
+.auth-input:-webkit-autofill {
+  animation-name: onAutoFillStart;
+  /* Override browser autofill styling */
+  -webkit-box-shadow: 0 0 0 1000px var(--gray-100) inset !important;
+  -webkit-text-fill-color: var(--gray-800) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+.auth-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px white inset !important;
+}
+
+/* When autofill is active, move label up */
+.auth-input:-webkit-autofill + .auth-input-label,
+.password-toggle-wrapper .auth-input:-webkit-autofill ~ .auth-input-label {
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--orange-300);
+  background: white;
+  padding: 0 0.5rem;
+}
+
+/* Fix for label inside password-toggle-wrapper */
+.password-toggle-wrapper + .auth-input-label {
+  /* Label is sibling of wrapper, need to handle differently */
+}
+
+.auth-input-group .password-toggle-wrapper ~ .auth-input-label {
+  /* When input has value or is focused, label should be up */
+}
+
+.auth-input-group:has(.auth-input:focus) .auth-input-label,
+.auth-input-group:has(.auth-input.has-value) .auth-input-label,
+.auth-input-group:has(.auth-input:-webkit-autofill) .auth-input-label {
+  top: 0;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--orange-300);
+  background: white;
+  padding: 0 0.5rem;
+}
+
 .auth-options {
   display: flex;
   justify-content: space-between;

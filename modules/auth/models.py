@@ -3,10 +3,11 @@ Auth Module - User Model
 Model użytkownika z metodami autentykacji
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
+import random
 
 # Import db z extensions.py (unika circular import)
 from extensions import db
@@ -48,10 +49,18 @@ class User(UserMixin, db.Model):
     deactivated_at = db.Column(db.DateTime)
     deactivated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
-    # Verification & Reset Tokens
+    # Verification & Reset Tokens (legacy - kept for backward compatibility)
     email_verification_token = db.Column(db.String(255), index=True)
     password_reset_token = db.Column(db.String(255), index=True)
     password_reset_expires = db.Column(db.DateTime)
+
+    # New 6-digit code verification system
+    email_verification_code = db.Column(db.String(6))
+    email_verification_code_expires = db.Column(db.DateTime)
+    email_verification_code_sent_at = db.Column(db.DateTime)
+    email_verification_attempts = db.Column(db.Integer, default=0)
+    email_verification_locked_until = db.Column(db.DateTime)
+    verification_session_token = db.Column(db.String(64), index=True)
 
     # Timestamps
     last_login = db.Column(db.DateTime)
@@ -159,13 +168,150 @@ class User(UserMixin, db.Model):
         self.password_reset_expires = None
 
     # ============================================
-    # Email Verification Methods
+    # Email Verification Methods (6-digit code system)
     # ============================================
 
+    def generate_verification_code(self):
+        """
+        Generuje 6-cyfrowy kod weryfikacyjny i token sesji.
+        Kod ważny przez 24h.
+
+        Returns:
+            tuple: (code, session_token)
+        """
+        # Generuj 6-cyfrowy kod
+        self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+        # Ustaw czas wygaśnięcia (24h)
+        self.email_verification_code_expires = datetime.utcnow() + timedelta(hours=24)
+
+        # Zapisz czas wysłania (do cooldown 60s)
+        self.email_verification_code_sent_at = datetime.utcnow()
+
+        # Resetuj licznik prób
+        self.email_verification_attempts = 0
+        self.email_verification_locked_until = None
+
+        # Generuj token sesji weryfikacji
+        self.verification_session_token = secrets.token_urlsafe(32)
+
+        return self.email_verification_code, self.verification_session_token
+
+    def verify_code(self, code):
+        """
+        Weryfikuje podany kod. Obsługuje blokadę po 5 nieudanych próbach.
+
+        Args:
+            code (str): 6-cyfrowy kod do weryfikacji
+
+        Returns:
+            tuple: (success: bool, error_message: str|None)
+        """
+        # Sprawdź czy weryfikacja nie jest zablokowana
+        if self.is_verification_locked():
+            remaining = (self.email_verification_locked_until - datetime.utcnow()).seconds // 60
+            return False, f'Weryfikacja zablokowana. Spróbuj ponownie za {remaining + 1} minut.'
+
+        # Sprawdź czy kod nie wygasł
+        if not self.email_verification_code_expires or datetime.utcnow() > self.email_verification_code_expires:
+            return False, 'Kod weryfikacyjny wygasł. Wyślij nowy kod.'
+
+        # Sprawdź kod
+        if self.email_verification_code != code:
+            self.email_verification_attempts = (self.email_verification_attempts or 0) + 1
+
+            # Blokada po 5 próbach
+            if self.email_verification_attempts >= 5:
+                self.email_verification_locked_until = datetime.utcnow() + timedelta(minutes=15)
+                return False, 'Zbyt wiele nieudanych prób. Weryfikacja zablokowana na 15 minut.'
+
+            remaining = 5 - self.email_verification_attempts
+            return False, f'Niepoprawny kod. Pozostało prób: {remaining}.'
+
+        # Kod poprawny - weryfikuj email
+        self.verify_email()
+        return True, None
+
     def verify_email(self):
-        """Oznacza email jako zweryfikowany"""
+        """Oznacza email jako zweryfikowany i czyści dane weryfikacji"""
         self.email_verified = True
+        # Wyczyść stary system tokenów
         self.email_verification_token = None
+        # Wyczyść nowy system kodów
+        self.email_verification_code = None
+        self.email_verification_code_expires = None
+        self.email_verification_code_sent_at = None
+        self.email_verification_attempts = 0
+        self.email_verification_locked_until = None
+        self.verification_session_token = None
+
+    def can_resend_code(self):
+        """
+        Sprawdza czy można wysłać nowy kod (cooldown 60s).
+
+        Returns:
+            tuple: (can_resend: bool, seconds_remaining: int)
+        """
+        if not self.email_verification_code_sent_at:
+            return True, 0
+
+        elapsed = (datetime.utcnow() - self.email_verification_code_sent_at).total_seconds()
+        if elapsed >= 60:
+            return True, 0
+
+        return False, int(60 - elapsed)
+
+    def resend_verification_code(self):
+        """
+        Generuje nowy kod weryfikacyjny (unieważnia poprzedni).
+        Token sesji pozostaje ten sam.
+
+        Returns:
+            str: Nowy 6-cyfrowy kod lub None jeśli cooldown aktywny
+        """
+        can_resend, _ = self.can_resend_code()
+        if not can_resend:
+            return None
+
+        # Generuj nowy kod (unieważnia poprzedni)
+        self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+
+        # Ustaw nowy czas wygaśnięcia (24h)
+        self.email_verification_code_expires = datetime.utcnow() + timedelta(hours=24)
+
+        # Zapisz czas wysłania
+        self.email_verification_code_sent_at = datetime.utcnow()
+
+        # Resetuj licznik prób przy nowym kodzie
+        self.email_verification_attempts = 0
+        self.email_verification_locked_until = None
+
+        return self.email_verification_code
+
+    def is_verification_locked(self):
+        """
+        Sprawdza czy weryfikacja jest zablokowana.
+
+        Returns:
+            bool: True jeśli zablokowana
+        """
+        if not self.email_verification_locked_until:
+            return False
+
+        return datetime.utcnow() < self.email_verification_locked_until
+
+    @classmethod
+    def get_by_verification_session_token(cls, token):
+        """
+        Znajduje użytkownika po tokenie sesji weryfikacji.
+
+        Args:
+            token (str): Token sesji weryfikacji
+
+        Returns:
+            User|None: Obiekt użytkownika lub None
+        """
+        return cls.query.filter_by(verification_session_token=token).first()
 
     # ============================================
     # Helper Methods

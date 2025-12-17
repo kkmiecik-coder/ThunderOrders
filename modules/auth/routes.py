@@ -15,7 +15,8 @@ from modules.auth.forms import (
     LoginForm,
     RegisterForm,
     ForgotPasswordForm,
-    ResetPasswordForm
+    ResetPasswordForm,
+    VerificationCodeForm
 )
 
 
@@ -57,7 +58,7 @@ def record_login_attempt(email, ip_address, success):
 
 def send_verification_email(user):
     """
-    Wysyła email weryfikacyjny
+    Wysyła email weryfikacyjny (legacy - stary system z linkami)
 
     Args:
         user (User): Użytkownik
@@ -73,6 +74,27 @@ def send_verification_email(user):
         current_app.logger.info(f"Verification email sent to {user.email}")
     except Exception as e:
         current_app.logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+
+
+def send_verification_code(user, code):
+    """
+    Wysyła email z 6-cyfrowym kodem weryfikacyjnym
+
+    Args:
+        user (User): Użytkownik
+        code (str): 6-cyfrowy kod weryfikacyjny
+    """
+    from utils.email_sender import send_verification_code_email
+
+    try:
+        send_verification_code_email(
+            user_email=user.email,
+            verification_code=code,
+            user_name=user.first_name
+        )
+        current_app.logger.info(f"Verification code sent to {user.email}")
+    except Exception as e:
+        current_app.logger.error(f"Failed to send verification code to {user.email}: {str(e)}")
 
 
 def send_password_reset_email(user):
@@ -143,9 +165,18 @@ def login():
 
         # Sprawdź czy email został zweryfikowany
         if not user.email_verified:
-            flash('Musisz zweryfikować swój adres email. Sprawdź swoją skrzynkę pocztową.', 'warning')
-            # TODO: Opcjonalnie - przycisk "Wyślij ponownie email weryfikacyjny"
-            return redirect(url_for('auth.login'))
+            # Jeśli nie ma tokena sesji lub kod wygasł, wygeneruj nowy
+            if not user.verification_session_token or not user.email_verification_code_expires or \
+               datetime.utcnow() > user.email_verification_code_expires:
+                code, session_token = user.generate_verification_code()
+                db.session.commit()
+                # Wyślij nowy kod
+                send_verification_code(user, code)
+            else:
+                session_token = user.verification_session_token
+
+            flash('Twoje konto nie zostało jeszcze zweryfikowane. Wpisz kod, który wysłaliśmy na Twój email.', 'warning')
+            return redirect(url_for('auth.verify_email_code', token=session_token))
 
         # Logowanie pomyślne
         login_user(user, remember=remember)
@@ -175,7 +206,7 @@ def register():
     """
     Strona rejestracji
     GET: Wyświetla formularz
-    POST: Przetwarza rejestrację
+    POST: Przetwarza rejestrację i przekierowuje na stronę weryfikacji kodem
     """
     # Jeśli użytkownik już zalogowany, przekieruj
     if current_user.is_authenticated:
@@ -207,22 +238,19 @@ def register():
         # Ustaw hasło (zahashowane)
         user.set_password(form.password.data)
 
-        # Wygeneruj token weryfikacji emaila
-        user.generate_verification_token()
+        # Wygeneruj 6-cyfrowy kod weryfikacyjny i token sesji
+        code, session_token = user.generate_verification_code()
 
         # Zapisz do bazy
         try:
             db.session.add(user)
             db.session.commit()
 
-            # Wyślij email weryfikacyjny
-            send_verification_email(user)
+            # Wyślij email z kodem weryfikacyjnym
+            send_verification_code(user, code)
 
-            flash(
-                'Rejestracja pomyślna! Sprawdź swoją skrzynkę email, aby aktywować konto.',
-                'success'
-            )
-            return redirect(url_for('auth.login'))
+            # Przekieruj na stronę weryfikacji kodem
+            return redirect(url_for('auth.verify_email_code', token=session_token))
 
         except Exception as e:
             db.session.rollback()
@@ -339,3 +367,130 @@ def reset_password(token):
         return redirect(url_for('auth.login'))
 
     return render_template('auth/reset_password.html', form=form, title='Nowe hasło', token=token)
+
+
+# =============================================
+# New 6-digit Code Verification Routes
+# =============================================
+
+@auth_bp.route('/verify-email-code/<token>', methods=['GET', 'POST'])
+def verify_email_code(token):
+    """
+    Strona weryfikacji emaila 6-cyfrowym kodem
+    GET: Wyświetla formularz z 6 inputami na kod
+    POST: Weryfikuje wprowadzony kod
+
+    Args:
+        token (str): Token sesji weryfikacji (bezpieczny, zakodowany)
+    """
+    # Jeśli użytkownik już zalogowany, przekieruj
+    if current_user.is_authenticated:
+        return redirect(url_for('client.dashboard'))
+
+    # Znajdź użytkownika po tokenie sesji
+    user = User.get_by_verification_session_token(token)
+
+    if user is None:
+        flash('Link weryfikacyjny jest nieprawidłowy lub wygasł.', 'error')
+        return redirect(url_for('auth.login'))
+
+    # Sprawdź czy email nie jest już zweryfikowany
+    if user.email_verified:
+        flash('Twój email został już zweryfikowany. Możesz się zalogować.', 'info')
+        return redirect(url_for('auth.login'))
+
+    form = VerificationCodeForm()
+
+    # Oblicz pozostały czas do ponownego wysłania kodu
+    can_resend, seconds_remaining = user.can_resend_code()
+
+    if form.validate_on_submit():
+        # Pobierz pełny kod z formularza
+        code = form.get_full_code()
+
+        # Weryfikuj kod
+        success, error_message = user.verify_code(code)
+        db.session.commit()
+
+        if success:
+            # Przekieruj na stronę sukcesu
+            return redirect(url_for('auth.verification_success'))
+        else:
+            flash(error_message, 'error')
+            return redirect(url_for('auth.verify_email_code', token=token))
+
+    return render_template(
+        'auth/verify_email_code.html',
+        form=form,
+        title='Weryfikacja email',
+        token=token,
+        user_email=user.email,
+        can_resend=can_resend,
+        seconds_remaining=seconds_remaining
+    )
+
+
+@auth_bp.route('/resend-code/<token>', methods=['POST'])
+def resend_verification_code(token):
+    """
+    Endpoint do ponownego wysłania kodu weryfikacyjnego (AJAX)
+
+    Args:
+        token (str): Token sesji weryfikacji
+
+    Returns:
+        JSON response z nowym czasem do ponownego wysłania
+    """
+    from flask import jsonify
+
+    # Znajdź użytkownika po tokenie sesji
+    user = User.get_by_verification_session_token(token)
+
+    if user is None:
+        return jsonify({
+            'success': False,
+            'error': 'Nieprawidłowy token sesji.'
+        }), 400
+
+    if user.email_verified:
+        return jsonify({
+            'success': False,
+            'error': 'Email został już zweryfikowany.'
+        }), 400
+
+    # Sprawdź czy można wysłać nowy kod (cooldown 60s)
+    can_resend, seconds_remaining = user.can_resend_code()
+
+    if not can_resend:
+        return jsonify({
+            'success': False,
+            'error': f'Poczekaj jeszcze {seconds_remaining} sekund przed wysłaniem nowego kodu.',
+            'seconds_remaining': seconds_remaining
+        }), 429
+
+    # Wygeneruj nowy kod (unieważnia poprzedni)
+    new_code = user.resend_verification_code()
+    db.session.commit()
+
+    if new_code:
+        # Wyślij email z nowym kodem
+        send_verification_code(user, new_code)
+
+        return jsonify({
+            'success': True,
+            'message': 'Nowy kod został wysłany na Twój email.',
+            'seconds_remaining': 60
+        })
+
+    return jsonify({
+        'success': False,
+        'error': 'Nie udało się wysłać nowego kodu. Spróbuj ponownie.'
+    }), 500
+
+
+@auth_bp.route('/verification-success')
+def verification_success():
+    """
+    Strona sukcesu po weryfikacji emaila
+    """
+    return render_template('auth/verification_success.html', title='Weryfikacja zakończona')

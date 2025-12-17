@@ -2,6 +2,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/login.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/verify-code.css') }}">
 {% endblock %}
 
 {% block title %}Logowanie - ThunderOrders{% endblock %}
@@ -37,12 +38,20 @@
                     {% endif %}
                 </div>
 
-                <!-- Password Input -->
+                <!-- Password Input with Toggle -->
                 <div class="auth-input-group">
-                    {{ form.password(
-                        class="auth-input",
-                        placeholder=" "
-                    ) }}
+                    <div class="password-toggle-wrapper">
+                        {{ form.password(
+                            class="auth-input",
+                            placeholder=" "
+                        ) }}
+                        <button type="button" class="password-toggle-btn" tabindex="-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        </button>
+                    </div>
                     <label for="password" class="auth-input-label">Hasło</label>
                     {% if form.password.errors %}
                         <div class="form-error">
@@ -88,6 +97,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/components/password-toggle.js') }}"></script>
 <script>
 // Floating label logic - check if input has value on page load
 document.addEventListener('DOMContentLoaded', function() {
