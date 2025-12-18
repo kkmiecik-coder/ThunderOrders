@@ -1340,3 +1340,792 @@
   border-radius: 4px;
   object-fit: contain;
 }
+
+/* ==========================================
+   DARK MODE - GLASSMORPHISM
+   ========================================== */
+
+/* Page Background */
+[data-theme="dark"] .products-page {
+  background: transparent;
+}
+
+/* Top Bar */
+[data-theme="dark"] .products-top-bar {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .filter-toggle-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .filter-toggle-btn:hover {
+  background: rgba(240, 147, 251, 0.1);
+  border-color: rgba(240, 147, 251, 0.4);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .search-input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .search-input:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Import & Add Buttons */
+[data-theme="dark"] .btn-import-csv {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-import-csv:hover {
+  box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .btn-add-product {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+}
+
+[data-theme="dark"] .btn-add-product:hover {
+  box-shadow: 0 6px 20px rgba(74, 222, 128, 0.4);
+}
+
+/* Filters Panel */
+[data-theme="dark"] .filters-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .filter-group label {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .filter-select,
+[data-theme="dark"] .filter-input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .filter-select:focus,
+[data-theme="dark"] .filter-input:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+/* Toolbar */
+[data-theme="dark"] .products-toolbar {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .toolbar-select {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .toolbar-select:hover {
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .toolbar-select-grouped optgroup {
+  background: rgba(15, 12, 41, 0.95);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .toolbar-select-grouped option {
+  background: rgba(15, 12, 41, 0.95);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .toolbar-btn-operation {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .toolbar-btn-operation:hover {
+  background: rgba(240, 147, 251, 0.1);
+  border-color: rgba(240, 147, 251, 0.4);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .toolbar-btn-operation .toolbar-icon {
+  filter: brightness(0) invert(1);
+  opacity: 0.7;
+}
+
+[data-theme="dark"] .toolbar-btn-operation:hover .toolbar-icon {
+  opacity: 1;
+}
+
+[data-theme="dark"] .toolbar-btn-operation.btn-delete {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #f87171;
+}
+
+[data-theme="dark"] .toolbar-btn-operation.btn-delete:hover {
+  background: rgba(248, 113, 113, 0.3);
+  border-color: rgba(248, 113, 113, 0.6);
+}
+
+[data-theme="dark"] .products-count {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .products-count strong {
+  color: #f0f0f0;
+}
+
+/* Pagination */
+[data-theme="dark"] .pagination-arrow {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .pagination-arrow:hover {
+  background: rgba(240, 147, 251, 0.1);
+  border-color: rgba(240, 147, 251, 0.4);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .pagination-arrow.disabled {
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .pagination-input {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .pagination-sep {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .pagination-total {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Products Table Container */
+[data-theme="dark"] .products-table-container {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Products Table */
+[data-theme="dark"] .products-table thead {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 2px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .products-table th {
+  color: rgba(255, 255, 255, 0.7);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .products-table th svg {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .products-table tbody tr {
+  border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .products-table tbody tr:hover {
+  background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .products-table tbody tr.inactive {
+  opacity: 0.4;
+}
+
+[data-theme="dark"] .products-table td {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Checkbox */
+[data-theme="dark"] .products-table input[type="checkbox"] {
+  accent-color: #f093fb;
+}
+
+/* Product Thumbnail */
+[data-theme="dark"] .product-thumbnail {
+  border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .product-thumbnail-placeholder {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+/* Product Name & IDs */
+[data-theme="dark"] .product-name-link {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .product-name-link:hover {
+  color: #f5576c;
+}
+
+[data-theme="dark"] .product-ids {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .copyable-value:hover {
+  background: rgba(240, 147, 251, 0.15);
+  color: #f0f0f0;
+}
+
+/* Stock Value */
+[data-theme="dark"] .stock-value.in-stock {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .stock-value.low-stock {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .stock-value.out-of-stock {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* Price Value */
+[data-theme="dark"] .price-value {
+  color: #f0f0f0;
+}
+
+/* Series Name */
+[data-theme="dark"] .series-name {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Tags */
+[data-theme="dark"] .tag-badge {
+  background: rgba(79, 172, 254, 0.2);
+  color: #4facfe;
+}
+
+[data-theme="dark"] .tag-badge.tag-more {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .tag-badge-xs {
+  background: rgba(240, 147, 251, 0.2);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .tag-badge-xs.tag-more {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Type Badges */
+[data-theme="dark"] .type-badge.type-pre-order {
+  background: rgba(79, 172, 254, 0.2);
+  color: #4facfe;
+}
+
+[data-theme="dark"] .type-badge.type-on-hand {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .type-badge.type-exclusive {
+  background: rgba(240, 147, 251, 0.2);
+  color: #f093fb;
+}
+
+/* Variants Badge */
+[data-theme="dark"] .variants-badge {
+  background: rgba(240, 147, 251, 0.2);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .variants-badge:hover {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+}
+
+/* Status Badges */
+[data-theme="dark"] .status-badge.status-active {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .status-badge.status-inactive {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* Text Muted */
+[data-theme="dark"] .text-muted {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Menu Button */
+[data-theme="dark"] .menu-btn {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .menu-btn:hover {
+  background: rgba(240, 147, 251, 0.15);
+  color: #f093fb;
+}
+
+/* Empty State */
+[data-theme="dark"] .empty-state {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  border-radius: 8px;
+}
+
+[data-theme="dark"] .empty-state h3 {
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .empty-state p {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Modal Overlay */
+[data-theme="dark"] .modal-overlay {
+  background: rgba(15, 12, 41, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Modal Container */
+[data-theme="dark"] .modal-container {
+  background: rgba(15, 12, 41, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .modal-header {
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .modal-header h2 {
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .modal-close {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .modal-close:hover {
+  background: rgba(240, 147, 251, 0.1);
+  color: #f0f0f0;
+}
+
+/* CSV Upload Area */
+[data-theme="dark"] .csv-upload-area {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .csv-upload-area:hover {
+  border-color: #f093fb;
+  background: rgba(240, 147, 251, 0.05);
+}
+
+[data-theme="dark"] .csv-upload-area.dragover {
+  border-color: #f093fb;
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .csv-upload-area svg {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .csv-upload-area p {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .csv-upload-area .upload-hint {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .csv-upload-area .upload-hint a {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .csv-upload-area .upload-hint a:hover {
+  color: #f5576c;
+}
+
+/* Import History Section */
+[data-theme="dark"] .import-history-section h3 {
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .import-history-table {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .import-history-table thead {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .import-history-table th {
+  color: rgba(255, 255, 255, 0.7);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .import-history-table td {
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .import-history-table tbody tr:hover {
+  background: rgba(240, 147, 251, 0.08);
+}
+
+/* Import Status Badges - Dark */
+[data-theme="dark"] .status-success {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+[data-theme="dark"] .status-warning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .status-error {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+[data-theme="dark"] .status-info {
+  background: rgba(79, 172, 254, 0.2);
+  color: #4facfe;
+}
+
+/* Import Options Section */
+[data-theme="dark"] .import-options {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .form-group-inline label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .form-group-inline input[type="checkbox"] {
+  accent-color: #f093fb;
+}
+
+/* Import Match Section */
+[data-theme="dark"] .import-match-section {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .import-match-section label {
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .form-control-inline {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .form-control-inline:hover {
+  border-color: #f093fb;
+}
+
+[data-theme="dark"] .form-control-inline:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.15);
+}
+
+/* CSV Preview Table */
+[data-theme="dark"] .csv-preview-section h4 {
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .csv-preview-table {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .csv-preview-table th {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .csv-preview-table td {
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .csv-preview-table tbody tr.first-row-header.row-skipped {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .csv-preview-table tbody tr.first-row-header.row-skipped td {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .csv-preview-table .csv-column-names-row th {
+  background: rgba(255, 255, 255, 0.05);
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .csv-preview-table .column-mapping-row th {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Match Column Highlighting - Dark */
+[data-theme="dark"] .csv-preview-table th.match-column-highlight,
+[data-theme="dark"] .csv-preview-table td.match-column-highlight {
+  background: rgba(240, 147, 251, 0.15) !important;
+  border-left-color: #f093fb;
+  border-right-color: #f093fb;
+}
+
+[data-theme="dark"] .csv-preview-table .csv-column-names-row th.match-column-highlight {
+  background: rgba(240, 147, 251, 0.2) !important;
+  color: #f093fb;
+}
+
+[data-theme="dark"] .column-mapping-select {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .column-mapping-select:hover {
+  border-color: #f093fb;
+}
+
+[data-theme="dark"] .column-mapping-select:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.15);
+}
+
+/* Progress Modal */
+[data-theme="dark"] .progress-info p {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .progress-bar-container {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .progress-bar {
+  background: linear-gradient(90deg, #f093fb, #f5576c);
+}
+
+[data-theme="dark"] .progress-percent {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .progress-warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .progress-warning svg {
+  color: #fbbf24;
+}
+
+/* Modal Actions */
+[data-theme="dark"] .modal-actions {
+  border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Form Hints */
+[data-theme="dark"] .form-hint {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Image Preview Tooltip - Dark */
+[data-theme="dark"] .image-preview-tooltip-inner {
+  background: rgba(15, 12, 41, 0.98);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(240, 147, 251, 0.1);
+}
+
+/* Button Styles */
+[data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.3);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(240, 147, 251, 0.15);
+  border-color: #f093fb;
+  color: #f0f0f0;
+}
+
+/* Column Mapping Item */
+[data-theme="dark"] .column-mapping-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .mapping-label {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .csv-column-name {
+  color: #f0f0f0;
+}
+
+[data-theme="dark"] .arrow {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .product-field-select select {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: #f0f0f0;
+}
+
+/* Star Button */
+[data-theme="dark"] .star-btn {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .star-btn:hover {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .star-btn.starred {
+  color: #fbbf24 !important;
+}
+
+/* Transitions for smooth theme switching */
+.products-page,
+.products-top-bar,
+.filter-toggle-btn,
+.search-input,
+.btn-import-csv,
+.btn-add-product,
+.filters-panel,
+.filter-group label,
+.filter-select,
+.filter-input,
+.products-toolbar,
+.toolbar-select,
+.toolbar-btn-operation,
+.products-count,
+.products-count strong,
+.pagination-arrow,
+.pagination-input,
+.pagination-sep,
+.pagination-total,
+.products-table-container,
+.products-table thead,
+.products-table th,
+.products-table tbody tr,
+.products-table td,
+.product-thumbnail,
+.product-thumbnail-placeholder,
+.product-name-link,
+.product-ids,
+.copyable-value,
+.stock-value,
+.price-value,
+.series-name,
+.tag-badge,
+.tag-badge-xs,
+.type-badge,
+.variants-badge,
+.status-badge,
+.text-muted,
+.menu-btn,
+.empty-state,
+.empty-state h3,
+.empty-state p,
+.modal-overlay,
+.modal-container,
+.modal-header,
+.modal-header h2,
+.modal-close,
+.csv-upload-area,
+.import-history-section h3,
+.import-history-table,
+.import-history-table thead,
+.import-history-table th,
+.import-history-table td,
+.import-options,
+.import-match-section,
+.form-control-inline,
+.csv-preview-section h4,
+.csv-preview-table,
+.csv-preview-table th,
+.csv-preview-table td,
+.column-mapping-select,
+.progress-info p,
+.progress-bar-container,
+.progress-bar,
+.progress-percent,
+.progress-warning,
+.modal-actions,
+.form-hint,
+.image-preview-tooltip-inner,
+.btn-primary,
+.btn-secondary,
+.column-mapping-item,
+.mapping-label,
+.csv-column-name,
+.star-btn {
+  transition: background 0.5s ease,
+              background-color 0.5s ease,
+              color 0.5s ease,
+              border-color 0.5s ease,
+              box-shadow 0.5s ease,
+              backdrop-filter 0.5s ease;
+}

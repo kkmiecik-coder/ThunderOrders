@@ -448,146 +448,139 @@
 </div>
 
 <!-- Category Modal -->
-<div id="category-modal-overlay" class="modal-overlay"></div>
-<div id="category-modal" class="modal">
-    <div class="modal-header">
-        <h3 class="modal-title" id="category-modal-title">Dodaj kategorię</h3>
-        <button type="button" class="modal-close" id="close-category-modal">&times;</button>
+<div id="category-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="category-modal-title">Dodaj kategorię</h2>
+            <button type="button" class="modal-close" id="close-category-modal">&times;</button>
+        </div>
+        <form id="category-form">
+            <input type="hidden" id="category-id" name="category_id">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="category-name" class="form-label">Nazwa kategorii *</label>
+                    <input type="text" id="category-name" name="name" class="form-control" required>
+                    <span class="form-error" id="error-name"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="category-parent" class="form-label">Kategoria nadrzędna</label>
+                    <select id="category-parent" name="parent_id" class="form-control">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                    <span class="form-error" id="error-parent_id"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="category-active" name="is_active" checked>
+                        <span>Aktywna</span>
+                    </label>
+                    <span class="form-error" id="error-is_active"></span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-category-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-category-btn">Zapisz</button>
+            </div>
+        </form>
     </div>
-    <form id="category-form">
-        <input type="hidden" id="category-id" name="category_id">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="category-name" class="form-label">Nazwa kategorii *</label>
-                <input type="text" id="category-name" name="name" class="form-input" required>
-                <span class="form-error" id="error-name"></span>
-            </div>
-
-            <div class="form-group">
-                <label for="category-parent" class="form-label">Kategoria nadrzędna</label>
-                <select id="category-parent" name="parent_id" class="form-select">
-                    <!-- Options will be populated by JavaScript -->
-                </select>
-                <span class="form-error" id="error-parent_id"></span>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" id="category-active" name="is_active" checked>
-                    <span>Aktywna</span>
-                </label>
-                <span class="form-error" id="error-is_active"></span>
-            </div>
-        </div>
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancel-category-btn">Anuluj</button>
-            <button type="submit" class="btn btn-primary" id="save-category-btn">Zapisz</button>
-        </div>
-    </form>
 </div>
 
 <!-- Tag Modal -->
-<div id="tag-modal-overlay" class="modal-overlay"></div>
-<div id="tag-modal" class="modal">
-    <div class="modal-header">
-        <h2 class="modal-title" id="tag-modal-title">Dodaj tag</h2>
-        <button type="button" class="modal-close" id="close-tag-modal">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-        </button>
-    </div>
+<div id="tag-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="tag-modal-title">Dodaj tag</h2>
+            <button type="button" class="modal-close" id="close-tag-modal">&times;</button>
+        </div>
 
-    <form id="tag-form" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" id="tag-id" name="tag_id" value="">
+        <form id="tag-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="tag-id" name="tag_id" value="">
 
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="tag-name" class="form-label">Nazwa taga *</label>
-                <input type="text" id="tag-name" name="name" class="form-input" required>
-                <span class="form-error" id="error-tag-name"></span>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="tag-name" class="form-label">Nazwa taga *</label>
+                    <input type="text" id="tag-name" name="name" class="form-control" required>
+                    <span class="form-error" id="error-tag-name"></span>
+                </div>
             </div>
-        </div>
 
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancel-tag-btn">Anuluj</button>
-            <button type="submit" class="btn btn-primary" id="save-tag-btn">Zapisz</button>
-        </div>
-    </form>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-tag-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-tag-btn">Zapisz</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <!-- Supplier Modal -->
-<div id="supplier-modal-overlay" class="modal-overlay"></div>
-<div id="supplier-modal" class="modal">
-    <div class="modal-header">
-        <h2 class="modal-title" id="supplier-modal-title">Dodaj dostawcę</h2>
-        <button type="button" class="modal-close" id="close-supplier-modal">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-        </button>
+<div id="supplier-modal" class="modal-overlay">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h2 class="modal-title" id="supplier-modal-title">Dodaj dostawcę</h2>
+            <button type="button" class="modal-close" id="close-supplier-modal">&times;</button>
+        </div>
+
+        <form id="supplier-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="supplier-id" name="supplier_id" value="">
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="supplier-name" class="form-label">Nazwa dostawcy *</label>
+                    <input type="text" id="supplier-name" name="name" class="form-control" required>
+                    <span class="form-error" id="error-supplier-name"></span>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="supplier-email" class="form-label">Email kontaktowy</label>
+                        <input type="email" id="supplier-email" name="contact_email" class="form-control">
+                        <span class="form-error" id="error-supplier-contact_email"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="supplier-phone" class="form-label">Telefon kontaktowy</label>
+                        <input type="tel" id="supplier-phone" name="contact_phone" class="form-control">
+                        <span class="form-error" id="error-supplier-contact_phone"></span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="supplier-country" class="form-label">Kraj</label>
+                    <input type="text" id="supplier-country" name="country" class="form-control">
+                    <span class="form-error" id="error-supplier-country"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="supplier-notes" class="form-label">Notatki</label>
+                    <textarea id="supplier-notes" name="notes" class="form-control" rows="3"></textarea>
+                    <span class="form-error" id="error-supplier-notes"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="supplier-active" name="is_active" checked>
+                        <span>Aktywny</span>
+                    </label>
+                    <span class="form-error" id="error-supplier-is_active"></span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-supplier-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-supplier-btn">Zapisz</button>
+            </div>
+        </form>
     </div>
-
-    <form id="supplier-form" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" id="supplier-id" name="supplier_id" value="">
-
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="supplier-name" class="form-label">Nazwa dostawcy *</label>
-                <input type="text" id="supplier-name" name="name" class="form-input" required>
-                <span class="form-error" id="error-supplier-name"></span>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="supplier-email" class="form-label">Email kontaktowy</label>
-                    <input type="email" id="supplier-email" name="contact_email" class="form-input">
-                    <span class="form-error" id="error-supplier-contact_email"></span>
-                </div>
-
-                <div class="form-group">
-                    <label for="supplier-phone" class="form-label">Telefon kontaktowy</label>
-                    <input type="tel" id="supplier-phone" name="contact_phone" class="form-input">
-                    <span class="form-error" id="error-supplier-contact_phone"></span>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="supplier-country" class="form-label">Kraj</label>
-                <input type="text" id="supplier-country" name="country" class="form-input">
-                <span class="form-error" id="error-supplier-country"></span>
-            </div>
-
-            <div class="form-group">
-                <label for="supplier-notes" class="form-label">Notatki</label>
-                <textarea id="supplier-notes" name="notes" class="form-input" rows="3"></textarea>
-                <span class="form-error" id="error-supplier-notes"></span>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" id="supplier-active" name="is_active" checked>
-                    <span>Aktywny</span>
-                </label>
-                <span class="form-error" id="error-supplier-is_active"></span>
-            </div>
-        </div>
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancel-supplier-btn">Anuluj</button>
-            <button type="submit" class="btn btn-primary" id="save-supplier-btn">Zapisz</button>
-        </div>
-    </form>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/pages/admin/warehouse-settings.js') }}?v=11"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/warehouse-settings.js') }}?v=13"></script>
 {% endblock %}

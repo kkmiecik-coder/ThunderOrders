@@ -734,7 +734,7 @@ def admin_update_order_field(order_id):
             }), 400
 
         # Allowed fields that can be updated
-        allowed_fields = ['delivery_method', 'shipping_cost', 'payment_method']
+        allowed_fields = ['delivery_method', 'shipping_cost', 'payment_method', 'admin_notes']
 
         if field not in allowed_fields:
             return jsonify({
@@ -767,6 +767,8 @@ def admin_update_order_field(order_id):
             order.delivery_method = value if value else None
         elif field == 'payment_method':
             order.payment_method = value if value else None
+        elif field == 'admin_notes':
+            order.admin_notes = value.strip() if value else None
 
         order.updated_at = datetime.utcnow()
         db.session.commit()

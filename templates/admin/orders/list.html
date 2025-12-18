@@ -261,84 +261,153 @@
     <!-- Orders Table -->
     <div class="table-container" id="ordersTable">
         {% if orders.items %}
-        <table class="orders-table">
+        <table class="orders-table orders-table-new">
             <thead>
                 <tr>
                     <th class="checkbox-col">
                         <input type="checkbox" id="selectAll" aria-label="Zaznacz wszystkie">
                     </th>
-                    <th>Numer zamówienia</th>
-                    <th>Klient</th>
-                    <th>Status</th>
-                    <th>Typ</th>
-                    <th>Data</th>
-                    <th class="text-right">Kwota</th>
-                    <th class="actions-col">Akcje</th>
+                    <th class="col-number">Numer</th>
+                    <th class="col-customer">Imię nazwisko</th>
+                    <th class="col-items hide-mobile">Przedmioty</th>
+                    <th class="col-info">Informacje</th>
+                    <th class="col-amount text-right">Kwota</th>
+                    <th class="col-extra">Info dodatkowe</th>
+                    <th class="col-date">Data złożenia</th>
                 </tr>
             </thead>
             <tbody>
                 {% for order in orders.items %}
                 <tr data-order-id="{{ order.id }}">
+                    <!-- Checkbox -->
                     <td class="checkbox-col">
                         <input type="checkbox" class="order-checkbox" value="{{ order.id }}" aria-label="Zaznacz zamówienie {{ order.order_number }}">
                     </td>
-                    <td>
+
+                    <!-- Numer zamówienia -->
+                    <td class="col-number">
                         <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number-link">
                             {{ order.order_number }}
                         </a>
                     </td>
-                    <td>
-                        <div class="customer-cell">
-                            {% if order.is_guest_order %}
-                                <span>{{ order.guest_name }}</span>
-                                <span class="badge badge-guest">Gość</span>
-                            {% elif order.user %}
-                                <a href="{{ url_for('admin.client_detail', id=order.user.id) }}">
-                                    {{ order.user.full_name }}
-                                </a>
-                            {% else %}
-                                <span class="text-muted">Nieznany</span>
+
+                    <!-- Klient z flagą i źródłem -->
+                    <td class="col-customer">
+                        <div class="customer-cell-new">
+                            <div class="customer-name-row">
+                                <span class="country-flag" title="{{ order.shipping_country or 'Polska' }}">{{ order.shipping_country_flag }}</span>
+                                {% if order.is_guest_order %}
+                                    <span class="customer-name">{{ order.guest_name }}</span>
+                                    <span class="badge badge-guest-sm">Gość</span>
+                                {% elif order.user %}
+                                    <a href="{{ url_for('admin.client_detail', id=order.user.id) }}" class="customer-name customer-link">
+                                        {{ order.user.full_name }}
+                                    </a>
+                                {% else %}
+                                    <span class="customer-name text-muted">Nieznany</span>
+                                {% endif %}
+                            </div>
+                            <div class="customer-source">{{ order.order_source_display }}</div>
+                        </div>
+                    </td>
+
+                    <!-- Przedmioty (ukryte na mobile) -->
+                    <td class="col-items hide-mobile">
+                        <div class="items-list" data-order-id="{{ order.id }}">
+                            {% set visible_items = order.items[:3] %}
+                            {% set hidden_items = order.items[3:] %}
+                            {% for item in visible_items %}
+                            <div class="item-row">
+                                <div class="item-thumb-wrapper">
+                                    <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                    {% if item.quantity > 1 %}
+                                    <span class="item-qty-badge">{{ item.quantity }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="item-details">
+                                    <span class="item-name" title="{{ item.product_name }}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                    <span class="item-price">{{ "%.2f"|format(item.total) }} zł</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% if hidden_items|length > 0 %}
+                            <div class="items-hidden" id="hiddenItems-{{ order.id }}" style="display: none;">
+                                {% for item in hidden_items %}
+                                <div class="item-row">
+                                    <div class="item-thumb-wrapper">
+                                        <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                        {% if item.quantity > 1 %}
+                                        <span class="item-qty-badge">{{ item.quantity }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="item-details">
+                                        <span class="item-name" title="{{ item.product_name }}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                        <span class="item-price">{{ "%.2f"|format(item.total) }} zł</span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.items|length }})">
+                                <span class="toggle-text">W sumie {{ order.items|length }} przedmiotów - pokaż pozostałe</span>
+                            </button>
                             {% endif %}
                         </div>
                     </td>
-                    <td>
-                        <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">
-                            {{ order.status_display_name }}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">
-                            {{ order.type_display_name }}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="date-cell" title="{{ order.created_at|format_datetime('%Y-%m-%d %H:%M:%S') }}">
-                            {{ order.created_at|format_date }}
-                        </span>
-                    </td>
-                    <td class="text-right">
-                        <span class="amount-cell">{{ "%.2f"|format(order.total_amount or 0) }} PLN</span>
-                    </td>
-                    <td class="actions-col">
-                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}"
-                           class="btn-icon"
-                           title="Szczegóły">
-                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
-                                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
-                            </svg>
-                        </a>
-                        {% if current_user.is_admin %}
-                        <button class="btn-icon btn-delete"
-                                data-order-id="{{ order.id }}"
-                                data-order-number="{{ order.order_number }}"
-                                title="Usuń">
-                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                            </svg>
-                        </button>
+
+                    <!-- Informacje (admin_notes) -->
+                    <td class="col-info">
+                        {% if order.admin_notes %}
+                        <div class="info-notes" title="{{ order.admin_notes }}">
+                            <span class="info-label">Uwagi:</span>
+                            <span class="info-text">{{ order.admin_notes|truncate(40, True) }}</span>
+                        </div>
+                        {% else %}
+                        <span class="text-muted">-</span>
                         {% endif %}
+                    </td>
+
+                    <!-- Kwota -->
+                    <td class="col-amount text-right">
+                        <span class="amount-cell">{{ "%.2f"|format(order.grand_total) }} zł</span>
+                    </td>
+
+                    <!-- Info dodatkowe (status + wysyłka + ikony) -->
+                    <td class="col-extra">
+                        <div class="extra-info">
+                            <!-- Status badge -->
+                            <span class="badge status-badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">
+                                {{ order.status_display_name }}
+                            </span>
+                            <!-- Sposób dostawy -->
+                            <span class="delivery-method">{{ order.delivery_method_display }}</span>
+                            <!-- Ikony statusów -->
+                            <div class="status-icons">
+                                <!-- Płatność -->
+                                <span class="status-icon {% if order.is_fully_paid or order.is_overpaid %}status-icon-active{% else %}status-icon-inactive{% endif %}" title="{% if order.is_fully_paid or order.is_overpaid %}Opłacone{% elif order.is_partially_paid %}Częściowo opłacone{% else %}Brak wpłaty{% endif %}">
+                                    $
+                                </span>
+                                <!-- Tracking -->
+                                <span class="status-icon {% if order.has_tracking %}status-icon-active{% else %}status-icon-inactive{% endif %}" title="{% if order.has_tracking %}Wygenerowano list przewozowy{% else %}Nie wygenerowano listu przewozowego{% endif %}">
+                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                                    </svg>
+                                </span>
+                                <!-- Uwagi sprzedawcy -->
+                                <span class="status-icon {% if order.admin_notes %}status-icon-info{% else %}status-icon-inactive{% endif %}" title="{% if order.admin_notes %}Uwagi sprzedawcy: {{ order.admin_notes|truncate(50) }}{% else %}Brak uwag sprzedawcy{% endif %}">
+                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+                                    </svg>
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Data złożenia -->
+                    <td class="col-date">
+                        <div class="date-cell-new">
+                            <span class="date-created">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="date-updated" title="Ostatnia zmiana statusu">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

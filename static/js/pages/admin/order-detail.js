@@ -721,5 +721,62 @@
         }
     });
 
+    // ====================
+    // ADMIN NOTES
+    // ====================
+
+    /**
+     * Save admin notes
+     */
+    window.saveAdminNotes = async function() {
+        const textarea = document.getElementById('adminNotesTextarea');
+        const statusEl = document.getElementById('adminNotesStatus');
+        const btn = document.getElementById('saveAdminNotesBtn');
+
+        if (!textarea) return;
+
+        const orderId = textarea.dataset.orderId;
+        const value = textarea.value;
+
+        // Disable button during save
+        btn.disabled = true;
+        statusEl.textContent = 'Zapisywanie...';
+        statusEl.className = 'admin-notes-status';
+
+        try {
+            const response = await fetch(`/admin/orders/${orderId}/update-field`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify({
+                    field: 'admin_notes',
+                    value: value
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                statusEl.textContent = 'Zapisano';
+                statusEl.className = 'admin-notes-status saved';
+
+                // Clear status after 3 seconds
+                setTimeout(() => {
+                    statusEl.textContent = '';
+                    statusEl.className = 'admin-notes-status';
+                }, 3000);
+            } else {
+                throw new Error(data.message || 'Błąd zapisu');
+            }
+        } catch (error) {
+            statusEl.textContent = error.message || 'Błąd zapisu';
+            statusEl.className = 'admin-notes-status error';
+        } finally {
+            btn.disabled = false;
+        }
+    };
+
     console.log('Order detail JavaScript initialized');
 })();

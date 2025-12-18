@@ -97,39 +97,10 @@
   animation: modal-slide-glow-center 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Backward compatibility - ID-based selectors for settings modals */
-#category-modal,
-#tag-modal,
-#supplier-modal,
-#status-modal,
-#type-modal,
-#wms-status-modal,
-#migration-modal {
-  display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10001;
-  background: var(--white, #ffffff);
-  border-radius: var(--radius-lg, 12px);
-  box-shadow: var(--shadow-xl, 0 8px 32px rgba(0, 0, 0, 0.2));
-  max-width: 500px;
-  width: 90%;
-  max-height: 90vh;
-  overflow: hidden;
-}
-
-#category-modal.show,
-#tag-modal.show,
-#supplier-modal.show,
-#status-modal.show,
-#type-modal.show,
-#wms-status-modal.show,
-#migration-modal.show {
-  display: block;
-  animation: modal-slide-glow-center 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
+/* Note: All settings modals (#category-modal, #tag-modal, #supplier-modal,
+   #status-modal, #type-modal, #wms-status-modal, #migration-modal)
+   now use the modal-overlay wrapper pattern with .active class.
+   They inherit styles from .modal-overlay and .modal-content classes. */
 
 /* ==========================================
    Animacje K-pop Slide & Glow
@@ -251,15 +222,8 @@
   animation: modal-close-blur 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Stany zamykania - Modale centered */
-.modal-centered.closing,
-#category-modal.closing,
-#tag-modal.closing,
-#supplier-modal.closing,
-#status-modal.closing,
-#type-modal.closing,
-#wms-status-modal.closing,
-#migration-modal.closing {
+/* Stany zamykania - Modale centered (legacy, for standalone modal-centered class) */
+.modal-centered.closing {
   animation: modal-close-blur-center 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
@@ -369,14 +333,7 @@
   .modal,
   .modal-container,
   .modal-content,
-  .modal-centered,
-  #category-modal,
-  #tag-modal,
-  #supplier-modal,
-  #status-modal,
-  #type-modal,
-  #wms-status-modal,
-  #migration-modal {
+  .modal-centered {
     width: 95%;
     max-height: 95vh;
   }
@@ -449,39 +406,350 @@
   margin-top: var(--space-1, 4px);
 }
 
-/* Backward compatibility for settings modals */
-#category-modal .form-group,
-#tag-modal .form-group,
-#supplier-modal .form-group,
-#status-modal .form-group,
-#type-modal .form-group,
-#wms-status-modal .form-group,
-#migration-modal .form-group {
-  margin-bottom: var(--space-4, 16px);
+/* Form styles in modals are now handled by the generic selectors above */
+
+/* ==========================================
+   DARK MODE - Glassmorphism Theme
+   ========================================== */
+
+/* Modal Overlay - Dark Mode */
+[data-theme="dark"] .modal-overlay {
+  background: linear-gradient(135deg, rgba(15, 12, 41, 0.85), rgba(48, 16, 48, 0.8), rgba(15, 12, 41, 0.9));
+  transition: all 0.5s ease;
 }
 
-#category-modal .form-label,
-#tag-modal .form-label,
-#supplier-modal .form-label,
-#status-modal .form-label,
-#type-modal .form-label,
-#wms-status-modal .form-label,
-#migration-modal .form-label {
-  display: block;
-  margin-bottom: var(--space-2, 8px);
-  font-weight: var(--font-medium, 500);
-  color: var(--gray-700, #424242);
+/* Modal Content - Dark Mode */
+[data-theme="dark"] .modal,
+[data-theme="dark"] .modal-container,
+[data-theme="dark"] .modal-content {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(240, 147, 251, 0.1);
+  transition: all 0.5s ease;
 }
 
-#category-modal .input-hint,
-#tag-modal .input-hint,
-#supplier-modal .input-hint,
-#status-modal .input-hint,
-#type-modal .input-hint,
-#wms-status-modal .input-hint,
-#migration-modal .input-hint {
-  display: block;
-  font-size: var(--text-sm, 14px);
-  color: var(--gray-500, #757575);
-  margin-top: var(--space-1, 4px);
+/* Modal Centered - Dark Mode (legacy, for standalone modal-centered class) */
+[data-theme="dark"] .modal-centered {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(240, 147, 251, 0.1);
+  transition: all 0.5s ease;
+}
+
+/* Modal Header - Dark Mode */
+[data-theme="dark"] .modal-header {
+  border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-header h2,
+[data-theme="dark"] .modal-title {
+  color: #ffffff;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-close {
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-close:hover {
+  color: #f093fb;
+}
+
+/* Modal Body - Dark Mode */
+[data-theme="dark"] .modal-body {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-body p {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Modal Footer - Dark Mode */
+[data-theme="dark"] .modal-footer {
+  border-top: 1px solid rgba(240, 147, 251, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.5s ease;
+}
+
+/* Form Elements in Modals - Dark Mode */
+[data-theme="dark"] .modal-overlay .form-label,
+[data-theme="dark"] .modal-centered .form-label {
+  color: rgba(255, 255, 255, 0.9);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-overlay .form-label .required,
+[data-theme="dark"] .modal-centered .form-label .required {
+  color: #f87171;
+}
+
+[data-theme="dark"] .modal-overlay .form-control,
+[data-theme="dark"] .modal-centered .form-control {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  color: #ffffff;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-overlay .form-control::placeholder,
+[data-theme="dark"] .modal-centered .form-control::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .modal-overlay .form-control:focus,
+[data-theme="dark"] .modal-centered .form-control:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .modal-overlay .input-hint,
+[data-theme="dark"] .modal-centered .input-hint {
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.5s ease;
+}
+
+/* Select Elements in Modals - Dark Mode */
+[data-theme="dark"] .modal-overlay select.form-control,
+[data-theme="dark"] .modal-centered select.form-control {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23f093fb' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  background-size: 1.25em;
+  padding-right: 2.5rem;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+[data-theme="dark"] .modal-overlay select.form-control option,
+[data-theme="dark"] .modal-centered select.form-control option {
+  background: rgba(15, 12, 41, 0.98);
+  color: #ffffff;
+}
+
+/* Checkbox and Radio in Modals - Dark Mode */
+[data-theme="dark"] .modal-overlay input[type="checkbox"],
+[data-theme="dark"] .modal-centered input[type="checkbox"],
+[data-theme="dark"] .modal-overlay input[type="radio"],
+[data-theme="dark"] .modal-centered input[type="radio"] {
+  accent-color: #f093fb;
+}
+
+/* Modal Buttons - Dark Mode */
+[data-theme="dark"] .modal-footer .btn,
+[data-theme="dark"] .modal-overlay .btn,
+[data-theme="dark"] .modal-centered .btn {
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-footer .btn-primary,
+[data-theme="dark"] .modal-overlay .btn-primary,
+[data-theme="dark"] .modal-centered .btn-primary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .modal-footer .btn-primary:hover,
+[data-theme="dark"] .modal-overlay .btn-primary:hover,
+[data-theme="dark"] .modal-centered .btn-primary:hover {
+  background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+  box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+  transform: translateY(-2px);
+}
+
+[data-theme="dark"] .modal-footer .btn-secondary,
+[data-theme="dark"] .modal-overlay .btn-secondary,
+[data-theme="dark"] .modal-centered .btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .modal-footer .btn-secondary:hover,
+[data-theme="dark"] .modal-overlay .btn-secondary:hover,
+[data-theme="dark"] .modal-centered .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(240, 147, 251, 0.5);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .modal-footer .btn-danger,
+[data-theme="dark"] .modal-overlay .btn-danger,
+[data-theme="dark"] .modal-centered .btn-danger {
+  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .modal-footer .btn-danger:hover,
+[data-theme="dark"] .modal-overlay .btn-danger:hover,
+[data-theme="dark"] .modal-centered .btn-danger:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 6px 20px rgba(248, 113, 113, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Warning and Note Text in Modals - Dark Mode */
+[data-theme="dark"] .modal-warning {
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #fbbf24;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-note {
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  color: #60a5fa;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-error {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: #f87171;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .modal-success {
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
+  transition: all 0.5s ease;
+}
+
+/* Animations Update for Dark Mode */
+[data-theme="dark"] .modal,
+[data-theme="dark"] .modal-container,
+[data-theme="dark"] .modal-content {
+  animation: modal-slide-glow-dark 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"] .modal-centered.show {
+  animation: modal-slide-glow-center-dark 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes modal-slide-glow-dark {
+  0% {
+    transform: translateY(60px) scale(0.96);
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(240, 147, 251, 0);
+  }
+  60% {
+    transform: translateY(-8px) scale(1.005);
+    opacity: 1;
+    box-shadow:
+      0 0 60px rgba(240, 147, 251, 0.4),
+      0 0 120px rgba(245, 87, 108, 0.2),
+      0 25px 80px rgba(0, 0, 0, 0.3);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    box-shadow:
+      0 0 30px rgba(240, 147, 251, 0.15),
+      0 0 60px rgba(245, 87, 108, 0.08),
+      0 10px 40px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@keyframes modal-slide-glow-center-dark {
+  0% {
+    transform: translate(-50%, calc(-50% + 60px)) scale(0.96);
+    opacity: 0;
+    box-shadow: 0 0 0 rgba(240, 147, 251, 0);
+  }
+  60% {
+    transform: translate(-50%, calc(-50% - 8px)) scale(1.005);
+    opacity: 1;
+    box-shadow:
+      0 0 60px rgba(240, 147, 251, 0.4),
+      0 0 120px rgba(245, 87, 108, 0.2),
+      0 25px 80px rgba(0, 0, 0, 0.3);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    box-shadow:
+      0 0 30px rgba(240, 147, 251, 0.15),
+      0 0 60px rgba(245, 87, 108, 0.08),
+      0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ==========================================
+   Product Modal - Sticky Footer Layout
+   ========================================== */
+
+/* Product modal container - flex layout for sticky footer */
+.modal-container.product-modal-container {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+/* Modal body in product modal - scrollable content area */
+.product-modal-container .modal-body {
+  flex: 1;
+  overflow-y: auto;
+  max-height: none; /* Override default max-height */
+}
+
+/* Sticky footer for product modal */
+.modal-footer.product-modal-footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3, 12px);
+  padding: var(--space-4, 16px) var(--space-6, 24px);
+  border-top: 1px solid var(--gray-200, #e0e0e0);
+  background: var(--white, #ffffff);
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* Button spinner animation */
+.product-modal-footer .btn-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.product-modal-footer .btn-spinner .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dark Mode - Product Modal Sticky Footer */
+[data-theme="dark"] .modal-footer.product-modal-footer {
+  background: rgba(15, 12, 41, 0.95);
+  border-top: 1px solid rgba(240, 147, 251, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }

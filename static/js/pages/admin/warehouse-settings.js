@@ -167,237 +167,240 @@ document.addEventListener('DOMContentLoaded', function() {
     /**
      * Category Management
      */
-    const categoryModal = document.getElementById('category-modal');
-    const categoryOverlay = document.getElementById('category-modal-overlay');
-    const categoryForm = document.getElementById('category-form');
-    const categoryIdInput = document.getElementById('category-id');
-    const modalTitle = document.getElementById('category-modal-title');
+    initializeCategoryManagement();
 
-    // Check if elements exist
-    if (!categoryModal || !categoryOverlay) {
-        console.error('Category modal elements not found');
-        return;
-    }
+    function initializeCategoryManagement() {
+        const categoryModal = document.getElementById('category-modal');
+        const categoryForm = document.getElementById('category-form');
+        const categoryIdInput = document.getElementById('category-id');
+        const modalTitle = document.getElementById('category-modal-title');
 
-    // Open modal for adding category
-    const addCategoryBtn = document.getElementById('add-category-btn');
-    if (addCategoryBtn) {
-        addCategoryBtn.addEventListener('click', function() {
-            openCategoryModal();
+        // Check if elements exist
+        if (!categoryModal) {
+            console.log('Category modal not found on this page, skipping category management initialization');
+            return; // Only return from this function, not the entire DOMContentLoaded
+        }
+
+        console.log('Category management initialized');
+
+        // Open modal for adding category
+        const addCategoryBtn = document.getElementById('add-category-btn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', function() {
+                openCategoryModal();
+            });
+        }
+
+        // Open modal for editing category
+        document.querySelectorAll('.category-edit').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const categoryId = this.dataset.categoryId;
+                await openCategoryModal(categoryId);
+            });
         });
-    }
 
-    // Open modal for editing category
-    document.querySelectorAll('.category-edit').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const categoryId = this.dataset.categoryId;
-            await openCategoryModal(categoryId);
+        // Delete category
+        document.querySelectorAll('.category-delete').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const categoryId = this.dataset.categoryId;
+
+                if (confirm('Czy na pewno chcesz usunąć tę kategorię?')) {
+                    await deleteCategory(categoryId);
+                }
+            });
         });
-    });
 
-    // Delete category
-    document.querySelectorAll('.category-delete').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const categoryId = this.dataset.categoryId;
+        // Close modal buttons
+        document.getElementById('close-category-modal')?.addEventListener('click', closeCategoryModal);
+        document.getElementById('cancel-category-btn')?.addEventListener('click', closeCategoryModal);
 
-            if (confirm('Czy na pewno chcesz usunąć tę kategorię?')) {
-                await deleteCategory(categoryId);
+        // Close modal on overlay click (when clicking directly on overlay, not content)
+        categoryModal.addEventListener('click', function(e) {
+            if (e.target === categoryModal) {
+                closeCategoryModal();
             }
         });
-    });
 
-    // Close modal buttons
-    document.getElementById('close-category-modal')?.addEventListener('click', closeCategoryModal);
-    document.getElementById('cancel-category-btn')?.addEventListener('click', closeCategoryModal);
-
-    // Close modal on overlay click
-    categoryOverlay?.addEventListener('click', closeCategoryModal);
-
-    // Submit form
-    categoryForm?.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await saveCategoryForm();
-    });
-
-    /**
-     * Populate parent dropdown with all categories
-     */
-    function populateParentDropdown(excludeId = null) {
-        const parentSelect = document.getElementById('category-parent');
-        const categories = Array.from(document.querySelectorAll('.category-item'));
-
-        parentSelect.innerHTML = '<option value="0">-- Brak (kategoria główna) --</option>';
-
-        categories.forEach(item => {
-            const categoryId = parseInt(item.dataset.categoryId);
-            const categoryName = item.querySelector('.category-name')?.textContent || '';
-
-            // Exclude current category if editing
-            if (!excludeId || categoryId !== excludeId) {
-                const option = document.createElement('option');
-                option.value = categoryId;
-                option.textContent = categoryName;
-                parentSelect.appendChild(option);
-            }
+        // Submit form
+        categoryForm?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await saveCategoryForm();
         });
-    }
 
-    /**
-     * Open category modal
-     */
-    async function openCategoryModal(categoryId = null) {
-        // Reset form
-        categoryForm.reset();
-        clearFormErrors();
+        /**
+         * Populate parent dropdown with all categories
+         */
+        function populateParentDropdown(excludeId = null) {
+            const parentSelect = document.getElementById('category-parent');
+            const categories = Array.from(document.querySelectorAll('.category-item'));
 
-        if (categoryId) {
-            // Edit mode
-            modalTitle.textContent = 'Edytuj kategorię';
-            categoryIdInput.value = categoryId;
+            parentSelect.innerHTML = '<option value="0">-- Brak (kategoria główna) --</option>';
 
-            // Load category data
+            categories.forEach(item => {
+                const categoryId = parseInt(item.dataset.categoryId);
+                const categoryName = item.querySelector('.category-name')?.textContent || '';
+
+                // Exclude current category if editing
+                if (!excludeId || categoryId !== excludeId) {
+                    const option = document.createElement('option');
+                    option.value = categoryId;
+                    option.textContent = categoryName;
+                    parentSelect.appendChild(option);
+                }
+            });
+        }
+
+        /**
+         * Open category modal
+         */
+        async function openCategoryModal(categoryId = null) {
+            // Reset form
+            categoryForm.reset();
+            clearFormErrors();
+
+            if (categoryId) {
+                // Edit mode
+                modalTitle.textContent = 'Edytuj kategorię';
+                categoryIdInput.value = categoryId;
+
+                // Load category data
+                try {
+                    const response = await fetch(`/admin/products/categories/${categoryId}`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        document.getElementById('category-name').value = data.category.name;
+                        document.getElementById('category-active').checked = data.category.is_active;
+
+                        // Update parent dropdown with filtered options
+                        const parentSelect = document.getElementById('category-parent');
+                        parentSelect.innerHTML = '<option value="0">-- Brak (kategoria główna) --</option>';
+                        data.parent_choices.forEach(choice => {
+                            const option = document.createElement('option');
+                            option.value = choice.value;
+                            option.textContent = choice.label;
+                            parentSelect.appendChild(option);
+                        });
+                        parentSelect.value = data.category.parent_id;
+                    }
+                } catch (error) {
+                    console.error('Error loading category:', error);
+                    window.showToast('Błąd podczas ładowania kategorii', 'error');
+                    return;
+                }
+            } else {
+                // Add mode
+                modalTitle.textContent = 'Dodaj kategorię';
+                categoryIdInput.value = '';
+
+                // Populate parent dropdown with all categories
+                populateParentDropdown();
+            }
+
+            // Show modal
+            categoryModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        /**
+         * Close category modal with animation
+         */
+        function closeCategoryModal() {
+            categoryModal.classList.add('closing');
+            setTimeout(() => {
+                categoryModal.classList.remove('active', 'closing');
+                document.body.style.overflow = '';
+                categoryForm.reset();
+                clearFormErrors();
+            }, 350);
+        }
+
+        /**
+         * Save category form
+         */
+        async function saveCategoryForm() {
+            const categoryId = categoryIdInput.value;
+            const url = categoryId
+                ? `/admin/products/categories/${categoryId}/edit`
+                : '/admin/products/categories/create';
+
+            const formData = new FormData(categoryForm);
+
             try {
-                const response = await fetch(`/admin/products/categories/${categoryId}`);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
                 const data = await response.json();
 
                 if (data.success) {
-                    document.getElementById('category-name').value = data.category.name;
-                    document.getElementById('category-active').checked = data.category.is_active;
-
-                    // Update parent dropdown with filtered options
-                    const parentSelect = document.getElementById('category-parent');
-                    parentSelect.innerHTML = '<option value="0">-- Brak (kategoria główna) --</option>';
-                    data.parent_choices.forEach(choice => {
-                        const option = document.createElement('option');
-                        option.value = choice.value;
-                        option.textContent = choice.label;
-                        parentSelect.appendChild(option);
-                    });
-                    parentSelect.value = data.category.parent_id;
+                    window.showToast(data.message, 'success');
+                    closeCategoryModal();
+                    // Reload page but stay on categories tab
+                    setTimeout(() => {
+                        window.location.href = window.location.pathname + '?tab=categories';
+                    }, 300);
+                } else {
+                    // Show validation errors
+                    if (data.errors) {
+                        Object.keys(data.errors).forEach(field => {
+                            const errorEl = document.getElementById(`error-${field}`);
+                            if (errorEl) {
+                                errorEl.textContent = data.errors[field];
+                                errorEl.style.display = 'block';
+                            }
+                        });
+                    } else {
+                        window.showToast(data.message || 'Błąd podczas zapisywania kategorii', 'error');
+                    }
                 }
             } catch (error) {
-                console.error('Error loading category:', error);
-                window.showToast('Błąd podczas ładowania kategorii', 'error');
-                return;
+                console.error('Error saving category:', error);
+                window.showToast('Błąd podczas zapisywania kategorii', 'error');
             }
-        } else {
-            // Add mode
-            modalTitle.textContent = 'Dodaj kategorię';
-            categoryIdInput.value = '';
-
-            // Populate parent dropdown with all categories
-            populateParentDropdown();
         }
 
-        // Show modal and overlay
-        categoryOverlay.classList.add('active');
-        categoryModal.classList.add('show');
-    }
+        /**
+         * Delete category
+         */
+        async function deleteCategory(categoryId) {
+            try {
+                const response = await fetch(`/admin/products/categories/${categoryId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
+                    }
+                });
 
-    /**
-     * Close category modal with animation
-     */
-    function closeCategoryModal() {
-        // Dodaj klasę closing dla animacji
-        categoryOverlay.classList.add('closing');
-        categoryModal.classList.add('closing');
+                const data = await response.json();
 
-        // Po zakończeniu animacji usuń klasy
-        setTimeout(() => {
-            categoryOverlay.classList.remove('active');
-            categoryOverlay.classList.remove('closing');
-            categoryModal.classList.remove('show');
-            categoryModal.classList.remove('closing');
-            categoryForm.reset();
-            clearFormErrors();
-        }, 350); // 350ms = czas trwania animacji
-    }
-
-    /**
-     * Save category form
-     */
-    async function saveCategoryForm() {
-        const categoryId = categoryIdInput.value;
-        const url = categoryId
-            ? `/admin/products/categories/${categoryId}/edit`
-            : '/admin/products/categories/create';
-
-        const formData = new FormData(categoryForm);
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                window.showToast(data.message, 'success');
-                closeCategoryModal();
-                // Reload page but stay on categories tab
-                setTimeout(() => {
-                    window.location.href = window.location.pathname + '?tab=categories';
-                }, 300);
-            } else {
-                // Show validation errors
-                if (data.errors) {
-                    Object.keys(data.errors).forEach(field => {
-                        const errorEl = document.getElementById(`error-${field}`);
-                        if (errorEl) {
-                            errorEl.textContent = data.errors[field];
-                            errorEl.style.display = 'block';
-                        }
-                    });
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    // Remove category from DOM
+                    const categoryItem = document.querySelector(`.category-item[data-category-id="${categoryId}"]`);
+                    if (categoryItem) {
+                        categoryItem.remove();
+                    }
                 } else {
-                    window.showToast(data.message || 'Błąd podczas zapisywania kategorii', 'error');
+                    window.showToast(data.message, 'error');
                 }
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                window.showToast('Błąd podczas usuwania kategorii', 'error');
             }
-        } catch (error) {
-            console.error('Error saving category:', error);
-            window.showToast('Błąd podczas zapisywania kategorii', 'error');
         }
-    }
 
-    /**
-     * Delete category
-     */
-    async function deleteCategory(categoryId) {
-        try {
-            const response = await fetch(`/admin/products/categories/${categoryId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
-                }
+        /**
+         * Clear form errors
+         */
+        function clearFormErrors() {
+            document.querySelectorAll('.form-error').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
             });
-
-            const data = await response.json();
-
-            if (data.success) {
-                window.showToast(data.message, 'success');
-                // Remove category from DOM
-                const categoryItem = document.querySelector(`.category-item[data-category-id="${categoryId}"]`);
-                if (categoryItem) {
-                    categoryItem.remove();
-                }
-            } else {
-                window.showToast(data.message, 'error');
-            }
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            window.showToast('Błąd podczas usuwania kategorii', 'error');
         }
-    }
-
-    /**
-     * Clear form errors
-     */
-    function clearFormErrors() {
-        document.querySelectorAll('.form-error').forEach(el => {
-            el.textContent = '';
-            el.style.display = 'none';
-        });
-    }
+    } // End of initializeCategoryManagement
 
     /**
      * Tag Management - Initialize when Tags tab is activated
@@ -413,19 +416,17 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Initializing Tag Management...');
 
         const tagModal = document.getElementById('tag-modal');
-        const tagOverlay = document.getElementById('tag-modal-overlay');
         const tagForm = document.getElementById('tag-form');
         const tagIdInput = document.getElementById('tag-id');
         const tagModalTitle = document.getElementById('tag-modal-title');
 
         console.log('Tag modal:', tagModal);
-        console.log('Tag overlay:', tagOverlay);
         console.log('Tag form:', tagForm);
         console.log('Add tag button:', document.getElementById('add-tag-btn'));
 
         // Check if elements exist
-        if (!tagModal || !tagOverlay) {
-            console.error('Tag modal elements not found - modal:', tagModal, 'overlay:', tagOverlay);
+        if (!tagModal) {
+            console.error('Tag modal elements not found - modal:', tagModal);
             return; // Exit early if modal doesn't exist
         }
 
@@ -465,8 +466,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('close-tag-modal')?.addEventListener('click', closeTagModal);
         document.getElementById('cancel-tag-btn')?.addEventListener('click', closeTagModal);
 
-        // Close modal on overlay click
-        tagOverlay?.addEventListener('click', closeTagModal);
+        // Close modal on overlay click (when clicking directly on overlay, not content)
+        tagModal?.addEventListener('click', function(e) {
+            if (e.target === tagModal) {
+                closeTagModal();
+            }
+        });
 
         // Submit form
         tagForm?.addEventListener('submit', async function(e) {
@@ -506,28 +511,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 tagIdInput.value = '';
             }
 
-            // Show modal and overlay
-            tagOverlay.classList.add('active');
-            tagModal.classList.add('show');
+            // Show modal
+            tagModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
 
         /**
          * Close tag modal with animation
          */
         function closeTagModal() {
-            // Dodaj klasę closing dla animacji
-            tagOverlay.classList.add('closing');
             tagModal.classList.add('closing');
-
-            // Po zakończeniu animacji usuń klasy
             setTimeout(() => {
-                tagOverlay.classList.remove('active');
-                tagOverlay.classList.remove('closing');
-                tagModal.classList.remove('show');
-                tagModal.classList.remove('closing');
+                tagModal.classList.remove('active', 'closing');
+                document.body.style.overflow = '';
                 tagForm.reset();
                 clearTagFormErrors();
-            }, 350); // 350ms = czas trwania animacji
+            }, 350);
         }
 
         /**
@@ -1012,7 +1011,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Get modal elements
         const supplierModal = document.getElementById('supplier-modal');
-        const supplierOverlay = document.getElementById('supplier-modal-overlay');
         const supplierForm = document.getElementById('supplier-form');
         const supplierIdInput = document.getElementById('supplier-id');
         const supplierModalTitle = document.getElementById('supplier-modal-title');
@@ -1021,14 +1019,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const closeSupplierBtn = document.getElementById('close-supplier-modal');
         const saveSupplierBtn = document.getElementById('save-supplier-btn');
 
-        if (!supplierModal || !supplierOverlay || !supplierForm) {
+        if (!supplierModal || !supplierForm) {
             console.error('Supplier modal elements not found');
             return;
         }
 
         console.log('Supplier modal elements found:', {
             modal: supplierModal,
-            overlay: supplierOverlay,
             form: supplierForm
         });
 
@@ -1062,28 +1059,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 supplierIdInput.value = '';
             }
 
-            // Show modal and overlay
-            supplierOverlay.classList.add('active');
-            supplierModal.classList.add('show');
+            // Show modal
+            supplierModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
 
         /**
          * Close supplier modal with animation
          */
         function closeSupplierModal() {
-            // Dodaj klasę closing dla animacji
-            supplierOverlay.classList.add('closing');
             supplierModal.classList.add('closing');
-
-            // Po zakończeniu animacji usuń klasy
             setTimeout(() => {
-                supplierOverlay.classList.remove('active');
-                supplierOverlay.classList.remove('closing');
-                supplierModal.classList.remove('show');
-                supplierModal.classList.remove('closing');
+                supplierModal.classList.remove('active', 'closing');
+                document.body.style.overflow = '';
                 supplierForm.reset();
                 clearSupplierFormErrors();
-            }, 350); // 350ms = czas trwania animacji
+            }, 350);
         }
 
         /**
@@ -1257,9 +1248,12 @@ document.addEventListener('DOMContentLoaded', function() {
             closeSupplierBtn.addEventListener('click', closeSupplierModal);
         }
 
-        if (supplierOverlay) {
-            supplierOverlay.addEventListener('click', closeSupplierModal);
-        }
+        // Close modal on overlay click (when clicking directly on overlay, not content)
+        supplierModal?.addEventListener('click', function(e) {
+            if (e.target === supplierModal) {
+                closeSupplierModal();
+            }
+        });
 
         if (supplierForm) {
             supplierForm.addEventListener('submit', function(e) {

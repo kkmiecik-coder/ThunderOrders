@@ -2,120 +2,208 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/login.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/verify-code.css') }}">
 {% endblock %}
 
 {% block title %}Logowanie - ThunderOrders{% endblock %}
 
 {% block body_content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <!-- Left side - Form -->
-        <div class="auth-form-section">
-            <div class="auth-header">
-                <img src="{{ url_for('static', filename='img/icons/logo-full-black.svg') }}" alt="ThunderOrders" class="auth-logo">
-                <h1 class="auth-title">Witaj ponownie</h1>
-                <p class="auth-subtitle">Zaloguj się na swoje konto.</p>
-            </div>
+<div class="auth-page">
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="orb orb-5"></div>
+        <div class="sparkle sparkle-1"></div>
+        <div class="sparkle sparkle-2"></div>
+        <div class="sparkle sparkle-3"></div>
+        <div class="sparkle sparkle-4"></div>
+        <div class="sparkle sparkle-5"></div>
+        <div class="sparkle sparkle-6"></div>
+        <!-- Dynamic pulse rings container -->
+        <div class="pulse-rings-container" id="pulseRingsContainer"></div>
+    </div>
 
-            <form method="POST" action="{{ url_for('auth.login') }}" class="auth-form">
-                {{ form.hidden_tag() }}
-
-                <!-- Email Input -->
-                <div class="auth-input-group">
-                    {{ form.email(
-                        class="auth-input",
-                        placeholder=" ",
-                        autofocus=true
-                    ) }}
-                    <label for="email" class="auth-input-label">E-mail</label>
-                    {% if form.email.errors %}
-                        <div class="form-error">
-                            {% for error in form.email.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- Password Input with Toggle -->
-                <div class="auth-input-group">
-                    <div class="password-toggle-wrapper">
-                        {{ form.password(
-                            class="auth-input",
-                            placeholder=" "
-                        ) }}
-                        <button type="button" class="password-toggle-btn" tabindex="-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                                <circle cx="12" cy="12" r="3"></circle>
-                            </svg>
-                        </button>
-                    </div>
-                    <label for="password" class="auth-input-label">Hasło</label>
-                    {% if form.password.errors %}
-                        <div class="form-error">
-                            {% for error in form.password.errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <!-- Remember & Forgot -->
-                <div class="auth-options">
-                    <label class="auth-remember">
-                        {{ form.remember_me() }}
-                        <span>Zapamiętaj mnie</span>
-                    </label>
-                    <a href="{{ url_for('auth.forgot_password') }}" class="auth-forgot">
-                        Zresetuj hasło
-                    </a>
-                </div>
-
-                <!-- Submit Button -->
-                <button type="submit" class="auth-submit">
-                    Zaloguj się
-                </button>
-
-                <!-- Register Link -->
-                <div class="auth-register-link">
-                    Nie masz jeszcze konta?
-                    <a href="{{ url_for('auth.register') }}">Zarejestruj się</a>
-                </div>
-            </form>
+    <!-- Glass Container -->
+    <div class="auth-container">
+        <!-- Logo -->
+        <div class="auth-logo">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders">
         </div>
 
-        <!-- Right side - Image/Gradient -->
-        <div class="auth-image-section">
-            <div class="auth-image-content">
-                <img src="{{ url_for('static', filename='img/auth-bg.jpg') }}" alt="Welcome" class="auth-image">
+        <!-- Header -->
+        <div class="auth-header">
+            <h1 class="auth-title">Witaj ponownie</h1>
+            <p class="auth-subtitle">Zaloguj się na swoje konto</p>
+        </div>
+
+        <!-- Form -->
+        <form method="POST" action="{{ url_for('auth.login') }}" class="auth-form" id="login-form">
+            {{ form.hidden_tag() }}
+
+            <!-- Email Input -->
+            <div class="auth-input-group">
+                <div class="input-wrapper">
+                    {{ form.email(class="auth-input", placeholder=" ", autofocus=true, id="email") }}
+                    <label for="email" class="auth-input-label">E-mail</label>
+                    <div class="input-glow"></div>
+                </div>
+                {% if form.email.errors %}
+                <div class="form-error">
+                    {% for error in form.email.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
             </div>
+
+            <!-- Password Input -->
+            <div class="auth-input-group">
+                <div class="input-wrapper">
+                    {{ form.password(class="auth-input", placeholder=" ", id="password") }}
+                    <label for="password" class="auth-input-label">Hasło</label>
+                    <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaż hasło">
+                        <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                    </button>
+                    <div class="input-glow"></div>
+                </div>
+                {% if form.password.errors %}
+                <div class="form-error">
+                    {% for error in form.password.errors %}{{ error }}{% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Remember & Forgot -->
+            <div class="auth-options">
+                <label class="auth-remember">
+                    {{ form.remember_me(class="remember-checkbox") }}
+                    <span class="checkmark"></span>
+                    <span class="remember-text">Zapamiętaj mnie</span>
+                </label>
+                <a href="{{ url_for('auth.forgot_password') }}" class="auth-forgot">
+                    Zapomniałeś hasła?
+                </a>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="auth-submit">
+                <span class="btn-text">Zaloguj się</span>
+                <span class="btn-loader"></span>
+                <div class="btn-shine"></div>
+            </button>
+        </form>
+
+        <!-- Register Link -->
+        <div class="auth-footer">
+            <p>Nie masz jeszcze konta?</p>
+            <a href="{{ url_for('auth.register') }}" class="register-link">
+                <span>Zarejestruj się</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+            </a>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/components/password-toggle.js') }}"></script>
 <script>
-// Floating label logic - check if input has value on page load
 document.addEventListener('DOMContentLoaded', function() {
+    // Password toggle
+    const passwordToggle = document.querySelector('.password-toggle-btn');
+    const passwordInput = document.getElementById('password');
+
+    if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener('click', function() {
+            const eyeOpen = this.querySelector('.eye-open');
+            const eyeClosed = this.querySelector('.eye-closed');
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeOpen.style.display = 'none';
+                eyeClosed.style.display = 'block';
+                this.classList.add('active');
+            } else {
+                passwordInput.type = 'password';
+                eyeOpen.style.display = 'block';
+                eyeClosed.style.display = 'none';
+                this.classList.remove('active');
+            }
+        });
+    }
+
+    // Floating label handling
     document.querySelectorAll('.auth-input').forEach(input => {
-        // Check on page load if input has value
         if (input.value) {
             input.classList.add('has-value');
         }
 
-        // Check on input
         input.addEventListener('input', function() {
-            if (this.value) {
-                this.classList.add('has-value');
-            } else {
-                this.classList.remove('has-value');
-            }
+            this.classList.toggle('has-value', this.value.length > 0);
         });
     });
+
+    // Dynamic Pulse Rings
+    const container = document.getElementById('pulseRingsContainer');
+    if (container) {
+        const colors = [
+            'rgba(240, 147, 251, 0.4)',
+            'rgba(102, 126, 234, 0.4)',
+            'rgba(79, 172, 254, 0.35)',
+            'rgba(245, 87, 108, 0.35)',
+            'rgba(255, 133, 0, 0.4)'
+        ];
+
+        function createPulseRing() {
+            const ring = document.createElement('div');
+            ring.className = 'dynamic-pulse-ring';
+
+            const x = Math.random() * 100;
+            const y = Math.random() * 100;
+            const size = 100 + Math.random() * 200;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const duration = 2 + Math.random() * 2;
+
+            ring.style.cssText = `
+                left: ${x}%;
+                top: ${y}%;
+                width: ${size}px;
+                height: ${size}px;
+                border-color: ${color};
+                animation-duration: ${duration}s;
+            `;
+
+            container.appendChild(ring);
+
+            setTimeout(() => ring.remove(), duration * 1000);
+        }
+
+        // Create initial rings
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => createPulseRing(), i * 600);
+        }
+
+        // Create new rings periodically
+        setInterval(createPulseRing, 1200);
+    }
+
+    // Form loading state
+    const form = document.getElementById('login-form');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.auth-submit');
+            btn.classList.add('loading');
+        });
+    }
 });
 </script>
 {% endblock %}

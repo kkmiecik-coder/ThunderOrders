@@ -1522,6 +1522,629 @@ div.table-product-image {
     text-align: center;
     cursor: pointer;
 }
+
+/* ==========================================
+   DARK MODE - GLASSMORPHISM
+   ========================================== */
+
+/* Page Background */
+[data-theme="dark"] .stock-orders-page {
+    background: transparent;
+}
+
+/* Tabs Navigation */
+[data-theme="dark"] .tabs-navigation {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 2px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .tab-link {
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tab-link:hover {
+    color: #f093fb;
+    background-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .tab-link.active {
+    color: #f093fb;
+    border-bottom-color: #f093fb;
+    text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
+}
+
+/* Tab Content */
+[data-theme="dark"] .tab-content {
+    background: transparent;
+}
+
+[data-theme="dark"] .tab-pane {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .tab-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .tab-header h2 {
+    color: #f0f0f0;
+    text-shadow: 0 0 15px rgba(240, 147, 251, 0.3);
+}
+
+/* Orders Filters */
+[data-theme="dark"] .orders-filters {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .orders-filters .filter-group label {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .orders-filters .filter-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .orders-filters .filter-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+/* Multi-select Dropdown */
+[data-theme="dark"] .multi-select-trigger {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .multi-select-trigger:hover {
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .multi-select-dropdown {
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .multi-select-option {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .multi-select-option:hover {
+    background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .multi-select-option input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
+/* Data Table */
+[data-theme="dark"] .table-responsive {
+    background: transparent;
+}
+
+[data-theme="dark"] .table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+[data-theme="dark"] .table-responsive::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+[data-theme="dark"] .table-responsive::-webkit-scrollbar-thumb {
+    background: rgba(240, 147, 251, 0.3);
+    border-radius: 4px;
+}
+
+[data-theme="dark"] .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .data-table {
+    background: transparent;
+}
+
+[data-theme="dark"] .data-table thead {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-bottom: 2px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .data-table th {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .data-table th:hover {
+    background-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .data-table th.sorted-asc::after,
+[data-theme="dark"] .data-table th.sorted-desc::after {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .data-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .data-table tbody tr:hover {
+    background-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .data-table tbody tr.selected {
+    background-color: rgba(240, 147, 251, 0.15) !important;
+}
+
+[data-theme="dark"] .data-table td {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .data-table input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
+/* Product Cell */
+[data-theme="dark"] .product-thumbnail-small {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .product-thumbnail-placeholder-small {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .product-name-small {
+    color: #f0f0f0;
+}
+
+/* Status Badges - Dark Mode */
+[data-theme="dark"] .badge-nowe {
+    background: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .badge-oczekujace {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .badge-dostarczone_proxy {
+    background: rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+[data-theme="dark"] .badge-w_drodze_polska {
+    background: rgba(249, 115, 22, 0.3);
+    color: #fb923c;
+}
+
+[data-theme="dark"] .badge-urzad_celny {
+    background: rgba(139, 92, 246, 0.3);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .badge-dostarczone_gom {
+    background: rgba(5, 150, 105, 0.3);
+    color: #10b981;
+}
+
+[data-theme="dark"] .badge-anulowane {
+    background: rgba(220, 38, 38, 0.3);
+    color: #f87171;
+}
+
+/* Status Badge Button - Dark Mode */
+[data-theme="dark"] .status-badge-button.badge-nowe {
+    background: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .status-badge-button.badge-oczekujace {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .status-badge-button.badge-dostarczone_proxy {
+    background: rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+[data-theme="dark"] .status-badge-button.badge-w_drodze_polska {
+    background: rgba(249, 115, 22, 0.3);
+    color: #fb923c;
+}
+
+[data-theme="dark"] .status-badge-button.badge-urzad_celny {
+    background: rgba(139, 92, 246, 0.3);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .status-badge-button.badge-dostarczone_gom {
+    background: rgba(5, 150, 105, 0.3);
+    color: #10b981;
+}
+
+[data-theme="dark"] .status-badge-button.badge-anulowane {
+    background: rgba(220, 38, 38, 0.3);
+    color: #f87171;
+}
+
+/* Status Dropdown - Dark Mode */
+[data-theme="dark"] .status-dropdown {
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .status-dropdown-option:hover {
+    background: rgba(240, 147, 251, 0.1);
+}
+
+/* Bulk Actions Modal - Dark Mode */
+[data-theme="dark"] .bulk-actions-modal {
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5), 0 0 30px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .bulk-actions-info {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .bulk-actions-info strong {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .bulk-action-status {
+    background: rgba(240, 147, 251, 0.1);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .bulk-action-status:hover {
+    background: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .bulk-action-delete {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+[data-theme="dark"] .bulk-action-delete:hover {
+    background: rgba(248, 113, 113, 0.3);
+}
+
+/* Bulk Status Dropdown - Dark Mode */
+[data-theme="dark"] .bulk-status-dropdown {
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .bulk-status-option:hover {
+    background: rgba(240, 147, 251, 0.1);
+}
+
+/* Buttons - Dark Mode */
+[data-theme="dark"] .btn-primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-primary:hover {
+    box-shadow: 0 6px 25px rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.3);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .btn-danger {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+[data-theme="dark"] .btn-danger:hover {
+    background: rgba(248, 113, 113, 0.3);
+}
+
+/* Empty State - Dark Mode */
+[data-theme="dark"] .empty-state svg {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .empty-state h3 {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .empty-state p {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Modal Overlay - Dark Mode */
+[data-theme="dark"] .modal-overlay {
+    background: rgba(15, 12, 41, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .modal {
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .modal-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .modal-close {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .modal-close:hover {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Search Section - Dark Mode */
+[data-theme="dark"] .search-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .search-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .search-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .btn-filter {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .btn-filter:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+/* Filters Panel - Dark Mode */
+[data-theme="dark"] .filters-panel-wrapper {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .filter-group label {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .filter-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .filter-select:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .filters-actions {
+    border-top-color: rgba(240, 147, 251, 0.1);
+}
+
+/* Search Results - Dark Mode */
+[data-theme="dark"] .search-results .text-muted {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Product Card - Dark Mode */
+[data-theme="dark"] .product-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .product-card:hover {
+    border-color: #f093fb;
+    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .product-thumbnail-placeholder {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .product-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .product-sku {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .product-price {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .product-supplier {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Selected Products Section - Dark Mode */
+[data-theme="dark"] .selected-products-section {
+    border-top-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .selected-products-section h3 {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .selected-products-table th {
+    color: rgba(255, 255, 255, 0.7);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .selected-products-table td {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .selected-products-table tfoot td {
+    border-top-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] img.table-product-image {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] div.table-product-image {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Quantity Control - Dark Mode */
+[data-theme="dark"] .qty-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .qty-btn:hover {
+    background: rgba(240, 147, 251, 0.15);
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .qty-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .qty-input:focus {
+    border-color: #f093fb;
+}
+
+/* Remove Button - Dark Mode */
+[data-theme="dark"] .btn-remove {
+    color: #f87171;
+}
+
+[data-theme="dark"] .btn-remove:hover {
+    background: rgba(248, 113, 113, 0.15);
+}
+
+/* Text Utilities - Dark Mode */
+[data-theme="dark"] .text-muted {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .font-semibold {
+    color: #f0f0f0;
+}
+
+/* Transitions for smooth theme switching */
+.stock-orders-page,
+.tabs-navigation,
+.tab-link,
+.tab-content,
+.tab-pane,
+.tab-header,
+.tab-header h2,
+.orders-filters,
+.filter-input,
+.multi-select-trigger,
+.multi-select-dropdown,
+.multi-select-option,
+.data-table,
+.data-table thead,
+.data-table th,
+.data-table tbody tr,
+.data-table td,
+.product-thumbnail-small,
+.product-thumbnail-placeholder-small,
+.product-name-small,
+.badge,
+.status-badge-button,
+.status-dropdown,
+.status-dropdown-option,
+.bulk-actions-modal,
+.bulk-actions-info,
+.bulk-action-btn,
+.bulk-status-dropdown,
+.bulk-status-option,
+.btn,
+.empty-state,
+.empty-state svg,
+.empty-state h3,
+.empty-state p,
+.modal-overlay,
+.modal,
+.modal-header,
+.modal-title,
+.modal-close,
+.modal-footer,
+.search-input,
+.btn-filter,
+.filters-panel-wrapper,
+.filter-select,
+.product-card,
+.product-thumbnail-placeholder,
+.product-name,
+.product-sku,
+.product-price,
+.selected-products-section,
+.selected-products-table th,
+.selected-products-table td,
+.qty-btn,
+.qty-input,
+.btn-remove,
+.text-muted {
+    transition: all 0.5s ease;
+}
 </style>
 
 <script src="{{ url_for('static', filename='js/pages/admin/stock-orders.js') }}"></script>

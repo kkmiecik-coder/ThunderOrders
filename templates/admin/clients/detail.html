@@ -328,18 +328,17 @@
 </div>
 
 <!-- Deactivate Modal -->
-<div id="deactivateModal" class="modal" style="display: none;">
-    <div class="modal-backdrop" onclick="closeDeactivateModal()"></div>
-    <div class="modal-content">
+<div id="deactivateModal" class="modal-overlay" onclick="if(event.target === this) closeDeactivateModal()">
+    <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3>Dezaktywacja konta</h3>
+            <h2 class="modal-title">Dezaktywacja konta</h2>
             <button type="button" class="modal-close" onclick="closeDeactivateModal()">&times;</button>
         </div>
         <div class="modal-body">
             <p>Czy na pewno chcesz dezaktywować konto użytkownika <strong>{{ client.full_name }}</strong>?</p>
             <div class="form-group">
-                <label for="deactivateReason">Powód dezaktywacji (wymagany):</label>
-                <textarea id="deactivateReason" class="form-textarea" rows="3"
+                <label class="form-label" for="deactivateReason">Powód dezaktywacji (wymagany):</label>
+                <textarea id="deactivateReason" class="form-control" rows="3"
                           placeholder="Podaj powód dezaktywacji konta..."></textarea>
             </div>
             <p class="modal-note">Klient zostanie powiadomiony o dezaktywacji emailem.</p>
@@ -352,11 +351,10 @@
 </div>
 
 <!-- Delete Modal -->
-<div id="deleteModal" class="modal" style="display: none;">
-    <div class="modal-backdrop" onclick="closeDeleteModal()"></div>
-    <div class="modal-content">
+<div id="deleteModal" class="modal-overlay" onclick="if(event.target === this) closeDeleteModal()">
+    <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3>Usunięcie konta</h3>
+            <h2 class="modal-title">Usunięcie konta</h2>
             <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
         </div>
         <div class="modal-body">
@@ -379,6 +377,11 @@
 <script>
 const clientId = {{ client.id }};
 
+// Get CSRF token from meta tag (available in base.html)
+function getCSRFToken() {
+    return document.querySelector('meta[name="csrf-token"]')?.content || '';
+}
+
 // Toggle Edit Mode
 function toggleEditMode() {
     const viewMode = document.getElementById('viewMode');
@@ -395,12 +398,22 @@ function toggleEditMode() {
 
 // Deactivate Modal
 function openDeactivateModal() {
+    console.log('[CLIENT DETAIL] openDeactivateModal() called');
     document.getElementById('deactivateReason').value = '';
-    document.getElementById('deactivateModal').style.display = 'flex';
+    const modal = document.getElementById('deactivateModal');
+    console.log('[CLIENT DETAIL] Modal element:', modal);
+    modal.classList.add('active');
+    console.log('[CLIENT DETAIL] Modal classList after add:', modal.classList.toString());
+    document.body.style.overflow = 'hidden';
 }
 
 function closeDeactivateModal() {
-    document.getElementById('deactivateModal').style.display = 'none';
+    const modal = document.getElementById('deactivateModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+    }, 350);
 }
 
 function confirmDeactivate() {
@@ -418,7 +431,7 @@ function confirmDeactivate() {
         method: 'POST',
         body: formData,
         headers: {
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+            'X-CSRFToken': getCSRFToken()
         }
     })
     .then(response => response.json())
@@ -444,7 +457,7 @@ function reactivateClient() {
     fetch(`/admin/clients/${clientId}/reactivate`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+            'X-CSRFToken': getCSRFToken()
         }
     })
     .then(response => response.json())
@@ -463,18 +476,28 @@ function reactivateClient() {
 
 // Delete Modal
 function openDeleteModal() {
-    document.getElementById('deleteModal').style.display = 'flex';
+    console.log('[CLIENT DETAIL] openDeleteModal() called');
+    const modal = document.getElementById('deleteModal');
+    console.log('[CLIENT DETAIL] Delete Modal element:', modal);
+    modal.classList.add('active');
+    console.log('[CLIENT DETAIL] Delete Modal classList after add:', modal.classList.toString());
+    document.body.style.overflow = 'hidden';
 }
 
 function closeDeleteModal() {
-    document.getElementById('deleteModal').style.display = 'none';
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+    }, 350);
 }
 
 function confirmDelete() {
     fetch(`/admin/clients/${clientId}/delete`, {
         method: 'POST',
         headers: {
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value || ''
+            'X-CSRFToken': getCSRFToken()
         }
     })
     .then(response => response.json())

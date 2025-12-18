@@ -1,6 +1,7 @@
 /**
- * ThunderOrders - Login Page Style
+ * ThunderOrders - Unified Auth Pages Style
  * Dark glassmorphism design with animated background
+ * Covers: Register, Verify, Forgot Password, Reset Password, Success
  */
 
 /* ============================================
@@ -166,7 +167,7 @@
     position: relative;
     z-index: 1;
     width: 100%;
-    max-width: 420px;
+    max-width: 480px;
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -177,6 +178,10 @@
         0 25px 50px -12px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
     animation: containerGlow 4s ease-in-out infinite alternate;
+}
+
+.auth-container.success-mode {
+    max-width: 420px;
 }
 
 @keyframes containerGlow {
@@ -200,7 +205,11 @@
 
 .auth-logo {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+}
+
+.auth-logo a {
+    display: inline-block;
 }
 
 .auth-logo img {
@@ -210,12 +219,87 @@
 }
 
 /* ============================================
+   PROGRESS INDICATOR
+   ============================================ */
+
+.auth-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 2rem;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.step-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+}
+
+.progress-step.active .step-dot {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(240, 147, 251, 0.4);
+}
+
+.progress-step.completed .step-dot {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    border-color: transparent;
+    color: #fff;
+}
+
+.progress-step.completed .step-dot svg {
+    stroke: #fff;
+}
+
+.step-label {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 500;
+}
+
+.progress-step.active .step-label,
+.progress-step.completed .step-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.progress-line {
+    width: 60px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 0.5rem;
+    margin-bottom: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.progress-line.completed {
+    background: linear-gradient(90deg, #4ade80, #22c55e);
+}
+
+/* ============================================
    HEADER
    ============================================ */
 
 .auth-header {
     text-align: center;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
 }
 
 .auth-badge {
@@ -249,6 +333,12 @@
 .auth-subtitle {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+}
+
+.highlight-email {
+    color: rgba(240, 147, 251, 0.9);
+    font-weight: 600;
 }
 
 /* ============================================
@@ -258,7 +348,14 @@
 .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
+    gap: 1rem;
+}
+
+/* Name Grid (First + Last) */
+.auth-name-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
 }
 
 /* Input Group */
@@ -335,6 +432,20 @@
     border-radius: 4px;
 }
 
+/* Handle label when password toggle is present */
+.input-wrapper .auth-input:focus ~ .auth-input-label,
+.input-wrapper .auth-input:not(:placeholder-shown) ~ .auth-input-label,
+.input-wrapper .auth-input.has-value ~ .auth-input-label {
+    top: 0;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    color: rgba(240, 147, 251, 0.9);
+    background: rgba(20, 20, 40, 0.95);
+    padding: 0 0.5rem;
+    left: 1rem;
+    border-radius: 4px;
+}
+
 /* Autofill handling */
 .auth-input:-webkit-autofill,
 .auth-input:-webkit-autofill:hover,
@@ -345,7 +456,8 @@
     caret-color: #fff;
 }
 
-.auth-input:-webkit-autofill + .auth-input-label {
+.auth-input:-webkit-autofill + .auth-input-label,
+.auth-input:-webkit-autofill ~ .auth-input-label {
     top: 0;
     transform: translateY(-50%);
     font-size: 0.75rem;
@@ -388,86 +500,325 @@
 }
 
 /* ============================================
-   OPTIONS ROW (Remember & Forgot)
+   INPUT VALIDATION STATES
    ============================================ */
 
-.auth-options {
+/* Valid state - green */
+.auth-input.input-valid {
+    border-color: rgba(74, 222, 128, 0.5) !important;
+    background: rgba(74, 222, 128, 0.1) !important;
+}
+
+.auth-input.input-valid:focus ~ .input-glow {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.auth-input.input-valid + .auth-input-label,
+.auth-input.input-valid ~ .auth-input-label,
+.auth-input.input-valid.has-value + .auth-input-label {
+    color: rgba(74, 222, 128, 0.9) !important;
+}
+
+/* Invalid state - red */
+.auth-input.input-invalid {
+    border-color: rgba(245, 87, 108, 0.5) !important;
+    background: rgba(245, 87, 108, 0.1) !important;
+}
+
+.auth-input.input-invalid:focus ~ .input-glow {
+    box-shadow: 0 0 20px rgba(245, 87, 108, 0.3);
+}
+
+.auth-input.input-invalid + .auth-input-label,
+.auth-input.input-invalid ~ .auth-input-label,
+.auth-input.input-invalid.has-value + .auth-input-label {
+    color: rgba(245, 87, 108, 0.9) !important;
+}
+
+/* ============================================
+   PASSWORD REQUIREMENTS
+   ============================================ */
+
+.password-requirements {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    margin-top: -0.5rem;
+}
+
+.req-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-size: 0.85rem;
-}
-
-/* Custom Checkbox */
-.auth-remember {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    cursor: pointer;
-    position: relative;
-    padding-left: 1.75rem;
-}
-
-.auth-remember input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    cursor: pointer;
-    height: 0;
-    width: 0;
-}
-
-.checkmark {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    height: 18px;
-    width: 18px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
     transition: all 0.3s ease;
 }
 
-.auth-remember:hover .checkmark {
-    border-color: rgba(240, 147, 251, 0.5);
+.req-item[data-valid="true"] {
+    color: #4ade80;
 }
 
-.auth-remember input:checked ~ .checkmark {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    border-color: transparent;
+.req-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid currentColor;
+    position: relative;
+    transition: all 0.3s ease;
 }
 
-.checkmark:after {
-    content: "";
+.req-item[data-valid="true"] .req-icon {
+    background: #4ade80;
+    border-color: #4ade80;
+}
+
+.req-item[data-valid="true"] .req-icon::after {
+    content: '';
     position: absolute;
-    display: none;
-    left: 6px;
-    top: 2px;
+    left: 4px;
+    top: 1px;
     width: 4px;
-    height: 9px;
+    height: 7px;
     border: solid white;
-    border-width: 0 2px 2px 0;
+    border-width: 0 1.5px 1.5px 0;
     transform: rotate(45deg);
 }
 
-.auth-remember input:checked ~ .checkmark:after {
-    display: block;
+/* ============================================
+   CODE INPUTS (Verification)
+   ============================================ */
+
+.code-inputs-container {
+    margin: 1rem 0;
 }
 
-.remember-text {
-    color: rgba(255, 255, 255, 0.7);
+.code-inputs {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
-/* Forgot Password Link */
-.auth-forgot {
-    color: rgba(255, 255, 255, 0.6);
-    text-decoration: none;
+.code-input {
+    width: 50px;
+    height: 60px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     transition: all 0.3s ease;
 }
 
-.auth-forgot:hover {
+.code-input:focus {
+    outline: none;
+    border-color: rgba(240, 147, 251, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 20px rgba(240, 147, 251, 0.2);
+}
+
+.code-input.filled {
+    border-color: rgba(240, 147, 251, 0.5);
+    background: rgba(240, 147, 251, 0.1);
+}
+
+.code-input.error {
+    border-color: #f5576c;
+    background: rgba(245, 87, 108, 0.1);
+    animation: shake 0.5s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+.code-error {
+    text-align: center;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #f5576c;
+}
+
+/* ============================================
+   RESEND CODE
+   ============================================ */
+
+.resend-container {
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.resend-text {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 0.5rem;
+}
+
+.countdown {
+    font-weight: 700;
     color: rgba(240, 147, 251, 0.9);
+}
+
+.resend-btn {
+    background: transparent;
+    border: 1px solid rgba(240, 147, 251, 0.5);
+    color: rgba(240, 147, 251, 0.9);
+    padding: 0.5rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.resend-btn:hover:not(.disabled) {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.8);
+}
+
+.resend-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   INFO BOX
+   ============================================ */
+
+.info-box {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: rgba(79, 172, 254, 0.1);
+    border: 1px solid rgba(79, 172, 254, 0.2);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+}
+
+.info-box svg {
+    flex-shrink: 0;
+    color: rgba(79, 172, 254, 0.9);
+}
+
+.info-box div {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.5;
+}
+
+.info-box strong {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.info-box a {
+    color: rgba(240, 147, 251, 0.9);
+    text-decoration: none;
+}
+
+.info-box a:hover {
+    text-decoration: underline;
+}
+
+/* ============================================
+   SUCCESS ICON CONTAINER
+   ============================================ */
+
+.success-icon-container {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    background: linear-gradient(135deg, rgba(79, 172, 254, 0.2), rgba(102, 126, 234, 0.2));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.success-icon-container svg {
+    color: rgba(79, 172, 254, 0.9);
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(79, 172, 254, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 15px rgba(79, 172, 254, 0);
+    }
+}
+
+/* ============================================
+   SUCCESS ANIMATION (Checkmark)
+   ============================================ */
+
+.success-animation {
+    margin: 0 auto 1.5rem;
+    background: transparent;
+}
+
+.checkmark {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: block;
+    stroke-width: 2;
+    stroke: #4ade80;
+    stroke-miterlimit: 10;
+    margin: 0 auto;
+    animation: checkmarkScale 0.3s ease-in-out 0.9s both;
+    background: none !important;
+    overflow: visible;
+}
+
+.checkmark-circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke-miterlimit: 10;
+    stroke: #4ade80;
+    fill: none;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.checkmark-check {
+    transform-origin: 50% 50%;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    stroke: #fff;
+    stroke-width: 3;
+    animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes stroke {
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes checkmarkScale {
+    0%, 100% {
+        transform: none;
+    }
+    50% {
+        transform: scale3d(1.1, 1.1, 1);
+    }
+}
+
+.success-title {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 /* ============================================
@@ -501,6 +852,14 @@
 
 .auth-submit:active {
     transform: translateY(0);
+}
+
+.auth-submit.success-btn {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+
+.auth-submit.success-btn:hover {
+    box-shadow: 0 10px 30px rgba(74, 222, 128, 0.4);
 }
 
 /* Button Shine Effect */
@@ -557,7 +916,7 @@
 
 .auth-footer {
     text-align: center;
-    margin-top: 2rem;
+    margin-top: 1.5rem;
     padding-top: 1.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
@@ -568,7 +927,7 @@
     margin-bottom: 0.5rem;
 }
 
-.register-link {
+.auth-link {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
@@ -579,24 +938,73 @@
     transition: all 0.3s ease;
 }
 
-.register-link:hover {
+.auth-link:hover {
     color: #fff;
     gap: 0.75rem;
 }
 
-.register-link svg {
+.auth-link svg {
     transition: transform 0.3s ease;
 }
 
-.register-link:hover svg {
+.auth-link:hover svg {
     transform: translateX(3px);
+}
+
+.auth-link.back-link:hover svg {
+    transform: translateX(-3px);
+}
+
+/* ============================================
+   STEP CONTAINER
+   ============================================ */
+
+.auth-steps-container {
+    position: relative;
+}
+
+.auth-step {
+    display: none;
+}
+
+.auth-step.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Success step center alignment */
+.success-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.success-step .auth-header {
+    width: 100%;
+}
+
+.success-step .auth-submit {
+    width: 100%;
 }
 
 /* ============================================
    RESPONSIVE
    ============================================ */
 
-@media (max-width: 480px) {
+@media (max-width: 520px) {
     .auth-page {
         padding: 0.5rem;
     }
@@ -607,23 +1015,51 @@
     }
 
     .auth-logo img {
-        max-width: 160px;
+        max-width: 150px;
     }
 
     .auth-title {
         font-size: 1.5rem;
     }
 
-    .auth-options {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: flex-start;
+    .auth-name-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .password-requirements {
+        grid-template-columns: 1fr;
+    }
+
+    .code-input {
+        width: 42px;
+        height: 52px;
+        font-size: 1.25rem;
+    }
+
+    .progress-line {
+        width: 40px;
     }
 
     /* Reduce animation intensity on mobile */
     .orb {
         filter: blur(60px);
         opacity: 0.4;
+    }
+}
+
+@media (max-width: 380px) {
+    .auth-container {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .code-inputs {
+        gap: 0.35rem;
+    }
+
+    .code-input {
+        width: 38px;
+        height: 48px;
+        font-size: 1.1rem;
     }
 }
 
@@ -641,5 +1077,16 @@
 
     .btn-shine {
         display: none;
+    }
+
+    .checkmark,
+    .checkmark-circle,
+    .checkmark-check {
+        animation: none;
+        stroke-dashoffset: 0;
+    }
+
+    .success-icon-container {
+        animation: none;
     }
 }

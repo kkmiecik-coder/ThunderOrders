@@ -217,6 +217,7 @@
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: var(--space-2);
+    transition: color 0.5s ease;
 }
 
 /* Animated gradient for name */
@@ -288,6 +289,11 @@
     background: white;
     color: var(--kpop-purple);
     border: 2px solid var(--kpop-purple);
+    transition: background 0.5s ease,
+                color 0.5s ease,
+                border-color 0.5s ease,
+                transform 0.3s ease,
+                box-shadow 0.3s ease;
 }
 
 .btn-kpop-secondary:hover {
@@ -311,7 +317,10 @@
     color: white;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s ease;
+    border: 1px solid transparent;
+    transition: box-shadow 0.5s ease,
+                border-color 0.5s ease,
+                transform 0.3s ease;
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -324,14 +333,17 @@
 
 .stat-card-gradient-purple {
     background: var(--gradient-purple);
+    transition: background 0.5s ease;
 }
 
 .stat-card-gradient-pink {
     background: var(--gradient-pink);
+    transition: background 0.5s ease;
 }
 
 .stat-card-gradient-cyan {
     background: var(--gradient-cyan);
+    transition: background 0.5s ease;
 }
 
 .stat-icon {
@@ -394,7 +406,11 @@
     border-radius: 16px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     overflow: hidden;
-    transition: all 0.3s ease;
+    border: 1px solid transparent;
+    transition: background 0.5s ease,
+                box-shadow 0.5s ease,
+                border-color 0.5s ease,
+                backdrop-filter 0.5s ease;
 }
 
 .widget:hover {
@@ -407,12 +423,14 @@
     align-items: center;
     padding: var(--space-5);
     border-bottom: 2px solid var(--gray-100);
+    transition: border-color 0.5s ease, background 0.5s ease;
 }
 
 .widget-title {
     font-size: 1.125rem;
     font-weight: 700;
     color: var(--gray-800);
+    transition: color 0.5s ease;
 }
 
 .widget-link {
@@ -420,7 +438,7 @@
     font-size: 0.875rem;
     font-weight: 600;
     text-decoration: none;
-    transition: color 0.2s;
+    transition: color 0.5s ease;
     border: none;
     background: none;
     cursor: pointer;
@@ -450,7 +468,10 @@
     padding: var(--space-4);
     background: var(--gray-50);
     border-radius: 12px;
-    transition: all 0.2s;
+    border: 1px solid transparent;
+    transition: background 0.5s ease,
+                border-color 0.5s ease,
+                transform 0.2s ease;
 }
 
 .order-item:hover {
@@ -468,6 +489,7 @@
     text-decoration: none;
     display: block;
     margin-bottom: var(--space-1);
+    transition: color 0.5s ease;
 }
 
 .order-number:hover {
@@ -478,6 +500,7 @@
     font-size: 0.875rem;
     color: var(--gray-600);
     margin: 0;
+    transition: color 0.5s ease;
 }
 
 .order-meta {
@@ -492,6 +515,7 @@
     font-weight: 600;
     text-transform: uppercase;
     margin-bottom: var(--space-1);
+    transition: background 0.5s ease, color 0.5s ease;
 }
 
 .order-status-nowe { background: #E0F2FE; color: #0369A1; }
@@ -505,6 +529,7 @@
     font-weight: 600;
     color: var(--gray-800);
     margin: 0;
+    transition: color 0.5s ease;
 }
 
 /* ====================================
@@ -524,7 +549,10 @@
     background: var(--gray-50);
     border-radius: 12px;
     border-left: 4px solid transparent;
-    transition: all 0.2s;
+    border: 1px solid transparent;
+    transition: background 0.5s ease,
+                border-color 0.5s ease,
+                border-left-color 0.5s ease;
 }
 
 .todo-item:hover {
@@ -576,6 +604,7 @@
     font-weight: 600;
     color: var(--gray-800);
     margin: 0 0 var(--space-1);
+    transition: color 0.5s ease;
 }
 
 .todo-status-completed .todo-name {
@@ -594,6 +623,7 @@
     padding: 2px 8px;
     border-radius: 6px;
     font-weight: 600;
+    transition: background 0.5s ease, color 0.5s ease;
 }
 
 .todo-priority-low { background: #D1FAE5; color: #065F46; }
@@ -602,6 +632,7 @@
 
 .todo-date {
     color: var(--gray-600);
+    transition: color 0.5s ease;
 }
 
 .todo-overdue {
@@ -634,6 +665,7 @@
     color: var(--kpop-purple);
     font-weight: 600;
     text-decoration: none;
+    transition: color 0.5s ease;
 }
 
 .view-all-link:hover {
@@ -657,6 +689,7 @@
     font-size: 1rem;
     color: var(--gray-500);
     margin-bottom: var(--space-4);
+    transition: color 0.5s ease;
 }
 
 /* ====================================
@@ -673,6 +706,7 @@
     z-index: 1000;
     align-items: center;
     justify-content: center;
+    transition: background 0.5s ease;
 }
 
 .modal-overlay.active {
@@ -686,6 +720,10 @@
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
+    border: 1px solid transparent;
+    transition: background 0.5s ease,
+                border-color 0.5s ease,
+                backdrop-filter 0.5s ease;
 }
 
 .modal-header {
@@ -694,12 +732,14 @@
     align-items: center;
     padding: var(--space-5);
     border-bottom: 2px solid var(--gray-100);
+    transition: border-color 0.5s ease;
 }
 
 .modal-title {
     font-size: 1.25rem;
     font-weight: 700;
     color: var(--gray-800);
+    transition: color 0.5s ease;
 }
 
 .modal-close {
@@ -708,7 +748,7 @@
     font-size: 1.5rem;
     cursor: pointer;
     color: var(--gray-500);
-    transition: color 0.2s;
+    transition: color 0.5s ease;
 }
 
 .modal-close:hover {
@@ -761,6 +801,239 @@
         font-size: 1.5rem;
     }
 }
+
+/* ====================================
+   DARK MODE - GLASSMORPHISM
+   ==================================== */
+[data-theme="dark"] .dashboard-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .title-gradient {
+    background: linear-gradient(
+        135deg,
+        #f093fb,
+        #f5576c,
+        #00F5FF,
+        #f093fb
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Dark mode widgets - glassmorphism */
+[data-theme="dark"] .widget {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .widget:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .widget-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .widget-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .widget-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .widget-link:hover {
+    color: #f5576c;
+}
+
+/* Dark mode stat cards */
+[data-theme="dark"] .stat-card {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .stat-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(240, 147, 251, 0.15);
+}
+
+/* Dark mode stat card gradients - darker versions */
+[data-theme="dark"] .stat-card-gradient-purple {
+    background: linear-gradient(135deg, #3d4a8a 0%, #4a2d6b 100%);
+}
+
+[data-theme="dark"] .stat-card-gradient-pink {
+    background: linear-gradient(135deg, #8a4d8a 0%, #8a3344 100%);
+}
+
+[data-theme="dark"] .stat-card-gradient-cyan {
+    background: linear-gradient(135deg, #2d5a8a 0%, #006a6a 100%);
+}
+
+/* Dark mode order items */
+[data-theme="dark"] .order-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .order-item:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .order-number {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .order-number:hover {
+    color: #f5576c;
+}
+
+[data-theme="dark"] .order-client {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .order-amount {
+    color: #f0f0f0;
+}
+
+/* Dark mode order status badges */
+[data-theme="dark"] .order-status-nowe {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+[data-theme="dark"] .order-status-oczekujace {
+    background: rgba(240, 147, 251, 0.2);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .order-status-spakowane {
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
+}
+
+[data-theme="dark"] .order-status-wyslane {
+    background: rgba(157, 78, 221, 0.2);
+    color: #9D4EDD;
+}
+
+[data-theme="dark"] .order-status-dostarczone {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+/* Dark mode todo items */
+[data-theme="dark"] .todo-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.1);
+    border-left: 4px solid transparent;
+}
+
+[data-theme="dark"] .todo-item:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .todo-status-pending {
+    border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .todo-status-in_progress {
+    border-left-color: #f093fb;
+}
+
+[data-theme="dark"] .todo-status-completed {
+    border-left-color: #4ade80;
+}
+
+[data-theme="dark"] .todo-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .todo-status-completed .todo-name {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .todo-date {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Dark mode priority badges */
+[data-theme="dark"] .todo-priority-low {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+[data-theme="dark"] .todo-priority-medium {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .todo-priority-high {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+/* Dark mode view all link */
+[data-theme="dark"] .view-all-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .view-all-link:hover {
+    color: #f5576c;
+}
+
+/* Dark mode empty states */
+[data-theme="dark"] .empty-text {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Dark mode button */
+[data-theme="dark"] .btn-kpop-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-kpop-secondary:hover {
+    background: rgba(240, 147, 251, 0.15);
+    border-color: rgba(240, 147, 251, 0.5);
+}
+
+/* Dark mode modal */
+[data-theme="dark"] .modal-overlay {
+    background: rgba(15, 12, 41, 0.8);
+    backdrop-filter: blur(8px);
+}
+
+[data-theme="dark"] .modal-content {
+    background: rgba(15, 12, 41, 0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .modal-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .modal-close {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .modal-close:hover {
+    color: #f0f0f0;
+}
 </style>
 {% endblock %}
 
@@ -768,29 +1041,50 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // ====================================
-// CHARTS
+// CHARTS WITH DARK MODE SUPPORT
 // ====================================
+
+// Check if dark mode is active
+const isDarkMode = () => document.documentElement.getAttribute('data-theme') === 'dark';
+
+// Get theme-aware colors
+const getChartColors = () => {
+    const dark = isDarkMode();
+    return {
+        gridColor: dark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)',
+        textColor: dark ? 'rgba(255, 255, 255, 0.7)' : undefined,
+        tooltipBg: dark ? 'rgba(15, 12, 41, 0.95)' : 'rgba(0, 0, 0, 0.8)',
+        tooltipBorder: dark ? 'rgba(240, 147, 251, 0.3)' : 'transparent',
+        lineColor: dark ? '#f093fb' : '#8338EC',
+        lineBgColor: dark ? 'rgba(240, 147, 251, 0.15)' : 'rgba(131, 56, 236, 0.1)',
+        pointBorderColor: dark ? 'rgba(15, 12, 41, 0.9)' : '#fff'
+    };
+};
+
+const colors = getChartColors();
 
 // Sales Chart (7 days)
 const salesData = {{ sales_chart|tojson }};
 const salesCtx = document.getElementById('salesChart');
+let salesChart = null;
+
 if (salesCtx) {
-    new Chart(salesCtx, {
+    salesChart = new Chart(salesCtx, {
         type: 'line',
         data: {
             labels: salesData.map(d => d.date_label),
             datasets: [{
                 label: 'Przychód (PLN)',
                 data: salesData.map(d => d.revenue),
-                borderColor: '#8338EC',
-                backgroundColor: 'rgba(131, 56, 236, 0.1)',
+                borderColor: colors.lineColor,
+                backgroundColor: colors.lineBgColor,
                 borderWidth: 3,
                 fill: true,
                 tension: 0.4,
                 pointRadius: 6,
                 pointHoverRadius: 8,
-                pointBackgroundColor: '#8338EC',
-                pointBorderColor: '#fff',
+                pointBackgroundColor: colors.lineColor,
+                pointBorderColor: colors.pointBorderColor,
                 pointBorderWidth: 2
             }]
         },
@@ -800,10 +1094,14 @@ if (salesCtx) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    backgroundColor: colors.tooltipBg,
+                    borderColor: colors.tooltipBorder,
+                    borderWidth: 1,
                     padding: 12,
                     titleFont: { size: 14, weight: 'bold' },
+                    titleColor: isDarkMode() ? '#f0f0f0' : '#fff',
                     bodyFont: { size: 13 },
+                    bodyColor: isDarkMode() ? 'rgba(255, 255, 255, 0.8)' : '#fff',
                     cornerRadius: 8
                 }
             },
@@ -812,12 +1110,13 @@ if (salesCtx) {
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) { return value.toFixed(2) + ' PLN'; },
-                        font: { size: 12 }
+                        font: { size: 12 },
+                        color: colors.textColor
                     },
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    grid: { color: colors.gridColor }
                 },
                 x: {
-                    ticks: { font: { size: 12 } },
+                    ticks: { font: { size: 12 }, color: colors.textColor },
                     grid: { display: false }
                 }
             }
@@ -828,8 +1127,10 @@ if (salesCtx) {
 // Top Products Chart
 const productsData = {{ top_products|tojson }};
 const productsCtx = document.getElementById('productsChart');
+let productsChart = null;
+
 if (productsCtx && productsData.length > 0) {
-    new Chart(productsCtx, {
+    productsChart = new Chart(productsCtx, {
         type: 'bar',
         data: {
             labels: productsData.map(p => p.name.substring(0, 20) + (p.name.length > 20 ? '...' : '')),
@@ -837,11 +1138,11 @@ if (productsCtx && productsData.length > 0) {
                 label: 'Sprzedane sztuki',
                 data: productsData.map(p => p.total_quantity),
                 backgroundColor: [
-                    'rgba(131, 56, 236, 0.8)',
-                    'rgba(255, 0, 110, 0.8)',
+                    'rgba(240, 147, 251, 0.8)',
+                    'rgba(245, 87, 108, 0.8)',
                     'rgba(0, 245, 255, 0.8)',
-                    'rgba(255, 133, 0, 0.8)',
-                    'rgba(102, 126, 234, 0.8)'
+                    'rgba(102, 126, 234, 0.8)',
+                    'rgba(157, 78, 221, 0.8)'
                 ],
                 borderRadius: 8,
                 borderWidth: 0
@@ -853,8 +1154,12 @@ if (productsCtx && productsData.length > 0) {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    backgroundColor: colors.tooltipBg,
+                    borderColor: colors.tooltipBorder,
+                    borderWidth: 1,
                     padding: 12,
+                    titleColor: isDarkMode() ? '#f0f0f0' : '#fff',
+                    bodyColor: isDarkMode() ? 'rgba(255, 255, 255, 0.8)' : '#fff',
                     cornerRadius: 8
                 }
             },
@@ -863,18 +1168,57 @@ if (productsCtx && productsData.length > 0) {
                     beginAtZero: true,
                     ticks: {
                         stepSize: 1,
-                        font: { size: 12 }
+                        font: { size: 12 },
+                        color: colors.textColor
                     },
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                    grid: { color: colors.gridColor }
                 },
                 x: {
-                    ticks: { font: { size: 11 } },
+                    ticks: { font: { size: 11 }, color: colors.textColor },
                     grid: { display: false }
                 }
             }
         }
     });
 }
+
+// Listen for theme changes and update charts dynamically
+const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'data-theme') {
+            // Update charts with new theme colors (smooth transition)
+            const newColors = getChartColors();
+
+            if (salesChart) {
+                salesChart.data.datasets[0].borderColor = newColors.lineColor;
+                salesChart.data.datasets[0].backgroundColor = newColors.lineBgColor;
+                salesChart.data.datasets[0].pointBackgroundColor = newColors.lineColor;
+                salesChart.data.datasets[0].pointBorderColor = newColors.pointBorderColor;
+                salesChart.options.plugins.tooltip.backgroundColor = newColors.tooltipBg;
+                salesChart.options.plugins.tooltip.borderColor = newColors.tooltipBorder;
+                salesChart.options.plugins.tooltip.titleColor = isDarkMode() ? '#f0f0f0' : '#fff';
+                salesChart.options.plugins.tooltip.bodyColor = isDarkMode() ? 'rgba(255, 255, 255, 0.8)' : '#fff';
+                salesChart.options.scales.y.ticks.color = newColors.textColor;
+                salesChart.options.scales.y.grid.color = newColors.gridColor;
+                salesChart.options.scales.x.ticks.color = newColors.textColor;
+                salesChart.update('none'); // 'none' for instant update without animation
+            }
+
+            if (productsChart) {
+                productsChart.options.plugins.tooltip.backgroundColor = newColors.tooltipBg;
+                productsChart.options.plugins.tooltip.borderColor = newColors.tooltipBorder;
+                productsChart.options.plugins.tooltip.titleColor = isDarkMode() ? '#f0f0f0' : '#fff';
+                productsChart.options.plugins.tooltip.bodyColor = isDarkMode() ? 'rgba(255, 255, 255, 0.8)' : '#fff';
+                productsChart.options.scales.y.ticks.color = newColors.textColor;
+                productsChart.options.scales.y.grid.color = newColors.gridColor;
+                productsChart.options.scales.x.ticks.color = newColors.textColor;
+                productsChart.update('none');
+            }
+        }
+    });
+});
+
+observer.observe(document.documentElement, { attributes: true });
 
 // ====================================
 // TODO FUNCTIONS

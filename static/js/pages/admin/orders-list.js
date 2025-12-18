@@ -556,4 +556,28 @@
         div.textContent = text;
         return div.innerHTML;
     }
+
+    // ====================
+    // ITEMS TOGGLE
+    // ====================
+
+    /**
+     * Toggle visibility of hidden order items
+     */
+    window.toggleOrderItems = function(orderId, totalItems) {
+        const hiddenItems = document.getElementById(`hiddenItems-${orderId}`);
+        const toggleBtn = hiddenItems?.parentElement.querySelector('.items-toggle-btn .toggle-text');
+
+        if (!hiddenItems || !toggleBtn) return;
+
+        const isHidden = hiddenItems.style.display === 'none';
+
+        if (isHidden) {
+            hiddenItems.style.display = 'flex';
+            toggleBtn.textContent = 'Ukryj pozostałe';
+        } else {
+            hiddenItems.style.display = 'none';
+            toggleBtn.textContent = `W sumie ${totalItems} przedmiotów - pokaż pozostałe`;
+        }
+    };
 })();

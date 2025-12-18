@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-unified.css') }}">
+{% endblock %}
+
+{% block title %}
+{% if mode == 'register' %}Rejestracja{% elif mode == 'forgot' %}Resetowanie hasla{% elif mode == 'reset' %}Nowe haslo{% elif mode == 'verify' %}Weryfikacja{% elif mode == 'success' %}Sukces{% else %}Konto{% endif %} - ThunderOrders
+{% endblock %}
+
+{% block body_content %}
+<div class="auth-page">
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="orb orb-5"></div>
+        <div class="sparkle sparkle-1"></div>
+        <div class="sparkle sparkle-2"></div>
+        <div class="sparkle sparkle-3"></div>
+        <div class="sparkle sparkle-4"></div>
+        <div class="sparkle sparkle-5"></div>
+        <div class="sparkle sparkle-6"></div>
+        <!-- Dynamic pulse rings container -->
+        <div class="pulse-rings-container" id="pulseRingsContainer"></div>
+    </div>
+
+    <!-- Glass Container -->
+    <div class="auth-container {% if mode == 'success' %}success-mode{% endif %}">
+        <!-- Logo -->
+        <div class="auth-logo">
+            <a href="{{ url_for('auth.login') }}">
+                <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders">
+            </a>
+        </div>
+
+        <!-- Progress indicator (only for multi-step flows) -->
+        {% if mode in ['register', 'verify'] %}
+        <div class="auth-progress">
+            <div class="progress-step {% if mode == 'register' %}active{% else %}completed{% endif %}" data-step="1">
+                <div class="step-dot">
+                    {% if mode != 'register' %}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    {% else %}1{% endif %}
+                </div>
+                <span class="step-label">Dane</span>
+            </div>
+            <div class="progress-line {% if mode != 'register' %}completed{% endif %}"></div>
+            <div class="progress-step {% if mode == 'verify' %}active{% elif mode == 'success' %}completed{% endif %}" data-step="2">
+                <div class="step-dot">
+                    {% if mode == 'success' %}
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    {% else %}2{% endif %}
+                </div>
+                <span class="step-label">Weryfikacja</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Step container -->
+        <div class="auth-steps-container">
+            <!-- ==================== REGISTER STEP ==================== -->
+            {% if mode == 'register' %}
+            <div class="auth-step active" data-step="register">
+                <div class="auth-header">
+                    <h1 class="auth-title">Utwórz konto</h1>
+                    <p class="auth-subtitle">Dolacz do ThunderOrders juz dzis</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('auth.register') }}" class="auth-form" id="register-form">
+                    {{ form.hidden_tag() }}
+
+                    <!-- First Name & Last Name - Grid -->
+                    <div class="auth-name-grid">
+                        <div class="auth-input-group">
+                            <div class="input-wrapper">
+                                {{ form.first_name(class="auth-input", placeholder=" ", autofocus=true, id="first_name") }}
+                                <label for="first_name" class="auth-input-label">Imie</label>
+                                <div class="input-glow"></div>
+                            </div>
+                            {% if form.first_name.errors %}
+                            <div class="form-error">{{ form.first_name.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="auth-input-group">
+                            <div class="input-wrapper">
+                                {{ form.last_name(class="auth-input", placeholder=" ", id="last_name") }}
+                                <label for="last_name" class="auth-input-label">Nazwisko</label>
+                                <div class="input-glow"></div>
+                            </div>
+                            {% if form.last_name.errors %}
+                            <div class="form-error">{{ form.last_name.errors[0] }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Email Input -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.email(class="auth-input", placeholder=" ", id="email") }}
+                            <label for="email" class="auth-input-label">E-mail</label>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.email.errors %}
+                        <div class="form-error">{{ form.email.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Phone Input -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.phone(class="auth-input", placeholder=" ", id="phone") }}
+                            <label for="phone" class="auth-input-label">Telefon (opcjonalnie)</label>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.phone.errors %}
+                        <div class="form-error">{{ form.phone.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Password Input with Toggle -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.password(class="auth-input", placeholder=" ", id="password-input") }}
+                            <label for="password-input" class="auth-input-label">Haslo</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                                <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.password.errors %}
+                        <div class="form-error">{{ form.password.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Password Requirements -->
+                    <div class="password-requirements" id="password-requirements">
+                        <div class="req-item" id="req-length" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Min. 8 znakow</span>
+                        </div>
+                        <div class="req-item" id="req-uppercase" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Wielka litera</span>
+                        </div>
+                        <div class="req-item" id="req-lowercase" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Mala litera</span>
+                        </div>
+                        <div class="req-item" id="req-number" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Cyfra</span>
+                        </div>
+                    </div>
+
+                    <!-- Password Confirm Input with Toggle -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.password_confirm(class="auth-input", placeholder=" ", id="password-confirm-input") }}
+                            <label for="password-confirm-input" class="auth-input-label">Potwierdz haslo</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                                <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                        <div class="form-error">{{ form.password_confirm.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="auth-submit">
+                        <span class="btn-text">Zarejestruj sie</span>
+                        <span class="btn-loader"></span>
+                        <div class="btn-shine"></div>
+                    </button>
+                </form>
+
+                <!-- Login Link -->
+                <div class="auth-footer">
+                    <p>Masz juz konto?</p>
+                    <a href="{{ url_for('auth.login') }}" class="auth-link">
+                        <span>Zaloguj sie</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12 5 19 12 12 19"></polyline>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== VERIFY CODE STEP ==================== -->
+            {% if mode == 'verify' %}
+            <div class="auth-step active" data-step="verify">
+                <div class="auth-header">
+                    <h1 class="auth-title">Weryfikacja email</h1>
+                    <p class="auth-subtitle">
+                        Wyslalismy 6-cyfrowy kod na adres:<br>
+                        <strong class="highlight-email">{{ user_email }}</strong>
+                    </p>
+                </div>
+
+                <form method="POST" action="{{ url_for('auth.verify_email_code', token=token) }}" class="auth-form" id="verification-form">
+                    {{ form.hidden_tag() }}
+
+                    <!-- 6-digit Code Inputs -->
+                    <div class="code-inputs-container">
+                        <div class="code-inputs">
+                            {{ form.digit1(class="code-input", id="digit1", inputmode="numeric", pattern="[0-9]*", maxlength="1", autocomplete="one-time-code") }}
+                            {{ form.digit2(class="code-input", id="digit2", inputmode="numeric", pattern="[0-9]*", maxlength="1") }}
+                            {{ form.digit3(class="code-input", id="digit3", inputmode="numeric", pattern="[0-9]*", maxlength="1") }}
+                            {{ form.digit4(class="code-input", id="digit4", inputmode="numeric", pattern="[0-9]*", maxlength="1") }}
+                            {{ form.digit5(class="code-input", id="digit5", inputmode="numeric", pattern="[0-9]*", maxlength="1") }}
+                            {{ form.digit6(class="code-input", id="digit6", inputmode="numeric", pattern="[0-9]*", maxlength="1") }}
+                        </div>
+                        <div class="code-error" style="display: none;"></div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="auth-submit" id="verify-btn">
+                        <span class="btn-text">Weryfikuj</span>
+                        <span class="btn-loader"></span>
+                        <div class="btn-shine"></div>
+                    </button>
+
+                    <!-- Resend Code -->
+                    <div class="resend-container">
+                        <p class="resend-text" id="resend-text">
+                            {% if can_resend %}
+                            Nie otrzymales kodu?
+                            {% else %}
+                            Wyslij kod ponownie za <span id="countdown" class="countdown">{{ seconds_remaining }}</span>s
+                            {% endif %}
+                        </p>
+                        <button type="button"
+                                class="resend-btn {% if not can_resend %}disabled{% endif %}"
+                                id="resend-btn"
+                                data-token="{{ token }}"
+                                {% if not can_resend %}disabled{% endif %}>
+                            Wyslij ponownie
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Back to Login -->
+                <div class="auth-footer">
+                    <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Powrot do logowania</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== FORGOT PASSWORD STEP ==================== -->
+            {% if mode == 'forgot' %}
+            <div class="auth-step active" data-step="forgot">
+                <div class="auth-header">
+                    <h1 class="auth-title">Zresetuj hasło</h1>
+                    <p class="auth-subtitle">Podaj swoj email, a wyslemy Ci link do resetowania hasla.</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('auth.forgot_password') }}" class="auth-form" id="forgot-form">
+                    {{ form.hidden_tag() }}
+
+                    <!-- Email Input -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.email(class="auth-input", placeholder=" ", autofocus=true, id="email") }}
+                            <label for="email" class="auth-input-label">E-mail</label>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.email.errors %}
+                        <div class="form-error">{{ form.email.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="auth-submit">
+                        <span class="btn-text">Wyslij link</span>
+                        <span class="btn-loader"></span>
+                        <div class="btn-shine"></div>
+                    </button>
+                </form>
+
+                <!-- Back to Login -->
+                <div class="auth-footer">
+                    <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Powrot do logowania</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== FORGOT PASSWORD CONFIRMATION ==================== -->
+            {% if mode == 'forgot_sent' %}
+            <div class="auth-step active" data-step="forgot-sent">
+                <div class="auth-header">
+                    <div class="success-icon-container">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M22 2L11 13"></path>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                        </svg>
+                    </div>
+                    <h1 class="auth-title">Sprawdz skrzynke</h1>
+                    <p class="auth-subtitle">Wyslalismy link do resetowania hasla na podany adres email.</p>
+                </div>
+
+                <div class="info-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                    <div>
+                        <strong>Nie otrzymales emaila?</strong><br>
+                        Sprawdz folder spam lub <a href="{{ url_for('auth.forgot_password') }}">wyslij ponownie</a>
+                    </div>
+                </div>
+
+                <a href="{{ url_for('auth.login') }}" class="auth-submit">
+                    <span class="btn-text">Wroc do logowania</span>
+                    <div class="btn-shine"></div>
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- ==================== RESET PASSWORD STEP ==================== -->
+            {% if mode == 'reset' %}
+            <div class="auth-step active" data-step="reset">
+                <div class="auth-header">
+                    <h1 class="auth-title">Ustaw nowe hasło</h1>
+                    <p class="auth-subtitle">Wprowadz nowe haslo do swojego konta.</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('auth.reset_password', token=token) }}" class="auth-form" id="reset-form">
+                    {{ form.hidden_tag() }}
+
+                    <!-- Password Input -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.password(class="auth-input", placeholder=" ", id="password-input", autofocus=true) }}
+                            <label for="password-input" class="auth-input-label">Nowe haslo</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                                <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.password.errors %}
+                        <div class="form-error">{{ form.password.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Password Requirements -->
+                    <div class="password-requirements" id="password-requirements">
+                        <div class="req-item" id="req-length" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Min. 8 znakow</span>
+                        </div>
+                        <div class="req-item" id="req-uppercase" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Wielka litera</span>
+                        </div>
+                        <div class="req-item" id="req-lowercase" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Mala litera</span>
+                        </div>
+                        <div class="req-item" id="req-number" data-valid="false">
+                            <span class="req-icon"></span>
+                            <span>Cyfra</span>
+                        </div>
+                    </div>
+
+                    <!-- Password Confirm Input -->
+                    <div class="auth-input-group">
+                        <div class="input-wrapper">
+                            {{ form.password_confirm(class="auth-input", placeholder=" ", id="password-confirm-input") }}
+                            <label for="password-confirm-input" class="auth-input-label">Potwierdz nowe haslo</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                                <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                </svg>
+                                <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                                </svg>
+                            </button>
+                            <div class="input-glow"></div>
+                        </div>
+                        {% if form.password_confirm.errors %}
+                        <div class="form-error">{{ form.password_confirm.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="auth-submit">
+                        <span class="btn-text">Zmien haslo</span>
+                        <span class="btn-loader"></span>
+                        <div class="btn-shine"></div>
+                    </button>
+                </form>
+
+                <!-- Back to Login -->
+                <div class="auth-footer">
+                    <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Powrot do logowania</span>
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ==================== VERIFICATION SUCCESS ==================== -->
+            {% if mode == 'success' %}
+            <div class="auth-step active success-step" data-step="success">
+                <div class="auth-header">
+                    <div class="success-animation">
+                        <svg class="checkmark" width="80" height="80" viewBox="0 0 52 52">
+                            <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                            <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                        </svg>
+                    </div>
+                    <h1 class="auth-title success-title">{{ success_title|default('Konto aktywowane!') }}</h1>
+                    <p class="auth-subtitle">{{ success_message|default('Twoj adres email zostal pomyslnie zweryfikowany. Mozesz teraz zalogowac sie na swoje konto.') }}</p>
+                </div>
+
+                <a href="{{ url_for('auth.login') }}" class="auth-submit success-btn">
+                    <span class="btn-text">Przejdz do logowania</span>
+                    <div class="btn-shine"></div>
+                </a>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/auth/auth-unified.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Dynamic Pulse Rings
+    const container = document.getElementById('pulseRingsContainer');
+    if (container) {
+        const colors = [
+            'rgba(240, 147, 251, 0.4)',
+            'rgba(102, 126, 234, 0.4)',
+            'rgba(79, 172, 254, 0.35)',
+            'rgba(245, 87, 108, 0.35)',
+            'rgba(255, 133, 0, 0.4)'
+        ];
+
+        function createPulseRing() {
+            const ring = document.createElement('div');
+            ring.className = 'dynamic-pulse-ring';
+
+            const x = Math.random() * 100;
+            const y = Math.random() * 100;
+            const size = 100 + Math.random() * 200;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const duration = 2 + Math.random() * 2;
+
+            ring.style.cssText = `
+                left: ${x}%;
+                top: ${y}%;
+                width: ${size}px;
+                height: ${size}px;
+                border-color: ${color};
+                animation-duration: ${duration}s;
+            `;
+
+            container.appendChild(ring);
+
+            setTimeout(() => ring.remove(), duration * 1000);
+        }
+
+        // Create initial rings
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => createPulseRing(), i * 600);
+        }
+
+        // Create new rings periodically
+        setInterval(createPulseRing, 1200);
+    }
+
+    // Floating label handling
+    document.querySelectorAll('.auth-input').forEach(input => {
+        if (input.value) {
+            input.classList.add('has-value');
+        }
+
+        input.addEventListener('input', function() {
+            this.classList.toggle('has-value', this.value.length > 0);
+        });
+    });
+
+    // Form loading state
+    document.querySelectorAll('.auth-form').forEach(form => {
+        form.addEventListener('submit', function() {
+            const btn = this.querySelector('.auth-submit');
+            if (btn) {
+                btn.classList.add('loading');
+            }
+        });
+    });
+
+    // Password toggles
+    document.querySelectorAll('.password-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const wrapper = this.closest('.input-wrapper');
+            const input = wrapper.querySelector('input');
+            const eyeOpen = this.querySelector('.eye-open');
+            const eyeClosed = this.querySelector('.eye-closed');
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                eyeOpen.style.display = 'none';
+                eyeClosed.style.display = 'block';
+                this.classList.add('active');
+            } else {
+                input.type = 'password';
+                eyeOpen.style.display = 'block';
+                eyeClosed.style.display = 'none';
+                this.classList.remove('active');
+            }
+        });
+    });
+});
+</script>
+{% if mode == 'verify' and not can_resend %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof initCountdown === 'function') {
+            initCountdown({{ seconds_remaining }});
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

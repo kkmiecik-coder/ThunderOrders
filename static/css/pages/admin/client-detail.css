@@ -467,126 +467,18 @@
 }
 
 /* ==========================================
-   Modal Styles - Specific selectors to override global modals.css
+   Modal Styles - Use global modals.css
+   Only add page-specific helper classes here
    ========================================== */
-/* Hidden by default - JS toggles display via inline style */
-#deactivateModal,
-#deleteModal {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 10000 !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  max-width: none !important;
-  max-height: none !important;
-  overflow: visible !important;
-  animation: none !important;
-  transform: none !important;
-}
-
-#deactivateModal .modal-backdrop,
-#deleteModal .modal-backdrop {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  background: rgba(0, 0, 0, 0.5) !important;
-  z-index: 1;
-}
-
-#deactivateModal .modal-content,
-#deleteModal .modal-content {
-  position: relative !important;
-  background: white !important;
-  border-radius: 8px !important;
-  width: 100% !important;
-  max-width: 480px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
-  z-index: 2;
-  margin: 20px;
-}
-
-#deactivateModal .modal-header,
-#deleteModal .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-#deactivateModal .modal-header h3,
-#deleteModal .modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-}
-
-#deactivateModal .modal-close,
-#deleteModal .modal-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 24px;
-  color: #999;
-  line-height: 1;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-}
-
-#deactivateModal .modal-close:hover,
-#deleteModal .modal-close:hover {
-  background: #f0f0f0;
-  color: #666;
-}
-
-#deactivateModal .modal-body,
-#deleteModal .modal-body {
-  padding: 24px;
-  max-height: none !important;
-  overflow: visible !important;
-}
-
-#deactivateModal .modal-body p,
-#deleteModal .modal-body p {
-  margin: 0 0 16px;
-  font-size: 14px;
-  color: #555;
-}
-
 .modal-note {
   font-size: 13px;
-  color: #999;
-  margin-top: 16px !important;
+  color: var(--gray-500, #757575);
+  margin-top: 16px;
 }
 
 .modal-warning {
-  color: #c62828;
+  color: var(--error, #c62828);
   font-weight: 500;
-}
-
-#deactivateModal .modal-footer,
-#deleteModal .modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e0e0e0;
-  background: #fafafa;
-  border-radius: 0 0 8px 8px;
 }
 
 /* ==========================================
@@ -613,4 +505,261 @@
   .info-label {
     flex: 0 0 120px;
   }
+}
+
+/* ==========================================
+   DARK MODE - GLASSMORPHISM
+   ========================================== */
+
+/* Page Background - Dark Mode */
+[data-theme="dark"] .client-detail-page {
+  background: transparent;
+}
+
+/* Page Header - Dark Mode Glassmorphism */
+[data-theme="dark"] .page-header {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .back-link {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .back-link:hover {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .page-title {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .client-avatar-large {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .client-avatar-large.has-avatar {
+  border-color: #f093fb;
+}
+
+[data-theme="dark"] .inactive-banner {
+  background: rgba(245, 87, 108, 0.15);
+  color: #f5576c;
+  border: 1px solid rgba(245, 87, 108, 0.3);
+}
+
+/* Info Cards - Dark Mode Glassmorphism */
+[data-theme="dark"] .info-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .info-card.card-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .card-header {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .card-header h2 {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .btn-edit {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-edit:hover {
+  background: rgba(240, 147, 251, 0.15);
+  border-color: #f093fb;
+  color: #f093fb;
+}
+
+[data-theme="dark"] .card-actions {
+  border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Info Grid - Dark Mode */
+[data-theme="dark"] .info-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .info-value {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .info-value a {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .info-value a:hover {
+  color: #f5576c;
+}
+
+[data-theme="dark"] .verified-badge {
+  color: #34d399;
+}
+
+/* Role Badges - Dark Mode */
+[data-theme="dark"] .role-client {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .role-mod {
+  background: rgba(240, 147, 251, 0.2);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .role-admin {
+  background: rgba(245, 87, 108, 0.2);
+  color: #f5576c;
+}
+
+/* Status Badges - Dark Mode */
+[data-theme="dark"] .status-active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+[data-theme="dark"] .status-inactive {
+  background: rgba(245, 87, 108, 0.2);
+  color: #f5576c;
+}
+
+[data-theme="dark"] .text-muted {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Form Elements - Dark Mode */
+[data-theme="dark"] .form-group label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-select,
+[data-theme="dark"] .form-textarea {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  color: #ffffff;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .form-input:focus,
+[data-theme="dark"] .form-select:focus,
+[data-theme="dark"] .form-textarea:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .form-input::placeholder,
+[data-theme="dark"] .form-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .form-select option {
+  background: rgba(15, 12, 41, 0.98);
+  color: #ffffff;
+}
+
+/* Stats Grid - Dark Mode */
+[data-theme="dark"] .stat-item {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(240, 147, 251, 0.1);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .stat-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .stat-item .stat-value {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .stat-item .stat-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Empty State - Dark Mode */
+[data-theme="dark"] .empty-state-small {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Buttons - Dark Mode */
+[data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #ffffff;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-primary:hover {
+  background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+  box-shadow: 0 4px 20px rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .btn-secondary {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .btn-warning {
+  background: linear-gradient(135deg, #fbbf24 0%, #f57c00 100%);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-warning:hover {
+  background: linear-gradient(135deg, #f57c00 0%, #fbbf24 100%);
+  box-shadow: 0 4px 20px rgba(251, 191, 36, 0.4);
+}
+
+[data-theme="dark"] .btn-success {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-success:hover {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+}
+
+[data-theme="dark"] .btn-danger {
+  background: linear-gradient(135deg, #f5576c 0%, #c62828 100%);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-danger:hover {
+  background: linear-gradient(135deg, #c62828 0%, #f5576c 100%);
+  box-shadow: 0 4px 20px rgba(245, 87, 108, 0.4);
+}
+
+/* Modal helper classes - Dark Mode */
+[data-theme="dark"] .modal-note {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .modal-warning {
+  color: #f5576c;
 }

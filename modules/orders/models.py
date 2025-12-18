@@ -332,6 +332,88 @@ class Order(db.Model):
         }
         return methods.get(self.payment_method, self.payment_method) if self.payment_method else '-'
 
+    @property
+    def shipping_country_flag(self):
+        """Returns emoji flag for shipping country"""
+        # Map of country names to emoji flags
+        country_flags = {
+            'polska': '🇵🇱',
+            'poland': '🇵🇱',
+            'niemcy': '🇩🇪',
+            'germany': '🇩🇪',
+            'francja': '🇫🇷',
+            'france': '🇫🇷',
+            'wielka brytania': '🇬🇧',
+            'uk': '🇬🇧',
+            'united kingdom': '🇬🇧',
+            'anglia': '🇬🇧',
+            'stany zjednoczone': '🇺🇸',
+            'usa': '🇺🇸',
+            'united states': '🇺🇸',
+            'czechy': '🇨🇿',
+            'czech republic': '🇨🇿',
+            'słowacja': '🇸🇰',
+            'slovakia': '🇸🇰',
+            'austria': '🇦🇹',
+            'holandia': '🇳🇱',
+            'netherlands': '🇳🇱',
+            'belgia': '🇧🇪',
+            'belgium': '🇧🇪',
+            'włochy': '🇮🇹',
+            'italy': '🇮🇹',
+            'hiszpania': '🇪🇸',
+            'spain': '🇪🇸',
+            'szwecja': '🇸🇪',
+            'sweden': '🇸🇪',
+            'norwegia': '🇳🇴',
+            'norway': '🇳🇴',
+            'dania': '🇩🇰',
+            'denmark': '🇩🇰',
+            'finlandia': '🇫🇮',
+            'finland': '🇫🇮',
+            'ukraina': '🇺🇦',
+            'ukraine': '🇺🇦',
+            'litwa': '🇱🇹',
+            'lithuania': '🇱🇹',
+            'łotwa': '🇱🇻',
+            'latvia': '🇱🇻',
+            'estonia': '🇪🇪',
+            'węgry': '🇭🇺',
+            'hungary': '🇭🇺',
+            'rumunia': '🇷🇴',
+            'romania': '🇷🇴',
+            'bułgaria': '🇧🇬',
+            'bulgaria': '🇧🇬',
+            'grecja': '🇬🇷',
+            'greece': '🇬🇷',
+            'portugalia': '🇵🇹',
+            'portugal': '🇵🇹',
+            'irlandia': '🇮🇪',
+            'ireland': '🇮🇪',
+            'szwajcaria': '🇨🇭',
+            'switzerland': '🇨🇭',
+        }
+
+        if not self.shipping_country:
+            return '🇵🇱'  # Default to Poland
+
+        country_lower = self.shipping_country.lower().strip()
+        return country_flags.get(country_lower, '🏳️')
+
+    @property
+    def order_source_display(self):
+        """Returns order source for display (Exclusive page name or order type)"""
+        if self.is_exclusive and self.exclusive_page:
+            return f"Exclusive: {self.exclusive_page.name}"
+        if self.type_rel:
+            return self.type_rel.name
+        return self.order_type or 'Standard'
+
+    @property
+    def has_tracking(self):
+        """Returns True if order has at least one shipment with tracking"""
+        return len(self.shipments) > 0
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal

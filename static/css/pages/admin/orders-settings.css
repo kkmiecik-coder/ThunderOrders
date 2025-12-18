@@ -622,3 +622,322 @@
         padding: 4px;
     }
 }
+
+/* ====================================
+   DARK MODE - GLASSMORPHISM
+   ==================================== */
+
+/* Page Title */
+[data-theme="dark"] .page-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .page-description {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Settings Tabs (Sidebar) */
+[data-theme="dark"] .settings-tabs {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .settings-tab {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .settings-tab:hover {
+    background: rgba(240, 147, 251, 0.1);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .settings-tab.active {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+}
+
+[data-theme="dark"] .settings-tab.active:hover {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .tab-icon {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .settings-tab:hover .tab-icon {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .settings-tab.active .tab-icon {
+    color: white;
+}
+
+/* Settings Card */
+[data-theme="dark"] .settings-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .card-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .card-header h3 {
+    color: #f0f0f0;
+}
+
+/* Tab Header */
+[data-theme="dark"] .tab-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .tab-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .tab-description {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Status List */
+[data-theme="dark"] .statuses-list .status-list-header,
+[data-theme="dark"] .wms-statuses-list .status-list-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .statuses-list .status-list-item,
+[data-theme="dark"] .wms-statuses-list .status-list-item {
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .status-list-item:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .status-list-item.dragging {
+    background: rgba(240, 147, 251, 0.15);
+    opacity: 0.6;
+}
+
+[data-theme="dark"] .status-list-item.drag-over {
+    border-top-color: #f093fb;
+}
+
+/* Drag Handle */
+[data-theme="dark"] .drag-handle {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .drag-handle:hover {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Action Links */
+[data-theme="dark"] .action-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .action-link:hover {
+    color: #f5576c;
+}
+
+[data-theme="dark"] .status-edit {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .status-edit:hover {
+    color: #f5576c;
+}
+
+[data-theme="dark"] .status-delete {
+    color: #f87171;
+}
+
+[data-theme="dark"] .status-delete:hover {
+    color: #ef4444;
+}
+
+/* Badges */
+[data-theme="dark"] .badge {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .badge-success {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+[data-theme="dark"] .badge-error {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+[data-theme="dark"] .badge-secondary {
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .badge-info {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+/* Form Elements */
+[data-theme="dark"] .form-label {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .form-input:focus,
+[data-theme="dark"] .form-select:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .form-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .input-hint,
+[data-theme="dark"] .label-hint {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Color Picker */
+[data-theme="dark"] .form-color-picker {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .form-color-picker:hover,
+[data-theme="dark"] .form-color-picker:focus {
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .color-hex-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .color-preview {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+/* Buttons */
+[data-theme="dark"] .btn-primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-primary:hover {
+    box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: rgba(240, 147, 251, 0.2);
+    border-color: #f093fb;
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .btn-danger {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .btn-danger:hover {
+    box-shadow: 0 6px 20px rgba(248, 113, 113, 0.4);
+}
+
+/* Empty State */
+[data-theme="dark"] .empty-state {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Form Errors */
+[data-theme="dark"] .form-error {
+    color: #f87171;
+}
+
+/* Migration Warning */
+[data-theme="dark"] .migration-warning .warning-text {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .migration-warning .warning-instruction {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Checkbox */
+[data-theme="dark"] .checkbox-label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .checkbox-label input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
+/* Transitions for smooth theme switching */
+.settings-tabs,
+.settings-tab,
+.tab-icon,
+.settings-card,
+.card-header,
+.card-header h3,
+.tab-header,
+.tab-title,
+.tab-description,
+.statuses-list .status-list-header,
+.wms-statuses-list .status-list-header,
+.statuses-list .status-list-item,
+.wms-statuses-list .status-list-item,
+.drag-handle,
+.action-link,
+.status-edit,
+.status-delete,
+.badge,
+.form-label,
+.form-input,
+.form-select,
+.input-hint,
+.label-hint,
+.form-color-picker,
+.color-hex-input,
+.color-preview,
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.empty-state,
+.form-error,
+.migration-warning .warning-text,
+.migration-warning .warning-instruction,
+.checkbox-label,
+.page-title,
+.page-description {
+    transition: background 0.5s ease,
+                background-color 0.5s ease,
+                color 0.5s ease,
+                border-color 0.5s ease,
+                box-shadow 0.5s ease,
+                backdrop-filter 0.5s ease;
+}

@@ -32,6 +32,141 @@
 
 ---
 
+### 🎨 KRYTYCZNE: Style CSS - Light i Dark Mode
+
+**ZASADA:** KAŻDA zmiana lub dodanie nowych stylów CSS MUSI uwzględniać zarówno **tryb jasny (light mode)** jak i **tryb ciemny (dark mode)**.
+
+**Dlaczego?**
+- Aplikacja obsługuje przełączanie między trybami jasnym i ciemnym
+- Użytkownicy oczekują spójnego wyglądu w obu trybach
+- Brak stylów dark mode powoduje nieczytelne elementy lub brzydki wygląd
+
+**Workflow dodawania stylów:**
+1. Dodaj style dla trybu jasnego (domyślne style)
+2. Dodaj odpowiednie style dla trybu ciemnego używając selektora `[data-theme="dark"]`
+3. Upewnij się, że kolory, tła, obramowania i cienie są czytelne w obu trybach
+
+**Przykład:**
+```css
+/* Light mode (domyślne) */
+.my-component {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    color: #333333;
+}
+
+/* Dark mode */
+[data-theme="dark"] .my-component {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+```
+
+**Paleta Dark Mode (Glassmorphism):**
+- Tła: `rgba(255, 255, 255, 0.05)` do `rgba(255, 255, 255, 0.1)`
+- Obramowania: `rgba(240, 147, 251, 0.15)` do `rgba(240, 147, 251, 0.3)`
+- Akcenty: `#f093fb` (różowy), `#f5576c` (czerwony/różowy)
+- Tekst główny: `#ffffff`
+- Tekst drugorzędny: `rgba(255, 255, 255, 0.6)` do `rgba(255, 255, 255, 0.8)`
+- Backdrop blur: `blur(10px)` do `blur(20px)`
+
+**NIE RÓB:**
+- Nie dodawaj stylów tylko dla light mode bez odpowiedników dark mode
+- Nie używaj sztywnych kolorów bez wariantów dla dark mode
+
+---
+
+### 📦 KRYTYCZNE: Style Modali - Centralizacja w modals.css
+
+**ZASADA:** WSZYSTKIE style modali MUSZĄ być umieszczone w pliku `static/css/components/modals.css`. NIE dodawaj stylów modali w innych plikach CSS.
+
+**Dlaczego?**
+- Jeden plik = jedna prawda dla wyglądu modali
+- Łatwiejsze utrzymanie i debugowanie
+- Spójny wygląd wszystkich modali w aplikacji
+- Unikamy konfliktów CSS między różnymi plikami
+
+**Wzorce modali w aplikacji:**
+
+1. **Modal Overlay (flex centered)** - używany w większości przypadków:
+   ```html
+   <div id="my-modal" class="modal-overlay">
+       <div class="modal-content">
+           <div class="modal-header">...</div>
+           <div class="modal-body">...</div>
+           <div class="modal-footer">...</div>
+       </div>
+   </div>
+   ```
+   - Otwieranie: `modal.classList.add('active')`
+   - Zamykanie: `modal.classList.remove('active')`
+
+2. **Modal Centered (legacy)** - dla starszych modali:
+   ```html
+   <div id="my-modal" class="modal-centered">...</div>
+   ```
+   - Otwieranie: `modal.classList.add('show')`
+   - Zamykanie: `modal.classList.remove('show')`
+
+**Workflow dodawania nowego modala:**
+1. Użyj wzorca `modal-overlay` + `modal-content`
+2. Style dodaj TYLKO do `static/css/components/modals.css`
+3. Pamiętaj o stylach dla dark mode w tym samym pliku
+4. Użyj istniejących klas (`.modal-header`, `.modal-body`, `.modal-footer`)
+
+**NIE RÓB:**
+- Nie dodawaj stylów modali w plikach stron (np. `products-list.css`)
+- Nie twórz nowych plików CSS dla modali
+- Nie używaj inline styles dla modali
+
+---
+
+### 🚫 KRYTYCZNE: Separacja CSS i JS od HTML
+
+**ZASADA:** Unikamy jak tylko można umieszczania CSS i JavaScript bezpośrednio w plikach HTML. Kod powinien być w dedykowanych plikach `.css` i `.js`.
+
+**Dlaczego?**
+- Łatwiejsze utrzymanie i debugowanie kodu
+- Możliwość cache'owania plików statycznych przez przeglądarkę
+- Lepsza organizacja kodu i czytelność
+- Unikamy duplikacji kodu
+
+**Struktura plików:**
+- **CSS:** `static/css/` (komponenty w `components/`, strony w `pages/`)
+- **JavaScript:** `static/js/` (komponenty w `components/`, strony w `pages/`)
+
+**Dozwolone wyjątki:**
+- Krótkie inicjalizacje zależne od danych Jinja2 (np. `data-*` attributes)
+- Style inline dla dynamicznie generowanych wartości (np. `style="width: {{ progress }}%"`)
+- Bardzo małe, jednorazowe skrypty specyficzne dla jednej strony (ale preferuj osobny plik)
+
+**Przykład - ZŁE:**
+```html
+<style>
+.my-component { background: red; }
+</style>
+<script>
+function doSomething() { ... }
+</script>
+```
+
+**Przykład - DOBRE:**
+```html
+<!-- W sekcji head -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/my-page.css') }}">
+
+<!-- Na końcu body -->
+<script src="{{ url_for('static', filename='js/pages/my-page.js') }}"></script>
+```
+
+**NIE RÓB:**
+- Nie umieszczaj bloków `<style>` w plikach HTML
+- Nie umieszczaj dużych bloków `<script>` w plikach HTML
+- Nie używaj inline styles (`style="..."`) gdy można użyć klasy CSS
+
+---
+
 ### 🔄 Workflow Rozwoju Aplikacji
 
 **ZASADA GŁÓWNA:** Pracujemy na kopii lokalnej (Mac + XAMPP), dopiero po wdrożeniu pełnej funkcjonalności robimy push na Git i aktualizujemy serwer produkcyjny.

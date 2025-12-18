@@ -1095,3 +1095,686 @@
     width: 100%;
   }
 }
+
+/* ==========================================
+   DARK MODE - Glassmorphism Theme
+   ========================================== */
+
+/* Product Form Page Container */
+[data-theme="dark"] .product-form-page {
+  background: transparent;
+}
+
+/* ==========================================
+   Dark Mode - Form Header
+   ========================================== */
+[data-theme="dark"] .form-header {
+  border-bottom-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .form-title h1 {
+  color: #ffffff;
+  text-shadow: 0 0 20px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .form-title .subtitle {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ==========================================
+   Dark Mode - Tabs Navigation
+   ========================================== */
+[data-theme="dark"] .tabs-navigation {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  border-bottom: 2px solid rgba(240, 147, 251, 0.2);
+  border-radius: 8px 8px 0 0;
+}
+
+[data-theme="dark"] .tab-btn {
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom-color: transparent;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tab-btn:hover {
+  color: #ffffff;
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .tab-btn.active {
+  color: #f093fb;
+  border-bottom-color: #f093fb;
+  background: rgba(240, 147, 251, 0.1);
+  text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
+}
+
+/* ==========================================
+   Dark Mode - Form Cards (Glassmorphism)
+   ========================================== */
+[data-theme="dark"] .form-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .form-card:hover {
+  border-color: rgba(240, 147, 251, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .card-title {
+  color: #ffffff;
+  border-bottom-color: rgba(240, 147, 251, 0.2);
+  text-shadow: 0 0 15px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .card-subtitle {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ==========================================
+   Dark Mode - Form Labels & Text
+   ========================================== */
+[data-theme="dark"] .form-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .form-label.required::after {
+  color: #f5576c;
+  text-shadow: 0 0 10px rgba(245, 87, 108, 0.5);
+}
+
+[data-theme="dark"] .info-text {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .form-error {
+  color: #f5576c;
+  text-shadow: 0 0 10px rgba(245, 87, 108, 0.3);
+}
+
+/* ==========================================
+   Dark Mode - Form Inputs
+   ========================================== */
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-select,
+[data-theme="dark"] .form-textarea {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  color: #ffffff;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .form-input::placeholder,
+[data-theme="dark"] .form-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .form-input:focus,
+[data-theme="dark"] .form-select:focus,
+[data-theme="dark"] .form-textarea:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 15px rgba(240, 147, 251, 0.3);
+  outline: none;
+}
+
+[data-theme="dark"] .form-input:read-only {
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .form-select option {
+  background: rgba(15, 12, 41, 0.98);
+  color: #ffffff;
+}
+
+/* ==========================================
+   Dark Mode - Input with Unit
+   ========================================== */
+[data-theme="dark"] .input-unit {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================
+   Dark Mode - Checkbox & Radio
+   ========================================== */
+[data-theme="dark"] .checkbox-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .form-checkbox {
+  accent-color: #f093fb;
+}
+
+/* ==========================================
+   Dark Mode - Purchase Price Section
+   ========================================== */
+[data-theme="dark"] .purchase-price-section {
+  background: rgba(240, 147, 251, 0.05);
+  border: 2px dashed rgba(240, 147, 251, 0.3);
+}
+
+/* ==========================================
+   Dark Mode - Product Type Toggle
+   ========================================== */
+[data-theme="dark"] .product-type-toggle {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .toggle-option {
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .toggle-option:hover:not(.active) {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .toggle-option.active {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .toggle-slider {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 2px 10px rgba(240, 147, 251, 0.4);
+}
+
+/* ==========================================
+   Dark Mode - Images Grid & Slots
+   ========================================== */
+[data-theme="dark"] .images-grid,
+[data-theme="dark"] .image-slots-grid {
+  gap: var(--space-4);
+}
+
+[data-theme="dark"] .image-item,
+[data-theme="dark"] .image-slot {
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(240, 147, 251, 0.2);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .image-item:hover,
+[data-theme="dark"] .image-slot:hover {
+  border-color: #f093fb;
+  box-shadow: 0 4px 20px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .slot-number {
+  background: rgba(240, 147, 251, 0.8);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .image-slot-upload {
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .image-slot-upload:hover {
+  color: #f093fb;
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .image-slot-upload svg {
+  opacity: 0.5;
+}
+
+[data-theme="dark"] .image-slot-upload:hover svg {
+  opacity: 1;
+}
+
+[data-theme="dark"] .image-slot-remove {
+  background: linear-gradient(135deg, #f5576c 0%, #ff6b6b 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 10px rgba(245, 87, 108, 0.4);
+}
+
+[data-theme="dark"] .image-slot-remove:hover {
+  background: linear-gradient(135deg, #ff6b6b 0%, #f5576c 100%);
+  transform: scale(1.1);
+}
+
+[data-theme="dark"] .image-overlay {
+  background: linear-gradient(to top, rgba(15, 12, 41, 0.95), transparent);
+}
+
+[data-theme="dark"] .btn-icon-small {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-icon-small:hover {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-color: transparent;
+}
+
+[data-theme="dark"] .btn-set-primary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border: none;
+}
+
+[data-theme="dark"] .btn-delete-image {
+  background: linear-gradient(135deg, #f5576c 0%, #ff6b6b 100%);
+  border: none;
+}
+
+[data-theme="dark"] .badge-primary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  box-shadow: 0 2px 10px rgba(240, 147, 251, 0.3);
+}
+
+/* ==========================================
+   Dark Mode - Image Upload Placeholder
+   ========================================== */
+[data-theme="dark"] .image-upload-placeholder {
+  border-color: rgba(240, 147, 251, 0.2);
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .image-upload-placeholder:hover {
+  border-color: #f093fb;
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .upload-icon {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .upload-text {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .upload-hint,
+[data-theme="dark"] .upload-formats {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ==========================================
+   Dark Mode - Image Upload Area (Modal)
+   ========================================== */
+[data-theme="dark"] .image-upload-area {
+  border-color: rgba(240, 147, 251, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .image-upload-area:hover {
+  border-color: #f093fb;
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .image-upload-label svg {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .images-preview-grid .image-preview-item {
+  border-color: rgba(240, 147, 251, 0.2);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .images-preview-grid .image-preview-item:hover {
+  border-color: #f093fb;
+  box-shadow: 0 4px 20px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .image-preview-overlay {
+  background: linear-gradient(to top, rgba(15, 12, 41, 0.95), rgba(15, 12, 41, 0.3));
+}
+
+[data-theme="dark"] .image-preview-name {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .btn-remove-image {
+  background: linear-gradient(135deg, #f5576c 0%, #ff6b6b 100%);
+}
+
+[data-theme="dark"] .btn-remove-image:hover {
+  background: linear-gradient(135deg, #ff6b6b 0%, #f5576c 100%);
+}
+
+/* ==========================================
+   Dark Mode - Tags Input & Dropdown
+   ========================================== */
+[data-theme="dark"] .tags-input-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tags-input-wrapper:focus-within {
+  border-color: #f093fb;
+  box-shadow: 0 0 15px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .tags-search-input {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .tags-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .tag-badge {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .tag-badge-remove {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .tag-badge-remove:hover {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .tags-dropdown {
+  background: rgba(15, 12, 41, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .tag-option {
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .tag-option:hover {
+  background: rgba(240, 147, 251, 0.15);
+  color: #f093fb;
+}
+
+/* ==========================================
+   Dark Mode - Tags Checkboxes
+   ========================================== */
+[data-theme="dark"] .tag-checkbox-label {
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tag-checkbox-label:hover {
+  background: rgba(240, 147, 251, 0.1);
+  border-color: #f093fb;
+}
+
+[data-theme="dark"] .tag-checkbox-label input[type="checkbox"]:checked + .tag-label-text {
+  color: #f093fb;
+  text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
+}
+
+/* ==========================================
+   Dark Mode - Variants Section
+   ========================================== */
+[data-theme="dark"] .variants-list {
+  border-top-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .variants-items li {
+  border-bottom-color: rgba(240, 147, 251, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .variants-items a {
+  color: #f093fb;
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .variants-items a:hover {
+  color: #f5576c;
+  text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
+}
+
+/* ==========================================
+   Dark Mode - Variant Search & Linked Variants
+   ========================================== */
+[data-theme="dark"] .variant-search-results {
+  background: rgba(15, 12, 41, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .variant-search-result-item {
+  border-bottom-color: rgba(240, 147, 251, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .variant-search-result-item:hover {
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .variant-result-thumbnail,
+[data-theme="dark"] .variant-thumbnail {
+  border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .variant-result-thumbnail-placeholder,
+[data-theme="dark"] .variant-thumbnail-placeholder {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .variant-result-name,
+[data-theme="dark"] .variant-name {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .variant-result-sku,
+[data-theme="dark"] .variant-sku {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .variant-search-empty {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .linked-variant-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .linked-variant-item:hover {
+  border-color: #f093fb;
+  box-shadow: 0 4px 20px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .btn-remove-variant {
+  background: linear-gradient(135deg, #f5576c 0%, #ff6b6b 100%);
+  border: none;
+  box-shadow: 0 2px 10px rgba(245, 87, 108, 0.3);
+}
+
+[data-theme="dark"] .btn-remove-variant:hover {
+  background: linear-gradient(135deg, #ff6b6b 0%, #f5576c 100%);
+}
+
+/* ==========================================
+   Dark Mode - Info Box
+   ========================================== */
+[data-theme="dark"] .info-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .info-box p {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ==========================================
+   Dark Mode - Form Footer
+   ========================================== */
+[data-theme="dark"] .form-footer {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* ==========================================
+   Dark Mode - Buttons
+   ========================================== */
+[data-theme="dark"] .btn-primary {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-primary:hover {
+  box-shadow: 0 6px 25px rgba(240, 147, 251, 0.5);
+  transform: translateY(-2px);
+}
+
+[data-theme="dark"] .btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(240, 147, 251, 0.3);
+  color: #f093fb;
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+  background: rgba(240, 147, 251, 0.1);
+  border-color: #f093fb;
+}
+
+/* ==========================================
+   Dark Mode - Spinner Animation
+   ========================================== */
+[data-theme="dark"] .btn-spinner .spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .btn-spinner .spinner circle {
+  stroke: #ffffff;
+}
+
+/* ==========================================
+   Dark Mode - Scrollbar Styling
+   ========================================== */
+[data-theme="dark"] .tags-dropdown::-webkit-scrollbar,
+[data-theme="dark"] .variant-search-results::-webkit-scrollbar {
+  width: 8px;
+}
+
+[data-theme="dark"] .tags-dropdown::-webkit-scrollbar-track,
+[data-theme="dark"] .variant-search-results::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .tags-dropdown::-webkit-scrollbar-thumb,
+[data-theme="dark"] .variant-search-results::-webkit-scrollbar-thumb {
+  background: rgba(240, 147, 251, 0.3);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .tags-dropdown::-webkit-scrollbar-thumb:hover,
+[data-theme="dark"] .variant-search-results::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 147, 251, 0.5);
+}
+
+/* ==========================================
+   Dark Mode - Variant Groups (New System)
+   ========================================== */
+[data-theme="dark"] #variantGroupsContainer {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .variant-group-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .variant-group-card:hover {
+  border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .variant-group-header {
+  background: rgba(240, 147, 251, 0.05);
+  border-bottom: 1px solid rgba(240, 147, 251, 0.1);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .variant-group-header .group-name {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .variant-group-products {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .variant-product-item {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(240, 147, 251, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .variant-product-item:hover {
+  border-color: rgba(240, 147, 251, 0.3);
+  background: rgba(240, 147, 251, 0.05);
+}
+
+[data-theme="dark"] .variant-product-item.current-product {
+  border-color: #f093fb;
+  background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .variant-product-item .product-name {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .variant-product-item .product-sku {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================
+   Dark Mode - All Transitions
+   ========================================== */
+[data-theme="dark"] .form-card,
+[data-theme="dark"] .form-input,
+[data-theme="dark"] .form-select,
+[data-theme="dark"] .form-textarea,
+[data-theme="dark"] .tab-btn,
+[data-theme="dark"] .image-slot,
+[data-theme="dark"] .image-item,
+[data-theme="dark"] .tags-input-wrapper,
+[data-theme="dark"] .tag-checkbox-label,
+[data-theme="dark"] .linked-variant-item,
+[data-theme="dark"] .variant-search-result-item,
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .btn-secondary,
+[data-theme="dark"] .toggle-option,
+[data-theme="dark"] .image-upload-area,
+[data-theme="dark"] .image-upload-placeholder {
+  transition: all 0.5s ease;
+}

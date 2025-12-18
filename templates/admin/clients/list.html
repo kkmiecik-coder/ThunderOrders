@@ -249,18 +249,17 @@
 </div>
 
 <!-- Deactivate Modal -->
-<div id="deactivateModal" class="modal" style="display: none;">
-    <div class="modal-backdrop" onclick="closeDeactivateModal()"></div>
-    <div class="modal-content">
+<div id="deactivateModal" class="modal-overlay" onclick="if(event.target === this) closeDeactivateModal()">
+    <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3>Dezaktywacja konta</h3>
+            <h2 class="modal-title">Dezaktywacja konta</h2>
             <button type="button" class="modal-close" onclick="closeDeactivateModal()">&times;</button>
         </div>
         <div class="modal-body">
             <p>Czy na pewno chcesz dezaktywować konto użytkownika <strong id="deactivateClientName"></strong>?</p>
             <div class="form-group">
-                <label for="deactivateReason">Powód dezaktywacji (wymagany):</label>
-                <textarea id="deactivateReason" class="form-textarea" rows="3"
+                <label class="form-label" for="deactivateReason">Powód dezaktywacji (wymagany):</label>
+                <textarea id="deactivateReason" class="form-control" rows="3"
                           placeholder="Podaj powód dezaktywacji konta..."></textarea>
             </div>
             <p class="modal-note">Klient zostanie powiadomiony o dezaktywacji emailem.</p>
@@ -273,11 +272,10 @@
 </div>
 
 <!-- Delete Modal -->
-<div id="deleteModal" class="modal" style="display: none;">
-    <div class="modal-backdrop" onclick="closeDeleteModal()"></div>
-    <div class="modal-content">
+<div id="deleteModal" class="modal-overlay" onclick="if(event.target === this) closeDeleteModal()">
+    <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3>Usunięcie konta</h3>
+            <h2 class="modal-title">Usunięcie konta</h2>
             <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
         </div>
         <div class="modal-body">
@@ -346,12 +344,19 @@ function openDeactivateModal(clientId, clientName) {
     currentClientId = clientId;
     document.getElementById('deactivateClientName').textContent = clientName;
     document.getElementById('deactivateReason').value = '';
-    document.getElementById('deactivateModal').style.display = 'flex';
+    const modal = document.getElementById('deactivateModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeDeactivateModal() {
-    document.getElementById('deactivateModal').style.display = 'none';
-    currentClientId = null;
+    const modal = document.getElementById('deactivateModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+        currentClientId = null;
+    }, 350);
 }
 
 function confirmDeactivate() {
@@ -416,12 +421,19 @@ function reactivateClient(clientId, clientName) {
 function openDeleteModal(clientId, clientName) {
     currentClientId = clientId;
     document.getElementById('deleteClientName').textContent = clientName;
-    document.getElementById('deleteModal').style.display = 'flex';
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
 }
 
 function closeDeleteModal() {
-    document.getElementById('deleteModal').style.display = 'none';
-    currentClientId = null;
+    const modal = document.getElementById('deleteModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+        currentClientId = null;
+    }, 350);
 }
 
 function confirmDelete() {

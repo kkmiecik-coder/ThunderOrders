@@ -204,7 +204,7 @@ def login():
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     """
-    Strona rejestracji
+    Strona rejestracji (zunifikowany szablon)
     GET: Wyświetla formularz
     POST: Przetwarza rejestrację i przekierowuje na stronę weryfikacji kodem
     """
@@ -222,7 +222,7 @@ def register():
 
         if existing_user:
             form.email.errors.append('Ten adres email jest już zarejestrowany')
-            return render_template('auth/register.html', form=form, title='Rejestracja')
+            return render_template('auth/auth_unified.html', form=form, mode='register')
 
         # Stwórz nowego użytkownika
         user = User(
@@ -257,7 +257,7 @@ def register():
             flash('Wystąpił błąd podczas rejestracji. Spróbuj ponownie.', 'error')
             print(f"[ERROR] Registration failed: {e}")
 
-    return render_template('auth/register.html', form=form, title='Rejestracja')
+    return render_template('auth/auth_unified.html', form=form, mode='register')
 
 
 @auth_bp.route('/logout')
@@ -298,7 +298,7 @@ def verify_email(token):
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     """
-    Strona zapomniałem hasła
+    Strona zapomniałem hasła (zunifikowany szablon)
     GET: Wyświetla formularz
     POST: Wysyła email z linkiem do resetu
     """
@@ -322,24 +322,24 @@ def forgot_password():
         # Zawsze przekieruj na stronę potwierdzenia (security by obscurity)
         return redirect(url_for('auth.forgot_password_confirmation'))
 
-    return render_template('auth/forgot_password.html', form=form, title='Resetowanie hasła')
+    return render_template('auth/auth_unified.html', form=form, mode='forgot')
 
 
 @auth_bp.route('/forgot-password-confirmation')
 def forgot_password_confirmation():
     """
-    Strona potwierdzenia wysłania emaila z linkiem do resetu hasła
+    Strona potwierdzenia wysłania emaila z linkiem do resetu hasła (zunifikowany szablon)
     """
     if current_user.is_authenticated:
         return redirect(url_for('client.dashboard'))
 
-    return render_template('auth/forgot_password_confirmation.html', title='Email wysłany')
+    return render_template('auth/auth_unified.html', mode='forgot_sent')
 
 
 @auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     """
-    Strona resetowania hasła z tokenem
+    Strona resetowania hasła z tokenem (zunifikowany szablon)
     GET: Wyświetla formularz nowego hasła
     POST: Zapisuje nowe hasło
 
@@ -366,7 +366,7 @@ def reset_password(token):
         flash('Hasło zostało zmienione. Możesz się teraz zalogować.', 'success')
         return redirect(url_for('auth.login'))
 
-    return render_template('auth/reset_password.html', form=form, title='Nowe hasło', token=token)
+    return render_template('auth/auth_unified.html', form=form, mode='reset', token=token)
 
 
 # =============================================
@@ -376,7 +376,7 @@ def reset_password(token):
 @auth_bp.route('/verify-email-code/<token>', methods=['GET', 'POST'])
 def verify_email_code(token):
     """
-    Strona weryfikacji emaila 6-cyfrowym kodem
+    Strona weryfikacji emaila 6-cyfrowym kodem (zunifikowany szablon)
     GET: Wyświetla formularz z 6 inputami na kod
     POST: Weryfikuje wprowadzony kod
 
@@ -420,9 +420,9 @@ def verify_email_code(token):
             return redirect(url_for('auth.verify_email_code', token=token))
 
     return render_template(
-        'auth/verify_email_code.html',
+        'auth/auth_unified.html',
         form=form,
-        title='Weryfikacja email',
+        mode='verify',
         token=token,
         user_email=user.email,
         can_resend=can_resend,
@@ -491,6 +491,11 @@ def resend_verification_code(token):
 @auth_bp.route('/verification-success')
 def verification_success():
     """
-    Strona sukcesu po weryfikacji emaila
+    Strona sukcesu po weryfikacji emaila (zunifikowany szablon)
     """
-    return render_template('auth/verification_success.html', title='Weryfikacja zakończona')
+    return render_template(
+        'auth/auth_unified.html',
+        mode='success',
+        success_title='Konto aktywowane!',
+        success_message='Twój adres email został pomyślnie zweryfikowany. Możesz teraz zalogować się na swoje konto.'
+    )

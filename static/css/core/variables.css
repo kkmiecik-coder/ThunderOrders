@@ -138,41 +138,65 @@
 }
 
 /* ============================ */
-/* Dark Mode                    */
+/* Dark Mode - Glassmorphism    */
 /* ============================ */
 [data-theme="dark"] {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-tertiary: #0f1729;
+  /* Dark glassmorphism palette - matching auth pages */
+  --bg-primary: #0f0c29;
+  --bg-secondary: #1a1a2e;
+  --bg-tertiary: #24243e;
 
-  --text-primary: #E0E0E0;
-  --text-secondary: #B0B0B0;
-  --text-tertiary: #757575;
+  --text-primary: #f0f0f0;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
 
-  --border-primary: #2d2d44;
-  --border-secondary: #3a3a52;
+  --border-primary: rgba(240, 147, 251, 0.15);
+  --border-secondary: rgba(240, 147, 251, 0.25);
 
-  --sidebar-bg: #16213e;
-  --sidebar-bg-hover: #1f2a47;
-  --sidebar-text: #E0E0E0;
-  --sidebar-text-secondary: rgba(224, 224, 224, 0.6);
-  --sidebar-active: rgba(255, 133, 0, 0.2);
+  --sidebar-bg: rgba(15, 12, 41, 0.98);
+  --sidebar-bg-hover: rgba(48, 43, 99, 0.5);
+  --sidebar-text: #f0f0f0;
+  --sidebar-text-secondary: rgba(255, 255, 255, 0.6);
+  --sidebar-active: rgba(240, 147, 251, 0.15);
 
-  --topbar-bg: #1a1a2e;
-  --topbar-border: #2d2d44;
+  --topbar-bg: rgba(15, 12, 41, 0.95);
+  --topbar-border: rgba(240, 147, 251, 0.15);
 
-  --card-bg: #16213e;
-  --card-border: #2d2d44;
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --card-border: rgba(240, 147, 251, 0.15);
 
-  /* Primary colors (dark mode) */
-  --primary-color: #FF8500;
-  --primary-hover: #FF9100;
-  --border-color: #2d2d44;
-  --bg-hover: #1f2a47;
+  /* Primary colors (dark mode - pink/magenta accents) */
+  --primary-color: #f093fb;
+  --primary-hover: #f5576c;
+  --border-color: rgba(240, 147, 251, 0.2);
+  --bg-hover: rgba(255, 255, 255, 0.08);
 
-  /* Dark mode shadows */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.5);
+  /* Glassmorphism specific */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-bg-hover: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(240, 147, 251, 0.15);
+  --glass-glow: rgba(240, 147, 251, 0.3);
+
+  /* Gray overrides for dark mode */
+  --gray-50: rgba(255, 255, 255, 0.03);
+  --gray-100: rgba(255, 255, 255, 0.05);
+  --gray-200: rgba(255, 255, 255, 0.08);
+  --gray-300: rgba(255, 255, 255, 0.12);
+  --gray-400: rgba(255, 255, 255, 0.2);
+  --gray-500: rgba(255, 255, 255, 0.35);
+  --gray-600: rgba(255, 255, 255, 0.5);
+  --gray-700: rgba(255, 255, 255, 0.7);
+  --gray-800: rgba(255, 255, 255, 0.9);
+
+  /* KPop colors for dark mode */
+  --kpop-pink: #f093fb;
+  --kpop-purple: #8338EC;
+  --kpop-cyan: #00F5FF;
+  --kpop-light: rgba(255, 255, 255, 0.05);
+
+  /* Dark mode shadows with subtle glow */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 20px rgba(240, 147, 251, 0.05);
+  --shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(240, 147, 251, 0.08);
 }

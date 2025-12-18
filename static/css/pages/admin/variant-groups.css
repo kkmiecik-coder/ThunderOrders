@@ -264,3 +264,154 @@
         width: 100%;
     }
 }
+
+/* ==========================================
+   DARK MODE - Glassmorphism Theme
+   ========================================== */
+
+/* Variant Group Card */
+[data-theme="dark"] .variant-group-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .variant-group-card:hover {
+    border-color: rgba(240, 147, 251, 0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Group Header */
+[data-theme="dark"] .group-name-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .group-name-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .group-name-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .btn-delete-group {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    box-shadow: 0 4px 15px rgba(248, 113, 113, 0.3);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .btn-delete-group:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 6px 20px rgba(248, 113, 113, 0.4);
+}
+
+/* Search Container */
+[data-theme="dark"] .group-search-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .group-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .group-search-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Search Results Dropdown */
+[data-theme="dark"] .search-results-dropdown {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .search-result-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .search-result-item:hover {
+    background-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .search-result-item.no-results {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .result-thumbnail {
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .result-name {
+    color: #ffffff;
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .result-meta {
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.5s ease;
+}
+
+/* Products Grid */
+[data-theme="dark"] .variants-products-grid .text-muted {
+    color: rgba(255, 255, 255, 0.4);
+    transition: all 0.5s ease;
+}
+
+/* Product Tile */
+[data-theme="dark"] .variant-product-tile {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .variant-product-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .tile-remove-btn {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    box-shadow: 0 2px 8px rgba(248, 113, 113, 0.3);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tile-remove-btn:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.5);
+}
+
+[data-theme="dark"] .tile-info {
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tile-name {
+    color: #ffffff;
+    transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .tile-meta {
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.5s ease;
+}

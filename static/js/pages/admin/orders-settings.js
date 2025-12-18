@@ -82,250 +82,262 @@ document.addEventListener('DOMContentLoaded', function() {
     // STATUS MANAGEMENT
     // ==========================================
 
-    const statusModal = document.getElementById('status-modal');
-    const statusOverlay = document.getElementById('status-modal-overlay');
-    const statusForm = document.getElementById('status-form');
-    const statusIdInput = document.getElementById('status-id');
-    const statusModalTitle = document.getElementById('status-modal-title');
+    initializeStatusManagement();
 
-    if (!statusModal || !statusOverlay) {
-        console.error('Status modal elements not found');
-        return;
-    }
+    function initializeStatusManagement() {
+        const statusModal = document.getElementById('status-modal');
+        const statusForm = document.getElementById('status-form');
+        const statusIdInput = document.getElementById('status-id');
+        const statusModalTitle = document.getElementById('status-modal-title');
 
-    /**
-     * Open status modal
-     */
-    async function openStatusModal(statusId = null) {
-        console.log('Opening status modal, ID:', statusId);
+        if (!statusModal) {
+            console.log('Status modal not found on this page, skipping status management initialization');
+            return; // Only returns from this function, not the entire DOMContentLoaded
+        }
 
-        // Reset form
-        statusForm.reset();
-        clearStatusFormErrors();
+        console.log('Status management initialized');
 
-        if (statusId) {
-            // Edit mode - fetch status data from server
-            statusModalTitle.textContent = 'Edytuj status';
-            statusIdInput.value = statusId;
+        /**
+         * Open status modal
+         */
+        async function openStatusModal(statusId = null) {
+            console.log('Opening status modal, ID:', statusId);
 
-            try {
-                const response = await fetch(`/api/orders/statuses/${statusId}`);
-                const data = await response.json();
+            // Reset form
+            statusForm.reset();
+            clearStatusFormErrors();
 
-                if (response.ok) {
-                    // Fill form with fetched data
-                    document.getElementById('status-name').value = data.name;
-                    document.getElementById('status-badge-color').value = data.badge_color;
-                    document.getElementById('status-badge-color-hex').value = data.badge_color;
-                    document.getElementById('status-color-preview').style.backgroundColor = data.badge_color;
-                    document.getElementById('status-active').checked = data.is_active;
-                } else {
+            if (statusId) {
+                // Edit mode - fetch status data from server
+                statusModalTitle.textContent = 'Edytuj status';
+                statusIdInput.value = statusId;
+
+                try {
+                    const response = await fetch(`/api/orders/statuses/${statusId}`);
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        // Fill form with fetched data
+                        document.getElementById('status-name').value = data.name;
+                        document.getElementById('status-badge-color').value = data.badge_color;
+                        document.getElementById('status-badge-color-hex').value = data.badge_color;
+                        document.getElementById('status-color-preview').style.backgroundColor = data.badge_color;
+                        document.getElementById('status-active').checked = data.is_active;
+                    } else {
+                        window.showToast('Błąd podczas pobierania danych statusu', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error fetching status:', error);
                     window.showToast('Błąd podczas pobierania danych statusu', 'error');
                 }
-            } catch (error) {
-                console.error('Error fetching status:', error);
-                window.showToast('Błąd podczas pobierania danych statusu', 'error');
+            } else {
+                // Add mode
+                statusModalTitle.textContent = 'Dodaj status';
+                statusIdInput.value = '';
+                // Reset color picker to default
+                document.getElementById('status-badge-color').value = '#6B7280';
+                document.getElementById('status-badge-color-hex').value = '#6B7280';
+                document.getElementById('status-color-preview').style.backgroundColor = '#6B7280';
             }
-        } else {
-            // Add mode
-            statusModalTitle.textContent = 'Dodaj status';
-            statusIdInput.value = '';
-            // Reset color picker to default
-            document.getElementById('status-badge-color').value = '#6B7280';
-            document.getElementById('status-badge-color-hex').value = '#6B7280';
-            document.getElementById('status-color-preview').style.backgroundColor = '#6B7280';
+
+            // Show modal
+            statusModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
 
-        // Show modal and overlay
-        statusOverlay.classList.add('active');
-        statusModal.classList.add('show');
-    }
+        /**
+         * Close status modal
+         */
+        function closeStatusModal() {
+            statusModal.classList.add('closing');
+            setTimeout(() => {
+                statusModal.classList.remove('active', 'closing');
+                document.body.style.overflow = '';
+                clearStatusFormErrors();
+            }, 350);
+        }
 
-    /**
-     * Close status modal
-     */
-    function closeStatusModal() {
-        statusOverlay.classList.remove('active');
-        statusModal.classList.remove('show');
-        clearStatusFormErrors();
-    }
+        /**
+         * Clear form errors
+         */
+        function clearStatusFormErrors() {
+            const errorElements = statusForm.querySelectorAll('.form-error');
+            errorElements.forEach(el => el.textContent = '');
+        }
 
-    /**
-     * Clear form errors
-     */
-    function clearStatusFormErrors() {
-        const errorElements = statusForm.querySelectorAll('.form-error');
-        errorElements.forEach(el => el.textContent = '');
-    }
+        /**
+         * Display form errors
+         */
+        function displayStatusFormErrors(errors) {
+            clearStatusFormErrors();
+            Object.keys(errors).forEach(field => {
+                const errorElement = document.getElementById(`error-status-${field}`);
+                if (errorElement) {
+                    errorElement.textContent = errors[field];
+                }
+            });
+        }
 
-    /**
-     * Display form errors
-     */
-    function displayStatusFormErrors(errors) {
-        clearStatusFormErrors();
-        Object.keys(errors).forEach(field => {
-            const errorElement = document.getElementById(`error-status-${field}`);
-            if (errorElement) {
-                errorElement.textContent = errors[field];
+        /**
+         * Refresh status list from server
+         */
+        async function refreshStatusList() {
+            try {
+                const response = await fetch('/admin/orders/settings');
+                const html = await response.text();
+
+                // Parse HTML and extract statuses list
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newStatusesList = doc.querySelector('.statuses-list');
+
+                if (newStatusesList) {
+                    // Replace old list with new one
+                    const oldStatusesList = document.querySelector('.statuses-list');
+                    oldStatusesList.innerHTML = newStatusesList.innerHTML;
+
+                    // Reinitialize drag & drop for new elements
+                    initDragAndDrop();
+                }
+            } catch (error) {
+                console.error('Error refreshing status list:', error);
+                window.showToast('Błąd podczas odświeżania listy', 'error');
+            }
+        }
+
+        /**
+         * Submit status form
+         */
+        statusForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            console.log('Status form submitted');
+
+            const formData = new FormData(this);
+            const statusId = statusIdInput.value;
+
+            // Determine endpoint
+            let url;
+            if (statusId) {
+                // Edit
+                url = `/admin/orders/statuses/${statusId}/edit`;
+            } else {
+                // Create
+                url = '/admin/orders/statuses/create';
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    closeStatusModal();
+                    // Refresh only the status list
+                    await refreshStatusList();
+                } else {
+                    if (data.errors) {
+                        displayStatusFormErrors(data.errors);
+                    } else {
+                        window.showToast(data.message || 'Wystąpił błąd', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error submitting status:', error);
+                window.showToast('Błąd podczas zapisywania statusu', 'error');
             }
         });
-    }
 
-    /**
-     * Refresh status list from server
-     */
-    async function refreshStatusList() {
-        try {
-            const response = await fetch('/admin/orders/settings');
-            const html = await response.text();
-
-            // Parse HTML and extract statuses list
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const newStatusesList = doc.querySelector('.statuses-list');
-
-            if (newStatusesList) {
-                // Replace old list with new one
-                const oldStatusesList = document.querySelector('.statuses-list');
-                oldStatusesList.innerHTML = newStatusesList.innerHTML;
-
-                // Reinitialize drag & drop for new elements
-                initDragAndDrop();
-            }
-        } catch (error) {
-            console.error('Error refreshing status list:', error);
-            window.showToast('Błąd podczas odświeżania listy', 'error');
-        }
-    }
-
-    /**
-     * Submit status form
-     */
-    statusForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        console.log('Status form submitted');
-
-        const formData = new FormData(this);
-        const statusId = statusIdInput.value;
-
-        // Determine endpoint
-        let url;
-        if (statusId) {
-            // Edit
-            url = `/admin/orders/statuses/${statusId}/edit`;
-        } else {
-            // Create
-            url = '/admin/orders/statuses/create';
-        }
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                window.showToast(data.message, 'success');
+        // Close modal on overlay click (when clicking directly on overlay, not content)
+        statusModal.addEventListener('click', function(e) {
+            if (e.target === statusModal) {
                 closeStatusModal();
-                // Refresh only the status list
-                await refreshStatusList();
-            } else {
-                if (data.errors) {
-                    displayStatusFormErrors(data.errors);
-                } else {
-                    window.showToast(data.message || 'Wystąpił błąd', 'error');
-                }
             }
-        } catch (error) {
-            console.error('Error submitting status:', error);
-            window.showToast('Błąd podczas zapisywania statusu', 'error');
-        }
-    });
+        });
 
-    // Close modal on overlay click
-    statusOverlay.addEventListener('click', closeStatusModal);
+        // Close modal on X button click
+        document.getElementById('close-status-modal').addEventListener('click', closeStatusModal);
 
-    // Close modal on X button click
-    document.getElementById('close-status-modal').addEventListener('click', closeStatusModal);
+        // Close modal on Cancel button click
+        document.getElementById('cancel-status-btn').addEventListener('click', closeStatusModal);
 
-    // Close modal on Cancel button click
-    document.getElementById('cancel-status-btn').addEventListener('click', closeStatusModal);
+        // ==========================================
+        // GLOBAL FUNCTIONS (called from HTML onclick)
+        // ==========================================
 
-    // ==========================================
-    // GLOBAL FUNCTIONS (called from HTML onclick)
-    // ==========================================
+        /**
+         * Add new status
+         */
+        window.addStatus = function() {
+            openStatusModal();
+        };
 
-    /**
-     * Add new status
-     */
-    window.addStatus = function() {
-        openStatusModal();
-    };
+        /**
+         * Edit status
+         */
+        window.editStatus = function(statusId) {
+            openStatusModal(statusId);
+        };
 
-    /**
-     * Edit status
-     */
-    window.editStatus = function(statusId) {
-        openStatusModal(statusId);
-    };
+        /**
+         * Delete status - first check usage, then delete or show migration modal
+         */
+        window.deleteStatus = function(statusId) {
+            (async () => {
+                try {
+                    // First check if status is in use
+                    const checkResponse = await fetch(`/admin/orders/statuses/${statusId}/check-usage`);
+                    const checkData = await checkResponse.json();
 
-    /**
-     * Delete status - first check usage, then delete or show migration modal
-     */
-    window.deleteStatus = function(statusId) {
-        (async () => {
-            try {
-                // First check if status is in use
-                const checkResponse = await fetch(`/admin/orders/statuses/${statusId}/check-usage`);
-                const checkData = await checkResponse.json();
-
-                if (checkData.can_delete_directly) {
-                    // No orders using this status - confirm and delete
-                    if (!confirm('Czy na pewno chcesz usunąć ten status?')) {
-                        return;
+                    if (checkData.can_delete_directly) {
+                        // No orders using this status - confirm and delete
+                        if (!confirm('Czy na pewno chcesz usunąć ten status?')) {
+                            return;
+                        }
+                        await performStatusDeletion(statusId);
+                    } else {
+                        // Status is in use - show migration modal
+                        openMigrationModal('status', statusId, checkData);
                     }
-                    await performStatusDeletion(statusId);
+                } catch (error) {
+                    console.error('Error checking status usage:', error);
+                    window.showToast('Błąd podczas sprawdzania użycia statusu', 'error');
+                }
+            })();
+        };
+
+        /**
+         * Perform actual status deletion
+         */
+        async function performStatusDeletion(statusId) {
+            try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+                const response = await fetch(`/admin/orders/statuses/${statusId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    await refreshStatusList();
                 } else {
-                    // Status is in use - show migration modal
-                    openMigrationModal('status', statusId, checkData);
+                    window.showToast(data.message || 'Błąd podczas usuwania statusu', 'error');
                 }
             } catch (error) {
-                console.error('Error checking status usage:', error);
-                window.showToast('Błąd podczas sprawdzania użycia statusu', 'error');
+                console.error('Error deleting status:', error);
+                window.showToast(error.message || 'Błąd podczas usuwania statusu', 'error');
             }
-        })();
-    };
-
-    /**
-     * Perform actual status deletion
-     */
-    async function performStatusDeletion(statusId) {
-        try {
-            const csrfToken = document.querySelector('input[name="csrf_token"]').value;
-
-            const response = await fetch(`/admin/orders/statuses/${statusId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                }
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                window.showToast(data.message, 'success');
-                await refreshStatusList();
-            } else {
-                window.showToast(data.message || 'Błąd podczas usuwania statusu', 'error');
-            }
-        } catch (error) {
-            console.error('Error deleting status:', error);
-            window.showToast(error.message || 'Błąd podczas usuwania statusu', 'error');
         }
-    }
+    } // End of initializeStatusManagement
 
     // ==========================================
     // DRAG & DROP REORDERING
@@ -474,7 +486,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==========================================
 
     const wmsStatusModal = document.getElementById('wms-status-modal');
-    const wmsStatusOverlay = document.getElementById('wms-status-modal-overlay');
     const wmsStatusForm = document.getElementById('wms-status-form');
     const wmsStatusIdInput = document.getElementById('wms-status-id');
     const wmsStatusModalTitle = document.getElementById('wms-status-modal-title');
@@ -482,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Setup color picker for WMS status modal
     setupColorPicker('wms-status-badge-color', 'wms-status-badge-color-hex', 'wms-status-color-preview');
 
-    if (wmsStatusModal && wmsStatusOverlay) {
+    if (wmsStatusModal) {
         /**
          * Open WMS status modal
          */
@@ -528,18 +539,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('wms-status-color-preview').style.backgroundColor = '#6B7280';
             }
 
-            // Show modal and overlay
-            wmsStatusOverlay.classList.add('active');
-            wmsStatusModal.classList.add('show');
+            // Show modal
+            wmsStatusModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
         }
 
         /**
          * Close WMS status modal
          */
         function closeWmsStatusModal() {
-            wmsStatusOverlay.classList.remove('active');
-            wmsStatusModal.classList.remove('show');
-            clearWmsStatusFormErrors();
+            wmsStatusModal.classList.add('closing');
+            setTimeout(() => {
+                wmsStatusModal.classList.remove('active', 'closing');
+                document.body.style.overflow = '';
+                clearWmsStatusFormErrors();
+            }, 350);
         }
 
         /**
@@ -636,8 +650,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Close modal on overlay click
-        wmsStatusOverlay.addEventListener('click', closeWmsStatusModal);
+        // Close modal on overlay click (when clicking directly on overlay, not content)
+        wmsStatusModal.addEventListener('click', function(e) {
+            if (e.target === wmsStatusModal) {
+                closeWmsStatusModal();
+            }
+        });
 
         // Close modal on X button click
         document.getElementById('close-wms-status-modal').addEventListener('click', closeWmsStatusModal);
@@ -851,7 +869,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // ==========================================
 
     const migrationModal = document.getElementById('migration-modal');
-    const migrationOverlay = document.getElementById('migration-modal-overlay');
     const migrationStatusId = document.getElementById('migration-status-id');
     const migrationType = document.getElementById('migration-type');
     const migrationStatusName = document.getElementById('migration-status-name');
@@ -890,17 +907,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         // Show modal
-        migrationOverlay.classList.add('active');
-        migrationModal.classList.add('show');
+        migrationModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
     }
 
     /**
      * Close migration modal
      */
     function closeMigrationModal() {
-        migrationOverlay.classList.remove('active');
-        migrationModal.classList.remove('show');
-        migrationTargetSelect.value = '';
+        migrationModal.classList.add('closing');
+        setTimeout(() => {
+            migrationModal.classList.remove('active', 'closing');
+            document.body.style.overflow = '';
+            migrationTargetSelect.value = '';
+        }, 350);
     }
 
     /**
@@ -951,8 +971,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listeners for migration modal
-    if (migrationModal && migrationOverlay) {
-        migrationOverlay.addEventListener('click', closeMigrationModal);
+    if (migrationModal) {
+        // Close modal on overlay click (when clicking directly on overlay, not content)
+        migrationModal.addEventListener('click', function(e) {
+            if (e.target === migrationModal) {
+                closeMigrationModal();
+            }
+        });
         document.getElementById('close-migration-modal').addEventListener('click', closeMigrationModal);
         document.getElementById('cancel-migration-btn').addEventListener('click', closeMigrationModal);
         document.getElementById('confirm-migration-btn').addEventListener('click', performMigration);

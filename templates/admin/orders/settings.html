@@ -154,180 +154,183 @@
 </div>
 
 <!-- Status Modal -->
-<div id="status-modal-overlay" class="modal-overlay"></div>
-<div id="status-modal" class="modal">
-    <div class="modal-header">
-        <h3 class="modal-title" id="status-modal-title">Dodaj status</h3>
-        <button type="button" class="modal-close" id="close-status-modal">&times;</button>
-    </div>
-    <form id="status-form">
-        <input type="hidden" id="status-id" name="status_id">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div id="status-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="status-modal-title">Dodaj status</h2>
+            <button type="button" class="modal-close" id="close-status-modal">&times;</button>
+        </div>
+        <form id="status-form">
+            <input type="hidden" id="status-id" name="status_id">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="status-name" class="form-label">Nazwa statusu *</label>
-                <input type="text" id="status-name" name="name" class="form-input" required>
-                <span class="form-error" id="error-status-name"></span>
-            </div>
-
-            <div class="form-group">
-                <label for="status-badge-color" class="form-label">Kolor badge</label>
-                <div class="color-picker-wrapper">
-                    <input
-                        type="color"
-                        id="status-badge-color"
-                        name="badge_color"
-                        class="form-color-picker"
-                        value="#6B7280">
-                    <input
-                        type="text"
-                        id="status-badge-color-hex"
-                        class="form-input color-hex-input"
-                        value="#6B7280"
-                        pattern="^#[0-9A-Fa-f]{6}$"
-                        maxlength="7"
-                        placeholder="#6B7280">
-                    <div class="color-preview" id="status-color-preview" style="background-color: #6B7280;"></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="status-name" class="form-label">Nazwa statusu *</label>
+                    <input type="text" id="status-name" name="name" class="form-control" required>
+                    <span class="form-error" id="error-status-name"></span>
                 </div>
-                <span class="input-hint">Wybierz kolor lub wpisz kod HEX (np. #3B82F6)</span>
-                <span class="form-error" id="error-status-badge-color"></span>
+
+                <div class="form-group">
+                    <label for="status-badge-color" class="form-label">Kolor badge</label>
+                    <div class="color-picker-wrapper">
+                        <input
+                            type="color"
+                            id="status-badge-color"
+                            name="badge_color"
+                            class="form-color-picker"
+                            value="#6B7280">
+                        <input
+                            type="text"
+                            id="status-badge-color-hex"
+                            class="form-control color-hex-input"
+                            value="#6B7280"
+                            pattern="^#[0-9A-Fa-f]{6}$"
+                            maxlength="7"
+                            placeholder="#6B7280">
+                        <div class="color-preview" id="status-color-preview" style="background-color: #6B7280;"></div>
+                    </div>
+                    <span class="input-hint">Wybierz kolor lub wpisz kod HEX (np. #3B82F6)</span>
+                    <span class="form-error" id="error-status-badge-color"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        <input type="checkbox" id="status-active" name="is_active" checked>
+                        <span>Aktywny</span>
+                    </label>
+                    <span class="form-error" id="error-status-is_active"></span>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" id="status-active" name="is_active" checked>
-                    <span>Aktywny</span>
-                </label>
-                <span class="form-error" id="error-status-is_active"></span>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-status-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-status-btn">Zapisz</button>
             </div>
-        </div>
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancel-status-btn">Anuluj</button>
-            <button type="submit" class="btn btn-primary" id="save-status-btn">Zapisz</button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 <!-- WMS Status Modal -->
-<div id="wms-status-modal-overlay" class="modal-overlay"></div>
-<div id="wms-status-modal" class="modal">
-    <div class="modal-header">
-        <h3 class="modal-title" id="wms-status-modal-title">Dodaj status WMS</h3>
-        <button type="button" class="modal-close" id="close-wms-status-modal">&times;</button>
-    </div>
-    <form id="wms-status-form">
-        <input type="hidden" id="wms-status-id" name="wms_status_id">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div id="wms-status-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="wms-status-modal-title">Dodaj status WMS</h2>
+            <button type="button" class="modal-close" id="close-wms-status-modal">&times;</button>
+        </div>
+        <form id="wms-status-form">
+            <input type="hidden" id="wms-status-id" name="wms_status_id">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <div class="modal-body">
-            <div class="form-group">
-                <label for="wms-status-name" class="form-label">Nazwa statusu *</label>
-                <input type="text" id="wms-status-name" name="name" class="form-input" required>
-                <span class="form-error" id="error-wms-status-name"></span>
-            </div>
-
-            <div class="form-group">
-                <label for="wms-status-badge-color" class="form-label">Kolor badge</label>
-                <div class="color-picker-wrapper">
-                    <input
-                        type="color"
-                        id="wms-status-badge-color"
-                        name="badge_color"
-                        class="form-color-picker"
-                        value="#6B7280">
-                    <input
-                        type="text"
-                        id="wms-status-badge-color-hex"
-                        class="form-input color-hex-input"
-                        value="#6B7280"
-                        pattern="^#[0-9A-Fa-f]{6}$"
-                        maxlength="7"
-                        placeholder="#6B7280">
-                    <div class="color-preview" id="wms-status-color-preview" style="background-color: #6B7280;"></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="wms-status-name" class="form-label">Nazwa statusu *</label>
+                    <input type="text" id="wms-status-name" name="name" class="form-control" required>
+                    <span class="form-error" id="error-wms-status-name"></span>
                 </div>
-                <span class="input-hint">Wybierz kolor lub wpisz kod HEX (np. #3B82F6)</span>
-                <span class="form-error" id="error-wms-status-badge-color"></span>
+
+                <div class="form-group">
+                    <label for="wms-status-badge-color" class="form-label">Kolor badge</label>
+                    <div class="color-picker-wrapper">
+                        <input
+                            type="color"
+                            id="wms-status-badge-color"
+                            name="badge_color"
+                            class="form-color-picker"
+                            value="#6B7280">
+                        <input
+                            type="text"
+                            id="wms-status-badge-color-hex"
+                            class="form-control color-hex-input"
+                            value="#6B7280"
+                            pattern="^#[0-9A-Fa-f]{6}$"
+                            maxlength="7"
+                            placeholder="#6B7280">
+                        <div class="color-preview" id="wms-status-color-preview" style="background-color: #6B7280;"></div>
+                    </div>
+                    <span class="input-hint">Wybierz kolor lub wpisz kod HEX (np. #3B82F6)</span>
+                    <span class="form-error" id="error-wms-status-badge-color"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label checkbox-label">
+                        <input type="checkbox" id="wms-status-is-picked" name="is_picked">
+                        <span>Oznacza produkt jako zebrany</span>
+                    </label>
+                    <span class="input-hint">Statusy z tą opcją będą liczyć się jako "zebrane" w WMS.</span>
+                    <span class="form-error" id="error-wms-status-is_picked"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label checkbox-label">
+                        <input type="checkbox" id="wms-status-is-default" name="is_default">
+                        <span>Domyślny status</span>
+                    </label>
+                    <span class="input-hint">Nowe produkty w zamówieniu otrzymają ten status.</span>
+                    <span class="form-error" id="error-wms-status-is_default"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label checkbox-label">
+                        <input type="checkbox" id="wms-status-active" name="is_active" checked>
+                        <span>Aktywny</span>
+                    </label>
+                    <span class="form-error" id="error-wms-status-is_active"></span>
+                </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label checkbox-label">
-                    <input type="checkbox" id="wms-status-is-picked" name="is_picked">
-                    <span>Oznacza produkt jako zebrany</span>
-                </label>
-                <span class="input-hint">Statusy z tą opcją będą liczyć się jako "zebrane" w WMS.</span>
-                <span class="form-error" id="error-wms-status-is_picked"></span>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-wms-status-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-wms-status-btn">Zapisz</button>
             </div>
-
-            <div class="form-group">
-                <label class="form-label checkbox-label">
-                    <input type="checkbox" id="wms-status-is-default" name="is_default">
-                    <span>Domyślny status</span>
-                </label>
-                <span class="input-hint">Nowe produkty w zamówieniu otrzymają ten status.</span>
-                <span class="form-error" id="error-wms-status-is_default"></span>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label checkbox-label">
-                    <input type="checkbox" id="wms-status-active" name="is_active" checked>
-                    <span>Aktywny</span>
-                </label>
-                <span class="form-error" id="error-wms-status-is_active"></span>
-            </div>
-        </div>
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancel-wms-status-btn">Anuluj</button>
-            <button type="submit" class="btn btn-primary" id="save-wms-status-btn">Zapisz</button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 
 <!-- Migration Modal (for both Order Status and WMS Status) -->
-<div id="migration-modal-overlay" class="modal-overlay"></div>
-<div id="migration-modal" class="modal">
-    <div class="modal-header">
-        <h3 class="modal-title" id="migration-modal-title">Usuń status</h3>
-        <button type="button" class="modal-close" id="close-migration-modal">&times;</button>
-    </div>
-    <div class="modal-body">
-        <div class="migration-warning">
-            <svg class="warning-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <p class="warning-text" id="migration-warning-text">
-                Status <strong id="migration-status-name"></strong> jest używany w <strong id="migration-count"></strong>.
-            </p>
-            <p class="warning-instruction">Wybierz status, na który mają zostać przeniesione te elementy:</p>
+<div id="migration-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="migration-modal-title">Usuń status</h2>
+            <button type="button" class="modal-close" id="close-migration-modal">&times;</button>
         </div>
+        <div class="modal-body">
+            <div class="migration-warning">
+                <svg class="warning-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <p class="warning-text" id="migration-warning-text">
+                    Status <strong id="migration-status-name"></strong> jest używany w <strong id="migration-count"></strong>.
+                </p>
+                <p class="warning-instruction">Wybierz status, na który mają zostać przeniesione te elementy:</p>
+            </div>
 
-        <div class="form-group">
-            <label for="migration-target-status" class="form-label">Status zastępczy *</label>
-            <select id="migration-target-status" class="form-select" required>
-                <option value="">-- Wybierz status --</option>
-            </select>
+            <div class="form-group">
+                <label for="migration-target-status" class="form-label">Status zastępczy *</label>
+                <select id="migration-target-status" class="form-control" required>
+                    <option value="">-- Wybierz status --</option>
+                </select>
+            </div>
         </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancel-migration-btn">Anuluj</button>
+            <button type="button" class="btn btn-danger" id="confirm-migration-btn">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Przenieś i usuń
+            </button>
+        </div>
+        <input type="hidden" id="migration-status-id" value="">
+        <input type="hidden" id="migration-type" value="">
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" id="cancel-migration-btn">Anuluj</button>
-        <button type="button" class="btn btn-danger" id="confirm-migration-btn">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-            </svg>
-            Przenieś i usuń
-        </button>
-    </div>
-    <input type="hidden" id="migration-status-id" value="">
-    <input type="hidden" id="migration-type" value="">
 </div>
 
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/pages/admin/orders-settings.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/orders-settings.js') }}?v=4"></script>
 {% endblock %}
