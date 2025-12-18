@@ -414,6 +414,25 @@ class Order(db.Model):
         """Returns True if order has at least one shipment with tracking"""
         return len(self.shipments) > 0
 
+    @property
+    def first_shipment(self):
+        """Returns the first (most recent) shipment or None"""
+        return self.shipments[0] if self.shipments else None
+
+    @property
+    def first_tracking_url(self):
+        """Returns tracking URL for the first shipment"""
+        if self.first_shipment:
+            return self.first_shipment.tracking_url
+        return None
+
+    @property
+    def first_tracking_number(self):
+        """Returns tracking number for the first shipment"""
+        if self.first_shipment:
+            return self.first_shipment.tracking_number
+        return None
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal

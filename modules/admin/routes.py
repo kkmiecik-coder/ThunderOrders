@@ -10,8 +10,11 @@ from utils.decorators import role_required
 from extensions import db
 from modules.auth.models import User
 from modules.admin.models import AdminTask
-from sqlalchemy import func, desc
+from modules.orders.models import Order, OrderItem
+from modules.products.models import Product
+from sqlalchemy import func, desc, cast, Date
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 
 @admin_bp.route('/dashboard')
@@ -20,34 +23,80 @@ from datetime import datetime, timedelta
 def dashboard():
     """
     Admin Dashboard
-    Widok główny panelu administratora z podstawowymi metrykami
+    Widok główny panelu administratora z podstawowymi metrykami.
 
-    NOTE: Moduły orders i products będą dodane w przyszłości.
-    Na razie używamy mock data dla demonstracji UI.
+    Wyświetla rzeczywiste dane z bazy danych:
+    - Statystyki zamówień (wszystkie, dzisiaj, oczekujące)
+    - Przychody (dziś, tydzień, miesiąc)
+    - Statystyki klientów
+    - Wykres sprzedaży (7 dni)
+    - Top 5 bestsellery
+    - Ostatnie zamówienia
+    - Zadania admina
     """
 
     # ========================================
-    # Mock Data (będzie zastąpione prawdziwymi danymi)
+    # Real Data from Database
     # ========================================
 
-    # 1. Revenue stats (mock)
-    revenue = {
-        'today': 0.0,
-        'week': 0.0,
-        'month': 0.0
-    }
-
-    # 2. Orders stats (mock)
-    orders = {
-        'all': 0,
-        'today': 0,
-        'pending': 0
-    }
-
-    # 3. Clients stats (real data!)
     today = datetime.utcnow().date()
+    today_start = datetime.combine(today, datetime.min.time())
     week_ago = today - timedelta(days=7)
+    month_start = today.replace(day=1)
 
+    # 1. Orders stats (real data)
+    orders_all = Order.query.count()
+    orders_today = Order.query.filter(
+        func.date(Order.created_at) == today
+    ).count()
+    orders_week = Order.query.filter(
+        func.date(Order.created_at) >= week_ago
+    ).count()
+    orders_month = Order.query.filter(
+        func.date(Order.created_at) >= month_start
+    ).count()
+    # Pending = zamowienia ze statusem 'nowe' lub 'oczekujace'
+    orders_pending = Order.query.filter(
+        Order.status.in_(['nowe', 'oczekujace'])
+    ).count()
+
+    orders = {
+        'all': orders_all,
+        'today': orders_today,
+        'week': orders_week,
+        'month': orders_month,
+        'pending': orders_pending
+    }
+
+    # 2. Revenue stats (real data - suma total_amount)
+    # Today's revenue
+    revenue_today = db.session.query(
+        func.coalesce(func.sum(Order.total_amount), 0)
+    ).filter(
+        func.date(Order.created_at) == today
+    ).scalar() or Decimal('0.00')
+
+    # Week's revenue (last 7 days)
+    revenue_week = db.session.query(
+        func.coalesce(func.sum(Order.total_amount), 0)
+    ).filter(
+        func.date(Order.created_at) >= week_ago
+    ).scalar() or Decimal('0.00')
+
+    # Month's revenue (current month)
+    revenue_month = db.session.query(
+        func.coalesce(func.sum(Order.total_amount), 0)
+    ).filter(
+        func.date(Order.created_at) >= month_start
+    ).scalar() or Decimal('0.00')
+
+    revenue = {
+        'today': float(revenue_today),
+        'week': float(revenue_week),
+        'month': float(revenue_month)
+    }
+
+    # 3. Clients stats (real data)
     clients_total = User.query.filter_by(role='client').count()
     clients_active = User.query.filter_by(role='client', is_active=True).count()
     clients_new = User.query\
@@ -61,21 +110,60 @@ def dashboard():
         'new': clients_new
     }
 
-    # 4. Recent orders (mock - empty list)
-    recent_orders = []
+    # 4. Recent orders (real data - last 10 orders)
+    recent_orders = Order.query.order_by(
+        Order.created_at.desc()
+    ).limit(10).all()
 
-    # 5. Sales chart data (mock - 7 days with 0 revenue)
+    # 5. Sales chart data (real data - last 7 days revenue)
     sales_chart = []
     for i in range(6, -1, -1):
         date = today - timedelta(days=i)
+        daily_revenue = db.session.query(
+            func.coalesce(func.sum(Order.total_amount), 0)
+        ).filter(
+            func.date(Order.created_at) == date
+        ).scalar() or Decimal('0.00')
+
         sales_chart.append({
             'date': date.strftime('%Y-%m-%d'),
             'date_label': date.strftime('%d.%m'),
-            'revenue': 0.0
+            'revenue': float(daily_revenue)
         })
 
-    # 6. Top products (mock - empty list)
+    # 6. Top products (real data - bestsellers by quantity sold)
+    top_products_query = db.session.query(
+        Product.id,
+        Product.name,
+        Product.sku,
+        func.sum(OrderItem.quantity).label('total_sold'),
+        func.sum(OrderItem.total).label('total_revenue')
+    ).join(
+        OrderItem, OrderItem.product_id == Product.id
+    ).group_by(
+        Product.id, Product.name, Product.sku
+    ).order_by(
+        desc('total_sold')
+    ).limit(5).all()
+
     top_products = []
+    for product in top_products_query:
+        # Get primary image URL
+        product_obj = Product.query.get(product.id)
+        image_url = '/static/img/placeholders/product.svg'
+        if product_obj and product_obj.primary_image:
+            img_path = product_obj.primary_image.path_compressed
+            if img_path:
+                image_url = f'/static/{img_path}' if not img_path.startswith('/static/') else img_path
+
+        top_products.append({
+            'id': product.id,
+            'name': product.name,
+            'sku': product.sku,
+            'total_sold': product.total_sold or 0,
+            'total_revenue': float(product.total_revenue or 0),
+            'image_url': image_url
+        })
 
     # 7. Tasks summary (real data!)
     user_tasks = AdminTask.query.filter(

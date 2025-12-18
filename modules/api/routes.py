@@ -222,20 +222,23 @@ def search_products():
         query = request.args.get('q', '').strip()
         limit = request.args.get('limit', 20, type=int)
 
-        if len(query) < 2:
+        # If empty query, return recent/popular products
+        if len(query) == 0:
+            products = Product.query.filter_by(is_active=True).order_by(Product.updated_at.desc()).limit(limit).all()
+        elif len(query) < 2:
             return jsonify({
                 'success': False,
                 'message': 'Search query must be at least 2 characters'
             }), 400
-
-        # Search products by name, SKU, or EAN
-        products = Product.query.filter(
-            db.or_(
-                Product.name.ilike(f'%{query}%'),
-                Product.sku.ilike(f'%{query}%'),
-                Product.ean.ilike(f'%{query}%')
-            )
-        ).filter_by(is_active=True).limit(limit).all()
+        else:
+            # Search products by name, SKU, or EAN
+            products = Product.query.filter(
+                db.or_(
+                    Product.name.ilike(f'%{query}%'),
+                    Product.sku.ilike(f'%{query}%'),
+                    Product.ean.ilike(f'%{query}%')
+                )
+            ).filter_by(is_active=True).limit(limit).all()
 
         # Format results
         results = []

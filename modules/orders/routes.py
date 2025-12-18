@@ -83,6 +83,21 @@ def admin_list():
             )
         )
 
+    # Products filter - find orders containing selected products
+    if filter_form.products.data:
+        product_ids_str = filter_form.products.data
+        try:
+            product_ids = [int(pid.strip()) for pid in product_ids_str.split(',') if pid.strip()]
+            if product_ids:
+                # Subquery: orders that have at least one of these products
+                from modules.orders.models import OrderItem
+                subquery = db.session.query(OrderItem.order_id).filter(
+                    OrderItem.product_id.in_(product_ids)
+                ).distinct().subquery()
+                query = query.filter(Order.id.in_(subquery))
+        except ValueError:
+            pass  # Invalid product IDs, skip filter
+
     # Sorting
     sort_by = request.args.get('sort', 'created_at')
     sort_order = request.args.get('order', 'desc')

@@ -260,6 +260,7 @@
         const filtersContent = filtersPanel.querySelector('.filters-content');
 
         filtersContent.classList.toggle('expanded');
+        filtersPanel.classList.toggle('expanded');
         chevron.classList.toggle('rotated');
     };
 
@@ -580,4 +581,218 @@
             toggleBtn.textContent = `W sumie ${totalItems} przedmiotów - pokaż pozostałe`;
         }
     };
+
+    // ====================
+    // PRODUCT FILTER
+    // ====================
+
+    const productFilterSearch = document.getElementById('productFilterSearch');
+    const productSearchResults = document.getElementById('productSearchResults');
+    const selectedProductsContainer = document.getElementById('selectedProducts');
+    const productsHiddenInput = document.getElementById('productsHiddenInput');
+
+    // Store for selected products (id -> product data)
+    let selectedProducts = new Map();
+    let productSearchTimeout = null;
+
+    // Initialize selected products from URL param
+    function initSelectedProducts() {
+        const productsParam = productsHiddenInput?.value;
+        if (!productsParam || !productsParam.trim()) return;
+
+        const productIds = productsParam.split(',').map(id => id.trim()).filter(id => id);
+        if (productIds.length === 0) return;
+
+        // Fetch product details for each ID
+        productIds.forEach(id => {
+            fetch(`/api/products/search?q=${id}&limit=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.products && data.products.length > 0) {
+                        const product = data.products.find(p => p.id == id);
+                        if (product) {
+                            selectedProducts.set(product.id, product);
+                            renderSelectedProducts();
+                        }
+                    }
+                })
+                .catch(err => console.error('Error fetching product:', err));
+        });
+    }
+
+    // Product search input handler
+    if (productFilterSearch) {
+        productFilterSearch.addEventListener('input', function() {
+            const query = this.value.trim();
+
+            if (productSearchTimeout) {
+                clearTimeout(productSearchTimeout);
+            }
+
+            if (query.length < 2) {
+                hideProductSearchResults();
+                return;
+            }
+
+            productSearchTimeout = setTimeout(() => {
+                searchProducts(query);
+            }, 300);
+        });
+
+        // Hide results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!productFilterSearch.contains(e.target) &&
+                !productSearchResults.contains(e.target)) {
+                hideProductSearchResults();
+            }
+        });
+
+        // Handle focus - show popular/recent products immediately
+        productFilterSearch.addEventListener('focus', function() {
+            const query = this.value.trim();
+            if (query.length >= 2) {
+                searchProducts(query);
+            } else {
+                // Show some products on focus even without typing
+                searchProducts('');
+            }
+        });
+    }
+
+    /**
+     * Search products via API
+     */
+    function searchProducts(query) {
+        if (!productSearchResults) return;
+
+        productSearchResults.innerHTML = '<div class="product-search-loading">Szukam...</div>';
+        productSearchResults.classList.add('active');
+
+        fetch(`/api/products/search?q=${encodeURIComponent(query)}&limit=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    displayProductSearchResults(data.products || []);
+                } else {
+                    productSearchResults.innerHTML = '<div class="product-search-empty">Błąd wyszukiwania</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Product search error:', error);
+                productSearchResults.innerHTML = '<div class="product-search-empty">Błąd wyszukiwania</div>';
+            });
+    }
+
+    // Placeholder SVG for products without images
+    const PLACEHOLDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' fill='%23f0f0f0'/%3E%3Cpath d='M24 14a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 10a4 4 0 1 1 0-8 4 4 0 0 1 0 8z' fill='%23ccc'/%3E%3Cpath d='M14 34v-4l6-6 4 4 8-8 6 6v8z' fill='%23ccc'/%3E%3C/svg%3E";
+
+    /**
+     * Display product search results
+     */
+    function displayProductSearchResults(products) {
+        if (!productSearchResults) return;
+
+        // Filter out already selected products
+        const filteredProducts = products.filter(p => !selectedProducts.has(p.id));
+
+        if (filteredProducts.length === 0) {
+            productSearchResults.innerHTML = '<div class="product-search-empty">Brak wyników</div>';
+            return;
+        }
+
+        const html = filteredProducts.map(product => {
+            const imageUrl = product.image_url || PLACEHOLDER_IMAGE;
+            const price = product.price ? `${product.price.toFixed(2)} PLN` : '';
+            const sku = product.sku ? `SKU: ${product.sku}` : '';
+
+            return `
+                <div class="product-search-item" onclick="selectProduct(${product.id}, '${escapeHtml(product.name)}', '${escapeHtml(imageUrl)}', '${escapeHtml(sku)}')">
+                    <img class="product-search-thumb" src="${escapeHtml(imageUrl)}" alt="" onerror="this.src='${PLACEHOLDER_IMAGE}'">
+                    <div class="product-search-info">
+                        <div class="product-search-name">${escapeHtml(product.name)}</div>
+                        <div class="product-search-sku">${escapeHtml(sku)}</div>
+                    </div>
+                    <div class="product-search-price">${price}</div>
+                </div>
+            `;
+        }).join('');
+
+        productSearchResults.innerHTML = html;
+    }
+
+    /**
+     * Hide product search results
+     */
+    function hideProductSearchResults() {
+        if (productSearchResults) {
+            productSearchResults.classList.remove('active');
+        }
+    }
+
+    /**
+     * Select a product from search results
+     */
+    window.selectProduct = function(id, name, imageUrl, sku) {
+        if (selectedProducts.has(id)) return;
+
+        selectedProducts.set(id, { id, name, image_url: imageUrl, sku });
+        renderSelectedProducts();
+        updateProductsHiddenInput();
+        hideProductSearchResults();
+
+        if (productFilterSearch) {
+            productFilterSearch.value = '';
+        }
+    };
+
+    /**
+     * Remove a selected product
+     */
+    window.removeSelectedProduct = function(id) {
+        selectedProducts.delete(id);
+        renderSelectedProducts();
+        updateProductsHiddenInput();
+    };
+
+    /**
+     * Render selected products chips
+     */
+    function renderSelectedProducts() {
+        if (!selectedProductsContainer) return;
+
+        if (selectedProducts.size === 0) {
+            selectedProductsContainer.innerHTML = '';
+            return;
+        }
+
+        const html = Array.from(selectedProducts.values()).map(product => {
+            const imageUrl = product.image_url || PLACEHOLDER_IMAGE;
+            return `
+                <div class="selected-product-chip">
+                    <img src="${escapeHtml(imageUrl)}" alt="" onerror="this.src='${PLACEHOLDER_IMAGE}'">
+                    <span>${escapeHtml(product.name)}</span>
+                    <button type="button" class="selected-product-remove" onclick="removeSelectedProduct(${product.id})" title="Usuń">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M18 6L6 18M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            `;
+        }).join('');
+
+        selectedProductsContainer.innerHTML = html;
+    }
+
+    /**
+     * Update hidden input with selected product IDs
+     */
+    function updateProductsHiddenInput() {
+        if (!productsHiddenInput) return;
+
+        const ids = Array.from(selectedProducts.keys()).join(',');
+        productsHiddenInput.value = ids;
+    }
+
+    // Initialize on page load
+    initSelectedProducts();
 })();

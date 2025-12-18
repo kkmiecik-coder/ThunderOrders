@@ -36,8 +36,8 @@
                 <h3 class="stat-label">Zamówienia</h3>
                 <p class="stat-value">{{ orders.all }}</p>
                 <div class="stat-meta">
-                    <div><strong>Miesiąc:</strong> {{ orders.all }}</div>
-                    <div><strong>Tydzień:</strong> 0</div>
+                    <div><strong>Miesiąc:</strong> {{ orders.month }}</div>
+                    <div><strong>Tydzień:</strong> {{ orders.week }}</div>
                     <div><strong>Dzisiaj:</strong> {{ orders.today }}</div>
                 </div>
             </div>
@@ -74,8 +74,7 @@
             <div class="widget widget-orders">
                 <div class="widget-header">
                     <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
-                    {# Link will be enabled when orders module is created #}
-                    {# <a href="{{ url_for('admin.orders_list') }}" class="widget-link">Zobacz wszystkie →</a> #}
+                    <a href="{{ url_for('orders.admin_list') }}" class="widget-link">Zobacz wszystkie →</a>
                 </div>
                 <div class="widget-body">
                     {% if recent_orders|length > 0 %}
@@ -83,12 +82,10 @@
                             {% for order in recent_orders %}
                                 <div class="order-item">
                                     <div class="order-info">
-                                        {# <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" class="order-number"> #}
-                                        <span class="order-number">
+                                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number">
                                             {{ order.order_number }}
-                                        {# </a> #}
-                                        </span>
-                                        <p class="order-client">{{ order.client_name }}</p>
+                                        </a>
+                                        <p class="order-client">{{ order.customer_name }}</p>
                                     </div>
                                     <div class="order-meta">
                                         <span class="order-status order-status-{{ order.status }}">
@@ -333,17 +330,14 @@
 
 .stat-card-gradient-purple {
     background: var(--gradient-purple);
-    transition: background 0.5s ease;
 }
 
 .stat-card-gradient-pink {
     background: var(--gradient-pink);
-    transition: background 0.5s ease;
 }
 
 .stat-card-gradient-cyan {
     background: var(--gradient-cyan);
-    transition: background 0.5s ease;
 }
 
 .stat-icon {
@@ -861,6 +855,7 @@
 }
 
 [data-theme="dark"] .stat-card:hover {
+    transform: translateY(-2px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(240, 147, 251, 0.15);
 }
 
@@ -1136,7 +1131,7 @@ if (productsCtx && productsData.length > 0) {
             labels: productsData.map(p => p.name.substring(0, 20) + (p.name.length > 20 ? '...' : '')),
             datasets: [{
                 label: 'Sprzedane sztuki',
-                data: productsData.map(p => p.total_quantity),
+                data: productsData.map(p => p.total_sold),
                 backgroundColor: [
                     'rgba(240, 147, 251, 0.8)',
                     'rgba(245, 87, 108, 0.8)',

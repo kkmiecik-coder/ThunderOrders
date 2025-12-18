@@ -82,6 +82,13 @@ class OrderFilterForm(FlaskForm):
         validators=[Optional()]
     )
 
+    # Products filter (multi-select, dynamically populated via JS)
+    products = StringField(
+        'Produkty',
+        validators=[Optional()],
+        description='Comma-separated product IDs'
+    )
+
     submit = SubmitField('Filtruj')
 
 
