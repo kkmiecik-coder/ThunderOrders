@@ -359,7 +359,7 @@
                             {% set visible_items = order.items[:3] %}
                             {% set hidden_items = order.items[3:] %}
                             {% for item in visible_items %}
-                            <div class="item-row">
+                            <div class="item-row{% if item.is_set_fulfilled == false %} item-outside-set{% endif %}">
                                 <div class="item-thumb-wrapper">
                                     <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
                                     {% if item.quantity > 1 %}
@@ -367,15 +367,15 @@
                                     {% endif %}
                                 </div>
                                 <div class="item-details">
-                                    <span class="item-name" title="{{ item.product_name }}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
-                                    <span class="item-price">{{ "%.2f"|format(item.total) }} zł</span>
+                                    <span class="item-name{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}" title="{{ item.product_name }}{% if item.is_set_fulfilled == false %} (poza setem){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                    <span class="item-price{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}">{% if item.is_set_fulfilled == false %}0.00{% else %}{{ "%.2f"|format(item.total) }}{% endif %} zł</span>
                                 </div>
                             </div>
                             {% endfor %}
                             {% if hidden_items|length > 0 %}
                             <div class="items-hidden" id="hiddenItems-{{ order.id }}" style="display: none;">
                                 {% for item in hidden_items %}
-                                <div class="item-row">
+                                <div class="item-row{% if item.is_set_fulfilled == false %} item-outside-set{% endif %}">
                                     <div class="item-thumb-wrapper">
                                         <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
                                         {% if item.quantity > 1 %}
@@ -383,8 +383,8 @@
                                         {% endif %}
                                     </div>
                                     <div class="item-details">
-                                        <span class="item-name" title="{{ item.product_name }}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
-                                        <span class="item-price">{{ "%.2f"|format(item.total) }} zł</span>
+                                        <span class="item-name{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}" title="{{ item.product_name }}{% if item.is_set_fulfilled == false %} (poza setem){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                        <span class="item-price{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}">{% if item.is_set_fulfilled == false %}0.00{% else %}{{ "%.2f"|format(item.total) }}{% endif %} zł</span>
                                     </div>
                                 </div>
                                 {% endfor %}
@@ -410,7 +410,11 @@
 
                     <!-- Kwota -->
                     <td class="col-amount text-right">
+                        {% if order.has_items_outside_set %}
+                        <span class="amount-cell text-outside-set">{{ "%.2f"|format(order.effective_grand_total) }} zł</span>
+                        {% else %}
                         <span class="amount-cell">{{ "%.2f"|format(order.grand_total) }} zł</span>
+                        {% endif %}
                     </td>
 
                     <!-- Info dodatkowe (status + wysyłka + ikony) -->

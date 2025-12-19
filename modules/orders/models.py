@@ -433,6 +433,49 @@ class Order(db.Model):
             return self.first_shipment.tracking_number
         return None
 
+    @property
+    def has_items_outside_set(self):
+        """
+        Returns True if any order item has is_set_fulfilled = False.
+        This means some items didn't make it into the complete set.
+        """
+        return any(item.is_set_fulfilled is False for item in self.items)
+
+    @property
+    def has_set_items(self):
+        """
+        Returns True if order has any items that are part of a set
+        (is_set_fulfilled is not None).
+        """
+        return any(item.is_set_fulfilled is not None for item in self.items)
+
+    @property
+    def effective_total(self):
+        """
+        Returns effective total - suma tylko zrealizowanych produktów.
+        Items with is_set_fulfilled == False are counted as 0.00.
+        Items with is_set_fulfilled == True or None are counted normally.
+        """
+        from decimal import Decimal
+        total = Decimal('0.00')
+        for item in self.items:
+            # Skip items that are outside set (is_set_fulfilled == False)
+            if item.is_set_fulfilled is False:
+                continue
+            if item.total:
+                total += Decimal(str(item.total))
+        return total
+
+    @property
+    def effective_grand_total(self):
+        """
+        Returns effective grand total including shipping.
+        Uses effective_total (excluding items outside set) + shipping cost.
+        """
+        from decimal import Decimal
+        shipping = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
+        return self.effective_total + shipping
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal
@@ -465,6 +508,13 @@ class OrderItem(db.Model):
     picked_at = db.Column(db.DateTime, nullable=True)
     picked_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
+    # Exclusive set fulfillment fields
+    # NULL = nie dotyczy setu (produkt pojedynczy lub variant_group)
+    # True = produkt został przydzielony (zmieścił się w komplecie)
+    # False = produkt przepadł (nie zmieścił się w komplecie)
+    is_set_fulfilled = db.Column(db.Boolean, nullable=True)
+    set_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id'), nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -473,6 +523,7 @@ class OrderItem(db.Model):
     product = db.relationship('Product', back_populates='order_items')
     picker = db.relationship('User', foreign_keys=[picked_by])
     wms_status_rel = db.relationship('WmsStatus', back_populates='order_items', foreign_keys=[wms_status])
+    set_section = db.relationship('ExclusiveSection', foreign_keys=[set_section_id])
 
     def __repr__(self):
         return f'<OrderItem {self.id} - Order {self.order_id}>'

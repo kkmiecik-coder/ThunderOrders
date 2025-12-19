@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podsumowanie zamówienia - ThunderOrders</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .email-container {
+            background: white;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #FF8500;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #240046;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .page-name {
+            background: linear-gradient(135deg, #7B2CBF, #9D4EDD);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th {
+            background-color: #240046;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .status-fulfilled {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .status-unfulfilled {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #757575;
+            text-align: center;
+        }
+        .info-box {
+            background-color: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            border-radius: 0 8px 8px 0;
+        }
+        .info-box.warning {
+            background-color: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .summary-box {
+            background-color: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .summary-box h3 {
+            margin: 0 0 10px 0;
+            color: #240046;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <div class="logo">ThunderOrders</div>
+        </div>
+
+        <h1>Podsumowanie Twojego zamówienia</h1>
+
+        <p>Witaj, {{ customer_name }}!</p>
+
+        <p>Sprzedaż na stronie <strong>{{ page_name }}</strong> została zakończona.
+        Poniżej znajdziesz podsumowanie Twojego zamówienia wraz z informacją, które produkty zostaną zrealizowane.</p>
+
+        <div class="page-name">
+            {{ page_name }}
+        </div>
+
+        <h2 style="color: #240046; font-size: 18px;">Twoje produkty:</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Produkt</th>
+                    <th style="text-align: center;">Ilość</th>
+                    <th style="text-align: center;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.product_name }}</td>
+                    <td style="text-align: center;">{{ item.quantity }}</td>
+                    <td style="text-align: center;">
+                        {% if item.is_fulfilled %}
+                        <span class="status-fulfilled">Zrealizowane</span>
+                        {% else %}
+                        <span class="status-unfulfilled">Niezrealizowane</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% set fulfilled_items = items | selectattr('is_fulfilled') | list %}
+        {% set unfulfilled_items = items | rejectattr('is_fulfilled') | list %}
+
+        {% if fulfilled_items %}
+        <div class="summary-box">
+            <h3>Produkty do realizacji ({{ fulfilled_items|length }})</h3>
+            <p style="margin: 0; color: #155724;">
+                Te produkty zostaną zamówione i dostarczone do Ciebie.
+            </p>
+        </div>
+        {% endif %}
+
+        {% if unfulfilled_items %}
+        <div class="info-box warning">
+            <strong>Produkty niezrealizowane ({{ unfulfilled_items|length }})</strong><br><br>
+            Niestety, niektóre z Twoich produktów nie zostały zrealizowane,
+            ponieważ nie zebrała się wystarczająca liczba kompletów.
+            Produkty w setach są realizowane według kolejności zamówień (kto pierwszy, ten lepszy).<br><br>
+            <strong>Nie musisz nic robić</strong> - płatność za niezrealizowane produkty nie została pobrana.
+        </div>
+        {% endif %}
+
+        {% if not unfulfilled_items %}
+        <div class="info-box">
+            <strong>Wszystkie Twoje produkty zostały zrealizowane!</strong><br>
+            Otrzymasz kolejne powiadomienie, gdy zamówienie zmieni status.
+        </div>
+        {% endif %}
+
+        <p>Status zamówienia możesz sprawdzić w panelu klienta:</p>
+        <p><a href="https://thunderorders.cloud/client/orders" style="color: #7B2CBF;">https://thunderorders.cloud/client/orders</a></p>
+
+        <div class="footer">
+            <p><strong>ThunderOrders</strong><br>
+            Twój partner w imporcie z Azji</p>
+            <p>thunderorders.cloud | noreply@thunderorders.cloud</p>
+        </div>
+    </div>
+</body>
+</html>

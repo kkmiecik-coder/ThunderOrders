@@ -170,6 +170,11 @@
     text-align: center;
 }
 
+.products-table .col-set {
+    width: 80px;
+    text-align: center;
+}
+
 .products-table tbody tr {
     border-bottom: 1px solid #F0F0F0;
 }
@@ -276,6 +281,41 @@ code {
     text-transform: uppercase;
     letter-spacing: 0.3px;
     white-space: nowrap;
+}
+
+/* Set Fulfillment Badge */
+.set-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 0.875rem;
+    font-weight: 700;
+    cursor: help;
+}
+
+.set-badge-ok {
+    background-color: #4CAF50;
+    color: #fff;
+}
+
+.set-badge-fail {
+    background-color: #F44336;
+    color: #fff;
+}
+
+.set-badge-na {
+    display: inline-block;
+    color: #9E9E9E;
+    font-size: 1rem;
+    cursor: help;
+}
+
+/* Text outside set - red for unfulfilled items */
+.text-outside-set {
+    color: #F44336 !important;
 }
 
 /* ====================
@@ -3675,4 +3715,21 @@ code {
 
 [data-theme="dark"] .admin-notes-status {
     color: rgba(255, 255, 255, 0.5);
+}
+
+/* Set Fulfillment Badge - Dark Mode */
+[data-theme="dark"] .set-badge-ok {
+    background-color: #66BB6A;
+}
+
+[data-theme="dark"] .set-badge-fail {
+    background-color: #EF5350;
+}
+
+[data-theme="dark"] .set-badge-na {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .text-outside-set {
+    color: #EF5350 !important;
 }

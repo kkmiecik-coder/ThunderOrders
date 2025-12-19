@@ -859,3 +859,160 @@
     background: rgba(52, 211, 153, 0.9);
     color: #ffffff;
 }
+
+/* Status Closed Badge */
+.status-badge.status-closed {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="dark"] .status-badge.status-closed {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* Close Complete Button */
+.btn-action.btn-close-complete {
+    color: #8b5cf6;
+}
+
+.btn-action.btn-close-complete:hover {
+    background: rgba(139, 92, 246, 0.1);
+    color: #7c3aed;
+}
+
+[data-theme="dark"] .btn-action.btn-close-complete {
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .btn-action.btn-close-complete:hover {
+    background: rgba(139, 92, 246, 0.15);
+    color: #c4b5fd;
+}
+
+/* Summary Button */
+.btn-action.btn-summary {
+    color: #10b981;
+}
+
+.btn-action.btn-summary:hover {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+}
+
+[data-theme="dark"] .btn-action.btn-summary {
+    color: #34d399;
+}
+
+[data-theme="dark"] .btn-action.btn-summary:hover {
+    background: rgba(52, 211, 153, 0.15);
+    color: #6ee7b7;
+}
+
+/* Close Modal Styles */
+.modal-warning-box {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    margin-bottom: var(--space-4);
+}
+
+.modal-warning-box svg {
+    color: #ef4444;
+    flex-shrink: 0;
+}
+
+.modal-warning-box strong {
+    display: block;
+    color: #dc2626;
+    margin-bottom: var(--space-1);
+}
+
+.modal-warning-box p {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+.modal-info {
+    font-weight: var(--font-medium);
+    margin-bottom: var(--space-2);
+}
+
+.modal-list {
+    margin: 0;
+    padding-left: var(--space-5);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+.modal-list li {
+    margin-bottom: var(--space-1);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    margin-top: 3px;
+}
+
+.checkbox-label span {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+}
+
+/* Loading Spinner */
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Dark Mode - Close Modal */
+[data-theme="dark"] .modal-warning-box {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .modal-warning-box svg {
+    color: #f87171;
+}
+
+[data-theme="dark"] .modal-warning-box strong {
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .modal-warning-box p {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .modal-info {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .modal-list {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .checkbox-label span {
+    color: rgba(255, 255, 255, 0.7);
+}

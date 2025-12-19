@@ -803,6 +803,15 @@
     color: white;
 }
 
+/* Items outside set - red text for unfulfilled items */
+.text-outside-set {
+    color: #F44336 !important;
+}
+
+.item-outside-set {
+    opacity: 0.85;
+}
+
 /* Type badges */
 .type-pre-order {
     background: #3b82f6;
@@ -2562,4 +2571,9 @@
 [data-theme="dark"] .selected-product-remove:hover {
     background: #EF5350;
     color: #fff;
+}
+
+/* Items outside set - Dark mode */
+[data-theme="dark"] .text-outside-set {
+    color: #EF5350 !important;
 }

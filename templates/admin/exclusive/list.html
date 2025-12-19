@@ -94,7 +94,11 @@
                             {% elif page.status == 'paused' %}
                             <span class="status-badge status-paused">Wstrzymana</span>
                             {% elif page.status == 'ended' %}
-                            <span class="status-badge status-ended">Zakończona</span>
+                                {% if page.is_fully_closed %}
+                                <span class="status-badge status-closed">Zamknięta</span>
+                                {% else %}
+                                <span class="status-badge status-ended">Zakończona</span>
+                                {% endif %}
                             {% endif %}
                         </td>
                         <td>
@@ -131,7 +135,37 @@
                                         <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
                                     </svg>
                                 </button>
-                                {% elif page.status != 'ended' %}
+                                {% elif page.status == 'ended' %}
+                                    {% if page.is_fully_closed %}
+                                    <!-- Summary button - for fully closed pages -->
+                                    <a href="{{ url_for('admin.exclusive_summary', page_id=page.id) }}"
+                                       class="btn-action btn-summary" title="Podsumowanie">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                                        </svg>
+                                    </a>
+                                    {% else %}
+                                    <!-- Close completely button - for ended but not closed pages -->
+                                    {% if current_user.role == 'admin' %}
+                                    <button type="button" class="btn-action btn-close-complete"
+                                            onclick="openCloseModal({{ page.id }}, '{{ page.name }}')"
+                                            title="Zamknij całkowicie">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                    <!-- Reactivate button - for ended -->
+                                    <button type="button" class="btn-action btn-reactivate"
+                                            onclick="changePageStatus({{ page.id }}, 'publish')"
+                                            title="Wznów sprzedaż">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+                                            <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+                                        </svg>
+                                    </button>
+                                    {% endif %}
+                                {% else %}
                                 <!-- Play button - for draft, scheduled, paused -->
                                 <button type="button" class="btn-action btn-play"
                                         onclick="changePageStatus({{ page.id }}, 'publish')"
@@ -140,23 +174,16 @@
                                         <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
                                     </svg>
                                 </button>
-                                {% else %}
-                                <!-- Reactivate button - for ended -->
-                                <button type="button" class="btn-action btn-reactivate"
-                                        onclick="changePageStatus({{ page.id }}, 'publish')"
-                                        title="Wznów sprzedaż">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
-                                        <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
-                                    </svg>
-                                </button>
                                 {% endif %}
+
+                                {% if not page.is_fully_closed %}
                                 <a href="{{ url_for('admin.exclusive_edit', page_id=page.id) }}"
                                    class="btn-action btn-edit" title="Edytuj">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
                                     </svg>
                                 </a>
+                                {% endif %}
                                 <form action="{{ url_for('admin.exclusive_duplicate', page_id=page.id) }}" method="POST" style="display: inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn-action btn-duplicate" title="Duplikuj">
@@ -166,6 +193,7 @@
                                         </svg>
                                     </button>
                                 </form>
+                                {% if not page.is_fully_closed %}
                                 <a href="{{ url_for('exclusive.order_page', token=page.token) }}"
                                    target="_blank" class="btn-action btn-preview" title="Podgląd">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -181,6 +209,7 @@
                                         <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                                     </svg>
                                 </button>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
@@ -261,6 +290,57 @@
     </div>
 </div>
 
+<!-- Close Complete Modal -->
+<div id="closeModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Zamknij całkowicie stronę</h2>
+            <button type="button" class="modal-close" onclick="closeCloseModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-warning-box">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                </svg>
+                <div>
+                    <strong>Ta operacja jest nieodwracalna!</strong>
+                    <p>Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.</p>
+                </div>
+            </div>
+
+            <p>Zamykasz stronę: <strong id="closePageName"></strong></p>
+
+            <p class="modal-info">
+                Zamknięcie wykona następujące operacje:
+            </p>
+            <ul class="modal-list">
+                <li>Algorytm alokacji produktów w setach (pierwsi zamawiający dostają produkty)</li>
+                <li>Oznaczenie zamówień jako zrealizowane/niezrealizowane</li>
+                <li>Generowanie podsumowania sprzedaży</li>
+            </ul>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="sendEmailsCheckbox" checked>
+                    <span>Wyślij emaile do wszystkich klientów z informacją o statusie ich produktów</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeCloseModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="executeCloseComplete()" id="closeCompleteBtn">
+                <span class="btn-text">Zamknij całkowicie</span>
+                <span class="btn-loading" style="display: none;">
+                    <svg class="spinner" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6V0z"/>
+                    </svg>
+                    Przetwarzanie...
+                </span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Toast for copy link -->
 <div id="copyToast" class="toast toast-success" style="display: none;">
     Link skopiowany do schowka!
@@ -335,6 +415,9 @@ document.addEventListener('keydown', function(e) {
         if (document.getElementById('deleteModal').classList.contains('active')) {
             closeDeleteModal();
         }
+        if (document.getElementById('closeModal').classList.contains('active')) {
+            closeCloseModal();
+        }
     }
 });
 
@@ -376,5 +459,82 @@ async function changePageStatus(pageId, action) {
         showToast('Błąd połączenia z serwerem', 'error');
     }
 }
+
+// Close Complete Modal
+let closePageId = null;
+
+function openCloseModal(pageId, pageName) {
+    closePageId = pageId;
+    document.getElementById('closePageName').textContent = pageName;
+    document.getElementById('closeModal').classList.add('active');
+}
+
+function closeCloseModal() {
+    const modal = document.getElementById('closeModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        closePageId = null;
+        // Reset button state
+        const btn = document.getElementById('closeCompleteBtn');
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loading').style.display = 'none';
+        btn.disabled = false;
+    }, 350);
+}
+
+async function executeCloseComplete() {
+    if (!closePageId) return;
+
+    const btn = document.getElementById('closeCompleteBtn');
+    const sendEmails = document.getElementById('sendEmailsCheckbox').checked;
+
+    // Show loading state
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/admin/exclusive/${closePageId}/close-complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ send_emails: sendEmails })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Redirect to summary page
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                window.location.reload();
+            }
+        } else {
+            showToast(data.error || 'Wystąpił błąd podczas zamykania strony', 'error');
+            // Reset button state
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-loading').style.display = 'none';
+            btn.disabled = false;
+        }
+    } catch (error) {
+        console.error('Error closing page:', error);
+        showToast('Błąd połączenia z serwerem', 'error');
+        // Reset button state
+        btn.querySelector('.btn-text').style.display = 'inline';
+        btn.querySelector('.btn-loading').style.display = 'none';
+        btn.disabled = false;
+    }
+}
+
+// Add event listeners for close modal
+document.getElementById('closeModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeCloseModal();
+    }
+});
 </script>
 {% endblock %}

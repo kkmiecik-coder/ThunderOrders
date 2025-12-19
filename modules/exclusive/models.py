@@ -81,8 +81,14 @@ class ExclusivePage(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
+    is_fully_closed = db.Column(db.Boolean, default=False)
+    closed_at = db.Column(db.DateTime, nullable=True)
+    closed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+
     # Relationships
     creator = db.relationship('User', backref='exclusive_pages', foreign_keys=[created_by])
+    closed_by = db.relationship('User', foreign_keys=[closed_by_id])
     orders = db.relationship('Order', back_populates='exclusive_page', lazy='dynamic')
     sections = db.relationship(
         'ExclusiveSection',

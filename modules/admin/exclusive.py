@@ -3,11 +3,11 @@ Admin Exclusive Pages Routes
 Zarządzanie stronami ekskluzywnych zamówień (Page Builder)
 """
 
-from flask import render_template, redirect, url_for, flash, request, jsonify, abort
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort, Response
 from flask_login import login_required, current_user
 from markupsafe import Markup
 from modules.admin import admin_bp
-from utils.decorators import admin_required
+from utils.decorators import admin_required, mod_required
 from extensions import db
 from modules.exclusive.models import ExclusivePage, ExclusiveSection, ExclusiveSetItem
 from modules.products.models import Product, ProductType, VariantGroup
@@ -604,3 +604,148 @@ def exclusive_duplicate(page_id):
 
     flash(f'Strona została zduplikowana jako "{new_page.name}".', 'success')
     return redirect(url_for('admin.exclusive_edit', page_id=new_page.id))
+
+
+# ============================================
+# Całkowite zamknięcie strony Exclusive
+# ============================================
+
+@admin_bp.route('/exclusive/<int:page_id>/close-complete', methods=['POST'])
+@login_required
+@admin_required
+def exclusive_close_complete(page_id):
+    """
+    Całkowicie zamyka stronę Exclusive.
+
+    Wykonuje:
+    1. Algorytm alokacji setów (pierwsi zamawiający dostają produkty)
+    2. Ustawia flagę is_fully_closed
+    3. Opcjonalnie wysyła emaile do klientów
+
+    Tylko Admin może wykonać tę operację.
+    """
+    from utils.exclusive_closure import close_exclusive_page
+
+    page = ExclusivePage.query.get_or_404(page_id)
+
+    # Sprawdź warunki
+    if page.status != 'ended':
+        return jsonify({
+            'success': False,
+            'error': 'Strona musi mieć status "Zakończona" (ended) aby ją całkowicie zamknąć.'
+        }), 400
+
+    if page.is_fully_closed:
+        return jsonify({
+            'success': False,
+            'error': 'Ta strona została już całkowicie zamknięta.'
+        }), 400
+
+    # Pobierz opcję wysyłki emaili
+    data = request.get_json() or {}
+    send_emails = data.get('send_emails', True)
+
+    try:
+        result = close_exclusive_page(
+            page_id=page_id,
+            user_id=current_user.id,
+            send_emails=send_emails
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Strona została całkowicie zamknięta.',
+            'allocation': result.get('allocation'),
+            'redirect': url_for('admin.exclusive_summary', page_id=page_id)
+        })
+
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': f'Wystąpił błąd: {str(e)}'
+        }), 500
+
+
+# ============================================
+# Podsumowanie zamkniętej strony Exclusive
+# ============================================
+
+@admin_bp.route('/exclusive/<int:page_id>/summary')
+@login_required
+@mod_required
+def exclusive_summary(page_id):
+    """
+    Wyświetla podsumowanie sprzedaży dla zamkniętej strony Exclusive.
+
+    Admin widzi pełne dane finansowe, Mod widzi wersję bez finansów.
+    """
+    from utils.exclusive_closure import get_page_summary
+
+    page = ExclusivePage.query.get_or_404(page_id)
+
+    # Sprawdź czy strona jest zamknięta
+    if not page.is_fully_closed:
+        flash('Ta strona nie została jeszcze całkowicie zamknięta.', 'warning')
+        return redirect(url_for('admin.exclusive_list'))
+
+    # Pobierz podsumowanie (Admin z finansami, Mod bez)
+    include_financials = current_user.role == 'admin'
+    summary = get_page_summary(page_id, include_financials=include_financials)
+
+    return render_template(
+        'admin/exclusive/summary.html',
+        title=f'Podsumowanie: {page.name}',
+        page=page,
+        summary=summary,
+        include_financials=include_financials
+    )
+
+
+# ============================================
+# Export Excel zamkniętej strony Exclusive
+# ============================================
+
+@admin_bp.route('/exclusive/<int:page_id>/export-excel')
+@login_required
+@admin_required
+def exclusive_export_excel(page_id):
+    """
+    Generuje i pobiera plik Excel z zamówieniami dla zamkniętej strony Exclusive.
+
+    Tylko Admin może pobrać Excel.
+    """
+    from utils.excel_export import generate_exclusive_closure_excel
+
+    page = ExclusivePage.query.get_or_404(page_id)
+
+    # Sprawdź czy strona jest zamknięta
+    if not page.is_fully_closed:
+        flash('Ta strona nie została jeszcze całkowicie zamknięta.', 'warning')
+        return redirect(url_for('admin.exclusive_list'))
+
+    try:
+        excel_buffer = generate_exclusive_closure_excel(page_id)
+
+        # Generuj nazwę pliku
+        safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = safe_name.replace(' ', '_')[:50]  # Max 50 znaków
+        filename = f'exclusive_{safe_name}_{page.closed_at.strftime("%Y%m%d")}.xlsx'
+
+        return Response(
+            excel_buffer.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+        )
+
+    except Exception as e:
+        flash(f'Błąd generowania pliku Excel: {str(e)}', 'error')
+        return redirect(url_for('admin.exclusive_summary', page_id=page_id))

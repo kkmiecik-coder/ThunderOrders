@@ -163,3 +163,30 @@ def send_order_status_change_email(user_email, user_name, order_number, old_stat
         old_status=old_status,
         new_status=new_status
     )
+
+
+def send_exclusive_closure_email(customer_email, customer_name, page_name, items):
+    """
+    Wysyła email z podsumowaniem zamówienia po zamknięciu strony Exclusive.
+
+    Email zawiera listę wszystkich produktów z informacją:
+    - Zostanie zamówiony (produkt załapał się do kompletu)
+    - Nie załapał się do kompletu (produkt przepadł)
+
+    Args:
+        customer_email (str): Email klienta
+        customer_name (str): Imię klienta
+        page_name (str): Nazwa strony Exclusive
+        items (list): Lista słowników z kluczami:
+            - product_name (str): Nazwa produktu
+            - quantity (int): Zamówiona ilość
+            - is_fulfilled (bool): Czy produkt zostanie zrealizowany
+    """
+    return send_email(
+        to=customer_email,
+        subject=f'Podsumowanie zamówienia - {page_name} - ThunderOrders',
+        template='exclusive_closure',
+        customer_name=customer_name,
+        page_name=page_name,
+        items=items
+    )
