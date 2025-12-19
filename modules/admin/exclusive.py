@@ -26,6 +26,10 @@ def exclusive_list():
     """Lista wszystkich stron exclusive"""
     pages = ExclusivePage.query.order_by(ExclusivePage.created_at.desc()).all()
 
+    # Automatyczna aktualizacja statusów (scheduled->active, active->ended)
+    for page in pages:
+        page.check_and_update_status()
+
     return render_template(
         'admin/exclusive/list.html',
         title='Strony Exclusive',

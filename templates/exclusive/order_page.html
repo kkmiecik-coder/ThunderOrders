@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "exclusive/base_exclusive.html" %}
 
 {% block title %}{{ page.name }}{% endblock %}
 
@@ -677,6 +677,47 @@
     </div>
 </div>
 
+<!-- Email Exists Modal - shown when guest email already has an account -->
+<div id="emailExistsModal" class="exclusive-modal-overlay">
+    <div class="exclusive-modal-box">
+        <!-- Warning Icon -->
+        <div class="exclusive-warning-icon">
+            <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+        </div>
+
+        <!-- Header -->
+        <div class="exclusive-modal-header">
+            <h2 class="exclusive-modal-title">Konto już istnieje</h2>
+        </div>
+
+        <!-- Body -->
+        <div class="exclusive-modal-body">
+            <p id="emailExistsMessage" class="exclusive-modal-message">
+                Konto z tym adresem email już istnieje. Zaloguj się, aby złożyć zamówienie.
+            </p>
+            <p class="exclusive-modal-hint">
+                Po zalogowaniu wrócisz na tę stronę i będziesz mógł dokończyć zamówienie.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="exclusive-modal-footer exclusive-modal-footer-split">
+            <button type="button" class="exclusive-btn-secondary" onclick="closeEmailExistsModal()">
+                Anuluj
+            </button>
+            <button type="button" class="exclusive-btn-submit" onclick="redirectToLogin()">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
+                    <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                </svg>
+                <span>Zaloguj się</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Image Lightbox Modal -->
 <div id="imageLightbox" class="image-lightbox">
     <div class="image-lightbox-overlay" onclick="closeLightbox()"></div>
@@ -1180,7 +1221,8 @@ async function submitOrder() {
 
         let requestData = {
             session_id: reservationState.sessionId,
-            order_note: orderNote || null
+            order_note: orderNote || null,
+            full_sets: window.fullSetItems || []  // Include full sets data
         };
 
         // If guest, gather guest data
@@ -1248,11 +1290,20 @@ async function submitOrder() {
             let errorMessage = 'Wystąpił błąd podczas składania zamówienia.';
 
             if (data.error === 'no_reservations') {
-                errorMessage = 'Brak produktów w rezerwacji. Rezerwacja mogła wygasnąć.';
+                errorMessage = 'Brak produktów w koszyku. Rezerwacja mogła wygasnąć.';
             } else if (data.error === 'insufficient_stock') {
                 errorMessage = `Produkt "${data.product_name}" nie ma wystarczającej ilości w magazynie.`;
             } else if (data.error === 'page_not_active') {
                 errorMessage = 'Sprzedaż nie jest już aktywna.';
+            } else if (data.error === 'email_exists') {
+                // User with this email exists - show login prompt
+                errorMessage = data.message;
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+
+                // Show custom modal with login option
+                showEmailExistsModal(data.message);
+                return;
             } else if (data.message) {
                 errorMessage = data.message;
             }
@@ -1312,6 +1363,29 @@ function redirectToOrders() {
     {% else %}
     closeSuccessModal();
     {% endif %}
+}
+
+function showEmailExistsModal(message) {
+    const modal = document.getElementById('emailExistsModal');
+    const messageEl = document.getElementById('emailExistsMessage');
+    if (messageEl) {
+        messageEl.textContent = message;
+    }
+    modal.classList.add('active');
+}
+
+function closeEmailExistsModal() {
+    const modal = document.getElementById('emailExistsModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+    }, 350);
+}
+
+function redirectToLogin() {
+    // Save current page URL to return after login
+    const currentUrl = window.location.href;
+    window.location.href = '/auth/login?next=' + encodeURIComponent(currentUrl);
 }
 
 // Initialize button states on page load

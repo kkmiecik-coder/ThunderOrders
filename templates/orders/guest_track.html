@@ -1,0 +1,117 @@
+{% extends "exclusive/base_exclusive.html" %}
+
+{% block title %}Zamówienie {{ order.order_number }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/orders/guest-track.css') }}">
+{% endblock %}
+
+{% block body_content %}
+<div class="guest-track-page">
+    <div class="track-container">
+        <div class="track-header">
+            <h1>Status zamówienia</h1>
+            <p class="order-number">{{ order.order_number }}</p>
+        </div>
+
+        <!-- Status Badge -->
+        <div class="status-section">
+            <span class="status-badge" style="background-color: {{ order.status_badge_color }}">
+                {{ order.status_display_name }}
+            </span>
+        </div>
+
+        <!-- Tracking Info (if available) -->
+        {% if order.has_tracking %}
+        <div class="tracking-section">
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                </svg>
+                Śledzenie przesyłki
+            </h3>
+            {% if order.first_shipment %}
+            <div class="tracking-info">
+                <div class="tracking-row">
+                    <span class="label">Kurier:</span>
+                    <span class="value">{{ order.first_shipment.courier_display_name }}</span>
+                </div>
+                <div class="tracking-row">
+                    <span class="label">Numer:</span>
+                    <span class="value tracking-number">{{ order.first_tracking_number }}</span>
+                </div>
+            </div>
+            {% if order.first_tracking_url %}
+            <a href="{{ order.first_tracking_url }}" target="_blank" class="btn btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                </svg>
+                Śledź przesyłkę
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Order Items -->
+        <div class="items-section">
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+                </svg>
+                Produkty w zamówieniu
+            </h3>
+            <div class="items-list">
+                {% for item in order.items %}
+                <div class="item-row">
+                    <span class="item-name">
+                        {% if item.is_full_set %}
+                        <span class="full-set-badge">SET</span>
+                        {% endif %}
+                        {{ item.product_name }}
+                    </span>
+                    <span class="item-qty">x{{ item.quantity }}</span>
+                    <span class="item-price">{{ "%.2f"|format(item.total) }} PLN</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="order-total">
+                <span class="label">Suma:</span>
+                <span class="value">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+            </div>
+        </div>
+
+        <!-- Order Info -->
+        <div class="order-info-section">
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                </svg>
+                Informacje o zamówieniu
+            </h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="label">Data złożenia:</span>
+                    <span class="value">{{ order.created_at.strftime('%d.%m.%Y, %H:%M') }}</span>
+                </div>
+                {% if order.guest_email %}
+                <div class="info-item">
+                    <span class="label">Email:</span>
+                    <span class="value">{{ order.guest_email }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- CTA: Create Account -->
+        <div class="cta-section">
+            <p>Chcesz zarządzać swoimi zamówieniami?</p>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg">
+                Załóż konto
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

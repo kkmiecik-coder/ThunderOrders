@@ -1,0 +1,492 @@
+/**
+ * ThunderOrders - Guest Order Tracking Page
+ * Strona śledzenia zamówienia dla gościa (bez logowania)
+ */
+
+.guest-track-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    background: linear-gradient(135deg, var(--purple-100) 0%, var(--purple-200) 100%);
+}
+
+.track-container {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    padding: var(--space-8);
+    max-width: 600px;
+    width: 100%;
+    box-shadow: var(--shadow-xl);
+}
+
+/* Track Header */
+.track-header {
+    text-align: center;
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-6);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.track-header h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-2);
+}
+
+.track-header .order-number {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--primary-color);
+}
+
+/* Status Section */
+.status-section {
+    text-align: center;
+    margin-bottom: var(--space-6);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--white);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Tracking Section */
+.tracking-section {
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    margin-bottom: var(--space-6);
+    border: 1px solid var(--gray-200);
+}
+
+.tracking-section h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-4);
+}
+
+.tracking-section h3 svg {
+    color: var(--primary-color);
+}
+
+.tracking-info {
+    margin-bottom: var(--space-4);
+}
+
+.tracking-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.tracking-row:last-child {
+    border-bottom: none;
+}
+
+.tracking-row .label {
+    color: var(--gray-500);
+    font-size: var(--text-sm);
+}
+
+.tracking-row .value {
+    color: var(--gray-800);
+    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
+}
+
+.tracking-row .tracking-number {
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+}
+
+/* Items Section */
+.items-section {
+    margin-bottom: var(--space-6);
+}
+
+.items-section h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-4);
+}
+
+.items-section h3 svg {
+    color: var(--primary-color);
+}
+
+.items-list {
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+}
+
+.item-row {
+    display: flex;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--gray-200);
+    gap: var(--space-3);
+}
+
+.item-row:last-child {
+    border-bottom: none;
+}
+
+.item-name {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--gray-800);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.full-set-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 6px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--purple-400) 100%);
+    color: var(--white);
+    font-size: 10px;
+    font-weight: var(--font-bold);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.item-qty {
+    font-size: var(--text-sm);
+    color: var(--gray-500);
+    min-width: 40px;
+    text-align: center;
+}
+
+.item-price {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    min-width: 90px;
+    text-align: right;
+}
+
+.order-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4);
+    background: var(--gray-100);
+    border-radius: var(--radius-lg);
+    margin-top: var(--space-3);
+}
+
+.order-total .label {
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-700);
+}
+
+.order-total .value {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--primary-color);
+}
+
+/* Order Info Section */
+.order-info-section {
+    margin-bottom: var(--space-6);
+}
+
+.order-info-section h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-4);
+}
+
+.order-info-section h3 svg {
+    color: var(--primary-color);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-4);
+}
+
+.info-item {
+    background: var(--gray-50);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+}
+
+.info-item .label {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    margin-bottom: var(--space-1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-item .value {
+    font-size: var(--text-sm);
+    color: var(--gray-800);
+    font-weight: var(--font-medium);
+}
+
+/* CTA Section */
+.cta-section {
+    text-align: center;
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--gray-200);
+}
+
+.cta-section p {
+    color: var(--gray-600);
+    margin-bottom: var(--space-4);
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    border: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--purple-400) 100%);
+    color: var(--white);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(157, 78, 221, 0.3);
+}
+
+.btn-secondary {
+    background: var(--white);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.btn-secondary:hover {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.btn-lg {
+    padding: var(--space-4) var(--space-6);
+    font-size: var(--text-base);
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+    .guest-track-page {
+        padding: var(--space-4);
+    }
+
+    .track-container {
+        padding: var(--space-5);
+    }
+
+    .track-header h1 {
+        font-size: var(--text-xl);
+    }
+
+    .item-row {
+        flex-wrap: wrap;
+    }
+
+    .item-name {
+        width: 100%;
+        margin-bottom: var(--space-1);
+    }
+
+    .item-qty,
+    .item-price {
+        min-width: auto;
+    }
+
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   Dark Mode Styles
+   ============================================ */
+
+[data-theme="dark"] .guest-track-page {
+    background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 100%);
+}
+
+[data-theme="dark"] .track-container {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .track-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .track-header h1 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .track-header .order-number {
+    color: #f093fb;
+}
+
+/* Dark Mode - Tracking Section */
+[data-theme="dark"] .tracking-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .tracking-section h3 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .tracking-section h3 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .tracking-row {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .tracking-row .label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .tracking-row .value {
+    color: var(--white);
+}
+
+/* Dark Mode - Items Section */
+[data-theme="dark"] .items-section h3 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .items-section h3 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .items-list {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .item-row {
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .item-name {
+    color: var(--white);
+}
+
+[data-theme="dark"] .item-qty {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .item-price {
+    color: var(--white);
+}
+
+[data-theme="dark"] .order-total {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .order-total .label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .order-total .value {
+    color: #f093fb;
+}
+
+/* Dark Mode - Order Info Section */
+[data-theme="dark"] .order-info-section h3 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .order-info-section h3 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .info-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .info-item .label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .info-item .value {
+    color: var(--white);
+}
+
+/* Dark Mode - CTA Section */
+[data-theme="dark"] .cta-section {
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .cta-section p {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Dark Mode - Buttons */
+[data-theme="dark"] .btn-primary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: var(--white);
+}
+
+[data-theme="dark"] .btn-primary:hover {
+    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .btn-secondary {
+    background: transparent;
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: #f093fb;
+}

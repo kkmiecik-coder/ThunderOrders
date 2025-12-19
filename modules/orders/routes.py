@@ -417,7 +417,7 @@ def admin_update_status(order_id):
 
     if old_status != new_status:
         order.status = new_status
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         # Activity log
@@ -513,7 +513,7 @@ def admin_update_shipping_address(order_id):
         order.shipping_city = form.shipping_city.data
         order.shipping_voivodeship = form.shipping_voivodeship.data
         order.shipping_country = form.shipping_country.data or 'Polska'
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         flash('Adres dostawy zaktualizowany', 'success')
@@ -539,7 +539,7 @@ def admin_update_pickup_point(order_id):
         order.pickup_address = form.pickup_address.data
         order.pickup_postal_code = form.pickup_postal_code.data
         order.pickup_city = form.pickup_city.data
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         flash('Punkt odbioru zaktualizowany', 'success')
@@ -562,7 +562,7 @@ def admin_update_tracking(order_id):
     if form.validate_on_submit():
         order.tracking_number = form.tracking_number.data
         order.courier = form.courier.data
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         # Activity log
@@ -616,7 +616,7 @@ def admin_issue_refund(order_id):
         else:
             order.status = 'czesciowo_zwrocone'
 
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         # Activity log
@@ -694,7 +694,7 @@ def admin_update_payment(order_id):
 
         # Update payment
         order.paid_amount = paid_amount
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         # Activity log
@@ -785,7 +785,7 @@ def admin_update_order_field(order_id):
         elif field == 'admin_notes':
             order.admin_notes = value.strip() if value else None
 
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now()
         db.session.commit()
 
         # Activity log
@@ -2027,3 +2027,113 @@ def admin_delete_item(order_id, item_id):
             'success': False,
             'message': f'Błąd podczas usuwania produktu: {str(e)}'
         }), 500
+
+
+@orders_bp.route('/admin/orders/<int:order_id>/add-custom-product', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_add_custom_product(order_id):
+    """
+    Dodaje ręcznie wpisany produkt do zamówienia (bez product_id).
+    Używane dla pełnych setów i innych custom produktów.
+    """
+    from decimal import Decimal
+
+    order = Order.query.get_or_404(order_id)
+    data = request.get_json()
+
+    custom_name = data.get('custom_name', '').strip()
+    custom_sku = data.get('custom_sku', '').strip() or None
+    quantity = data.get('quantity', 0)
+    price = data.get('price', 0)
+
+    # Walidacja
+    if not custom_name:
+        return jsonify({'success': False, 'message': 'Podaj nazwę produktu'}), 400
+
+    if not isinstance(quantity, int) or quantity <= 0:
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'message': 'Ilość musi być liczbą całkowitą większą od 0'}), 400
+
+    try:
+        price = Decimal(str(price))
+        if price < 0:
+            raise ValueError()
+    except (ValueError, TypeError, InvalidOperation):
+        return jsonify({'success': False, 'message': 'Nieprawidłowa cena'}), 400
+
+    item_total = price * quantity
+
+    try:
+        # Utwórz OrderItem jako custom produkt (bez product_id)
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=None,  # Brak linku do produktu
+            custom_name=custom_name,
+            custom_sku=custom_sku,
+            is_custom=True,
+            quantity=quantity,
+            price=price,
+            total=item_total,
+            picked=False
+        )
+
+        db.session.add(order_item)
+
+        # Przelicz sumę zamówienia
+        db.session.flush()
+        db.session.refresh(order)
+        order.recalculate_total()
+
+        db.session.commit()
+
+        # Log aktywności
+        log_activity(
+            user=current_user,
+            action='order_item_added_custom',
+            entity_type='order',
+            entity_id=order.id,
+            new_value={
+                'custom_name': custom_name,
+                'custom_sku': custom_sku,
+                'quantity': quantity,
+                'price': float(price),
+                'total': float(item_total)
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Produkt "{custom_name}" został dodany',
+            'item_id': order_item.id,
+            'new_total': float(order.total_amount) if order.total_amount else 0
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Błąd podczas dodawania produktu: {str(e)}'
+        }), 500
+
+
+# ============================================
+# GUEST ORDER TRACKING
+# ============================================
+
+@orders_bp.route('/order/track/<token>')
+def guest_track(token):
+    """
+    Publiczny podgląd zamówienia dla gościa (bez logowania).
+    Token jest unikalny i nigdy nie wygasa.
+    """
+    order = Order.get_by_guest_token(token)
+
+    if not order:
+        abort(404)
+
+    return render_template('orders/guest_track.html', order=order)

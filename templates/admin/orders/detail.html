@@ -20,7 +20,7 @@
             <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;" id="statusBadge">{{ order.status_display_name }}</span>
         </div>
         <div class="order-header-right">
-            <span class="order-total">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+            <span class="order-total">{{ "%.2f"|format(order.effective_total) }} PLN</span>
         </div>
     </div>
 
@@ -46,7 +46,10 @@
             </thead>
             <tbody>
                 {% for item in order_items %}
-                <tr data-item-id="{{ item.id }}">
+                {% if item.fulfilled_quantity is not none and item.fulfilled_quantity > 0 and item.fulfilled_quantity < item.quantity %}
+                {# CZĘŚCIOWE ZREALIZOWANIE - dwa wiersze #}
+                {# Wiersz 1: Zrealizowana część #}
+                <tr data-item-id="{{ item.id }}" class="item-partial-fulfilled">
                     <td class="col-image">
                         <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
                     </td>
@@ -55,7 +58,7 @@
                     </td>
                     <td class="col-name">
                         <div class="product-name-cell">
-                            <span class="product-name{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}">{{ item.product_name }}</span>
+                            <span class="product-name">{{ item.product_name }}</span>
                             {% if item.product_sku or item.product_ean %}
                             <span class="product-codes">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
@@ -65,9 +68,217 @@
                             {% endif %}
                         </div>
                     </td>
+                    <td class="col-qty text-center">{{ item.fulfilled_quantity }}</td>
+                    <td class="col-price text-right">{{ "%.2f"|format(item.price) }} PLN</td>
+                    <td class="col-total text-right"><strong>{{ "%.2f"|format(item.price * item.fulfilled_quantity) }} PLN</strong></td>
+                    <td class="col-wms text-center">
+                        <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
+                            {{ item.wms_status_name }}
+                        </span>
+                    </td>
+                    <td class="col-set text-center">
+                        <span class="set-badge set-badge-ok" title="Złapany - produkt w komplecie">✓</span>
+                    </td>
+                    <td class="col-actions">
+                        <div class="item-actions-wrapper">
+                            <button type="button" class="btn-item-actions" onclick="toggleItemActions(this, {{ item.id }})">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                                </svg>
+                            </button>
+                            <div class="item-actions-dropdown" id="itemActions-{{ item.id }}">
+                                <button type="button" class="dropdown-item btn-edit-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}"
+                                        data-quantity="{{ item.quantity }}"
+                                        data-price="{{ item.price }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                    </svg>
+                                    Edytuj produkt
+                                </button>
+                                <button type="button" class="dropdown-item dropdown-item-danger btn-delete-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                    </svg>
+                                    Usuń produkt
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {# Wiersz 2: Niezrealizowana część (poza setem) #}
+                <tr data-item-id="{{ item.id }}" class="item-outside-set">
+                    <td class="col-image">
+                        <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb" style="opacity: 0.5;">
+                    </td>
+                    <td class="col-id">
+                        <span class="product-id text-outside-set">{{ item.product_id }}</span>
+                    </td>
+                    <td class="col-name">
+                        <div class="product-name-cell">
+                            <span class="product-name text-outside-set">{{ item.product_name }}</span>
+                            <span class="product-codes text-outside-set">(poza setem)</span>
+                        </div>
+                    </td>
+                    <td class="col-qty text-center text-outside-set">{{ item.quantity - item.fulfilled_quantity }}</td>
+                    <td class="col-price text-right text-outside-set">0.00 PLN</td>
+                    <td class="col-total text-right text-outside-set"><strong>0.00 PLN</strong></td>
+                    <td class="col-wms text-center">
+                        <span class="wms-badge" style="background-color: #9e9e9e;">—</span>
+                    </td>
+                    <td class="col-set text-center">
+                        <span class="set-badge set-badge-fail" title="Poza setem - nie załapał się do kompletu">✗</span>
+                    </td>
+                    <td class="col-actions">
+                        <div class="item-actions-wrapper">
+                            <button type="button" class="btn-item-actions" onclick="toggleItemActions(this, {{ item.id }})">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                                </svg>
+                            </button>
+                            <div class="item-actions-dropdown" id="itemActions-{{ item.id }}-outside">
+                                <button type="button" class="dropdown-item btn-edit-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}"
+                                        data-quantity="{{ item.quantity - item.fulfilled_quantity }}"
+                                        data-price="0">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                    </svg>
+                                    Edytuj produkt
+                                </button>
+                                <button type="button" class="dropdown-item dropdown-item-danger btn-delete-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                    </svg>
+                                    Usuń produkt
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% elif item.is_set_fulfilled == false %}
+                {# CAŁOŚĆ POZA SETEM #}
+                <tr data-item-id="{{ item.id }}" class="item-outside-set">
+                    <td class="col-image">
+                        <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb" style="opacity: 0.5;">
+                    </td>
+                    <td class="col-id">
+                        <span class="product-id text-outside-set">{{ item.product_id }}</span>
+                    </td>
+                    <td class="col-name">
+                        <div class="product-name-cell">
+                            <span class="product-name text-outside-set">{{ item.product_name }}</span>
+                            {% if item.product_sku or item.product_ean %}
+                            <span class="product-codes text-outside-set">
+                                {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+                                {% if item.product_sku and item.product_ean %} · {% endif %}
+                                {% if item.product_ean %}EAN: {{ item.product_ean }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="col-qty text-center text-outside-set">{{ item.quantity }}</td>
+                    <td class="col-price text-right text-outside-set">0.00 PLN</td>
+                    <td class="col-total text-right text-outside-set"><strong>0.00 PLN</strong></td>
+                    <td class="col-wms text-center">
+                        <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
+                            {{ item.wms_status_name }}
+                        </span>
+                    </td>
+                    <td class="col-set text-center">
+                        <span class="set-badge set-badge-fail" title="Poza setem - nie załapał się do kompletu">✗</span>
+                    </td>
+                    <td class="col-actions">
+                        <div class="item-actions-wrapper">
+                            <button type="button" class="btn-item-actions" onclick="toggleItemActions(this, {{ item.id }})">
+                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+                                </svg>
+                            </button>
+                            <div class="item-actions-dropdown" id="itemActions-{{ item.id }}">
+                                <button type="button" class="dropdown-item btn-edit-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}"
+                                        data-quantity="{{ item.quantity }}"
+                                        data-price="0">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                    </svg>
+                                    Edytuj produkt
+                                </button>
+                                <button type="button" class="dropdown-item dropdown-item-danger btn-delete-item"
+                                        data-item-id="{{ item.id }}"
+                                        data-product-name="{{ item.product_name }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                    </svg>
+                                    Usuń produkt
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                {# NORMALNIE #}
+                <tr data-item-id="{{ item.id }}" class="{% if item.is_full_set %}full-set-row{% elif item.is_custom %}custom-product-row{% endif %}">
+                    <td class="col-image">
+                        {% if item.is_full_set %}
+                        <div class="product-thumb" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); color: white; font-size: 1.25rem;">
+                            ✨
+                        </div>
+                        {% elif item.is_custom %}
+                        <div class="product-thumb" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%); color: white; font-size: 1.25rem;">
+                            📦
+                        </div>
+                        {% else %}
+                        <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
+                        {% endif %}
+                    </td>
+                    <td class="col-id">
+                        <span class="product-id">{% if item.product_id %}{{ item.product_id }}{% else %}—{% endif %}</span>
+                    </td>
+                    <td class="col-name">
+                        <div class="product-name-cell">
+                            <span class="product-name">
+                                {{ item.product_name }}
+                                {% if item.is_full_set %}
+                                <span class="product-badge product-badge-full-set" title="Pełny set z exclusive">
+                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1H2zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                    </svg>
+                                    PEŁNY SET
+                                </span>
+                                {% elif item.is_custom %}
+                                <span class="product-badge product-badge-custom" title="Produkt dodany ręcznie">
+                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                    </svg>
+                                    RĘCZNY
+                                </span>
+                                {% endif %}
+                            </span>
+                            {% if item.product_sku or item.product_ean or item.custom_sku %}
+                            <span class="product-codes">
+                                {% if item.custom_sku %}SKU: {{ item.custom_sku }}{% endif %}
+                                {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+                                {% if (item.product_sku or item.custom_sku) and item.product_ean %} · {% endif %}
+                                {% if item.product_ean %}EAN: {{ item.product_ean }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </td>
                     <td class="col-qty text-center">{{ item.quantity }}</td>
-                    <td class="col-price text-right{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}">{% if item.is_set_fulfilled == false %}0.00{% else %}{{ "%.2f"|format(item.price) }}{% endif %} PLN</td>
-                    <td class="col-total text-right{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}"><strong>{% if item.is_set_fulfilled == false %}0.00{% else %}{{ "%.2f"|format(item.total) }}{% endif %} PLN</strong></td>
+                    <td class="col-price text-right">{{ "%.2f"|format(item.price) }} PLN</td>
+                    <td class="col-total text-right"><strong>{{ "%.2f"|format(item.total) }} PLN</strong></td>
                     <td class="col-wms text-center">
                         <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
                             {{ item.wms_status_name }}
@@ -115,26 +326,99 @@
                         </div>
                     </td>
                 </tr>
+                {% endif %}
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr>
                     <td colspan="5" class="text-right"><strong>Suma:</strong></td>
-                    <td class="text-right"><strong class="total-amount">{{ "%.2f"|format(order.total_amount) }} PLN</strong></td>
+                    <td class="text-right"><strong class="total-amount">{{ "%.2f"|format(order.effective_total) }} PLN</strong></td>
                     <td colspan="3"></td>
                 </tr>
             </tfoot>
         </table>
     </div>
 
-    <!-- Przycisk: Dodaj produkty -->
+    <!-- Przycisk: Dodaj produkty (dropdown) -->
     <div class="add-products-section">
-        <button class="btn btn-secondary" onclick="openAddProductsModal()">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-            </svg>
-            Dodaj produkty do zamówienia
-        </button>
+        <div class="add-products-dropdown" id="addProductsDropdown">
+            <button class="btn btn-secondary dropdown-toggle" onclick="toggleAddProductsDropdown()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Dodaj produkty do zamówienia
+                <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+                </svg>
+            </button>
+            <div class="dropdown-menu" id="addProductsDropdownMenu">
+                <button type="button" class="dropdown-item" onclick="showManualProductForm(); closeAddProductsDropdown();">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Dodaj produkt ręcznie
+                </button>
+                <button type="button" class="dropdown-item" onclick="openAddProductsModal(); closeAddProductsDropdown();">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                    Dodaj produkt z magazynu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formularz: Dodaj produkt ręcznie (inline, ukryty domyślnie) -->
+    <div id="manualProductForm" class="manual-product-form" style="display: none;">
+        <div class="manual-product-card">
+            <div class="manual-product-header">
+                <h4>Dodaj produkt ręcznie</h4>
+                <button type="button" class="btn-close-manual" onclick="hideManualProductForm()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="form-row">
+                <div class="form-group flex-2">
+                    <label for="manualProductName">Nazwa produktu *</label>
+                    <input type="text" id="manualProductName" class="form-control" placeholder="np. Pełny Set: Nazwa..." required>
+                </div>
+                <div class="form-group flex-1">
+                    <label for="manualProductQty">Ilość *</label>
+                    <input type="number" id="manualProductQty" class="form-control" min="1" value="1" required>
+                </div>
+                <div class="form-group flex-1">
+                    <label for="manualProductPrice">Cena za szt. (PLN) *</label>
+                    <input type="number" id="manualProductPrice" class="form-control" step="0.01" min="0" placeholder="0.00" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group flex-1">
+                    <label for="manualProductSku">SKU (opcjonalnie)</label>
+                    <input type="text" id="manualProductSku" class="form-control" placeholder="np. SET-001">
+                </div>
+                <div class="form-group calculated-total">
+                    <label>Wartość</label>
+                    <span id="manualProductTotal" class="total-value">0.00 PLN</span>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn btn-ghost" onclick="hideManualProductForm()">
+                    Anuluj
+                </button>
+                <button type="button" class="btn btn-primary" onclick="saveManualProduct()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Zapisz produkt
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- ROW 2: Informacje o zamówieniu (jedna karta, 2 kolumny wewnątrz) -->
@@ -149,7 +433,7 @@
                     <div class="payment-display" id="paymentDisplay">
                         <span class="payment-badge {% if order.is_overpaid %}payment-badge-overpaid{% elif order.is_fully_paid %}payment-badge-paid{% elif order.is_partially_paid %}payment-badge-partial{% else %}payment-badge-unpaid{% endif %}"
                               id="paidAmountBadge">{{ "%.2f"|format(order.paid_amount) }} PLN</span>
-                        <span class="payment-total" id="grandTotalDisplay">z {{ "%.2f"|format(order.grand_total) }} PLN</span>
+                        <span class="payment-total" id="grandTotalDisplay">z {{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
                         <button type="button" class="btn-edit-payment" onclick="togglePaymentEditor()" title="Edytuj płatność">
                             <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                                 <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
@@ -164,17 +448,17 @@
                                min="0"
                                value="{{ "%.2f"|format(order.paid_amount) }}"
                                data-order-id="{{ order.id }}"
-                               data-total="{{ "%.2f"|format(order.grand_total) }}"
-                               data-products-total="{{ "%.2f"|format(order.total_amount) }}"
+                               data-total="{{ "%.2f"|format(order.effective_grand_total) }}"
+                               data-products-total="{{ "%.2f"|format(order.effective_total) }}"
                                data-shipping-cost="{{ "%.2f"|format(order.shipping_cost) }}">
-                        <span class="payment-total">z <span id="grandTotalEditor">{{ "%.2f"|format(order.grand_total) }}</span> PLN</span>
+                        <span class="payment-total">z <span id="grandTotalEditor">{{ "%.2f"|format(order.effective_grand_total) }}</span> PLN</span>
                         <button type="button" class="btn-payment-save" onclick="savePayment()" title="Zapisz">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                                 <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
                             </svg>
                         </button>
                         <button type="button" class="btn-payment-full" onclick="setFullPayment()" title="Ustaw jako opłacone" id="btnPaymentFull">
-                            {{ "%.2f"|format(order.grand_total) }}
+                            {{ "%.2f"|format(order.effective_grand_total) }}
                         </button>
                         <button type="button" class="btn-payment-zero" onclick="setZeroPayment()" title="Ustaw jako nieopłacone">
                             0.00
@@ -963,6 +1247,121 @@ document.addEventListener('DOMContentLoaded', function() {
 // Store for selected products
 let selectedProducts = {};
 const orderId = {{ order.id }};
+
+// ========================================
+// Dropdown: Add Products
+// ========================================
+
+function toggleAddProductsDropdown() {
+    const dropdown = document.getElementById('addProductsDropdown');
+    dropdown.classList.toggle('open');
+}
+
+function closeAddProductsDropdown() {
+    const dropdown = document.getElementById('addProductsDropdown');
+    dropdown.classList.remove('open');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('addProductsDropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('open');
+    }
+});
+
+// ========================================
+// Manual Product Form
+// ========================================
+
+function showManualProductForm() {
+    document.getElementById('manualProductForm').style.display = 'block';
+    document.getElementById('manualProductName').focus();
+}
+
+function hideManualProductForm() {
+    document.getElementById('manualProductForm').style.display = 'none';
+    // Reset form
+    document.getElementById('manualProductName').value = '';
+    document.getElementById('manualProductQty').value = '1';
+    document.getElementById('manualProductPrice').value = '';
+    document.getElementById('manualProductSku').value = '';
+    document.getElementById('manualProductTotal').textContent = '0.00 PLN';
+}
+
+function calculateManualTotal() {
+    const qty = parseFloat(document.getElementById('manualProductQty').value) || 0;
+    const price = parseFloat(document.getElementById('manualProductPrice').value) || 0;
+    const total = qty * price;
+    document.getElementById('manualProductTotal').textContent = total.toFixed(2) + ' PLN';
+}
+
+// Attach event listeners for auto-calculation
+document.addEventListener('DOMContentLoaded', function() {
+    const qtyInput = document.getElementById('manualProductQty');
+    const priceInput = document.getElementById('manualProductPrice');
+
+    if (qtyInput) qtyInput.addEventListener('input', calculateManualTotal);
+    if (priceInput) priceInput.addEventListener('input', calculateManualTotal);
+});
+
+async function saveManualProduct() {
+    const name = document.getElementById('manualProductName').value.trim();
+    const qty = parseInt(document.getElementById('manualProductQty').value) || 0;
+    const price = parseFloat(document.getElementById('manualProductPrice').value) || 0;
+    const sku = document.getElementById('manualProductSku').value.trim();
+
+    // Validate
+    if (!name) {
+        showToast('Podaj nazwę produktu', 'error');
+        return;
+    }
+    if (qty <= 0) {
+        showToast('Ilość musi być większa od 0', 'error');
+        return;
+    }
+    if (price < 0) {
+        showToast('Cena nie może być ujemna', 'error');
+        return;
+    }
+
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    try {
+        const response = await fetch(`/admin/orders/${orderId}/add-custom-product`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                custom_name: name,
+                custom_sku: sku || null,
+                quantity: qty,
+                price: price
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast('Produkt został dodany', 'success');
+            hideManualProductForm();
+            // Reload page to show new product
+            location.reload();
+        } else {
+            showToast(result.message || 'Błąd dodawania produktu', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving manual product:', error);
+        showToast('Wystąpił błąd podczas zapisywania', 'error');
+    }
+}
+
+// ========================================
+// Add Products Modal
+// ========================================
 
 function openAddProductsModal() {
     const modal = document.getElementById('addProductsModal');

@@ -16,7 +16,7 @@ class Category(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     parent = db.relationship('Category', remote_side=[id], backref='children')
@@ -37,8 +37,8 @@ class Supplier(db.Model):
     country = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     products = db.relationship('Product', back_populates='supplier', lazy='dynamic')
@@ -53,7 +53,7 @@ class Tag(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     def __repr__(self):
         return f'<Tag {self.name}>'
@@ -66,8 +66,8 @@ class Manufacturer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     products = db.relationship('Product', back_populates='manufacturer', lazy='dynamic')
@@ -83,8 +83,8 @@ class ProductSeries(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     products = db.relationship('Product', back_populates='series', lazy='dynamic')
@@ -101,7 +101,7 @@ class ProductType(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     slug = db.Column(db.String(50), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     products = db.relationship('Product', back_populates='product_type', lazy='dynamic')
@@ -116,8 +116,8 @@ class VariantGroup(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)  # e.g. "Grupa 1", "Grupa 2"
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     def __repr__(self):
         return f'<VariantGroup {self.id} - {self.name}>'
@@ -128,7 +128,7 @@ variant_products = db.Table('variant_products',
     db.Column('id', db.Integer, primary_key=True),
     db.Column('variant_group_id', db.Integer, db.ForeignKey('variant_groups.id', ondelete='CASCADE'), nullable=False),
     db.Column('product_id', db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False),
-    db.Column('added_at', db.DateTime, default=datetime.utcnow),
+    db.Column('added_at', db.DateTime, default=datetime.now),
     db.UniqueConstraint('variant_group_id', 'product_id', name='unique_variant_product')
 )
 
@@ -171,8 +171,8 @@ class Product(db.Model):
     # Status
     is_active = db.Column(db.Boolean, default=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     category = db.relationship('Category', back_populates='products')
@@ -216,7 +216,7 @@ class ProductImage(db.Model):
     path_compressed = db.Column(db.String(500), nullable=False)
     is_primary = db.Column(db.Boolean, default=False)
     sort_order = db.Column(db.Integer, default=0)
-    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    uploaded_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     product = db.relationship('Product', back_populates='images')

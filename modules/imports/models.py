@@ -23,7 +23,7 @@ class CsvImport(db.Model):
     column_mapping = db.Column(db.JSON)
     error_log = db.Column(db.JSON)
     temp_file_path = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     completed_at = db.Column(db.DateTime)
 
     # Relationship

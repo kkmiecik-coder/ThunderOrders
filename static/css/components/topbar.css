@@ -75,6 +75,12 @@
   opacity: 0.5;
 }
 
+/* Dark mode - search icon */
+[data-theme="dark"] .topbar-search-btn img {
+  filter: brightness(0) invert(1);
+  opacity: 0.7;
+}
+
 .topbar-search-text {
   font-size: var(--text-sm);
   color: var(--text-tertiary);

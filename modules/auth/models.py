@@ -72,11 +72,11 @@ class User(UserMixin, db.Model):
     # Avatar
     avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=datetime.now,
+        onupdate=datetime.now
     )
 
     # Relationships
@@ -141,7 +141,7 @@ class User(UserMixin, db.Model):
         from datetime import timedelta
 
         self.password_reset_token = secrets.token_urlsafe(32)
-        self.password_reset_expires = datetime.utcnow() + timedelta(seconds=expires_in)
+        self.password_reset_expires = datetime.now() + timedelta(seconds=expires_in)
         return self.password_reset_token
 
     def verify_password_reset_token(self, token):
@@ -157,7 +157,7 @@ class User(UserMixin, db.Model):
         if self.password_reset_token != token:
             return False
 
-        if self.password_reset_expires and datetime.utcnow() > self.password_reset_expires:
+        if self.password_reset_expires and datetime.now() > self.password_reset_expires:
             return False
 
         return True
@@ -183,10 +183,10 @@ class User(UserMixin, db.Model):
         self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # Ustaw czas wygaśnięcia (24h)
-        self.email_verification_code_expires = datetime.utcnow() + timedelta(hours=24)
+        self.email_verification_code_expires = datetime.now() + timedelta(hours=24)
 
         # Zapisz czas wysłania (do cooldown 60s)
-        self.email_verification_code_sent_at = datetime.utcnow()
+        self.email_verification_code_sent_at = datetime.now()
 
         # Resetuj licznik prób
         self.email_verification_attempts = 0
@@ -209,11 +209,11 @@ class User(UserMixin, db.Model):
         """
         # Sprawdź czy weryfikacja nie jest zablokowana
         if self.is_verification_locked():
-            remaining = (self.email_verification_locked_until - datetime.utcnow()).seconds // 60
+            remaining = (self.email_verification_locked_until - datetime.now()).seconds // 60
             return False, f'Weryfikacja zablokowana. Spróbuj ponownie za {remaining + 1} minut.'
 
         # Sprawdź czy kod nie wygasł
-        if not self.email_verification_code_expires or datetime.utcnow() > self.email_verification_code_expires:
+        if not self.email_verification_code_expires or datetime.now() > self.email_verification_code_expires:
             return False, 'Kod weryfikacyjny wygasł. Wyślij nowy kod.'
 
         # Sprawdź kod
@@ -222,7 +222,7 @@ class User(UserMixin, db.Model):
 
             # Blokada po 5 próbach
             if self.email_verification_attempts >= 5:
-                self.email_verification_locked_until = datetime.utcnow() + timedelta(minutes=15)
+                self.email_verification_locked_until = datetime.now() + timedelta(minutes=15)
                 return False, 'Zbyt wiele nieudanych prób. Weryfikacja zablokowana na 15 minut.'
 
             remaining = 5 - self.email_verification_attempts
@@ -255,7 +255,7 @@ class User(UserMixin, db.Model):
         if not self.email_verification_code_sent_at:
             return True, 0
 
-        elapsed = (datetime.utcnow() - self.email_verification_code_sent_at).total_seconds()
+        elapsed = (datetime.now() - self.email_verification_code_sent_at).total_seconds()
         if elapsed >= 60:
             return True, 0
 
@@ -277,10 +277,10 @@ class User(UserMixin, db.Model):
         self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # Ustaw nowy czas wygaśnięcia (24h)
-        self.email_verification_code_expires = datetime.utcnow() + timedelta(hours=24)
+        self.email_verification_code_expires = datetime.now() + timedelta(hours=24)
 
         # Zapisz czas wysłania
-        self.email_verification_code_sent_at = datetime.utcnow()
+        self.email_verification_code_sent_at = datetime.now()
 
         # Resetuj licznik prób przy nowym kodzie
         self.email_verification_attempts = 0
@@ -298,7 +298,7 @@ class User(UserMixin, db.Model):
         if not self.email_verification_locked_until:
             return False
 
-        return datetime.utcnow() < self.email_verification_locked_until
+        return datetime.now() < self.email_verification_locked_until
 
     @classmethod
     def get_by_verification_session_token(cls, token):
@@ -364,7 +364,7 @@ class User(UserMixin, db.Model):
 
     def update_last_login(self):
         """Aktualizuje timestamp ostatniego logowania"""
-        self.last_login = datetime.utcnow()
+        self.last_login = datetime.now()
         db.session.commit()
 
     def deactivate(self, reason, deactivated_by_user_id):
@@ -377,7 +377,7 @@ class User(UserMixin, db.Model):
         """
         self.is_active = False
         self.deactivation_reason = reason
-        self.deactivated_at = datetime.utcnow()
+        self.deactivated_at = datetime.now()
         self.deactivated_by = deactivated_by_user_id
 
     def reactivate(self):
@@ -476,8 +476,8 @@ class Settings(db.Model):
     # Timestamps
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=datetime.now,
+        onupdate=datetime.now
     )
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 

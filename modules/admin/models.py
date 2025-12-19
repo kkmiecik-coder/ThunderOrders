@@ -43,11 +43,11 @@ class AdminTask(db.Model):
     due_date = db.Column(db.DateTime)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        default=datetime.now,
+        onupdate=datetime.now
     )
     completed_at = db.Column(db.DateTime)
 
@@ -81,7 +81,7 @@ class AdminTask(db.Model):
             return False
         if self.status == 'completed':
             return False
-        return datetime.utcnow() > self.due_date
+        return datetime.now() > self.due_date
 
     def get_progress(self):
         """
@@ -125,7 +125,7 @@ class AdminTask(db.Model):
     def mark_completed(self):
         """Oznacza task jako ukończony"""
         self.status = 'completed'
-        self.completed_at = datetime.utcnow()
+        self.completed_at = datetime.now()
 
     def reopen(self):
         """Ponownie otwiera ukończony task"""
@@ -168,7 +168,7 @@ class AdminTaskAssignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     task_id = db.Column(db.Integer, db.ForeignKey('admin_tasks.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    assigned_at = db.Column(db.DateTime, default=datetime.now)
 
     def __repr__(self):
         return f'<AdminTaskAssignment task={self.task_id} user={self.user_id}>'
@@ -185,7 +185,7 @@ class AdminTaskComment(db.Model):
     task_id = db.Column(db.Integer, db.ForeignKey('admin_tasks.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     comment = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     task = db.relationship('AdminTask', backref='comments')
@@ -211,7 +211,7 @@ class ActivityLog(db.Model):
     new_value = db.Column(db.Text, nullable=True)  # JSON
     ip_address = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.String(500), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
 
     # Relationships
     user = db.relationship('User', backref='activity_logs')

@@ -42,13 +42,22 @@ def generate_exclusive_closure_excel(page_id):
     orders = Order.query.filter_by(exclusive_page_id=page_id).order_by(Order.created_at.asc()).all()
 
     # Zbierz unikalne produkty z zamówień
-    product_names = []
-    product_ids = []
+    # Używamy tuple (product_id, custom_name) jako identyfikator
+    # - dla zwykłych produktów: (product_id, None)
+    # - dla custom/full sets: (None, custom_name)
+    product_keys = []  # Lista tuple (product_id, custom_name, display_name, is_full_set, is_custom)
     for order in orders:
         for item in order.items:
-            if item.product_id not in product_ids:
-                product_ids.append(item.product_id)
-                product_names.append(item.product_name)
+            if item.is_full_set or item.is_custom:
+                # Custom product - identyfikuj po custom_name
+                key = (None, item.custom_name)
+                if key not in [(pk[0], pk[1]) for pk in product_keys]:
+                    product_keys.append((None, item.custom_name, item.product_name, item.is_full_set, item.is_custom))
+            else:
+                # Zwykły produkt - identyfikuj po product_id
+                key = (item.product_id, None)
+                if key not in [(pk[0], pk[1]) for pk in product_keys]:
+                    product_keys.append((item.product_id, None, item.product_name, False, False))
 
     # Tworzenie workbooka
     wb = Workbook()
@@ -72,6 +81,8 @@ def generate_exclusive_closure_excel(page_id):
 
     fulfilled_fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")
     unfulfilled_fill = PatternFill(start_color="F8D7DA", end_color="F8D7DA", fill_type="solid")
+    fullset_fill = PatternFill(start_color="E8DAEF", end_color="E8DAEF", fill_type="solid")  # Fioletowe dla full sets
+    custom_fill = PatternFill(start_color="FFE5CC", end_color="FFE5CC", fill_type="solid")   # Pomarańczowe dla custom
 
     # Nagłówek - informacje o stronie
     ws.merge_cells('A1:E1')
@@ -86,10 +97,16 @@ def generate_exclusive_closure_excel(page_id):
     # Nagłówki kolumn
     headers = ["Lp.", "Nr zamówienia", "Imię i nazwisko", "Email", "Telefon", "Data zamówienia"]
 
-    # Dodaj kolumny produktów
-    for product_name in product_names:
+    # Dodaj kolumny produktów (z oznaczeniem full sets i custom)
+    for pk in product_keys:
+        product_id, custom_name, display_name, is_full_set, is_custom = pk
         # Skróć długie nazwy
-        short_name = product_name[:30] + "..." if len(product_name) > 30 else product_name
+        short_name = display_name[:30] + "..." if len(display_name) > 30 else display_name
+        # Dodaj prefix dla full sets i custom products
+        if is_full_set:
+            short_name = f"✨ {short_name}"
+        elif is_custom:
+            short_name = f"📦 {short_name}"
         headers.append(f"{short_name}\n(ilość)")
         headers.append(f"{short_name}\n(status)")
 
@@ -120,19 +137,46 @@ def generate_exclusive_closure_excel(page_id):
 
         # Kolumny produktów
         col_offset = 7
-        for product_idx, product_id in enumerate(product_ids):
+        for product_idx, pk in enumerate(product_keys):
+            pk_product_id, pk_custom_name, pk_display_name, pk_is_full_set, pk_is_custom = pk
             qty_col = col_offset + product_idx * 2
             status_col = qty_col + 1
 
-            # Znajdź order item dla tego produktu
-            order_item = next((item for item in order.items if item.product_id == product_id), None)
+            # Znajdź order item dla tego produktu/custom
+            order_item = None
+            for item in order.items:
+                if pk_is_full_set or pk_is_custom:
+                    # Custom product - szukaj po custom_name
+                    if (item.is_full_set or item.is_custom) and item.custom_name == pk_custom_name:
+                        order_item = item
+                        break
+                else:
+                    # Zwykły produkt - szukaj po product_id
+                    if item.product_id == pk_product_id and not item.is_custom and not item.is_full_set:
+                        order_item = item
+                        break
 
             if order_item:
                 # Ilość
-                ws.cell(row=row, column=qty_col, value=order_item.quantity).alignment = center_alignment
+                qty_cell = ws.cell(row=row, column=qty_col, value=order_item.quantity)
+                qty_cell.alignment = center_alignment
+
+                # Dla full sets/custom - podświetl komórkę ilości
+                if order_item.is_full_set:
+                    qty_cell.fill = fullset_fill
+                elif order_item.is_custom:
+                    qty_cell.fill = custom_fill
 
                 # Status
-                if order_item.is_set_fulfilled is None:
+                if order_item.is_full_set:
+                    # Full sets są zawsze zrealizowane
+                    status_cell = ws.cell(row=row, column=status_col, value="SET")
+                    status_cell.fill = fullset_fill
+                elif order_item.is_custom:
+                    # Custom products są zawsze zrealizowane
+                    status_cell = ws.cell(row=row, column=status_col, value="RĘCZNY")
+                    status_cell.fill = custom_fill
+                elif order_item.is_set_fulfilled is None:
                     # Produkt poza setem - zawsze realizowany
                     status_cell = ws.cell(row=row, column=status_col, value="TAK")
                     status_cell.fill = fulfilled_fill
@@ -148,7 +192,7 @@ def generate_exclusive_closure_excel(page_id):
                 ws.cell(row=row, column=status_col, value="-").alignment = center_alignment
 
         # Wartość zamówienia
-        total_col = col_offset + len(product_ids) * 2
+        total_col = col_offset + len(product_keys) * 2
         ws.cell(row=row, column=total_col, value=float(order.total_amount) if order.total_amount else 0).alignment = center_alignment
 
         # Obramowanie wszystkich komórek w wierszu
@@ -172,12 +216,12 @@ def generate_exclusive_closure_excel(page_id):
     ws.column_dimensions['F'].width = 18
 
     # Kolumny produktów
-    for i in range(len(product_ids) * 2):
+    for i in range(len(product_keys) * 2):
         col_letter = get_column_letter(7 + i)
         ws.column_dimensions[col_letter].width = 12
 
     # Ostatnia kolumna (wartość)
-    last_col_letter = get_column_letter(7 + len(product_ids) * 2)
+    last_col_letter = get_column_letter(7 + len(product_keys) * 2)
     ws.column_dimensions[last_col_letter].width = 15
 
     # Wysokość wiersza nagłówków

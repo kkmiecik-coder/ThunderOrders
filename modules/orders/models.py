@@ -12,6 +12,7 @@ Models for orders management:
 """
 
 from datetime import datetime
+import secrets
 from extensions import db
 
 
@@ -32,8 +33,8 @@ class OrderStatus(db.Model):
     badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for badge
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     orders = db.relationship('Order', back_populates='status_rel', foreign_keys='Order.status')
@@ -61,8 +62,8 @@ class OrderType(db.Model):
     badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for type badge
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     orders = db.relationship('Order', back_populates='type_rel', foreign_keys='Order.order_type')
@@ -91,8 +92,8 @@ class WmsStatus(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_default = db.Column(db.Boolean, default=False)  # Default status for new items
     is_picked = db.Column(db.Boolean, default=False)  # Marks item as picked (for progress calculation)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     order_items = db.relationship('OrderItem', back_populates='wms_status_rel', foreign_keys='OrderItem.wms_status')
@@ -149,6 +150,7 @@ class Order(db.Model):
     guest_email = db.Column(db.String(255), nullable=True)
     guest_name = db.Column(db.String(200), nullable=True)
     guest_phone = db.Column(db.String(20), nullable=True)
+    guest_view_token = db.Column(db.String(64), nullable=True, unique=True, index=True)  # Token for guest order tracking
 
     # Shipping request
     shipping_requested = db.Column(db.Boolean, default=False)
@@ -178,8 +180,8 @@ class Order(db.Model):
     admin_notes = db.Column(db.Text, nullable=True)  # Internal admin notes
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Relationships
     items = db.relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
@@ -436,10 +438,16 @@ class Order(db.Model):
     @property
     def has_items_outside_set(self):
         """
-        Returns True if any order item has is_set_fulfilled = False.
+        Returns True if any order item has is_set_fulfilled = False
+        OR has partial fulfillment (fulfilled_quantity < quantity).
         This means some items didn't make it into the complete set.
         """
-        return any(item.is_set_fulfilled is False for item in self.items)
+        for item in self.items:
+            if item.is_set_fulfilled is False:
+                return True
+            if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                return True
+        return False
 
     @property
     def has_set_items(self):
@@ -450,19 +458,36 @@ class Order(db.Model):
         return any(item.is_set_fulfilled is not None for item in self.items)
 
     @property
+    def has_partial_items(self):
+        """
+        Returns True if any order item has partial fulfillment
+        (fulfilled_quantity > 0 but < quantity).
+        """
+        for item in self.items:
+            if item.fulfilled_quantity is not None and 0 < item.fulfilled_quantity < item.quantity:
+                return True
+        return False
+
+    @property
     def effective_total(self):
         """
         Returns effective total - suma tylko zrealizowanych produktów.
         Items with is_set_fulfilled == False are counted as 0.00.
+        Items with partial fulfillment (fulfilled_quantity < quantity) are counted proportionally.
         Items with is_set_fulfilled == True or None are counted normally.
         """
         from decimal import Decimal
         total = Decimal('0.00')
         for item in self.items:
-            # Skip items that are outside set (is_set_fulfilled == False)
+            # Skip items that are completely outside set (is_set_fulfilled == False)
             if item.is_set_fulfilled is False:
                 continue
-            if item.total:
+            # Check for partial fulfillment
+            if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                # Partial - count only fulfilled quantity
+                if item.price:
+                    total += Decimal(str(item.price)) * item.fulfilled_quantity
+            elif item.total:
                 total += Decimal(str(item.total))
         return total
 
@@ -485,6 +510,18 @@ class Order(db.Model):
                 total += Decimal(str(item.total))
         self.total_amount = total
 
+    def generate_guest_view_token(self):
+        """Generates a unique token for guest order tracking"""
+        self.guest_view_token = secrets.token_urlsafe(32)
+        return self.guest_view_token
+
+    @classmethod
+    def get_by_guest_token(cls, token):
+        """Find order by guest view token"""
+        if not token:
+            return None
+        return cls.query.filter_by(guest_view_token=token, is_guest_order=True).first()
+
 
 class OrderItem(db.Model):
     """
@@ -495,7 +532,13 @@ class OrderItem(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)  # NULL for custom products
+
+    # Custom product fields (for items without product_id, e.g., full sets)
+    custom_name = db.Column(db.String(255), nullable=True)  # Custom product name
+    custom_sku = db.Column(db.String(100), nullable=True)   # Optional custom SKU
+    is_custom = db.Column(db.Boolean, default=False)        # Flag: True = custom product (no product_id)
+    is_full_set = db.Column(db.Boolean, default=False)      # Flag: True = full set from exclusive page
 
     # Order details
     quantity = db.Column(db.Integer, nullable=False, default=1)
@@ -514,9 +557,15 @@ class OrderItem(db.Model):
     # False = produkt przepadł (nie zmieścił się w komplecie)
     is_set_fulfilled = db.Column(db.Boolean, nullable=True)
     set_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id'), nullable=True)
+    # Ilość zrealizowana w secie (dla częściowego zrealizowania)
+    # NULL = nie dotyczy setu
+    # fulfilled_quantity == quantity = całość zrealizowana
+    # 0 < fulfilled_quantity < quantity = częściowo zrealizowane
+    # fulfilled_quantity == 0 = nic nie zrealizowane
+    fulfilled_quantity = db.Column(db.Integer, nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     order = db.relationship('Order', back_populates='items')
@@ -530,12 +579,16 @@ class OrderItem(db.Model):
 
     @property
     def product_name(self):
-        """Returns product name"""
+        """Returns product name (or custom_name for custom products)"""
+        if self.custom_name:
+            return self.custom_name
         return self.product.name if self.product else 'Unknown Product'
 
     @property
     def product_sku(self):
-        """Returns product SKU"""
+        """Returns product SKU (or custom_sku for custom products)"""
+        if self.custom_sku:
+            return self.custom_sku
         return self.product.sku if self.product else None
 
     @property
@@ -545,7 +598,10 @@ class OrderItem(db.Model):
 
     @property
     def product_image_url(self):
-        """Returns primary product image URL"""
+        """Returns primary product image URL (or placeholder for custom products)"""
+        # For custom products (full sets, manually added), use a special placeholder
+        if self.is_custom or self.is_full_set:
+            return '/static/img/placeholders/custom-product.svg'
         if self.product and self.product.primary_image:
             path = self.product.primary_image.path_compressed
             # Ensure path starts with /static/
@@ -591,7 +647,7 @@ class OrderComment(db.Model):
     comment = db.Column(db.Text, nullable=False)
     is_internal = db.Column(db.Boolean, default=False)  # Internal notes (admin only)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     order = db.relationship('Order', back_populates='comments')
@@ -638,7 +694,7 @@ class OrderRefund(db.Model):
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     order = db.relationship('Order', back_populates='refunds')
@@ -680,7 +736,7 @@ class OrderShipment(db.Model):
     notes = db.Column(db.String(255), nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Relationships

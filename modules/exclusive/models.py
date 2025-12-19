@@ -78,8 +78,8 @@ class ExclusivePage(db.Model):
 
     # Metadane
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)
@@ -333,7 +333,7 @@ class ExclusiveSection(db.Model):
     # Dla variant_group
     variant_group_id = db.Column(db.Integer, db.ForeignKey('variant_groups.id'), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     page = db.relationship('ExclusivePage', back_populates='sections')

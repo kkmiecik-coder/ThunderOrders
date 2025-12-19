@@ -22,7 +22,7 @@
 
             <!-- Zamówienia (Collapsible Category) -->
             <li class="sidebar-item sidebar-category">
-                <div class="sidebar-category-header {% if request.endpoint and 'orders' in request.endpoint %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Zamówienia">
+                <div class="sidebar-category-header {% if request.endpoint and request.endpoint.startswith('orders.') %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Zamówienia">
                     <div class="sidebar-category-main">
                         <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Zamówienia" class="sidebar-icon">
                         <span class="sidebar-text">Zamówienia</span>

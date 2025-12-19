@@ -25,6 +25,29 @@
     padding: 1.5rem 0;
     display: flex;
     flex-direction: column;
+    /* Sticky sidebar */
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+/* Scrollbar styling for status sidebar */
+.status-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.status-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.status-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(157, 78, 221, 0.2);
+    border-radius: 3px;
+}
+
+.status-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(157, 78, 221, 0.4);
 }
 
 .status-sidebar-header {
@@ -1595,6 +1618,14 @@
     -webkit-backdrop-filter: blur(20px);
 }
 
+[data-theme="dark"] .status-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .status-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(240, 147, 251, 0.4);
+}
+
 [data-theme="dark"] .status-sidebar-header {
     border-bottom-color: rgba(240, 147, 251, 0.15);
 }
@@ -2576,4 +2607,73 @@
 /* Items outside set - Dark mode */
 [data-theme="dark"] .text-outside-set {
     color: #EF5350 !important;
+}
+
+/* ====================
+   FULL SET & CUSTOM PRODUCT - Items List
+   ==================== */
+
+.item-thumb-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    color: white;
+    border-radius: 4px;
+}
+
+.item-full-set {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.08) 0%, rgba(123, 44, 191, 0.08) 100%);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: 2px 0;
+}
+
+.item-custom {
+    background: linear-gradient(135deg, rgba(255, 133, 0, 0.08) 0%, rgba(255, 109, 0, 0.08) 100%);
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin: 2px 0;
+}
+
+.item-badge-mini {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 4px;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 3px;
+    vertical-align: middle;
+}
+
+.item-badge-set {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+    color: #ffffff;
+}
+
+.item-badge-custom {
+    background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);
+    color: #ffffff;
+}
+
+/* ====================
+   DARK MODE - Full Set & Custom Items
+   ==================== */
+
+[data-theme="dark"] .item-full-set {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.15) 0%, rgba(123, 44, 191, 0.15) 100%);
+}
+
+[data-theme="dark"] .item-custom {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.12) 0%, rgba(245, 87, 108, 0.12) 100%);
+}
+
+[data-theme="dark"] .item-badge-set {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+}
+
+[data-theme="dark"] .item-badge-custom {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }

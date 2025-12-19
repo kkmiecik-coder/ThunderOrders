@@ -354,7 +354,7 @@ def update_product(product, data, skip_empty_values=True):
             # Replace existing variant groups
             product.variant_groups = [variant_group]
 
-    product.updated_at = datetime.utcnow()
+    product.updated_at = datetime.now()
 
     return product
 
@@ -492,7 +492,7 @@ def _process_csv_import_internal(import_id):
         else:
             csv_import.status = 'partial'
 
-        csv_import.completed_at = datetime.utcnow()
+        csv_import.completed_at = datetime.now()
         db.session.commit()
 
         print(f"[CSV Import] Import {import_id} finished: {csv_import.status}")
@@ -506,7 +506,7 @@ def _process_csv_import_internal(import_id):
     except Exception as e:
         print(f"[CSV Import] Fatal error: {str(e)}")
         csv_import.status = 'failed'
-        csv_import.completed_at = datetime.utcnow()
+        csv_import.completed_at = datetime.now()
 
         if csv_import.error_log is None:
             csv_import.error_log = []

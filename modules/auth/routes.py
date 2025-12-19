@@ -167,7 +167,7 @@ def login():
         if not user.email_verified:
             # Jeśli nie ma tokena sesji lub kod wygasł, wygeneruj nowy
             if not user.verification_session_token or not user.email_verification_code_expires or \
-               datetime.utcnow() > user.email_verification_code_expires:
+               datetime.now() > user.email_verification_code_expires:
                 code, session_token = user.generate_verification_code()
                 db.session.commit()
                 # Wyślij nowy kod
@@ -499,3 +499,116 @@ def verification_success():
         success_title='Konto aktywowane!',
         success_message='Twój adres email został pomyślnie zweryfikowany. Możesz teraz zalogować się na swoje konto.'
     )
+
+
+@auth_bp.route('/register-from-guest', methods=['POST'])
+def register_from_guest():
+    """
+    Rejestracja użytkownika z danych zamówienia gościa.
+    Pre-wypełnione dane: imię, nazwisko, email, telefon.
+    Użytkownik wpisuje tylko hasło.
+    """
+    from modules.orders.models import Order
+    from utils.activity_logger import log_activity
+
+    order_id = request.form.get('order_id')
+    guest_token = request.form.get('guest_token')
+    password = request.form.get('password')
+    password_confirm = request.form.get('password_confirm')
+
+    # Validation
+    if not all([order_id, guest_token, password, password_confirm]):
+        flash('Brak wymaganych danych.', 'error')
+        return redirect(request.referrer or url_for('auth.register'))
+
+    if password != password_confirm:
+        flash('Hasła nie są identyczne.', 'error')
+        return redirect(request.referrer)
+
+    if len(password) < 8:
+        flash('Hasło musi mieć minimum 8 znaków.', 'error')
+        return redirect(request.referrer)
+
+    # Find order
+    try:
+        order_id = int(order_id)
+    except (ValueError, TypeError):
+        flash('Nieprawidłowe dane zamówienia.', 'error')
+        return redirect(url_for('auth.register'))
+
+    order = Order.query.filter_by(id=order_id, guest_view_token=guest_token, is_guest_order=True).first()
+
+    if not order:
+        flash('Nie znaleziono zamówienia.', 'error')
+        return redirect(url_for('auth.register'))
+
+    # Check if email already exists
+    existing_user = User.query.filter_by(email=order.guest_email.lower()).first()
+    if existing_user:
+        flash('Konto z tym adresem email już istnieje. Zaloguj się.', 'warning')
+        return redirect(url_for('auth.login'))
+
+    # Split name into first_name and last_name
+    name_parts = order.guest_name.split(' ', 1) if order.guest_name else ['', '']
+    first_name = name_parts[0]
+    last_name = name_parts[1] if len(name_parts) > 1 else ''
+
+    # Create user
+    user = User(
+        email=order.guest_email.lower(),
+        first_name=first_name,
+        last_name=last_name,
+        phone=order.guest_phone,
+        role='client',
+        is_active=True,
+        email_verified=True  # Email already verified by order
+    )
+    user.set_password(password)
+
+    try:
+        db.session.add(user)
+        db.session.flush()  # Get user.id
+
+        # Assign order to user
+        order.user_id = user.id
+        order.is_guest_order = False
+        # Keep guest_* fields for history
+
+        # Find and assign other guest orders with the same email
+        other_guest_orders = Order.query.filter_by(
+            guest_email=order.guest_email.lower(),
+            is_guest_order=True
+        ).all()
+
+        for other_order in other_guest_orders:
+            if other_order.id != order.id:
+                other_order.user_id = user.id
+                other_order.is_guest_order = False
+
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=user,
+            action='user_registered_from_guest',
+            entity_type='user',
+            entity_id=user.id,
+            old_value=None,
+            new_value={
+                'email': user.email,
+                'order_id': order.id,
+                'order_number': order.order_number
+            }
+        )
+
+        # Log in user
+        login_user(user)
+
+        flash(f'Witaj, {user.first_name}! Twoje konto zostało utworzone, a zamówienia przypisane.', 'success')
+        return redirect(url_for('orders.client_list'))
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Error creating user from guest order: {e}')
+        flash('Wystąpił błąd podczas tworzenia konta.', 'error')
+        return redirect(request.referrer or url_for('auth.register'))

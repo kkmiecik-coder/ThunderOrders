@@ -359,7 +359,35 @@
                             {% set visible_items = order.items[:3] %}
                             {% set hidden_items = order.items[3:] %}
                             {% for item in visible_items %}
-                            <div class="item-row{% if item.is_set_fulfilled == false %} item-outside-set{% endif %}">
+                            {% if item.fulfilled_quantity is not none and item.fulfilled_quantity > 0 and item.fulfilled_quantity < item.quantity %}
+                            {# CZĘŚCIOWE ZREALIZOWANIE - dwie linie #}
+                            <div class="item-row">
+                                <div class="item-thumb-wrapper">
+                                    <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                    {% if item.fulfilled_quantity > 1 %}
+                                    <span class="item-qty-badge">{{ item.fulfilled_quantity }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="item-details">
+                                    <span class="item-name" title="{{ item.product_name }} (złapane)">{{ item.fulfilled_quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                    <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
+                                </div>
+                            </div>
+                            <div class="item-row item-outside-set">
+                                <div class="item-thumb-wrapper">
+                                    <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                    {% if item.quantity - item.fulfilled_quantity > 1 %}
+                                    <span class="item-qty-badge">{{ item.quantity - item.fulfilled_quantity }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="item-details">
+                                    <span class="item-name text-outside-set" title="{{ item.product_name }} (poza setem)">{{ item.quantity - item.fulfilled_quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                    <span class="item-price text-outside-set">0.00 zł/szt</span>
+                                </div>
+                            </div>
+                            {% elif item.is_set_fulfilled == false %}
+                            {# CAŁOŚĆ POZA SETEM #}
+                            <div class="item-row item-outside-set">
                                 <div class="item-thumb-wrapper">
                                     <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
                                     {% if item.quantity > 1 %}
@@ -367,15 +395,64 @@
                                     {% endif %}
                                 </div>
                                 <div class="item-details">
-                                    <span class="item-name{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}" title="{{ item.product_name }}{% if item.is_set_fulfilled == false %} (poza setem){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
-                                    <span class="item-price{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}">{% if item.is_set_fulfilled == false %}0.00{% else %}{{ "%.2f"|format(item.total) }}{% endif %} zł</span>
+                                    <span class="item-name text-outside-set" title="{{ item.product_name }} (poza setem)">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                    <span class="item-price text-outside-set">0.00 zł/szt</span>
                                 </div>
                             </div>
+                            {% else %}
+                            {# NORMALNIE #}
+                            <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
+                                <div class="item-thumb-wrapper">
+                                    {% if item.is_full_set %}
+                                    <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
+                                    {% elif item.is_custom %}
+                                    <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
+                                    {% else %}
+                                    <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                    {% endif %}
+                                    {% if item.quantity > 1 %}
+                                    <span class="item-qty-badge">{{ item.quantity }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="item-details">
+                                    <span class="item-name" title="{{ item.product_name }}{% if item.is_full_set %} (Pełny Set){% elif item.is_custom %} (Ręczny){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-mini item-badge-set">SET</span>{% elif item.is_custom %}<span class="item-badge-mini item-badge-custom">RĘCZNY</span>{% endif %}</span>
+                                    <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% endfor %}
                             {% if hidden_items|length > 0 %}
                             <div class="items-hidden" id="hiddenItems-{{ order.id }}" style="display: none;">
                                 {% for item in hidden_items %}
-                                <div class="item-row{% if item.is_set_fulfilled == false %} item-outside-set{% endif %}">
+                                {% if item.fulfilled_quantity is not none and item.fulfilled_quantity > 0 and item.fulfilled_quantity < item.quantity %}
+                                {# CZĘŚCIOWE ZREALIZOWANIE - dwie linie #}
+                                <div class="item-row">
+                                    <div class="item-thumb-wrapper">
+                                        <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                        {% if item.fulfilled_quantity > 1 %}
+                                        <span class="item-qty-badge">{{ item.fulfilled_quantity }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="item-details">
+                                        <span class="item-name" title="{{ item.product_name }} (złapane)">{{ item.fulfilled_quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                        <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
+                                    </div>
+                                </div>
+                                <div class="item-row item-outside-set">
+                                    <div class="item-thumb-wrapper">
+                                        <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                        {% if item.quantity - item.fulfilled_quantity > 1 %}
+                                        <span class="item-qty-badge">{{ item.quantity - item.fulfilled_quantity }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="item-details">
+                                        <span class="item-name text-outside-set" title="{{ item.product_name }} (poza setem)">{{ item.quantity - item.fulfilled_quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                        <span class="item-price text-outside-set">0.00 zł/szt</span>
+                                    </div>
+                                </div>
+                                {% elif item.is_set_fulfilled == false %}
+                                {# CAŁOŚĆ POZA SETEM #}
+                                <div class="item-row item-outside-set">
                                     <div class="item-thumb-wrapper">
                                         <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
                                         {% if item.quantity > 1 %}
@@ -383,10 +460,31 @@
                                         {% endif %}
                                     </div>
                                     <div class="item-details">
-                                        <span class="item-name{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}" title="{{ item.product_name }}{% if item.is_set_fulfilled == false %} (poza setem){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
-                                        <span class="item-price{% if item.is_set_fulfilled == false %} text-outside-set{% endif %}">{% if item.is_set_fulfilled == false %}0.00{% else %}{{ "%.2f"|format(item.total) }}{% endif %} zł</span>
+                                        <span class="item-name text-outside-set" title="{{ item.product_name }} (poza setem)">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}</span>
+                                        <span class="item-price text-outside-set">0.00 zł/szt</span>
                                     </div>
                                 </div>
+                                {% else %}
+                                {# NORMALNIE #}
+                                <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
+                                    <div class="item-thumb-wrapper">
+                                        {% if item.is_full_set %}
+                                        <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
+                                        {% elif item.is_custom %}
+                                        <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
+                                        {% else %}
+                                        <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
+                                        {% endif %}
+                                        {% if item.quantity > 1 %}
+                                        <span class="item-qty-badge">{{ item.quantity }}</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="item-details">
+                                        <span class="item-name" title="{{ item.product_name }}{% if item.is_full_set %} (Pełny Set){% elif item.is_custom %} (Ręczny){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-mini item-badge-set">SET</span>{% elif item.is_custom %}<span class="item-badge-mini item-badge-custom">RĘCZNY</span>{% endif %}</span>
+                                        <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
+                                    </div>
+                                </div>
+                                {% endif %}
                                 {% endfor %}
                             </div>
                             <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.items|length }})">
@@ -410,11 +508,7 @@
 
                     <!-- Kwota -->
                     <td class="col-amount text-right">
-                        {% if order.has_items_outside_set %}
-                        <span class="amount-cell text-outside-set">{{ "%.2f"|format(order.effective_grand_total) }} zł</span>
-                        {% else %}
-                        <span class="amount-cell">{{ "%.2f"|format(order.grand_total) }} zł</span>
-                        {% endif %}
+                        <span class="amount-cell">{{ "%.2f"|format(order.effective_grand_total) }} zł</span>
                     </td>
 
                     <!-- Info dodatkowe (status + wysyłka + ikony) -->

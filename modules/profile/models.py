@@ -18,7 +18,7 @@ class AvatarSeries(db.Model):
     name = db.Column(db.String(100), nullable=False)
     slug = db.Column(db.String(100), unique=True, nullable=False, index=True)
     sort_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     avatars = db.relationship('Avatar', backref='series', lazy='dynamic',
@@ -68,7 +68,7 @@ class Avatar(db.Model):
     series_id = db.Column(db.Integer, db.ForeignKey('avatar_series.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     sort_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     def __repr__(self):
         return f'<Avatar {self.filename}>'

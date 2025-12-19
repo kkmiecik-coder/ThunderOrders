@@ -80,20 +80,22 @@
                     {% if recent_orders|length > 0 %}
                         <div class="orders-list">
                             {% for order in recent_orders %}
-                                <div class="order-item">
-                                    <div class="order-info">
-                                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number">
-                                            {{ order.order_number }}
-                                        </a>
-                                        <p class="order-client">{{ order.customer_name }}</p>
+                                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-item-link">
+                                    <div class="order-item">
+                                        <div class="order-info">
+                                            <span class="order-number">
+                                                {{ order.order_number }}
+                                            </span>
+                                            <p class="order-client">{{ order.customer_name }}</p>
+                                        </div>
+                                        <div class="order-meta">
+                                            <span class="order-status order-status-{{ order.status }}">
+                                                {{ order.status|replace('_', ' ')|title }}
+                                            </span>
+                                            <p class="order-amount">{{ "%.2f"|format(order.total_amount) }} PLN</p>
+                                        </div>
                                     </div>
-                                    <div class="order-meta">
-                                        <span class="order-status order-status-{{ order.status }}">
-                                            {{ order.status|replace('_', ' ')|title }}
-                                        </span>
-                                        <p class="order-amount">{{ "%.2f"|format(order.total_amount) }} PLN</p>
-                                    </div>
-                                </div>
+                                </a>
                             {% endfor %}
                         </div>
                     {% else %}
@@ -455,6 +457,22 @@
     gap: var(--space-3);
 }
 
+/* Order item link wrapper */
+.order-item-link {
+    text-decoration: none;
+    display: block;
+    border-radius: 12px;
+    transition: transform 0.2s ease;
+}
+
+.order-item-link:hover {
+    transform: translateX(4px);
+}
+
+.order-item-link:hover .order-item {
+    background: var(--kpop-light);
+}
+
 .order-item {
     display: flex;
     justify-content: space-between;
@@ -470,7 +488,6 @@
 
 .order-item:hover {
     background: var(--kpop-light);
-    transform: translateX(4px);
 }
 
 .order-info {
@@ -480,13 +497,12 @@
 .order-number {
     font-weight: 700;
     color: var(--kpop-purple);
-    text-decoration: none;
     display: block;
     margin-bottom: var(--space-1);
     transition: color 0.5s ease;
 }
 
-.order-number:hover {
+.order-item-link:hover .order-number {
     color: var(--kpop-pink);
 }
 
@@ -879,6 +895,11 @@
 }
 
 [data-theme="dark"] .order-item:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .order-item-link:hover .order-item {
     background: rgba(240, 147, 251, 0.1);
     border-color: rgba(240, 147, 251, 0.2);
 }

@@ -1,0 +1,285 @@
+/**
+ * ThunderOrders - Thank You Page (Exclusive)
+ * Strona podziękowania po złożeniu zamówienia exclusive
+ */
+
+.thank-you-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    background: linear-gradient(135deg, var(--purple-100) 0%, var(--purple-200) 100%);
+}
+
+.thank-you-container {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    padding: var(--space-10);
+    max-width: 700px;
+    width: 100%;
+    box-shadow: var(--shadow-xl);
+}
+
+/* Success Header */
+.success-header {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--space-4);
+    background: linear-gradient(135deg, var(--success) 0%, #2e7d32 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    animation: success-pop 0.4s ease-out;
+}
+
+@keyframes success-pop {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.success-header h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-2);
+}
+
+.success-header .order-number {
+    font-size: var(--text-lg);
+    color: var(--gray-600);
+}
+
+.success-header .order-number strong {
+    color: var(--primary-color);
+    font-weight: var(--font-semibold);
+}
+
+/* Logged User Section */
+.logged-user-section {
+    text-align: center;
+}
+
+.logged-user-section p {
+    color: var(--gray-600);
+    margin-bottom: var(--space-6);
+}
+
+/* Guest Options */
+.guest-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+}
+
+/* Option Cards */
+.option-card {
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    border: 1px solid var(--gray-200);
+}
+
+.option-card.option-register {
+    background: linear-gradient(to bottom, rgba(240, 147, 251, 0.05), rgba(240, 147, 251, 0.02));
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+.option-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.recommended-badge {
+    background: linear-gradient(135deg, var(--orange-300) 0%, var(--orange-400) 100%);
+    color: var(--white);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-full);
+    text-transform: uppercase;
+}
+
+.option-card h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin: 0;
+}
+
+/* Benefits List */
+.benefits-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--space-6) 0;
+}
+
+.benefits-list li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    color: var(--gray-700);
+    font-size: var(--text-sm);
+}
+
+.benefits-list li svg {
+    color: var(--success);
+    flex-shrink: 0;
+}
+
+/* Prefilled Info */
+.prefilled-info {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    border: 1px solid var(--gray-200);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-row .label {
+    color: var(--gray-500);
+    font-size: var(--text-sm);
+}
+
+.info-row .value {
+    color: var(--gray-800);
+    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
+}
+
+/* Register Form */
+.register-form .form-group {
+    margin-bottom: var(--space-4);
+}
+
+.register-form label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--gray-700);
+    margin-bottom: var(--space-2);
+}
+
+.register-form .form-control {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.register-form .form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.1);
+}
+
+/* Buttons */
+.btn-block {
+    width: 100%;
+}
+
+.btn-lg {
+    padding: var(--space-4) var(--space-6);
+    font-size: var(--text-base);
+}
+
+/* Options Separator */
+.options-separator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+}
+
+.options-separator::before,
+.options-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--gray-300);
+}
+
+.options-separator span {
+    color: var(--gray-500);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+}
+
+/* Option Guest Card */
+.option-card.option-guest {
+    text-align: center;
+}
+
+.option-card.option-guest h3 {
+    margin-bottom: var(--space-2);
+}
+
+.option-card.option-guest p {
+    color: var(--gray-600);
+    margin-bottom: var(--space-4);
+}
+
+.option-card.option-guest .hint {
+    margin-top: var(--space-4);
+    margin-bottom: 0;
+}
+
+.option-card.option-guest .hint small {
+    color: var(--gray-500);
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+    .thank-you-page {
+        padding: var(--space-4);
+    }
+
+    .thank-you-container {
+        padding: var(--space-6);
+    }
+
+    .success-header h1 {
+        font-size: var(--text-xl);
+    }
+
+    .option-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .info-row {
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+}

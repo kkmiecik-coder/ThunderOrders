@@ -39,7 +39,7 @@ def dashboard():
     # Real Data from Database
     # ========================================
 
-    today = datetime.utcnow().date()
+    today = datetime.now().date()
     today_start = datetime.combine(today, datetime.min.time())
     week_ago = today - timedelta(days=7)
     month_start = today.replace(day=1)

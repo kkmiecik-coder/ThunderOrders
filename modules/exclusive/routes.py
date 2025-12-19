@@ -3,7 +3,7 @@ Exclusive Module - Public Routes
 Publiczne endpointy dla stron ekskluzywnych zamówień
 """
 
-from flask import render_template, abort, redirect, url_for, request, jsonify
+from flask import render_template, abort, redirect, url_for, request, jsonify, session
 from flask_login import login_required, current_user
 from . import exclusive_bp
 from .models import ExclusivePage
@@ -99,7 +99,10 @@ def thank_you(token):
     if not page:
         abort(404)
 
-    return render_template('exclusive/thank_you.html', page=page)
+    # Get order data from session (set after placing order)
+    order_data = session.pop('last_order_data', None)
+
+    return render_template('exclusive/thank_you.html', page=page, order_data=order_data)
 
 
 @exclusive_bp.route('/<token>/preview')
@@ -419,6 +422,7 @@ def place_order(token):
     session_id = data.get('session_id')
     guest_data = data.get('guest_data')
     order_note = data.get('order_note')
+    full_sets = data.get('full_sets', [])  # Full sets from frontend
 
     if not session_id:
         return jsonify({'success': False, 'error': 'missing_session_id'}), 400
@@ -428,10 +432,23 @@ def place_order(token):
         page=page,
         session_id=session_id,
         guest_data=guest_data,
-        order_note=order_note
+        order_note=order_note,
+        full_sets=full_sets  # Pass full sets to order placement
     )
 
     if success:
+        # Save order data in session for thank_you page
+        session['last_order_data'] = {
+            'order_id': result.get('order_id'),
+            'order_number': result.get('order_number'),
+            'total_amount': result.get('total_amount'),
+            'items_count': result.get('items_count'),
+            'is_guest': result.get('is_guest'),
+            'guest_view_token': result.get('guest_view_token'),
+            'guest_name': result.get('guest_name'),
+            'guest_email': result.get('guest_email'),
+            'guest_phone': result.get('guest_phone')
+        }
         return jsonify({'success': True, **result})
     else:
         return jsonify({'success': False, **result}), 400

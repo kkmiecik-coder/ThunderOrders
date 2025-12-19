@@ -185,16 +185,17 @@ def register_template_filters(app):
     @app.template_filter('format_datetime')
     def format_datetime_filter(dt, fmt='%Y-%m-%d %H:%M'):
         """
-        Formatuje datetime z automatyczną konwersją na czas polski.
+        Formatuje datetime.
+        Naive datetime traktowany jako czas polski (nie konwertujemy).
+        Aware datetime konwertowany na czas polski.
         Użycie: {{ date|format_datetime }} lub {{ date|format_datetime('%d.%m.%Y %H:%M') }}
         """
         if dt is None:
             return ''
-        # Konwertuj na czas polski
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        dt_poland = dt.astimezone(POLAND_TZ)
-        return dt_poland.strftime(fmt)
+        # Naive datetime = już czas polski, nie konwertujemy
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(POLAND_TZ)
+        return dt.strftime(fmt)
 
     @app.template_filter('format_date')
     def format_date_filter(dt, fmt='%Y-%m-%d'):

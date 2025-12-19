@@ -39,7 +39,7 @@
     <div class="meta-info">
         <div class="meta-item">
             <span class="meta-label">Zamknięto:</span>
-            <span class="meta-value">{{ summary.closed_at.strftime('%d.%m.%Y %H:%M') if summary.closed_at else '-' }}</span>
+            <span class="meta-value">{{ summary.closed_at|format_datetime('%d.%m.%Y %H:%M') if summary.closed_at else '-' }}</span>
         </div>
         <div class="meta-item">
             <span class="meta-label">Przez:</span>
@@ -48,9 +48,9 @@
         <div class="meta-item">
             <span class="meta-label">Okres sprzedaży:</span>
             <span class="meta-value">
-                {{ summary.starts_at.strftime('%d.%m.%Y') if summary.starts_at else '?' }}
+                {{ summary.starts_at|format_date('%d.%m.%Y') if summary.starts_at else '?' }}
                 —
-                {{ summary.ends_at.strftime('%d.%m.%Y') if summary.ends_at else '?' }}
+                {{ summary.ends_at|format_date('%d.%m.%Y') if summary.ends_at else '?' }}
             </span>
         </div>
     </div>
@@ -189,15 +189,24 @@
                             </div>
                         </td>
                         <td>
-                            <span class="order-date">{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                            <span class="order-date">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
                         </td>
                         <td>
                             <div class="order-items">
                                 {% for item in order.order_items %}
-                                <div class="order-item {% if item.is_set_fulfilled == false %}item-unfulfilled{% elif item.is_set_fulfilled == true %}item-fulfilled{% endif %}">
+                                <div class="order-item {% if item.is_full_set %}item-full-set{% elif item.is_custom %}item-custom{% elif item.is_set_fulfilled == false %}item-unfulfilled{% elif item.is_set_fulfilled == true %}item-fulfilled{% endif %}">
+                                    {% if item.is_full_set %}
+                                    <span class="item-icon item-icon-set" title="Pełny Set">✨</span>
+                                    {% elif item.is_custom %}
+                                    <span class="item-icon item-icon-custom" title="Produkt ręczny">📦</span>
+                                    {% endif %}
                                     <span class="item-name">{{ item.product_name[:30] }}{% if item.product_name|length > 30 %}...{% endif %}</span>
                                     <span class="item-qty">x{{ item.quantity }}</span>
-                                    {% if item.is_set_fulfilled is not none %}
+                                    {% if item.is_full_set %}
+                                    <span class="item-badge item-badge-set">SET</span>
+                                    {% elif item.is_custom %}
+                                    <span class="item-badge item-badge-custom">RĘCZNY</span>
+                                    {% elif item.is_set_fulfilled is not none %}
                                         {% if item.is_set_fulfilled %}
                                         <span class="item-status item-status-ok" title="Złapany">&#10003;</span>
                                         {% else %}

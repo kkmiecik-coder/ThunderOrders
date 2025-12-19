@@ -3733,3 +3733,358 @@ code {
 [data-theme="dark"] .text-outside-set {
     color: #EF5350 !important;
 }
+
+/* ====================
+   ADD PRODUCTS DROPDOWN
+   ==================== */
+
+.add-products-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.add-products-dropdown .dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.add-products-dropdown .dropdown-arrow {
+    width: 14px;
+    height: 14px;
+    transition: transform 0.2s ease;
+}
+
+.add-products-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.add-products-dropdown .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 240px;
+    background: #ffffff;
+    border: 1px solid #E0E0E0;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s ease;
+    z-index: 100;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.add-products-dropdown.open .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.875rem;
+    color: #424242;
+    transition: all 0.15s ease;
+}
+
+.dropdown-item:hover {
+    background: #F5F5F5;
+    color: #5A189A;
+}
+
+.dropdown-item svg {
+    width: 18px;
+    height: 18px;
+    color: #757575;
+    flex-shrink: 0;
+}
+
+.dropdown-item:hover svg {
+    color: #5A189A;
+}
+
+.dropdown-item + .dropdown-item {
+    border-top: 1px solid #F0F0F0;
+}
+
+/* ====================
+   MANUAL PRODUCT FORM
+   ==================== */
+
+.manual-product-form {
+    margin-top: 16px;
+    padding: 20px;
+    background: #FAFAFA;
+    border: 1px solid #E0E0E0;
+    border-radius: 8px;
+}
+
+.manual-product-card h4 {
+    margin: 0 0 16px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #240046;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.manual-product-card h4 svg {
+    width: 20px;
+    height: 20px;
+    color: #5A189A;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.form-row:last-of-type {
+    margin-bottom: 0;
+}
+
+.manual-product-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.manual-product-form .form-group label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #616161;
+}
+
+.manual-product-form .form-control {
+    padding: 10px 12px;
+    font-size: 0.875rem;
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #212121;
+    transition: all 0.2s ease;
+}
+
+.manual-product-form .form-control:focus {
+    outline: none;
+    border-color: #5A189A;
+    box-shadow: 0 0 0 3px rgba(90, 24, 154, 0.1);
+}
+
+.manual-product-form .form-control::placeholder {
+    color: #BDBDBD;
+}
+
+.calculated-total {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(255, 133, 0, 0.08) 0%, rgba(255, 158, 0, 0.08) 100%);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 133, 0, 0.2);
+}
+
+.calculated-total label {
+    font-size: 0.75rem !important;
+    color: #9E9E9E !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.calculated-total span {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #FF8500;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #E0E0E0;
+}
+
+/* ====================
+   FULL SET & CUSTOM PRODUCT BADGES
+   ==================== */
+
+.product-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-radius: 4px;
+    margin-left: 8px;
+}
+
+.product-badge-full-set {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+    color: #ffffff;
+}
+
+.product-badge-custom {
+    background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);
+    color: #ffffff;
+}
+
+.product-badge svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Full Set Row Styling */
+.full-set-row {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.05) 0%, rgba(123, 44, 191, 0.05) 100%);
+}
+
+.full-set-row:hover {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%);
+}
+
+/* Custom Product Row Styling */
+.custom-product-row {
+    background: linear-gradient(135deg, rgba(255, 133, 0, 0.05) 0%, rgba(255, 109, 0, 0.05) 100%);
+}
+
+.custom-product-row:hover {
+    background: linear-gradient(135deg, rgba(255, 133, 0, 0.1) 0%, rgba(255, 109, 0, 0.1) 100%);
+}
+
+/* ====================
+   DARK MODE - DROPDOWN
+   ==================== */
+
+[data-theme="dark"] .add-products-dropdown .dropdown-menu {
+    background: rgba(15, 12, 41, 0.98);
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .dropdown-item {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .dropdown-item svg {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .dropdown-item:hover svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .dropdown-item + .dropdown-item {
+    border-top-color: rgba(240, 147, 251, 0.1);
+}
+
+/* ====================
+   DARK MODE - MANUAL PRODUCT FORM
+   ==================== */
+
+[data-theme="dark"] .manual-product-form {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .manual-product-card h4 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .manual-product-card h4 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .manual-product-form .form-group label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .manual-product-form .form-control {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .manual-product-form .form-control:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .manual-product-form .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .calculated-total {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.1) 0%, rgba(245, 87, 108, 0.1) 100%);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .calculated-total label {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-theme="dark"] .calculated-total span {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .form-actions {
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+/* ====================
+   DARK MODE - BADGES
+   ==================== */
+
+[data-theme="dark"] .product-badge-full-set {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+}
+
+[data-theme="dark"] .product-badge-custom {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .full-set-row {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%);
+}
+
+[data-theme="dark"] .full-set-row:hover {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.15) 0%, rgba(123, 44, 191, 0.15) 100%);
+}
+
+[data-theme="dark"] .custom-product-row {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.08) 0%, rgba(245, 87, 108, 0.08) 100%);
+}
+
+[data-theme="dark"] .custom-product-row:hover {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.12) 0%, rgba(245, 87, 108, 0.12) 100%);
+}

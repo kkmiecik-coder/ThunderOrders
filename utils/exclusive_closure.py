@@ -167,11 +167,29 @@ def process_set_section(section, orders):
         for po in orders_for_product:
             order_item = po['order_item']
             qty = po['quantity']
+            remaining_capacity = max_to_fulfill - fulfilled_so_far
 
-            if fulfilled_so_far + qty <= max_to_fulfill:
-                # Ten order item jest w pełni zrealizowany
+            if remaining_capacity <= 0:
+                # Brak miejsca - całość poza setem
+                order_item.is_set_fulfilled = False
+                order_item.set_section_id = section.id
+                order_item.fulfilled_quantity = 0
+                unfulfilled_count += qty
+
+                allocations.append({
+                    'order_id': po['order_id'],
+                    'order_item_id': order_item.id,
+                    'product_id': product_id,
+                    'product_name': sp['product_name'],
+                    'quantity': qty,
+                    'fulfilled_quantity': 0,
+                    'is_fulfilled': False,
+                })
+            elif qty <= remaining_capacity:
+                # Całość mieści się
                 order_item.is_set_fulfilled = True
                 order_item.set_section_id = section.id
+                order_item.fulfilled_quantity = qty
                 fulfilled_so_far += qty
                 fulfilled_count += qty
 
@@ -181,13 +199,17 @@ def process_set_section(section, orders):
                     'product_id': product_id,
                     'product_name': sp['product_name'],
                     'quantity': qty,
+                    'fulfilled_quantity': qty,
                     'is_fulfilled': True,
                 })
             else:
-                # Ten order item NIE jest zrealizowany (przepadł)
-                order_item.is_set_fulfilled = False
+                # CZĘŚCIOWE ZREALIZOWANIE - część mieści się, reszta przepada
+                order_item.is_set_fulfilled = True  # Oznacz jako zrealizowane (choć częściowo)
                 order_item.set_section_id = section.id
-                unfulfilled_count += qty
+                order_item.fulfilled_quantity = remaining_capacity
+                fulfilled_so_far += remaining_capacity
+                fulfilled_count += remaining_capacity
+                unfulfilled_count += (qty - remaining_capacity)
 
                 allocations.append({
                     'order_id': po['order_id'],
@@ -195,7 +217,8 @@ def process_set_section(section, orders):
                     'product_id': product_id,
                     'product_name': sp['product_name'],
                     'quantity': qty,
-                    'is_fulfilled': False,
+                    'fulfilled_quantity': remaining_capacity,
+                    'is_fulfilled': 'partial',  # Specjalny status dla częściowego
                 })
 
     return {
@@ -244,7 +267,7 @@ def close_exclusive_page(page_id, user_id, send_emails=True):
     # Zapisz zmiany w OrderItem (już zapisane przez process_set_section)
     # Ustaw flagę zamknięcia
     page.is_fully_closed = True
-    page.closed_at = datetime.utcnow()
+    page.closed_at = datetime.now()
     page.closed_by_id = user_id
 
     db.session.commit()

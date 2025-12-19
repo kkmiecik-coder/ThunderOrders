@@ -116,3 +116,31 @@
     max-width: none;
   }
 }
+
+/* ===========================================
+   Dark Mode - Keep toasts light with dark text
+   Toast messages should always be readable
+   =========================================== */
+[data-theme="dark"] .toast {
+  /* Force light background regardless of theme */
+  background: #ffffff;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .toast-title {
+  /* Force dark text */
+  color: #1f2937;
+}
+
+[data-theme="dark"] .toast-message {
+  /* Force dark secondary text */
+  color: #4b5563;
+}
+
+[data-theme="dark"] .toast-close {
+  color: #9ca3af;
+}
+
+[data-theme="dark"] .toast-close:hover {
+  color: #374151;
+}
