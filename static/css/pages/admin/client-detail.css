@@ -763,3 +763,181 @@
 [data-theme="dark"] .modal-warning {
   color: #f5576c;
 }
+
+/* ==========================================
+   Orders Table - History Section
+   ========================================== */
+.header-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  background: #FF8500;
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.orders-table-wrapper {
+  overflow-x: auto;
+}
+
+.orders-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.orders-table thead th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.orders-table tbody tr {
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.orders-table tbody tr:hover {
+  background: #f5f5f5;
+}
+
+.orders-table tbody td {
+  padding: 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.order-number-link {
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.order-number-link:hover {
+  text-decoration: underline;
+}
+
+.order-type-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-left: 6px;
+}
+
+.order-type-badge.exclusive {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.order-amount {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Pagination */
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 0;
+  margin-top: 16px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  color: #555;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+  color: #FF8500;
+}
+
+.pagination-info {
+  font-size: 13px;
+  color: #666;
+}
+
+/* ==========================================
+   Orders Table - Dark Mode
+   ========================================== */
+[data-theme="dark"] .header-count {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .orders-table thead th {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .orders-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .orders-table tbody td {
+  color: rgba(255, 255, 255, 0.9);
+  border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .order-number-link {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .order-number-link:hover {
+  color: #f5576c;
+}
+
+[data-theme="dark"] .order-type-badge.exclusive {
+  box-shadow: 0 2px 8px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pagination-wrapper {
+  border-top-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .pagination-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .pagination-btn:hover {
+  background: rgba(240, 147, 251, 0.15);
+  border-color: #f093fb;
+  color: #f093fb;
+}
+
+[data-theme="dark"] .pagination-info {
+  color: rgba(255, 255, 255, 0.6);
+}

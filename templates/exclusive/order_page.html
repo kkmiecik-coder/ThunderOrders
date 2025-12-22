@@ -1258,9 +1258,6 @@ async function submitOrder() {
         const data = await response.json();
 
         if (data.success) {
-            // Close order modal
-            closeOrderModal();
-
             // Clear localStorage reservation
             localStorage.removeItem('exclusive_reservation_{{ page.token }}');
 
@@ -1272,18 +1269,8 @@ async function submitOrder() {
                 clearInterval(reservationState.countdownInterval);
             }
 
-            // Reset reservation state
-            reservationState = {
-                sessionId: null,
-                firstReservedAt: null,
-                expiresAt: null,
-                extended: false,
-                pollingInterval: null,
-                countdownInterval: null
-            };
-
-            // Show success modal
-            showSuccessModal(data.order_number, data.total_amount);
+            // Redirect to thank you page (order data is saved in session by backend)
+            window.location.href = '/exclusive/{{ page.token }}/thank-you';
 
         } else {
             // Handle error

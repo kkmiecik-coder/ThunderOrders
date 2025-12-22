@@ -89,6 +89,14 @@
                 </svg>
                 <span class="tab-label">Cennik i waluty</span>
             </button>
+
+            <button class="settings-tab" data-tab="stock-orders">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 0v12h8V4H6z"/>
+                    <path d="M8 7a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1zM9 10a1 1 0 100 2h2a1 1 0 100-2H9z"/>
+                </svg>
+                <span class="tab-label">Zamówienia produktów</span>
+            </button>
         </div>
 
         <!-- Tab Content -->
@@ -428,6 +436,62 @@
                             {{ form.price_rounding.label(class="form-label") }}
                             {{ form.price_rounding(class="form-select") }}
                             <span class="input-hint">Sposób zaokrąglania cen sprzedaży</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 9: Stock Orders Aggregation -->
+                <div class="tab-panel" id="tab-stock-orders">
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <h3>Konfiguracja zakładki "Do zamówienia"</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="settings-description">
+                                Skonfiguruj które typy i statusy zamówień klientów mają być agregowane w zakładce "Do zamówienia"
+                                w sekcji Zamówienia produktów. Produkty z tych zamówień będą wyświetlane jako produkty do zamówienia u dostawcy.
+                            </p>
+
+                            <div class="form-group">
+                                <label class="form-label">Typy zamówień do agregacji</label>
+                                <div class="checkbox-grid">
+                                    {% for order_type in order_types %}
+                                    <label class="checkbox-item">
+                                        <input type="checkbox"
+                                               name="aggregation_order_types"
+                                               value="{{ order_type.slug }}"
+                                               {% if order_type.slug in current_aggregation_types %}checked{% endif %}>
+                                        <span class="checkbox-label-text">
+                                            <span class="badge" style="background-color: {{ order_type.badge_color }}20; color: {{ order_type.badge_color }}; border: 1px solid {{ order_type.badge_color }}40;">
+                                                {{ order_type.name }}
+                                            </span>
+                                            <small class="checkbox-hint">({{ order_type.prefix }})</small>
+                                        </span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                <span class="input-hint">Produkty z tych typów zamówień będą wyświetlane w zakładce "Do zamówienia"</span>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Statusy zamówień do agregacji</label>
+                                <div class="checkbox-grid">
+                                    {% for status in order_statuses %}
+                                    <label class="checkbox-item">
+                                        <input type="checkbox"
+                                               name="aggregation_order_statuses"
+                                               value="{{ status.slug }}"
+                                               {% if status.slug in current_aggregation_statuses %}checked{% endif %}>
+                                        <span class="checkbox-label-text">
+                                            <span class="badge" style="background-color: {{ status.badge_color }}20; color: {{ status.badge_color }}; border: 1px solid {{ status.badge_color }}40;">
+                                                {{ status.name }}
+                                            </span>
+                                        </span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                <span class="input-hint">Tylko zamówienia w tych statusach będą brane pod uwagę przy agregacji</span>
+                            </div>
                         </div>
                     </div>
                 </div>

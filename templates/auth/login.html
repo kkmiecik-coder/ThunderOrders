@@ -196,12 +196,34 @@ document.addEventListener('DOMContentLoaded', function() {
         setInterval(createPulseRing, 1200);
     }
 
-    // Form loading state
-    const form = document.getElementById('login-form');
-    if (form) {
+    // Form loading state with preloader
+    var form = document.getElementById('login-form');
+    var preloader = document.getElementById('login-preloader');
+
+    // First: If we're back on login page (login failed), hide preloader instantly
+    if (preloader && sessionStorage.getItem('showLoginPreloader') === 'true') {
+        // Clear the flags - login failed, we're back on login page
+        sessionStorage.removeItem('showLoginPreloader');
+        sessionStorage.removeItem('loginPreloaderStart');
+        // Ensure preloader is hidden instantly (no animation)
+        preloader.classList.add('instant');
+        preloader.classList.remove('visible');
+    }
+
+    // Then: Set up form submit handler
+    if (form && preloader) {
         form.addEventListener('submit', function() {
-            const btn = this.querySelector('.auth-submit');
+            var btn = this.querySelector('.auth-submit');
             btn.classList.add('loading');
+
+            // Set flags for dashboard page
+            sessionStorage.setItem('loginPreloaderStart', Date.now().toString());
+            sessionStorage.setItem('showLoginPreloader', 'true');
+
+            // Show preloader with fade in animation (0.5s)
+            // Remove instant class to enable transition
+            preloader.classList.remove('instant');
+            preloader.classList.add('visible');
         });
     }
 });

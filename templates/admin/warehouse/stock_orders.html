@@ -6,21 +6,130 @@
 <div class="stock-orders-page">
     <!-- Tabs Navigation -->
     <div class="tabs-navigation">
+        <a href="{{ url_for('products.stock_orders', tab='do_zamowienia') }}"
+           class="tab-link {% if active_tab == 'do_zamowienia' %}active{% endif %}"
+           data-tab="do_zamowienia">
+            DO ZAMÓWIENIA
+            {% if to_order_count > 0 %}
+            <span class="tab-badge tab-badge-red">{{ to_order_count }}</span>
+            {% endif %}
+        </a>
         <a href="{{ url_for('products.stock_orders', tab='proxy') }}"
            class="tab-link {% if active_tab == 'proxy' %}active{% endif %}"
            data-tab="proxy">
             PROXY
+            <span class="tab-badge tab-badge-purple" id="proxyCountBadge" {% if proxy_count == 0 %}style="display: none;"{% endif %}>{{ proxy_count }}</span>
         </a>
         <a href="{{ url_for('products.stock_orders', tab='polska') }}"
            class="tab-link {% if active_tab == 'polska' %}active{% endif %}"
            data-tab="polska">
             POLSKA
+            <span class="tab-badge tab-badge-blue" id="polskaCountBadge" {% if polska_count == 0 %}style="display: none;"{% endif %}>{{ polska_count }}</span>
         </a>
     </div>
 
     <!-- Tab Content -->
     <div class="tab-content active" id="tab-{{ active_tab }}">
         <div class="tab-pane">
+            {% if active_tab == 'do_zamowienia' %}
+            <!-- DO ZAMÓWIENIA Tab Content -->
+            <div class="tab-header">
+                <h2>Produkty do zamówienia</h2>
+            </div>
+
+            <!-- Products to Order Table -->
+            <div class="orders-list">
+                {% if products_to_order %}
+                    <div class="table-responsive">
+                        <table class="data-table" id="toOrderTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-checkbox">
+                                        <input type="checkbox" id="selectAllToOrder" onchange="toggleSelectAllToOrder(this)">
+                                    </th>
+                                    <th>Produkt</th>
+                                    <th>SKU</th>
+                                    <th>Dostawca</th>
+                                    <th class="text-center">Zamówione przez klientów</th>
+                                    <th class="text-center">Już zamówione</th>
+                                    <th class="text-center text-orange">Do zamówienia</th>
+                                    <th class="text-right">Cena zakupu</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in products_to_order %}
+                                {% set product = item.product %}
+                                {% set primary_image = product.primary_image %}
+                                <tr class="to-order-row"
+                                    data-product-id="{{ product.id }}"
+                                    data-product-name="{{ product.name }}"
+                                    data-supplier-id="{{ product.supplier_id or '' }}"
+                                    data-supplier-name="{{ product.supplier.name if product.supplier else 'Brak dostawcy' }}"
+                                    data-to-order="{{ item.to_order }}"
+                                    data-purchase-price="{{ product.purchase_price_pln or product.purchase_price or 0 }}">
+                                    <td class="col-checkbox">
+                                        <input type="checkbox" class="to-order-checkbox" value="{{ product.id }}" onchange="handleToOrderCheckboxChange()">
+                                    </td>
+                                    <td>
+                                        <div class="product-cell">
+                                            {% if primary_image %}
+                                            <img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
+                                                 alt="{{ product.name }}"
+                                                 class="product-thumbnail">
+                                            {% else %}
+                                            <div class="product-thumbnail-placeholder">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                            <div class="product-info">
+                                                <span class="product-name">{{ product.name }}</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-muted">{{ product.sku or '-' }}</td>
+                                    <td>
+                                        {% if product.supplier %}
+                                        <span class="supplier-badge">{{ product.supplier.name }}</span>
+                                        {% else %}
+                                        <span class="text-muted">Brak dostawcy</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">{{ item.total_ordered }}</td>
+                                    <td class="text-center">{{ item.already_ordered }}</td>
+                                    <td class="text-center text-orange font-semibold">{{ item.to_order }}</td>
+                                    <td class="text-right">
+                                        {% if product.purchase_price_pln %}
+                                        {{ "%.2f"|format(product.purchase_price_pln) }} PLN
+                                        {% elif product.purchase_price %}
+                                        {{ "%.2f"|format(product.purchase_price) }} {{ product.purchase_currency }}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"></path>
+                            <rect x="9" y="3" width="6" height="4" rx="1"></rect>
+                            <path d="M9 14l2 2 4-4"></path>
+                        </svg>
+                        <h3>Brak produktów do zamówienia</h3>
+                        <p>Wszystkie produkty z zamówień klientów zostały już zamówione u dostawców.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% else %}
+            <!-- PROXY / POLSKA Tab Content -->
             <div class="tab-header">
                 <h2>Zamówienia {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</h2>
                 {% if active_tab == 'proxy' %}
@@ -121,6 +230,7 @@
                                     <th class="sortable" data-column="supplier" onclick="sortTable('supplier')">Dostawca</th>
                                     <th class="sortable text-center" data-column="quantity" onclick="sortTable('quantity')">Ilość</th>
                                     <th class="sortable" data-column="status" onclick="sortTable('status')">Status</th>
+                                    <th class="sortable" data-column="status_changed" onclick="sortTable('status_changed')">Ostatnia zmiana</th>
                                     <th class="sortable" data-column="date" onclick="sortTable('date')">Data zamówienia</th>
                                     <th class="sortable" data-column="amount" onclick="sortTable('amount')">Kwota</th>
                                     <th>Akcje</th>
@@ -140,6 +250,7 @@
                                     data-status="{{ order.status }}"
                                     data-date="{{ order.created_at.timestamp() }}"
                                     data-date-formatted="{{ order.created_at|format_date }}"
+                                    data-status-changed="{{ order.updated_at.timestamp() if order.updated_at else order.created_at.timestamp() }}"
                                     data-amount="{{ order.total_amount_pln }}">
                                     <td class="col-checkbox">
                                         <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="handleCheckboxChange()">
@@ -197,6 +308,7 @@
                                             </div>
                                         </div>
                                     </td>
+                                    <td class="text-muted">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</td>
                                     <td>{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</td>
                                     <td class="font-semibold">
                                         {{ '%.2f'|format(order.total_amount_pln) }} PLN
@@ -239,6 +351,32 @@
                     </div>
                 {% endif %}
             </div>
+            {% endif %} {# End of else block for PROXY/POLSKA tabs #}
+        </div>
+    </div>
+
+    <!-- Bulk Actions Toolbar for "Do zamówienia" tab (floating, shows when checkboxes checked) -->
+    <!-- Placed outside tab-pane to avoid backdrop-filter stacking context issues -->
+    <div id="toOrderBulkToolbar" class="bulk-toolbar hidden">
+        <div class="bulk-toolbar-content">
+            <span class="selected-count"><span id="toOrderSelectedCount">0</span> zaznaczonych</span>
+            <div class="bulk-actions">
+                <button type="button" class="btn-bulk" onclick="openOrderProductsModal()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <path d="M16 10a4 4 0 01-8 0"></path>
+                    </svg>
+                    Zamów produkty
+                </button>
+                <button type="button" class="btn-bulk" onclick="clearToOrderSelection()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    Anuluj
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -250,6 +388,21 @@
             <span class="selected-count">Zaznaczono: <strong id="selectedCount">0</strong></span>
         </div>
         <div class="bulk-actions-buttons">
+            {% if active_tab == 'proxy' %}
+            <button type="button" class="bulk-action-btn bulk-action-move" onclick="bulkMoveToPolska()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+                Przenieś do POLSKA
+            </button>
+            {% elif active_tab == 'polska' %}
+            <button type="button" class="bulk-action-btn bulk-action-move" onclick="bulkMoveToProxy()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Przenieś do PROXY
+            </button>
+            {% endif %}
             <button type="button" class="bulk-action-btn bulk-action-status" onclick="openBulkStatusChange()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
@@ -421,6 +574,68 @@
             <button class="btn btn-secondary" onclick="closeNewOrderModal()">Anuluj</button>
             <button class="btn btn-primary" id="btnSubmitOrders" onclick="submitStockOrders()" disabled>
                 Złóż zamówienia (<span id="orderCount">0</span>)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Order Products from Aggregation -->
+<div id="orderProductsModal" class="modal-overlay">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title">Zamów wybrane produkty</h2>
+            <button class="modal-close" onclick="closeOrderProductsModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Order Type Selection -->
+            <div class="form-group">
+                <label for="orderType">Typ zamówienia</label>
+                <select id="orderType" class="form-select">
+                    <option value="proxy">PROXY</option>
+                    <option value="polska">POLSKA</option>
+                </select>
+            </div>
+
+            <!-- Products Table -->
+            <div class="order-products-table-wrapper">
+                <table class="data-table order-products-table" id="orderProductsTable">
+                    <thead>
+                        <tr>
+                            <th>Produkt</th>
+                            <th>Dostawca</th>
+                            <th class="text-center" style="width: 100px;">Ilość</th>
+                            <th class="text-right">Cena jednostkowa</th>
+                            <th class="text-right">Suma</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderProductsTableBody">
+                        <!-- Dynamically populated via JS -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="4" class="text-right font-semibold">Suma całkowita:</td>
+                            <td class="text-right font-semibold" id="orderProductsTotal">0.00 PLN</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeOrderProductsModal()">Anuluj</button>
+            <button class="btn btn-primary" id="btnConfirmOrderProducts" onclick="confirmOrderProducts()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 01-8 0"></path>
+                </svg>
+                Utwórz zamówienie
             </button>
         </div>
     </div>
@@ -688,6 +903,15 @@
     background: #fee2e2;
 }
 
+.bulk-action-move {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.bulk-action-move:hover {
+    background: #dbeafe;
+}
+
 /* Bulk Status Dropdown */
 .bulk-status-dropdown {
     position: fixed;
@@ -727,42 +951,17 @@
 
 /* Table Styling */
 .table-responsive {
-    overflow-x: auto;
-    overflow-y: visible;
-    max-height: calc(100vh - 250px);
-    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-}
-
-.table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-
-.table-responsive::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-.table-responsive::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    overflow: visible;
 }
 
 .data-table {
     width: 100%;
-    min-width: 900px; /* Force horizontal scroll on smaller screens */
     border-collapse: collapse;
 }
 
 .data-table thead {
     background-color: #f9fafb;
     border-bottom: 2px solid #e5e7eb;
-    position: sticky;
-    top: 0;
-    z-index: 10;
 }
 
 .data-table th {
@@ -1434,6 +1633,17 @@ div.table-product-image {
     display: inline-block;
 }
 
+/* Fixed width for status column to prevent jumping */
+.data-table td:has(.status-dropdown-wrapper) {
+    min-width: 250px;
+    width: 250px;
+}
+
+.data-table th[data-column="status"] {
+    min-width: 250px;
+    width: 250px;
+}
+
 /* Status badge button - clean reset */
 .status-badge-button,
 .status-badge-button:hover,
@@ -1495,7 +1705,6 @@ div.table-product-image {
 
 .status-dropdown {
     position: fixed;
-    margin-top: 4px;
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 6px;
@@ -1631,28 +1840,6 @@ div.table-product-image {
 }
 
 /* Data Table */
-[data-theme="dark"] .table-responsive {
-    background: transparent;
-}
-
-[data-theme="dark"] .table-responsive::-webkit-scrollbar {
-    height: 8px;
-}
-
-[data-theme="dark"] .table-responsive::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 4px;
-}
-
-[data-theme="dark"] .table-responsive::-webkit-scrollbar-thumb {
-    background: rgba(240, 147, 251, 0.3);
-    border-radius: 4px;
-}
-
-[data-theme="dark"] .table-responsive::-webkit-scrollbar-thumb:hover {
-    background: rgba(240, 147, 251, 0.5);
-}
-
 [data-theme="dark"] .data-table {
     background: transparent;
 }
@@ -1828,6 +2015,15 @@ div.table-product-image {
 
 [data-theme="dark"] .bulk-action-delete:hover {
     background: rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .bulk-action-move {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+}
+
+[data-theme="dark"] .bulk-action-move:hover {
+    background: rgba(96, 165, 250, 0.25);
 }
 
 /* Bulk Status Dropdown - Dark Mode */
@@ -2144,6 +2340,330 @@ div.table-product-image {
 .btn-remove,
 .text-muted {
     transition: all 0.5s ease;
+}
+
+/* ============================================
+   DO ZAMÓWIENIA Tab Styles
+   ============================================ */
+
+/* Tab Badge - Circle with number */
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 50%;
+    margin-left: 10px;
+}
+
+/* Tab Badge Color Variants */
+.tab-badge-red {
+    background: #ef4444;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+}
+
+.tab-badge-purple {
+    background: #8b5cf6;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.tab-badge-blue {
+    background: #3b82f6;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+/* Tab Subtitle */
+.tab-subtitle {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 4px 0 0;
+}
+
+/* Text Orange */
+.text-orange {
+    color: #FF8500 !important;
+}
+
+/* To Order Table - Compact Rows */
+.to-order-row td {
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+
+.to-order-row .product-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.to-order-row .product-thumbnail {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.to-order-row .product-thumbnail-placeholder {
+    width: 40px;
+    height: 40px;
+    max-width: 40px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.to-order-row .product-thumbnail-placeholder svg {
+    width: 16px;
+    height: 16px;
+}
+
+.to-order-row .product-info {
+    min-width: 0;
+}
+
+.to-order-row .product-name {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+/* Supplier Badge */
+.supplier-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    background: #f0f9ff;
+    color: #0369a1;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* Bulk Toolbar (floating pill at bottom) */
+.bulk-toolbar {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: linear-gradient(135deg, #240046 0%, #5A189A 100%);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    box-shadow: 0 8px 24px rgba(36, 0, 70, 0.4);
+    z-index: 1000;
+    opacity: 1;
+    filter: blur(0);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.3s ease-out,
+                filter 0.3s ease-out;
+}
+
+/* Override global .hidden { display: none } to allow animations */
+.bulk-toolbar.hidden {
+    display: block !important;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(100px);
+    filter: blur(8px);
+}
+
+.bulk-toolbar-content {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.bulk-toolbar .selected-count {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.bulk-toolbar .bulk-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-bulk {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-bulk:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Order Products Modal */
+.order-products-table-wrapper {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 16px;
+}
+
+.order-products-table {
+    width: 100%;
+}
+
+.order-products-table .quantity-input {
+    width: 80px;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.order-products-table .quantity-input:focus {
+    outline: none;
+    border-color: #FF8500;
+    box-shadow: 0 0 0 2px rgba(255, 133, 0, 0.1);
+}
+
+.order-products-table .supplier-select {
+    width: 150px;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.order-products-table .total-row td {
+    padding-top: 16px;
+    border-top: 2px solid #e5e7eb;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #6b7280;
+}
+
+.empty-state svg {
+    color: #d1d5db;
+    margin-bottom: 16px;
+}
+
+.empty-state h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #374151;
+    margin: 0 0 8px;
+}
+
+.empty-state p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* ============================================
+   Dark Mode Styles for DO ZAMÓWIENIA
+   ============================================ */
+
+/* Tab Badge Dark Mode Variants */
+[data-theme="dark"] .tab-badge-red {
+    background: #ef4444;
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.5), 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+[data-theme="dark"] .tab-badge-purple {
+    background: #8b5cf6;
+    box-shadow: 0 2px 12px rgba(139, 92, 246, 0.5), 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="dark"] .tab-badge-blue {
+    background: #3b82f6;
+    box-shadow: 0 2px 12px rgba(59, 130, 246, 0.5), 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .tab-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .supplier-badge {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
+}
+
+/* Dark mode - To Order Table Compact Rows */
+[data-theme="dark"] .to-order-row .product-thumbnail {
+    border: 1px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .to-order-row .product-thumbnail-placeholder {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .to-order-row .product-name {
+    color: #f0f0f0;
+}
+
+/* Dark mode - Bulk Toolbar */
+[data-theme="dark"] .bulk-toolbar {
+    background: linear-gradient(135deg, rgba(15, 12, 41, 0.98) 0%, rgba(48, 43, 99, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .btn-bulk {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-bulk:hover {
+    background: rgba(240, 147, 251, 0.2);
+    border-color: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .order-products-table .quantity-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: white;
+}
+
+[data-theme="dark"] .order-products-table .quantity-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .order-products-table .supplier-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: white;
+}
+
+[data-theme="dark"] .order-products-table .total-row td {
+    border-top-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .empty-state {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .empty-state svg {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .empty-state h3 {
+    color: rgba(255, 255, 255, 0.9);
 }
 </style>
 
@@ -2507,6 +3027,210 @@ function bulkDeleteOrders() {
     });
 }
 
+/**
+ * Bulk move orders to POLSKA tab
+ */
+function bulkMoveToPolska() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki POLSKA?`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+    const movedCount = orderIds.length;
+    const successfulMoves = [];
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/move`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ order_type: 'polska' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                successfulMoves.push(orderId);
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(50px)';
+                }
+            } else {
+                errors++;
+            }
+
+            // When all requests complete
+            if (completed === orderIds.length) {
+                // Hide bulk actions modal
+                const modal = document.getElementById('bulkActionsModal');
+                if (modal) modal.classList.remove('visible');
+
+                // Update tab badges
+                updateTabBadges('proxy', 'polska', movedCount - errors);
+
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${movedCount} zamówień do zakładki POLSKA`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+
+                // Wait for animation to complete, then remove rows and check if empty
+                setTimeout(() => {
+                    successfulMoves.forEach(id => {
+                        const row = document.getElementById(`order-row-${id}`);
+                        if (row) row.remove();
+                    });
+
+                    // Check if table is empty after removing rows
+                    const tbody = document.querySelector('.data-table tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        showEmptyState();
+                    }
+                }, 350);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk move error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+/**
+ * Bulk move orders to PROXY tab
+ */
+function bulkMoveToProxy() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki PROXY?`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+    const movedCount = orderIds.length;
+    const successfulMoves = [];
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/move`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ order_type: 'proxy' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                successfulMoves.push(orderId);
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(-50px)';
+                }
+            } else {
+                errors++;
+            }
+
+            // When all requests complete
+            if (completed === orderIds.length) {
+                // Hide bulk actions modal
+                const modal = document.getElementById('bulkActionsModal');
+                if (modal) modal.classList.remove('visible');
+
+                // Update tab badges
+                updateTabBadges('polska', 'proxy', movedCount - errors);
+
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${movedCount} zamówień do zakładki PROXY`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+
+                // Wait for animation to complete, then remove rows and check if empty
+                setTimeout(() => {
+                    successfulMoves.forEach(id => {
+                        const row = document.getElementById(`order-row-${id}`);
+                        if (row) row.remove();
+                    });
+
+                    // Check if table is empty after removing rows
+                    const tbody = document.querySelector('.data-table tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        showEmptyState();
+                    }
+                }, 350);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk move error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+/**
+ * Update tab badges after moving orders
+ */
+function updateTabBadges(fromTab, toTab, count) {
+    const proxyBadge = document.getElementById('proxyCountBadge');
+    const polskaBadge = document.getElementById('polskaCountBadge');
+
+    if (fromTab === 'proxy' && proxyBadge) {
+        let currentCount = parseInt(proxyBadge.textContent) || 0;
+        let newCount = Math.max(0, currentCount - count);
+        proxyBadge.textContent = newCount;
+        proxyBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+
+    if (fromTab === 'polska' && polskaBadge) {
+        let currentCount = parseInt(polskaBadge.textContent) || 0;
+        let newCount = Math.max(0, currentCount - count);
+        polskaBadge.textContent = newCount;
+        polskaBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+
+    if (toTab === 'proxy' && proxyBadge) {
+        let currentCount = parseInt(proxyBadge.textContent) || 0;
+        let newCount = currentCount + count;
+        proxyBadge.textContent = newCount;
+        proxyBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+
+    if (toTab === 'polska' && polskaBadge) {
+        let currentCount = parseInt(polskaBadge.textContent) || 0;
+        let newCount = currentCount + count;
+        polskaBadge.textContent = newCount;
+        polskaBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+}
+
 // Close bulk status dropdown when clicking outside
 document.addEventListener('click', function(event) {
     if (!event.target.closest('.bulk-action-status') && !event.target.closest('.bulk-status-dropdown')) {
@@ -2520,10 +3244,12 @@ document.addEventListener('click', function(event) {
 
 /**
  * Toggle status dropdown
+ * Note: In dark mode, .tab-pane has backdrop-filter which creates a new containing block.
+ * We move dropdown to body to ensure position:fixed works relative to viewport.
  */
 function toggleStatusDropdown(orderId) {
     const dropdown = document.getElementById(`status-dropdown-${orderId}`);
-    const button = dropdown.previousElementSibling;
+    const button = document.querySelector(`[onclick="toggleStatusDropdown(${orderId})"]`);
     const allDropdowns = document.querySelectorAll('.status-dropdown');
 
     // Close all other dropdowns
@@ -2535,10 +3261,36 @@ function toggleStatusDropdown(orderId) {
 
     // Toggle current dropdown
     if (dropdown.style.display === 'none' || !dropdown.style.display) {
-        // Position dropdown below button
+        // Move dropdown to body to escape backdrop-filter containing block
+        if (dropdown.parentElement !== document.body) {
+            document.body.appendChild(dropdown);
+        }
+
+        // Position dropdown relative to button
         const rect = button.getBoundingClientRect();
-        dropdown.style.top = `${rect.bottom + 4}px`;
-        dropdown.style.left = `${rect.left}px`;
+        const dropdownHeight = 280; // Approximate height of dropdown
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        // Check if dropdown fits below button, otherwise show above
+        let top;
+        if (rect.bottom + dropdownHeight > viewportHeight) {
+            // Not enough space below - show above
+            top = rect.top - dropdownHeight - 4;
+        } else {
+            // Show below
+            top = rect.bottom + 4;
+        }
+
+        // Check if dropdown fits horizontally, adjust if needed
+        let left = rect.left;
+        const dropdownWidth = 180; // min-width from CSS
+        if (left + dropdownWidth > viewportWidth) {
+            left = viewportWidth - dropdownWidth - 16;
+        }
+
+        dropdown.style.top = `${top}px`;
+        dropdown.style.left = `${left}px`;
         dropdown.style.display = 'block';
     } else {
         dropdown.style.display = 'none';
@@ -2605,18 +3357,63 @@ function changeOrderStatus(orderId, newStatus) {
                 return;
             }
 
-            // Update the badge text and class
-            const button = document.querySelector(`#status-dropdown-${orderId}`).previousElementSibling;
-            const statusText = newStatus.replace(/_/g, ' ');
-            const statusTextCapitalized = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+            // Close dropdown first
+            const dropdown = document.getElementById(`status-dropdown-${orderId}`);
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
 
-            // Reset to base class + new status
-            button.className = `status-badge-button badge-${newStatus}`;
-            // Update text (keep the chevron SVG)
-            button.childNodes[0].textContent = statusTextCapitalized + ' ';
+            // Update the badge and status changed cell
+            const row = document.getElementById(`order-row-${orderId}`);
+            if (row) {
+                // Find the status button in this row
+                const statusButton = row.querySelector('.status-badge-button');
+                if (statusButton) {
+                    // Format status text properly (each word capitalized)
+                    const statusText = newStatus.replace(/_/g, ' ');
+                    const statusTextCapitalized = statusText.split(' ').map(word =>
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
 
-            // Close dropdown
-            document.getElementById(`status-dropdown-${orderId}`).style.display = 'none';
+                    // Reset to base class + new status
+                    statusButton.className = `status-badge-button badge-${newStatus}`;
+
+                    // Update text while keeping the SVG chevron
+                    statusButton.innerHTML = `${statusTextCapitalized} <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L2 4h8L6 8z"/></svg>`;
+                }
+
+                // Update data-status attribute on row for filtering
+                row.dataset.status = newStatus;
+
+                // Update "Ostatnia zmiana" column with current date/time
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
+
+                // Find the "Ostatnia zmiana" cell - it's the 7th cell (index 6)
+                // Columns: checkbox(0), order_number(1), product(2), supplier(3), quantity(4), status(5), ostatnia_zmiana(6), date(7), amount(8), actions(9)
+                const cells = row.querySelectorAll('td');
+                const statusChangedCell = cells[6]; // 7th column (0-indexed)
+                if (statusChangedCell) {
+                    // Update text content and preserve the class for proper styling
+                    statusChangedCell.textContent = formattedDate;
+                    statusChangedCell.className = 'text-muted';
+
+                    // Flash animation to highlight the change
+                    statusChangedCell.style.transition = 'background-color 0.3s';
+                    statusChangedCell.style.backgroundColor = 'rgba(90, 24, 154, 0.15)';
+                    setTimeout(() => {
+                        statusChangedCell.style.backgroundColor = '';
+                    }, 1000);
+                }
+
+                // Update data attribute for sorting
+                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
+            }
 
             if (window.Toast) {
                 window.Toast.show('Status zamówienia został zmieniony', 'success');
@@ -2667,15 +3464,17 @@ function sortTable(column) {
     rows.sort((a, b) => {
         let aValue = a.dataset[column === 'order_number' ? 'orderNumber' :
                               column === 'date' ? 'date' :
+                              column === 'status_changed' ? 'statusChanged' :
                               column === 'amount' ? 'amount' :
                               column === 'quantity' ? 'quantity' : column];
         let bValue = b.dataset[column === 'order_number' ? 'orderNumber' :
                               column === 'date' ? 'date' :
+                              column === 'status_changed' ? 'statusChanged' :
                               column === 'amount' ? 'amount' :
                               column === 'quantity' ? 'quantity' : column];
 
         // Handle numeric columns
-        if (column === 'date' || column === 'amount' || column === 'quantity') {
+        if (column === 'date' || column === 'status_changed' || column === 'amount' || column === 'quantity') {
             aValue = parseFloat(aValue) || 0;
             bValue = parseFloat(bValue) || 0;
         } else {
@@ -2744,6 +3543,12 @@ function deleteOrder(orderId) {
  * Show empty state when table becomes empty
  */
 function showEmptyState() {
+    // Hide the filters section
+    const filtersSection = document.querySelector('.orders-filters');
+    if (filtersSection) {
+        filtersSection.style.display = 'none';
+    }
+
     const tableResponsive = document.querySelector('.table-responsive');
     if (tableResponsive) {
         tableResponsive.remove();
@@ -2780,6 +3585,258 @@ function showEmptyState() {
         emptyStateHTML += '</div>';
         ordersList.innerHTML = emptyStateHTML;
     }
+}
+
+// ============================================
+// DO ZAMÓWIENIA Tab Functions
+// ============================================
+
+/**
+ * Toggle select all products in DO ZAMÓWIENIA tab
+ */
+function toggleSelectAllToOrder(checkbox) {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    handleToOrderCheckboxChange();
+}
+
+/**
+ * Handle checkbox change in DO ZAMÓWIENIA tab
+ */
+function handleToOrderCheckboxChange() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
+    const bulkToolbar = document.getElementById('toOrderBulkToolbar');
+    const selectedCount = document.getElementById('toOrderSelectedCount');
+
+    if (checkboxes.length > 0) {
+        bulkToolbar.classList.remove('hidden');
+        selectedCount.textContent = checkboxes.length;
+    } else {
+        bulkToolbar.classList.add('hidden');
+    }
+
+    // Update select all checkbox state
+    const allCheckboxes = document.querySelectorAll('.to-order-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllToOrder');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0;
+        selectAllCheckbox.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+    }
+}
+
+/**
+ * Clear selection in DO ZAMÓWIENIA tab
+ */
+function clearToOrderSelection() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    const selectAllCheckbox = document.getElementById('selectAllToOrder');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+    document.getElementById('toOrderBulkToolbar').classList.add('hidden');
+}
+
+/**
+ * Suppliers data for the modal dropdown
+ */
+const suppliersData = [
+    {% for supplier in suppliers %}
+    { id: {{ supplier.id }}, name: "{{ supplier.name }}" }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+/**
+ * Open Order Products Modal
+ */
+function openOrderProductsModal() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
+    if (checkboxes.length === 0) return;
+
+    const tbody = document.getElementById('orderProductsTableBody');
+    tbody.innerHTML = '';
+
+    let total = 0;
+
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const productId = row.dataset.productId;
+        const productName = row.dataset.productName;
+        const supplierId = row.dataset.supplierId;
+        const supplierName = row.dataset.supplierName;
+        const toOrder = parseInt(row.dataset.toOrder);
+        const purchasePrice = parseFloat(row.dataset.purchasePrice) || 0;
+
+        const rowTotal = toOrder * purchasePrice;
+        total += rowTotal;
+
+        // Create supplier options
+        let supplierOptions = '<option value="">Wybierz dostawcę</option>';
+        suppliersData.forEach(s => {
+            const selected = s.id == supplierId ? 'selected' : '';
+            supplierOptions += `<option value="${s.id}" ${selected}>${s.name}</option>`;
+        });
+
+        const tr = document.createElement('tr');
+        tr.dataset.productId = productId;
+        tr.innerHTML = `
+            <td>${productName}</td>
+            <td>
+                <select class="supplier-select" onchange="updateOrderProductRow(this)">
+                    ${supplierOptions}
+                </select>
+            </td>
+            <td class="text-center">
+                <input type="number" class="quantity-input" value="${toOrder}" min="1"
+                       onchange="updateOrderProductRow(this)">
+            </td>
+            <td class="text-right">${purchasePrice.toFixed(2)} PLN</td>
+            <td class="text-right row-total">${rowTotal.toFixed(2)} PLN</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('orderProductsTotal').textContent = total.toFixed(2) + ' PLN';
+
+    // Show modal
+    document.getElementById('orderProductsModal').classList.add('active');
+}
+
+/**
+ * Update row total when quantity or supplier changes
+ */
+function updateOrderProductRow(element) {
+    const row = element.closest('tr');
+    const quantityInput = row.querySelector('.quantity-input');
+    const quantity = parseInt(quantityInput.value) || 0;
+
+    // Get price from the price cell (4th column)
+    const priceText = row.cells[3].textContent;
+    const price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
+
+    const rowTotal = quantity * price;
+    row.querySelector('.row-total').textContent = rowTotal.toFixed(2) + ' PLN';
+
+    // Update total
+    updateOrderProductsTotal();
+}
+
+/**
+ * Update total amount in modal
+ */
+function updateOrderProductsTotal() {
+    const rows = document.querySelectorAll('#orderProductsTableBody tr');
+    let total = 0;
+    rows.forEach(row => {
+        const rowTotalText = row.querySelector('.row-total').textContent;
+        total += parseFloat(rowTotalText.replace(/[^\d.]/g, '')) || 0;
+    });
+    document.getElementById('orderProductsTotal').textContent = total.toFixed(2) + ' PLN';
+}
+
+/**
+ * Close Order Products Modal
+ */
+function closeOrderProductsModal() {
+    document.getElementById('orderProductsModal').classList.remove('active');
+}
+
+/**
+ * Confirm and create stock orders from aggregation
+ */
+function confirmOrderProducts() {
+    const orderType = document.getElementById('orderType').value;
+    const rows = document.querySelectorAll('#orderProductsTableBody tr');
+
+    if (rows.length === 0) return;
+
+    const products = [];
+    rows.forEach(row => {
+        const productId = row.dataset.productId;
+        const supplierSelect = row.querySelector('.supplier-select');
+        const supplierId = supplierSelect.value;
+        const quantity = parseInt(row.querySelector('.quantity-input').value) || 0;
+        const priceText = row.cells[3].textContent;
+        const unitPrice = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
+
+        if (quantity > 0) {
+            products.push({
+                product_id: parseInt(productId),
+                supplier_id: supplierId ? parseInt(supplierId) : null,
+                quantity: quantity,
+                unit_price: unitPrice
+            });
+        }
+    });
+
+    if (products.length === 0) {
+        if (window.Toast) {
+            window.Toast.show('Proszę dodać przynajmniej jeden produkt z ilością > 0', 'warning');
+        }
+        return;
+    }
+
+    // Disable button while processing
+    const btn = document.getElementById('btnConfirmOrderProducts');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-small"></span> Tworzenie...';
+
+    fetch('/admin/products/api/create-stock-orders-from-aggregation', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            order_type: orderType,
+            products: products
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeOrderProductsModal();
+            if (window.Toast) {
+                window.Toast.show(`Utworzono ${data.orders_created} zamówień`, 'success');
+            }
+            // Redirect to the appropriate tab
+            setTimeout(() => {
+                window.location.href = `/admin/products/stock-orders?tab=${orderType}`;
+            }, 1000);
+        } else {
+            if (window.Toast) {
+                window.Toast.show('Błąd: ' + (data.error || 'Nieznany błąd'), 'error');
+            }
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 01-8 0"></path>
+                </svg>
+                Utwórz zamówienie
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (window.Toast) {
+            window.Toast.show('Wystąpił błąd podczas tworzenia zamówień', 'error');
+        }
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 01-8 0"></path>
+            </svg>
+            Utwórz zamówienie
+        `;
+    });
 }
 </script>
 {% endblock %}

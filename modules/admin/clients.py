@@ -107,6 +107,9 @@ def client_detail(id):
     Szczegóły klienta
     GET /admin/clients/<id>
     """
+    from modules.orders.models import Order
+    from decimal import Decimal
+
     client = User.query.get_or_404(id)
 
     # Pobierz admina który dezaktywował (jeśli dotyczy)
@@ -114,11 +117,41 @@ def client_detail(id):
     if client.deactivated_by:
         deactivated_by_user = User.query.get(client.deactivated_by)
 
+    # Pobierz statystyki zamówień klienta
+    client_orders = Order.query.filter_by(user_id=client.id).all()
+
+    # Oblicz statystyki
+    orders_count = len(client_orders)
+    total_value = sum(
+        Decimal(str(order.total_amount)) if order.total_amount else Decimal('0.00')
+        for order in client_orders
+    )
+    avg_value = total_value / orders_count if orders_count > 0 else Decimal('0.00')
+
+    # Ostatnie zamówienie
+    last_order = Order.query.filter_by(user_id=client.id).order_by(Order.created_at.desc()).first()
+
+    # Ostatnie 10 zamówień do wyświetlenia
+    recent_orders = Order.query.filter_by(user_id=client.id).order_by(Order.created_at.desc()).limit(10).all()
+
+    # Parametry paginacji dla historii zamówień
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    orders_pagination = Order.query.filter_by(user_id=client.id).order_by(
+        Order.created_at.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+
     return render_template(
         'admin/clients/detail.html',
         title=f'Klient: {client.full_name}',
         client=client,
-        deactivated_by_user=deactivated_by_user
+        deactivated_by_user=deactivated_by_user,
+        orders_count=orders_count,
+        total_value=total_value,
+        avg_value=avg_value,
+        last_order=last_order,
+        recent_orders=recent_orders,
+        orders_pagination=orders_pagination
     )
 
 

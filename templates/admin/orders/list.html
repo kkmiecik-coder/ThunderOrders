@@ -2,6 +2,24 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/orders-list.css') }}">
+<style>
+/* Bulk Toolbar Animation Override - ensures animation works */
+#bulkToolbar.bulk-toolbar {
+    display: block !important;
+    opacity: 1;
+    filter: blur(0);
+    transform: translateX(-50%) translateY(0);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.3s ease-out,
+                filter 0.3s ease-out;
+}
+#bulkToolbar.bulk-toolbar.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(100px);
+    filter: blur(8px);
+}
+</style>
 {% endblock %}
 
 {% block content %}
@@ -248,19 +266,31 @@
         <div class="bulk-toolbar-content">
             <span class="selected-count" id="selectedCount">0 zaznaczonych</span>
             <div class="bulk-actions">
-                <button class="btn-bulk" data-action="status" title="Zmień status">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                        <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
-                    </svg>
-                    Zmień status
-                </button>
-                <button class="btn-bulk" data-action="export" title="Export CSV">
+                <div class="bulk-status-wrapper">
+                    <button class="btn-bulk" data-action="status" title="Zmień status">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                            <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                        </svg>
+                        Zmień status
+                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" class="dropdown-arrow">
+                            <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+                        </svg>
+                    </button>
+                    <div class="bulk-status-dropdown" id="bulkStatusDropdown">
+                        {% for status in statuses_with_counts %}
+                        <div class="bulk-status-option" data-status="{{ status.slug }}">
+                            <span class="badge" style="background-color: {{ status.badge_color }}; color: #fff;">{{ status.name }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <button class="btn-bulk" data-action="export" title="Export Excel">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                         <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                     </svg>
-                    Export CSV
+                    Export Excel
                 </button>
                 <button class="btn-bulk" data-action="wms" title="Zabierz do WMS">
                     <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -699,6 +729,42 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Confirmation Modal -->
+<div class="modal-overlay" id="bulkDeleteModal">
+    <div class="modal-content modal-medium">
+        <div class="modal-header">
+            <h2>Usuń zamówienia</h2>
+            <button class="modal-close" onclick="closeBulkDeleteModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="bulk-delete-warning">
+                <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16" class="warning-icon">
+                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                </svg>
+                <p>Czy na pewno chcesz usunąć <strong id="bulkDeleteCount">0</strong> zamówień?</p>
+                <p class="warning-text">Ta operacja jest nieodwracalna!</p>
+            </div>
+            <div class="bulk-delete-orders-list" id="bulkDeleteOrdersList">
+                <!-- Lista zamówień do usunięcia -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="closeBulkDeleteModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" id="bulkDeleteConfirmBtn" onclick="confirmBulkDelete()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Usuń zamówienia
+            </button>
         </div>
     </div>
 </div>

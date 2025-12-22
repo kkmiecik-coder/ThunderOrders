@@ -1183,6 +1183,8 @@ def warehouse_settings():
     from modules.products.forms import WarehouseSettingsForm
     from modules.auth.models import Settings
     from modules.products.models import Category, Tag, Supplier
+    from modules.orders.models import OrderType, OrderStatus
+    import json
 
     form = WarehouseSettingsForm()
 
@@ -1213,6 +1215,23 @@ def warehouse_settings():
         # Update or create each setting
         for key, (value, setting_type) in settings_map.items():
             Settings.set_value(key, value, updated_by=current_user.id, type=setting_type)
+
+        # Handle stock order aggregation settings (checkboxes)
+        aggregation_types = request.form.getlist('aggregation_order_types')
+        aggregation_statuses = request.form.getlist('aggregation_order_statuses')
+
+        Settings.set_value(
+            'stock_order_aggregation_types',
+            json.dumps(aggregation_types),
+            updated_by=current_user.id,
+            type='json'
+        )
+        Settings.set_value(
+            'stock_order_aggregation_statuses',
+            json.dumps(aggregation_statuses),
+            updated_by=current_user.id,
+            type='json'
+        )
 
         db.session.commit()
         flash('Ustawienia magazynu zostały zapisane', 'success')
@@ -1253,6 +1272,25 @@ def warehouse_settings():
     # Get last currency update
     currency_last_update = Settings.get_value('warehouse_currency_last_update', None)
 
+    # Load order types and statuses for stock order aggregation settings
+    order_types = OrderType.query.filter_by(is_active=True).all()
+    order_statuses = OrderStatus.query.filter_by(is_active=True).order_by(OrderStatus.sort_order).all()
+
+    # Load current aggregation settings
+    current_aggregation_types_raw = Settings.get_value('stock_order_aggregation_types', '["pre_order", "exclusive"]')
+    current_aggregation_statuses_raw = Settings.get_value('stock_order_aggregation_statuses', '["nowe"]')
+
+    # Parse JSON (handle both string and already-parsed values)
+    if isinstance(current_aggregation_types_raw, str):
+        current_aggregation_types = json.loads(current_aggregation_types_raw)
+    else:
+        current_aggregation_types = current_aggregation_types_raw or []
+
+    if isinstance(current_aggregation_statuses_raw, str):
+        current_aggregation_statuses = json.loads(current_aggregation_statuses_raw)
+    else:
+        current_aggregation_statuses = current_aggregation_statuses_raw or []
+
     return render_template('admin/warehouse/settings.html',
                            form=form,
                            categories=categories,
@@ -1260,7 +1298,11 @@ def warehouse_settings():
                            series=series,
                            manufacturers=manufacturers,
                            suppliers=suppliers,
-                           currency_last_update=currency_last_update)
+                           currency_last_update=currency_last_update,
+                           order_types=order_types,
+                           order_statuses=order_statuses,
+                           current_aggregation_types=current_aggregation_types,
+                           current_aggregation_statuses=current_aggregation_statuses)
 
 
 # ==========================================
@@ -1964,25 +2006,118 @@ def get_tag(id):
 # Stock Orders (Zamówienia produktów)
 # ==========================================
 
+def get_products_to_order():
+    """
+    Calculate products that need to be ordered based on customer orders.
+    Returns list of products with aggregated quantities minus already ordered in StockOrders.
+    """
+    from modules.products.models import StockOrder, StockOrderItem
+    from modules.orders.models import Order, OrderItem
+    from modules.auth.models import Settings
+    from sqlalchemy import func
+    import json
+
+    # Load aggregation settings
+    aggregation_types_raw = Settings.get_value('stock_order_aggregation_types', '["pre_order", "exclusive"]')
+    aggregation_statuses_raw = Settings.get_value('stock_order_aggregation_statuses', '["nowe"]')
+
+    # Parse JSON
+    if isinstance(aggregation_types_raw, str):
+        aggregation_types = json.loads(aggregation_types_raw)
+    else:
+        aggregation_types = aggregation_types_raw or []
+
+    if isinstance(aggregation_statuses_raw, str):
+        aggregation_statuses = json.loads(aggregation_statuses_raw)
+    else:
+        aggregation_statuses = aggregation_statuses_raw or []
+
+    if not aggregation_types or not aggregation_statuses:
+        return []
+
+    # Step 1: Aggregate products from customer orders
+    # Query: SUM(quantity) GROUP BY product_id for orders matching criteria
+    customer_orders_subq = db.session.query(
+        OrderItem.product_id,
+        func.sum(OrderItem.quantity).label('total_ordered')
+    ).join(
+        Order, OrderItem.order_id == Order.id
+    ).filter(
+        Order.order_type.in_(aggregation_types),
+        Order.status.in_(aggregation_statuses)
+    ).group_by(OrderItem.product_id).subquery()
+
+    # Step 2: Aggregate products already in stock orders (not cancelled)
+    stock_orders_subq = db.session.query(
+        StockOrderItem.product_id,
+        func.sum(StockOrderItem.quantity).label('already_ordered')
+    ).join(
+        StockOrder, StockOrderItem.stock_order_id == StockOrder.id
+    ).filter(
+        StockOrder.status != 'anulowane'
+    ).group_by(StockOrderItem.product_id).subquery()
+
+    # Step 3: Calculate difference - products that still need to be ordered
+    from sqlalchemy import case, literal_column
+    from sqlalchemy.sql import func as sql_func
+
+    results = db.session.query(
+        Product,
+        customer_orders_subq.c.total_ordered,
+        sql_func.coalesce(stock_orders_subq.c.already_ordered, 0).label('already_ordered')
+    ).join(
+        customer_orders_subq, Product.id == customer_orders_subq.c.product_id
+    ).outerjoin(
+        stock_orders_subq, Product.id == stock_orders_subq.c.product_id
+    ).all()
+
+    # Build result list with products that still need to be ordered
+    products_to_order = []
+    for product, total_ordered, already_ordered in results:
+        to_order = total_ordered - already_ordered
+        if to_order > 0:
+            products_to_order.append({
+                'product': product,
+                'total_ordered': total_ordered,
+                'already_ordered': already_ordered,
+                'to_order': to_order
+            })
+
+    return products_to_order
+
+
 @products_bp.route('/stock-orders', methods=['GET'])
 @login_required
 @role_required('admin', 'mod')
 def stock_orders():
-    """Stock orders page with tabs for PROXY and Polska"""
+    """Stock orders page with tabs for DO ZAMÓWIENIA, PROXY and Polska"""
     from modules.products.models import StockOrder, ProductSeries, Manufacturer
 
-    # Get active tab from query parameter (default: proxy)
-    active_tab = request.args.get('tab', 'proxy')
+    # Get active tab from query parameter (default: do_zamowienia)
+    active_tab = request.args.get('tab', 'do_zamowienia')
 
     # Ensure valid tab
-    if active_tab not in ['proxy', 'polska']:
-        active_tab = 'proxy'
+    if active_tab not in ['do_zamowienia', 'proxy', 'polska']:
+        active_tab = 'do_zamowienia'
 
-    # Get stock orders based on active tab
-    if active_tab == 'proxy':
-        stock_orders = StockOrder.query.filter_by(order_type='proxy').order_by(StockOrder.created_at.desc()).all()
+    # Initialize variables
+    stock_orders_list = []
+    products_to_order = []
+
+    # Always get counts for all tabs (for badges)
+    all_products_to_order = get_products_to_order()
+    to_order_count = len(all_products_to_order)
+    proxy_count = StockOrder.query.filter_by(order_type='proxy').count()
+    polska_count = StockOrder.query.filter_by(order_type='polska').count()
+
+    # Get data based on active tab
+    if active_tab == 'do_zamowienia':
+        # Use already fetched data
+        products_to_order = all_products_to_order
+    elif active_tab == 'proxy':
+        stock_orders_list = StockOrder.query.filter_by(order_type='proxy').order_by(StockOrder.created_at.desc()).all()
     else:  # polska
-        stock_orders = StockOrder.query.filter_by(order_type='polska').order_by(StockOrder.created_at.desc()).all()
+        stock_orders_list = StockOrder.query.filter_by(order_type='polska').order_by(StockOrder.created_at.desc()).all()
 
     # Get filter data for modal
     categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
@@ -1994,7 +2129,11 @@ def stock_orders():
     return render_template(
         'admin/warehouse/stock_orders.html',
         active_tab=active_tab,
-        stock_orders=stock_orders,
+        stock_orders=stock_orders_list,
+        products_to_order=products_to_order,
+        to_order_count=to_order_count,
+        proxy_count=proxy_count,
+        polska_count=polska_count,
         categories=categories,
         manufacturers=manufacturers,
         suppliers=suppliers,
@@ -2148,6 +2287,83 @@ def create_stock_orders():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@products_bp.route('/api/create-stock-orders-from-aggregation', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def create_stock_orders_from_aggregation():
+    """Create stock orders from aggregated customer orders (DO ZAMÓWIENIA tab)"""
+    try:
+        data = request.get_json()
+        order_type = data.get('order_type', 'proxy')
+        products = data.get('products', [])
+
+        if not products:
+            return jsonify({'success': False, 'error': 'Brak produktów w zamówieniu'}), 400
+
+        orders_created = 0
+
+        for product_data in products:
+            product_id = product_data.get('product_id')
+            supplier_id = product_data.get('supplier_id')
+            quantity = product_data.get('quantity', 1)
+            unit_price = product_data.get('unit_price', 0)
+
+            # Get product from database
+            product = Product.query.get(product_id)
+            if not product:
+                continue
+
+            # Use provided supplier_id or fallback to product's supplier
+            final_supplier_id = supplier_id if supplier_id else product.supplier_id
+
+            # Generate unique order number
+            order_number = generate_stock_order_number(order_type)
+
+            # Calculate total
+            total_price = unit_price * quantity
+
+            # Create stock order
+            stock_order = StockOrder(
+                order_number=order_number,
+                order_type=order_type,
+                supplier_id=final_supplier_id,
+                status='nowe',
+                total_amount=total_price,
+                currency='PLN',
+                total_amount_pln=total_price,
+                notes=f'Zamówienie z agregacji zamówień klientów - {product.name}'
+            )
+
+            db.session.add(stock_order)
+            db.session.flush()  # Get stock_order.id
+
+            # Create stock order item
+            stock_order_item = StockOrderItem(
+                stock_order_id=stock_order.id,
+                product_id=product_id,
+                quantity=quantity,
+                unit_price=unit_price,
+                total_price=total_price
+            )
+
+            db.session.add(stock_order_item)
+            orders_created += 1
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'orders_created': orders_created,
+            'message': f'Utworzono {orders_created} zamówień'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating stock orders from aggregation: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @products_bp.route('/stock-orders/<int:id>/status', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
@@ -2230,6 +2446,45 @@ def delete_stock_order(id):
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting stock order: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/stock-orders/<int:id>/move', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def move_stock_order(id):
+    """Move stock order between PROXY and POLSKA tabs (change order_type)"""
+    try:
+        data = request.get_json()
+        new_order_type = data.get('order_type')
+
+        # Validate order_type
+        if new_order_type not in ['proxy', 'polska']:
+            return jsonify({'success': False, 'error': 'Nieprawidłowy typ zamówienia'}), 400
+
+        stock_order = StockOrder.query.get_or_404(id)
+        old_order_type = stock_order.order_type
+
+        # Only update if different
+        if old_order_type != new_order_type:
+            stock_order.order_type = new_order_type
+            db.session.commit()
+
+            current_app.logger.info(
+                f"Stock order {stock_order.order_number} moved from {old_order_type} to {new_order_type}"
+            )
+
+        return jsonify({
+            'success': True,
+            'order_id': id,
+            'new_order_type': new_order_type,
+            'message': f'Zamówienie przeniesione do {new_order_type.upper()}'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error moving stock order: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

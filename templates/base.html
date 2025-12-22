@@ -21,6 +21,33 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Login Preloader (overlay) -->
+    <div id="login-preloader" class="login-preloader">
+        <div class="login-preloader-bg">
+            <div class="login-preloader-orb orb-1"></div>
+            <div class="login-preloader-orb orb-2"></div>
+            <div class="login-preloader-orb orb-3"></div>
+            <div class="login-preloader-orb orb-4"></div>
+            <div class="login-preloader-orb orb-5"></div>
+        </div>
+        <div class="login-preloader-content">
+            <img src="{{ url_for('static', filename='img/icons/logo_chmurka.svg') }}"
+                 alt="ThunderOrders"
+                 class="login-preloader-logo">
+            <p class="login-preloader-text">Przygotowuję Twój panel...</p>
+        </div>
+    </div>
+    <!-- Inline script to show preloader IMMEDIATELY before any content renders -->
+    <script>
+        (function() {
+            if (sessionStorage.getItem('showLoginPreloader') === 'true') {
+                var el = document.getElementById('login-preloader');
+                // Show instantly (no transition) on dashboard load
+                el.classList.add('instant', 'visible');
+            }
+        })();
+    </script>
+
     <!-- Toast Container -->
     <div id="toast-container" class="toast-container"></div>
 

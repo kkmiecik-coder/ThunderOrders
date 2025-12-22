@@ -146,6 +146,73 @@ def admin_list():
     )
 
 
+@orders_bp.route('/api/orders/create-for-client', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def api_create_order_for_client():
+    """
+    API endpoint to create a new empty order for a client.
+    Used by the modal in orders list - creates order and returns order ID for redirect.
+    """
+    from modules.auth.models import User
+
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+
+        if not client_id:
+            return jsonify({
+                'success': False,
+                'message': 'Nie podano ID klienta'
+            }), 400
+
+        # Validate client exists
+        client = User.query.get(client_id)
+        if not client or client.role != 'client':
+            return jsonify({
+                'success': False,
+                'message': 'Nie znaleziono klienta'
+            }), 404
+
+        # Generate order number (use 'on_hand' type for manual orders)
+        order_number = generate_order_number('on_hand')
+
+        # Create empty order
+        new_order = Order(
+            order_number=order_number,
+            user_id=client.id,
+            order_type='on_hand',  # Manual orders use on_hand type
+            status='nowe',
+            total_amount=0
+        )
+        db.session.add(new_order)
+        db.session.commit()
+
+        # Log activity
+        log_activity(
+            user=current_user,
+            action='order_created',
+            entity_type='order',
+            entity_id=new_order.id,
+            new_value={'order_number': order_number, 'client': client.full_name}
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Zamówienie {order_number} zostało utworzone',
+            'order_id': new_order.id,
+            'order_number': order_number,
+            'redirect_url': url_for('orders.admin_detail', order_id=new_order.id)
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Błąd podczas tworzenia zamówienia: {str(e)}'
+        }), 500
+
+
 @orders_bp.route('/admin/orders/create', methods=['GET', 'POST'])
 @login_required
 @role_required('admin', 'mod')
@@ -153,6 +220,8 @@ def admin_create_order():
     """
     Admin order creation page.
     Creates a new manual order for a selected client.
+    DEPRECATED: This page is kept for backwards compatibility.
+    New flow uses API endpoint + redirect to order detail page.
     """
     from modules.auth.models import User
     from modules.products.models import Product
@@ -987,6 +1056,346 @@ def admin_delete_order(order_id):
     flash(f'Zamówienie {order.order_number} zostało usunięte', 'success')
 
     return jsonify({'success': True, 'message': 'Zamówienie usunięte'}), 200
+
+
+# ====================
+# BULK ACTIONS
+# ====================
+
+@orders_bp.route('/admin/orders/bulk/status', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def bulk_status_change():
+    """
+    Bulk status change for multiple orders.
+    Returns JSON response with success count.
+    """
+    try:
+        data = request.get_json()
+        order_ids = data.get('order_ids', [])
+        new_status = data.get('status')
+
+        if not order_ids:
+            return jsonify({
+                'success': False,
+                'message': 'Nie wybrano żadnych zamówień'
+            }), 400
+
+        if not new_status:
+            return jsonify({
+                'success': False,
+                'message': 'Nie wybrano statusu'
+            }), 400
+
+        # Validate status exists
+        status_obj = OrderStatus.query.filter_by(slug=new_status, is_active=True).first()
+        if not status_obj:
+            return jsonify({
+                'success': False,
+                'message': 'Nieprawidłowy status'
+            }), 400
+
+        # Update orders
+        updated_count = 0
+        for order_id in order_ids:
+            order = Order.query.get(order_id)
+            if order:
+                old_status = order.status
+                if old_status != new_status:
+                    order.status = new_status
+                    order.updated_at = datetime.now()
+                    updated_count += 1
+
+                    # Activity log
+                    log_activity(
+                        user=current_user,
+                        action='order_status_change',
+                        entity_type='order',
+                        entity_id=order.id,
+                        old_value={'status': old_status},
+                        new_value={'status': new_status}
+                    )
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Zmieniono status {updated_count} zamówień na "{status_obj.name}"',
+            'updated_count': updated_count
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Błąd podczas zmiany statusu: {str(e)}'
+        }), 500
+
+
+@orders_bp.route('/admin/orders/bulk/delete', methods=['POST'])
+@login_required
+@role_required('admin')  # Only admin can delete
+def bulk_delete():
+    """
+    Bulk delete multiple orders.
+    Returns JSON response with success count.
+    """
+    try:
+        data = request.get_json()
+        order_ids = data.get('order_ids', [])
+
+        if not order_ids:
+            return jsonify({
+                'success': False,
+                'message': 'Nie wybrano żadnych zamówień'
+            }), 400
+
+        # Delete orders
+        deleted_count = 0
+        deleted_numbers = []
+        for order_id in order_ids:
+            order = Order.query.get(order_id)
+            if order:
+                deleted_numbers.append(order.order_number)
+                db.session.delete(order)
+                deleted_count += 1
+
+        db.session.commit()
+
+        # Activity log for bulk delete
+        log_activity(
+            user=current_user,
+            action='orders_bulk_deleted',
+            entity_type='order',
+            entity_id=None,
+            old_value={'order_numbers': deleted_numbers, 'count': deleted_count}
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Usunięto {deleted_count} zamówień',
+            'deleted_count': deleted_count
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Błąd podczas usuwania zamówień: {str(e)}'
+        }), 500
+
+
+@orders_bp.route('/admin/orders/export')
+@login_required
+@role_required('admin', 'mod')
+def export_orders():
+    """
+    Export selected orders to XLSX with nice formatting.
+    """
+    from io import BytesIO
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    # Get order IDs from query param
+    ids_param = request.args.get('ids', '')
+
+    if not ids_param:
+        flash('Nie wybrano żadnych zamówień do eksportu', 'error')
+        return redirect(url_for('orders.admin_list'))
+
+    try:
+        order_ids = [int(id.strip()) for id in ids_param.split(',') if id.strip()]
+    except ValueError:
+        flash('Nieprawidłowe ID zamówień', 'error')
+        return redirect(url_for('orders.admin_list'))
+
+    # Get orders
+    orders = Order.query.filter(Order.id.in_(order_ids)).order_by(Order.created_at.desc()).all()
+
+    if not orders:
+        flash('Nie znaleziono zamówień do eksportu', 'error')
+        return redirect(url_for('orders.admin_list'))
+
+    # Create workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Zamówienia"
+
+    # Styles
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="5A189A", end_color="5A189A", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    data_alignment = Alignment(vertical="center", wrap_text=True)
+    currency_alignment = Alignment(horizontal="right", vertical="center")
+
+    thin_border = Border(
+        left=Side(style='thin', color='E0E0E0'),
+        right=Side(style='thin', color='E0E0E0'),
+        top=Side(style='thin', color='E0E0E0'),
+        bottom=Side(style='thin', color='E0E0E0')
+    )
+
+    alt_row_fill = PatternFill(start_color="F5F5F5", end_color="F5F5F5", fill_type="solid")
+
+    # Header row
+    headers = [
+        'Numer zamówienia',
+        'Data utworzenia',
+        'Status',
+        'Typ',
+        'Klient',
+        'Email klienta',
+        'Telefon klienta',
+        'Produkty',
+        'Suma (PLN)',
+        'Wysyłka (PLN)',
+        'Razem (PLN)',
+        'Wpłacono (PLN)',
+        'Dostawa',
+        'Płatność',
+        'Uwagi admina'
+    ]
+
+    # Column widths
+    column_widths = [18, 18, 15, 12, 20, 25, 15, 50, 12, 12, 12, 12, 15, 15, 30]
+
+    for col_num, (header, width) in enumerate(zip(headers, column_widths), 1):
+        cell = ws.cell(row=1, column=col_num, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
+        ws.column_dimensions[get_column_letter(col_num)].width = width
+
+    # Set header row height
+    ws.row_dimensions[1].height = 30
+
+    # Data rows
+    for row_num, order in enumerate(orders, 2):
+        # Get products string
+        products_list = []
+        for item in order.items:
+            products_list.append(f"{item.product_name} x{item.quantity} ({item.price:.2f} PLN)")
+        products_str = "\n".join(products_list)
+
+        # Get customer info
+        if order.is_guest_order:
+            customer_name = order.guest_name or 'Gość'
+            customer_email = order.guest_email or ''
+            customer_phone = order.guest_phone or ''
+        elif order.user:
+            customer_name = order.user.full_name
+            customer_email = order.user.email
+            customer_phone = order.user.phone or ''
+        else:
+            customer_name = 'Nieznany'
+            customer_email = ''
+            customer_phone = ''
+
+        # Get type display name
+        type_name = order.type_rel.name if order.type_rel else (order.order_type or '')
+
+        # Get delivery method display
+        delivery_display = order.delivery_method_display if hasattr(order, 'delivery_method_display') and order.delivery_method else (order.delivery_method or '')
+
+        row_data = [
+            order.order_number,
+            order.created_at.strftime('%Y-%m-%d %H:%M'),
+            order.status_display_name,
+            type_name,
+            customer_name,
+            customer_email,
+            customer_phone,
+            products_str,
+            float(order.total_amount) if order.total_amount else 0.00,
+            float(order.shipping_cost) if order.shipping_cost else 0.00,
+            float(order.grand_total) if order.grand_total else 0.00,
+            float(order.paid_amount) if order.paid_amount else 0.00,
+            delivery_display,
+            order.payment_method or '',
+            order.admin_notes or ''
+        ]
+
+        for col_num, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_num, column=col_num, value=value)
+            cell.border = thin_border
+
+            # Apply currency format to money columns
+            if col_num in [9, 10, 11, 12]:
+                cell.number_format = '#,##0.00 "PLN"'
+                cell.alignment = currency_alignment
+            else:
+                cell.alignment = data_alignment
+
+            # Alternate row colors
+            if row_num % 2 == 0:
+                cell.fill = alt_row_fill
+
+        # Adjust row height for products column
+        if products_str:
+            line_count = len(products_str.split('\n'))
+            ws.row_dimensions[row_num].height = max(20, min(line_count * 15, 100))
+
+    # Freeze header row
+    ws.freeze_panes = 'A2'
+
+    # Create response
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename=zamowienia_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+
+    return response
+
+
+@orders_bp.route('/api/orders/bulk/info', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def bulk_orders_info():
+    """
+    Get info about selected orders for bulk actions modal.
+    Returns order numbers and basic info.
+    """
+    try:
+        data = request.get_json()
+        order_ids = data.get('order_ids', [])
+
+        if not order_ids:
+            return jsonify({
+                'success': False,
+                'message': 'Nie wybrano żadnych zamówień'
+            }), 400
+
+        orders = Order.query.filter(Order.id.in_(order_ids)).all()
+
+        orders_info = []
+        for order in orders:
+            customer_name = order.guest_name if order.is_guest_order else (order.user.full_name if order.user else 'Nieznany')
+            orders_info.append({
+                'id': order.id,
+                'order_number': order.order_number,
+                'customer_name': customer_name,
+                'status': order.status_display_name,
+                'status_color': order.status_badge_color,
+                'total': float(order.total_amount) if order.total_amount else 0
+            })
+
+        return jsonify({
+            'success': True,
+            'orders': orders_info,
+            'count': len(orders_info)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Błąd: {str(e)}'
+        }), 500
 
 
 # ====================

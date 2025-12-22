@@ -72,13 +72,18 @@
     const bulkActionButtons = document.querySelectorAll('.btn-bulk');
 
     bulkActionButtons.forEach(button => {
-        button.addEventListener('click', function() {
+        button.addEventListener('click', function(e) {
             const action = this.dataset.action;
             const selectedIds = getSelectedOrderIds();
 
             if (selectedIds.length === 0) {
                 alert('Zaznacz przynajmniej jedno zamówienie');
                 return;
+            }
+
+            // Prevent event from bubbling to document (for dropdown close handler)
+            if (action === 'status') {
+                e.stopPropagation();
             }
 
             switch(action) {
@@ -101,23 +106,118 @@
     });
 
     /**
-     * Handle bulk status change
+     * Handle bulk status change - toggles dropdown
      */
     function handleBulkStatusChange(orderIds) {
-        // TODO: Implement status change modal
-        // For now, just show alert
-        alert(`Zmiana statusu dla ${orderIds.length} zamówień (funkcja w budowie)`);
-        console.log('Change status for orders:', orderIds);
+        const wrapper = document.querySelector('.bulk-status-wrapper');
+        const dropdown = document.getElementById('bulkStatusDropdown');
+
+        if (!dropdown) {
+            console.error('Bulk status dropdown not found');
+            return;
+        }
+
+        // Toggle dropdown
+        const isOpen = dropdown.classList.contains('show');
+
+        if (isOpen) {
+            closeBulkStatusDropdown();
+        } else {
+            // Store order IDs for later use
+            dropdown.dataset.orderIds = JSON.stringify(orderIds);
+
+            // Open dropdown
+            dropdown.classList.add('show');
+            if (wrapper) wrapper.classList.add('open');
+        }
     }
 
     /**
-     * Handle bulk export to CSV
+     * Close bulk status dropdown
+     */
+    function closeBulkStatusDropdown() {
+        const wrapper = document.querySelector('.bulk-status-wrapper');
+        const dropdown = document.getElementById('bulkStatusDropdown');
+
+        if (dropdown) dropdown.classList.remove('show');
+        if (wrapper) wrapper.classList.remove('open');
+    }
+
+    /**
+     * Handle status option click
+     */
+    function setupBulkStatusDropdown() {
+        const dropdown = document.getElementById('bulkStatusDropdown');
+        if (!dropdown) return;
+
+        const options = dropdown.querySelectorAll('.bulk-status-option');
+
+        options.forEach(option => {
+            option.addEventListener('click', function() {
+                const newStatus = this.dataset.status;
+                const orderIds = JSON.parse(dropdown.dataset.orderIds || '[]');
+
+                if (orderIds.length === 0 || !newStatus) {
+                    showToast('Brak wybranych zamówień lub statusu', 'error');
+                    return;
+                }
+
+                // Close dropdown
+                closeBulkStatusDropdown();
+
+                // Show loading toast
+                showToast(`Zmieniam status ${orderIds.length} zamówień...`, 'info');
+
+                // Send request
+                fetch('/admin/orders/bulk/status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        order_ids: orderIds,
+                        status: newStatus
+                    })
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        showToast(result.message, 'success');
+                        // Reload page to show updated statuses
+                        window.location.reload();
+                    } else {
+                        showToast(result.message || 'Błąd podczas zmiany statusu', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Bulk status change error:', error);
+                    showToast('Wystąpił błąd podczas zmiany statusu', 'error');
+                });
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrapper = document.querySelector('.bulk-status-wrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
+                closeBulkStatusDropdown();
+            }
+        });
+    }
+
+    // Initialize dropdown on page load
+    setupBulkStatusDropdown();
+
+    /**
+     * Handle bulk export to XLSX
      */
     function handleBulkExport(orderIds) {
         // Create download link with order IDs as query params
         const idsParam = orderIds.join(',');
         const exportUrl = `/admin/orders/export?ids=${idsParam}`;
 
+        showToast(`Eksportuję ${orderIds.length} zamówień do Excel...`, 'info');
         window.location.href = exportUrl;
     }
 
@@ -132,32 +232,151 @@
     }
 
     /**
-     * Handle bulk delete
+     * Handle bulk delete - opens confirmation modal
      */
     function handleBulkDelete(orderIds) {
-        const count = orderIds.length;
-        const confirmation = confirm(
-            `Czy na pewno chcesz usunąć ${count} zamówień?\n\n` +
-            'Ta operacja jest nieodwracalna!'
-        );
+        const modal = document.getElementById('bulkDeleteModal');
+        const countSpan = document.getElementById('bulkDeleteCount');
+        const ordersList = document.getElementById('bulkDeleteOrdersList');
 
-        if (!confirmation) {
+        if (!modal) {
+            // Fallback to confirm dialog
+            const count = orderIds.length;
+            const confirmation = confirm(
+                `Czy na pewno chcesz usunąć ${count} zamówień?\n\n` +
+                'Ta operacja jest nieodwracalna!'
+            );
+
+            if (confirmation) {
+                executeBulkDelete(orderIds);
+            }
             return;
         }
 
-        // Send delete requests for each order
-        Promise.all(orderIds.map(id => deleteOrder(id)))
-            .then(results => {
-                const successCount = results.filter(r => r.success).length;
-                alert(`Usunięto ${successCount} z ${count} zamówień`);
+        // Update count in modal
+        if (countSpan) {
+            countSpan.textContent = orderIds.length;
+        }
 
-                // Reload page to reflect changes
+        // Store selected IDs in modal for later use
+        modal.dataset.orderIds = JSON.stringify(orderIds);
+
+        // Fetch order details for the list
+        fetch('/api/orders/bulk/info', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ order_ids: orderIds })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success && ordersList) {
+                const ordersHtml = result.orders.map(order => `
+                    <div class="bulk-delete-order-item">
+                        <span class="order-number">${escapeHtml(order.order_number)}</span>
+                        <span class="order-customer">${escapeHtml(order.customer_name)}</span>
+                        <span class="badge" style="background-color: ${order.status_color}; color: #fff;">${escapeHtml(order.status)}</span>
+                    </div>
+                `).join('');
+                ordersList.innerHTML = ordersHtml;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching orders info:', error);
+            if (ordersList) {
+                ordersList.innerHTML = '<p>Nie udało się załadować listy zamówień</p>';
+            }
+        });
+
+        // Open modal
+        modal.classList.add('active');
+    }
+
+    /**
+     * Close bulk delete modal
+     */
+    window.closeBulkDeleteModal = function() {
+        const modal = document.getElementById('bulkDeleteModal');
+        if (modal) {
+            modal.classList.add('closing');
+            setTimeout(() => {
+                modal.classList.remove('active', 'closing');
+            }, 350);
+        }
+    };
+
+    /**
+     * Confirm bulk delete
+     */
+    window.confirmBulkDelete = function() {
+        const modal = document.getElementById('bulkDeleteModal');
+
+        if (!modal) return;
+
+        const orderIds = JSON.parse(modal.dataset.orderIds || '[]');
+
+        if (orderIds.length === 0) {
+            showToast('Brak wybranych zamówień', 'error');
+            return;
+        }
+
+        executeBulkDelete(orderIds);
+    };
+
+    /**
+     * Execute bulk delete request
+     */
+    function executeBulkDelete(orderIds) {
+        const modal = document.getElementById('bulkDeleteModal');
+        const confirmBtn = document.getElementById('bulkDeleteConfirmBtn');
+
+        // Show loading state
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<svg class="spinner" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-dasharray="60" stroke-linecap="round"/></svg> Usuwam...';
+        }
+
+        // Send request
+        fetch('/admin/orders/bulk/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ order_ids: orderIds })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                if (modal) {
+                    closeBulkDeleteModal();
+                }
+                // Reload page to show changes
                 window.location.reload();
-            })
-            .catch(error => {
-                console.error('Bulk delete error:', error);
-                alert('Wystąpił błąd podczas usuwania zamówień');
-            });
+            } else {
+                showToast(result.message || 'Błąd podczas usuwania', 'error');
+                resetDeleteButton();
+            }
+        })
+        .catch(error => {
+            console.error('Bulk delete error:', error);
+            showToast('Wystąpił błąd podczas usuwania zamówień', 'error');
+            resetDeleteButton();
+        });
+    }
+
+    /**
+     * Reset delete button to initial state
+     */
+    function resetDeleteButton() {
+        const confirmBtn = document.getElementById('bulkDeleteConfirmBtn');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg> Usuń zamówienia';
+        }
     }
 
     /**
@@ -377,11 +596,17 @@
     /**
      * Close modal on backdrop click
      */
-    [addOrderModal, newClientModal].forEach(modal => {
+    const bulkStatusModal = document.getElementById('bulkStatusModal');
+    const bulkDeleteModal = document.getElementById('bulkDeleteModal');
+
+    [addOrderModal, newClientModal, bulkStatusModal, bulkDeleteModal].forEach(modal => {
         if (modal) {
             modal.addEventListener('click', function(e) {
                 if (e.target === this) {
-                    this.classList.remove('active');
+                    this.classList.add('closing');
+                    setTimeout(() => {
+                        this.classList.remove('active', 'closing');
+                    }, 350);
                 }
             });
         }
@@ -394,6 +619,8 @@
         if (e.key === 'Escape') {
             closeAddOrderModal();
             closeNewClientModal();
+            closeBulkStatusModal();
+            closeBulkDeleteModal();
         }
     });
 
@@ -478,11 +705,38 @@
     }
 
     /**
-     * Select client and redirect to create order page
+     * Select client and create order immediately
      */
     window.selectClient = function(clientId) {
-        // Redirect to order creation page with selected client
-        window.location.href = `/admin/orders/create?client_id=${clientId}`;
+        // Show loading state in modal
+        if (clientSearchResults) {
+            clientSearchResults.innerHTML = '<div class="search-empty-state">Tworzę zamówienie...</div>';
+        }
+
+        // Create order via API and redirect to order detail page
+        fetch('/api/orders/create-for-client', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ client_id: clientId })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Redirect to order detail page
+                window.location.href = result.redirect_url;
+            } else {
+                alert(result.message || 'Nie udało się utworzyć zamówienia');
+                closeAddOrderModal();
+            }
+        })
+        .catch(error => {
+            console.error('Create order error:', error);
+            alert('Wystąpił błąd podczas tworzenia zamówienia');
+            closeAddOrderModal();
+        });
     };
 
     /**
@@ -504,7 +758,7 @@
             const submitBtn = this.querySelector('button[type="submit"]');
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = 'Tworzę...';
+                submitBtn.innerHTML = 'Tworzę klienta...';
             }
 
             fetch('/api/clients/create', {
@@ -518,24 +772,36 @@
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    // Redirect to order creation with new client
-                    window.location.href = `/admin/orders/create?client_id=${result.client_id}`;
-                } else {
-                    alert(result.error || 'Nie udało się utworzyć klienta');
+                    // Update button to show order creation
                     if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = `
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 5v14M5 12h14"/>
-                            </svg>
-                            Utwórz i przejdź do zamówienia
-                        `;
+                        submitBtn.innerHTML = 'Tworzę zamówienie...';
                     }
+
+                    // Now create order for this client
+                    return fetch('/api/orders/create-for-client', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCSRFToken()
+                        },
+                        body: JSON.stringify({ client_id: result.client_id })
+                    });
+                } else {
+                    throw new Error(result.error || 'Nie udało się utworzyć klienta');
+                }
+            })
+            .then(response => response.json())
+            .then(orderResult => {
+                if (orderResult.success) {
+                    // Redirect to order detail page
+                    window.location.href = orderResult.redirect_url;
+                } else {
+                    throw new Error(orderResult.message || 'Nie udało się utworzyć zamówienia');
                 }
             })
             .catch(error => {
-                console.error('Create client error:', error);
-                alert('Wystąpił błąd podczas tworzenia klienta');
+                console.error('Create client/order error:', error);
+                alert(error.message || 'Wystąpił błąd');
                 if (submitBtn) {
                     submitBtn.disabled = false;
                     submitBtn.innerHTML = `

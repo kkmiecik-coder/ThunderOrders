@@ -592,20 +592,28 @@
     position: fixed;
     bottom: 2rem;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translateX(-50%) translateY(0);
     background: linear-gradient(135deg, #240046 0%, #5A189A 100%); /* Purple gradient */
     color: white;
     padding: 1rem 2rem;
     border-radius: 50px;
     box-shadow: 0 8px 24px rgba(36, 0, 70, 0.4);
     z-index: 1000;
-    transition: all 0.3s;
+    opacity: 1;
+    filter: blur(0);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.3s ease-out,
+                filter 0.3s ease-out;
 }
 
-.bulk-toolbar.hidden {
+/* Override global .hidden { display: none } to allow animations */
+#bulkToolbar.bulk-toolbar.hidden {
+    display: block !important;
+    visibility: visible !important;
     opacity: 0;
     pointer-events: none;
-    transform: translateX(-50%) translateY(20px);
+    transform: translateX(-50%) translateY(100px);
+    filter: blur(8px);
 }
 
 .bulk-toolbar-content {
@@ -1031,12 +1039,12 @@
     .bulk-toolbar {
         left: 1rem;
         right: 1rem;
-        transform: none;
+        transform: translateY(0);
         width: auto;
     }
 
-    .bulk-toolbar.hidden {
-        transform: translateY(20px);
+    #bulkToolbar.bulk-toolbar.hidden {
+        transform: translateY(100px);
     }
 
     .bulk-toolbar-content {
@@ -2676,4 +2684,263 @@
 
 [data-theme="dark"] .item-badge-custom {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+/* ====================
+   BULK STATUS DROPDOWN
+   ==================== */
+
+.bulk-status-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.bulk-status-wrapper .btn-bulk {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.bulk-status-wrapper .dropdown-arrow {
+    margin-left: 0.25rem;
+    transition: transform 0.2s ease;
+}
+
+.bulk-status-wrapper.open .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.bulk-status-dropdown {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    z-index: 1001;
+    min-width: 180px;
+    padding: 6px;
+    display: none;
+    animation: dropdownSlideUp 0.2s ease;
+}
+
+@keyframes dropdownSlideUp {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.bulk-status-dropdown.show {
+    display: block;
+}
+
+.bulk-status-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+    display: flex;
+    align-items: center;
+}
+
+.bulk-status-option:hover {
+    background: #f3f4f6;
+}
+
+.bulk-status-option .badge {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Dark mode */
+[data-theme="dark"] .bulk-status-dropdown {
+    background: rgba(30, 30, 40, 0.98);
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .bulk-status-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Modal Footer */
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #E0E0E0;
+    background: #FAFAFA;
+    border-radius: 0 0 16px 16px;
+}
+
+/* ====================
+   BULK DELETE MODAL
+   ==================== */
+
+.bulk-delete-warning {
+    text-align: center;
+    padding: 1.5rem 0;
+}
+
+.bulk-delete-warning .warning-icon {
+    color: #F44336;
+    margin-bottom: 1rem;
+}
+
+.bulk-delete-warning p {
+    margin: 0.5rem 0;
+    font-size: 1rem;
+    color: #424242;
+}
+
+.bulk-delete-warning p strong {
+    color: #5A189A;
+    font-weight: 700;
+}
+
+.bulk-delete-warning .warning-text {
+    color: #F44336;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-top: 0.75rem;
+}
+
+.bulk-delete-orders-list {
+    max-height: 250px;
+    overflow-y: auto;
+    margin-top: 1.25rem;
+    border: 1px solid #E0E0E0;
+    border-radius: 8px;
+}
+
+.bulk-delete-order-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #F5F5F5;
+}
+
+.bulk-delete-order-item:last-child {
+    border-bottom: none;
+}
+
+.bulk-delete-order-item .order-number {
+    font-weight: 600;
+    color: #5A189A;
+    min-width: 100px;
+}
+
+.bulk-delete-order-item .order-customer {
+    flex: 1;
+    color: #424242;
+    font-size: 0.875rem;
+}
+
+.bulk-delete-order-item .badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 10px;
+}
+
+/* Danger Button */
+.btn-danger {
+    background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(244, 67, 54, 0.4);
+}
+
+/* Spinner animation */
+.spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ====================
+   DARK MODE - BULK MODALS
+   ==================== */
+
+[data-theme="dark"] .bulk-status-info {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .bulk-status-info strong {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .bulk-status-preview {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .bulk-status-preview .preview-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .modal-footer {
+    background: rgba(255, 255, 255, 0.03);
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .bulk-delete-warning p {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .bulk-delete-warning p strong {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .bulk-delete-warning .warning-text {
+    color: #f87171;
+}
+
+[data-theme="dark"] .bulk-delete-warning .warning-icon {
+    color: #f87171;
+}
+
+[data-theme="dark"] .bulk-delete-orders-list {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .bulk-delete-order-item {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .bulk-delete-order-item .order-number {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .bulk-delete-order-item .order-customer {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .btn-danger {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+    box-shadow: 0 4px 12px rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .btn-danger:hover {
+    box-shadow: 0 6px 16px rgba(248, 113, 113, 0.4);
 }

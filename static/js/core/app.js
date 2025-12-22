@@ -4,6 +4,42 @@
  */
 
 // ==========================================
+// Login Preloader Logic (runs immediately)
+// ==========================================
+(function() {
+  var preloader = document.getElementById('login-preloader');
+  var shouldShow = sessionStorage.getItem('showLoginPreloader');
+  var startTime = parseInt(sessionStorage.getItem('loginPreloaderStart')) || 0;
+
+  if (shouldShow === 'true' && preloader) {
+    // Preloader is already visible (set by inline script in base.html)
+    // Calculate remaining time (minimum 2s total from login click)
+    var elapsed = Date.now() - startTime;
+    var minDuration = 2000;
+    var remaining = Math.max(0, minDuration - elapsed);
+
+    // Hide preloader after remaining time with fade out animation
+    var hidePreloader = function() {
+      // Remove instant class to enable transition, then remove visible
+      preloader.classList.remove('instant');
+
+      // Force reflow to apply transition
+      preloader.offsetHeight;
+
+      // Now fade out (transition will apply)
+      preloader.classList.remove('visible');
+
+      // Clear flags
+      sessionStorage.removeItem('showLoginPreloader');
+      sessionStorage.removeItem('loginPreloaderStart');
+    };
+
+    // Wait for remaining time before hiding
+    setTimeout(hidePreloader, remaining);
+  }
+})();
+
+// ==========================================
 // State Management
 // ==========================================
 const AppState = {

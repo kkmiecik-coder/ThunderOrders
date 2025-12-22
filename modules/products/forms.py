@@ -473,4 +473,8 @@ class WarehouseSettingsForm(FlaskForm):
         ('decimal', 'Z groszami (np. 45.99)')
     ])
 
+    # Stock Order Aggregation Settings (zakładka "Zamówienia produktów")
+    # Te pola są obsługiwane ręcznie w route (nie przez form.validate)
+    # ponieważ używamy checkboxów z multi-select
+
     submit = SubmitField('Zapisz ustawienia')

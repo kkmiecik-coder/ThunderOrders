@@ -215,18 +215,85 @@
             </div>
             {% endif %}
 
-            <!-- History placeholder - for future orders -->
+            <!-- Orders History -->
             <div class="info-card">
                 <div class="card-header">
                     <h2>Historia zamówień</h2>
+                    {% if orders_count > 0 %}
+                    <span class="header-count">{{ orders_count }}</span>
+                    {% endif %}
                 </div>
                 <div class="card-body">
+                    {% if orders_pagination.items %}
+                    <div class="orders-table-wrapper">
+                        <table class="orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Numer</th>
+                                    <th>Status</th>
+                                    <th>Data</th>
+                                    <th>Kwota</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders_pagination.items %}
+                                <tr class="order-row" onclick="window.location.href='{{ url_for('orders.admin_detail', order_id=order.id) }}'">
+                                    <td>
+                                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number-link">
+                                            {{ order.order_number }}
+                                        </a>
+                                        {% if order.is_exclusive %}
+                                        <span class="order-type-badge exclusive" title="Zamówienie Exclusive">EX</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="status-badge" style="background-color: {{ order.status_badge_color }}20; color: {{ order.status_badge_color }}; border: 1px solid {{ order.status_badge_color }}40;">
+                                            {{ order.status_display_name }}
+                                        </span>
+                                    </td>
+                                    <td>{{ order.created_at|format_datetime('%d.%m.%Y') }}</td>
+                                    <td class="order-amount">{{ "%.2f"|format(order.total_amount) }} zł</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if orders_pagination.pages > 1 %}
+                    <div class="pagination-wrapper">
+                        <div class="pagination">
+                            {% if orders_pagination.has_prev %}
+                            <a href="{{ url_for('admin.client_detail', id=client.id, page=orders_pagination.prev_num) }}" class="pagination-btn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+
+                            <span class="pagination-info">
+                                Strona {{ orders_pagination.page }} z {{ orders_pagination.pages }}
+                            </span>
+
+                            {% if orders_pagination.has_next %}
+                            <a href="{{ url_for('admin.client_detail', id=client.id, page=orders_pagination.next_num) }}" class="pagination-btn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% else %}
                     <div class="empty-state-small">
                         <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
                             <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
                         </svg>
-                        <p>Moduł zamówień będzie dostępny wkrótce.</p>
+                        <p>Ten klient nie ma jeszcze żadnych zamówień.</p>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -241,19 +308,25 @@
                 <div class="card-body">
                     <div class="stats-grid">
                         <div class="stat-item">
-                            <span class="stat-value">0</span>
+                            <span class="stat-value">{{ orders_count }}</span>
                             <span class="stat-label">Zamówień</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-value">0,00 zł</span>
+                            <span class="stat-value">{{ "%.2f"|format(total_value) }} zł</span>
                             <span class="stat-label">Łączna wartość</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-value">0,00 zł</span>
+                            <span class="stat-value">{{ "%.2f"|format(avg_value) }} zł</span>
                             <span class="stat-label">Średnia wartość</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-value">-</span>
+                            <span class="stat-value">
+                                {% if last_order %}
+                                {{ last_order.created_at|format_datetime('%d.%m.%Y') }}
+                                {% else %}
+                                -
+                                {% endif %}
+                            </span>
                             <span class="stat-label">Ostatnie zamówienie</span>
                         </div>
                     </div>
