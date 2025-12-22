@@ -85,37 +85,32 @@ function toggleSidebar() {
 }
 
 function updateContentPadding() {
-  // Get dashboard elements
-  const adminDashboard = document.querySelector('.admin-dashboard');
-  const clientDashboard = document.querySelector('.client-dashboard');
-  const dashboard = adminDashboard || clientDashboard;
+  // NOTE: This function is deprecated for dashboards using proper layout CSS
+  // (.main-wrapper + .main-content handle padding now)
+  // Kept for backwards compatibility with any legacy pages
 
-  if (!dashboard) return;
+  // Only apply to elements that explicitly need dynamic padding
+  // (NOT .client-dashboard or .kpop-dashboard - they use layout CSS)
+  const legacyDashboard = document.querySelector('.legacy-dashboard');
+
+  if (!legacyDashboard) return;
 
   // Check if mobile (width < 768px)
   const isMobile = window.innerWidth < 768;
 
   if (isMobile) {
-    // On mobile, no left padding (sidebar is hidden/overlay)
-    dashboard.style.paddingLeft = 'var(--space-4)';
-    dashboard.style.paddingTop = '60px'; // Mobile navbar height
+    legacyDashboard.style.paddingLeft = 'var(--space-4)';
+    legacyDashboard.style.paddingTop = '60px';
   } else {
-    // On desktop, use sidebar width from CSS variables (target width, not current)
     const computedStyle = getComputedStyle(document.documentElement);
-
-    // Determine target sidebar width based on collapsed state
     const sidebarWidth = AppState.sidebarCollapsed
       ? parseInt(computedStyle.getPropertyValue('--sidebar-width-collapsed'))
       : parseInt(computedStyle.getPropertyValue('--sidebar-width'));
-
-    const extraMargin = 32; // 32px extra space between sidebar and content
-
-    // Get topbar height from CSS variable
+    const extraMargin = 32;
     const topbarHeight = computedStyle.getPropertyValue('--topbar-height') || '64px';
 
-    // Set padding (sidebar width + extra margin)
-    dashboard.style.paddingLeft = `${sidebarWidth + extraMargin}px`;
-    dashboard.style.paddingTop = topbarHeight;
+    legacyDashboard.style.paddingLeft = `${sidebarWidth + extraMargin}px`;
+    legacyDashboard.style.paddingTop = topbarHeight;
   }
 }
 

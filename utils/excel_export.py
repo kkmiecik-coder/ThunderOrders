@@ -207,6 +207,56 @@ def generate_exclusive_closure_excel(page_id):
     ws.cell(row=summary_row + 1, column=1, value=f"Łączna wartość zamówień: {total_value:.2f} PLN")
     ws.cell(row=summary_row + 2, column=1, value=f"Liczba zamówień: {len(orders)}")
 
+    # Podsumowanie produktów (ile przeszło)
+    product_summary_row = summary_row + 4
+    ws.cell(row=product_summary_row, column=1, value="PODSUMOWANIE PRODUKTÓW (tylko zrealizowane):").font = Font(bold=True)
+
+    # Nagłówki dla podsumowania produktów
+    ws.cell(row=product_summary_row + 1, column=1, value="Produkt").font = Font(bold=True)
+    ws.cell(row=product_summary_row + 1, column=2, value="Ilość zrealizowana").font = Font(bold=True)
+
+    # Oblicz sumy dla każdego produktu
+    current_summary_row = product_summary_row + 2
+    for pk in product_keys:
+        pk_product_id, pk_custom_name, pk_display_name, pk_is_full_set, pk_is_custom = pk
+
+        # Policz łączną ilość zrealizowanych sztuk tego produktu
+        total_fulfilled = 0
+        for order in orders:
+            for item in order.items:
+                # Sprawdź czy to ten sam produkt
+                is_same_product = False
+                if pk_is_full_set or pk_is_custom:
+                    is_same_product = (item.is_full_set or item.is_custom) and item.custom_name == pk_custom_name
+                else:
+                    is_same_product = item.product_id == pk_product_id and not item.is_custom and not item.is_full_set
+
+                if is_same_product:
+                    # Sprawdź czy produkt jest zrealizowany
+                    if item.is_full_set or item.is_custom:
+                        # Full sets i custom są zawsze zrealizowane
+                        total_fulfilled += item.quantity
+                    elif item.is_set_fulfilled is None:
+                        # Produkt poza setem - zawsze realizowany
+                        total_fulfilled += item.quantity
+                    elif item.is_set_fulfilled:
+                        # Produkt w secie - zrealizowany
+                        total_fulfilled += item.quantity
+                    # Jeśli is_set_fulfilled == False, to NIE liczymy (niezrealizowany)
+
+        # Zapisz nazwę produktu i sumę
+        product_display = pk_display_name
+        if pk_is_full_set:
+            product_display = f"✨ {product_display} (SET)"
+        elif pk_is_custom:
+            product_display = f"📦 {product_display} (RĘCZNY)"
+
+        ws.cell(row=current_summary_row, column=1, value=product_display)
+        ws.cell(row=current_summary_row, column=2, value=total_fulfilled).font = Font(bold=True)
+        ws.cell(row=current_summary_row, column=2).fill = PatternFill(start_color="D4EDDA", end_color="D4EDDA", fill_type="solid")
+
+        current_summary_row += 1
+
     # Dostosuj szerokość kolumn
     ws.column_dimensions['A'].width = 6
     ws.column_dimensions['B'].width = 18

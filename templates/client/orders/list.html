@@ -1,5 +1,7 @@
 {% extends "client/base_client.html" %}
 
+{% block title %}Moje zamówienia - ThunderOrders{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/orders.css') }}">
 {% endblock %}
@@ -9,12 +11,6 @@
     <!-- Page Header -->
     <div class="page-header">
         <h1>Moje zamówienia</h1>
-        <a href="{{ url_for('client.new_order') }}" class="btn btn-primary">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-            </svg>
-            Nowe zamówienie
-        </a>
     </div>
 
     <!-- Simple Filters -->
@@ -66,30 +62,30 @@
             <tbody>
                 {% for order in orders.items %}
                 <tr>
-                    <td>
+                    <td data-label="Numer zamówienia">
                         <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link">
                             {{ order.order_number }}
                         </a>
                     </td>
-                    <td>
+                    <td data-label="Status">
                         <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">
                             {{ order.status_display_name }}
                         </span>
                     </td>
-                    <td>
+                    <td data-label="Typ">
                         <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">
                             {{ order.type_display_name }}
                         </span>
                     </td>
-                    <td>
+                    <td data-label="Data">
                         <span class="date-cell" title="{{ order.created_at|format_datetime('%Y-%m-%d %H:%M:%S') }}">
                             {{ order.created_at|format_date }}
                         </span>
                     </td>
-                    <td class="text-right">
+                    <td class="text-right" data-label="Kwota">
                         <span class="amount-cell">{{ "%.2f"|format(order.total_amount) }} PLN</span>
                     </td>
-                    <td class="actions-col">
+                    <td class="actions-col" data-label="Akcje">
                         <a href="{{ url_for('orders.client_detail', order_id=order.id) }}"
                            class="btn-icon"
                            title="Szczegóły">
@@ -146,9 +142,13 @@
             </svg>
             <h3>Brak zamówień</h3>
             <p>Nie masz jeszcze żadnych zamówień</p>
-            <a href="{{ url_for('client.new_order') }}" class="btn btn-primary">Złóż pierwsze zamówienie</a>
+            <a href="#" class="btn btn-primary">Złóż pierwsze zamówienie</a>
         </div>
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/orders-list.js') }}"></script>
 {% endblock %}

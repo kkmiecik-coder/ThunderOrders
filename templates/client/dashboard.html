@@ -2,20 +2,29 @@
 
 {% block title %}Dashboard Klienta - ThunderOrders{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="client-dashboard">
+    <!-- Header -->
     <div class="dashboard-header">
-        <h1 class="dashboard-title">Witaj, {{ current_user.first_name }}! 👋</h1>
-        <p class="dashboard-subtitle">Panel klienta ThunderOrders</p>
+        <div class="header-content">
+            <h1 class="dashboard-title">
+                Witaj z powrotem, <span class="title-gradient">{{ current_user.first_name }}!</span>
+            </h1>
+        </div>
     </div>
 
     <!-- Kafelki z metrykami -->
     <div class="dashboard-metrics">
+        <!-- Rząd 1: Zamówienia -->
         <div class="metric-card">
             <div class="metric-icon">📦</div>
             <div class="metric-content">
                 <h3 class="metric-title">Wszystkie zamówienia</h3>
-                <p class="metric-value">0</p>
+                <p class="metric-value">{{ orders.all }}</p>
                 <p class="metric-subtitle">Łącznie</p>
             </div>
         </div>
@@ -24,7 +33,7 @@
             <div class="metric-icon">🚀</div>
             <div class="metric-content">
                 <h3 class="metric-title">W realizacji</h3>
-                <p class="metric-value">0</p>
+                <p class="metric-value">{{ orders.in_progress }}</p>
                 <p class="metric-subtitle">Zamówienia w trakcie</p>
             </div>
         </div>
@@ -33,226 +42,200 @@
             <div class="metric-icon">✅</div>
             <div class="metric-content">
                 <h3 class="metric-title">Dostarczone</h3>
-                <p class="metric-value">0</p>
+                <p class="metric-value">{{ orders.delivered }}</p>
                 <p class="metric-subtitle">Zakończone</p>
             </div>
         </div>
+
+        <!-- Rząd 2: Payment Status -->
+        <div class="metric-card metric-card-success">
+            <div class="metric-icon">💰</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Zapłacone</h3>
+                <p class="metric-value">{{ payment.paid | format_currency }}</p>
+                <p class="metric-subtitle">Łącznie opłacone</p>
+            </div>
+        </div>
+
+        <div class="metric-card metric-card-warning">
+            <div class="metric-icon">💳</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Do zapłaty</h3>
+                <p class="metric-value">{{ payment.to_pay | format_currency }}</p>
+                <p class="metric-subtitle">Pozostało do opłacenia</p>
+            </div>
+        </div>
     </div>
 
-    <!-- Szybkie akcje -->
-    <div class="dashboard-section" style="margin-bottom: var(--space-6);">
-        <div class="section-header">
-            <h2 class="section-title">Szybkie akcje</h2>
+    <!-- Grid: Wykres + Ostatnie zamówienia -->
+    <div class="dashboard-grid">
+        <!-- Wykres zamówień -->
+        <div class="dashboard-section">
+            <div class="widget">
+                <div class="widget-header">
+                    <h2 class="widget-title">Moje zamówienia</h2>
+                    <select id="chartPeriod" class="chart-period-select">
+                        <option value="7">7 dni</option>
+                        <option value="14">14 dni</option>
+                        <option value="30" selected>30 dni</option>
+                        <option value="90">3 miesiące</option>
+                        <option value="180">6 miesięcy</option>
+                        <option value="365">12 miesięcy</option>
+                    </select>
+                </div>
+                <div class="widget-body">
+                    <div class="chart-container">
+                        <canvas id="ordersChart"></canvas>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4);">
-            <a href="#" class="quick-action-card" style="text-decoration: none; display: block; padding: var(--space-6); border: 2px solid var(--orange-300); border-radius: 12px; transition: all 0.3s ease;">
-                <h3 style="font-weight: var(--font-semibold); color: var(--orange-300); margin-bottom: var(--space-2);">📝 Nowe zamówienie</h3>
-                <p style="font-size: var(--text-sm); color: var(--text-secondary);">Złóż nowe zamówienie produktów</p>
-            </a>
-            <a href="#" class="quick-action-card" style="text-decoration: none; display: block; padding: var(--space-6); border: 2px solid var(--purple-300); border-radius: 12px; transition: all 0.3s ease;">
-                <h3 style="font-weight: var(--font-semibold); color: var(--purple-300); margin-bottom: var(--space-2);">🚚 Zlecenie wysyłki</h3>
-                <p style="font-size: var(--text-sm); color: var(--text-secondary);">Zleć wysyłkę gotowych zamówień</p>
-            </a>
-        </div>
-    </div>
 
-    <!-- Ostatnie zamówienia -->
-    <div class="dashboard-section">
-        <div class="section-header">
-            <h2 class="section-title">Ostatnie zamówienia</h2>
-            <a href="#" class="section-link">Zobacz wszystkie →</a>
-        </div>
+        <!-- Ostatnie zamówienia -->
+        <div class="dashboard-section">
+            <div class="section-header">
+                <h2 class="section-title">Ostatnie zamówienia</h2>
+                <a href="{{ url_for('orders.client_list') }}" class="section-link">Zobacz wszystkie →</a>
+            </div>
 
+            {% if recent_orders %}
+        <div class="orders-list">
+            {% for order in recent_orders %}
+            <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-item-link">
+                <div class="order-item">
+                    <div class="order-main">
+                        <span class="order-number">{{ order.order_number }}</span>
+                        <span class="order-status order-status-{{ order.status }}">
+                            {{ order.status_display_name }}
+                        </span>
+                    </div>
+                    <div class="order-meta">
+                        <span class="order-date">{{ order.created_at | format_date('%d.%m.%Y %H:%M') }}</span>
+                        <span class="order-amount">{{ order.total_amount | format_currency }}</span>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
         <div class="empty-state">
             <p class="empty-state-icon">📭</p>
             <p class="empty-state-text">Nie masz jeszcze żadnych zamówień</p>
-            <p class="empty-state-subtitle">Kliknij "Nowe zamówienie" aby rozpocząć!</p>
+            <p class="empty-state-subtitle">Twoje zamówienia pojawią się tutaj po ich złożeniu</p>
         </div>
-    </div>
-
-    <!-- Informacje o koncie -->
-    <div class="dashboard-section" style="margin-top: var(--space-6);">
-        <div class="section-header">
-            <h2 class="section-title">Informacje o koncie</h2>
-        </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--space-4);">
-            <div>
-                <span style="color: var(--text-secondary);">Email:</span>
-                <span style="font-weight: var(--font-medium); color: var(--text-primary); margin-left: var(--space-2);">{{ current_user.email }}</span>
-            </div>
-            <div>
-                <span style="color: var(--text-secondary);">Rola:</span>
-                <span style="font-weight: var(--font-medium); color: var(--text-primary); margin-left: var(--space-2); text-transform: capitalize;">{{ current_user.role }}</span>
-            </div>
-            <div>
-                <span style="color: var(--text-secondary);">Status:</span>
-                <span style="font-weight: var(--font-medium); color: var(--success); margin-left: var(--space-2);">✓ Aktywne</span>
-            </div>
-            <div>
-                <span style="color: var(--text-secondary);">Data rejestracji:</span>
-                <span style="font-weight: var(--font-medium); color: var(--text-primary); margin-left: var(--space-2);">{{ current_user.created_at|format_date('%d.%m.%Y') }}</span>
-            </div>
+        {% endif %}
         </div>
     </div>
 </div>
 {% endblock %}
 
-{% block extra_css %}
-<style>
-.client-dashboard {
-    /* Padding will be set dynamically by JavaScript */
-    padding-right: var(--space-8);
-    padding-bottom: var(--space-8);
-    transition: padding-left var(--transition-sidebar), padding-top var(--transition-sidebar);
-}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+    const textColor = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : '#424242';
+    const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
 
-.dashboard-header {
-    margin-bottom: var(--space-8);
-}
+    // Orders Chart
+    const ordersCtx = document.getElementById('ordersChart');
+    if (ordersCtx) {
+        const ordersChart = new Chart(ordersCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: {{ chart_data['labels'] | tojson }},
+                datasets: [{
+                    label: 'Liczba zamówień',
+                    data: {{ chart_data['values'] | tojson }},
+                    backgroundColor: 'rgba(255, 133, 0, 0.2)',
+                    borderColor: '#FF8500',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#FF8500',
+                    pointBorderColor: '#fff',
+                    pointHoverRadius: 6,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? 'rgba(0, 0, 0, 0.8)' : 'white',
+                        titleColor: textColor,
+                        bodyColor: textColor,
+                        borderColor: gridColor,
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return 'Zamówienia: ' + context.parsed.y;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: textColor,
+                            stepSize: 1,
+                            precision: 0
+                        },
+                        grid: { color: gridColor }
+                    },
+                    x: {
+                        ticks: {
+                            color: textColor,
+                            maxRotation: 45,
+                            minRotation: 0
+                        },
+                        grid: { color: gridColor }
+                    }
+                }
+            }
+        });
 
-.dashboard-title {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-    margin-bottom: var(--space-2);
-}
+        // Theme change listener
+        document.addEventListener('themeChanged', function(e) {
+            const newTheme = e.detail.theme;
+            const newTextColor = newTheme === 'dark' ? 'rgba(255, 255, 255, 0.8)' : '#424242';
+            const newGridColor = newTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
 
-.dashboard-subtitle {
-    font-size: var(--text-lg);
-    color: var(--text-secondary);
-}
+            ordersChart.options.scales.y.ticks.color = newTextColor;
+            ordersChart.options.scales.y.grid.color = newGridColor;
+            ordersChart.options.scales.x.ticks.color = newTextColor;
+            ordersChart.options.scales.x.grid.color = newGridColor;
+            ordersChart.options.plugins.tooltip.backgroundColor = newTheme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'white';
+            ordersChart.options.plugins.tooltip.titleColor = newTextColor;
+            ordersChart.options.plugins.tooltip.bodyColor = newTextColor;
+            ordersChart.update();
+        });
 
-/* Metrics Grid */
-.dashboard-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-6);
-    margin-bottom: var(--space-8);
-}
+        // Period change listener
+        const periodSelect = document.getElementById('chartPeriod');
+        if (periodSelect) {
+            periodSelect.addEventListener('change', async function() {
+                const period = this.value;
 
-.metric-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: var(--space-6);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
-    transition: all 0.3s ease;
-}
+                try {
+                    const response = await fetch(`/client/api/chart-data?period=${period}`);
+                    const data = await response.json();
 
-.metric-card:hover {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-}
-
-.metric-icon {
-    font-size: 2.5rem;
-    line-height: 1;
-}
-
-.metric-content {
-    flex: 1;
-}
-
-.metric-title {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: var(--space-2);
-}
-
-.metric-value {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-    margin-bottom: var(--space-1);
-}
-
-.metric-subtitle {
-    font-size: var(--text-sm);
-    color: var(--text-tertiary);
-}
-
-/* Dashboard Section */
-.dashboard-section {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 12px;
-    padding: var(--space-6);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--space-6);
-}
-
-.section-title {
-    font-size: var(--text-xl);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-}
-
-.section-link {
-    color: var(--orange-300);
-    font-weight: var(--font-medium);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.section-link:hover {
-    color: var(--orange-400);
-}
-
-/* Quick Action Cards */
-.quick-action-card:hover {
-    background: var(--bg-secondary);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: var(--space-12) var(--space-6);
-}
-
-.empty-state-icon {
-    font-size: 4rem;
-    margin-bottom: var(--space-4);
-}
-
-.empty-state-text {
-    font-size: var(--text-lg);
-    font-weight: var(--font-medium);
-    color: var(--text-secondary);
-    margin-bottom: var(--space-2);
-}
-
-.empty-state-subtitle {
-    font-size: var(--text-base);
-    color: var(--text-tertiary);
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .client-dashboard {
-        padding: var(--space-4);
+                    // Update chart data
+                    ordersChart.data.labels = data.labels;
+                    ordersChart.data.datasets[0].data = data.values;
+                    ordersChart.update();
+                } catch (error) {
+                    console.error('Error fetching chart data:', error);
+                }
+            });
+        }
     }
-
-    .dashboard-metrics {
-        grid-template-columns: 1fr;
-    }
-
-    .dashboard-title {
-        font-size: var(--text-2xl);
-    }
-}
-</style>
+});
+</script>
 {% endblock %}

@@ -1,7 +1,9 @@
 {% extends "client/base_client.html" %}
 
+{% block title %}Zamówienie {{ order.order_number }} - ThunderOrders{% endblock %}
+
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/orders.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/order-detail.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -78,16 +80,16 @@
             <tbody>
                 {% for item in order_items %}
                 <tr>
-                    <td>
+                    <td data-label="Produkt">
                         <div class="product-cell">
                             <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
                             <span class="product-name">{{ item.product_name }}</span>
                         </div>
                     </td>
-                    <td>{{ item.product_sku }}</td>
-                    <td class="text-center">{{ item.quantity }}</td>
-                    <td class="text-right">{{ "%.2f"|format(item.price) }} PLN</td>
-                    <td class="text-right">{{ "%.2f"|format(item.total) }} PLN</td>
+                    <td data-label="SKU">{{ item.product_sku }}</td>
+                    <td class="text-center" data-label="Ilość">{{ item.quantity }}</td>
+                    <td class="text-right" data-label="Cena">{{ "%.2f"|format(item.price) }} PLN</td>
+                    <td class="text-right" data-label="Suma">{{ "%.2f"|format(item.total) }} PLN</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -145,4 +147,8 @@
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/order-detail.js') }}"></script>
 {% endblock %}

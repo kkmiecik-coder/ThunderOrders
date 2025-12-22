@@ -239,6 +239,26 @@ def register_template_filters(app):
             dt = dt.astimezone(POLAND_TZ)
         return dt.strftime('%Y-%m-%dT%H:%M')
 
+    @app.template_filter('format_currency')
+    def format_currency_filter(value, currency='PLN'):
+        """
+        Formatuje kwotę jako walutę.
+        Użycie: {{ amount|format_currency }} lub {{ amount|format_currency('USD') }}
+        """
+        if value is None:
+            return '0,00 PLN'
+
+        # Konwertuj do float jeśli potrzeba
+        try:
+            value = float(value)
+        except (ValueError, TypeError):
+            return '0,00 PLN'
+
+        # Formatuj z przecinkiem jako separator dziesiętny (polski standard)
+        formatted = f"{value:,.2f}".replace(',', ' ').replace('.', ',')
+
+        return f"{formatted} {currency}"
+
     @app.template_filter('reject_key')
     def reject_key_filter(d, key):
         """

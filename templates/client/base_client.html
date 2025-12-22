@@ -33,35 +33,5 @@
 {% endblock %}
 
 {% block extra_css %}
-<style>
-/* Main wrapper adjusted for sidebar */
-.main-wrapper {
-    margin-left: var(--sidebar-width);
-    transition: margin-left var(--transition-base);
-    min-height: 100vh;
-}
-
-.sidebar[data-collapsed="true"] ~ .main-wrapper {
-    margin-left: var(--sidebar-width-collapsed);
-}
-
-/* Main content below topbar */
-.main-content {
-    padding-top: var(--topbar-height);
-    background: var(--bg-secondary);
-    min-height: 100vh;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .main-wrapper {
-        margin-left: 0;
-    }
-
-    .main-content {
-        margin-top: 60px; /* Mobile navbar height */
-        padding: var(--space-4);
-    }
-}
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/layouts/client-layout.css') }}">
 {% endblock %}
