@@ -59,6 +59,18 @@
     margin-bottom: 20px;
 }
 
+/* Container for search existing groups (needs higher z-index for dropdown) */
+.search-existing-groups-container {
+    position: relative;
+    z-index: 1000; /* Ensure dropdown appears above other content including variantGroupsContainer */
+}
+
+/* Input wrapper - needs position relative for dropdown positioning */
+.search-input-wrapper {
+    position: relative;
+    z-index: 1001; /* Higher than parent, ensures dropdown stacking */
+}
+
 .group-search-input {
     width: 100%;
     padding: 12px 15px;
@@ -85,7 +97,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     max-height: 300px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: 10002; /* Higher than modal (10001) */
 }
 
 .search-result-item {
@@ -134,6 +146,87 @@
 .result-meta {
     font-size: 12px;
     color: #666;
+}
+
+/* Search Result Header (Select All) */
+.search-result-header {
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.search-result-select-all {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+}
+
+.search-result-select-all input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.search-result-select-all span {
+    flex: 1;
+}
+
+/* Result Item with Checkbox */
+.search-result-item {
+    position: relative;
+}
+
+.search-result-item .result-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.search-result-item .result-info {
+    cursor: pointer;
+}
+
+/* Bulk Add Button (Floating at bottom of dropdown) */
+.bulk-add-button {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 12px;
+    background: linear-gradient(to top, white 70%, rgba(255, 255, 255, 0.95) 90%, transparent);
+    border-top: 2px solid #e0e0e0;
+    z-index: 2;
+}
+
+.bulk-add-button .btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bulk-add-button .btn-primary {
+    background: var(--orange-300, #FF8500);
+    color: white;
+}
+
+.bulk-add-button .btn-primary:hover {
+    background: var(--orange-400, #FF9100);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 133, 0, 0.3);
 }
 
 /* Products Grid */
@@ -333,7 +426,7 @@
 
 /* Search Results Dropdown */
 [data-theme="dark"] .search-results-dropdown {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(30, 30, 30, 0.98);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(240, 147, 251, 0.2);
@@ -367,6 +460,37 @@
 [data-theme="dark"] .result-meta {
     color: rgba(255, 255, 255, 0.6);
     transition: all 0.5s ease;
+}
+
+/* Search Result Header & Checkboxes */
+[data-theme="dark"] .search-result-header {
+    background: rgba(240, 147, 251, 0.08);
+    border-bottom: 2px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .search-result-select-all {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .search-result-select-all input[type="checkbox"],
+[data-theme="dark"] .search-result-item .result-checkbox {
+    accent-color: #f093fb;
+}
+
+/* Bulk Add Button */
+[data-theme="dark"] .bulk-add-button {
+    background: linear-gradient(to top, rgba(30, 30, 30, 0.98) 70%, rgba(30, 30, 30, 0.95) 90%, transparent);
+    border-top: 2px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .bulk-add-button .btn-primary {
+    background: linear-gradient(135deg, #FF8500 0%, #FF9100 100%);
+    box-shadow: 0 4px 15px rgba(255, 133, 0, 0.3);
+}
+
+[data-theme="dark"] .bulk-add-button .btn-primary:hover {
+    background: linear-gradient(135deg, #FF9100 0%, #FF9E00 100%);
+    box-shadow: 0 6px 20px rgba(255, 133, 0, 0.4);
 }
 
 /* Products Grid */

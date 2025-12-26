@@ -13,7 +13,16 @@
     <!-- Tab: Produkt -->
     <div class="tab-content active" data-tab="product">
         <div class="form-card">
-            <h2 class="card-title">Informacje podstawowe</h2>
+            <!-- Status -->
+            <div class="form-row product-status-row">
+                <div class="form-group">
+                    <label class="checkbox-label product-status-label">
+                        {{ form.is_active(class="form-checkbox") }}
+                        <span class="status-text">{{ form.is_active.label.text }}</span>
+                        <span class="status-description">Czy produkt jest aktywny i widoczny w systemie</span>
+                    </label>
+                </div>
+            </div>
 
             <!-- Product Name & Type -->
             <div class="form-row product-name-type-row">
@@ -44,8 +53,8 @@
                 </div>
             </div>
 
-            <!-- Category & Manufacturer -->
-            <div class="form-row two-cols">
+            <!-- Category, Manufacturer, Series -->
+            <div class="form-row three-cols">
                 <div class="form-group">
                     <label class="form-label">{{ form.category_id.label.text }}</label>
                     {{ form.category_id(class="form-select") }}
@@ -54,10 +63,14 @@
                     <label class="form-label">{{ form.manufacturer_id.label.text }}</label>
                     {{ form.manufacturer_id(class="form-select") }}
                 </div>
+                <div class="form-group">
+                    <label class="form-label">{{ form.series_id.label.text }}</label>
+                    {{ form.series_id(class="form-select") }}
+                </div>
             </div>
 
-            <!-- SKU, EAN, Series -->
-            <div class="form-row three-cols">
+            <!-- SKU, EAN -->
+            <div class="form-row two-cols">
                 <div class="form-group">
                     <label class="form-label">{{ form.sku.label.text }}</label>
                     {{ form.sku(class="form-input", placeholder="SKU") }}
@@ -72,17 +85,9 @@
                         <span class="form-error">{{ form.ean.errors[0] }}</span>
                     {% endif %}
                 </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.series_id.label.text }}</label>
-                    {{ form.series_id(class="form-select") }}
-                </div>
             </div>
-        </div>
 
-        <!-- Dimensions & Weight -->
-        <div class="form-card">
-            <h2 class="card-title">Wymiary i waga</h2>
-
+            <!-- Dimensions & Weight -->
             <div class="form-row four-cols">
                 <div class="form-group">
                     <label class="form-label">{{ form.length.label.text }}</label>
@@ -113,27 +118,19 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Description -->
-        <div class="form-card">
-            <h2 class="card-title">Opis produktu</h2>
-
+            <!-- Description -->
             <div class="form-row">
                 <div class="form-group full-width">
                     <label class="form-label">{{ form.description.label.text }}</label>
-                    {{ form.description(class="form-textarea", rows=6, placeholder="Szczegółowy opis produktu...") }}
+                    {{ form.description(class="form-textarea", rows=4, placeholder="Szczegółowy opis produktu...") }}
                 </div>
             </div>
-        </div>
 
-        <!-- Tags -->
-        <div class="form-card">
-            <h2 class="card-title">Tagi produktu</h2>
-
+            <!-- Tags -->
             <div class="form-row">
                 <div class="form-group full-width">
-                    <label class="form-label">{{ form.tags.label.text }}</label>
+                    <label class="form-label">Tagi produktu</label>
 
                     <!-- Hidden checkboxes for form submission -->
                     <div style="display: none;">
@@ -176,31 +173,14 @@
                 </div>
             </div>
         </div>
-
-        <!-- Status -->
-        <div class="form-card">
-            <h2 class="card-title">Status produktu</h2>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        {{ form.is_active(class="form-checkbox") }}
-                        <span>{{ form.is_active.label.text }}</span>
-                    </label>
-                    <div class="info-text">Czy produkt jest aktywny i widoczny w systemie</div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Tab: Sprzedaż i magazyn -->
     <div class="tab-content" data-tab="sales">
         <div class="form-card">
-            <h2 class="card-title">Ceny</h2>
-
             {% if current_user.role == 'admin' %}
             <!-- All prices in one row (admin view) -->
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 100px 1fr 1fr 1fr; gap: var(--space-4); align-items: end;">
+            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 100px 1fr 1fr 1fr; gap: var(--space-4); align-items: start;">
                 <!-- Cena sprzedaży -->
                 <div class="form-group">
                     <label class="form-label required">{{ form.sale_price.label.text }}</label>
@@ -261,28 +241,8 @@
             <!-- Exchange rate info -->
             <div id="exchange-rate-info-modal" class="info-text" style="margin-top: var(--space-2);"></div>
 
-            {% else %}
-            <!-- Client view - only sale price -->
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label required">{{ form.sale_price.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.sale_price(class="form-input", placeholder="0.00") }}
-                        <span class="input-unit">PLN</span>
-                    </div>
-                    {% if form.sale_price.errors %}
-                        <span class="form-error">{{ form.sale_price.errors[0] }}</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Stock & Supplier -->
-        <div class="form-card">
-            <h2 class="card-title">Magazyn</h2>
-
-            <div class="form-row {% if current_user.role == 'admin' %}two-cols{% else %}full-width{% endif %}">
+            <!-- Stock & Supplier -->
+            <div class="form-row two-cols" style="margin-top: var(--space-4);">
                 <div class="form-group">
                     <label class="form-label">{{ form.quantity.label.text }}</label>
                     <div class="input-with-unit">
@@ -294,23 +254,46 @@
                     {% endif %}
                 </div>
 
-                {% if current_user.role == 'admin' %}
                 <div class="form-group">
                     <label class="form-label">{{ form.supplier_id.label.text }}</label>
                     {{ form.supplier_id(class="form-select") }}
                 </div>
-                {% endif %}
             </div>
+
+            {% else %}
+            <!-- Client view - only sale price and quantity -->
+            <div class="form-row two-cols">
+                <div class="form-group">
+                    <label class="form-label required">{{ form.sale_price.label.text }}</label>
+                    <div class="input-with-unit">
+                        {{ form.sale_price(class="form-input", placeholder="0.00") }}
+                        <span class="input-unit">PLN</span>
+                    </div>
+                    {% if form.sale_price.errors %}
+                        <span class="form-error">{{ form.sale_price.errors[0] }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">{{ form.quantity.label.text }}</label>
+                    <div class="input-with-unit">
+                        {{ form.quantity(class="form-input", placeholder="0") }}
+                        <span class="input-unit">szt.</span>
+                    </div>
+                    {% if form.quantity.errors %}
+                        <span class="form-error">{{ form.quantity.errors[0] }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
     <!-- Tab: Zdjęcia -->
     <div class="tab-content" data-tab="media">
         <div class="form-card">
-            <h2 class="card-title">Zdjęcia produktu</h2>
-
-            <p class="info-text" style="margin-bottom: var(--space-4);">
-                Możesz dodać do {{ max_images }} zdjęć produktu. Pierwsze zdjęcie (slot #1) będzie głównym zdjęciem produktu.
+            <p class="info-text" style="margin-bottom: var(--space-3);">
+                Maksymalnie {{ max_images }} zdjęć. Slot #1 = główne zdjęcie produktu.
             </p>
 
             <!-- Image Slots Grid -->
@@ -354,10 +337,29 @@
     <!-- Tab: Warianty (New System) -->
     <div class="tab-content" data-tab="variants">
         <div class="form-card">
-            <h2 class="card-title">Grupy wariantowe</h2>
-            <p class="info-text" style="margin-bottom: 20px;">
-                Ten produkt może należeć do wielu grup wariantowych jednocześnie. Każda grupa jest niezależna.
-            </p>
+            {% if product %}
+            <!-- Search Existing Groups (only for existing products) -->
+            <div class="search-existing-groups-container" style="margin-bottom: var(--space-4);">
+                <label class="form-label">Dodaj do istniejącej grupy</label>
+                <div class="search-input-wrapper">
+                    <input type="text"
+                           id="searchExistingGroupsInput"
+                           class="form-input"
+                           placeholder="Wyszukaj grupę po nazwie..."
+                           oninput="handleExistingGroupSearch(this.value)"
+                           onfocus="handleExistingGroupSearchFocus()"
+                           onblur="handleExistingGroupSearchBlur()">
+                    <div class="search-results-dropdown" id="existingGroupsSearchResults" style="display: none;">
+                        <!-- Results will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <!-- Info for new products -->
+            <div class="info-box" style="margin-bottom: var(--space-3);">
+                <p>📝 Zapisz produkt, aby dodać do istniejącej grupy.</p>
+            </div>
+            {% endif %}
 
             <!-- Variant Groups Container (Will be populated by JavaScript) -->
             <div id="variantGroupsContainer"

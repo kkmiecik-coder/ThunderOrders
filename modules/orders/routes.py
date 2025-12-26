@@ -18,6 +18,7 @@ from modules.orders.models import (
     Order, OrderItem, OrderComment, OrderRefund,
     OrderStatus, OrderType, WmsStatus
 )
+from modules.products.models import Product
 from modules.orders.forms import (
     OrderFilterForm, OrderStatusForm, OrderCommentForm,
     OrderTrackingForm, RefundForm, BulkActionForm,
@@ -1435,9 +1436,12 @@ def client_list():
     status_filter = request.args.get('status')
     date_from = request.args.get('date_from')
     date_to = request.args.get('date_to')
+    search_query = request.args.get('search', '').strip()
 
-    # Base query (only user's orders)
-    query = Order.query.filter_by(user_id=current_user.id)
+    # Base query (only user's orders) with eager loading
+    query = Order.query.filter_by(user_id=current_user.id).options(
+        db.joinedload(Order.items).joinedload(OrderItem.product)
+    )
 
     # Apply filters
     if status_filter:
@@ -1450,6 +1454,10 @@ def client_list():
         from datetime import timedelta
         end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
         query = query.filter(Order.created_at < end_date)
+
+    # Search filter (by order number)
+    if search_query:
+        query = query.filter(Order.order_number.ilike(f'%{search_query}%'))
 
     # Sorting
     query = query.order_by(Order.created_at.desc())

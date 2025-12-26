@@ -43,6 +43,7 @@
   border-bottom: 2px solid var(--border-primary);
   background: var(--card-bg);
   border-radius: 8px 8px 0 0;
+  margin-bottom: 20px;
 }
 
 .tab-btn {
@@ -167,6 +168,19 @@
   transition: border-color var(--transition-fast);
 }
 
+/* Custom select styling - remove browser default appearance */
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 16px;
+  padding-right: calc(var(--space-3) * 2 + 16px);
+  cursor: pointer;
+}
+
 .form-input:focus,
 .form-select:focus,
 .form-textarea:focus {
@@ -235,6 +249,43 @@
   width: 20px;
   height: 20px;
   cursor: pointer;
+}
+
+/* ==========================================
+   Product Status Row (Special styling)
+   ========================================== */
+.product-status-row {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border-primary);
+}
+
+.product-status-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.product-status-label .form-checkbox {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.product-status-label .status-text {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.product-status-label .status-description {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin-left: auto;
+  font-style: italic;
 }
 
 /* ==========================================
@@ -488,15 +539,15 @@
   border-radius: 6px;
   padding: var(--space-2);
   background: var(--bg-primary);
-  min-height: 80px;
+  min-height: 44px;
 }
 
 .tags-selected {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
-  min-height: 32px;
+  margin-bottom: var(--space-1);
+  min-height: auto;
 }
 
 .tag-badge {
@@ -1212,6 +1263,14 @@
   transition: all 0.5s ease;
 }
 
+/* Custom select arrow for dark mode */
+[data-theme="dark"] .form-select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  background-size: 16px;
+}
+
 [data-theme="dark"] .form-input::placeholder,
 [data-theme="dark"] .form-textarea::placeholder {
   color: rgba(255, 255, 255, 0.3);
@@ -1251,6 +1310,23 @@
 
 [data-theme="dark"] .form-checkbox {
   accent-color: #f093fb;
+}
+
+/* ==========================================
+   Dark Mode - Product Status Row
+   ========================================== */
+[data-theme="dark"] .product-status-row {
+  background: rgba(240, 147, 251, 0.08);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  transition: all 0.5s ease;
+}
+
+[data-theme="dark"] .product-status-label .status-text {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .product-status-label .status-description {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ==========================================

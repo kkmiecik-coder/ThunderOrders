@@ -310,6 +310,30 @@
                     Ten produkt może należeć do wielu grup wariantowych jednocześnie. Każda grupa jest niezależna.
                 </p>
 
+                {% if product %}
+                <!-- Search Existing Groups (only for existing products) -->
+                <div class="search-existing-groups-container" style="margin-bottom: 20px;">
+                    <label class="form-label">Dodaj do istniejącej grupy</label>
+                    <div class="search-input-wrapper">
+                        <input type="text"
+                               id="searchExistingGroupsInput"
+                               class="form-input"
+                               placeholder="Wyszukaj grupę po nazwie..."
+                               oninput="handleExistingGroupSearch(this.value)"
+                               onfocus="handleExistingGroupSearchFocus()"
+                               onblur="handleExistingGroupSearchBlur()">
+                        <div class="search-results-dropdown" id="existingGroupsSearchResults" style="display: none;">
+                            <!-- Results will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Info for new products -->
+                <div class="info-box" style="margin-bottom: 20px;">
+                    <p>📝 Aby dodać produkt do istniejącej grupy wariantowej, najpierw zapisz produkt.</p>
+                </div>
+                {% endif %}
+
                 <!-- Variant Groups Container (Will be populated by JavaScript) -->
                 <div id="variantGroupsContainer">
                     <!-- Groups will be inserted here by JS -->

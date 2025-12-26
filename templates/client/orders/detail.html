@@ -17,134 +17,224 @@
                 </svg>
                 Powrót do listy
             </a>
-            <h1>Zamówienie {{ order.order_number }}</h1>
-        </div>
-        <div class="order-meta">
+            <h1>{{ order.order_number }}</h1>
             <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">{{ order.type_display_name }}</span>
             <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
         </div>
     </div>
 
-    <!-- Order Information -->
-    <div class="card">
-        <h2>Informacje o zamówieniu</h2>
-        <div class="info-grid">
-            <div class="info-item">
-                <label>Status:</label>
-                <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
+    <div class="content-layout">
+        <!-- Left Column: Main Content -->
+        <div class="content-main">
+            <!-- Products Card -->
+            <div class="card products-card">
+                <div class="card-header">
+                    <h2>Zamówione produkty</h2>
+                    <span class="items-count">{{ order_items|length }} {% if order_items|length == 1 %}pozycja{% elif order_items|length < 5 %}pozycje{% else %}pozycji{% endif %}</span>
+                </div>
+                <div class="table-wrapper">
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th class="col-image"></th>
+                                <th class="col-name">Nazwa</th>
+                                <th class="col-qty text-center">Ilość</th>
+                                <th class="col-price text-right">Cena</th>
+                                <th class="col-total text-right">Wartość</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order_items %}
+                            <tr>
+                                <td class="col-image" data-label="">
+                                    <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
+                                </td>
+                                <td class="col-name" data-label="Nazwa">
+                                    <div class="product-name-cell">
+                                        <span class="product-name">{{ item.product_name }}</span>
+                                        <div class="product-codes">
+                                            {% if item.product_sku %}
+                                            <span>SKU: {{ item.product_sku }}</span>
+                                            {% endif %}
+                                            {% if item.product_ean %}
+                                            <span>EAN: {{ item.product_ean }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="col-qty text-center" data-label="Ilość">
+                                    <span class="quantity-badge">{{ item.quantity }}</span>
+                                </td>
+                                <td class="col-price text-right" data-label="Cena">
+                                    {{ "%.2f"|format(item.price) }} PLN
+                                </td>
+                                <td class="col-total text-right" data-label="Wartość">
+                                    <strong>{{ "%.2f"|format(item.total) }} PLN</strong>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="text-right">Suma całkowita:</td>
+                                <td class="text-right">
+                                    <span class="total-amount">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-right">Zapłacono:</td>
+                                <td class="text-right">
+                                    <span class="paid-amount">{{ "%.2f"|format(order.paid_amount or 0) }} PLN</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-right">Do zapłaty:</td>
+                                <td class="text-right">
+                                    <span class="to-pay-amount">{{ "%.2f"|format(order.total_amount - (order.paid_amount or 0)) }} PLN</span>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
-            <div class="info-item">
-                <label>Data utworzenia:</label>
-                <span>{{ order.created_at|format_datetime('%Y-%m-%d %H:%M:%S') }}</span>
-            </div>
-            <div class="info-item">
-                <label>Ostatnia aktualizacja:</label>
-                <span>{{ order.updated_at|format_datetime('%Y-%m-%d %H:%M:%S') }}</span>
-            </div>
-            <div class="info-item">
-                <label>Suma całkowita:</label>
-                <span class="amount-highlight">{{ "%.2f"|format(order.total_amount) }} PLN</span>
+
+            <!-- Timeline / Comments Card -->
+            <div class="card timeline-card">
+                <div class="card-header">
+                    <h2>Wiadomości i historia</h2>
+                </div>
+
+                <div class="timeline" id="timeline">
+                    {% for event in timeline %}
+                        {% if event.type == 'comment' %}
+                            <div class="timeline-item comment {% if event.is_from_admin %}from-admin{% else %}from-client{% endif %}">
+                                <div class="timeline-avatar">
+                                    {{ event.user.first_name[0] }}{{ event.user.last_name[0] }}
+                                </div>
+                                <div class="timeline-content">
+                                    <div class="timeline-header">
+                                        <strong>{{ event.user.full_name }}</strong>
+                                        <span class="timeline-role">{% if event.is_from_admin %}(Sprzedawca){% else %}(Ty){% endif %}</span>
+                                        <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
+                                    </div>
+                                    <p class="timeline-message">{{ event.comment }}</p>
+                                </div>
+                            </div>
+                        {% elif event.type == 'status_change' %}
+                            <div class="timeline-item status-change">
+                                <div class="timeline-icon">
+                                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                                    </svg>
+                                </div>
+                                <div class="timeline-content">
+                                    <p class="timeline-message">{{ event.message }}</p>
+                                    <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
+                                </div>
+                            </div>
+                        {% elif event.type == 'created' %}
+                            <div class="timeline-item created">
+                                <div class="timeline-icon">
+                                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+                                    </svg>
+                                </div>
+                                <div class="timeline-content">
+                                    <p class="timeline-message">Zamówienie zostało utworzone</p>
+                                    <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <!-- Add Comment Form -->
+                <form hx-post="{{ url_for('orders.client_add_comment', order_id=order.id) }}"
+                      hx-target="#timeline"
+                      hx-swap="afterbegin"
+                      class="comment-form">
+                    {{ comment_form.hidden_tag() }}
+                    <div class="form-group">
+                        <label for="comment">Napisz wiadomość do sprzedawcy</label>
+                        {{ comment_form.comment(class="form-textarea", placeholder="Twoja wiadomość...", rows=4) }}
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
+                            </svg>
+                            Wyślij wiadomość
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-    </div>
 
-    <!-- Tracking Information -->
-    {% if order.tracking_number %}
-    <div class="card">
-        <h2>Śledzenie przesyłki</h2>
-        <div class="tracking-info">
-            <p><strong>Kurier:</strong> {{ order.courier }}</p>
-            <p><strong>Numer przesyłki:</strong> {{ order.tracking_number }}</p>
-            {% if order.tracking_url %}
-            <a href="{{ order.tracking_url }}" target="_blank" class="btn btn-primary">
-                Śledź przesyłkę →
-            </a>
+        <!-- Right Column: Sidebar -->
+        <div class="content-sidebar">
+            <!-- Order Info Card -->
+            <div class="card info-card">
+                <h3>Informacje o zamówieniu</h3>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <label>Numer zamówienia</label>
+                        <span class="value-highlight">{{ order.order_number }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Status</label>
+                        <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Data utworzenia</label>
+                        <span>{{ order.created_at|format_datetime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Ostatnia aktualizacja</label>
+                        <span>{{ order.updated_at|format_datetime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                    {% if order.is_exclusive %}
+                    <div class="info-item">
+                        <label>Typ</label>
+                        <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">{{ order.type_display_name }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tracking Card -->
+            {% if order.tracking_number %}
+            <div class="card tracking-card">
+                <h3>Śledzenie przesyłki</h3>
+                <div class="tracking-info">
+                    <div class="tracking-item">
+                        <label>Kurier</label>
+                        <span class="value-bold">{{ order.courier or '—' }}</span>
+                    </div>
+                    <div class="tracking-item">
+                        <label>Numer przesyłki</label>
+                        <span class="value-mono">{{ order.tracking_number }}</span>
+                    </div>
+                    {% if order.tracking_url %}
+                    <a href="{{ order.tracking_url }}" target="_blank" class="btn btn-secondary btn-block">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                            <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                        </svg>
+                        Śledź przesyłkę
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Notes Card (if present) -->
+            {% if order.notes %}
+            <div class="card notes-card">
+                <h3>Twoje notatki</h3>
+                <p class="notes-text">{{ order.notes }}</p>
+            </div>
             {% endif %}
         </div>
-    </div>
-    {% endif %}
-
-    <!-- Products -->
-    <div class="card">
-        <h2>Produkty</h2>
-        <table class="products-table">
-            <thead>
-                <tr>
-                    <th>Produkt</th>
-                    <th>SKU</th>
-                    <th class="text-center">Ilość</th>
-                    <th class="text-right">Cena</th>
-                    <th class="text-right">Suma</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in order_items %}
-                <tr>
-                    <td data-label="Produkt">
-                        <div class="product-cell">
-                            <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
-                            <span class="product-name">{{ item.product_name }}</span>
-                        </div>
-                    </td>
-                    <td data-label="SKU">{{ item.product_sku }}</td>
-                    <td class="text-center" data-label="Ilość">{{ item.quantity }}</td>
-                    <td class="text-right" data-label="Cena">{{ "%.2f"|format(item.price) }} PLN</td>
-                    <td class="text-right" data-label="Suma">{{ "%.2f"|format(item.total) }} PLN</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4" class="text-right"><strong>Suma całkowita:</strong></td>
-                    <td class="text-right"><strong>{{ "%.2f"|format(order.total_amount) }} PLN</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-    </div>
-
-    <!-- Timeline / Messages -->
-    <div class="card">
-        <h2>Wiadomości</h2>
-        <div class="timeline" id="timeline">
-            {% for event in timeline %}
-                {% if event.type == 'comment' %}
-                    <div class="timeline-item comment {% if event.is_from_admin %}from-admin{% else %}from-client{% endif %}">
-                        <div class="timeline-avatar">
-                            {{ event.user.first_name[0] }}{{ event.user.last_name[0] }}
-                        </div>
-                        <div class="timeline-content">
-                            <div class="timeline-header">
-                                <strong>{{ event.user.full_name }}</strong>
-                                <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
-                            </div>
-                            <p>{{ event.comment }}</p>
-                        </div>
-                    </div>
-                {% elif event.type == 'created' %}
-                    <div class="timeline-item created">
-                        <div class="timeline-icon">📦</div>
-                        <div class="timeline-content">
-                            <p>{{ event.message }}</p>
-                            <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
-                        </div>
-                    </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-
-        <!-- Add Message Form -->
-        <form hx-post="{{ url_for('orders.client_add_comment', order_id=order.id) }}"
-              hx-target="#timeline"
-              hx-swap="afterbegin"
-              class="comment-form">
-            {{ comment_form.hidden_tag() }}
-            <div class="form-group">
-                {{ comment_form.comment(class="form-textarea", placeholder="Napisz wiadomość do sprzedawcy...", rows=4) }}
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">Wyślij wiadomość</button>
-            </div>
-        </form>
     </div>
 </div>
 {% endblock %}

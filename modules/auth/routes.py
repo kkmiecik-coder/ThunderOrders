@@ -183,8 +183,6 @@ def login():
         user.update_last_login()
         record_login_attempt(email, ip_address, success=True)
 
-        flash(f'Witaj, {user.first_name}!', 'success')
-
         # Sprawdź czy użytkownik ma wybrany avatar
         if not user.has_avatar:
             return redirect(url_for('profile.select_avatar'))
@@ -604,7 +602,6 @@ def register_from_guest():
         # Log in user
         login_user(user)
 
-        flash(f'Witaj, {user.first_name}! Twoje konto zostało utworzone, a zamówienia przypisane.', 'success')
         return redirect(url_for('orders.client_list'))
 
     except Exception as e:

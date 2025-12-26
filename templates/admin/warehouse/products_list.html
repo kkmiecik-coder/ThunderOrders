@@ -882,7 +882,7 @@ function closeProductModal() {
 }
 
 // Submit Product Form (from sticky footer)
-function submitProductForm() {
+async function submitProductForm() {
     const form = document.getElementById('productFormModal');
     if (!form) {
         console.error('[PRODUCT MODAL] Form not found');
@@ -899,6 +899,36 @@ function submitProductForm() {
     if (btnSpinner) btnSpinner.style.display = 'inline-flex';
     submitBtn.disabled = true;
 
+    // IMPORTANT: Save variant groups FIRST (before submitting product form)
+    if (typeof window.saveVariantGroups === 'function') {
+        console.log('[PRODUCT MODAL] Calling saveVariantGroups before form submission...');
+        try {
+            const variantsSaved = await window.saveVariantGroups();
+            if (!variantsSaved) {
+                console.error('[PRODUCT MODAL] Failed to save variant groups');
+                showToast('Nie udało się zapisać grup wariantowych. Sprawdź konsolę.', 'error');
+
+                // Re-enable submit button
+                if (btnText) btnText.style.display = 'inline';
+                if (btnSpinner) btnSpinner.style.display = 'none';
+                submitBtn.disabled = false;
+                return; // Stop submission if variant groups failed to save
+            }
+            console.log('[PRODUCT MODAL] Variant groups saved successfully, proceeding with form submission');
+        } catch (error) {
+            console.error('[PRODUCT MODAL] Error saving variant groups:', error);
+            showToast('Błąd zapisu grup wariantowych: ' + error.message, 'error');
+
+            // Re-enable submit button
+            if (btnText) btnText.style.display = 'inline';
+            if (btnSpinner) btnSpinner.style.display = 'none';
+            submitBtn.disabled = false;
+            return;
+        }
+    } else {
+        console.log('[PRODUCT MODAL] saveVariantGroups function not found (variant groups not modified)');
+    }
+
     // Use FormData and submit via fetch (AJAX)
     const formData = new FormData(form);
 
@@ -907,21 +937,33 @@ function submitProductForm() {
         body: formData
     })
     .then(response => {
-        // Check if redirect (success) or HTML (form with errors)
-        if (response.redirected) {
-            // Success - close modal and refresh
-            closeProductModal();
-            showToast('Produkt został zapisany', 'success');
-            refreshProductsList();
-            return null;
+        // Check content type to determine if it's JSON or HTML
+        const contentType = response.headers.get('content-type');
+
+        if (contentType && contentType.includes('application/json')) {
+            // JSON response (success or error)
+            return response.json().then(data => ({ type: 'json', data, ok: response.ok }));
+        } else {
+            // HTML response (form with errors)
+            return response.text().then(html => ({ type: 'html', html }));
         }
-        return response.text();
     })
-    .then(html => {
-        if (html) {
+    .then(result => {
+        if (result.type === 'json') {
+            // Handle JSON response
+            if (result.ok && result.data.success) {
+                // Success - close modal and refresh
+                closeProductModal();
+                showToast(result.data.message || 'Produkt został zapisany', 'success');
+                refreshProductsList();
+            } else {
+                // Error in JSON
+                showToast(result.data.error || 'Błąd podczas zapisywania produktu', 'error');
+            }
+        } else if (result.type === 'html') {
             // Form returned with errors - replace modal body
             const modalBody = document.getElementById('modalBody');
-            modalBody.innerHTML = html;
+            modalBody.innerHTML = result.html;
 
             // Re-initialize form functions
             setTimeout(() => {

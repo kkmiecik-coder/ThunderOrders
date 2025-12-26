@@ -14,7 +14,7 @@ from uuid import uuid4
 from modules.products import products_bp
 from modules.products.models import (
     Product, Category, Tag, Supplier, ProductImage, product_tags,
-    StockOrder, StockOrderItem, Manufacturer, ProductSeries
+    StockOrder, StockOrderItem, Manufacturer, ProductSeries, VariantGroup
 )
 from modules.products.forms import (
     ProductForm, CategoryForm, TagForm, SupplierForm,
@@ -2509,3 +2509,113 @@ def generate_stock_order_number(order_type):
 
     # Format: SO/PROXY/00001 (5 digits with leading zeros)
     return f'{prefix}{next_number:05d}'
+
+
+# ==========================================
+# Search Variant Groups (AJAX)
+# ==========================================
+@products_bp.route('/search-variant-groups', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def search_variant_groups():
+    """Search variant groups by name (for adding product to existing group)"""
+
+    query_term = request.args.get('q', '').strip()
+    exclude_ids_str = request.args.get('exclude_ids', '').strip()
+
+    if not query_term or len(query_term) < 2:
+        return jsonify({'groups': []})
+
+    # Parse exclude IDs
+    exclude_ids = []
+    if exclude_ids_str:
+        try:
+            exclude_ids = [int(id_str) for id_str in exclude_ids_str.split(',') if id_str]
+        except ValueError:
+            pass
+
+    # Search query
+    query = VariantGroup.query.filter(
+        VariantGroup.name.like(f'%{query_term}%')
+    )
+
+    # Exclude groups
+    if exclude_ids:
+        query = query.filter(~VariantGroup.id.in_(exclude_ids))
+
+    # Limit results
+    groups = query.limit(20).all()
+
+    # Format results
+    results = []
+    for group in groups:
+        results.append({
+            'id': group.id,
+            'name': group.name,
+            'product_count': len(group.products.all())
+        })
+
+    return jsonify({'groups': results})
+
+
+# ==========================================
+# Get Variant Group Details (AJAX)
+# ==========================================
+@products_bp.route('/variant-group/<int:group_id>', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def get_variant_group(group_id):
+    """Get full variant group data with products"""
+
+    group = VariantGroup.query.get_or_404(group_id)
+
+    # Get all products in this group
+    products = []
+    for product in group.products.all():
+        primary_image = product.primary_image
+        image_url = f"/static/{primary_image.path_compressed}" if primary_image else "/static/img/product-placeholder.svg"
+
+        products.append({
+            'id': product.id,
+            'name': product.name,
+            'sku': product.sku or '',
+            'image_url': image_url,
+            'series': product.series.name if product.series else 'Brak serii',
+            'type': product.product_type.name if product.product_type else 'Brak typu'
+        })
+
+    return jsonify({
+        'success': True,
+        'group': {
+            'id': group.id,
+            'name': group.name,
+            'products': products
+        }
+    })
+
+
+# ==========================================
+# Get Product Data (AJAX)
+# ==========================================
+@products_bp.route('/<int:product_id>/data', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def get_product_data(product_id):
+    """Get product data for adding to variant group"""
+
+    product = Product.query.get_or_404(product_id)
+
+    primary_image = product.primary_image
+    image_url = f"/static/{primary_image.path_compressed}" if primary_image else "/static/img/product-placeholder.svg"
+
+    return jsonify({
+        'success': True,
+        'product': {
+            'id': product.id,
+            'name': product.name,
+            'sku': product.sku or '',
+            'image_url': image_url,
+            'series': product.series.name if product.series else 'Brak serii',
+            'type': product.product_type.name if product.product_type else 'Brak typu'
+        }
+    })

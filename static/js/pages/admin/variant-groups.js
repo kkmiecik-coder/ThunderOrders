@@ -6,6 +6,9 @@
 let variantGroups = [];
 let currentProductId = null;
 let searchDebounceTimer = null;
+let existingGroupSearchTimer = null;
+let selectedProducts = {}; // Track selected products per group: { groupTempId: Set<productId> }
+let activeDropdownGroupId = null; // Track which group's dropdown is currently open
 
 /**
  * Initialize the variant groups system
@@ -29,6 +32,43 @@ function initVariantGroupsSystem(productId, existingGroups) {
 
     console.log('[VARIANT GROUPS INIT] variantGroups initialized:', variantGroups);
     renderAllGroups();
+
+    // Setup global click handler to close dropdowns when clicking outside
+    setupGlobalClickHandler();
+}
+
+/**
+ * Setup global click handler to close search dropdowns
+ */
+function setupGlobalClickHandler() {
+    // Remove existing listener if any
+    document.removeEventListener('click', handleGlobalClick);
+
+    // Add new listener
+    document.addEventListener('click', handleGlobalClick);
+}
+
+/**
+ * Handle global clicks to close dropdowns when clicking outside
+ */
+function handleGlobalClick(event) {
+    // If there's no active dropdown, nothing to do
+    if (!activeDropdownGroupId) return;
+
+    const resultsContainer = document.getElementById(`searchResults_${activeDropdownGroupId}`);
+    const searchInput = document.getElementById(`searchInput_${activeDropdownGroupId}`);
+
+    if (!resultsContainer) return;
+
+    // Check if click was inside the search input or results container
+    const clickedInsideSearch = searchInput && searchInput.contains(event.target);
+    const clickedInsideResults = resultsContainer.contains(event.target);
+
+    // If click was outside both, hide the dropdown
+    if (!clickedInsideSearch && !clickedInsideResults) {
+        hideSearchResults(activeDropdownGroupId);
+        activeDropdownGroupId = null;
+    }
 }
 
 /**
@@ -111,6 +151,7 @@ function renderGroup(group, index) {
             <!-- Search Input -->
             <div class="group-search-container">
                 <input type="text"
+                       id="searchInput_${group.tempId}"
                        class="group-search-input"
                        placeholder="Wyszukaj produkt do dodania..."
                        oninput="handleSearch('${group.tempId}', this.value)"
@@ -227,19 +268,61 @@ async function performSearch(groupTempId, query) {
             return;
         }
 
-        // Render results
-        const resultsHtml = filteredProducts.map(product => `
-            <div class="search-result-item" onclick="addProductToGroup('${groupTempId}', ${JSON.stringify(product).replace(/"/g, '&quot;')})">
-                <img src="${product.image_url}" alt="${product.name}" class="result-thumbnail" onerror="this.src='/static/img/product-placeholder.svg'">
-                <div class="result-info">
+        // Initialize selected products set for this group if not exists
+        if (!selectedProducts[groupTempId]) {
+            selectedProducts[groupTempId] = new Set();
+        }
+
+        // Render results with checkboxes
+        const selectAllChecked = selectedProducts[groupTempId].size === filteredProducts.length && filteredProducts.length > 0;
+
+        let resultsHtml = `
+            <div class="search-result-header">
+                <label class="search-result-select-all">
+                    <input type="checkbox"
+                           id="selectAll_${groupTempId}"
+                           ${selectAllChecked ? 'checked' : ''}
+                           onchange="toggleSelectAll('${groupTempId}', this.checked)">
+                    <span>Zaznacz wszystkie (${filteredProducts.length})</span>
+                </label>
+            </div>
+        `;
+
+        resultsHtml += filteredProducts.map(product => {
+            const isChecked = selectedProducts[groupTempId].has(product.id);
+            const productName = product.name.replace(/"/g, '&quot;');
+            const productSeries = (product.series || '').replace(/"/g, '&quot;');
+            const productType = (product.type || '').replace(/"/g, '&quot;');
+            const productImage = product.image_url.replace(/"/g, '&quot;');
+
+            return `
+            <div class="search-result-item"
+                 data-product-id="${product.id}"
+                 data-product-name="${productName}"
+                 data-product-series="${productSeries}"
+                 data-product-type="${productType}"
+                 data-product-image="${productImage}">
+                <input type="checkbox"
+                       class="result-checkbox"
+                       ${isChecked ? 'checked' : ''}
+                       onchange="toggleProductSelection('${groupTempId}', ${product.id}, this.checked)"
+                       onclick="event.stopPropagation()">
+                <img src="${product.image_url}" alt="${productName}" class="result-thumbnail" onerror="this.src='/static/img/product-placeholder.svg'">
+                <div class="result-info" onclick="addProductToGroupFromData('${groupTempId}', this.parentElement)">
                     <div class="result-name">${product.name}</div>
                     <div class="result-meta">${product.series} • ${product.type}</div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
 
         resultsContainer.innerHTML = resultsHtml;
         resultsContainer.style.display = 'block';
+
+        // Mark this dropdown as active
+        activeDropdownGroupId = groupTempId;
+
+        // Update bulk add button visibility
+        updateBulkAddButton(groupTempId, filteredProducts);
 
     } catch (error) {
         console.error('Search error:', error);
@@ -256,6 +339,7 @@ function handleSearchFocus(groupTempId) {
     const resultsContainer = document.getElementById(`searchResults_${groupTempId}`);
     if (resultsContainer && resultsContainer.innerHTML.trim() !== '') {
         resultsContainer.style.display = 'block';
+        activeDropdownGroupId = groupTempId;
     }
 }
 
@@ -264,10 +348,8 @@ function handleSearchFocus(groupTempId) {
  * @param {string} groupTempId - Temporary group ID
  */
 function handleSearchBlur(groupTempId) {
-    // Delay to allow click on results
-    setTimeout(() => {
-        hideSearchResults(groupTempId);
-    }, 200);
+    // Don't hide results - let user interact with checkboxes
+    // Results will be hidden manually when needed (after adding products)
 }
 
 /**
@@ -278,6 +360,11 @@ function hideSearchResults(groupTempId) {
     const resultsContainer = document.getElementById(`searchResults_${groupTempId}`);
     if (resultsContainer) {
         resultsContainer.style.display = 'none';
+    }
+
+    // Clear active dropdown if it's this one
+    if (activeDropdownGroupId === groupTempId) {
+        activeDropdownGroupId = null;
     }
 }
 
@@ -310,6 +397,23 @@ function addProductToGroup(groupTempId, product) {
 }
 
 /**
+ * Add product to group from data attributes
+ * @param {string} groupTempId - Temporary group ID
+ * @param {HTMLElement} itemElement - The search result item element
+ */
+function addProductToGroupFromData(groupTempId, itemElement) {
+    const product = {
+        id: parseInt(itemElement.getAttribute('data-product-id')),
+        name: itemElement.getAttribute('data-product-name'),
+        series: itemElement.getAttribute('data-product-series'),
+        type: itemElement.getAttribute('data-product-type'),
+        image_url: itemElement.getAttribute('data-product-image')
+    };
+
+    addProductToGroup(groupTempId, product);
+}
+
+/**
  * Remove product from group
  * @param {string} groupTempId - Temporary group ID
  * @param {number} productId - Product ID to remove
@@ -333,6 +437,167 @@ function removeProductFromGroup(groupTempId, productId) {
     }
 
     renderAllGroups();
+}
+
+/**
+ * Toggle product selection
+ * @param {string} groupTempId - Temporary group ID
+ * @param {number} productId - Product ID to toggle
+ * @param {boolean} checked - Whether checkbox is checked
+ */
+function toggleProductSelection(groupTempId, productId, checked) {
+    if (!selectedProducts[groupTempId]) {
+        selectedProducts[groupTempId] = new Set();
+    }
+
+    if (checked) {
+        selectedProducts[groupTempId].add(productId);
+    } else {
+        selectedProducts[groupTempId].delete(productId);
+    }
+
+    // Update select all checkbox
+    const resultsContainer = document.getElementById(`searchResults_${groupTempId}`);
+    if (resultsContainer) {
+        const totalProducts = resultsContainer.querySelectorAll('.search-result-item[data-product-id]').length;
+        const selectAllCheckbox = document.getElementById(`selectAll_${groupTempId}`);
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = selectedProducts[groupTempId].size === totalProducts;
+        }
+    }
+
+    // Update bulk add button
+    updateBulkAddButton(groupTempId);
+}
+
+/**
+ * Toggle select all products
+ * @param {string} groupTempId - Temporary group ID
+ * @param {boolean} checked - Whether to select all
+ */
+function toggleSelectAll(groupTempId, checked) {
+    if (!selectedProducts[groupTempId]) {
+        selectedProducts[groupTempId] = new Set();
+    }
+
+    const resultsContainer = document.getElementById(`searchResults_${groupTempId}`);
+    if (!resultsContainer) return;
+
+    const productItems = resultsContainer.querySelectorAll('.search-result-item[data-product-id]');
+
+    if (checked) {
+        // Select all
+        productItems.forEach(item => {
+            const productId = parseInt(item.getAttribute('data-product-id'));
+            selectedProducts[groupTempId].add(productId);
+            const checkbox = item.querySelector('.result-checkbox');
+            if (checkbox) checkbox.checked = true;
+        });
+    } else {
+        // Deselect all
+        selectedProducts[groupTempId].clear();
+        productItems.forEach(item => {
+            const checkbox = item.querySelector('.result-checkbox');
+            if (checkbox) checkbox.checked = false;
+        });
+    }
+
+    // Update bulk add button
+    updateBulkAddButton(groupTempId);
+}
+
+/**
+ * Update bulk add button visibility and count
+ * @param {string} groupTempId - Temporary group ID
+ * @param {Array} products - Optional products array for data lookup
+ */
+function updateBulkAddButton(groupTempId, products = null) {
+    const resultsContainer = document.getElementById(`searchResults_${groupTempId}`);
+    if (!resultsContainer) return;
+
+    const selectedCount = selectedProducts[groupTempId] ? selectedProducts[groupTempId].size : 0;
+
+    // Remove existing button
+    const existingButton = resultsContainer.querySelector('.bulk-add-button');
+    if (existingButton) {
+        existingButton.remove();
+    }
+
+    // Add new button if there are selected products
+    if (selectedCount > 0) {
+        const button = document.createElement('div');
+        button.className = 'bulk-add-button';
+        button.innerHTML = `
+            <button type="button" class="btn btn-primary" onclick="addSelectedProducts('${groupTempId}')">
+                ✓ Dodaj zaznaczone (${selectedCount})
+            </button>
+        `;
+        resultsContainer.appendChild(button);
+    }
+}
+
+/**
+ * Add all selected products to group
+ * @param {string} groupTempId - Temporary group ID
+ */
+async function addSelectedProducts(groupTempId) {
+    if (!selectedProducts[groupTempId] || selectedProducts[groupTempId].size === 0) {
+        return;
+    }
+
+    const group = variantGroups.find(g => g.tempId === groupTempId);
+    if (!group) return;
+
+    const resultsContainer = document.getElementById(`searchResults_${groupTempId}`);
+    if (!resultsContainer) return;
+
+    const selectedIds = Array.from(selectedProducts[groupTempId]);
+    let addedCount = 0;
+
+    // Fetch product data for each selected product
+    for (const productId of selectedIds) {
+        const productItem = resultsContainer.querySelector(`.search-result-item[data-product-id="${productId}"]`);
+        if (!productItem) continue;
+
+        // Extract product data from DOM
+        const imgElement = productItem.querySelector('.result-thumbnail');
+        const nameElement = productItem.querySelector('.result-name');
+        const metaElement = productItem.querySelector('.result-meta');
+
+        if (!nameElement) continue;
+
+        const product = {
+            id: productId,
+            name: nameElement.textContent,
+            image_url: imgElement ? imgElement.src : '/static/img/product-placeholder.svg',
+            series: metaElement ? metaElement.textContent.split(' • ')[0] : '',
+            type: metaElement ? metaElement.textContent.split(' • ')[1] : ''
+        };
+
+        // Check if product is already in group
+        if (!group.products.some(p => p.id === product.id)) {
+            group.products.push(product);
+            addedCount++;
+        }
+    }
+
+    // Clear selections
+    selectedProducts[groupTempId].clear();
+
+    // Hide search results and clear input
+    hideSearchResults(groupTempId);
+    const searchInput = document.querySelector(`#searchInput_${groupTempId}`);
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    // Re-render group
+    renderAllGroups();
+
+    // Show success message
+    if (window.showToast && addedCount > 0) {
+        showToast(`Dodano ${addedCount} ${addedCount === 1 ? 'produkt' : 'produkty/ów'} do grupy`, 'success');
+    }
 }
 
 /**
@@ -385,6 +650,180 @@ async function saveVariantGroups() {
     }
 }
 
+/**
+ * Handle search for existing groups with debounce
+ * @param {string} query - Search query
+ */
+function handleExistingGroupSearch(query) {
+    clearTimeout(existingGroupSearchTimer);
+
+    if (query.trim().length < 2) {
+        hideExistingGroupSearchResults();
+        return;
+    }
+
+    existingGroupSearchTimer = setTimeout(() => {
+        performExistingGroupSearch(query);
+    }, 500);
+}
+
+/**
+ * Perform search for existing variant groups
+ * @param {string} query - Search query
+ */
+async function performExistingGroupSearch(query) {
+    const resultsContainer = document.getElementById('existingGroupsSearchResults');
+    if (!resultsContainer) return;
+
+    try {
+        // Build query params - exclude groups that this product is already in
+        const existingGroupIds = variantGroups.map(g => g.id).filter(id => id !== null);
+        const params = new URLSearchParams({
+            q: query,
+            exclude_ids: existingGroupIds.join(',')
+        });
+
+        const response = await fetch(`/admin/products/search-variant-groups?${params}`);
+        const data = await response.json();
+
+        if (!data.groups || data.groups.length === 0) {
+            resultsContainer.innerHTML = '<div class="search-result-item no-results">Brak grup o tej nazwie</div>';
+            resultsContainer.style.display = 'block';
+            return;
+        }
+
+        // Render results
+        const resultsHtml = data.groups.map(group => `
+            <div class="search-result-item" onclick="addProductToExistingGroup(${JSON.stringify(group).replace(/"/g, '&quot;')})">
+                <div class="result-info" style="width: 100%;">
+                    <div class="result-name">${group.name}</div>
+                    <div class="result-meta">${group.product_count} produktów w grupie</div>
+                </div>
+            </div>
+        `).join('');
+
+        resultsContainer.innerHTML = resultsHtml;
+        resultsContainer.style.display = 'block';
+
+    } catch (error) {
+        console.error('Existing group search error:', error);
+        resultsContainer.innerHTML = '<div class="search-result-item no-results">Błąd wyszukiwania</div>';
+        resultsContainer.style.display = 'block';
+    }
+}
+
+/**
+ * Handle search input focus for existing groups
+ */
+function handleExistingGroupSearchFocus() {
+    const resultsContainer = document.getElementById('existingGroupsSearchResults');
+    if (resultsContainer && resultsContainer.innerHTML.trim() !== '') {
+        resultsContainer.style.display = 'block';
+    }
+}
+
+/**
+ * Handle search input blur for existing groups
+ */
+function handleExistingGroupSearchBlur() {
+    setTimeout(() => {
+        hideExistingGroupSearchResults();
+    }, 200);
+}
+
+/**
+ * Hide existing groups search results
+ */
+function hideExistingGroupSearchResults() {
+    const resultsContainer = document.getElementById('existingGroupsSearchResults');
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
+    }
+}
+
+/**
+ * Add current product to an existing variant group
+ * @param {Object} group - Group data from search
+ */
+async function addProductToExistingGroup(group) {
+    if (!currentProductId) {
+        alert('Zapisz produkt przed dodaniem do grupy.');
+        return;
+    }
+
+    // Check if group already in variantGroups
+    if (variantGroups.some(g => g.id === group.id)) {
+        alert('Ten produkt już należy do tej grupy.');
+        return;
+    }
+
+    try {
+        // Fetch full group data with products
+        const response = await fetch(`/admin/products/variant-group/${group.id}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Błąd pobierania danych grupy');
+        }
+
+        // Add group to variantGroups
+        const fullGroup = {
+            id: data.group.id,
+            name: data.group.name,
+            products: data.group.products || [],
+            tempId: `temp_${Date.now()}_${variantGroups.length}`
+        };
+
+        // Add current product to the group if not already there
+        if (!fullGroup.products.some(p => p.id === currentProductId)) {
+            // We need to fetch current product data
+            const currentProductData = await fetchCurrentProductData();
+            if (currentProductData) {
+                fullGroup.products.push(currentProductData);
+            }
+        }
+
+        variantGroups.push(fullGroup);
+        renderAllGroups();
+
+        // Clear search
+        const searchInput = document.getElementById('searchExistingGroupsInput');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        hideExistingGroupSearchResults();
+
+        // Show success message
+        if (window.showToast) {
+            showToast(`Produkt dodany do grupy "${group.name}"`, 'success');
+        }
+
+    } catch (error) {
+        console.error('Error adding to existing group:', error);
+        alert('Błąd dodawania do grupy: ' + error.message);
+    }
+}
+
+/**
+ * Fetch current product data for adding to group
+ */
+async function fetchCurrentProductData() {
+    if (!currentProductId) return null;
+
+    try {
+        const response = await fetch(`/admin/products/${currentProductId}/data`);
+        const data = await response.json();
+
+        if (data.success) {
+            return data.product;
+        }
+        return null;
+    } catch (error) {
+        console.error('Error fetching current product data:', error);
+        return null;
+    }
+}
+
 // Expose functions globally
 window.initVariantGroupsSystem = initVariantGroupsSystem;
 window.addNewVariantGroup = addNewVariantGroup;
@@ -394,5 +833,13 @@ window.handleSearch = handleSearch;
 window.handleSearchFocus = handleSearchFocus;
 window.handleSearchBlur = handleSearchBlur;
 window.addProductToGroup = addProductToGroup;
+window.addProductToGroupFromData = addProductToGroupFromData;
 window.removeProductFromGroup = removeProductFromGroup;
 window.saveVariantGroups = saveVariantGroups;
+window.handleExistingGroupSearch = handleExistingGroupSearch;
+window.handleExistingGroupSearchFocus = handleExistingGroupSearchFocus;
+window.handleExistingGroupSearchBlur = handleExistingGroupSearchBlur;
+window.addProductToExistingGroup = addProductToExistingGroup;
+window.toggleProductSelection = toggleProductSelection;
+window.toggleSelectAll = toggleSelectAll;
+window.addSelectedProducts = addSelectedProducts;
