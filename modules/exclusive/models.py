@@ -204,8 +204,12 @@ class ExclusivePage(db.Model):
     # ============================================
 
     def publish(self):
-        """Publikuje stronę natychmiast (status = active)"""
+        """Publikuje stronę natychmiast (status = active, usuwa ends_at jeśli w przeszłości)"""
         self.status = 'active'
+        # Usuń datę zakończenia jeśli jest w przeszłości, aby zapobiec automatycznemu zakończeniu
+        now = get_local_now()
+        if self.ends_at and self.ends_at <= now:
+            self.ends_at = None
 
     def schedule(self):
         """Planuje publikację na datę starts_at (status = scheduled)"""
@@ -220,12 +224,20 @@ class ExclusivePage(db.Model):
         self.status = 'paused'
 
     def resume(self):
-        """Wznawia sprzedaż"""
+        """Wznawia sprzedaż (usuwa datę zakończenia jeśli była w przeszłości)"""
         self.status = 'active'
+        # Usuń datę zakończenia jeśli jest w przeszłości, aby zapobiec automatycznemu zakończeniu
+        now = get_local_now()
+        if self.ends_at and self.ends_at <= now:
+            self.ends_at = None
 
     def end(self):
-        """Kończy sprzedaż"""
+        """Kończy sprzedaż natychmiast (ustawia ends_at na teraz)"""
         self.status = 'ended'
+        # Ustaw datę zakończenia na teraz, aby zapobiec automatycznemu wznowieniu
+        now = get_local_now()
+        if not self.ends_at or self.ends_at > now:
+            self.ends_at = now
 
     def check_and_update_status(self):
         """
