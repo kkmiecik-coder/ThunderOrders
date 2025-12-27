@@ -4,114 +4,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Twój kod weryfikacyjny - ThunderOrders</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .email-container {
-            background: white;
-            border-radius: 8px;
-            padding: 40px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #FF8500;
-            margin-bottom: 10px;
-        }
-        h1 {
-            color: #240046;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .code-container {
-            text-align: center;
-            margin: 30px 0;
-        }
-        .verification-code {
-            display: inline-block;
-            background: linear-gradient(135deg, #240046 0%, #5A189A 100%);
-            color: white;
-            font-size: 36px;
-            font-weight: bold;
-            letter-spacing: 12px;
-            padding: 20px 40px;
-            border-radius: 12px;
-            font-family: 'Courier New', monospace;
-        }
-        .instructions {
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        .instructions p {
-            margin: 0;
-            color: #555;
-        }
-        .warning {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 12px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            font-size: 12px;
-            color: #757575;
-            text-align: center;
-        }
-        .highlight {
-            color: #FF8500;
-            font-weight: 600;
-        }
-    </style>
 </head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <div class="logo">⚡ ThunderOrders</div>
-        </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <!-- Main email container (max-width: 600px) -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
 
-        <h1>Witaj, {{ user_name }}!</h1>
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
 
-        <p>Otrzymaliśmy prośbę o weryfikację Twojego adresu email. Użyj poniższego kodu, aby aktywować swoje konto:</p>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Twój kod weryfikacyjny
+                            </h1>
 
-        <div class="code-container">
-            <div class="verification-code">{{ verification_code }}</div>
-        </div>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ user_name }}</strong>!
+                            </p>
 
-        <div class="instructions">
-            <p>Wpisz ten kod na stronie weryfikacji</p>
-        </div>
+                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
+                                Otrzymaliśmy prośbę o weryfikację Twojego adresu email. Użyj poniższego kodu, aby aktywować swoje konto:
+                            </p>
 
-        <div class="warning">
-            <strong>⏱️ Ważne:</strong> Kod jest ważny przez <span class="highlight">24 godziny</span>. Po tym czasie będziesz musiał/a poprosić o nowy kod.
-        </div>
+                            <!-- Verification code -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <div style="display: inline-block; background: linear-gradient(135deg, #240046, #5A189A); color: #FFFFFF; font-size: 36px; font-weight: 700; letter-spacing: 12px; padding: 20px 40px; border-radius: 12px; font-family: 'Courier New', monospace;">
+                                            {{ verification_code }}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <p>Jeśli nie zakładałeś/aś konta w ThunderOrders, zignoruj tę wiadomość. Twój email nie zostanie użyty.</p>
+                            <!-- Instructions -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 20px; border-radius: 8px; text-align: center;">
+                                        <p style="margin: 0; font-size: 14px; color: #616161;">
+                                            Wpisz ten kod na stronie weryfikacji
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <div class="footer">
-            <p><strong>ThunderOrders</strong><br>
-            Twój partner w imporcie z Azji</p>
-            <p>thunderorders.cloud | noreply@thunderorders.cloud</p>
-            <p style="margin-top: 15px; color: #999;">Ten email został wysłany automatycznie. Prosimy nie odpowiadać na tę wiadomość.</p>
-        </div>
-    </div>
+                            <!-- Warning box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #fff3cd; border-left: 4px solid #FFC107; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0; font-size: 14px; color: #856404;">
+                                            <strong>⏱️ Ważne:</strong> Kod jest ważny przez <strong style="color: #FF8500;">24 godziny</strong>. Po tym czasie będziesz musiał/a poprosić o nowy kod.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 20px 0; font-size: 14px; color: #616161;">
+                                Jeśli nie zakładałeś/aś konta w ThunderOrders, zignoruj tę wiadomość. Twój email nie zostanie użyty.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

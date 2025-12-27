@@ -4,95 +4,87 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Potwierdź swój email - ThunderOrders</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .email-container {
-            background: white;
-            border-radius: 8px;
-            padding: 40px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #FF8500;
-            margin-bottom: 10px;
-        }
-        h1 {
-            color: #240046;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .button {
-            display: inline-block;
-            background-color: #FF8500;
-            color: white;
-            padding: 14px 32px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: 600;
-            margin: 20px 0;
-        }
-        .button:hover {
-            background-color: #FF9100;
-        }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            font-size: 12px;
-            color: #757575;
-            text-align: center;
-        }
-        .warning {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 12px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-    </style>
 </head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <div class="logo">⚡ ThunderOrders</div>
-        </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <!-- Main email container (max-width: 600px) -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
 
-        <h1>Witaj, {{ user_name }}!</h1>
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
 
-        <p>Dziękujemy za rejestrację w ThunderOrders. Aby aktywować swoje konto, kliknij przycisk poniżej:</p>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Potwierdź swój adres email
+                            </h1>
 
-        <div style="text-align: center;">
-            <a href="{{ verification_url }}" class="button">Potwierdź adres email</a>
-        </div>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ user_name }}</strong>!
+                            </p>
 
-        <div class="warning">
-            <strong>⚠️ Ważne:</strong> Link weryfikacyjny jest ważny przez <strong>24 godziny</strong>. Po tym czasie będziesz musiał/a poprosić o nowy link.
-        </div>
+                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
+                                Dziękujemy za rejestrację w ThunderOrders. Aby aktywować swoje konto, kliknij przycisk poniżej:
+                            </p>
 
-        <p>Jeśli przycisk nie działa, skopiuj i wklej poniższy link do przeglądarki:</p>
-        <p style="word-break: break-all; color: #7B2CBF; font-size: 12px;">{{ verification_url }}</p>
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ verification_url }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Potwierdź adres email
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <p style="margin-top: 30px;">Jeśli nie zakładałeś/aś konta w ThunderOrders, zignoruj tę wiadomość.</p>
+                            <!-- Warning box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: #fff3cd; border-left: 4px solid #FFC107; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0; font-size: 14px; color: #856404;">
+                                            <strong>⏱️ Ważne:</strong> Link weryfikacyjny jest ważny przez <strong style="color: #FF8500;">24 godziny</strong>. Po tym czasie będziesz musiał/a poprosić o nowy link.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <div class="footer">
-            <p><strong>ThunderOrders</strong><br>
-            Twój partner w imporcie z Azji</p>
-            <p>thunderorders.cloud | noreply@thunderorders.cloud</p>
-        </div>
-    </div>
+                            <p style="margin: 20px 0 8px 0; font-size: 14px; color: #616161;">
+                                Jeśli przycisk nie działa, skopiuj i wklej poniższy link do przeglądarki:
+                            </p>
+                            <p style="margin: 0 0 20px 0; word-break: break-all; font-size: 12px; color: #7B2CBF;">
+                                {{ verification_url }}
+                            </p>
+
+                            <p style="margin: 30px 0 0 0; font-size: 14px; color: #616161;">
+                                Jeśli nie zakładałeś/aś konta w ThunderOrders, zignoruj tę wiadomość.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

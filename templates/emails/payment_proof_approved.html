@@ -4,130 +4,111 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Płatność potwierdzona - ThunderOrders</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .email-container {
-            background: white;
-            border-radius: 8px;
-            padding: 40px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #FF8500;
-            margin-bottom: 10px;
-        }
-        h1 {
-            color: #240046;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .success-icon {
-            text-align: center;
-            font-size: 48px;
-            margin: 20px 0;
-        }
-        .order-number {
-            background-color: #f0f0f0;
-            padding: 15px;
-            border-radius: 6px;
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            color: #240046;
-            margin: 20px 0;
-        }
-        .amount-box {
-            background-color: #e8f5e9;
-            border-left: 4px solid #4CAF50;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-        .amount-box p {
-            margin: 5px 0;
-            font-size: 16px;
-        }
-        .amount-value {
-            font-size: 24px;
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        .info-box {
-            background-color: #e3f2fd;
-            border-left: 4px solid #2196F3;
-            padding: 12px;
-            margin: 20px 0;
-            font-size: 14px;
-        }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            font-size: 12px;
-            color: #757575;
-            text-align: center;
-        }
-        a {
-            color: #7B2CBF;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-    </style>
 </head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <div class="logo">⚡ ThunderOrders</div>
-        </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <!-- Main email container (max-width: 600px) -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
 
-        <div class="success-icon">✅</div>
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
 
-        <h1>Płatność potwierdzona!</h1>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <!-- Success icon -->
+                            <div style="text-align: center; font-size: 48px; margin: 20px 0;">
+                                ✅
+                            </div>
 
-        <p>Witaj, {{ user_name }}!</p>
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Płatność potwierdzona!
+                            </h1>
 
-        <p>Twój dowód wpłaty został zaakceptowany. Płatność za zamówienie została potwierdzona.</p>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ user_name }}</strong>!
+                            </p>
 
-        <div class="order-number">
-            📦 Zamówienie {{ order_number }}
-        </div>
+                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
+                                Twój dowód wpłaty został zaakceptowany. Płatność za zamówienie została potwierdzona.
+                            </p>
 
-        <div class="amount-box">
-            <p>Zapłacona kwota:</p>
-            <p class="amount-value">{{ "%.2f"|format(paid_amount) }} PLN</p>
-        </div>
+                            <!-- Order number box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 20px; border-radius: 8px; text-align: center;">
+                                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: #240046;">
+                                            📦 Zamówienie {{ order_number }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <div class="info-box">
-            <strong>ℹ️ Co dalej?</strong><br>
-            Twoje zamówienie jest obecnie w realizacji. Będziemy Cię informować o kolejnych etapach przesyłką email.
-        </div>
+                            <!-- Amount box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: #e8f5e9; border-left: 4px solid #4CAF50; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #155724;">
+                                            Zapłacona kwota:
+                                        </p>
+                                        <p style="margin: 0; font-size: 24px; font-weight: 700; color: #4CAF50;">
+                                            {{ "%.2f"|format(paid_amount) }} PLN
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <p>Status zamówienia możesz sprawdzić w swoim panelu:</p>
-        <p><a href="https://thunderorders.cloud/client/orders">https://thunderorders.cloud/client/orders</a></p>
+                            <!-- Info box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #0d47a1; font-weight: 600;">
+                                            ℹ️ Co dalej?
+                                        </p>
+                                        <p style="margin: 0; font-size: 14px; color: #0d47a1;">
+                                            Twoje zamówienie jest obecnie w realizacji. Będziemy Cię informować o kolejnych etapach przesyłką email.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
 
-        <p>Dziękujemy za zaufanie!</p>
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; color: #616161;">
+                                Status zamówienia możesz sprawdzić w swoim panelu:
+                            </p>
+                            <p style="margin: 0 0 20px 0;">
+                                <a href="https://thunderorders.cloud/client/orders" style="color: #7B2CBF; text-decoration: underline; font-size: 14px;">
+                                    https://thunderorders.cloud/client/orders
+                                </a>
+                            </p>
 
-        <div class="footer">
-            <p><strong>ThunderOrders</strong><br>
-            Twój partner w imporcie z Azji</p>
-            <p>thunderorders.cloud | noreply@thunderorders.cloud</p>
-        </div>
-    </div>
+                            <p style="margin: 30px 0 0 0; font-size: 16px; color: #212121; font-weight: 600;">
+                                Dziękujemy za zaufanie!
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

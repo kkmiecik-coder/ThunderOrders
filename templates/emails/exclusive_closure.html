@@ -4,192 +4,259 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Podsumowanie zamówienia - ThunderOrders</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-        }
-        .email-container {
-            background: white;
-            border-radius: 8px;
-            padding: 40px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #FF8500;
-            margin-bottom: 10px;
-        }
-        h1 {
-            color: #240046;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        .page-name {
-            background: linear-gradient(135deg, #7B2CBF, #9D4EDD);
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            text-align: center;
-            font-size: 18px;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        th {
-            background-color: #240046;
-            color: white;
-            padding: 12px;
-            text-align: left;
-        }
-        td {
-            padding: 12px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .status-fulfilled {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        .status-unfulfilled {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-weight: bold;
-            display: inline-block;
-        }
-        .footer {
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #e0e0e0;
-            font-size: 12px;
-            color: #757575;
-            text-align: center;
-        }
-        .info-box {
-            background-color: #e3f2fd;
-            border-left: 4px solid #2196F3;
-            padding: 15px;
-            margin: 20px 0;
-            font-size: 14px;
-            border-radius: 0 8px 8px 0;
-        }
-        .info-box.warning {
-            background-color: #fff3cd;
-            border-left-color: #ffc107;
-        }
-        .summary-box {
-            background-color: #f0f0f0;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-        .summary-box h3 {
-            margin: 0 0 10px 0;
-            color: #240046;
-            font-size: 16px;
-        }
-    </style>
 </head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <div class="logo">ThunderOrders</div>
-        </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <!-- Main email container (max-width: 600px) -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
 
-        <h1>Podsumowanie Twojego zamówienia</h1>
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
 
-        <p>Witaj, {{ customer_name }}!</p>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Podsumowanie Twojego zamówienia
+                            </h1>
 
-        <p>Sprzedaż na stronie <strong>{{ page_name }}</strong> została zakończona.
-        Poniżej znajdziesz podsumowanie Twojego zamówienia wraz z informacją, które produkty zostaną zrealizowane.</p>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ customer_name }}</strong>!
+                            </p>
 
-        <div class="page-name">
-            {{ page_name }}
-        </div>
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                Sprzedaż na stronie <strong>{{ page_name }}</strong> została zakończona.
+                                Poniżej znajdziesz podsumowanie Twojego zamówienia wraz z informacją, które produkty zostały zakwalifikowane do setu.
+                            </p>
 
-        <h2 style="color: #240046; font-size: 18px;">Twoje produkty:</h2>
+                            <!-- Page name banner -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background: linear-gradient(135deg, #7B2CBF, #9D4EDD); color: #FFFFFF; padding: 16px 20px; border-radius: 8px; text-align: center; font-size: 18px; font-weight: 700;">
+                                        {{ page_name }}
+                                    </td>
+                                </tr>
+                            </table>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>Produkt</th>
-                    <th style="text-align: center;">Ilość</th>
-                    <th style="text-align: center;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td>{{ item.product_name }}</td>
-                    <td style="text-align: center;">{{ item.quantity }}</td>
-                    <td style="text-align: center;">
-                        {% if item.is_fulfilled %}
-                        <span class="status-fulfilled">Zrealizowane</span>
-                        {% else %}
-                        <span class="status-unfulfilled">Niezrealizowane</span>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                            <!-- Order number -->
+                            {% if order_number %}
+                            <p style="margin: 20px 0 10px 0; font-size: 14px; color: #616161;">
+                                Numer zamówienia: <strong style="color: #240046;">{{ order_number }}</strong>
+                            </p>
+                            {% endif %}
 
-        {% set fulfilled_items = items | selectattr('is_fulfilled') | list %}
-        {% set unfulfilled_items = items | rejectattr('is_fulfilled') | list %}
+                            <h2 style="margin: 30px 0 16px 0; font-size: 18px; font-weight: 600; color: #240046;">
+                                Twoje produkty
+                            </h2>
 
-        {% if fulfilled_items %}
-        <div class="summary-box">
-            <h3>Produkty do realizacji ({{ fulfilled_items|length }})</h3>
-            <p style="margin: 0; color: #155724;">
-                Te produkty zostaną zamówione i dostarczone do Ciebie.
-            </p>
-        </div>
-        {% endif %}
+                            <!-- Products table -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0; border-collapse: collapse;">
+                                <thead>
+                                    <tr>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: left; font-weight: 600; font-size: 14px; border-radius: 8px 0 0 0;">
+                                            Produkt
+                                        </th>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: center; font-weight: 600; font-size: 14px; width: 80px;">
+                                            Ilość
+                                        </th>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: right; font-weight: 600; font-size: 14px; width: 100px;">
+                                            Cena
+                                        </th>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: center; font-weight: 600; font-size: 14px; width: 140px; border-radius: 0 8px 0 0;">
+                                            Status
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in items %}
+                                    <tr>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; font-size: 14px; color: #212121;">
+                                            {{ item.product_name }}
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: center; font-size: 14px; color: #212121;">
+                                            {{ item.quantity }}
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: right; font-size: 14px; color: #212121;">
+                                            {% if item.is_fulfilled %}
+                                                {{ "%.2f"|format(item.price) }} PLN
+                                            {% else %}
+                                                0.00 PLN
+                                            {% endif %}
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: center;">
+                                            {% if item.is_fulfilled %}
+                                            <span style="background-color: #d4edda; color: #155724; padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 12px; display: inline-block; white-space: nowrap;">
+                                                ✓ Do realizacji
+                                            </span>
+                                            {% else %}
+                                            <span style="background-color: #f8d7da; color: #721c24; padding: 6px 12px; border-radius: 8px; font-weight: 600; font-size: 12px; display: inline-block; white-space: nowrap;">
+                                                ✗ Poza setem
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
 
-        {% if unfulfilled_items %}
-        <div class="info-box warning">
-            <strong>Produkty niezrealizowane ({{ unfulfilled_items|length }})</strong><br><br>
-            Niestety, niektóre z Twoich produktów nie zostały zrealizowane,
-            ponieważ nie zebrała się wystarczająca liczba kompletów.
-            Produkty w setach są realizowane według kolejności zamówień (kto pierwszy, ten lepszy).<br><br>
-            <strong>Nie musisz nic robić</strong> - płatność za niezrealizowane produkty nie została pobrana.
-        </div>
-        {% endif %}
+                            {% set fulfilled_items_list = items | selectattr('is_fulfilled') | list %}
+                            {% set unfulfilled_items_list = items | rejectattr('is_fulfilled') | list %}
 
-        {% if not unfulfilled_items %}
-        <div class="info-box">
-            <strong>Wszystkie Twoje produkty zostały zrealizowane!</strong><br>
-            Otrzymasz kolejne powiadomienie, gdy zamówienie zmieni status.
-        </div>
-        {% endif %}
+                            <!-- Financial summary -->
+                            {% if fulfilled_items_list %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 20px; border-radius: 8px;">
+                                        <h3 style="margin: 0 0 16px 0; font-size: 16px; font-weight: 600; color: #240046;">
+                                            Podsumowanie finansowe
+                                        </h3>
 
-        <p>Status zamówienia możesz sprawdzić w panelu klienta:</p>
-        <p><a href="https://thunderorders.cloud/client/orders" style="color: #7B2CBF;">https://thunderorders.cloud/client/orders</a></p>
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="padding: 8px 0; font-size: 14px; color: #616161;">
+                                                    Produkty ({{ fulfilled_items_list|length }} szt.)
+                                                </td>
+                                                <td align="right" style="padding: 8px 0; font-size: 14px; color: #212121; font-weight: 500;">
+                                                    {{ "%.2f"|format(fulfilled_total) }} PLN
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="2" style="padding: 12px 0 8px 0;">
+                                                    <hr style="border: 0; border-top: 2px solid #E0E0E0; margin: 0;" />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; font-size: 18px; color: #240046; font-weight: 700;">
+                                                    Do zapłaty
+                                                </td>
+                                                <td align="right" style="padding: 8px 0; font-size: 20px; color: #7B2CBF; font-weight: 700;">
+                                                    {{ "%.2f"|format(fulfilled_total) }} PLN
+                                                </td>
+                                            </tr>
+                                        </table>
 
-        <div class="footer">
-            <p><strong>ThunderOrders</strong><br>
-            Twój partner w imporcie z Azji</p>
-            <p>thunderorders.cloud | noreply@thunderorders.cloud</p>
-        </div>
-    </div>
+                                        <p style="margin: 16px 0 0 0; font-size: 13px; color: #757575; font-style: italic;">
+                                            * Koszt wysyłki nie jest uwzględniony. Zostanie dodany po dostarczeniu produktów do magazynu.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- Payment methods -->
+                            {% if payment_methods and fulfilled_items_list %}
+                            <h3 style="margin: 30px 0 12px 0; font-size: 16px; font-weight: 600; color: #240046;">
+                                Dostępne metody płatności
+                            </h3>
+                            <ul style="margin: 0 0 20px 0; padding: 0 0 0 20px; font-size: 14px; color: #212121; line-height: 1.8;">
+                                {% for method in payment_methods %}
+                                <li style="margin: 4px 0;">{{ method.name }}</li>
+                                {% endfor %}
+                            </ul>
+                            <p style="margin: 0 0 20px 0; font-size: 14px; color: #616161;">
+                                Szczegóły przelewów (numer konta, dane odbiorcy) dostępne są po kliknięciu przycisku poniżej, w oknie składania potwierdzenia płatności.
+                            </p>
+                            {% endif %}
+
+                            <!-- CTA Button -->
+                            {% if upload_payment_url and fulfilled_items_list %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ upload_payment_url }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Wgraj potwierdzenie wpłaty
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- Info boxes -->
+                            {% if fulfilled_items_list %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: #d4edda; border-left: 4px solid #4CAF50; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0; font-size: 14px; color: #155724; font-weight: 600;">
+                                            ✓ Produkty zakwalifikowane ({{ fulfilled_items_list|length }})
+                                        </p>
+                                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #155724;">
+                                            Te produkty zostaną zamówione i dostarczone do Ciebie. Otrzymasz kolejne powiadomienie, gdy zamówienie zmieni status.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% if unfulfilled_items_list %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #fff3cd; border-left: 4px solid #FFC107; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0; font-size: 14px; color: #856404; font-weight: 600;">
+                                            Produkty poza setem ({{ unfulfilled_items_list|length }})
+                                        </p>
+                                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #856404;">
+                                            Niestety, niektóre z Twoich produktów nie zostały zakwalifikowane do setu, ponieważ nie zebrała się wystarczająca liczba zamówień.
+                                        </p>
+                                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #856404;">
+                                            Produkty w setach są realizowane według kolejności zamówień (kto pierwszy, ten lepszy).
+                                        </p>
+                                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #856404; font-weight: 600;">
+                                            <strong>Nie musisz nic robić</strong> - płatność za niezrealizowane produkty nie została pobrana.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            {% if not unfulfilled_items_list and fulfilled_items_list %}
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0; font-size: 14px; color: #0d47a1; font-weight: 600;">
+                                            🎉 Wszystkie Twoje produkty zostały zakwalifikowane do setu!
+                                        </p>
+                                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #0d47a1;">
+                                            Gratulacje! Możesz teraz dokonać płatności i poczekać na kolejne powiadomienie o zmianie statusu zamówienia.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- Link to client panel -->
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; color: #616161;">
+                                Status zamówienia możesz sprawdzić w panelu klienta:
+                            </p>
+                            <p style="margin: 0 0 20px 0;">
+                                <a href="https://thunderorders.cloud/client/orders" style="color: #7B2CBF; text-decoration: underline; font-size: 14px;">
+                                    https://thunderorders.cloud/client/orders
+                                </a>
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="https://thunderorders.cloud/static/img/icons/logo-full-black.svg" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>
