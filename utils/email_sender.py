@@ -165,13 +165,17 @@ def send_order_status_change_email(user_email, user_name, order_number, old_stat
     )
 
 
-def send_exclusive_closure_email(customer_email, customer_name, page_name, items):
+def send_exclusive_closure_email(customer_email, customer_name, page_name, items,
+                                fulfilled_items=None, fulfilled_total=0, shipping_cost=0,
+                                grand_total=0, order_number='', payment_methods=None,
+                                upload_payment_url=''):
     """
     Wysyła email z podsumowaniem zamówienia po zamknięciu strony Exclusive.
 
     Email zawiera listę wszystkich produktów z informacją:
     - Zostanie zamówiony (produkt załapał się do kompletu)
     - Nie załapał się do kompletu (produkt przepadł)
+    + Informacje finansowe i dane do przelewu
 
     Args:
         customer_email (str): Email klienta
@@ -181,6 +185,13 @@ def send_exclusive_closure_email(customer_email, customer_name, page_name, items
             - product_name (str): Nazwa produktu
             - quantity (int): Zamówiona ilość
             - is_fulfilled (bool): Czy produkt zostanie zrealizowany
+        fulfilled_items (list): Lista zrealizowanych produktów
+        fulfilled_total (float): Suma zrealizowanych produktów
+        shipping_cost (float): Koszt wysyłki
+        grand_total (float): Suma całkowita (produkty + wysyłka)
+        order_number (str): Numer zamówienia
+        payment_methods (list): Lista metod płatności
+        upload_payment_url (str): URL do wgrania dowodu wpłaty
     """
     return send_email(
         to=customer_email,
@@ -188,7 +199,14 @@ def send_exclusive_closure_email(customer_email, customer_name, page_name, items
         template='exclusive_closure',
         customer_name=customer_name,
         page_name=page_name,
-        items=items
+        items=items,
+        fulfilled_items=fulfilled_items or [],
+        fulfilled_total=fulfilled_total,
+        shipping_cost=shipping_cost,
+        grand_total=grand_total,
+        order_number=order_number,
+        payment_methods=payment_methods or [],
+        upload_payment_url=upload_payment_url
     )
 
 
