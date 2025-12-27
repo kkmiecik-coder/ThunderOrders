@@ -958,6 +958,20 @@ code {
     margin-left: 0;
 }
 
+/* System message */
+.message.system-message {
+    background: #F5F5F5;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #E0E0E0;
+    margin-left: 0;
+}
+
+.message-avatar.system {
+    background: linear-gradient(135deg, #757575 0%, #9E9E9E 100%);
+    font-size: 1rem;
+}
+
 /* Message form */
 .message-form {
     border-top: 1px solid #E0E0E0;
@@ -2444,6 +2458,27 @@ code {
     justify-content: flex-start;
 }
 
+/* Payment & Delivery Section - Two Columns */
+.payment-delivery-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.payment-delivery-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.payment-delivery-right {
+    display: flex;
+    flex-direction: column;
+    padding-left: 2rem;
+    border-left: 1px solid #E0E0E0;
+}
+
 .info-col-right {
     display: flex;
     flex-direction: column;
@@ -3050,6 +3085,15 @@ code {
     border-color: rgba(251, 191, 36, 0.3);
 }
 
+[data-theme="dark"] .message.system-message {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .message-avatar.system {
+    background: linear-gradient(135deg, #616161 0%, #9E9E9E 100%);
+}
+
 [data-theme="dark"] .message-form {
     border-top-color: rgba(240, 147, 251, 0.15);
 }
@@ -3596,6 +3640,10 @@ code {
 [data-theme="dark"] .order-info-card > h3 {
     color: #ffffff;
     border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .payment-delivery-right {
+    border-left-color: rgba(240, 147, 251, 0.15);
 }
 
 [data-theme="dark"] .info-col-right {

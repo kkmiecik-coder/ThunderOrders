@@ -427,17 +427,23 @@ def get_page_summary(page_id, include_financials=True):
 def send_closure_emails(page_id):
     """
     Wysyła emaile do wszystkich klientów z podsumowaniem ich zamówień.
+    ROZSZERZONE: Dodaje informacje finansowe i dane do przelewu.
 
     Args:
         page_id: ID strony Exclusive
     """
     from utils.email_sender import send_exclusive_closure_email
+    from modules.payments.models import PaymentMethod
+    from flask import url_for
 
     page = ExclusivePage.query.get(page_id)
     if not page:
         return
 
     orders = Order.query.filter_by(exclusive_page_id=page_id).all()
+
+    # Pobierz aktywne metody płatności
+    payment_methods_raw = PaymentMethod.get_active()
 
     for order in orders:
         customer_email = order.customer_email
@@ -448,19 +454,57 @@ def send_closure_emails(page_id):
 
         # Przygotuj listę produktów z ich statusem
         items = []
+        fulfilled_items = []
         for item in order.items:
+            is_fulfilled = item.is_set_fulfilled if item.is_set_fulfilled is not None else True
             items.append({
                 'product_name': item.product_name,
                 'quantity': item.quantity,
-                'is_fulfilled': item.is_set_fulfilled if item.is_set_fulfilled is not None else True,
+                'is_fulfilled': is_fulfilled,
             })
+            if is_fulfilled:
+                fulfilled_items.append(item)
+
+        # Oblicz sumę TYLKO zrealizowanych produktów
+        from decimal import Decimal
+        fulfilled_total = Decimal('0.00')
+        for item in fulfilled_items:
+            if item.fulfilled_quantity is not None:
+                fulfilled_total += Decimal(str(item.price)) * item.fulfilled_quantity
+            else:
+                fulfilled_total += Decimal(str(item.total))
+
+        # Shipping cost (jeśli jest)
+        shipping_cost = Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00')
+        grand_total = fulfilled_total + shipping_cost
+
+        # Przygotuj metody płatności z podstawionym numerem zamówienia
+        payment_methods = []
+        for method in payment_methods_raw:
+            details = method.details.replace('[NUMER ZAMÓWIENIA]', order.order_number)
+            payment_methods.append({
+                'name': method.name,
+                'details': details
+            })
+
+        # URL do wgrania dowodu
+        upload_payment_url = url_for('orders.client_detail',
+                                     order_id=order.id,
+                                     _external=True) + '?action=upload_payment'
 
         try:
             send_exclusive_closure_email(
                 customer_email=customer_email,
                 customer_name=customer_name,
                 page_name=page.name,
-                items=items
+                items=items,
+                fulfilled_items=fulfilled_items,
+                fulfilled_total=fulfilled_total,
+                shipping_cost=shipping_cost,
+                grand_total=grand_total,
+                order_number=order.order_number,
+                payment_methods=payment_methods,
+                upload_payment_url=upload_payment_url
             )
             current_app.logger.info(f"Email wysłany do {customer_email} dla zamówienia {order.order_number}")
         except Exception as e:

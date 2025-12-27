@@ -7,7 +7,8 @@ Includes HTMX endpoints for partial updates.
 """
 
 import json
-from flask import render_template, request, redirect, url_for, flash, jsonify, abort, make_response
+import os
+from flask import render_template, request, redirect, url_for, flash, jsonify, abort, make_response, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import or_, and_, func
 from datetime import datetime
@@ -435,6 +436,10 @@ def admin_detail(order_id):
     categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
     product_series = ProductSeries.query.filter_by(is_active=True).order_by(ProductSeries.name).all()
 
+    # Get active payment methods from database
+    from modules.payments.models import PaymentMethod
+    payment_methods = PaymentMethod.get_active()
+
     return render_template(
         'admin/orders/detail.html',
         order=order,
@@ -449,6 +454,7 @@ def admin_detail(order_id):
         pickup_point_form=pickup_point_form,
         categories=categories,
         product_series=product_series,
+        payment_methods=payment_methods,
         page_title=f'Zamówienie {order.order_number}'
     )
 
@@ -1585,19 +1591,25 @@ def client_add_comment(order_id):
 @role_required('admin')
 def settings():
     """
-    Orders settings page - manage statuses and WMS statuses.
+    Orders settings page - manage statuses, WMS statuses, and payment methods.
     Only accessible to admins.
     """
+    from modules.payments.models import PaymentMethod
+
     # Load all order statuses
     statuses = OrderStatus.query.order_by(OrderStatus.sort_order).all()
 
     # Load all WMS statuses
     wms_statuses = WmsStatus.query.order_by(WmsStatus.sort_order).all()
 
+    # Load all payment methods
+    payment_methods = PaymentMethod.query.order_by(PaymentMethod.sort_order, PaymentMethod.name).all()
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
         wms_statuses=wms_statuses,
+        payment_methods=payment_methods,
         page_title='Ustawienia zamówień'
     )
 
@@ -2554,3 +2566,329 @@ def guest_track(token):
         abort(404)
 
     return render_template('orders/guest_track.html', order=order)
+
+
+# ============================================
+# PAYMENT PROOF - CLIENT ROUTES
+# ============================================
+
+@orders_bp.route('/client/orders/<int:order_id>/upload-payment-proof', methods=['POST'])
+@login_required
+def client_upload_payment_proof(order_id):
+    """Upload dowodu wpłaty przez klienta"""
+    from werkzeug.utils import secure_filename
+    from datetime import datetime
+    import os
+
+    order = Order.query.get_or_404(order_id)
+
+    # Sprawdź czy to zamówienie klienta
+    if order.user_id != current_user.id:
+        flash('Nie masz dostępu do tego zamówienia', 'error')
+        return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    # Sprawdź czy można wgrać dowód
+    if not order.can_upload_payment_proof:
+        flash('Nie można wgrać dowodu płatności dla tego zamówienia', 'error')
+        return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    # Walidacja pliku
+    if 'payment_proof' not in request.files:
+        flash('Nie wybrano pliku', 'error')
+        return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    file = request.files['payment_proof']
+
+    if file.filename == '':
+        flash('Nie wybrano pliku', 'error')
+        return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    # Walidacja rozszerzenia
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'pdf'}
+    file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+
+    if file_ext not in allowed_extensions:
+        flash('Dozwolone formaty: JPG, PNG, PDF', 'error')
+        return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    # Walidacja rozmiaru (max 5MB)
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+
+    if file_size > 5 * 1024 * 1024:  # 5MB
+        flash('Plik jest za duży. Maksymalny rozmiar: 5MB', 'error')
+        return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    # Usuń stary plik (jeśli re-upload po odrzuceniu)
+    if order.payment_proof_file:
+        old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], order.payment_proof_file)
+        if os.path.exists(old_file_path):
+            os.remove(old_file_path)
+
+    # Zapisz nowy plik
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"order_{order_id}_{timestamp}.{file_ext}"
+
+    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    file_path = os.path.join(upload_dir, filename)
+    file.save(file_path)
+
+    # Pobierz wybraną metodę płatności z formularza
+    payment_method_name = request.form.get('payment_method_name', '').strip()
+
+    # Zapisz w bazie
+    order.payment_proof_file = f"payment_proofs/{filename}"
+    order.payment_proof_uploaded_at = datetime.utcnow()
+    order.payment_proof_status = 'pending'
+    order.payment_proof_rejection_reason = None  # Wyczyść poprzedni powód
+
+    # Automatycznie ustaw payment_method na wybraną metodę płatności z modalu
+    if payment_method_name and not order.payment_method:
+        order.payment_method = payment_method_name
+
+    db.session.commit()
+
+    # Log aktywności
+    import json
+    log_activity(
+        user=current_user,
+        action='payment_proof_uploaded',
+        entity_type='order',
+        entity_id=order.id,
+        new_value=json.dumps({
+            'filename': filename,
+            'order_number': order.order_number
+        })
+    )
+
+    # TODO: Email notification do admina
+
+    return redirect(url_for('orders.client_detail', order_id=order_id))
+
+
+# ============================================
+# PAYMENT PROOF - ADMIN ROUTES
+# ============================================
+
+@orders_bp.route('/admin/orders/<int:order_id>/payment-proof/<filename>')
+@login_required
+@role_required('admin', 'mod')
+def admin_view_payment_proof(order_id, filename):
+    """Podgląd/download dowodu wpłaty"""
+    from flask import send_from_directory
+    import os
+
+    order = Order.query.get_or_404(order_id)
+
+    # Security: sprawdź czy filename należy do tego zamówienia
+    if order.payment_proof_filename != filename:
+        abort(403)
+
+    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
+    return send_from_directory(upload_dir, filename)
+
+
+@orders_bp.route('/admin/orders/<int:order_id>/approve-payment-proof', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_approve_payment_proof(order_id):
+    """Akceptacja dowodu wpłaty"""
+    order = Order.query.get_or_404(order_id)
+
+    if not order.has_payment_proof or order.payment_proof_status != 'pending':
+        return jsonify({'error': 'Brak dowodu do zaakceptowania'}), 400
+
+    # Akceptuj dowód
+    order.payment_proof_status = 'approved'
+
+    # KLUCZOWE: Ustaw paid_amount = total_amount (BEZ shipping_cost)
+    order.paid_amount = order.total_amount
+
+    db.session.commit()
+
+    # Activity log
+    import json
+    log_activity(
+        user=current_user,
+        action='payment_proof_approved',
+        entity_type='order',
+        entity_id=order.id,
+        new_value=json.dumps({
+            'paid_amount': float(order.total_amount),
+            'order_number': order.order_number
+        })
+    )
+
+    # Email do klienta - payment_proof_approved
+    from utils.email_sender import send_payment_proof_approved_email
+    try:
+        send_payment_proof_approved_email(
+            user_email=order.customer_email,
+            user_name=order.customer_name,
+            order_number=order.order_number,
+            paid_amount=float(order.total_amount)
+        )
+    except Exception as e:
+        current_app.logger.error(f"Failed to send payment proof approved email: {str(e)}")
+
+    return jsonify({'success': True, 'message': 'Dowód wpłaty został zaakceptowany'})
+
+
+@orders_bp.route('/admin/orders/<int:order_id>/reject-payment-proof', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_reject_payment_proof(order_id):
+    """Odrzucenie dowodu wpłaty"""
+    order = Order.query.get_or_404(order_id)
+
+    if not order.has_payment_proof or order.payment_proof_status != 'pending':
+        flash('Brak dowodu do odrzucenia', 'error')
+        return redirect(url_for('orders.admin_order_detail', order_id=order_id))
+
+    data = request.get_json()
+    rejection_reason = data.get('rejection_reason', '').strip()
+
+    if not rejection_reason:
+        return jsonify({'error': 'Podaj powód odrzucenia'}), 400
+
+    # Odrzuć dowód
+    order.payment_proof_status = 'rejected'
+    order.payment_proof_rejection_reason = rejection_reason
+
+    db.session.commit()
+
+    # Activity log
+    import json
+    log_activity(
+        user=current_user,
+        action='payment_proof_rejected',
+        entity_type='order',
+        entity_id=order.id,
+        new_value=json.dumps({
+            'rejection_reason': rejection_reason,
+            'order_number': order.order_number
+        })
+    )
+
+    # TODO: Email do klienta - payment_proof_rejected
+
+    return jsonify({'success': True, 'message': 'Dowód wpłaty został odrzucony'})
+
+
+# ============================================
+# PAYMENT METHODS CRUD (Settings Tab)
+# ============================================
+
+@orders_bp.route('/admin/orders/payment-methods/create', methods=['POST'])
+@login_required
+@role_required('admin')
+def create_payment_method():
+    """Create new payment method."""
+    from modules.payments.models import PaymentMethod
+
+    name = request.form.get('name', '').strip()
+    details = request.form.get('details', '').strip()
+    is_active = request.form.get('is_active') == 'on'
+
+    if not name or not details:
+        return jsonify({'success': False, 'error': 'Nazwa i szczegóły są wymagane'}), 400
+
+    try:
+        # Auto-assign sort_order (max + 1)
+        max_sort_order = db.session.query(db.func.max(PaymentMethod.sort_order)).scalar() or -1
+        sort_order = max_sort_order + 1
+
+        method = PaymentMethod(
+            name=name,
+            details=details,
+            is_active=is_active,
+            sort_order=sort_order
+        )
+
+        db.session.add(method)
+        db.session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@orders_bp.route('/admin/orders/payment-methods/<int:id>/edit', methods=['POST'])
+@login_required
+@role_required('admin')
+def edit_payment_method(id):
+    """Edit payment method."""
+    from modules.payments.models import PaymentMethod
+
+    method = PaymentMethod.query.get_or_404(id)
+
+    try:
+        method.name = request.form.get('name', '').strip()
+        method.details = request.form.get('details', '').strip()
+        method.is_active = request.form.get('is_active') == 'on'
+        # sort_order is managed by drag & drop, don't change it here
+
+        db.session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@orders_bp.route('/admin/orders/payment-methods/<int:id>/delete', methods=['POST'])
+@login_required
+@role_required('admin')
+def delete_payment_method(id):
+    """Delete payment method."""
+    from modules.payments.models import PaymentMethod
+
+    method = PaymentMethod.query.get_or_404(id)
+
+    try:
+        db.session.delete(method)
+        db.session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@orders_bp.route('/admin/orders/payment-methods/list', methods=['GET'])
+@login_required
+@role_required('admin')
+def get_payment_methods_list():
+    """Get payment methods list HTML (for AJAX refresh)."""
+    from modules.payments.models import PaymentMethod
+
+    payment_methods = PaymentMethod.query.order_by(PaymentMethod.sort_order, PaymentMethod.name).all()
+
+    return render_template('admin/orders/_payment_methods_list.html', payment_methods=payment_methods)
+
+
+@orders_bp.route('/admin/orders/payment-methods/reorder', methods=['POST'])
+@login_required
+@role_required('admin')
+def reorder_payment_methods():
+    """Reorder payment methods via drag & drop."""
+    from modules.payments.models import PaymentMethod
+
+    data = request.get_json()
+    order = data.get('order', [])
+
+    try:
+        for item in order:
+            method = PaymentMethod.query.get(item['id'])
+            if method:
+                method.sort_order = item['sort_order']
+
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500

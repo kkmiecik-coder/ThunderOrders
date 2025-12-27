@@ -54,6 +54,7 @@
                                     <th class="text-center">Już zamówione</th>
                                     <th class="text-center text-orange">Do zamówienia</th>
                                     <th class="text-right">Cena zakupu</th>
+                                    <th class="text-right">Wartość</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -106,6 +107,17 @@
                                         {{ "%.2f"|format(product.purchase_price_pln) }} PLN
                                         {% elif product.purchase_price %}
                                         {{ "%.2f"|format(product.purchase_price) }} {{ product.purchase_currency }}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-right font-semibold">
+                                        {% if product.purchase_price_pln %}
+                                        {% set total_value = item.total_ordered * product.purchase_price_pln %}
+                                        {{ "%.2f"|format(total_value) }} PLN
+                                        {% elif product.purchase_price %}
+                                        {% set total_value = item.total_ordered * product.purchase_price %}
+                                        {{ "%.2f"|format(total_value) }} {{ product.purchase_currency }}
                                         {% else %}
                                         <span class="text-muted">-</span>
                                         {% endif %}

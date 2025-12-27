@@ -448,6 +448,16 @@
     background: rgba(255, 255, 255, 0.08);
 }
 
+/* System Event Styling */
+.timeline-item.system-event .timeline-icon {
+    background: linear-gradient(135deg, #757575 0%, #9E9E9E 100%);
+    color: white;
+}
+
+[data-theme="dark"] .timeline-item.system-event .timeline-icon {
+    background: linear-gradient(135deg, #616161 0%, #9E9E9E 100%);
+}
+
 /* Timeline Content */
 .timeline-content {
     flex: 1;
@@ -839,6 +849,100 @@
     .timeline {
         max-height: 400px;
     }
+}
+
+/* Payment Proof Section Spacing */
+.info-grid + .info-item {
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--card-border);
+}
+
+[data-theme="dark"] .info-grid + .info-item {
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Upload Link Styling */
+.upload-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--white);
+    background: var(--purple-300);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--purple-300);
+    transition: all 0.2s ease;
+    margin-top: 8px;
+}
+
+.upload-link svg {
+    flex-shrink: 0;
+    transition: transform 0.2s ease;
+    fill: var(--white);
+}
+
+.upload-link:hover {
+    color: var(--white);
+    background: var(--orange-300);
+    border-color: var(--orange-300);
+}
+
+.upload-link:hover svg {
+    transform: translateY(-2px);
+}
+
+.upload-link-reupload {
+    color: var(--white);
+    background: var(--orange-300);
+    border-color: var(--orange-300);
+}
+
+.upload-link-reupload svg {
+    fill: var(--white);
+}
+
+.upload-link-reupload:hover {
+    color: var(--white);
+    background: var(--orange-400);
+    border-color: var(--orange-400);
+}
+
+/* Dark Mode - Upload Link */
+[data-theme="dark"] .upload-link {
+    color: var(--white);
+    background: var(--purple-400);
+    border-color: var(--purple-400);
+}
+
+[data-theme="dark"] .upload-link svg {
+    fill: var(--white);
+}
+
+[data-theme="dark"] .upload-link:hover {
+    color: var(--white);
+    background: var(--orange-300);
+    border-color: var(--orange-300);
+}
+
+[data-theme="dark"] .upload-link-reupload {
+    color: var(--white);
+    background: var(--orange-300);
+    border-color: var(--orange-300);
+}
+
+[data-theme="dark"] .upload-link-reupload svg {
+    fill: var(--white);
+}
+
+[data-theme="dark"] .upload-link-reupload:hover {
+    color: var(--white);
+    background: var(--orange-400);
+    border-color: var(--orange-400);
 }
 
 /* Mobile Small (max-width: 480px) */

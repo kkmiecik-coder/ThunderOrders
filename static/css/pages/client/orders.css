@@ -880,6 +880,11 @@
 }
 
 .status-icon-warning {
+    background: #FFC107;
+    color: #fff;
+}
+
+.status-icon-danger {
     background: #F44336;
     color: #fff;
 }
@@ -912,6 +917,10 @@
 }
 
 [data-theme="dark"] .status-icon-warning {
+    background: #FFB300;
+}
+
+[data-theme="dark"] .status-icon-danger {
     background: #EF5350;
 }
 

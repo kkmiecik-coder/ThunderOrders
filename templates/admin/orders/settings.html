@@ -25,6 +25,13 @@
                 </svg>
                 <span class="tab-label">Statusy WMS</span>
             </button>
+            <button class="settings-tab" data-tab="payment-methods">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+                    <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Sposoby płatności</span>
+            </button>
         </div>
 
         <!-- Tab Content -->
@@ -146,6 +153,34 @@
                                 <p>Brak statusów WMS. Dodaj pierwszy status.</p>
                             </div>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Sposoby płatności -->
+            <div class="tab-panel" id="tab-payment-methods">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Lista sposobów płatności</h3>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openCreatePaymentMethodModal()">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                            </svg>
+                            Dodaj metodę płatności
+                        </button>
+                    </div>
+
+                    <!-- Header row (static) -->
+                    <div class="payment-method-list-header">
+                        <div class="payment-method-col-name">Nazwa</div>
+                        <div class="payment-method-col-details">Szczegóły</div>
+                        <div class="payment-method-col-status">Status</div>
+                        <div class="payment-method-col-actions">Akcje</div>
+                    </div>
+
+                    <!-- Data rows (dynamically refreshed) -->
+                    <div class="payment-methods-list">
+                        {% include 'admin/orders/_payment_methods_list.html' %}
                     </div>
                 </div>
             </div>
@@ -329,8 +364,74 @@
     </div>
 </div>
 
+<!-- Payment Method Create Modal -->
+<div id="createPaymentMethodModal" class="modal-overlay">
+    <div class="modal-content modal-medium">
+        <div class="modal-header">
+            <h2>Dodaj metodę płatności</h2>
+            <button class="modal-close" onclick="closeCreatePaymentMethodModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="createPaymentMethodForm" method="POST" action="{{ url_for('orders.create_payment_method') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="createName">Nazwa *</label>
+                    <input type="text" id="createName" name="name" class="form-control" required placeholder="np. ING Bank">
+                </div>
+                <div class="form-group">
+                    <label for="createDetails">Szczegóły (dane do przelewu) *</label>
+                    <textarea id="createDetails" name="details" class="form-control" rows="6" required placeholder="Numer konta: XX XXXX XXXX XXXX XXXX XXXX XXXX&#10;Odbiorca: ThunderOrders Sp. z o.o.&#10;Tytuł: [NUMER ZAMÓWIENIA]"></textarea>
+                    <small class="input-hint">Użyj [NUMER ZAMÓWIENIA] jako placeholder - zostanie zastąpiony rzeczywistym numerem</small>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="is_active" checked> Aktywny
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCreatePaymentMethodModal()">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Dodaj</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Method Edit Modal -->
+<div id="editPaymentMethodModal" class="modal-overlay">
+    <div class="modal-content modal-medium">
+        <div class="modal-header">
+            <h2>Edytuj metodę płatności</h2>
+            <button class="modal-close" onclick="closeEditPaymentMethodModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editPaymentMethodForm" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="editName">Nazwa *</label>
+                    <input type="text" id="editName" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editDetails">Szczegóły *</label>
+                    <textarea id="editDetails" name="details" class="form-control" rows="6" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="editIsActive" name="is_active"> Aktywny
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeEditPaymentMethodModal()">Anuluj</button>
+                    <button type="submit" class="btn btn-primary">Zapisz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/admin/orders-settings.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/payment-methods.js') }}"></script>
 {% endblock %}

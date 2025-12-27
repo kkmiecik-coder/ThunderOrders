@@ -497,7 +497,10 @@
                 <!-- Separator 2 -->
                 <div class="info-separator"></div>
 
-                <!-- Sposób dostawy - edytowalny -->
+                <!-- Sekcja płatności i dostawy - dwukolumnowa -->
+                <div class="payment-delivery-section">
+                    <div class="payment-delivery-left">
+                        <!-- Sposób dostawy - edytowalny -->
                 <div class="info-item editable-row" data-field="delivery_method">
                     <label>Sposób dostawy:</label>
                     <div class="editable-display" id="deliveryMethodDisplay">
@@ -578,12 +581,9 @@
                     <div class="editable-editor" id="paymentMethodEditor" style="display: none;">
                         <select class="form-select form-select-sm" id="paymentMethodSelect" data-original="{{ order.payment_method or '' }}">
                             <option value="">-- Wybierz --</option>
-                            <option value="przelew" {% if order.payment_method == 'przelew' %}selected{% endif %}>Przelew bankowy</option>
-                            <option value="pobranie" {% if order.payment_method == 'pobranie' %}selected{% endif %}>Pobranie</option>
-                            <option value="gotowka" {% if order.payment_method == 'gotowka' %}selected{% endif %}>Gotówka</option>
-                            <option value="blik" {% if order.payment_method == 'blik' %}selected{% endif %}>BLIK</option>
-                            <option value="karta" {% if order.payment_method == 'karta' %}selected{% endif %}>Karta płatnicza</option>
-                            <option value="paypal" {% if order.payment_method == 'paypal' %}selected{% endif %}>PayPal</option>
+                            {% for method in payment_methods %}
+                            <option value="{{ method.name }}" {% if order.payment_method == method.name %}selected{% endif %}>{{ method.name }}</option>
+                            {% endfor %}
                         </select>
                         <button type="button" class="btn-inline-save" onclick="saveInlineField('paymentMethod')" title="Zapisz">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
@@ -595,6 +595,62 @@
                                 <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                             </svg>
                         </button>
+                    </div>
+                </div>
+                    </div>
+
+                    <!-- Prawa kolumna: Dowód wpłaty -->
+                    <div class="payment-delivery-right">
+                        <!-- Payment Proof Section -->
+                        {% if order.has_payment_proof %}
+                <div class="info-item">
+                    <label>Dowód wpłaty:</label>
+                    <div class="payment-proof-container">
+                        <a href="{{ order.payment_proof_url }}"
+                           target="_blank"
+                           class="payment-proof-link">
+                            {{ order.payment_proof_filename }}
+                        </a>
+                        <small class="text-muted">
+                            Wgrano: {{ order.payment_proof_uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                        </small>
+
+                        {% if order.payment_proof_is_pending %}
+                            <div class="proof-status-pending">
+                                <span class="badge badge-warning">⏱ Oczekuje na weryfikację</span>
+                                <div class="proof-actions">
+                                    <button type="button"
+                                            class="btn-success btn-sm"
+                                            onclick="approvePaymentProof({{ order.id }})">
+                                        ✓ Akceptuj
+                                    </button>
+                                    <button type="button"
+                                            class="btn-danger btn-sm"
+                                            onclick="openRejectPaymentProofModal({{ order.id }})">
+                                        ✗ Odrzuć
+                                    </button>
+                                </div>
+                            </div>
+                        {% elif order.payment_proof_is_approved %}
+                            <span class="badge badge-success">✓ Zaakceptowano</span>
+                        {% elif order.payment_proof_is_rejected %}
+                            <span class="badge badge-danger">✗ Odrzucono</span>
+                            <div class="rejection-reason-bubble">
+                                <strong>Powód odrzucenia:</strong><br>
+                                {{ order.payment_proof_rejection_reason }}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                        {% else %}
+                <div class="info-item">
+                    <label>Dowód wpłaty:</label>
+                    <div class="payment-proof-empty">
+                        <span class="text-muted">Brak dowodu wpłaty</span>
+                        <small class="text-muted d-block">Klient może wgrać potwierdzenie ze swojego panelu</small>
+                    </div>
+                </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1038,6 +1094,24 @@
                                 <span class="history-icon">🗑️</span>
                                 <span class="history-text">
                                     Usunięto produkt "{{ event.old_value.product_name }}" ({{ event.old_value.quantity }} szt.)
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'payment_proof_uploaded' %}
+                                <span class="history-icon">📤</span>
+                                <span class="history-text">
+                                    Klient wgrał dowód wpłaty
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'payment_proof_approved' %}
+                                <span class="history-icon">✅</span>
+                                <span class="history-text">
+                                    Dowód wpłaty zaakceptowany{% if event.new_value and event.new_value.paid_amount %} ({{ "%.2f"|format(event.new_value.paid_amount) }} PLN){% endif %}
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'payment_proof_rejected' %}
+                                <span class="history-icon">❌</span>
+                                <span class="history-text">
+                                    Dowód wpłaty odrzucony{% if event.new_value and event.new_value.rejection_reason %}: {{ event.new_value.rejection_reason }}{% endif %}
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
                                 {% else %}
@@ -2156,4 +2230,34 @@ document.getElementById('paymentMethodSelect').addEventListener('keydown', funct
     }
 });
 </script>
+
+<!-- Reject Payment Proof Modal -->
+<div id="rejectPaymentProofModal" class="modal-overlay">
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Odrzuć dowód wpłaty</h2>
+            <button class="modal-close" onclick="closeRejectPaymentProofModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="rejectPaymentProofForm">
+                <div class="form-group">
+                    <label for="rejectionReason">Powód odrzucenia *</label>
+                    <textarea id="rejectionReason"
+                              name="rejection_reason"
+                              rows="4"
+                              required
+                              placeholder="Np. Brak tytułu przelewu, nieczytelny obraz, inna kwota..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeRejectPaymentProofModal()">Anuluj</button>
+                    <button type="submit" class="btn-danger">Odrzuć dowód</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/pages/admin/payment-proof.js') }}"></script>
 {% endblock %}

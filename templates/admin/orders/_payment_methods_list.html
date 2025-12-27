@@ -1,0 +1,33 @@
+<!-- Data rows -->
+{% if payment_methods %}
+    {% for method in payment_methods %}
+        <div class="payment-method-list-item" data-method-id="{{ method.id }}" draggable="true">
+            <div class="payment-method-col-name">
+                <div class="drag-handle">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"/>
+                    </svg>
+                </div>
+                <strong>{{ method.name }}</strong>
+            </div>
+            <div class="payment-method-col-details">
+                <pre class="payment-details-preview">{{ method.details[:100] }}{% if method.details|length > 100 %}...{% endif %}</pre>
+            </div>
+            <div class="payment-method-col-status">
+                {% if method.is_active %}
+                    <span class="badge badge-success">Aktywny</span>
+                {% else %}
+                    <span class="badge badge-secondary">Nieaktywny</span>
+                {% endif %}
+            </div>
+            <div class="payment-method-col-actions">
+                <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.id }}, "{{ method.name }}", {{ method.details|tojson }}, {{ method.is_active|tojson }})'>Edytuj</button>
+                <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, '{{ method.name }}')">Usuń</button>
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <p>Brak metod płatności. Dodaj pierwszą metodę.</p>
+    </div>
+{% endif %}

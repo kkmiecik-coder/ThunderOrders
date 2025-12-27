@@ -9,6 +9,57 @@
 
 ## ⚠️ WAŻNE UWAGI DLA CLAUDE
 
+### 🤔 KRYTYCZNE: Podejmowanie Decyzji - Zawsze Pytaj Użytkownika
+
+**ZASADA:** Gdy istnieje **więcej niż jedno rozwiązanie** danego problemu, ZAWSZE przedstaw wszystkie opcje użytkownikowi i pozwól mu wybrać.
+
+**Dlaczego?**
+- Użytkownik (Konrad) zna najlepiej swoje potrzeby i preferencje
+- Pozwala uniknąć marnowania czasu na implementację niewłaściwego rozwiązania
+- Daje użytkownikowi kontrolę nad kierunkiem rozwoju aplikacji
+
+**Workflow podejmowania decyzji:**
+1. **Zidentyfikuj opcje** - gdy widzisz >1 rozwiązanie
+2. **Wyjaśnij każdą opcję** - przedstaw:
+   - Co obejmuje to rozwiązanie
+   - Jakie są zalety i wady
+   - Jak wpłynie na kod/UX/wydajność
+3. **Zapytaj użytkownika** - "Którą opcję preferujesz?" lub "Jak chcesz to rozwiązać?"
+4. **Poczekaj na odpowiedź** - NIE implementuj niczego przed odpowiedzią
+5. **Implementuj wybraną opcję**
+
+**Przykład:**
+```
+User: "po dodaniu metody, strona się przeładowuje i wracam do pierwszej zakładki"
+
+DOBRZE ✅:
+"Widzę dwa podejścia:
+
+Opcja 1: Redirect z parametrem ?tab=payment-methods
+- Prosta implementacja
+- Pełne przeładowanie strony
+- Utrata stanu formularzy
+
+Opcja 2: AJAX submission bez przeładowania
+- Płynniejsze UX
+- Pozostajesz na tej samej zakładce
+- Wymaga więcej kodu (JS + backend JSON)
+
+Którą opcję preferujesz?"
+
+ŹLE ❌:
+*od razu implementuje AJAX bez pytania*
+```
+
+**NIE RÓB:**
+- Nie zakładaj co użytkownik chce
+- Nie implementuj "domyślnej" opcji bez konsultacji
+- Nie mów "zrobię X, chyba że wolisz Y" - to nadal wymuszanie wyboru
+
+**ZAWSZE pytaj i czekaj na odpowiedź gdy jest >1 rozwiązanie.**
+
+---
+
 ### 🗄️ KRYTYCZNE: Zmiany w Bazie Danych
 
 **ZASADA:** KAŻDA zmiana w strukturze bazy danych (nowa tabela, nowa kolumna, zmiana typu, indeksy, klucze) MUSI być wykonana przez **plik migracyjny Flask-Migrate**, a NIE bezpośrednio w kodzie modeli.

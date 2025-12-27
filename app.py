@@ -111,6 +111,10 @@ def register_blueprints(app):
     from modules.profile import profile_bp
     app.register_blueprint(profile_bp, url_prefix='/profile')
 
+    # Payments module
+    from modules.payments import payments_bp
+    app.register_blueprint(payments_bp)
+
     # Strona główna - smart redirect
     @app.route('/')
     def index():

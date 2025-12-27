@@ -140,6 +140,12 @@ class Order(db.Model):
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
     payment_method = db.Column(db.String(50), nullable=True)  # przelew, pobranie, gotowka, blik
 
+    # Payment Proof fields
+    payment_proof_file = db.Column(db.String(255), nullable=True)  # Ścieżka do pliku dowodu wpłaty
+    payment_proof_uploaded_at = db.Column(db.DateTime, nullable=True)  # Data/czas wgrania
+    payment_proof_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
+    payment_proof_rejection_reason = db.Column(db.Text, nullable=True)  # Powód odrzucenia
+
     # Exclusive order fields
     is_exclusive = db.Column(db.Boolean, default=False)
     exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id'), nullable=True)
@@ -323,16 +329,14 @@ class Order(db.Model):
 
     @property
     def payment_method_display(self):
-        """Returns human-readable payment method name"""
-        methods = {
-            'przelew': 'Przelew bankowy',
-            'pobranie': 'Pobranie',
-            'gotowka': 'Gotówka',
-            'blik': 'BLIK',
-            'karta': 'Karta płatnicza',
-            'paypal': 'PayPal'
-        }
-        return methods.get(self.payment_method, self.payment_method) if self.payment_method else '-'
+        """Returns payment method name (from database or saved value)"""
+        # Jeśli nie ma metody płatności zapisanej, zwróć '-'
+        if not self.payment_method:
+            return '-'
+
+        # Zwróć zapisaną nazwę metody płatności
+        # (nawet jeśli metoda została później usunięta z ustawień)
+        return self.payment_method
 
     @property
     def shipping_country_flag(self):
@@ -500,6 +504,46 @@ class Order(db.Model):
         from decimal import Decimal
         shipping = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
         return self.effective_total + shipping
+
+    # Payment Proof Properties
+    @property
+    def has_payment_proof(self):
+        """Czy wgrano dowód wpłaty"""
+        return self.payment_proof_file is not None
+
+    @property
+    def payment_proof_filename(self):
+        """Nazwa pliku (bez ścieżki)"""
+        if not self.payment_proof_file:
+            return None
+        return self.payment_proof_file.split('/')[-1]
+
+    @property
+    def payment_proof_url(self):
+        """URL do podglądu pliku"""
+        if not self.payment_proof_file:
+            return None
+        return f'/admin/orders/{self.id}/payment-proof/{self.payment_proof_filename}'
+
+    @property
+    def can_upload_payment_proof(self):
+        """Czy można wgrać dowód (brak lub odrzucony)"""
+        return self.payment_proof_status is None or self.payment_proof_status == 'rejected'
+
+    @property
+    def payment_proof_is_pending(self):
+        """Czy dowód oczekuje na weryfikację"""
+        return self.payment_proof_status == 'pending'
+
+    @property
+    def payment_proof_is_approved(self):
+        """Czy dowód zaakceptowany"""
+        return self.payment_proof_status == 'approved'
+
+    @property
+    def payment_proof_is_rejected(self):
+        """Czy dowód odrzucony"""
+        return self.payment_proof_status == 'rejected'
 
     def recalculate_total(self):
         """Recalculates order total from items"""
