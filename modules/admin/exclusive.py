@@ -210,6 +210,37 @@ def exclusive_save(page_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _validate_section_data(section_data):
+    """
+    Waliduje dane sekcji przed zapisem
+
+    Args:
+        section_data: Dane sekcji z frontendu
+
+    Returns:
+        tuple: (valid: bool, error: str or None)
+    """
+    section_type = section_data.get('type')
+
+    # Walidacja sekcji "set"
+    if section_type == 'set':
+        # Wymagane: set_product_id
+        set_product_id = section_data.get('set_product_id')
+        if not set_product_id:
+            return False, 'Musisz wybrać produkt-komplet dla sekcji Set'
+
+        # Sprawdź czy produkt istnieje i jest typu "exclusive"
+        product = Product.query.get(set_product_id)
+        if not product:
+            return False, 'Wybrany produkt nie istnieje'
+
+        # Sprawdź typ produktu
+        if product.product_type and product.product_type.slug != 'exclusive':
+            return False, 'Produkt-komplet musi być typu Exclusive'
+
+    return True, None
+
+
 def _update_sections(page, sections_data):
     """
     Aktualizuje sekcje strony
@@ -224,6 +255,11 @@ def _update_sections(page, sections_data):
     incoming_ids = set()
 
     for idx, section_data in enumerate(sections_data):
+        # WALIDACJA - sprawdź dane sekcji przed zapisem
+        valid, error = _validate_section_data(section_data)
+        if not valid:
+            raise ValueError(error)
+
         section_id = section_data.get('id')
 
         if section_id and section_id in existing_sections:
@@ -250,6 +286,7 @@ def _update_sections(page, sections_data):
         max_per_product = section_data.get('set_max_per_product', 0)
         section.set_max_per_product = max_per_product if max_per_product and max_per_product > 0 else None
         section.variant_group_id = section_data.get('variant_group_id')
+        section.set_product_id = section_data.get('set_product_id')  # NOWE: Produkt-komplet dla setu
 
         # Obsługa elementów setu
         if section.section_type == 'set' and 'set_items' in section_data:

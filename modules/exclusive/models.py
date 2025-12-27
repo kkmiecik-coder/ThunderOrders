@@ -341,6 +341,7 @@ class ExclusiveSection(db.Model):
     set_min_sets = db.Column(db.Integer, default=1)       # Min. kompletnych setów
     set_max_sets = db.Column(db.Integer, nullable=True)   # NULL = brak maksimum
     set_max_per_product = db.Column(db.Integer, nullable=True)  # Max sztuk na produkt (globalny limit sprzedaży)
+    set_product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)  # Produkt-komplet (fizyczny produkt w magazynie)
 
     # Dla variant_group
     variant_group_id = db.Column(db.Integer, db.ForeignKey('variant_groups.id'), nullable=True)
@@ -349,7 +350,8 @@ class ExclusiveSection(db.Model):
 
     # Relationships
     page = db.relationship('ExclusivePage', back_populates='sections')
-    product = db.relationship('Product', backref='exclusive_sections')
+    product = db.relationship('Product', foreign_keys=[product_id], backref='exclusive_sections_product')
+    set_product = db.relationship('Product', foreign_keys=[set_product_id], backref='exclusive_sections_set_product')
     variant_group = db.relationship('VariantGroup', backref='exclusive_sections')
     set_items = db.relationship(
         'ExclusiveSetItem',

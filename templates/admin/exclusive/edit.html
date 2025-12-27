@@ -268,13 +268,17 @@
                         </div>
                         {% elif section.section_type == 'set' %}
                         <div class="set-section">
+                            <!-- Top row - 4 columns: Nazwa | Tło button | Dodaj buttons (vertical) | Max counter -->
                             <div class="set-header-row">
-                                <div class="set-name-group">
-                                    <label class="set-name-label">Nazwa setu:</label>
+                                <!-- Column 1: Nazwa setu -->
+                                <div class="set-name-col">
+                                    <label class="set-name-label">Nazwa setu: <span style="color: red;">*</span></label>
                                     <input type="text" class="form-input set-name" value="{{ section.set_name or '' }}"
                                            placeholder="np. Karty BTS - komplet 8 szt">
                                 </div>
-                                <div class="set-header-buttons">
+
+                                <!-- Column 2: Dodaj tło seta button -->
+                                <div class="set-image-button-col">
                                     <button type="button" class="btn btn-outline btn-sm btn-set-image{% if section.set_image %} has-image{% endif %}" onclick="document.getElementById('setImageInput-{{ section.id }}').click()">
                                         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                             <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
@@ -285,44 +289,58 @@
                                     <input type="file" class="set-image-input" id="setImageInput-{{ section.id }}"
                                            accept="image/*" onchange="uploadSetImage(this, {{ section.id }})" style="display:none;">
                                     <input type="hidden" class="set-image-path" value="{{ section.set_image or '' }}">
-                                    <div class="set-add-buttons">
-                                        <button type="button" class="btn btn-outline btn-sm" onclick="addSetItem(this)">
-                                            + Dodaj produkt
-                                        </button>
-                                        {% if variant_groups %}
-                                        <button type="button" class="btn btn-outline btn-sm" onclick="addSetVariantGroup(this)">
-                                            + Dodaj grupę wariantową
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                    <div class="set-max-counter">
-                                        <span class="counter-label">Max</span>
-                                        <div class="counter-controls">
-                                            <button type="button" class="counter-btn counter-plus" onclick="adjustSetMaxSets(this, 1)">+</button>
-                                            <span class="counter-value" data-value="{{ section.set_max_sets or 0 }}">{{ section.set_max_sets or 0 }}</span>
-                                            <button type="button" class="counter-btn counter-minus" onclick="adjustSetMaxSets(this, -1)">−</button>
-                                        </div>
-                                        <input type="hidden" class="set-max-sets" value="{{ section.set_max_sets or 0 }}">
-                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Set Image Row (appears only when image is set) -->
-                            <div class="set-image-row{% if not section.set_image %} hidden{% endif %}" id="setImageRow-{{ section.id }}">
-                                <div class="set-image-preview has-image" id="setImagePreview-{{ section.id }}">
-                                    {% if section.set_image %}
-                                    <img src="{{ url_for('static', filename=section.set_image) }}" alt="Tło setu">
+                                <!-- Column 3: Dodaj produkt / Dodaj grupę (stacked vertically) -->
+                                <div class="set-add-buttons-col">
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="addSetItem(this)">
+                                        + Dodaj produkt
+                                    </button>
+                                    {% if variant_groups %}
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="addSetVariantGroup(this)">
+                                        + Dodaj grupę wariantową
+                                    </button>
                                     {% endif %}
                                 </div>
-                                <button type="button" class="btn-remove-set-image" onclick="removeSetImage(this, {{ section.id }})">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                                    </svg>
-                                </button>
+
+                                <!-- Column 4: Max counter -->
+                                <div class="qty-counter-group">
+                                    <span class="qty-counter-label">Max</span>
+                                    <div class="qty-counter">
+                                        <button type="button" class="counter-btn counter-plus" onclick="adjustSetMaxSets(this, 1)">+</button>
+                                        <span class="counter-value" data-value="{{ section.set_max_sets or 0 }}">{{ section.set_max_sets or 0 }}</span>
+                                        <button type="button" class="counter-btn counter-minus" onclick="adjustSetMaxSets(this, -1)">−</button>
+                                    </div>
+                                    <input type="hidden" class="set-max-sets" value="{{ section.set_max_sets or 0 }}">
+                                </div>
                             </div>
 
+                            <!-- Separator -->
+                            <hr class="set-separator">
+
+                            <!-- Image preview section (full width, max 300px height, hidden by default) -->
+                            <div class="set-image-preview-section{% if not section.set_image %} hidden{% endif %}" id="setImagePreviewSection-{{ section.id }}">
+                                <div class="set-image-preview-wrapper">
+                                    <img class="set-image-preview" id="setImagePreview-{{ section.id }}"
+                                         src="{% if section.set_image %}{{ url_for('static', filename=section.set_image) }}{% endif %}"
+                                         alt="Tło seta">
+                                    <button type="button" class="btn-remove-set-image" onclick="removeSetImage(this, {{ section.id }})">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Bottom row - 70/30 split -->
+                            <div class="set-bottom-row">
+                                <!-- Left column 70%: Elementy setu -->
+                                <div class="set-items-col">
                             <div class="set-items">
-                                <label>Składniki setu:</label>
+                                <label>
+                                    Elementy setu (pojedyncze produkty) <span style="color: red;">*</span>
+                                    <small style="opacity: 0.7; display: block; margin-top: 4px;">Produkty widoczne na liście w secie</small>
+                                </label>
                                 <div class="set-items-list">
                                     {% if not section.get_set_items_ordered() %}
                                     <div class="set-items-empty">
@@ -356,21 +374,28 @@
                                         </div>
                                         <div class="variant-group-products">
                                             {% if item.variant_group and item.variant_group.products %}
-                                            {% for product in item.variant_group.products %}
-                                            <div class="variant-product-item">
-                                                {% if product.primary_image %}
-                                                <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}" alt="{{ product.name }}">
-                                                {% else %}
-                                                <div class="no-thumb">
-                                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                                                        <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-                                                        <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
-                                                    </svg>
+                                            <div class="variant-products-grid">
+                                                {% for product in item.variant_group.products %}
+                                                <div class="variant-product-card">
+                                                    <div class="variant-product-image">
+                                                        {% if product.primary_image %}
+                                                        <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}" alt="{{ product.name }}">
+                                                        {% else %}
+                                                        <div class="no-thumb">
+                                                            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                                                                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                                                <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                                            </svg>
+                                                        </div>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="variant-product-info">
+                                                        <span class="variant-product-name">{{ product.name }}</span>
+                                                        <span class="variant-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
+                                                    </div>
                                                 </div>
-                                                {% endif %}
-                                                <span class="product-name">{{ product.name }}</span>
+                                                {% endfor %}
                                             </div>
-                                            {% endfor %}
                                             {% else %}
                                             <div class="variant-products-empty">Wybierz grupę wariantową</div>
                                             {% endif %}
@@ -415,6 +440,56 @@
                                     </div>
                                     {% endif %}
                                     {% endfor %}
+                                </div>
+                            </div>
+                                </div>
+
+                                <!-- Right column 30%: Produkt-komplet -->
+                                {% set has_variant_groups = section.get_set_items_ordered()|selectattr('is_variant_group')|list|length > 0 %}
+                                <div class="set-product-selection" style="display: {% if has_variant_groups %}block{% else %}none{% endif %};">
+                                    <label>
+                                        Produkt - komplet setu <span style="color: red;">*</span>
+                                        <small style="opacity: 0.7; display: block; margin-top: 4px;">Dodawany przez "KUP PEŁNY SET"</small>
+                                    </label>
+                                    <div class="custom-select-wrapper">
+                                        <select class="form-select set-product-select" onchange="markDirty(); updateSetProductPreview(this)">
+                                            <option value="">Wybierz produkt...</option>
+                                            {% for product in products %}
+                                            <option value="{{ product.id }}"
+                                                    data-name="{{ product.name }}"
+                                                    data-price="{{ '%.2f'|format(product.sale_price) }}"
+                                                    data-image="{% if product.primary_image %}{{ url_for('static', filename=product.primary_image.path_compressed) }}{% endif %}"
+                                                    {% if section.set_product_id == product.id %}selected{% endif %}>
+                                                {{ product.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="custom-select-display">
+                                            <span class="selected-text">{% if section.set_product %}{{ section.set_product.name }}{% else %}Wybierz produkt...{% endif %}</span>
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <!-- Preview card -->
+                                    <div class="set-product-preview-card" style="display: {% if section.set_product %}block{% else %}none{% endif %};">
+                                        <div class="set-product-preview-image">
+                                            {% if section.set_product and section.set_product.primary_image %}
+                                            <img src="{{ url_for('static', filename=section.set_product.primary_image.path_compressed) }}" alt="{{ section.set_product.name }}">
+                                            {% else %}
+                                            <div class="no-thumb">
+                                                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                                                    <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                                    <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                                </svg>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="set-product-preview-info">
+                                            <span class="set-product-preview-name">{% if section.set_product %}{{ section.set_product.name }}{% endif %}</span>
+                                            <span class="set-product-preview-price">{% if section.set_product %}{{ '%.2f'|format(section.set_product.sale_price) }} PLN{% endif %}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -493,7 +568,12 @@
 <!-- Product Select Template (hidden) -->
 <template id="productOptionTemplate">
     {% for product in products %}
-    <option value="{{ product.id }}" data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}">{{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}</option>
+    <option value="{{ product.id }}"
+            data-name="{{ product.name }}"
+            data-price="{{ '%.2f'|format(product.sale_price) }}"
+            data-image="{{ url_for('static', filename=product.primary_image.path_compressed) if product.primary_image else '' }}">
+        {{ product.name }} {% if product.sku %}({{ product.sku }}){% endif %}
+    </option>
     {% endfor %}
 </template>
 

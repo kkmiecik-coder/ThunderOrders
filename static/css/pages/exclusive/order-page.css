@@ -179,7 +179,9 @@
 .header-right {
     flex-shrink: 0;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-3);
 }
 
 .page-header h1 {
@@ -784,6 +786,71 @@
     border-radius: 20px;
 }
 
+/* Expandable image functionality */
+.set-background.expandable-image {
+    cursor: pointer;
+    position: relative;
+}
+
+.set-background.expandable-image .image-wrapper {
+    overflow: hidden;
+    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 20px;
+}
+
+.set-background.expandable-image.collapsed .image-wrapper {
+    max-height: 300px;
+}
+
+.set-background.expandable-image.expanded .image-wrapper {
+    max-height: 5000px;
+}
+
+.set-background.expandable-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    vertical-align: bottom;
+}
+
+/* Expand overlay (shown on hover at bottom when collapsed) */
+.set-background.expandable-image .expand-overlay {
+    position: absolute;
+    bottom: 0;
+    left: var(--space-5);
+    right: var(--space-5);
+    height: 60px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.7), transparent);
+    border-radius: 0 0 20px 20px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 12px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.set-background.expandable-image.collapsed:hover .expand-overlay {
+    opacity: 1;
+}
+
+.set-background.expandable-image.expanded:hover .expand-overlay {
+    opacity: 1;
+}
+
+.set-background.expandable-image .expand-text {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark mode */
+[data-theme="dark"] .set-background.expandable-image .expand-overlay {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+}
+
 .set-card.has-image .set-item:hover {
     background: var(--gray-100);
     border-color: var(--gray-300);
@@ -1373,7 +1440,7 @@
     }
 
     .header-right {
-        justify-content: center;
+        align-items: center;
     }
 
     .page-description {
@@ -2734,10 +2801,6 @@
    ============================================ */
 
 .cart-item-fullset {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 50%, rgba(240, 147, 251, 0.15) 100%);
-    border: 1px solid rgba(118, 75, 162, 0.3);
-    border-radius: var(--radius-md);
-    padding: var(--space-3) var(--space-4);
     margin-bottom: var(--space-2);
     position: relative;
     overflow: hidden;
@@ -3105,4 +3168,298 @@
 
 [data-theme="dark"] .exclusive-modal-hint {
     color: rgba(255, 255, 255, 0.6);
+}
+
+/* ==========================================
+   Deadline Alert Popup (Light Mode)
+   ========================================== */
+.deadline-alert-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    padding: var(--space-4);
+}
+
+.deadline-alert-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.deadline-alert-modal {
+    background: white;
+    border-radius: 24px;
+    padding: var(--space-10);
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: deadlinePopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes deadlinePopIn {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.deadline-alert-icon {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto var(--space-6);
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 32px rgba(240, 147, 251, 0.4);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 12px 32px rgba(240, 147, 251, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 16px 40px rgba(240, 147, 251, 0.6);
+    }
+}
+
+.deadline-alert-icon svg {
+    color: white;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.deadline-alert-title {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-bold);
+    color: #1a1a1a;
+    margin-bottom: var(--space-4);
+}
+
+.deadline-alert-message {
+    font-size: var(--text-lg);
+    color: #4a4a4a;
+    margin-bottom: var(--space-8);
+    line-height: 1.6;
+}
+
+.deadline-alert-message strong {
+    color: #f5576c;
+    font-weight: var(--font-bold);
+}
+
+.deadline-alert-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    padding: var(--space-4) var(--space-8);
+    border-radius: 12px;
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 16px rgba(240, 147, 251, 0.4);
+}
+
+.deadline-alert-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(240, 147, 251, 0.6);
+}
+
+.deadline-alert-btn:active {
+    transform: translateY(0);
+}
+
+/* ==========================================
+   Dynamic Countdown Timer (Light Mode)
+   ========================================== */
+.deadline-countdown {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: white;
+    padding: var(--space-3) var(--space-4);
+    border-radius: 12px;
+    border: 2px solid #f5576c;
+    box-shadow: 0 4px 16px rgba(245, 87, 108, 0.2);
+    margin-top: var(--space-3);
+    animation: slideDown 0.5s ease-out;
+}
+
+@keyframes slideDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.deadline-countdown.hidden {
+    display: none;
+}
+
+.deadline-countdown svg {
+    color: #f5576c;
+    flex-shrink: 0;
+}
+
+.deadline-countdown span {
+    font-size: var(--text-sm);
+    color: #1a1a1a;
+    font-weight: var(--font-medium);
+}
+
+.deadline-countdown strong {
+    color: #f5576c;
+    font-weight: var(--font-bold);
+    font-size: var(--text-base);
+    font-family: var(--font-mono);
+    min-width: 60px;
+    display: inline-block;
+}
+
+/* Pulsujący efekt dla licznika */
+.deadline-countdown.urgent {
+    animation: urgentPulse 1s ease-in-out infinite;
+}
+
+@keyframes urgentPulse {
+    0%, 100% {
+        border-color: #f5576c;
+        box-shadow: 0 4px 16px rgba(245, 87, 108, 0.2);
+    }
+    50% {
+        border-color: #ff0033;
+        box-shadow: 0 4px 24px rgba(255, 0, 51, 0.4);
+    }
+}
+
+/* ==========================================
+   Dark Mode - Deadline Alert Popup
+   ========================================== */
+[data-theme="dark"] .deadline-alert-overlay {
+    background: rgba(0, 0, 0, 0.85);
+}
+
+[data-theme="dark"] .deadline-alert-modal {
+    background: rgba(30, 30, 40, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .deadline-alert-icon {
+    box-shadow: 0 12px 32px rgba(240, 147, 251, 0.6);
+}
+
+[data-theme="dark"] .deadline-alert-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .deadline-alert-message {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .deadline-alert-btn {
+    box-shadow: 0 4px 16px rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .deadline-alert-btn:hover {
+    box-shadow: 0 8px 24px rgba(240, 147, 251, 0.7);
+}
+
+/* ==========================================
+   Dark Mode - Dynamic Countdown Timer
+   ========================================== */
+[data-theme="dark"] .deadline-countdown {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(245, 87, 108, 0.6);
+    box-shadow: 0 4px 16px rgba(245, 87, 108, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .deadline-countdown span {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .deadline-countdown strong {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .deadline-countdown.urgent {
+    animation: urgentPulseDark 1s ease-in-out infinite;
+}
+
+@keyframes urgentPulseDark {
+    0%, 100% {
+        border-color: rgba(245, 87, 108, 0.6);
+        box-shadow: 0 4px 16px rgba(245, 87, 108, 0.3);
+    }
+    50% {
+        border-color: rgba(255, 0, 51, 0.8);
+        box-shadow: 0 4px 24px rgba(255, 0, 51, 0.5);
+    }
+}
+
+/* ==========================================
+   Responsive - Deadline Alert
+   ========================================== */
+@media (max-width: 640px) {
+    .deadline-alert-modal {
+        padding: var(--space-8);
+        margin: var(--space-4);
+    }
+
+    .deadline-alert-icon {
+        width: 80px;
+        height: 80px;
+        margin-bottom: var(--space-4);
+    }
+
+    .deadline-alert-icon svg {
+        width: 48px;
+        height: 48px;
+    }
+
+    .deadline-alert-title {
+        font-size: var(--text-2xl);
+    }
+
+    .deadline-alert-message {
+        font-size: var(--text-base);
+    }
+
+    .deadline-alert-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .deadline-countdown {
+        font-size: var(--text-xs);
+    }
+
+    .deadline-countdown strong {
+        font-size: var(--text-sm);
+        min-width: 50px;
+    }
 }

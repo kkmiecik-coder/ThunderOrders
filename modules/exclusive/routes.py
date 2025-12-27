@@ -370,14 +370,24 @@ def restore(token):
     restored = {}
     expired = []
 
-    for product_id_str, qty in products.items():
+    for product_id_str, product_data in products.items():
         product_id = int(product_id_str)
-        reservation = get_user_reservation(session_id, page.id, product_id)
 
-        if reservation:
-            restored[product_id] = reservation.quantity
+        # Check if this is a full set product (no reservation system)
+        is_full_set = product_data.get('isFullSet', False) if isinstance(product_data, dict) else False
+
+        if is_full_set:
+            # Full set products don't have reservations - restore directly from localStorage
+            qty = product_data.get('quantity', 0) if isinstance(product_data, dict) else product_data
+            restored[product_id] = qty
         else:
-            expired.append(product_id)
+            # Regular product - check reservation
+            reservation = get_user_reservation(session_id, page.id, product_id)
+
+            if reservation:
+                restored[product_id] = reservation.quantity
+            else:
+                expired.append(product_id)
 
     # Get session info
     first_reservation = ExclusiveReservation.query.filter_by(
@@ -422,7 +432,6 @@ def place_order(token):
     session_id = data.get('session_id')
     guest_data = data.get('guest_data')
     order_note = data.get('order_note')
-    full_sets = data.get('full_sets', [])  # Full sets from frontend
 
     if not session_id:
         return jsonify({'success': False, 'error': 'missing_session_id'}), 400
@@ -432,8 +441,7 @@ def place_order(token):
         page=page,
         session_id=session_id,
         guest_data=guest_data,
-        order_note=order_note,
-        full_sets=full_sets  # Pass full sets to order placement
+        order_note=order_note
     )
 
     if success:

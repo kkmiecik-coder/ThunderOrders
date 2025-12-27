@@ -356,13 +356,17 @@ function getSectionTemplate(type) {
                 </div>
                 <div class="section-body">
                     <div class="set-section">
+                        <!-- Top row - 4 columns: Nazwa | Tło button | Dodaj buttons (vertical) | Max counter -->
                         <div class="set-header-row">
-                            <div class="set-name-group">
-                                <label class="set-name-label">Nazwa setu:</label>
+                            <!-- Column 1: Nazwa setu -->
+                            <div class="set-name-col">
+                                <label class="set-name-label">Nazwa setu: <span style="color: red;">*</span></label>
                                 <input type="text" class="form-input set-name" placeholder="np. Karty BTS - komplet 8 szt">
                             </div>
-                            <div class="set-header-buttons">
-                                <button type="button" class="btn btn-outline btn-sm btn-set-image" onclick="this.closest('.set-header-buttons').querySelector('.set-image-input').click()">
+
+                            <!-- Column 2: Dodaj tło seta button -->
+                            <div class="set-image-button-col">
+                                <button type="button" class="btn btn-outline btn-sm btn-set-image" onclick="this.closest('.set-section').querySelector('.set-image-input').click()">
                                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
                                         <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
@@ -371,42 +375,93 @@ function getSectionTemplate(type) {
                                 </button>
                                 <input type="file" class="set-image-input" accept="image/*" onchange="uploadSetImageNew(this)" style="display:none;">
                                 <input type="hidden" class="set-image-path" value="">
-                                <div class="set-add-buttons">
-                                    <button type="button" class="btn btn-outline btn-sm" onclick="addSetItem(this)">
-                                        + Dodaj produkt
-                                    </button>
-                                    <button type="button" class="btn btn-outline btn-sm" onclick="addSetVariantGroup(this)">
-                                        + Dodaj grupę wariantową
-                                    </button>
+                            </div>
+
+                            <!-- Column 3: Dodaj produkt / Dodaj grupę (stacked vertically) -->
+                            <div class="set-add-buttons-col">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="addSetItem(this)">
+                                    + Dodaj produkt
+                                </button>
+                                <button type="button" class="btn btn-outline btn-sm" onclick="addSetVariantGroup(this)">
+                                    + Dodaj grupę wariantową
+                                </button>
+                            </div>
+
+                            <!-- Column 4: Max counter -->
+                            <div class="qty-counter-group">
+                                <span class="qty-counter-label">Max</span>
+                                <div class="qty-counter">
+                                    <button type="button" class="counter-btn counter-plus" onclick="adjustSetMaxSets(this, 1)">+</button>
+                                    <span class="counter-value" data-value="0">0</span>
+                                    <button type="button" class="counter-btn counter-minus" onclick="adjustSetMaxSets(this, -1)">−</button>
                                 </div>
-                                <div class="set-max-counter">
-                                    <span class="counter-label">Max</span>
-                                    <div class="counter-controls">
-                                        <button type="button" class="counter-btn counter-plus" onclick="adjustSetMaxSets(this, 1)">+</button>
-                                        <span class="counter-value" data-value="0">0</span>
-                                        <button type="button" class="counter-btn counter-minus" onclick="adjustSetMaxSets(this, -1)">−</button>
-                                    </div>
-                                    <input type="hidden" class="set-max-sets" value="0">
-                                </div>
+                                <input type="hidden" class="set-max-sets" value="0">
                             </div>
                         </div>
-                        <div class="set-image-row hidden">
-                            <div class="set-image-preview has-image"></div>
-                            <button type="button" class="btn-remove-set-image" onclick="removeSetImageNew(this)">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <div class="set-items">
-                            <label>Składniki setu:</label>
-                            <div class="set-items-list">
-                                <div class="set-items-empty">
-                                    <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
-                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+
+                        <!-- Separator -->
+                        <hr class="set-separator">
+
+                        <!-- Image preview section (full width, max 300px height, hidden by default) -->
+                        <div class="set-image-preview-section hidden">
+                            <div class="set-image-preview-wrapper">
+                                <img class="set-image-preview" src="" alt="Tło seta">
+                                <button type="button" class="btn-remove-set-image" onclick="removeSetImageNew(this)">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                                     </svg>
-                                    <p>Brak produktów w secie</p>
-                                    <span>Dodaj produkty lub grupy wariantowe używając przycisków powyżej</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bottom row - 70/30 split -->
+                        <div class="set-bottom-row">
+                            <!-- Left column 70%: Elementy setu -->
+                            <div class="set-items-col">
+                                <div class="set-items">
+                                    <label>
+                                        Elementy setu (pojedyncze produkty) <span style="color: red;">*</span>
+                                        <small style="opacity: 0.7; display: block; margin-top: 4px;">Produkty widoczne na liście w secie</small>
+                                    </label>
+                                    <div class="set-items-list">
+                                        <div class="set-items-empty">
+                                            <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                            </svg>
+                                            <p>Brak produktów w secie</p>
+                                            <span>Dodaj produkty lub grupy wariantowe używając przycisków powyżej</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right column 30%: Produkt-komplet -->
+                            <div class="set-product-selection" style="display: none;">
+                                <label>
+                                    Produkt - komplet setu <span style="color: red;">*</span>
+                                    <small style="opacity: 0.7; display: block; margin-top: 4px;">Dodawany przez "KUP PEŁNY SET"</small>
+                                </label>
+                                <div class="custom-select-wrapper">
+                                    <select class="form-select set-product-select" onchange="markDirty(); updateSetProductPreview(this)">
+                                        <option value="">Wybierz produkt...</option>
+                                        ${productOptions}
+                                    </select>
+                                    <div class="custom-select-display">
+                                        <span class="selected-text">Wybierz produkt...</span>
+                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Preview card (hidden by default, shown when product selected) -->
+                                <div class="set-product-preview-card" style="display: none;">
+                                    <div class="set-product-preview-image">
+                                        <img src="" alt="">
+                                    </div>
+                                    <div class="set-product-preview-info">
+                                        <span class="set-product-preview-name"></span>
+                                        <span class="set-product-preview-price"></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -571,6 +626,15 @@ function removeSetItem(btn) {
                 </div>
             `;
         }
+
+        // Ukryj pole "Produkt - komplet setu" jeśli nie ma grup wariantowych
+        if (setSection) {
+            const hasVariantGroups = setSection.querySelectorAll('.set-item-variant-group-card').length > 0;
+            const setProductSelection = setSection.querySelector('.set-product-selection');
+            if (setProductSelection) {
+                setProductSelection.style.display = hasVariantGroups ? 'block' : 'none';
+            }
+        }
     }
 }
 
@@ -612,6 +676,10 @@ function collectPageData() {
             // Also save as max_quantity for availability calculation
             sectionData.max_quantity = maxSetsVal > 0 ? maxSetsVal : null;
             sectionData.set_max_per_product = null;
+
+            // NOWE: Zbierz set_product_id (produkt-komplet)
+            const setProductSelect = section.querySelector('.set-product-select');
+            sectionData.set_product_id = setProductSelect ? (parseInt(setProductSelect.value) || null) : null;
 
             // Collect set items (products and variant groups)
             sectionData.set_items = [];
@@ -885,6 +953,12 @@ function addSetVariantGroup(btn) {
     const setSection = btn.closest('.section-card[data-section-type="set"]');
     if (setSection) {
         updateSetButtons(setSection);
+
+        // Pokaż pole "Produkt - komplet setu" po dodaniu grupy wariantowej
+        const setProductSelection = setSection.querySelector('.set-product-selection');
+        if (setProductSelection) {
+            setProductSelection.style.display = 'block';
+        }
     }
 
     markDirty();
@@ -911,18 +985,24 @@ async function updateSetVariantGroupProducts(select) {
         const data = await response.json();
 
         if (data.products && data.products.length > 0) {
-            let html = '';
+            let html = '<div class="variant-products-grid">';
             data.products.forEach(product => {
                 html += `
-                    <div class="variant-product-item">
-                        ${product.image
-                            ? `<img src="${product.image}" alt="${product.name}">`
-                            : `<div class="no-thumb"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg></div>`
-                        }
-                        <span class="product-name">${product.name}</span>
+                    <div class="variant-product-card">
+                        <div class="variant-product-image">
+                            ${product.image
+                                ? `<img src="${product.image}" alt="${product.name}">`
+                                : `<div class="no-thumb"><svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/></svg></div>`
+                            }
+                        </div>
+                        <div class="variant-product-info">
+                            <span class="variant-product-name">${product.name}</span>
+                            <span class="variant-product-price">${parseFloat(product.sale_price).toFixed(2)} PLN</span>
+                        </div>
                     </div>
                 `;
             });
+            html += '</div>';
             productsContainer.innerHTML = html;
         } else {
             productsContainer.innerHTML = '<div class="variant-products-empty">Brak produktów w grupie</div>';
@@ -943,14 +1023,15 @@ async function uploadSetImageNew(input) {
     if (!file) return;
 
     const setSection = input.closest('.set-section');
-    const imageRow = setSection.querySelector('.set-image-row');
-    const previewContainer = imageRow.querySelector('.set-image-preview');
+    const imagePreviewSection = setSection.querySelector('.set-image-preview-section');
+    const previewImg = imagePreviewSection.querySelector('.set-image-preview');
     const hiddenInput = input.nextElementSibling;
     const imageBtn = setSection.querySelector('.btn-set-image');
 
     // Show loading
-    imageRow.classList.remove('hidden');
-    previewContainer.innerHTML = '<div class="set-image-loading">Przesyłanie...</div>';
+    imagePreviewSection.classList.remove('hidden');
+    previewImg.src = '';
+    previewImg.alt = 'Ładowanie...';
 
     try {
         const formData = new FormData();
@@ -968,8 +1049,8 @@ async function uploadSetImageNew(input) {
         const result = await response.json();
 
         if (result.success) {
-            previewContainer.classList.add('has-image');
-            previewContainer.innerHTML = `<img src="${result.url}" alt="Tło setu">`;
+            previewImg.src = result.url;
+            previewImg.alt = 'Tło seta';
             hiddenInput.value = result.path;
             // Update button text and add has-image class for purple styling
             imageBtn.classList.add('has-image');
@@ -983,14 +1064,14 @@ async function uploadSetImageNew(input) {
             markDirty();
             showToast('Zdjęcie przesłane', 'success');
         } else {
-            imageRow.classList.add('hidden');
-            previewContainer.innerHTML = '';
+            imagePreviewSection.classList.add('hidden');
+            previewImg.src = '';
             showToast(result.error || 'Błąd przesyłania', 'error');
         }
     } catch (error) {
         console.error('Upload error:', error);
-        imageRow.classList.add('hidden');
-        previewContainer.innerHTML = '';
+        imagePreviewSection.classList.add('hidden');
+        previewImg.src = '';
         showToast('Błąd przesyłania pliku', 'error');
     }
 }
@@ -999,15 +1080,15 @@ async function uploadSetImageNew(input) {
  * Remove set image (for new sections)
  */
 function removeSetImageNew(btn) {
-    const imageRow = btn.closest('.set-image-row');
+    const imagePreviewSection = btn.closest('.set-image-preview-section');
     const setSection = btn.closest('.set-section');
-    const previewContainer = imageRow.querySelector('.set-image-preview');
+    const previewImg = imagePreviewSection.querySelector('.set-image-preview');
     const hiddenInput = setSection.querySelector('.set-image-path');
     const imageBtn = setSection.querySelector('.btn-set-image');
 
-    // Hide the image row
-    imageRow.classList.add('hidden');
-    previewContainer.innerHTML = '';
+    // Hide the image preview section
+    imagePreviewSection.classList.add('hidden');
+    previewImg.src = '';
     hiddenInput.value = '';
 
     // Reset button text and remove purple styling
@@ -1026,15 +1107,15 @@ function removeSetImageNew(btn) {
  * Remove set image (for existing sections)
  */
 function removeSetImage(btn, sectionId) {
-    const imageRow = document.getElementById(`setImageRow-${sectionId}`);
-    const previewContainer = document.getElementById(`setImagePreview-${sectionId}`);
+    const imagePreviewSection = document.getElementById(`setImagePreviewSection-${sectionId}`);
+    const previewImg = document.getElementById(`setImagePreview-${sectionId}`);
     const setSection = btn.closest('.set-section');
     const hiddenInput = setSection.querySelector('.set-image-path');
     const imageBtn = setSection.querySelector('.btn-set-image');
 
-    // Hide the image row
-    imageRow.classList.add('hidden');
-    previewContainer.innerHTML = '';
+    // Hide the image preview section
+    imagePreviewSection.classList.add('hidden');
+    previewImg.src = '';
     hiddenInput.value = '';
 
     // Reset button text and remove purple styling
@@ -1056,15 +1137,16 @@ async function uploadSetImage(input, sectionId) {
     const file = input.files[0];
     if (!file) return;
 
-    const imageRow = document.getElementById(`setImageRow-${sectionId}`);
-    const previewContainer = document.getElementById(`setImagePreview-${sectionId}`);
+    const imagePreviewSection = document.getElementById(`setImagePreviewSection-${sectionId}`);
+    const previewImg = document.getElementById(`setImagePreview-${sectionId}`);
     const hiddenInput = input.nextElementSibling;
     const setSection = input.closest('.set-section');
     const imageBtn = setSection.querySelector('.btn-set-image');
 
     // Show loading
-    imageRow.classList.remove('hidden');
-    previewContainer.innerHTML = '<div class="set-image-loading">Przesyłanie...</div>';
+    imagePreviewSection.classList.remove('hidden');
+    previewImg.src = '';
+    previewImg.alt = 'Ładowanie...';
 
     try {
         const formData = new FormData();
@@ -1083,8 +1165,8 @@ async function uploadSetImage(input, sectionId) {
         const result = await response.json();
 
         if (result.success) {
-            previewContainer.classList.add('has-image');
-            previewContainer.innerHTML = `<img src="${result.url}" alt="Tło setu">`;
+            previewImg.src = result.url;
+            previewImg.alt = 'Tło seta';
             hiddenInput.value = result.path;
             // Update button text and add has-image class for purple styling
             imageBtn.classList.add('has-image');
@@ -1098,10 +1180,14 @@ async function uploadSetImage(input, sectionId) {
             markDirty();
             showToast('Zdjęcie przesłane', 'success');
         } else {
+            imagePreviewSection.classList.add('hidden');
+            previewImg.src = '';
             showToast(result.error || 'Błąd przesyłania', 'error');
         }
     } catch (error) {
         console.error('Upload error:', error);
+        imagePreviewSection.classList.add('hidden');
+        previewImg.src = '';
         showToast('Błąd przesyłania pliku', 'error');
     }
 }
@@ -1112,9 +1198,9 @@ async function uploadSetImage(input, sectionId) {
  * @param {number} delta - Amount to add (1 or -1)
  */
 function adjustSetMaxSets(btn, delta) {
-    const counter = btn.closest('.set-max-counter');
-    const valueSpan = counter.querySelector('.counter-value');
-    const hiddenInput = counter.querySelector('.set-max-sets');
+    const counterGroup = btn.closest('.qty-counter-group');
+    const valueSpan = counterGroup.querySelector('.counter-value');
+    const hiddenInput = counterGroup.querySelector('.set-max-sets');
 
     let currentValue = parseInt(valueSpan.dataset.value) || 0;
     let newValue = currentValue + delta;
@@ -1413,4 +1499,77 @@ function updateAllSetsButtons() {
     document.querySelectorAll('.section-card[data-section-type="set"]').forEach(setSection => {
         updateSetButtons(setSection);
     });
+}
+
+/**
+ * Update custom select display
+ */
+function updateCustomSelect(select) {
+    const wrapper = select.closest('.custom-select-wrapper');
+    if (!wrapper) return;
+
+    const display = wrapper.querySelector('.custom-select-display .selected-text');
+    if (!display) return;
+
+    const selectedOption = select.options[select.selectedIndex];
+    display.textContent = selectedOption ? selectedOption.text : 'Set produktów';
+}
+
+/**
+ * Update set product preview card when product is selected
+ */
+function updateSetProductPreview(select) {
+    const selectedOption = select.options[select.selectedIndex];
+    const productSelection = select.closest('.set-product-selection');
+
+    if (!productSelection) return;
+
+    const previewCard = productSelection.querySelector('.set-product-preview-card');
+    const display = productSelection.querySelector('.custom-select-display .selected-text');
+
+    if (!previewCard) return;
+
+    // Update custom select display text
+    if (display) {
+        display.textContent = selectedOption && selectedOption.value ? selectedOption.text : 'Wybierz produkt...';
+    }
+
+    // If no product selected, hide preview
+    if (!selectedOption || !selectedOption.value) {
+        previewCard.style.display = 'none';
+        return;
+    }
+
+    // Get product data from option attributes
+    const productName = selectedOption.dataset.name || selectedOption.text;
+    const productPrice = selectedOption.dataset.price;
+    const productImage = selectedOption.dataset.image;
+
+    // Update preview card
+    const nameEl = previewCard.querySelector('.set-product-preview-name');
+    const priceEl = previewCard.querySelector('.set-product-preview-price');
+    const imageContainer = previewCard.querySelector('.set-product-preview-image');
+
+    if (nameEl) nameEl.textContent = productName;
+    if (priceEl) priceEl.textContent = productPrice ? `${productPrice} PLN` : '';
+
+    // Update image
+    if (imageContainer) {
+        if (productImage) {
+            imageContainer.innerHTML = `<img src="${productImage}" alt="${productName}">`;
+        } else {
+            // Show placeholder
+            imageContainer.innerHTML = `
+                <div class="no-thumb">
+                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                        <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                    </svg>
+                </div>
+            `;
+        }
+    }
+
+    // Show preview card
+    previewCard.style.display = 'block';
 }
