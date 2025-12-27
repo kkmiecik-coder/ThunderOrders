@@ -6,6 +6,24 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}ThunderOrders{% endblock %}</title>
 
+    <!-- Google Analytics 4 (GA4) -->
+    {% if config.GA_MEASUREMENT_ID %}
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA_MEASUREMENT_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config.GA_MEASUREMENT_ID }}', {
+            'anonymize_ip': true,  // Anonimizacja IP (RODO compliance)
+            'cookie_flags': 'SameSite=None;Secure'
+        });
+
+        // Expose gtag globally for custom event tracking
+        window.gtag = gtag;
+    </script>
+    {% endif %}
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
@@ -66,6 +84,11 @@
     {% endblock %}
 
     {% block scripts %}
+    <!-- Google Analytics Helper (custom event tracking) -->
+    {% if config.GA_MEASUREMENT_ID %}
+    <script src="{{ url_for('static', filename='js/utils/analytics.js') }}?v=1"></script>
+    {% endif %}
+
     <!-- Custom JS - UPDATED VERSION 2025-12-12 20:42 - Pure CSS tooltips -->
     <script src="{{ url_for('static', filename='js/core/app.js') }}?v=8"></script>
     <script src="{{ url_for('static', filename='js/components/toast.js') }}?v=8"></script>

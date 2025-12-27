@@ -1,7 +1,42 @@
 /**
  * Exclusive Order Page - JavaScript
- * Handles cart, reservation system, modals, confetti, and deadline timer
+ * Handles cart, reservation system, modals, confetti, deadline timer, and Google Analytics tracking
  */
+
+// ============================================
+// Google Analytics Tracking Helpers
+// ============================================
+function trackExclusivePageViewed() {
+    // Track page view with exclusive page info
+    if (typeof window.trackExclusivePageView === 'function' && window.exclusiveToken && window.exclusiveName) {
+        window.trackExclusivePageView(window.exclusiveToken, window.exclusiveName);
+    }
+}
+
+function trackProductAddedToCart(productName, productId, price, quantity) {
+    // Track add to cart event
+    if (typeof window.trackAddToCart === 'function') {
+        window.trackAddToCart(productName, productId, price, quantity);
+    }
+}
+
+function trackOrderSubmitted(orderNumber, totalAmount, isGuest) {
+    // Track order placement
+    if (isGuest && typeof window.trackGuestOrderPlaced === 'function') {
+        window.trackGuestOrderPlaced(orderNumber, totalAmount);
+    } else if (!isGuest && typeof window.trackOrderPlaced === 'function') {
+        // Count items in cart
+        const itemsCount = cart.reduce((sum, item) => sum + item.qty, 0);
+        window.trackOrderPlaced(orderNumber, totalAmount, itemsCount, 'exclusive');
+    }
+}
+
+function trackUserLoginSuccess() {
+    // Track successful login
+    if (typeof window.trackUserLogin === 'function') {
+        window.trackUserLogin('email');
+    }
+}
 
 // ============================================
 // Image Lightbox
@@ -416,6 +451,9 @@ async function handleLogin(event) {
         });
 
         if (response.ok) {
+            // GA4: Track successful login
+            trackUserLoginSuccess();
+
             window.location.reload();
         } else {
             let errorMessage = 'Nieprawidłowy email lub hasło.';
@@ -481,6 +519,10 @@ async function submitOrder() {
         const data = await response.json();
 
         if (data.success) {
+            // GA4: Track order submission
+            const totalAmount = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
+            trackOrderSubmitted(data.order_number, totalAmount, window.isGuest || false);
+
             // Clear localStorage reservation (storage key set by template)
             localStorage.removeItem(window.reservationStorageKey);
 
@@ -796,6 +838,14 @@ function increaseQtyWithReservation(btn) {
                 reservationState.firstReservedAt = result.reservation.first_reservation_at;
                 reservationState.expiresAt = result.reservation.expires_at;
                 showReservationHeader();
+            }
+
+            // GA4: Track add to cart (only on first add, not on increase)
+            if (val === 0) {
+                const cartItem = cart.find(item => item.productId == productId);
+                if (cartItem) {
+                    trackProductAddedToCart(cartItem.name, productId, cartItem.price, 1);
+                }
             }
         } else {
             input.value = Math.max(0, parseInt(input.value) - 1);
@@ -1499,6 +1549,9 @@ function triggerConfetti(container, isBig = true) {
 document.addEventListener('DOMContentLoaded', function() {
     initReservationSystem();
     initFullSetButtons();
+
+    // GA4: Track exclusive page view (once on load)
+    trackExclusivePageViewed();
 });
 
 function initFullSetButtons() {

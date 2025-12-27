@@ -50,6 +50,9 @@ class Config:
     # Exchange Rate API
     EXCHANGE_RATE_API_KEY = os.getenv('EXCHANGE_RATE_API_KEY')
 
+    # Google Analytics 4
+    GA_MEASUREMENT_ID = os.getenv('GA_MEASUREMENT_ID')
+
     # Security
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # Token nie wygasa

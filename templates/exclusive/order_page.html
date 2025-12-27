@@ -768,6 +768,10 @@
 window.isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
 window.isGuest = {{ 'false' if current_user.is_authenticated else 'true' }};
 
+// Google Analytics - Exclusive page info
+window.exclusiveToken = '{{ page.token }}';
+window.exclusiveName = '{{ page.name }}';
+
 // URLs
 window.placeOrderUrl = '/exclusive/{{ page.token }}/place-order';
 window.thankYouUrl = '/exclusive/{{ page.token }}/thank-you';

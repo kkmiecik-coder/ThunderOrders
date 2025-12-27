@@ -218,6 +218,106 @@ function doSomething() { ... }
 
 ---
 
+### 📊 Google Analytics 4 (GA4) - Tracking
+
+**ZASADA:** Google Analytics 4 jest zintegrowane z aplikacją przez plik `.env`. Measurement ID jest ładowane warunkowo - działa tylko gdy jest ustawione w zmiennej środowiskowej.
+
+**Konfiguracja:**
+1. **Measurement ID** jest przechowywane w pliku `.env`:
+   ```env
+   GA_MEASUREMENT_ID=G-XXXXXXXXXX
+   ```
+2. **Skrypt GA4** ładuje się automatycznie w `templates/base.html` jeśli `config.GA_MEASUREMENT_ID` jest ustawione
+3. **Helper functions** do trackowania custom events są dostępne w `static/js/utils/analytics.js`
+
+**Automatyczne trackowanie (bez dodatkowego kodu):**
+- ✅ Wyświetlenia stron (pageviews)
+- ✅ Scrolling
+- ✅ Kliknięcia w zewnętrzne linki
+- ✅ Pobierania plików
+
+**Custom event tracking - dostępne funkcje:**
+
+```javascript
+// Złożenie zamówienia
+trackOrderPlaced(orderNumber, totalAmount, itemsCount, orderType);
+
+// Rejestracja użytkownika
+trackUserRegistered(method);
+
+// Logowanie użytkownika
+trackUserLogin(method);
+
+// Dodanie produktu do koszyka
+trackAddToCart(productName, productSku, price, quantity);
+
+// Wysłanie formularza
+trackFormSubmit(formName);
+
+// Kliknięcie w przycisk
+trackButtonClick(buttonName, location);
+
+// Wyświetlenie strony Exclusive
+trackExclusivePageView(exclusiveToken, exclusiveName);
+
+// Zamówienie przez gościa
+trackGuestOrderPlaced(orderNumber, totalAmount);
+
+// Zlecenie wysyłki
+trackShippingRequested(ordersCount);
+
+// Wyszukiwanie
+trackSearch(searchTerm);
+
+// Ogólny custom event
+trackEvent(eventName, eventParams);
+```
+
+**Przykład użycia:**
+
+```javascript
+// W pliku: static/js/pages/client/new-order.js
+
+// Po złożeniu zamówienia
+fetch('/client/orders/new', { method: 'POST', body: formData })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Track złożenia zamówienia
+            if (typeof window.trackOrderPlaced === 'function') {
+                window.trackOrderPlaced(
+                    data.order_number,  // 'ST/00000123'
+                    data.total_amount,  // 450.00
+                    data.items_count,   // 3
+                    'standard'          // 'standard' lub 'exclusive'
+                );
+            }
+        }
+    });
+```
+
+**Best Practices:**
+1. **ZAWSZE** sprawdzaj czy funkcja istnieje przed użyciem (`if (typeof window.trackOrderPlaced === 'function')`)
+2. **NIE** trackuj wrażliwych danych (hasła, numery kart, dane osobowe)
+3. **Używaj** sensownych nazw eventów (lowercase_with_underscores)
+4. **Testuj** lokalnie przed wdrożeniem (GA4 Realtime w Google Analytics)
+5. **Skup się** na kluczowych akcjach (zamówienia, rejestracja, dodanie do koszyka)
+
+**Dokumentacja:**
+- Pełna dokumentacja: `docs/GOOGLE_ANALYTICS.md`
+- Przykłady użycia: `static/js/examples/analytics-usage-examples.js`
+
+**Wyłączenie GA4:**
+- W środowisku development: Zostaw `GA_MEASUREMENT_ID` puste w `.env`
+- W środowisku production: Ustaw prawdziwe Measurement ID z Google Analytics
+
+**Privacy & RODO:**
+- Anonimizacja IP jest włączona (`anonymize_ip: true`)
+- Cookies są ustawione jako `SameSite=None;Secure`
+- GA4 ładuje się tylko jeśli Measurement ID jest ustawione
+
+---
+
 ### 🔄 Workflow Rozwoju Aplikacji
 
 **ZASADA GŁÓWNA:** Pracujemy na kopii lokalnej (Mac + XAMPP), dopiero po wdrożeniu pełnej funkcjonalności robimy push na Git i aktualizujemy serwer produkcyjny.
