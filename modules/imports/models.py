@@ -1,9 +1,43 @@
 """
 CSV Import Models
 """
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from app import db
 
+
+
+
+def get_local_now():
+    """
+    Zwraca aktualny czas polski (Europe/Warsaw).
+    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
+    Zwraca naive datetime dla porównań z naive datetime w bazie.
+    """
+    utc_now = datetime.now(timezone.utc)
+
+    # Prosty algorytm DST dla Polski:
+    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
+    # CET (UTC+1): reszta roku
+    year = utc_now.year
+
+    # Ostatnia niedziela marca
+    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
+    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
+    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Ostatnia niedziela października
+    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
+    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
+    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Sprawdź czy jesteśmy w czasie letnim
+    if dst_start <= utc_now < dst_end:
+        offset = timedelta(hours=2)  # CEST
+    else:
+        offset = timedelta(hours=1)  # CET
+
+    # Zwróć naive datetime w czasie polskim
+    return (utc_now + offset).replace(tzinfo=None)
 
 class CsvImport(db.Model):
     """CSV Import model for tracking import history"""
@@ -23,7 +57,7 @@ class CsvImport(db.Model):
     column_mapping = db.Column(db.JSON)
     error_log = db.Column(db.JSON)
     temp_file_path = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
     completed_at = db.Column(db.DateTime)
 
     # Relationship

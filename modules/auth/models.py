@@ -3,7 +3,7 @@ Auth Module - User Model
 Model użytkownika z metodami autentykacji
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import secrets
@@ -11,6 +11,39 @@ import random
 
 # Import db z extensions.py (unika circular import)
 from extensions import db
+
+
+def get_local_now():
+    """
+    Zwraca aktualny czas polski (Europe/Warsaw).
+    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
+    Zwraca naive datetime dla porównań z naive datetime w bazie.
+    """
+    utc_now = datetime.now(timezone.utc)
+
+    # Prosty algorytm DST dla Polski:
+    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
+    # CET (UTC+1): reszta roku
+    year = utc_now.year
+
+    # Ostatnia niedziela marca
+    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
+    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
+    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Ostatnia niedziela października
+    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
+    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
+    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Sprawdź czy jesteśmy w czasie letnim
+    if dst_start <= utc_now < dst_end:
+        offset = timedelta(hours=2)  # CEST
+    else:
+        offset = timedelta(hours=1)  # CET
+
+    # Zwróć naive datetime w czasie polskim
+    return (utc_now + offset).replace(tzinfo=None)
 
 
 class User(UserMixin, db.Model):
@@ -72,11 +105,11 @@ class User(UserMixin, db.Model):
     # Avatar
     avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.now,
-        onupdate=datetime.now
+        default=get_local_now,
+        onupdate=get_local_now
     )
 
     # Relationships
@@ -138,10 +171,8 @@ class User(UserMixin, db.Model):
         Returns:
             str: Unikalny token
         """
-        from datetime import timedelta
-
         self.password_reset_token = secrets.token_urlsafe(32)
-        self.password_reset_expires = datetime.now() + timedelta(seconds=expires_in)
+        self.password_reset_expires = get_local_now() + timedelta(seconds=expires_in)
         return self.password_reset_token
 
     def verify_password_reset_token(self, token):
@@ -157,7 +188,7 @@ class User(UserMixin, db.Model):
         if self.password_reset_token != token:
             return False
 
-        if self.password_reset_expires and datetime.now() > self.password_reset_expires:
+        if self.password_reset_expires and get_local_now() > self.password_reset_expires:
             return False
 
         return True
@@ -183,10 +214,10 @@ class User(UserMixin, db.Model):
         self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # Ustaw czas wygaśnięcia (24h)
-        self.email_verification_code_expires = datetime.now() + timedelta(hours=24)
+        self.email_verification_code_expires = get_local_now() + timedelta(hours=24)
 
         # Zapisz czas wysłania (do cooldown 60s)
-        self.email_verification_code_sent_at = datetime.now()
+        self.email_verification_code_sent_at = get_local_now()
 
         # Resetuj licznik prób
         self.email_verification_attempts = 0
@@ -209,11 +240,11 @@ class User(UserMixin, db.Model):
         """
         # Sprawdź czy weryfikacja nie jest zablokowana
         if self.is_verification_locked():
-            remaining = (self.email_verification_locked_until - datetime.now()).seconds // 60
+            remaining = (self.email_verification_locked_until - get_local_now()).seconds // 60
             return False, f'Weryfikacja zablokowana. Spróbuj ponownie za {remaining + 1} minut.'
 
         # Sprawdź czy kod nie wygasł
-        if not self.email_verification_code_expires or datetime.now() > self.email_verification_code_expires:
+        if not self.email_verification_code_expires or get_local_now() > self.email_verification_code_expires:
             return False, 'Kod weryfikacyjny wygasł. Wyślij nowy kod.'
 
         # Sprawdź kod
@@ -222,7 +253,7 @@ class User(UserMixin, db.Model):
 
             # Blokada po 5 próbach
             if self.email_verification_attempts >= 5:
-                self.email_verification_locked_until = datetime.now() + timedelta(minutes=15)
+                self.email_verification_locked_until = get_local_now() + timedelta(minutes=15)
                 return False, 'Zbyt wiele nieudanych prób. Weryfikacja zablokowana na 15 minut.'
 
             remaining = 5 - self.email_verification_attempts
@@ -255,7 +286,7 @@ class User(UserMixin, db.Model):
         if not self.email_verification_code_sent_at:
             return True, 0
 
-        elapsed = (datetime.now() - self.email_verification_code_sent_at).total_seconds()
+        elapsed = (get_local_now() - self.email_verification_code_sent_at).total_seconds()
         if elapsed >= 60:
             return True, 0
 
@@ -277,10 +308,10 @@ class User(UserMixin, db.Model):
         self.email_verification_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
 
         # Ustaw nowy czas wygaśnięcia (24h)
-        self.email_verification_code_expires = datetime.now() + timedelta(hours=24)
+        self.email_verification_code_expires = get_local_now() + timedelta(hours=24)
 
         # Zapisz czas wysłania
-        self.email_verification_code_sent_at = datetime.now()
+        self.email_verification_code_sent_at = get_local_now()
 
         # Resetuj licznik prób przy nowym kodzie
         self.email_verification_attempts = 0
@@ -298,7 +329,7 @@ class User(UserMixin, db.Model):
         if not self.email_verification_locked_until:
             return False
 
-        return datetime.now() < self.email_verification_locked_until
+        return get_local_now() < self.email_verification_locked_until
 
     @classmethod
     def get_by_verification_session_token(cls, token):
@@ -364,7 +395,7 @@ class User(UserMixin, db.Model):
 
     def update_last_login(self):
         """Aktualizuje timestamp ostatniego logowania"""
-        self.last_login = datetime.now()
+        self.last_login = get_local_now()
         db.session.commit()
 
     def deactivate(self, reason, deactivated_by_user_id):
@@ -377,7 +408,7 @@ class User(UserMixin, db.Model):
         """
         self.is_active = False
         self.deactivation_reason = reason
-        self.deactivated_at = datetime.now()
+        self.deactivated_at = get_local_now()
         self.deactivated_by = deactivated_by_user_id
 
     def reactivate(self):
@@ -476,8 +507,8 @@ class Settings(db.Model):
     # Timestamps
     updated_at = db.Column(
         db.DateTime,
-        default=datetime.now,
-        onupdate=datetime.now
+        default=get_local_now,
+        onupdate=get_local_now
     )
     updated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 

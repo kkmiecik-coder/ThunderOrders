@@ -3,9 +3,43 @@ Profile Module - Avatar Models
 Modele serii avatarów i avatarów
 """
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from extensions import db
 
+
+
+
+def get_local_now():
+    """
+    Zwraca aktualny czas polski (Europe/Warsaw).
+    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
+    Zwraca naive datetime dla porównań z naive datetime w bazie.
+    """
+    utc_now = datetime.now(timezone.utc)
+
+    # Prosty algorytm DST dla Polski:
+    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
+    # CET (UTC+1): reszta roku
+    year = utc_now.year
+
+    # Ostatnia niedziela marca
+    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
+    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
+    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Ostatnia niedziela października
+    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
+    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
+    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Sprawdź czy jesteśmy w czasie letnim
+    if dst_start <= utc_now < dst_end:
+        offset = timedelta(hours=2)  # CEST
+    else:
+        offset = timedelta(hours=1)  # CET
+
+    # Zwróć naive datetime w czasie polskim
+    return (utc_now + offset).replace(tzinfo=None)
 
 class AvatarSeries(db.Model):
     """
@@ -18,7 +52,7 @@ class AvatarSeries(db.Model):
     name = db.Column(db.String(100), nullable=False)
     slug = db.Column(db.String(100), unique=True, nullable=False, index=True)
     sort_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     avatars = db.relationship('Avatar', backref='series', lazy='dynamic',
@@ -68,7 +102,7 @@ class Avatar(db.Model):
     series_id = db.Column(db.Integer, db.ForeignKey('avatar_series.id'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     sort_order = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     def __repr__(self):
         return f'<Avatar {self.filename}>'

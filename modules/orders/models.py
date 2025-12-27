@@ -11,7 +11,7 @@ Models for orders management:
 - OrderRefund: Refund records for orders
 """
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import secrets
 from extensions import db
 
@@ -19,6 +19,40 @@ from extensions import db
 # ====================
 # LOOKUP TABLES
 # ====================
+
+
+
+def get_local_now():
+    """
+    Zwraca aktualny czas polski (Europe/Warsaw).
+    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
+    Zwraca naive datetime dla porównań z naive datetime w bazie.
+    """
+    utc_now = datetime.now(timezone.utc)
+
+    # Prosty algorytm DST dla Polski:
+    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
+    # CET (UTC+1): reszta roku
+    year = utc_now.year
+
+    # Ostatnia niedziela marca
+    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
+    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
+    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Ostatnia niedziela października
+    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
+    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
+    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Sprawdź czy jesteśmy w czasie letnim
+    if dst_start <= utc_now < dst_end:
+        offset = timedelta(hours=2)  # CEST
+    else:
+        offset = timedelta(hours=1)  # CET
+
+    # Zwróć naive datetime w czasie polskim
+    return (utc_now + offset).replace(tzinfo=None)
 
 class OrderStatus(db.Model):
     """
@@ -33,8 +67,8 @@ class OrderStatus(db.Model):
     badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for badge
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     orders = db.relationship('Order', back_populates='status_rel', foreign_keys='Order.status')
@@ -62,8 +96,8 @@ class OrderType(db.Model):
     badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for type badge
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     orders = db.relationship('Order', back_populates='type_rel', foreign_keys='Order.order_type')
@@ -92,8 +126,8 @@ class WmsStatus(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     is_default = db.Column(db.Boolean, default=False)  # Default status for new items
     is_picked = db.Column(db.Boolean, default=False)  # Marks item as picked (for progress calculation)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     order_items = db.relationship('OrderItem', back_populates='wms_status_rel', foreign_keys='OrderItem.wms_status')
@@ -186,8 +220,8 @@ class Order(db.Model):
     admin_notes = db.Column(db.Text, nullable=True)  # Internal admin notes
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     items = db.relationship('OrderItem', back_populates='order', cascade='all, delete-orphan')
@@ -609,7 +643,7 @@ class OrderItem(db.Model):
     fulfilled_quantity = db.Column(db.Integer, nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     order = db.relationship('Order', back_populates='items')
@@ -691,7 +725,7 @@ class OrderComment(db.Model):
     comment = db.Column(db.Text, nullable=False)
     is_internal = db.Column(db.Boolean, default=False)  # Internal notes (admin only)
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     order = db.relationship('Order', back_populates='comments')
@@ -738,7 +772,7 @@ class OrderRefund(db.Model):
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     completed_at = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     order = db.relationship('Order', back_populates='refunds')
@@ -780,7 +814,7 @@ class OrderShipment(db.Model):
     notes = db.Column(db.String(255), nullable=True)
 
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     # Relationships

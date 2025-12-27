@@ -328,63 +328,92 @@
 
 /* Dark Mode Support */
 [data-theme="dark"] .profile-card {
-  background: var(--gray-800);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  box-shadow: none;
 }
 
 [data-theme="dark"] .profile-card-header {
-  border-bottom-color: var(--gray-700);
+  border-bottom-color: rgba(240, 147, 251, 0.15);
 }
 
 [data-theme="dark"] .profile-card-header h2 {
-  color: var(--gray-100);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .page-header h1 {
-  color: var(--gray-100);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .page-subtitle {
-  color: var(--gray-400);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="dark"] .form-group label {
-  color: var(--gray-300);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .form-group label .optional {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="dark"] .form-group input {
-  background: var(--gray-700);
-  border-color: var(--gray-600);
-  color: var(--gray-100);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.15);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .form-group input:focus {
-  border-color: var(--purple-400);
-  box-shadow: 0 0 0 3px rgba(123, 44, 191, 0.2);
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .form-group input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .form-hint {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="dark"] .form-actions {
-  border-top-color: var(--gray-700);
+  border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .info-label {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="dark"] .info-value {
-  color: var(--gray-200);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .badge-client {
-  background: var(--gray-600);
-  color: var(--gray-200);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 [data-theme="dark"] .form-value-readonly {
-  background: var(--gray-700);
-  border-color: var(--gray-600);
-  color: var(--gray-400);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.15);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="dark"] .avatar-status {
-  color: var(--gray-400);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="dark"] .avatar-status strong {
-  color: var(--purple-300);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .avatar-placeholder {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  border-color: #f093fb;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .avatar-preview {
+  border-color: #f093fb;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.2);
 }

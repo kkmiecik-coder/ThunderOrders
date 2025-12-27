@@ -4,8 +4,42 @@ Database models for products, categories, tags, suppliers and images
 """
 
 from extensions import db
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
+
+
+
+def get_local_now():
+    """
+    Zwraca aktualny czas polski (Europe/Warsaw).
+    Używa stałego offsetu +1h (CET) lub +2h (CEST) w zależności od daty.
+    Zwraca naive datetime dla porównań z naive datetime w bazie.
+    """
+    utc_now = datetime.now(timezone.utc)
+
+    # Prosty algorytm DST dla Polski:
+    # CEST (UTC+2): ostatnia niedziela marca do ostatniej niedzieli października
+    # CET (UTC+1): reszta roku
+    year = utc_now.year
+
+    # Ostatnia niedziela marca
+    march_last = datetime(year, 3, 31, tzinfo=timezone.utc)
+    march_last_sunday = march_last - timedelta(days=(march_last.weekday() + 1) % 7)
+    dst_start = march_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Ostatnia niedziela października
+    oct_last = datetime(year, 10, 31, tzinfo=timezone.utc)
+    oct_last_sunday = oct_last - timedelta(days=(oct_last.weekday() + 1) % 7)
+    dst_end = oct_last_sunday.replace(hour=1)  # 01:00 UTC
+
+    # Sprawdź czy jesteśmy w czasie letnim
+    if dst_start <= utc_now < dst_end:
+        offset = timedelta(hours=2)  # CEST
+    else:
+        offset = timedelta(hours=1)  # CET
+
+    # Zwróć naive datetime w czasie polskim
+    return (utc_now + offset).replace(tzinfo=None)
 
 class Category(db.Model):
     """Product Category with hierarchical structure"""
@@ -16,7 +50,7 @@ class Category(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     parent = db.relationship('Category', remote_side=[id], backref='children')
@@ -37,8 +71,8 @@ class Supplier(db.Model):
     country = db.Column(db.String(100), nullable=True)
     notes = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     products = db.relationship('Product', back_populates='supplier', lazy='dynamic')
@@ -53,7 +87,7 @@ class Tag(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     def __repr__(self):
         return f'<Tag {self.name}>'
@@ -66,8 +100,8 @@ class Manufacturer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     products = db.relationship('Product', back_populates='manufacturer', lazy='dynamic')
@@ -83,8 +117,8 @@ class ProductSeries(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     products = db.relationship('Product', back_populates='series', lazy='dynamic')
@@ -101,7 +135,7 @@ class ProductType(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     slug = db.Column(db.String(50), unique=True, nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     products = db.relationship('Product', back_populates='product_type', lazy='dynamic')
@@ -116,8 +150,8 @@ class VariantGroup(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)  # e.g. "Grupa 1", "Grupa 2"
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     def __repr__(self):
         return f'<VariantGroup {self.id} - {self.name}>'
@@ -128,7 +162,7 @@ variant_products = db.Table('variant_products',
     db.Column('id', db.Integer, primary_key=True),
     db.Column('variant_group_id', db.Integer, db.ForeignKey('variant_groups.id', ondelete='CASCADE'), nullable=False),
     db.Column('product_id', db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False),
-    db.Column('added_at', db.DateTime, default=datetime.now),
+    db.Column('added_at', db.DateTime, default=get_local_now),
     db.UniqueConstraint('variant_group_id', 'product_id', name='unique_variant_product')
 )
 
@@ -171,8 +205,8 @@ class Product(db.Model):
     # Status
     is_active = db.Column(db.Boolean, default=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     category = db.relationship('Category', back_populates='products')
@@ -216,7 +250,7 @@ class ProductImage(db.Model):
     path_compressed = db.Column(db.String(500), nullable=False)
     is_primary = db.Column(db.Boolean, default=False)
     sort_order = db.Column(db.Integer, default=0)
-    uploaded_at = db.Column(db.DateTime, default=datetime.now)
+    uploaded_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     product = db.relationship('Product', back_populates='images')
@@ -262,7 +296,7 @@ class StockOrder(db.Model):
     total_amount_pln = db.Column(db.Numeric(10, 2), default=0.00)  # Converted to PLN
 
     # Dates
-    order_date = db.Column(db.DateTime, default=datetime.now)
+    order_date = db.Column(db.DateTime, default=get_local_now)
     expected_delivery_date = db.Column(db.DateTime, nullable=True)
     actual_delivery_date = db.Column(db.DateTime, nullable=True)
 
@@ -273,8 +307,8 @@ class StockOrder(db.Model):
     # Tracking
     tracking_number = db.Column(db.String(100), nullable=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
     supplier = db.relationship('Supplier', backref='stock_orders')
@@ -298,7 +332,7 @@ class StockOrderItem(db.Model):
 
     received_quantity = db.Column(db.Integer, default=0)  # Ilość otrzymana
 
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
     stock_order = db.relationship('StockOrder', back_populates='items')

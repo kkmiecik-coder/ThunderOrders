@@ -62,13 +62,13 @@
 /* Container for search existing groups (needs higher z-index for dropdown) */
 .search-existing-groups-container {
     position: relative;
-    z-index: 1000; /* Ensure dropdown appears above other content including variantGroupsContainer */
+    z-index: 10; /* Ensure dropdown appears above other content including variantGroupsContainer */
 }
 
 /* Input wrapper - needs position relative for dropdown positioning */
 .search-input-wrapper {
     position: relative;
-    z-index: 1001; /* Higher than parent, ensures dropdown stacking */
+    z-index: 11; /* Higher than parent, ensures dropdown stacking */
 }
 
 .group-search-input {
@@ -97,7 +97,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     max-height: 300px;
     overflow-y: auto;
-    z-index: 10002; /* Higher than modal (10001) */
+    z-index: 100; /* Higher than variant content, lower than modal overlay */
 }
 
 .search-result-item {

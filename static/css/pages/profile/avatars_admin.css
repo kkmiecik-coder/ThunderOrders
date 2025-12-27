@@ -1,0 +1,216 @@
+/* Avatars Admin Page */
+.avatars-admin-page {
+    padding: var(--space-6);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-8);
+    gap: var(--space-4);
+}
+
+.page-header-content h1 {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 var(--space-2);
+}
+
+/* Series Card */
+.avatar-series-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: var(--space-6);
+    overflow: hidden;
+}
+
+.series-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-5) var(--space-6);
+    border-bottom: 1px solid var(--gray-200);
+    background: var(--gray-50);
+}
+
+.series-info h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0;
+}
+
+.series-slug {
+    font-size: 13px;
+    color: var(--gray-500);
+    font-family: monospace;
+    margin-left: var(--space-2);
+}
+
+.series-count {
+    font-size: 13px;
+    color: var(--gray-500);
+    margin-left: var(--space-3);
+    padding-left: var(--space-3);
+    border-left: 1px solid var(--gray-300);
+}
+
+.series-actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+/* Avatars Grid */
+.avatars-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: var(--space-4);
+    padding: var(--space-6);
+}
+
+.avatar-item {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.avatar-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.avatar-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.avatar-delete-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.avatar-item:hover .avatar-delete-btn {
+    opacity: 1;
+}
+
+.avatar-delete-btn:hover {
+    background: var(--error);
+}
+
+/* Avatars Empty */
+.avatars-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: var(--space-8);
+    color: var(--gray-500);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-6);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.empty-icon {
+    color: var(--gray-300);
+    margin-bottom: var(--space-4);
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0 0 var(--space-2);
+}
+
+.empty-state p {
+    color: var(--gray-500);
+    margin: 0 0 var(--space-6);
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Button styles */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn-icon {
+    padding: 6px;
+}
+
+.upload-btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Dark mode */
+[data-theme="dark"] .avatar-series-card {
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .series-header {
+    background: var(--gray-700);
+    border-bottom-color: var(--gray-600);
+}
+
+[data-theme="dark"] .series-info h3,
+[data-theme="dark"] .page-header-content h1 {
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .empty-state {
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .empty-state h3 {
+    color: var(--gray-100);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+    }
+
+    .series-header {
+        flex-direction: column;
+        gap: var(--space-3);
+        align-items: flex-start;
+    }
+
+    .avatars-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: var(--space-3);
+        padding: var(--space-4);
+    }
+}

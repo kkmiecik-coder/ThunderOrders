@@ -78,8 +78,8 @@ class ExclusivePage(db.Model):
 
     # Metadane
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now)
-    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)

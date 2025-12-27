@@ -1,0 +1,306 @@
+/* Avatar Select Page - K-pop Style */
+.avatar-select-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.avatar-select-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg,
+        var(--purple-100) 0%,
+        var(--purple-200) 25%,
+        var(--purple-300) 50%,
+        #5c1a6b 75%,
+        var(--purple-200) 100%
+    );
+    z-index: -2;
+}
+
+.avatar-select-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background:
+        radial-gradient(ellipse at 20% 30%, rgba(240, 147, 251, 0.15) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(245, 87, 108, 0.1) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 70%);
+    z-index: -1;
+}
+
+.avatar-select-container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-8) var(--space-6);
+}
+
+/* Header */
+.avatar-select-header {
+    text-align: center;
+    margin-bottom: var(--space-10);
+}
+
+.avatar-select-header .logo {
+    height: 48px;
+    margin-bottom: var(--space-6);
+}
+
+.avatar-select-header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 var(--space-3);
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+
+.avatar-select-header p {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+}
+
+/* Series Row */
+.avatar-series-row {
+    margin-bottom: var(--space-8);
+}
+
+.series-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 var(--space-4);
+    padding-left: var(--space-2);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Carousel */
+.avatar-carousel {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: var(--space-4) 0;
+    margin: 0 calc(-1 * var(--space-6));
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.avatar-carousel::-webkit-scrollbar {
+    display: none;
+}
+
+.avatar-carousel-track {
+    display: flex;
+    gap: var(--space-4);
+}
+
+/* Avatar Option */
+.avatar-option {
+    flex-shrink: 0;
+    width: 120px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.avatar-option:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+.avatar-image-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.3s;
+}
+
+.avatar-option:hover .avatar-image-wrapper {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.avatar-option img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.avatar-option:hover img {
+    transform: scale(1.05);
+}
+
+/* Avatar Glow Effect (K-pop style) */
+.avatar-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    box-shadow: inset 0 0 30px rgba(240, 147, 251, 0.5);
+}
+
+.avatar-option:hover .avatar-glow {
+    opacity: 0.5;
+}
+
+.avatar-option.selected .avatar-glow {
+    opacity: 1;
+    box-shadow:
+        inset 0 0 30px rgba(240, 147, 251, 0.6),
+        0 0 30px rgba(240, 147, 251, 0.4),
+        0 0 60px rgba(245, 87, 108, 0.2);
+}
+
+/* Selected state */
+.avatar-option.selected .avatar-image-wrapper {
+    box-shadow:
+        0 0 0 3px rgba(240, 147, 251, 0.8),
+        0 8px 30px rgba(240, 147, 251, 0.4);
+}
+
+/* Check mark */
+.avatar-check {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 2px 10px rgba(240, 147, 251, 0.5);
+}
+
+.avatar-option.selected .avatar-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* Actions */
+.avatar-select-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-10);
+    padding-bottom: var(--space-8);
+}
+
+.btn-lg {
+    padding: 16px 40px;
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    border-radius: 12px;
+}
+
+.btn-lg .btn-icon {
+    transition: transform 0.3s;
+}
+
+.btn-lg:hover .btn-icon {
+    transform: translateX(4px);
+}
+
+.btn-lg:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-lg:disabled:hover .btn-icon {
+    transform: none;
+}
+
+/* No avatars message */
+.no-avatars-message {
+    text-align: center;
+    padding: var(--space-16) var(--space-6);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    backdrop-filter: blur(10px);
+}
+
+.no-avatars-message svg {
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: var(--space-4);
+}
+
+.no-avatars-message h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 var(--space-2);
+}
+
+.no-avatars-message p {
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 var(--space-6);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .avatar-select-header h1 {
+        font-size: 28px;
+    }
+
+    .avatar-option {
+        width: 100px;
+    }
+
+    .avatar-image-wrapper {
+        width: 100px;
+        height: 100px;
+    }
+
+    .series-title {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .avatar-option {
+        width: 80px;
+    }
+
+    .avatar-image-wrapper {
+        width: 80px;
+        height: 80px;
+    }
+
+    .avatar-check {
+        width: 24px;
+        height: 24px;
+        top: 4px;
+        right: 4px;
+    }
+
+    .avatar-check svg {
+        width: 16px;
+        height: 16px;
+    }
+}
