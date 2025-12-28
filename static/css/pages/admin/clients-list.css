@@ -130,20 +130,44 @@
 }
 
 .toolbar-select {
-  padding: 6px 10px;
+  padding: 8px 32px 8px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
   background: white;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   color: #555;
   cursor: pointer;
-  min-width: 120px;
+  min-width: 140px;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23555' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .toolbar-select:hover {
-  background: #f0f0f0;
+  background: #fafafa;
+  border-color: #bbb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar-select:focus {
+  outline: none;
+  border-color: #FF8500;
+  box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
+}
+
+.toolbar-select option {
+  padding: 8px;
+  background: white;
+  color: #333;
+  font-weight: 500;
 }
 
 .clients-count {
@@ -810,19 +834,33 @@
 
 [data-theme="dark"] .toolbar-select {
   background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(240, 147, 251, 0.2);
   color: rgba(255, 255, 255, 0.9);
-  transition: all 0.5s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23f093fb' d='M6 8L2 4h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
 }
 
 [data-theme="dark"] .toolbar-select:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: #f093fb;
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .toolbar-select:focus {
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2), 0 4px 12px rgba(240, 147, 251, 0.3);
 }
 
 [data-theme="dark"] .toolbar-select option {
   background: rgba(15, 12, 41, 0.98);
   color: #ffffff;
+  padding: 10px;
 }
 
 [data-theme="dark"] .clients-count {
