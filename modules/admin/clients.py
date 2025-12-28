@@ -36,10 +36,14 @@ def clients_list():
     query = User.query
 
     # Filtrowanie po roli
-    if role_filter:
+    if role_filter == 'all' or role_filter == '':
+        # 'all' lub pusty string = nie filtruj (wszyscy użytkownicy)
+        pass
+    elif role_filter in ['admin', 'mod', 'client']:
+        # Konkretna rola
         query = query.filter(User.role == role_filter)
     else:
-        # Domyślnie pokazuj tylko klientów
+        # Domyślnie pokazuj tylko klientów (gdy role_filter nie jest ustawiony w ogóle)
         query = query.filter(User.role == 'client')
 
     # Filtrowanie po statusie
@@ -78,14 +82,14 @@ def clients_list():
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     clients = pagination.items
 
-    # Statystyki
-    total_clients = User.query.filter(User.role == 'client').count()
-    active_clients = User.query.filter(User.role == 'client', User.is_active == True).count()
-    inactive_clients = User.query.filter(User.role == 'client', User.is_active == False).count()
+    # Statystyki - wszystkich użytkowników (nie tylko klientów)
+    total_clients = User.query.count()
+    active_clients = User.query.filter(User.is_active == True).count()
+    inactive_clients = User.query.filter(User.is_active == False).count()
 
     return render_template(
         'admin/clients/list.html',
-        title='Klienci',
+        title='Użytkownicy',
         clients=clients,
         pagination=pagination,
         search=search,

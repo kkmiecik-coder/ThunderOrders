@@ -174,26 +174,90 @@
 }
 
 /* Dark mode */
-[data-theme="dark"] .avatar-series-card {
-    background: var(--gray-800);
-}
-
-[data-theme="dark"] .series-header {
-    background: var(--gray-700);
-    border-bottom-color: var(--gray-600);
-}
-
-[data-theme="dark"] .series-info h3,
-[data-theme="dark"] .page-header-content h1 {
+[data-theme="dark"] .avatars-admin-page {
     color: var(--gray-100);
 }
 
+[data-theme="dark"] .page-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .avatar-series-card {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .series-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .series-slug {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .series-count {
+    color: rgba(255, 255, 255, 0.6);
+    border-left-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .avatar-item {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .avatar-item:hover {
+    box-shadow: 0 4px 16px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .avatar-delete-btn {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .avatar-delete-btn:hover {
+    background: var(--error);
+}
+
+[data-theme="dark"] .avatars-empty {
+    color: rgba(255, 255, 255, 0.5);
+}
+
 [data-theme="dark"] .empty-state {
-    background: var(--gray-800);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .empty-icon {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 [data-theme="dark"] .empty-state h3 {
     color: var(--gray-100);
+}
+
+[data-theme="dark"] .empty-state p {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Form elements */
+.page-subtitle {
+    color: var(--gray-600);
+    margin: 0;
+}
+
+.form-hint {
+    font-size: 13px;
+    color: var(--gray-500);
+    margin-top: var(--space-1);
+    display: block;
+}
+
+/* Dark mode - additional styles */
+[data-theme="dark"] .page-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .form-hint {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* Responsive */

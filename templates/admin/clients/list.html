@@ -1,6 +1,6 @@
 {% extends "admin/base_admin.html" %}
 
-{% block title %}Klienci{% endblock %}
+{% block title %}Użytkownicy{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/clients-list.css') }}">
@@ -63,7 +63,7 @@
                 <option value="client" {% if role_filter == 'client' or not role_filter %}selected{% endif %}>Klienci</option>
                 <option value="mod" {% if role_filter == 'mod' %}selected{% endif %}>Moderatorzy</option>
                 <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Administratorzy</option>
-                <option value="" {% if role_filter == '' and role_filter is not none %}selected{% endif %}>Wszyscy użytkownicy</option>
+                <option value="all" {% if role_filter == 'all' %}selected{% endif %}>Wszyscy (bez filtrowania)</option>
             </select>
             {% endif %}
         </div>
@@ -309,9 +309,10 @@ function applyStatusFilter(status) {
 
 function applyRoleFilter(role) {
     const url = new URL(window.location.href);
-    if (role) {
+    if (role && role !== 'all') {
         url.searchParams.set('role', role);
     } else {
+        // 'all' lub pusty = usuń filtr (pokaż wszystkich)
         url.searchParams.delete('role');
     }
     url.searchParams.set('page', '1');
