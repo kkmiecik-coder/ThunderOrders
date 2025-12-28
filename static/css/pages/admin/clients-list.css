@@ -508,49 +508,15 @@
 }
 
 /* ==========================================
-   Modal Styles - Specific selectors to override global modals.css
+   Modal Styles - Let global modals.css handle display/animations
    ========================================== */
-/* Hidden by default - JS toggles display via inline style */
-#deactivateModal,
-#deleteModal {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  z-index: 10000 !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  max-width: none !important;
-  max-height: none !important;
-  overflow: visible !important;
-  animation: none !important;
-  transform: none !important;
-}
-
-#deactivateModal .modal-backdrop,
-#deleteModal .modal-backdrop {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
-  background: rgba(0, 0, 0, 0.5) !important;
-  z-index: 1;
-}
+/* Note: These modals use .modal-overlay from modals.css */
+/* Only custom sizing and spacing here */
 
 #deactivateModal .modal-content,
 #deleteModal .modal-content {
-  position: relative !important;
-  background: white !important;
-  border-radius: 8px !important;
-  width: 100% !important;
-  max-width: 480px !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3) !important;
-  z-index: 2;
+  max-width: 480px;
+  width: 100%;
   margin: 20px;
 }
 
