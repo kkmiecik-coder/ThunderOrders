@@ -15,6 +15,7 @@
 @import 'components/toasts.css';
 @import 'components/modals.css';
 @import 'components/preloader.css';
+@import 'components/cookie-banner.css';
 
 /* Pages - Admin */
 /* Note: Page-specific CSS should be loaded via {% block extra_css %} in templates */

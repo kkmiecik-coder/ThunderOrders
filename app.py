@@ -102,6 +102,11 @@ def register_blueprints(app):
     csrf.exempt(api_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
 
+    # Analytics API (CSRF exempt for consent updates)
+    from modules.api.analytics import analytics_bp
+    csrf.exempt(analytics_bp)
+    app.register_blueprint(analytics_bp)
+
     # Imports module (CSRF exempt for file uploads)
     from modules.imports import imports_bp
     csrf.exempt(imports_bp)
@@ -134,6 +139,15 @@ def register_blueprints(app):
         else:
             # Pokaż stronę logowania dla niezalogowanych
             return redirect(url_for('auth.login'))
+
+    # Polityka Prywatności (RODO-compliant)
+    @app.route('/privacy-policy')
+    def privacy_policy():
+        """
+        Strona polityki prywatności (RODO/GDPR compliance)
+        Dostępna publicznie dla wszystkich użytkowników
+        """
+        return render_template('legal/privacy_policy.html')
 
 
 def register_error_handlers(app):

@@ -102,6 +102,14 @@ class User(UserMixin, db.Model):
     dark_mode_enabled = db.Column(db.Boolean, default=False)
     sidebar_collapsed = db.Column(db.Boolean, default=False)
 
+    # Privacy & Analytics
+    analytics_consent = db.Column(
+        db.Boolean,
+        default=None,
+        nullable=True,
+        comment='Zgoda na cookies analityczne (Google Analytics). NULL=nie podjęto decyzji, TRUE=zgoda, FALSE=odmowa'
+    )
+
     # Avatar
     avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
 

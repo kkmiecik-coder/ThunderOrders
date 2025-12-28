@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Polityka Prywatności - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<style>
+    .privacy-policy-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background: var(--card-bg);
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .privacy-policy-container h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+
+    .privacy-policy-container .last-updated {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+    }
+
+    .privacy-policy-container h2 {
+        font-size: 1.5rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        padding-bottom: 0.5rem;
+    }
+
+    .privacy-policy-container h3 {
+        font-size: 1.25rem;
+        margin-top: 1.5rem;
+        margin-bottom: 0.75rem;
+        color: var(--text-primary);
+    }
+
+    .privacy-policy-container p {
+        line-height: 1.8;
+        margin-bottom: 1rem;
+        color: var(--text-primary);
+    }
+
+    .privacy-policy-container ul {
+        margin: 1rem 0;
+        padding-left: 2rem;
+    }
+
+    .privacy-policy-container li {
+        margin-bottom: 0.5rem;
+        line-height: 1.6;
+    }
+
+    .privacy-policy-container strong {
+        color: var(--primary);
+        font-weight: 600;
+    }
+
+    .privacy-policy-container a {
+        color: var(--primary);
+        text-decoration: underline;
+    }
+
+    .privacy-policy-container a:hover {
+        color: var(--primary-hover);
+    }
+
+    @media (max-width: 768px) {
+        .privacy-policy-container {
+            margin: 1rem;
+            padding: 1.5rem;
+        }
+
+        .privacy-policy-container h1 {
+            font-size: 1.5rem;
+        }
+
+        .privacy-policy-container h2 {
+            font-size: 1.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block body_content %}
+<div class="privacy-policy-container">
+    <h1>📋 Polityka Prywatności</h1>
+    <p class="last-updated"><strong>Data ostatniej aktualizacji:</strong> 28 grudnia 2025</p>
+
+    <h2>1. Wprowadzenie</h2>
+    <p>
+        Niniejsza Polityka Prywatności określa zasady przetwarzania i ochrony danych osobowych użytkowników
+        korzystających z platformy <strong>ThunderOrders</strong> (<a href="https://thunderorders.cloud">https://thunderorders.cloud</a>).
+    </p>
+    <p>
+        Administratorem danych osobowych jest ThunderOrders, z siedzibą w Polsce.
+    </p>
+
+    <h2>2. Rodzaje zbieranych danych</h2>
+    <p>W ramach świadczenia usług zbieramy następujące dane:</p>
+    <ul>
+        <li><strong>Dane rejestracyjne:</strong> imię, nazwisko, adres email, numer telefonu (opcjonalnie)</li>
+        <li><strong>Dane zamówień:</strong> historia zamówień, produkty, adresy wysyłki</li>
+        <li><strong>Dane techniczne:</strong> adres IP, typ przeglądarki, system operacyjny (anonimizowane przez Google Analytics)</li>
+        <li><strong>Pliki cookie:</strong> pliki cookie analityczne (Google Analytics) - tylko za zgodą użytkownika</li>
+    </ul>
+
+    <h2>3. Cel przetwarzania danych</h2>
+    <p>Dane osobowe przetwarzane są w następujących celach:</p>
+    <ul>
+        <li>Realizacja zamówień i świadczenie usług</li>
+        <li>Komunikacja z użytkownikiem (powiadomienia email, komentarze do zamówień)</li>
+        <li>Analiza ruchu na stronie i poprawa jakości usług (Google Analytics - tylko za zgodą)</li>
+        <li>Wypełnianie obowiązków prawnych (rachunkowość, podatki)</li>
+    </ul>
+
+    <h2>4. Google Analytics (Pliki Cookie)</h2>
+    <p>
+        Nasza strona używa <strong>Google Analytics 4</strong> w celu analizy ruchu i poprawy jakości usług.
+    </p>
+
+    <h3>Co zbieramy?</h3>
+    <ul>
+        <li>Anonimowe dane o wyświetleniach stron (page views)</li>
+        <li>Czas spędzony na stronie</li>
+        <li>Kliknięcia w elementy strony</li>
+        <li>Anonimowe eventy (np. złożenie zamówienia, dodanie do koszyka)</li>
+    </ul>
+
+    <h3>Anonimizacja danych:</h3>
+    <ul>
+        <li><strong>Adres IP:</strong> Automatycznie anonimizowany (<code>anonymize_ip: true</code>)</li>
+        <li><strong>Brak danych osobowych:</strong> Google Analytics nie zna Twojego imienia, nazwiska ani emaila</li>
+        <li><strong>Okres przechowywania:</strong> Dane są przechowywane przez 14 miesięcy (domyślnie GA4)</li>
+    </ul>
+
+    <h3>Twoja zgoda:</h3>
+    <p>
+        Google Analytics uruchamia się <strong>tylko po uzyskaniu Twojej zgody</strong> poprzez kliknięcie przycisku
+        "Akceptuję" w banerze cookie. Możesz wycofać zgodę w każdej chwili w Ustawieniach profilu.
+    </p>
+
+    <h3>Więcej informacji:</h3>
+    <ul>
+        <li><a href="https://policies.google.com/privacy" target="_blank">Polityka prywatności Google</a></li>
+        <li><a href="https://support.google.com/analytics/answer/6004245" target="_blank">Jak Google Analytics chroni Twoje dane</a></li>
+        <li><a href="https://tools.google.com/dlpage/gaoptout" target="_blank">Rozszerzenie do blokowania Google Analytics</a></li>
+    </ul>
+
+    <h2>5. Udostępnianie danych osobowych</h2>
+    <p>Dane osobowe mogą być udostępniane następującym podmiotom:</p>
+    <ul>
+        <li><strong>Google Analytics:</strong> Anonimowe dane analityczne (tylko za zgodą)</li>
+        <li><strong>Dostawcy płatności:</strong> W celu realizacji płatności (jeśli dotyczy)</li>
+        <li><strong>Firmy kurierskie:</strong> W celu realizacji wysyłki zamówień</li>
+        <li><strong>Organy państwowe:</strong> W przypadku obowiązków prawnych (np. kontrola podatkowa)</li>
+    </ul>
+    <p><strong>Nie sprzedajemy</strong> Twoich danych osobowych podmiotom trzecim.</p>
+
+    <h2>6. Twoje prawa (RODO)</h2>
+    <p>Zgodnie z RODO (Rozporządzenie o Ochronie Danych Osobowych) masz prawo do:</p>
+    <ul>
+        <li><strong>Dostępu do danych:</strong> Możesz poprosić o kopię swoich danych osobowych</li>
+        <li><strong>Poprawiania danych:</strong> Możesz zmienić swoje dane w Ustawieniach profilu</li>
+        <li><strong>Usunięcia danych:</strong> Możesz poprosić o usunięcie swojego konta (prawo do bycia zapomnianym)</li>
+        <li><strong>Ograniczenia przetwarzania:</strong> Możesz poprosić o ograniczenie przetwarzania danych</li>
+        <li><strong>Przenoszenia danych:</strong> Możesz poprosić o przeniesienie danych do innego dostawcy</li>
+        <li><strong>Sprzeciwu:</strong> Możesz wycofać zgodę na przetwarzanie danych w dowolnym momencie</li>
+    </ul>
+
+    <h2>7. Wycofanie zgody na cookies</h2>
+    <p>
+        Zgodę na pliki cookie analityczne (Google Analytics) możesz wycofać w każdej chwili:
+    </p>
+    <ol>
+        <li>Przejdź do: <strong>Ustawienia → Prywatność</strong></li>
+        <li>Wyłącz przełącznik: <strong>"Cookies analityczne (Google Analytics)"</strong></li>
+        <li>Zapisz zmiany</li>
+    </ol>
+    <p>Po wycofaniu zgody Google Analytics przestanie zbierać dane o Twoich odwiedzinach.</p>
+
+    <h2>8. Bezpieczeństwo danych</h2>
+    <p>Stosujemy następujące środki bezpieczeństwa:</p>
+    <ul>
+        <li><strong>Szyfrowanie SSL/TLS:</strong> Wszystkie dane przesyłane przez HTTPS</li>
+        <li><strong>Hashowanie haseł:</strong> Hasła są hashowane (pbkdf2:sha256) i nigdy nie przechowujemy ich w postaci jawnej</li>
+        <li><strong>Regularne backupy:</strong> Codzienne kopie zapasowe bazy danych</li>
+        <li><strong>Ograniczony dostęp:</strong> Dostęp do danych mają tylko upoważnione osoby</li>
+    </ul>
+
+    <h2>9. Okres przechowywania danych</h2>
+    <ul>
+        <li><strong>Dane użytkowników:</strong> Przez cały czas korzystania z usługi + 3 lata po usunięciu konta (obowiązki podatkowe)</li>
+        <li><strong>Dane zamówień:</strong> 10 lat (zgodnie z ustawą o rachunkowości)</li>
+        <li><strong>Logi systemowe:</strong> 30 dni</li>
+        <li><strong>Google Analytics:</strong> 14 miesięcy (domyślnie GA4)</li>
+    </ul>
+
+    <h2>10. Zmiany w Polityce Prywatności</h2>
+    <p>
+        Zastrzegamy sobie prawo do wprowadzania zmian w niniejszej Polityce Prywatności.
+        O wszelkich zmianach poinformujemy użytkowników poprzez email lub powiadomienie na stronie.
+    </p>
+
+    <h2>11. Kontakt</h2>
+    <p>W razie pytań dotyczących przetwarzania danych osobowych, skontaktuj się z nami:</p>
+    <ul>
+        <li><strong>Email:</strong> <a href="mailto:kontakt@thunderorders.cloud">kontakt@thunderorders.cloud</a></li>
+        <li><strong>Adres:</strong> ThunderOrders, Polska</li>
+    </ul>
+
+    <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-color);">
+
+    <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">
+        Ostatnia aktualizacja: 28 grudnia 2025<br>
+        <a href="{{ url_for('index') }}">← Wróć do strony głównej</a>
+    </p>
+</div>
+{% endblock %}

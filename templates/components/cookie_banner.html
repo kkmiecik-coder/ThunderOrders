@@ -1,0 +1,70 @@
+<!-- Cookie Consent Banner (RODO-compliant) -->
+<div id="cookieBanner" class="cookie-banner" style="display: none;">
+    <div class="cookie-banner-content">
+        <div class="cookie-banner-text">
+            <h3>🍪 Ta strona używa plików cookie</h3>
+            <p>
+                Używamy Google Analytics w celu poprawy jakości usług i analizy ruchu na stronie.
+                Dane są anonimizowane i nie identyfikują Cię osobiście.
+                <a href="{{ url_for('privacy_policy') }}" target="_blank">Polityka prywatności</a>
+            </p>
+        </div>
+        <div class="cookie-banner-actions">
+            <button id="cookieAccept" class="btn btn-primary">Akceptuję</button>
+            <button id="cookieReject" class="btn btn-secondary">Odrzuć</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Pokaż banner jeśli potrzeba
+    if (window.showCookieBanner) {
+        document.getElementById('cookieBanner').style.display = 'block';
+    }
+
+    // Akceptuj
+    document.getElementById('cookieAccept')?.addEventListener('click', function() {
+        {% if current_user.is_authenticated %}
+            // Zapisz zgodę w bazie
+            fetch('/api/analytics-consent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({ consent: true })
+            }).then(() => {
+                if (typeof loadGoogleAnalytics === 'function') {
+                    loadGoogleAnalytics();
+                }
+                document.getElementById('cookieBanner').style.display = 'none';
+            });
+        {% else %}
+            // Gość → localStorage
+            localStorage.setItem('analytics_consent', 'accepted');
+            if (typeof loadGoogleAnalytics === 'function') {
+                loadGoogleAnalytics();
+            }
+            document.getElementById('cookieBanner').style.display = 'none';
+        {% endif %}
+    });
+
+    // Odrzuć
+    document.getElementById('cookieReject')?.addEventListener('click', function() {
+        {% if current_user.is_authenticated %}
+            fetch('/api/analytics-consent', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({ consent: false })
+            }).then(() => {
+                document.getElementById('cookieBanner').style.display = 'none';
+            });
+        {% else %}
+            localStorage.setItem('analytics_consent', 'rejected');
+            document.getElementById('cookieBanner').style.display = 'none';
+        {% endif %}
+    });
+</script>

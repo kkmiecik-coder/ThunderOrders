@@ -6,21 +6,48 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}ThunderOrders{% endblock %}</title>
 
-    <!-- Google Analytics 4 (GA4) -->
+    <!-- Google Analytics 4 (GA4) - Warunkowe ładowanie zgodne z RODO -->
     {% if config.GA_MEASUREMENT_ID %}
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA_MEASUREMENT_ID }}"></script>
     <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', '{{ config.GA_MEASUREMENT_ID }}', {
-            'anonymize_ip': true,  // Anonimizacja IP (RODO compliance)
-            'cookie_flags': 'SameSite=None;Secure'
-        });
+        // Funkcja ładująca GA4
+        function loadGoogleAnalytics() {
+            const script = document.createElement('script');
+            script.async = true;
+            script.src = 'https://www.googletagmanager.com/gtag/js?id={{ config.GA_MEASUREMENT_ID }}';
+            document.head.appendChild(script);
 
-        // Expose gtag globally for custom event tracking
-        window.gtag = gtag;
+            script.onload = function() {
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', '{{ config.GA_MEASUREMENT_ID }}', {
+                    'anonymize_ip': true,
+                    'cookie_flags': 'SameSite=None;Secure'
+                });
+                window.gtag = gtag;
+            };
+        }
+
+        // Sprawdź zgodę użytkownika
+        {% if current_user.is_authenticated %}
+            // Zalogowany użytkownik
+            {% if current_user.analytics_consent %}
+                // Ma zgodę → Ładuj GA4 od razu
+                loadGoogleAnalytics();
+            {% else %}
+                // Nie ma zgody → Pokaż banner
+                window.showCookieBanner = true;
+            {% endif %}
+        {% else %}
+            // Gość → Sprawdź localStorage
+            const consent = localStorage.getItem('analytics_consent');
+            if (consent === 'accepted') {
+                loadGoogleAnalytics();
+            } else if (consent !== 'rejected') {
+                // Nie podjął decyzji → Pokaż banner
+                window.showCookieBanner = true;
+            }
+        {% endif %}
     </script>
     {% endif %}
 
@@ -75,6 +102,9 @@
             <!-- Modal content will be inserted here -->
         </div>
     </div>
+
+    <!-- Cookie Consent Banner -->
+    {% include 'components/cookie_banner.html' %}
 
     {% block body_content %}
     <!-- Default content for pages without sidebar -->
