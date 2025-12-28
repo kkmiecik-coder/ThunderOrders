@@ -222,6 +222,9 @@ def register():
             form.email.errors.append('Ten adres email jest już zarejestrowany')
             return render_template('auth/auth_unified.html', form=form, mode='register')
 
+        # Pobierz zgodę na analytics (checkbox)
+        analytics_consent = request.form.get('analytics_consent') == 'on'
+
         # Stwórz nowego użytkownika
         user = User(
             email=form.email.data.lower().strip(),
@@ -230,7 +233,8 @@ def register():
             phone=form.phone.data.strip() if form.phone.data else None,
             role='client',  # Domyślnie klient
             is_active=True,
-            email_verified=False  # Wymaga weryfikacji
+            email_verified=False,  # Wymaga weryfikacji
+            analytics_consent=analytics_consent  # Zgoda na cookies (RODO)
         )
 
         # Ustaw hasło (zahashowane)

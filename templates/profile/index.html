@@ -121,6 +121,30 @@
                     </form>
                 </div>
 
+                <!-- Prywatność (RODO) -->
+                <div class="profile-card">
+                    <div class="profile-card-header">
+                        <h2>Prywatność</h2>
+                    </div>
+                    <div class="privacy-section">
+                        <div class="privacy-item">
+                            <div class="privacy-info">
+                                <h3>Cookies analityczne (Google Analytics)</h3>
+                                <p class="privacy-description">
+                                    Pomóż nam ulepszyć ThunderOrders, zezwalając na zbieranie anonimowych danych o korzystaniu z serwisu.
+                                    Więcej informacji w <a href="{{ url_for('privacy_policy') }}" target="_blank">Polityce prywatności</a>.
+                                </p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox"
+                                       id="analyticsToggle"
+                                       {% if current_user.analytics_consent %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Zmiana avatara -->
                 <div class="profile-card profile-card-avatar">
                     <div class="profile-card-header">
@@ -224,4 +248,50 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/profile.css') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Analytics Consent Toggle (RODO)
+document.addEventListener('DOMContentLoaded', function() {
+    const analyticsToggle = document.getElementById('analyticsToggle');
+
+    if (analyticsToggle) {
+        analyticsToggle.addEventListener('change', async function() {
+            const consent = this.checked;
+
+            try {
+                const response = await fetch('/api/analytics-consent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ consent: consent })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+
+                    // Przeładuj stronę po 1s aby zastosować zmiany GA4
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    window.showToast(data.error || 'Wystąpił błąd', 'error');
+                    // Przywróć poprzedni stan toggle
+                    this.checked = !consent;
+                }
+            } catch (error) {
+                console.error('Error updating analytics consent:', error);
+                window.showToast('Nie udało się zapisać ustawień', 'error');
+                // Przywróć poprzedni stan toggle
+                this.checked = !consent;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

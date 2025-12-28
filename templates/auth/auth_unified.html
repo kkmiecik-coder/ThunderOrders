@@ -189,6 +189,17 @@
                         {% endif %}
                     </div>
 
+                    <!-- Analytics Consent Checkbox (RODO) -->
+                    <div class="auth-input-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="analytics_consent" id="analytics_consent" class="analytics-checkbox">
+                            <span class="checkbox-text">
+                                Zgadzam się na pliki cookie analityczne (Google Analytics)
+                                <a href="{{ url_for('privacy_policy') }}" target="_blank" class="privacy-link">Polityka prywatności</a>
+                            </span>
+                        </label>
+                    </div>
+
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit">
                         <span class="btn-text">Zarejestruj sie</span>
