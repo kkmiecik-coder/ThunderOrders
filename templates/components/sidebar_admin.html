@@ -42,8 +42,8 @@
                     <li class="sidebar-subitem">
                         <a href="#"
                            class="sidebar-sublink disabled"
-                           data-tooltip="Standartowe (wkrótce)">
-                            <span class="sidebar-text">Standartowe</span>
+                           data-tooltip="Standardowe (wkrótce)">
+                            <span class="sidebar-text">Standardowe</span>
                         </a>
                     </li>
                     <li class="sidebar-subitem">
@@ -61,15 +61,6 @@
                         </a>
                     </li>
                 </ul>
-            </li>
-
-            <li class="sidebar-item">
-                <a href="{{ url_for('admin.clients_list') }}"
-                   class="sidebar-link {% if request.endpoint and 'client' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Użytkownicy">
-                    <img src="{{ url_for('static', filename='img/icons/clients.svg') }}" alt="Użytkownicy" class="sidebar-icon">
-                    <span class="sidebar-text">Użytkownicy</span>
-                </a>
             </li>
 
             <!-- Magazyn (Collapsible Category) -->
@@ -106,6 +97,15 @@
                         </a>
                     </li>
                 </ul>
+            </li>
+            
+            <li class="sidebar-item">
+                <a href="{{ url_for('admin.clients_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'client' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Użytkownicy">
+                    <img src="{{ url_for('static', filename='img/icons/clients.svg') }}" alt="Użytkownicy" class="sidebar-icon">
+                    <span class="sidebar-text">Użytkownicy</span>
+                </a>
             </li>
 
             <li class="sidebar-item">
