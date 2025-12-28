@@ -58,6 +58,7 @@ const DOM = {
   sidebarToggle: document.getElementById('sidebarToggle'),
   sidebarBackdrop: document.getElementById('sidebarBackdrop'),
   darkModeToggle: document.getElementById('darkModeToggle'),
+  mobileDarkModeToggle: document.getElementById('mobileDarkModeToggle'),
   userDropdownBtn: document.getElementById('userDropdownBtn'),
   userDropdownMenu: document.getElementById('userDropdownMenu'),
   mobileMenuBtn: document.getElementById('mobileMenuBtn'),
@@ -305,6 +306,10 @@ function init() {
 
   if (DOM.darkModeToggle) {
     DOM.darkModeToggle.addEventListener('click', toggleDarkMode);
+  }
+
+  if (DOM.mobileDarkModeToggle) {
+    DOM.mobileDarkModeToggle.addEventListener('click', toggleDarkMode);
   }
 
   if (DOM.userDropdownBtn) {

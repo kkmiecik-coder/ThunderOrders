@@ -32,6 +32,12 @@
                 </svg>
                 <span class="tab-label">Sposoby płatności</span>
             </button>
+            <button class="settings-tab" data-tab="exclusive-closure">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L9 4.323V3a1 1 0 011-1zm-5 8.274l-.818 2.552c.25.112.526.174.818.174.292 0 .569-.062.818-.174L5 10.274zm10 0l-.818 2.552c.25.112.526.174.818.174.292 0 .569-.062.818-.174L15 10.274z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Przenoszenie zamówień</span>
+            </button>
         </div>
 
         <!-- Tab Content -->
@@ -184,8 +190,164 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Tab: Przenoszenie zamówień (Exclusive Closure) -->
+            <div class="tab-panel" id="tab-exclusive-closure">
+                <div class="settings-card">
+                    <div class="card-header" style="margin-bottom: 32px;">
+                        <h3>Automatyczne przenoszenie zamówień po zamknięciu Exclusive</h3>
+                    </div>
+
+                    <form id="exclusive-closure-form" method="POST" action="{{ url_for('orders.update_exclusive_closure_settings') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Grid layout z 3 kartami -->
+                        <div class="exclusive-closure-grid">
+
+                            <!-- Karta 1: Całkowicie zrealizowane -->
+                            <div class="closure-status-card closure-card-success">
+                                <div class="closure-card-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                    </svg>
+                                </div>
+                                <h4 class="closure-card-title">Całkowicie zrealizowane</h4>
+                                <p class="closure-card-subtitle">100% produktów w secie</p>
+                                <div class="closure-card-example">
+                                    <p><strong>Przykład:</strong> Klient zamówił 3 produkty, wszystkie 3 przeszły do sprzedaży setu.</p>
+                                </div>
+
+                                <!-- Custom Dropdown -->
+                                <div class="custom-select-wrapper">
+                                    <label class="custom-select-label">Przenieś na status:</label>
+                                    <div class="custom-select" data-name="exclusive_closure_status_fully_fulfilled">
+                                        <div class="custom-select-trigger">
+                                            <span class="custom-select-value">
+                                                {% set selected_status = statuses|selectattr('slug', 'equalto', exclusive_closure_settings.fully_fulfilled)|first %}
+                                                {% if selected_status %}
+                                                    <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
+                                                {% else %}
+                                                    -- Wybierz status --
+                                                {% endif %}
+                                            </span>
+                                            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                <path d="M2 4l4 4 4-4z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="custom-select-dropdown">
+                                            {% for status in statuses %}
+                                                <div class="custom-select-option" data-value="{{ status.slug }}">
+                                                    <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="exclusive_closure_status_fully_fulfilled" id="status-fully-fulfilled" value="{{ exclusive_closure_settings.fully_fulfilled }}" required>
+                                    <span class="closure-card-hint">Domyślnie: <strong>Oczekujące</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Karta 2: Częściowo zrealizowane -->
+                            <div class="closure-status-card closure-card-warning">
+                                <div class="closure-card-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                    </svg>
+                                </div>
+                                <h4 class="closure-card-title">Częściowo zrealizowane</h4>
+                                <p class="closure-card-subtitle">Część produktów w secie</p>
+                                <div class="closure-card-example">
+                                    <p><strong>Przykład:</strong> Klient zamówił 3 produkty, 2 przeszły do setu, 1 nie przeszedł.</p>
+                                </div>
+
+                                <!-- Custom Dropdown -->
+                                <div class="custom-select-wrapper">
+                                    <label class="custom-select-label">Przenieś na status:</label>
+                                    <div class="custom-select" data-name="exclusive_closure_status_partially_fulfilled">
+                                        <div class="custom-select-trigger">
+                                            <span class="custom-select-value">
+                                                {% set selected_status = statuses|selectattr('slug', 'equalto', exclusive_closure_settings.partially_fulfilled)|first %}
+                                                {% if selected_status %}
+                                                    <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
+                                                {% else %}
+                                                    -- Wybierz status --
+                                                {% endif %}
+                                            </span>
+                                            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                <path d="M2 4l4 4 4-4z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="custom-select-dropdown">
+                                            {% for status in statuses %}
+                                                <div class="custom-select-option" data-value="{{ status.slug }}">
+                                                    <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="exclusive_closure_status_partially_fulfilled" id="status-partially-fulfilled" value="{{ exclusive_closure_settings.partially_fulfilled }}" required>
+                                    <span class="closure-card-hint">Domyślnie: <strong>Oczekujące</strong></span>
+                                </div>
+                            </div>
+
+                            <!-- Karta 3: Niezrealizowane -->
+                            <div class="closure-status-card closure-card-error">
+                                <div class="closure-card-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                                    </svg>
+                                </div>
+                                <h4 class="closure-card-title">Niezrealizowane</h4>
+                                <p class="closure-card-subtitle">0% produktów w secie</p>
+                                <div class="closure-card-example">
+                                    <p><strong>Przykład:</strong> Klient zamówił 3 produkty, żaden nie przeszedł do sprzedaży setu.</p>
+                                </div>
+
+                                <!-- Custom Dropdown -->
+                                <div class="custom-select-wrapper">
+                                    <label class="custom-select-label">Przenieś na status:</label>
+                                    <div class="custom-select" data-name="exclusive_closure_status_not_fulfilled">
+                                        <div class="custom-select-trigger">
+                                            <span class="custom-select-value">
+                                                {% set selected_status = statuses|selectattr('slug', 'equalto', exclusive_closure_settings.not_fulfilled)|first %}
+                                                {% if selected_status %}
+                                                    <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
+                                                {% else %}
+                                                    -- Wybierz status --
+                                                {% endif %}
+                                            </span>
+                                            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                <path d="M2 4l4 4 4-4z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="custom-select-dropdown">
+                                            {% for status in statuses %}
+                                                <div class="custom-select-option" data-value="{{ status.slug }}">
+                                                    <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="exclusive_closure_status_not_fulfilled" id="status-not-fulfilled" value="{{ exclusive_closure_settings.not_fulfilled }}" required>
+                                    <span class="closure-card-hint">Domyślnie: <strong>Anulowane</strong></span>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Przycisk zapisz -->
+                        <div class="form-actions" style="text-align: center; margin-top: 32px; padding-top: 24px; border-top: 1px solid rgba(0, 0, 0, 0.1);">
+                            <button type="submit" class="btn btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="margin-right: 8px; vertical-align: middle;">
+                                    <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
+                                </svg>
+                                Zapisz ustawienia
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
-    </div>
 </div>
 
 <!-- Status Modal -->

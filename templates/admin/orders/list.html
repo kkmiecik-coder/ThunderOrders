@@ -386,8 +386,8 @@
                     <!-- Przedmioty (ukryte na mobile) -->
                     <td class="col-items hide-mobile">
                         <div class="items-list" data-order-id="{{ order.id }}">
-                            {% set visible_items = order.items[:3] %}
-                            {% set hidden_items = order.items[3:] %}
+                            {% set visible_items = order.sorted_items[:3] %}
+                            {% set hidden_items = order.sorted_items[3:] %}
                             {% for item in visible_items %}
                             {% if item.fulfilled_quantity is not none and item.fulfilled_quantity > 0 and item.fulfilled_quantity < item.quantity %}
                             {# CZĘŚCIOWE ZREALIZOWANIE - dwie linie #}
@@ -517,8 +517,8 @@
                                 {% endif %}
                                 {% endfor %}
                             </div>
-                            <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.items|length }})">
-                                <span class="toggle-text">W sumie {{ order.items|length }} przedmiotów - pokaż pozostałe</span>
+                            <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.sorted_items|length }})">
+                                <span class="toggle-text">W sumie {{ order.sorted_items|length }} przedmiotów - pokaż pozostałe</span>
                             </button>
                             {% endif %}
                         </div>

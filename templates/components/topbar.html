@@ -102,6 +102,17 @@
                     <span class="mobile-menu-user-role">{{ current_user.role|capitalize }}</span>
                 </div>
             </div>
+
+            <!-- Dark Mode Toggle -->
+            <button class="mobile-menu-theme-toggle" id="mobileDarkModeToggle" aria-label="Toggle dark mode">
+                <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="Light mode" class="icon-light">
+                <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="Dark mode" class="icon-dark">
+                <span class="mobile-theme-text">
+                    <span class="text-light">Tryb jasny</span>
+                    <span class="text-dark">Tryb ciemny</span>
+                </span>
+            </button>
+
             <a href="{{ url_for('auth.logout') }}" class="mobile-menu-logout">
                 <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
                 <span>Wyloguj</span>

@@ -273,9 +273,34 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     )
 
     # 12. Send emails (async)
-    # TODO: Implement email sending
-    # send_order_confirmation_email(order)
-    # send_admin_notification_email(order)
+    from utils.email_sender import send_order_confirmation_email
+
+    try:
+        # Prepare order items for email
+        order_items = []
+        for item in order.items:
+            order_items.append({
+                'product_name': item.product.name,
+                'quantity': item.quantity,
+                'price': float(item.price),
+                'total': float(item.total)
+            })
+
+        # Email to customer
+        customer_email = order.guest_email if is_guest else current_user.email
+        customer_name = order.guest_name if is_guest else current_user.first_name
+
+        send_order_confirmation_email(
+            user_email=customer_email,
+            user_name=customer_name,
+            order_number=order.order_number,
+            order_total=float(order.total_amount),
+            order_items=order_items
+        )
+    except Exception as e:
+        # Log error but don't fail the order placement
+        from flask import current_app
+        current_app.logger.error(f"Failed to send order confirmation email: {str(e)}")
 
     # 13. Return success
     return True, {

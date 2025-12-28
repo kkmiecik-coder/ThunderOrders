@@ -336,7 +336,14 @@ def admin_detail(order_id):
     order = Order.query.get_or_404(order_id)
 
     # Eager load relationships
-    order_items = OrderItem.query.filter_by(order_id=order_id).all()
+    # Sort items: fulfilled items first, unfulfilled items last
+    order_items = sorted(
+        OrderItem.query.filter_by(order_id=order_id).all(),
+        key=lambda item: (
+            2 if item.is_set_fulfilled is False else (1 if item.is_set_fulfilled is True else 0),
+            item.id
+        )
+    )
     comments = OrderComment.query.filter_by(order_id=order_id).order_by(OrderComment.created_at.desc()).all()
     refunds = OrderRefund.query.filter_by(order_id=order_id).order_by(OrderRefund.created_at.desc()).all()
 
@@ -1591,10 +1598,11 @@ def client_add_comment(order_id):
 @role_required('admin')
 def settings():
     """
-    Orders settings page - manage statuses, WMS statuses, and payment methods.
+    Orders settings page - manage statuses, WMS statuses, payment methods, and exclusive closure settings.
     Only accessible to admins.
     """
     from modules.payments.models import PaymentMethod
+    from modules.auth.models import Settings
 
     # Load all order statuses
     statuses = OrderStatus.query.order_by(OrderStatus.sort_order).all()
@@ -1605,13 +1613,107 @@ def settings():
     # Load all payment methods
     payment_methods = PaymentMethod.query.order_by(PaymentMethod.sort_order, PaymentMethod.name).all()
 
+    # Load exclusive closure settings
+    def get_setting_value(key, default):
+        setting = Settings.query.filter_by(key=key).first()
+        return setting.value if setting else default
+
+    exclusive_closure_settings = {
+        'fully_fulfilled': get_setting_value('exclusive_closure_status_fully_fulfilled', 'oczekujace'),
+        'partially_fulfilled': get_setting_value('exclusive_closure_status_partially_fulfilled', 'oczekujace'),
+        'not_fulfilled': get_setting_value('exclusive_closure_status_not_fulfilled', 'anulowane')
+    }
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
         wms_statuses=wms_statuses,
         payment_methods=payment_methods,
+        exclusive_closure_settings=exclusive_closure_settings,
         page_title='Ustawienia zamówień'
     )
+
+
+@orders_bp.route('/admin/orders/settings/exclusive-closure', methods=['POST'])
+@login_required
+@role_required('admin')
+def update_exclusive_closure_settings():
+    """
+    Update exclusive closure settings - configure automatic status changes after exclusive page closure.
+    Only accessible to admins.
+    """
+    from modules.auth.models import Settings
+
+    try:
+        # Get form data
+        status_fully = request.form.get('exclusive_closure_status_fully_fulfilled', '').strip()
+        status_partially = request.form.get('exclusive_closure_status_partially_fulfilled', '').strip()
+        status_not = request.form.get('exclusive_closure_status_not_fulfilled', '').strip()
+
+        # Validate required fields
+        if not status_fully or not status_partially or not status_not:
+            flash('Wszystkie pola są wymagane', 'error')
+            return redirect(url_for('orders.settings'))
+
+        # Validate that statuses exist
+        valid_statuses = [s.slug for s in OrderStatus.query.filter_by(is_active=True).all()]
+
+        if status_fully not in valid_statuses:
+            flash(f'Status "{status_fully}" nie istnieje lub jest nieaktywny', 'error')
+            return redirect(url_for('orders.settings'))
+
+        if status_partially not in valid_statuses:
+            flash(f'Status "{status_partially}" nie istnieje lub jest nieaktywny', 'error')
+            return redirect(url_for('orders.settings'))
+
+        if status_not not in valid_statuses:
+            flash(f'Status "{status_not}" nie istnieje lub jest nieaktywny', 'error')
+            return redirect(url_for('orders.settings'))
+
+        # Update or create settings
+        def update_or_create_setting(key, value):
+            setting = Settings.query.filter_by(key=key).first()
+            if setting:
+                setting.value = value
+                setting.updated_at = datetime.now()
+            else:
+                # Create new setting if it doesn't exist
+                setting = Settings(
+                    key=key,
+                    value=value,
+                    type='string',
+                    description=f'Auto-generated setting for {key}'
+                )
+                db.session.add(setting)
+
+        update_or_create_setting('exclusive_closure_status_fully_fulfilled', status_fully)
+        update_or_create_setting('exclusive_closure_status_partially_fulfilled', status_partially)
+        update_or_create_setting('exclusive_closure_status_not_fulfilled', status_not)
+
+        db.session.commit()
+
+        # Activity log
+        from utils.activity_logger import log_activity
+        log_activity(
+            user=current_user,
+            action='settings_updated',
+            entity_type='settings',
+            entity_id=None,
+            old_value=None,
+            new_value={
+                'fully_fulfilled': status_fully,
+                'partially_fulfilled': status_partially,
+                'not_fulfilled': status_not
+            }
+        )
+
+        flash('Ustawienia zostały zapisane', 'success')
+        return redirect(url_for('orders.settings') + '#tab-exclusive-closure')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
+        return redirect(url_for('orders.settings'))
 
 
 # ============================================

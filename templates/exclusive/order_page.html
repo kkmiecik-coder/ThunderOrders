@@ -183,19 +183,14 @@
                 </section>
 
                 {% elif section.is_set %}
-                <section class="section section-set" data-section-id="{{ section.id }}" data-set-min="{{ section.set_min_sets or 0 }}" data-set-max="{{ section.set_max_sets or 0 }}">
+                <section class="section section-set" data-section-id="{{ section.id }}" data-set-max="{{ section.set_max_sets or 0 }}">
                     <div class="set-card {% if section.set_image %}has-image{% endif %}">
                         <div class="set-content">
                             <div class="set-header">
                                 <h3 class="set-name">{{ section.set_name }}</h3>
-                                {% if section.set_min_sets > 1 or section.set_max_sets %}
+                                {% if section.set_max_sets %}
                                 <div class="set-limits">
-                                    {% if section.set_min_sets > 1 %}
-                                    <span class="limit-badge limit-min">Min setów: {{ section.set_min_sets }}</span>
-                                    {% endif %}
-                                    {% if section.set_max_sets %}
                                     <span class="limit-badge limit-max">Max setów: {{ section.set_max_sets }}</span>
-                                    {% endif %}
                                 </div>
                                 {% endif %}
                             </div>

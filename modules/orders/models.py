@@ -507,6 +507,31 @@ class Order(db.Model):
         return False
 
     @property
+    def sorted_items(self):
+        """
+        Returns order items sorted so that:
+        1. Items that are IN the set (is_set_fulfilled == True or None) come first
+        2. Items that are OUTSIDE the set (is_set_fulfilled == False) come last
+        3. Within each group, maintain original order (by id)
+
+        This ensures that fulfilled items are shown at the top of the list.
+        """
+        def sort_key(item):
+            # is_set_fulfilled can be: True, False, or None
+            # Priority:
+            # - None (not part of any set) -> 0 (first)
+            # - True (in set) -> 1 (second)
+            # - False (outside set) -> 2 (last)
+            if item.is_set_fulfilled is None:
+                return (0, item.id)
+            elif item.is_set_fulfilled is True:
+                return (1, item.id)
+            else:  # False
+                return (2, item.id)
+
+        return sorted(self.items, key=sort_key)
+
+    @property
     def effective_total(self):
         """
         Returns effective total - suma tylko zrealizowanych produktów.
@@ -538,6 +563,24 @@ class Order(db.Model):
         from decimal import Decimal
         shipping = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
         return self.effective_total + shipping
+
+    def recalculate_total_amount(self):
+        """
+        Przelicza total_amount na podstawie aktualnych order_items.
+        Używane po closure exclusive (gdy items są zerowane/splitowane).
+
+        Returns:
+            Decimal: Nowa wartość total_amount
+        """
+        from decimal import Decimal
+
+        new_total = Decimal('0.00')
+        for item in self.items:
+            if item.total:
+                new_total += Decimal(str(item.total))
+
+        self.total_amount = new_total
+        return new_total
 
     # Payment Proof Properties
     @property

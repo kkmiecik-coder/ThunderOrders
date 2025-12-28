@@ -228,3 +228,41 @@ def send_payment_proof_approved_email(user_email, user_name, order_number, paid_
         order_number=order_number,
         paid_amount=paid_amount
     )
+
+
+def send_order_cancelled_email(user_email, user_name, order_number, page_name,
+                               cancelled_items, reason=''):
+    """
+    Wysyła email o anulowaniu zamówienia exclusive.
+
+    Args:
+        user_email: Email odbiorcy
+        user_name: Imię odbiorcy
+        order_number: Numer zamówienia (np. EX/00000123)
+        page_name: Nazwa strony Exclusive
+        cancelled_items: Lista dict z kluczami: name, quantity, image_url
+        reason: Powód anulowania (opcjonalny)
+
+    Returns:
+        True jeśli wysłano, False w przeciwnym razie
+    """
+    if not user_email:
+        logger.warning("Cannot send cancellation email: no email address")
+        return False
+
+    try:
+        subject = f'Zamówienie {order_number} zostało anulowane'
+
+        return send_email(
+            to=user_email,
+            subject=subject,
+            template='order_cancelled',
+            customer_name=user_name,
+            order_number=order_number,
+            page_name=page_name,
+            cancelled_items=cancelled_items,
+            reason=reason
+        )
+    except Exception as e:
+        logger.error(f"Error sending order cancelled email to {user_email}: {e}")
+        return False

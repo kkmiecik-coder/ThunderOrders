@@ -111,8 +111,8 @@
                     <!-- Kolumna 2: Przedmioty (max 3 + toggle) -->
                     <td class="col-items hide-mobile" data-label="Przedmioty">
                         <div class="items-list">
-                            {% set visible_items = order.items[:3] %}
-                            {% set hidden_items = order.items[3:] %}
+                            {% set visible_items = order.sorted_items[:3] %}
+                            {% set hidden_items = order.sorted_items[3:] %}
 
                             {% for item in visible_items %}
                             <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
@@ -130,7 +130,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="item-details">
-                                    <span class="item-name" title="{{ item.product_name }}">
+                                    <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
                                         {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}
                                     </span>
                                     <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
@@ -156,7 +156,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="item-details">
-                                        <span class="item-name" title="{{ item.product_name }}">
+                                        <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
                                             {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}
                                         </span>
                                         <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
@@ -164,8 +164,8 @@
                                 </div>
                                 {% endfor %}
                             </div>
-                            <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.items|length }})">
-                                <span class="toggle-text">W sumie {{ order.items|length }} przedmiotów - pokaż pozostałe</span>
+                            <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.sorted_items|length }})">
+                                <span class="toggle-text">W sumie {{ order.sorted_items|length }} przedmiotów - pokaż pozostałe</span>
                             </button>
                             {% endif %}
                         </div>

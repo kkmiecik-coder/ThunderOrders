@@ -1060,3 +1060,369 @@
     background: rgba(255, 255, 255, 0.05);
     box-shadow: 0 4px 12px rgba(240, 147, 251, 0.1);
 }
+
+/* ================================================
+   Exclusive Closure Settings - Orders Settings Tab
+   ================================================ */
+
+/* Grid Layout */
+.exclusive-closure-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+@media (max-width: 1024px) {
+    .exclusive-closure-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Karty statusów */
+.closure-status-card {
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: visible;
+}
+
+.closure-status-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    transition: height 0.3s ease;
+    border-radius: 12px 12px 0 0;
+}
+
+.closure-status-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.closure-status-card:hover::before {
+    height: 6px;
+}
+
+/* Kolory kart */
+.closure-card-success::before {
+    background: linear-gradient(135deg, #4CAF50, #66BB6A);
+}
+
+.closure-card-warning::before {
+    background: linear-gradient(135deg, #FF9800, #FFB74D);
+}
+
+.closure-card-error::before {
+    background: linear-gradient(135deg, #F44336, #EF5350);
+}
+
+/* Ikona */
+.closure-card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    transition: transform 0.3s ease;
+}
+
+.closure-status-card:hover .closure-card-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.closure-card-success .closure-card-icon {
+    background: linear-gradient(135deg, #4CAF50, #66BB6A);
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.closure-card-warning .closure-card-icon {
+    background: linear-gradient(135deg, #FF9800, #FFB74D);
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+}
+
+.closure-card-error .closure-card-icon {
+    background: linear-gradient(135deg, #F44336, #EF5350);
+    box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.closure-card-icon svg {
+    color: white;
+}
+
+/* Tytuły */
+.closure-card-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    color: #212121;
+}
+
+.closure-card-subtitle {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    text-align: center;
+    color: #757575;
+    font-weight: 500;
+}
+
+/* Przykład */
+.closure-card-example {
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+    border-left: 3px solid rgba(0, 0, 0, 0.1);
+}
+
+.closure-card-example p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #616161;
+}
+
+.closure-card-success .closure-card-example {
+    border-left-color: #4CAF50;
+}
+
+.closure-card-warning .closure-card-example {
+    border-left-color: #FF9800;
+}
+
+.closure-card-error .closure-card-example {
+    border-left-color: #F44336;
+}
+
+/* Custom Select */
+.custom-select-wrapper {
+    margin-top: 16px;
+}
+
+.custom-select-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #424242;
+}
+
+.custom-select {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-trigger {
+    background: #ffffff;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    padding: 12px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.custom-select-trigger:hover {
+    border-color: rgba(0, 0, 0, 0.3);
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.custom-select.active .custom-select-trigger {
+    border-color: #5A189A;
+    box-shadow: 0 0 0 3px rgba(90, 24, 154, 0.1);
+}
+
+.custom-select-value {
+    flex: 1;
+    color: #212121;
+}
+
+.custom-select-value .badge {
+    color: white !important;
+}
+
+.custom-select-arrow {
+    margin-left: 12px;
+    transition: transform 0.2s ease;
+    color: #757575;
+}
+
+.custom-select.active .custom-select-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-select-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    max-height: 280px;
+    overflow-y: auto;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: all 0.2s ease;
+}
+
+.custom-select.active .custom-select-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.custom-select-option {
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.custom-select-option:hover {
+    background: rgba(90, 24, 154, 0.08);
+}
+
+.custom-select-option .badge {
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    color: white !important;
+    font-weight: 600;
+}
+
+/* Hint text */
+.closure-card-hint {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #757575;
+}
+
+.closure-card-hint strong {
+    font-weight: 600;
+}
+
+/* ================================================
+   DARK MODE
+   ================================================ */
+
+[data-theme="dark"] .closure-status-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .closure-status-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .closure-card-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .closure-card-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .closure-card-example {
+    background: rgba(255, 255, 255, 0.05);
+    border-left: 3px solid rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .closure-card-example p {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .custom-select-label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .custom-select-trigger {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .custom-select-trigger:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .custom-select.active .custom-select-trigger {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .custom-select-value {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .custom-select-arrow {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .custom-select-dropdown {
+    background: rgba(30, 30, 30, 0.98);
+    border: 2px solid rgba(240, 147, 251, 0.2);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .custom-select-option:hover {
+    background: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .closure-card-hint {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Scrollbar dla dropdown */
+.custom-select-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.custom-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .custom-select-dropdown::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .custom-select-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .custom-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(240, 147, 251, 0.5);
+}
+
+/* Form actions dark mode */
+[data-theme="dark"] .form-actions {
+    border-top-color: rgba(240, 147, 251, 0.15) !important;
+}

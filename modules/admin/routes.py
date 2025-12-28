@@ -68,26 +68,29 @@ def dashboard():
         'pending': orders_pending
     }
 
-    # 2. Revenue stats (real data - suma total_amount)
+    # 2. Revenue stats (real data - suma total_amount, wykluczając anulowane)
     # Today's revenue
     revenue_today = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) == today
+        func.date(Order.created_at) == today,
+        Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
     # Week's revenue (last 7 days)
     revenue_week = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) >= week_ago
+        func.date(Order.created_at) >= week_ago,
+        Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
     # Month's revenue (current month)
     revenue_month = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        func.date(Order.created_at) >= month_start
+        func.date(Order.created_at) >= month_start,
+        Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
     revenue = {

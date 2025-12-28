@@ -982,4 +982,84 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('cancel-migration-btn').addEventListener('click', closeMigrationModal);
         document.getElementById('confirm-migration-btn').addEventListener('click', performMigration);
     }
+
+    // ================================================
+    // Exclusive Closure Settings - Custom Dropdowns
+    // ================================================
+    initCustomSelects();
 });
+
+/**
+ * Initialize custom dropdown selects for exclusive closure settings
+ */
+function initCustomSelects() {
+    const customSelects = document.querySelectorAll('.custom-select');
+
+    customSelects.forEach(select => {
+        const trigger = select.querySelector('.custom-select-trigger');
+        const dropdown = select.querySelector('.custom-select-dropdown');
+        const options = select.querySelectorAll('.custom-select-option');
+        const valueSpan = select.querySelector('.custom-select-value');
+        const hiddenInput = document.querySelector(`input[name="${select.dataset.name}"]`);
+
+        // Toggle dropdown
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            // Zamknij inne dropdowny
+            document.querySelectorAll('.custom-select.active').forEach(other => {
+                if (other !== select) {
+                    other.classList.remove('active');
+                }
+            });
+
+            // Toggle current
+            select.classList.toggle('active');
+        });
+
+        // Select option
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+
+                const value = option.dataset.value;
+                const badgeHTML = option.querySelector('.badge').outerHTML;
+
+                // Update display value
+                valueSpan.innerHTML = badgeHTML;
+
+                // Update hidden input
+                if (hiddenInput) {
+                    hiddenInput.value = value;
+                }
+
+                // Close dropdown
+                select.classList.remove('active');
+
+                // Remove selected class from all options
+                options.forEach(opt => opt.classList.remove('selected'));
+
+                // Add selected class to clicked option
+                option.classList.add('selected');
+            });
+        });
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.custom-select')) {
+            document.querySelectorAll('.custom-select.active').forEach(select => {
+                select.classList.remove('active');
+            });
+        }
+    });
+
+    // Close dropdown on Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.custom-select.active').forEach(select => {
+                select.classList.remove('active');
+            });
+        }
+    });
+}

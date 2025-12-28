@@ -339,6 +339,13 @@
   height: 24px;
 }
 
+/* Dark mode - mobile navbar icons */
+[data-theme="dark"] .mobile-menu-btn img,
+[data-theme="dark"] .mobile-search-btn img {
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+}
+
 .mobile-logo img {
   width: 32px;
   height: 32px;
@@ -390,7 +397,7 @@
 }
 
 .mobile-menu-header img {
-  height: 32px;
+  max-height: 24px;
 }
 
 .mobile-menu-close {
@@ -467,6 +474,65 @@
   font-size: var(--text-xs);
   color: var(--sidebar-text-secondary);
   text-transform: capitalize;
+}
+
+/* Mobile theme toggle */
+.mobile-menu-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--sidebar-bg-hover);
+  color: var(--sidebar-text);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  width: 100%;
+  margin-bottom: var(--space-2);
+  transition: background var(--transition-fast);
+}
+
+.mobile-menu-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mobile-menu-theme-toggle img {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
+}
+
+.mobile-menu-theme-toggle .icon-light {
+  display: block;
+}
+
+.mobile-menu-theme-toggle .icon-dark {
+  display: none;
+}
+
+[data-theme="dark"] .mobile-menu-theme-toggle .icon-light {
+  display: none;
+}
+
+[data-theme="dark"] .mobile-menu-theme-toggle .icon-dark {
+  display: block;
+}
+
+.mobile-theme-text .text-light {
+  display: inline;
+}
+
+.mobile-theme-text .text-dark {
+  display: none;
+}
+
+[data-theme="dark"] .mobile-theme-text .text-light {
+  display: none;
+}
+
+[data-theme="dark"] .mobile-theme-text .text-dark {
+  display: inline;
 }
 
 .mobile-menu-logout {

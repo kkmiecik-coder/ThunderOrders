@@ -1348,3 +1348,17 @@
         font-size: var(--text-xs);
     }
 }
+
+/* ================================================
+   Product Coloring - Items Outside Set
+   ================================================ */
+
+/* Items outside set - red text for unfulfilled items */
+.text-outside-set {
+    color: #F44336 !important;
+}
+
+/* Dark mode */
+[data-theme="dark"] .text-outside-set {
+    color: #EF5350 !important;
+}

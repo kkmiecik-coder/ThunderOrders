@@ -63,7 +63,7 @@
                 Produkty w zamówieniu
             </h3>
             <div class="items-list">
-                {% for item in order.items %}
+                {% for item in order.sorted_items %}
                 <div class="item-row">
                     <span class="item-name">
                         {% if item.is_full_set %}

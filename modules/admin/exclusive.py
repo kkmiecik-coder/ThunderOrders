@@ -280,7 +280,6 @@ def _update_sections(page, sections_data):
         section.max_quantity = section_data.get('max_quantity')
         section.set_name = section_data.get('set_name')
         section.set_image = section_data.get('set_image')
-        section.set_min_sets = section_data.get('set_min_sets', 1)
         section.set_max_sets = section_data.get('set_max_sets')
         # set_max_per_product: 0 oznacza brak limitu, wartość > 0 to limit sztuk na produkt
         max_per_product = section_data.get('set_max_per_product', 0)
@@ -621,7 +620,6 @@ def exclusive_duplicate(page_id):
             max_quantity=section.max_quantity,
             set_name=section.set_name,
             set_image=section.set_image,
-            set_min_sets=section.set_min_sets,
             set_max_sets=section.set_max_sets,
             set_max_per_product=section.set_max_per_product,
             variant_group_id=section.variant_group_id

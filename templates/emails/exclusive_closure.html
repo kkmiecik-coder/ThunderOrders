@@ -84,11 +84,7 @@
                                             {{ item.quantity }}
                                         </td>
                                         <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: right; font-size: 14px; color: #212121;">
-                                            {% if item.is_fulfilled %}
-                                                {{ "%.2f"|format(item.price) }} PLN
-                                            {% else %}
-                                                0.00 PLN
-                                            {% endif %}
+                                            {{ "%.2f"|format(item.price) }} PLN
                                         </td>
                                         <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: center;">
                                             {% if item.is_fulfilled %}

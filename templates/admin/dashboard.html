@@ -76,28 +76,38 @@
                     <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
                     <a href="{{ url_for('orders.admin_list') }}" class="widget-link">Zobacz wszystkie →</a>
                 </div>
-                <div class="widget-body">
+                <div class="widget-body widget-body-table">
                     {% if recent_orders|length > 0 %}
-                        <div class="orders-list">
-                            {% for order in recent_orders %}
-                                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-item-link">
-                                    <div class="order-item">
-                                        <div class="order-info">
-                                            <span class="order-number">
-                                                {{ order.order_number }}
-                                            </span>
-                                            <p class="order-client">{{ order.customer_name }}</p>
-                                        </div>
-                                        <div class="order-meta">
-                                            <span class="order-status order-status-{{ order.status }}">
-                                                {{ order.status|replace('_', ' ')|title }}
-                                            </span>
-                                            <p class="order-amount">{{ "%.2f"|format(order.total_amount) }} PLN</p>
-                                        </div>
-                                    </div>
-                                </a>
-                            {% endfor %}
-                        </div>
+                        <table class="recent-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Numer</th>
+                                    <th>Klient</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Kwota</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in recent_orders %}
+                                <tr onclick="window.location.href='{{ url_for('orders.admin_detail', order_id=order.id) }}'" style="cursor: pointer;">
+                                    <td>
+                                        <span class="order-number-link">{{ order.order_number }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="order-client">{{ order.customer_name }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                            {{ order.status_display_name }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     {% else %}
                         <div class="empty-state">
                             <p class="empty-icon">📭</p>
@@ -126,34 +136,57 @@
                     <h2 class="widget-title">✅ Moje TODO</h2>
                     <button class="widget-link" onclick="openTaskModal()">+ Dodaj</button>
                 </div>
-                <div class="widget-body">
+                <div class="widget-body widget-body-table">
                     {% if tasks.recent_tasks|length > 0 %}
-                        <div class="todo-list">
-                            {% for task in tasks.recent_tasks %}
-                                <div class="todo-item todo-status-{{ task.status }}" onclick="openTaskPreview({{ task.id }})" style="cursor: pointer;">
-                                    <div class="todo-content">
-                                        <p class="todo-name">{{ task.name }}</p>
-                                        <div class="todo-meta">
-                                            <span class="todo-priority todo-priority-{{ task.priority }}">
-                                                {% if task.priority == 'high' %}Pilne{% elif task.priority == 'medium' %}Średni{% else %}Niski{% endif %}
+                        <table class="todo-table">
+                            <thead>
+                                <tr>
+                                    <th>Zadanie</th>
+                                    <th>Priorytet</th>
+                                    <th>Termin</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for task in tasks.recent_tasks %}
+                                <tr onclick="openTaskPreview({{ task.id }})" style="cursor: pointer;" class="todo-row-status-{{ task.status }}">
+                                    <td>
+                                        <span class="todo-name{% if task.status == 'completed' %} todo-completed{% endif %}">
+                                            {{ task.name }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="todo-priority todo-priority-{{ task.priority }}">
+                                            {% if task.priority == 'high' %}Pilne{% elif task.priority == 'medium' %}Średni{% else %}Niski{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if task.due_date %}
+                                            <span class="todo-date{% if task.is_overdue() %} todo-overdue{% endif %}">
+                                                {% if task.is_overdue() %}⚠️ {% endif %}{{ task.due_date|format_date('%d.%m.%Y') }}
                                             </span>
-                                            {% if task.due_date %}
-                                                <span class="todo-date">
-                                                    🗓️ {{ task.due_date|format_date('%d.%m.%Y') }}
-                                                </span>
+                                        {% else %}
+                                            <span class="todo-no-date">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="todo-status-badge todo-status-badge-{{ task.status }}">
+                                            {% if task.status == 'pending' %}Do zrobienia
+                                            {% elif task.status == 'in_progress' %}W trakcie
+                                            {% elif task.status == 'completed' %}✓ Gotowe
                                             {% endif %}
-                                            {% if task.is_overdue() %}
-                                                <span class="todo-overdue">⚠️ Po terminie</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        </div>
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                         {% if tasks.total > 5 %}
-                            <a href="{{ url_for('admin.tasks_list') }}" class="view-all-link">
-                                Zobacz wszystkie ({{ tasks.total }}) →
-                            </a>
+                            <div style="padding: var(--space-4);">
+                                <a href="{{ url_for('admin.tasks_list') }}" class="view-all-link">
+                                    Zobacz wszystkie ({{ tasks.total }}) →
+                                </a>
+                            </div>
                         {% endif %}
                     {% else %}
                         <div class="empty-state">
@@ -449,72 +482,73 @@
 }
 
 /* ====================================
-   ORDERS LIST
+   ORDERS TABLE (Recent Orders Widget)
    ==================================== */
-.orders-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+.widget-body-table {
+    padding: 0;
 }
 
-/* Order item link wrapper */
-.order-item-link {
-    text-decoration: none;
-    display: block;
-    border-radius: 12px;
-    transition: transform 0.2s ease;
+.recent-orders-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.order-item-link:hover {
-    transform: translateX(4px);
-}
-
-.order-item-link:hover .order-item {
-    background: var(--kpop-light);
-}
-
-.order-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-4);
+.recent-orders-table thead {
     background: var(--gray-50);
-    border-radius: 12px;
-    border: 1px solid transparent;
-    transition: background 0.5s ease,
-                border-color 0.5s ease,
-                transform 0.2s ease;
+    border-bottom: 2px solid var(--gray-200);
+    transition: background 0.5s ease, border-color 0.5s ease;
 }
 
-.order-item:hover {
-    background: var(--kpop-light);
-}
-
-.order-info {
-    flex: 1;
-}
-
-.order-number {
+.recent-orders-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: 0.75rem;
     font-weight: 700;
-    color: var(--kpop-purple);
-    display: block;
-    margin-bottom: var(--space-1);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
     transition: color 0.5s ease;
 }
 
-.order-item-link:hover .order-number {
+.recent-orders-table th.text-right {
+    text-align: right;
+}
+
+.recent-orders-table tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+    transition: background 0.2s ease, border-color 0.5s ease;
+}
+
+.recent-orders-table tbody tr:hover {
+    background: var(--kpop-light);
+}
+
+.recent-orders-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.recent-orders-table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+}
+
+.recent-orders-table td.text-right {
+    text-align: right;
+}
+
+.order-number-link {
+    font-weight: 700;
+    color: var(--kpop-purple);
+    transition: color 0.3s ease;
+}
+
+.recent-orders-table tbody tr:hover .order-number-link {
     color: var(--kpop-pink);
 }
 
 .order-client {
-    font-size: 0.875rem;
     color: var(--gray-600);
-    margin: 0;
     transition: color 0.5s ease;
-}
-
-.order-meta {
-    text-align: right;
 }
 
 .order-status {
@@ -524,115 +558,85 @@
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    margin-bottom: var(--space-1);
     transition: background 0.5s ease, color 0.5s ease;
+    /* Badge colors are now dynamic from database (order.status_badge_color) */
 }
 
-.order-status-nowe { background: #E0F2FE; color: #0369A1; }
-.order-status-oczekujace { background: #FEF3C7; color: #92400E; }
-.order-status-spakowane { background: #DBEAFE; color: #1E40AF; }
-.order-status-wyslane { background: #DDD6FE; color: #6B21A8; }
-.order-status-dostarczone { background: #D1FAE5; color: #065F46; }
-
 .order-amount {
-    font-size: 0.875rem;
     font-weight: 600;
     color: var(--gray-800);
-    margin: 0;
     transition: color 0.5s ease;
 }
 
 /* ====================================
-   TODO LIST
+   TODO TABLE (Moje TODO Widget)
    ==================================== */
-.todo-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
+.todo-table {
+    width: 100%;
+    border-collapse: collapse;
 }
 
-.todo-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: var(--space-3);
+.todo-table thead {
     background: var(--gray-50);
-    border-radius: 12px;
-    border-left: 4px solid transparent;
-    border: 1px solid transparent;
-    transition: background 0.5s ease,
-                border-color 0.5s ease,
-                border-left-color 0.5s ease;
+    border-bottom: 2px solid var(--gray-200);
+    transition: background 0.5s ease, border-color 0.5s ease;
 }
 
-.todo-item:hover {
+.todo-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.todo-table th.text-center {
+    text-align: center;
+}
+
+.todo-table tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+    transition: background 0.2s ease, border-color 0.5s ease;
+}
+
+.todo-table tbody tr:hover {
     background: var(--kpop-light);
 }
 
-.todo-status-pending { border-left-color: var(--gray-400); }
-.todo-status-in_progress { border-left-color: var(--kpop-purple); }
-.todo-status-completed {
-    border-left-color: #10b981;
-    opacity: 0.6;
+.todo-table tbody tr:last-child {
+    border-bottom: none;
 }
 
-.todo-checkbox {
-    position: relative;
+.todo-table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
 }
 
-.todo-checkbox input[type="checkbox"] {
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    appearance: none;
-    border: 2px solid var(--kpop-purple);
-    border-radius: 6px;
-    background: white;
-    transition: all 0.2s;
-}
-
-.todo-checkbox input[type="checkbox"]:checked {
-    background: var(--gradient-purple);
-    border-color: var(--kpop-purple);
-}
-
-.todo-checkbox input[type="checkbox"]:checked::after {
-    content: '✓';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: white;
-    font-weight: bold;
-}
-
-.todo-content {
-    flex: 1;
+.todo-table td.text-center {
+    text-align: center;
 }
 
 .todo-name {
     font-weight: 600;
     color: var(--gray-800);
-    margin: 0 0 var(--space-1);
     transition: color 0.5s ease;
 }
 
-.todo-status-completed .todo-name {
+.todo-name.todo-completed {
     text-decoration: line-through;
     color: var(--gray-500);
 }
 
-.todo-meta {
-    display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    font-size: 0.75rem;
-}
-
 .todo-priority {
-    padding: 2px 8px;
+    display: inline-block;
+    padding: 4px 10px;
     border-radius: 6px;
+    font-size: 0.75rem;
     font-weight: 600;
+    text-transform: uppercase;
     transition: background 0.5s ease, color 0.5s ease;
 }
 
@@ -645,27 +649,52 @@
     transition: color 0.5s ease;
 }
 
-.todo-overdue {
+.todo-date.todo-overdue {
     color: #DC2626;
     font-weight: 600;
 }
 
-.todo-actions {
-    display: flex;
-    gap: var(--space-2);
+.todo-no-date {
+    color: var(--gray-400);
 }
 
-.todo-action-btn {
-    background: none;
-    border: none;
-    font-size: 1.125rem;
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.2s;
+.todo-status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.5s ease, color 0.5s ease;
 }
 
-.todo-action-btn:hover {
-    opacity: 1;
+.todo-status-badge-pending {
+    background: #E5E7EB;
+    color: #4B5563;
+}
+
+.todo-status-badge-in_progress {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.todo-status-badge-completed {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+/* Row color indicators (subtle left border) */
+.todo-row-status-pending {
+    border-left: 3px solid var(--gray-300);
+}
+
+.todo-row-status-in_progress {
+    border-left: 3px solid var(--kpop-purple);
+}
+
+.todo-row-status-completed {
+    border-left: 3px solid #10b981;
+    opacity: 0.7;
 }
 
 .view-all-link {
@@ -888,27 +917,29 @@
     background: linear-gradient(135deg, #2d5a8a 0%, #006a6a 100%);
 }
 
-/* Dark mode order items */
-[data-theme="dark"] .order-item {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(240, 147, 251, 0.1);
+/* Dark mode recent orders table */
+[data-theme="dark"] .recent-orders-table thead {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
 }
 
-[data-theme="dark"] .order-item:hover {
-    background: rgba(240, 147, 251, 0.1);
-    border-color: rgba(240, 147, 251, 0.2);
+[data-theme="dark"] .recent-orders-table th {
+    color: rgba(255, 255, 255, 0.6);
 }
 
-[data-theme="dark"] .order-item-link:hover .order-item {
-    background: rgba(240, 147, 251, 0.1);
-    border-color: rgba(240, 147, 251, 0.2);
+[data-theme="dark"] .recent-orders-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
 }
 
-[data-theme="dark"] .order-number {
+[data-theme="dark"] .recent-orders-table tbody tr:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .order-number-link {
     color: #f093fb;
 }
 
-[data-theme="dark"] .order-number:hover {
+[data-theme="dark"] .recent-orders-table tbody tr:hover .order-number-link {
     color: #f5576c;
 }
 
@@ -920,65 +951,44 @@
     color: #f0f0f0;
 }
 
-/* Dark mode order status badges */
-[data-theme="dark"] .order-status-nowe {
-    background: rgba(79, 172, 254, 0.2);
-    color: #4facfe;
+/* Dark mode order status badges - colors are now dynamic from database */
+
+/* Dark mode todo table */
+[data-theme="dark"] .todo-table thead {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
 }
 
-[data-theme="dark"] .order-status-oczekujace {
-    background: rgba(240, 147, 251, 0.2);
-    color: #f093fb;
+[data-theme="dark"] .todo-table th {
+    color: rgba(255, 255, 255, 0.6);
 }
 
-[data-theme="dark"] .order-status-spakowane {
-    background: rgba(102, 126, 234, 0.2);
-    color: #667eea;
+[data-theme="dark"] .todo-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
 }
 
-[data-theme="dark"] .order-status-wyslane {
-    background: rgba(157, 78, 221, 0.2);
-    color: #9D4EDD;
-}
-
-[data-theme="dark"] .order-status-dostarczone {
-    background: rgba(74, 222, 128, 0.2);
-    color: #4ade80;
-}
-
-/* Dark mode todo items */
-[data-theme="dark"] .todo-item {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(240, 147, 251, 0.1);
-    border-left: 4px solid transparent;
-}
-
-[data-theme="dark"] .todo-item:hover {
+[data-theme="dark"] .todo-table tbody tr:hover {
     background: rgba(240, 147, 251, 0.08);
-}
-
-[data-theme="dark"] .todo-status-pending {
-    border-left-color: rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="dark"] .todo-status-in_progress {
-    border-left-color: #f093fb;
-}
-
-[data-theme="dark"] .todo-status-completed {
-    border-left-color: #4ade80;
 }
 
 [data-theme="dark"] .todo-name {
     color: #f0f0f0;
 }
 
-[data-theme="dark"] .todo-status-completed .todo-name {
+[data-theme="dark"] .todo-name.todo-completed {
     color: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="dark"] .todo-date {
     color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .todo-date.todo-overdue {
+    color: #f87171;
+}
+
+[data-theme="dark"] .todo-no-date {
+    color: rgba(255, 255, 255, 0.3);
 }
 
 /* Dark mode priority badges */
@@ -995,6 +1005,35 @@
 [data-theme="dark"] .todo-priority-high {
     background: rgba(248, 113, 113, 0.2);
     color: #f87171;
+}
+
+/* Dark mode status badges */
+[data-theme="dark"] .todo-status-badge-pending {
+    background: rgba(156, 163, 175, 0.2);
+    color: #9CA3AF;
+}
+
+[data-theme="dark"] .todo-status-badge-in_progress {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+[data-theme="dark"] .todo-status-badge-completed {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+/* Dark mode row indicators */
+[data-theme="dark"] .todo-row-status-pending {
+    border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .todo-row-status-in_progress {
+    border-left-color: #f093fb;
+}
+
+[data-theme="dark"] .todo-row-status-completed {
+    border-left-color: #4ade80;
 }
 
 /* Dark mode view all link */

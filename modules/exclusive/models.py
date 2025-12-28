@@ -338,7 +338,6 @@ class ExclusiveSection(db.Model):
     # Dla set
     set_name = db.Column(db.String(200), nullable=True)
     set_image = db.Column(db.String(500), nullable=True)  # Ścieżka do zdjęcia tła seta
-    set_min_sets = db.Column(db.Integer, default=1)       # Min. kompletnych setów
     set_max_sets = db.Column(db.Integer, nullable=True)   # NULL = brak maksimum
     set_max_per_product = db.Column(db.Integer, nullable=True)  # Max sztuk na produkt (globalny limit sprzedaży)
     set_product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=True)  # Produkt-komplet (fizyczny produkt w magazynie)

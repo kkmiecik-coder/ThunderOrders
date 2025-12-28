@@ -93,37 +93,51 @@
 
         <!-- Ostatnie zamówienia -->
         <div class="dashboard-section">
-            <div class="section-header">
-                <h2 class="section-title">Ostatnie zamówienia</h2>
-                <a href="{{ url_for('orders.client_list') }}" class="section-link">Zobacz wszystkie →</a>
-            </div>
-
-            {% if recent_orders %}
-        <div class="orders-list">
-            {% for order in recent_orders %}
-            <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-item-link">
-                <div class="order-item">
-                    <div class="order-main">
-                        <span class="order-number">{{ order.order_number }}</span>
-                        <span class="order-status order-status-{{ order.status }}">
-                            {{ order.status_display_name }}
-                        </span>
-                    </div>
-                    <div class="order-meta">
-                        <span class="order-date">{{ order.created_at | format_date('%d.%m.%Y %H:%M') }}</span>
-                        <span class="order-amount">{{ order.total_amount | format_currency }}</span>
-                    </div>
+            <div class="widget widget-orders">
+                <div class="widget-header">
+                    <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
+                    <a href="{{ url_for('orders.client_list') }}" class="widget-link">Zobacz wszystkie →</a>
                 </div>
-            </a>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">
-            <p class="empty-state-icon">📭</p>
-            <p class="empty-state-text">Nie masz jeszcze żadnych zamówień</p>
-            <p class="empty-state-subtitle">Twoje zamówienia pojawią się tutaj po ich złożeniu</p>
-        </div>
-        {% endif %}
+                <div class="widget-body widget-body-table">
+                    {% if recent_orders|length > 0 %}
+                        <table class="recent-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Numer</th>
+                                    <th>Klient</th>
+                                    <th>Status</th>
+                                    <th class="text-right">Kwota</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in recent_orders %}
+                                <tr onclick="window.location.href='{{ url_for('orders.client_detail', order_id=order.id) }}'" style="cursor: pointer;">
+                                    <td>
+                                        <span class="order-number-link">{{ order.order_number }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="order-client">{{ order.customer_name }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                            {{ order.status_display_name }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <div class="empty-state">
+                            <p class="empty-icon">📭</p>
+                            <p class="empty-text">Brak zamówień</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>

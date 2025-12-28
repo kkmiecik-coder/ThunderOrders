@@ -669,7 +669,6 @@ function collectPageData() {
         } else if (type === 'set') {
             sectionData.set_name = section.querySelector('.set-name').value;
             sectionData.set_image = section.querySelector('.set-image-path')?.value || null;
-            sectionData.set_min_sets = 1;
             const maxSetsInput = section.querySelector('.set-max-sets');
             const maxSetsVal = maxSetsInput ? parseInt(maxSetsInput.value) : 0;
             sectionData.set_max_sets = maxSetsVal > 0 ? maxSetsVal : null;

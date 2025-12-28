@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #240046 0%, #5A189A 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .alert-box {
+            background-color: #FFF3E0;
+            border-left: 4px solid #F44336;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .alert-box h3 {
+            margin: 0 0 10px 0;
+            color: #F44336;
+            font-size: 18px;
+        }
+        .alert-box p {
+            margin: 0;
+            color: #666;
+            line-height: 1.6;
+        }
+        .product-list {
+            margin: 20px 0;
+        }
+        .product-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            background-color: #f9f9f9;
+        }
+        .product-item img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 15px;
+            opacity: 0.6;
+        }
+        .product-info {
+            flex: 1;
+        }
+        .product-info h4 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            color: #999;
+            text-decoration: line-through;
+        }
+        .product-info p {
+            margin: 0;
+            color: #999;
+            font-size: 14px;
+        }
+        .info-box {
+            background-color: #E3F2FD;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .info-box p {
+            margin: 0;
+            color: #1976D2;
+            line-height: 1.6;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #FF6D00 0%, #FF9E00 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+        .footer {
+            background-color: #f4f4f4;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>❌ Zamówienie anulowane</h1>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <p>Witaj {{ customer_name }},</p>
+
+            <div class="alert-box">
+                <h3>Twoje zamówienie zostało anulowane</h3>
+                <p><strong>Numer zamówienia:</strong> {{ order_number }}</p>
+                <p><strong>Strona Exclusive:</strong> {{ page_name }}</p>
+                {% if reason %}
+                <p><strong>Powód:</strong> {{ reason }}</p>
+                {% endif %}
+            </div>
+
+            <p>Niestety, żaden z produktów w Twoim zamówieniu nie załapał się do sprzedaży setu. Oznacza to, że nie będziesz obciążony żadną płatnością za to zamówienie.</p>
+
+            <!-- Cancelled Products List -->
+            {% if cancelled_items %}
+            <div class="product-list">
+                <h3>Anulowane produkty:</h3>
+                {% for item in cancelled_items %}
+                <div class="product-item">
+                    {% if item.image_url %}
+                    <img src="{{ item.image_url }}" alt="{{ item.name }}">
+                    {% endif %}
+                    <div class="product-info">
+                        <h4>{{ item.name }}</h4>
+                        <p>Ilość: {{ item.quantity }} szt.</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Info Box -->
+            <div class="info-box">
+                <p><strong>ℹ️ Co to oznacza?</strong></p>
+                <p>Sprzedaż typu "set" oznacza, że produkty są dostępne tylko w kompletach. Niestety, nie udało się zebrać wystarczającej liczby zamówień, aby utworzyć komplet dla Twoich produktów.</p>
+            </div>
+
+            <p><strong>Brak obciążenia finansowego:</strong> Nie zostaniesz obciążony żadną kwotą. Jeśli dokonałeś przedpłaty, zostanie ona automatycznie zwrócona.</p>
+
+            <!-- CTA Button -->
+            <center>
+                <a href="mailto:kontakt@thunderorders.pl" class="cta-button">Skontaktuj się z nami</a>
+            </center>
+
+            <p style="margin-top: 30px;">Przepraszamy za niedogodności i dziękujemy za zrozumienie.</p>
+
+            <p>Pozdrawiamy,<br>
+            <strong>Zespół ThunderOrders</strong></p>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>ThunderOrders - Import z Azji</p>
+            <p>Ten email został wygenerowany automatycznie. Prosimy nie odpowiadać.</p>
+        </div>
+    </div>
+</body>
+</html>
