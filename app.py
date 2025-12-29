@@ -176,9 +176,16 @@ def register_context_processors(app):
     @app.context_processor
     def inject_globals():
         """Wstrzykuje zmienne globalne do wszystkich szablonów"""
+        from modules.payments.models import PaymentMethod
+
+        def get_active_payment_methods():
+            """Pomocnicza funkcja do pobierania aktywnych metod płatności"""
+            return PaymentMethod.get_active()
+
         return {
             'app_name': 'ThunderOrders',
             'app_version': '1.0.0-MVP',
+            'get_active_payment_methods': get_active_payment_methods,
         }
 
 

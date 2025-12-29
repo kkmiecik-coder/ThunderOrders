@@ -2345,3 +2345,26 @@ body:has(.builder-page) {
 [data-theme="dark"] .variant-product-price {
     color: #f5576c;
 }
+
+/* ========================================
+   VALIDATION ERRORS
+   ======================================== */
+
+/* Input error state - for required fields validation */
+.input-error {
+    border: 2px solid #ef4444 !important;
+    animation: shake 0.3s ease-in-out;
+    background-color: rgba(239, 68, 68, 0.05) !important;
+}
+
+[data-theme="dark"] .input-error {
+    border: 2px solid #f87171 !important;
+    background-color: rgba(248, 113, 113, 0.1) !important;
+}
+
+/* Shake animation for error inputs */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+}

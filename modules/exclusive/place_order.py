@@ -295,7 +295,9 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
             user_name=customer_name,
             order_number=order.order_number,
             order_total=float(order.total_amount),
-            order_items=order_items
+            order_items=order_items,
+            is_guest=is_guest,
+            guest_view_token=order.guest_view_token if is_guest else None
         )
     except Exception as e:
         # Log error but don't fail the order placement

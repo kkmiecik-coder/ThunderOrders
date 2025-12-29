@@ -7,6 +7,7 @@ from flask import current_app, render_template
 from flask_mail import Message
 from extensions import mail
 from threading import Thread
+import os
 
 
 def send_async_email(app, msg):
@@ -46,6 +47,19 @@ def send_email(to, subject, template, **kwargs):
         except:
             # Jeśli nie ma .txt template, użyj prostej wersji tekstowej
             msg.body = f"Sprawdź email w kliencie obsługującym HTML."
+
+        # Dołącz logo jako inline attachment (CID)
+        # WAŻNE: Logo musi być w formacie PNG, nie SVG (dla kompatybilności z email klientami)
+        logo_path = os.path.join(app.root_path, 'static', 'img', 'icons', 'logo-full-black-email.png')
+        if os.path.exists(logo_path):
+            with app.open_resource(logo_path, 'rb') as fp:
+                msg.attach(
+                    filename='logo.png',
+                    content_type='image/png',
+                    data=fp.read(),
+                    disposition='inline',
+                    headers=[('Content-ID', '<logo@thunderorders>')],
+                )
 
         # Wysyłka asynchroniczna (nie blokuje aplikacji)
         Thread(
@@ -121,7 +135,7 @@ def send_password_reset_email(user_email, reset_token, user_name):
     )
 
 
-def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items):
+def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_guest=False, guest_view_token=None):
     """
     Wysyła potwierdzenie zamówienia do klienta
 
@@ -131,6 +145,8 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_number (str): Numer zamówienia (np. ST/00000001)
         order_total (float): Łączna kwota zamówienia
         order_items (list): Lista produktów w zamówieniu
+        is_guest (bool): Czy zamówienie złożone przez gościa
+        guest_view_token (str): Token do podglądu zamówienia dla gościa
     """
     return send_email(
         to=user_email,
@@ -139,7 +155,9 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         user_name=user_name,
         order_number=order_number,
         order_total=order_total,
-        order_items=order_items
+        order_items=order_items,
+        is_guest=is_guest,
+        guest_view_token=guest_view_token
     )
 
 

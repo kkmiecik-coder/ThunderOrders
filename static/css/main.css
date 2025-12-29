@@ -75,13 +75,28 @@ body {
   color: var(--white);
 }
 
-.btn-danger {
-  background: var(--error);
+.btn-success {
+  background: linear-gradient(135deg, #4CAF50 0%, #388E3C 100%);
   color: var(--white);
+  box-shadow: 0 2px 8px rgba(76, 175, 80, 0.2);
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #F44336 0%, #D32F2F 100%);
+  color: var(--white);
+  box-shadow: 0 2px 8px rgba(244, 67, 54, 0.2);
 }
 
 .btn-danger:hover {
-  background: #D32F2F;
+  background: linear-gradient(135deg, #EF5350 0%, #E53935 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
 }
 
 /* Button Loading State */

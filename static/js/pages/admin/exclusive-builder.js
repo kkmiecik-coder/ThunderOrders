@@ -361,7 +361,7 @@ function getSectionTemplate(type) {
                             <!-- Column 1: Nazwa setu -->
                             <div class="set-name-col">
                                 <label class="set-name-label">Nazwa setu: <span style="color: red;">*</span></label>
-                                <input type="text" class="form-input set-name" placeholder="np. Karty BTS - komplet 8 szt">
+                                <input type="text" class="form-input set-name" placeholder="np. Karty BTS - komplet 8 szt" required>
                             </div>
 
                             <!-- Column 2: Dodaj tło seta button -->
@@ -720,10 +720,45 @@ function collectPageData() {
 }
 
 /**
+ * Validate page data before saving
+ */
+function validatePageData(data) {
+    // Check all set sections have a name
+    const setSections = document.querySelectorAll('.section-card[data-section-type="set"]');
+    for (let section of setSections) {
+        const setNameInput = section.querySelector('.set-name');
+        const setName = setNameInput ? setNameInput.value.trim() : '';
+
+        if (!setName) {
+            // Highlight the input
+            setNameInput.classList.add('input-error');
+            setNameInput.focus();
+
+            // Scroll to the section
+            section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            showToast('Nazwa setu jest wymagana', 'error');
+
+            // Remove error class after 3 seconds
+            setTimeout(() => setNameInput.classList.remove('input-error'), 3000);
+
+            return false;
+        }
+    }
+
+    return true;
+}
+
+/**
  * Save page (AJAX)
  */
 async function savePage() {
     const data = collectPageData();
+
+    // Validate before saving
+    if (!validatePageData(data)) {
+        return false;
+    }
 
     try {
         const response = await fetch(`/admin/exclusive/${builderConfig.pageId}/save`, {

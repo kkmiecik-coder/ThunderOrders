@@ -2670,6 +2670,97 @@ def guest_track(token):
     return render_template('orders/guest_track.html', order=order)
 
 
+@orders_bp.route('/order/track/<token>/upload-payment-proof', methods=['POST'])
+def guest_upload_payment_proof(token):
+    """Upload dowodu wpłaty przez gościa (bez logowania)"""
+    from werkzeug.utils import secure_filename
+    from datetime import datetime
+    import os
+
+    order = Order.get_by_guest_token(token)
+
+    if not order:
+        abort(404)
+
+    # Sprawdź czy można wgrać dowód
+    if not order.can_upload_payment_proof:
+        flash('Nie można wgrać dowodu płatności dla tego zamówienia', 'error')
+        return redirect(url_for('orders.guest_track', token=token))
+
+    # Walidacja pliku
+    if 'payment_proof' not in request.files:
+        flash('Nie wybrano pliku', 'error')
+        return redirect(url_for('orders.guest_track', token=token))
+
+    file = request.files['payment_proof']
+
+    if file.filename == '':
+        flash('Nie wybrano pliku', 'error')
+        return redirect(url_for('orders.guest_track', token=token))
+
+    # Walidacja rozszerzenia
+    allowed_extensions = {'jpg', 'jpeg', 'png', 'pdf'}
+    file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+
+    if file_ext not in allowed_extensions:
+        flash('Dozwolone formaty: JPG, PNG, PDF', 'error')
+        return redirect(url_for('orders.guest_track', token=token))
+
+    # Walidacja rozmiaru (max 5MB)
+    file.seek(0, os.SEEK_END)
+    file_size = file.tell()
+    file.seek(0)
+
+    if file_size > 5 * 1024 * 1024:  # 5MB
+        flash('Plik jest za duży. Maksymalny rozmiar: 5MB', 'error')
+        return redirect(url_for('orders.guest_track', token=token))
+
+    # Usuń stary plik (jeśli re-upload po odrzuceniu)
+    if order.payment_proof_file:
+        old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], order.payment_proof_file)
+        if os.path.exists(old_file_path):
+            os.remove(old_file_path)
+
+    # Zapisz nowy plik
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"order_{order.id}_{timestamp}.{file_ext}"
+
+    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    file_path = os.path.join(upload_dir, filename)
+    file.save(file_path)
+
+    # Pobierz wybraną metodę płatności z formularza
+    payment_method_name = request.form.get('payment_method_name', '').strip()
+
+    # Zapisz w bazie
+    order.payment_proof_file = f"payment_proofs/{filename}"
+    order.payment_proof_uploaded_at = datetime.utcnow()
+    order.payment_proof_status = 'pending'
+    order.payment_proof_rejection_reason = None  # Wyczyść poprzedni powód
+
+    # Automatycznie ustaw payment_method na wybraną metodę płatności z modalu
+    if payment_method_name and not order.payment_method:
+        order.payment_method = payment_method_name
+
+    db.session.commit()
+
+    # Log aktywności (dla gości zapisujemy z user=None)
+    import json
+    log_activity(
+        user=None,
+        action='payment_proof_uploaded_guest',
+        entity_type='order',
+        entity_id=order.id,
+        old_value=None,
+        new_value={'filename': filename, 'payment_method': payment_method_name, 'guest_email': order.guest_email}
+    )
+
+    flash('Dowód wpłaty został przesłany. Oczekuj na weryfikację.', 'success')
+    return redirect(url_for('orders.guest_track', token=token))
+
+
 # ============================================
 # PAYMENT PROOF - CLIENT ROUTES
 # ============================================

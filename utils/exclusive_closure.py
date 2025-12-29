@@ -15,6 +15,7 @@ from flask import current_app
 from extensions import db
 from modules.exclusive.models import ExclusivePage, ExclusiveSection, ExclusiveSetItem
 from modules.orders.models import Order, OrderItem
+from modules.auth.models import Settings
 
 
 def calculate_set_fulfillment(page_id):
@@ -302,7 +303,6 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
         }
     """
     from utils.activity_logger import log_activity
-    from modules.auth.models import Settings
 
     page = ExclusivePage.query.get(page_id)
     if not page:
@@ -441,14 +441,18 @@ def close_exclusive_page(page_id, user_id, send_emails=True):
                 send_closure_emails(page_id)
 
                 # NOWE: Email o anulowaniu (tylko dla zamówień not_fulfilled)
-                not_fulfilled_orders = [
-                    oid for oid in status_update_result['updated_order_ids']
-                    if Order.query.get(oid).status == Settings.query.filter_by(
-                        key='exclusive_closure_status_not_fulfilled'
-                    ).first().value
-                ]
-                if not_fulfilled_orders:
-                    send_cancellation_emails(page_id, not_fulfilled_orders)
+                status_not_fulfilled_setting = Settings.query.filter_by(
+                    key='exclusive_closure_status_not_fulfilled'
+                ).first()
+
+                if status_not_fulfilled_setting:
+                    status_not = status_not_fulfilled_setting.value
+                    not_fulfilled_orders = [
+                        oid for oid in status_update_result['updated_order_ids']
+                        if Order.query.get(oid).status == status_not
+                    ]
+                    if not_fulfilled_orders:
+                        send_cancellation_emails(page_id, not_fulfilled_orders)
 
             except Exception as e:
                 current_app.logger.error(f"Błąd wysyłki emaili dla strony {page_id}: {str(e)}")
@@ -696,6 +700,7 @@ def send_closure_emails(page_id):
             items.append({
                 'product_name': item.product_name,
                 'quantity': item.quantity,
+                'price': float(item.price) if item.price else 0.0,
                 'is_fulfilled': is_fulfilled,
             })
             if is_fulfilled:
@@ -732,10 +737,17 @@ def send_closure_emails(page_id):
                 'details': details
             })
 
-        # URL do wgrania dowodu
-        upload_payment_url = url_for('orders.client_detail',
-                                     order_id=order.id,
-                                     _external=True) + '?action=upload_payment'
+        # URL do wgrania dowodu - różny dla gości i zalogowanych użytkowników
+        if order.is_guest_order and order.guest_view_token:
+            # Dla gościa: publiczny link z tokenem
+            upload_payment_url = url_for('orders.guest_track',
+                                        token=order.guest_view_token,
+                                        _external=True) + '?action=upload_payment'
+        else:
+            # Dla zalogowanego użytkownika: standardowy link
+            upload_payment_url = url_for('orders.client_detail',
+                                        order_id=order.id,
+                                        _external=True) + '?action=upload_payment'
 
         try:
             send_exclusive_closure_email(
