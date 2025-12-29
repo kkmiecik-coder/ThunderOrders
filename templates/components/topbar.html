@@ -89,7 +89,7 @@
         </nav>
 
         <div class="mobile-menu-footer">
-            <div class="mobile-menu-user">
+            <a href="{{ url_for('profile.index') }}" class="mobile-menu-user">
                 <div class="mobile-menu-user-avatar {% if current_user.has_avatar %}has-avatar{% endif %}">
                     {% if current_user.has_avatar %}
                     <img src="{{ current_user.avatar_url }}" alt="{{ current_user.first_name }}">
@@ -101,7 +101,10 @@
                     <span class="mobile-menu-user-name">{{ current_user.first_name }} {{ current_user.last_name }}</span>
                     <span class="mobile-menu-user-role">{{ current_user.role|capitalize }}</span>
                 </div>
-            </div>
+                <svg class="mobile-menu-user-arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </a>
 
             <!-- Dark Mode Toggle -->
             <button class="mobile-menu-theme-toggle" id="mobileDarkModeToggle" aria-label="Toggle dark mode">

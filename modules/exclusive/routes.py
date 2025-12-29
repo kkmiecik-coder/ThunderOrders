@@ -208,8 +208,8 @@ def reserve(token):
             ).first()
 
             if set_item:
-                # Use set's max_per_product limit (GLOBAL limit)
-                section_max = set_item.section.set_max_per_product
+                # Use set's max_sets limit (ARCHITECTURE: 1 set = 1 of each product)
+                section_max = set_item.section.set_max_sets
             elif product_vg_ids:
                 # 4. Check if product's variant group is in a set
                 set_item_vg = ExclusiveSetItem.query.join(ExclusiveSection).filter(
@@ -218,7 +218,7 @@ def reserve(token):
                     ExclusiveSetItem.variant_group_id.in_(product_vg_ids)
                 ).first()
                 if set_item_vg:
-                    section_max = set_item_vg.section.set_max_per_product
+                    section_max = set_item_vg.section.set_max_sets
 
     # section_max = None means unlimited (will be treated as float('inf') in reserve_product)
 
@@ -295,8 +295,8 @@ def availability(token):
 
         elif section.section_type == 'set':
             # SET section - get all products from set items
-            # Use set_max_per_product if set, otherwise fall back to max_quantity
-            product_limit = section.set_max_per_product if section.set_max_per_product else section.max_quantity
+            # ARCHITECTURE: 1 set = 1 piece of each product, all products share set_max_sets
+            product_limit = section.set_max_sets
             set_items = ExclusiveSetItem.query.filter_by(section_id=section.id).all()
 
             for set_item in set_items:

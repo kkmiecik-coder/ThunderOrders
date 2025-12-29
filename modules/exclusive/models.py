@@ -552,3 +552,45 @@ class ExclusiveReservation(db.Model):
         import time
         remaining = self.expires_at - int(time.time())
         return max(0, remaining)
+
+
+class ExclusiveAutoIncreaseLog(db.Model):
+    """
+    Log historii uruchomień auto-zwiększania max dla stron exclusive
+
+    Przechowuje informacje o:
+    - Kiedy nastąpiło zwiększenie
+    - Który section został zwiększony
+    - Jakie były wartości przed i po
+    - Które produkty spełniły warunek
+    - Jaka konfiguracja spowodowała zwiększenie
+    """
+    __tablename__ = 'exclusive_auto_increase_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='CASCADE'), nullable=False)
+    section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='CASCADE'), nullable=False)
+
+    # Stan przed i po zwiększeniu
+    old_max_quantity = db.Column(db.Integer, nullable=False)
+    new_max_quantity = db.Column(db.Integer, nullable=False)
+
+    # Produkty które spełniły warunek
+    products_at_threshold = db.Column(db.JSON, comment='Lista product_id które osiągnęły próg')
+    total_products_in_set = db.Column(db.Integer, nullable=False)
+    products_sold_count = db.Column(db.JSON, comment='Mapa {product_id: sold_count}')
+
+    # Konfiguracja która zadziałała
+    trigger_product_threshold = db.Column(db.DECIMAL(5, 2), nullable=False)
+    trigger_set_threshold = db.Column(db.DECIMAL(5, 2), nullable=False)
+    trigger_increase_amount = db.Column(db.Integer, nullable=False)
+
+    # Timestamp
+    triggered_at = db.Column(db.DateTime, default=get_local_now)
+
+    # Relationships
+    page = db.relationship('ExclusivePage', backref=db.backref('auto_increase_logs', lazy='dynamic'))
+    section = db.relationship('ExclusiveSection', backref=db.backref('auto_increase_logs', lazy='dynamic'))
+
+    def __repr__(self):
+        return f'<ExclusiveAutoIncreaseLog section={self.section_id} {self.old_max_quantity}→{self.new_max_quantity}>'

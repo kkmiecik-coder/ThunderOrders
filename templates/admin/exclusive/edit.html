@@ -538,6 +538,7 @@
                                         </div>
                                         {% endif %}
                                         <span class="variant-product-name">{{ product.name }}</span>
+                                        <span class="variant-product-price">{{ "%.2f"|format(product.sale_price|float) }} PLN</span>
                                     </div>
                                     {% endfor %}
                                 </div>

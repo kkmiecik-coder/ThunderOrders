@@ -14,6 +14,7 @@ from modules.orders.models import Order, OrderItem
 from modules.orders.utils import generate_order_number
 from modules.products.models import Product
 from utils.activity_logger import log_activity
+from utils.exclusive_auto_increase import check_and_apply_auto_increase
 
 
 def validate_guest_data(guest_data):
@@ -103,7 +104,7 @@ def check_product_availability(reservations, page_id):
                 ).first()
 
                 if set_item:
-                    section_max = set_item.section.set_max_per_product
+                    section_max = set_item.section.set_max_sets
                 elif product_vg_ids:
                     set_item_vg = ExclusiveSetItem.query.join(ExclusiveSection).filter(
                         ExclusiveSection.exclusive_page_id == page_id,
@@ -111,7 +112,7 @@ def check_product_availability(reservations, page_id):
                         ExclusiveSetItem.variant_group_id.in_(product_vg_ids)
                     ).first()
                     if set_item_vg:
-                        section_max = set_item_vg.section.set_max_per_product
+                        section_max = set_item_vg.section.set_max_sets
 
         # If section has max_quantity, check if product has enough
         if section_max is not None and section_max < reservation.quantity:
@@ -251,6 +252,14 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     except Exception as e:
         db.session.rollback()
         return False, {'error': 'database_error', 'message': str(e)}
+
+    # 10b. Check and apply auto-increase if enabled
+    try:
+        check_and_apply_auto_increase(page.id)
+    except Exception as e:
+        # Don't fail the order if auto-increase fails
+        from flask import current_app
+        current_app.logger.error(f"Auto-increase check failed for page {page.id}: {str(e)}")
 
     # Calculate total items count
     total_items_count = len(reservations)

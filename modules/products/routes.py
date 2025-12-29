@@ -1100,7 +1100,8 @@ def search_variants():
             'sku': product.sku or '',
             'image_url': image_url,
             'series': product.series.name if product.series else 'Brak serii',
-            'type': product.product_type.name if product.product_type else 'Brak typu'
+            'type': product.product_type.name if product.product_type else 'Brak typu',
+            'price': float(product.sale_price) if product.sale_price else 0.0
         })
 
     return jsonify({'products': results})
@@ -2581,7 +2582,8 @@ def get_variant_group(group_id):
             'sku': product.sku or '',
             'image_url': image_url,
             'series': product.series.name if product.series else 'Brak serii',
-            'type': product.product_type.name if product.product_type else 'Brak typu'
+            'type': product.product_type.name if product.product_type else 'Brak typu',
+            'price': float(product.sale_price) if product.sale_price else 0.0
         })
 
     return jsonify({
@@ -2616,6 +2618,7 @@ def get_product_data(product_id):
             'sku': product.sku or '',
             'image_url': image_url,
             'series': product.series.name if product.series else 'Brak serii',
-            'type': product.product_type.name if product.product_type else 'Brak typu'
+            'type': product.product_type.name if product.product_type else 'Brak typu',
+            'price': float(product.sale_price) if product.sale_price else 0.0
         }
     })

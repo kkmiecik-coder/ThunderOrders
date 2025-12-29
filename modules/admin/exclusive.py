@@ -24,16 +24,45 @@ import json
 @admin_required
 def exclusive_list():
     """Lista wszystkich stron exclusive"""
+    from modules.orders.models import OrderStatus
+    from modules.auth.models import Settings
+
     pages = ExclusivePage.query.order_by(ExclusivePage.created_at.desc()).all()
 
     # Automatyczna aktualizacja statusów (scheduled->active, active->ended)
     for page in pages:
         page.check_and_update_status()
 
+    # Get statuses for settings form
+    statuses = OrderStatus.query.filter_by(is_active=True).all()
+
+    # Helper function to get setting value
+    def get_setting_value(key, default):
+        setting = Settings.query.filter_by(key=key).first()
+        return setting.value if setting else default
+
+    # Get exclusive closure settings
+    exclusive_closure_settings = {
+        'fully_fulfilled': get_setting_value('exclusive_closure_status_fully_fulfilled', 'oczekujace'),
+        'partially_fulfilled': get_setting_value('exclusive_closure_status_partially_fulfilled', 'oczekujace'),
+        'not_fulfilled': get_setting_value('exclusive_closure_status_not_fulfilled', 'anulowane')
+    }
+
+    # Get auto-increase global settings
+    auto_increase_settings = {
+        'enabled': get_setting_value('auto_increase_enabled', 'false') == 'true',
+        'product_threshold': int(get_setting_value('auto_increase_product_threshold', '100')),
+        'set_threshold': int(get_setting_value('auto_increase_set_threshold', '50')),
+        'amount': int(get_setting_value('auto_increase_amount', '1'))
+    }
+
     return render_template(
         'admin/exclusive/list.html',
         title='Strony Exclusive',
-        pages=pages
+        pages=pages,
+        statuses=statuses,
+        exclusive_closure_settings=exclusive_closure_settings,
+        auto_increase_settings=auto_increase_settings
     )
 
 
@@ -744,6 +773,140 @@ def exclusive_summary(page_id):
         summary=summary,
         include_financials=include_financials
     )
+
+
+# ============================================
+# Aktualizacja ustawień Exclusive Closure
+# ============================================
+
+@admin_bp.route('/exclusive/settings', methods=['POST'])
+@login_required
+@admin_required
+def update_exclusive_closure_settings():
+    """Update exclusive closure settings"""
+    from modules.auth.models import Settings
+    from utils.activity_logger import log_activity
+    import json
+
+    # Get form data
+    fully_fulfilled = request.form.get('exclusive_closure_status_fully_fulfilled')
+    partially_fulfilled = request.form.get('exclusive_closure_status_partially_fulfilled')
+    not_fulfilled = request.form.get('exclusive_closure_status_not_fulfilled')
+
+    # Validate
+    if not all([fully_fulfilled, partially_fulfilled, not_fulfilled]):
+        flash('Wszystkie statusy muszą być wybrane.', 'error')
+        return redirect(url_for('admin.exclusive_list'))
+
+    # Helper function to set setting value
+    def set_setting_value(key, value):
+        setting = Settings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = value
+        else:
+            setting = Settings(key=key, value=value, type='string')
+            db.session.add(setting)
+
+    # Update settings
+    set_setting_value('exclusive_closure_status_fully_fulfilled', fully_fulfilled)
+    set_setting_value('exclusive_closure_status_partially_fulfilled', partially_fulfilled)
+    set_setting_value('exclusive_closure_status_not_fulfilled', not_fulfilled)
+    db.session.commit()
+
+    # Log activity
+    log_activity(
+        user=current_user,
+        action='exclusive_closure_settings_updated',
+        entity_type='exclusive_settings',
+        entity_id=None,
+        new_value=json.dumps({
+            'fully_fulfilled': fully_fulfilled,
+            'partially_fulfilled': partially_fulfilled,
+            'not_fulfilled': not_fulfilled
+        })
+    )
+
+    flash('Ustawienia automatycznego przenoszenia zostały zaktualizowane.', 'success')
+    return redirect(url_for('admin.exclusive_list'))
+
+
+# ============================================
+# Aktualizacja globalnych ustawień Auto-zwiększania max
+# ============================================
+
+@admin_bp.route('/exclusive/settings/auto-increase', methods=['POST'])
+@login_required
+@admin_required
+def update_global_auto_increase_settings():
+    """Update global auto-increase settings (stored in settings table)"""
+    from utils.activity_logger import log_activity
+    from modules.auth.models import Settings
+    import json
+
+    # Get form data
+    auto_increase_enabled = request.form.get('auto_increase_enabled') == 'true'
+    auto_increase_product_threshold = request.form.get('auto_increase_product_threshold', type=int)
+    auto_increase_set_threshold = request.form.get('auto_increase_set_threshold', type=int)
+    auto_increase_amount = request.form.get('auto_increase_amount', type=int)
+
+    # Validate
+    if auto_increase_product_threshold is None or auto_increase_product_threshold < 0 or auto_increase_product_threshold > 100:
+        return jsonify({'success': False, 'error': 'Próg wyprzedania produktu musi być między 0 a 100'}), 400
+
+    if auto_increase_set_threshold is None or auto_increase_set_threshold < 0 or auto_increase_set_threshold > 100:
+        return jsonify({'success': False, 'error': 'Próg wyprzedanych produktów w secie musi być między 0 a 100'}), 400
+
+    if auto_increase_amount is None or auto_increase_amount < 1:
+        return jsonify({'success': False, 'error': 'Zwiększenie max musi być co najmniej 1'}), 400
+
+    # Helper function to update or create setting
+    def update_setting(key, value):
+        setting = Settings.query.filter_by(key=key).first()
+        if setting:
+            setting.value = str(value)
+        else:
+            setting = Settings(key=key, value=str(value), type='string')
+            db.session.add(setting)
+
+    # Store old values for activity log
+    def get_setting_value(key, default):
+        setting = Settings.query.filter_by(key=key).first()
+        return setting.value if setting else default
+
+    old_values = {
+        'enabled': get_setting_value('auto_increase_enabled', 'false') == 'true',
+        'product_threshold': int(get_setting_value('auto_increase_product_threshold', '100')),
+        'set_threshold': int(get_setting_value('auto_increase_set_threshold', '50')),
+        'amount': int(get_setting_value('auto_increase_amount', '1'))
+    }
+
+    # Update settings in database
+    update_setting('auto_increase_enabled', 'true' if auto_increase_enabled else 'false')
+    update_setting('auto_increase_product_threshold', str(auto_increase_product_threshold))
+    update_setting('auto_increase_set_threshold', str(auto_increase_set_threshold))
+    update_setting('auto_increase_amount', str(auto_increase_amount))
+
+    db.session.commit()
+
+    # Log activity
+    log_activity(
+        user=current_user,
+        action='global_auto_increase_settings_updated',
+        entity_type='Settings',
+        entity_id=None,
+        old_value=json.dumps(old_values),
+        new_value=json.dumps({
+            'enabled': auto_increase_enabled,
+            'product_threshold': auto_increase_product_threshold,
+            'set_threshold': auto_increase_set_threshold,
+            'amount': auto_increase_amount
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'message': 'Ustawienia auto-zwiększania zostały zapisane.'
+    })
 
 
 # ============================================

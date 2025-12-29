@@ -2368,3 +2368,114 @@ body:has(.builder-page) {
     25% { transform: translateX(-5px); }
     75% { transform: translateX(5px); }
 }
+
+/* ========================================
+   AUTO-INCREASE FORM STYLES
+   ======================================== */
+
+/* Section description text */
+.section-description {
+    font-size: 13px;
+    color: var(--gray-600);
+    margin-bottom: var(--space-4);
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .section-description {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Checkbox group */
+.checkbox-group {
+    margin-bottom: var(--space-6);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-text {
+    font-weight: var(--font-medium);
+}
+
+/* Auto-increase fields container */
+.auto-increase-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    margin-bottom: var(--space-5);
+}
+
+/* Form hints (small text below inputs) */
+.form-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-top: var(--space-1);
+    line-height: 1.4;
+}
+
+[data-theme="dark"] .form-hint {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Example box */
+.example-box {
+    background: rgba(255, 158, 0, 0.1);
+    border-left: 3px solid var(--orange-300);
+    padding: var(--space-3);
+    margin-bottom: var(--space-5);
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.example-box strong {
+    color: var(--orange-400);
+    font-weight: var(--font-semibold);
+}
+
+[data-theme="dark"] .example-box {
+    background: rgba(255, 158, 0, 0.15);
+    border-left-color: var(--orange-400);
+}
+
+[data-theme="dark"] .example-box strong {
+    color: var(--orange-300);
+}
+
+/* Form actions for auto-increase */
+.form-actions {
+    margin-top: var(--space-4);
+}
+
+/* Button block (full width) */
+.btn-block {
+    width: 100%;
+    justify-content: center;
+}
+
+/* Spinner for loading state */
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

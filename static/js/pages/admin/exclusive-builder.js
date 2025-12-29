@@ -52,6 +52,9 @@ function initExclusiveBuilder(config) {
     // Initialize product dependencies management
     updateAllSetsButtons();
     updateProductDropdowns();
+
+    // Initialize auto-increase form
+    initializeAutoIncreaseForm();
 }
 
 /**
@@ -1606,4 +1609,98 @@ function updateSetProductPreview(select) {
 
     // Show preview card
     previewCard.style.display = 'block';
+}
+
+/**
+ * Initialize Auto-increase Form
+ * Handles the auto-increase settings form in the sidebar
+ */
+function initializeAutoIncreaseForm() {
+    const form = document.getElementById('auto-increase-form');
+    if (!form) return;
+
+    const saveBtn = document.getElementById('save_auto_increase_btn');
+    const enabledCheckbox = document.getElementById('auto_increase_enabled');
+    const productThreshold = document.getElementById('auto_increase_product_threshold');
+    const setThreshold = document.getElementById('auto_increase_set_threshold');
+    const amount = document.getElementById('auto_increase_amount');
+
+    // Store initial values
+    const initialValues = {
+        enabled: enabledCheckbox.checked,
+        product_threshold: productThreshold.value,
+        set_threshold: setThreshold.value,
+        amount: amount.value
+    };
+
+    // Function to check for changes
+    function checkForChanges() {
+        const currentValues = {
+            enabled: enabledCheckbox.checked,
+            product_threshold: productThreshold.value,
+            set_threshold: setThreshold.value,
+            amount: amount.value
+        };
+
+        const hasChanges = JSON.stringify(initialValues) !== JSON.stringify(currentValues);
+        saveBtn.disabled = !hasChanges;
+    }
+
+    // Add event listeners
+    enabledCheckbox.addEventListener('change', checkForChanges);
+    productThreshold.addEventListener('input', checkForChanges);
+    setThreshold.addEventListener('input', checkForChanges);
+    amount.addEventListener('input', checkForChanges);
+
+    // Handle form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Disable button during submission
+        saveBtn.disabled = true;
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<span class="spinner"></span> Zapisywanie...';
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('csrf_token', form.querySelector('input[name="csrf_token"]').value);
+        formData.append('auto_increase_enabled', enabledCheckbox.checked ? 'true' : 'false');
+        formData.append('auto_increase_product_threshold', productThreshold.value);
+        formData.append('auto_increase_set_threshold', setThreshold.value);
+        formData.append('auto_increase_amount', amount.value);
+
+        // Submit via AJAX
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update initial values
+                initialValues.enabled = enabledCheckbox.checked;
+                initialValues.product_threshold = productThreshold.value;
+                initialValues.set_threshold = setThreshold.value;
+                initialValues.amount = amount.value;
+
+                // Show success message
+                showToast(data.message || 'Ustawienia auto-zwiększania zostały zapisane.', 'success');
+
+                // Reset button
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = true;
+
+                // Mark as not dirty since we just saved
+                isDirty = false;
+            } else {
+                throw new Error(data.error || 'Wystąpił błąd podczas zapisywania.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast(error.message || 'Wystąpił błąd podczas zapisywania.', 'error');
+            saveBtn.innerHTML = originalText;
+            checkForChanges(); // Re-enable button if there are still changes
+        });
+    });
 }

@@ -115,6 +115,7 @@ function renderGroup(group, index) {
 
     const productsHtml = group.products.map(product => {
         console.log('[RENDER GROUP]   - Rendering product:', product);
+        const price = product.price !== undefined ? parseFloat(product.price).toFixed(2) : '0.00';
         return `
         <div class="variant-product-tile" data-product-id="${product.id}">
             <button type="button" class="tile-remove-btn" onclick="removeProductFromGroup('${group.tempId}', ${product.id})" title="Usuń produkt">
@@ -126,6 +127,7 @@ function renderGroup(group, index) {
             <div class="tile-info">
                 <div class="tile-name" title="${product.name}">${product.name}</div>
                 <div class="tile-meta">${product.series} • ${product.type}</div>
+                <div class="tile-price">${price} PLN</div>
             </div>
         </div>
     `;
@@ -294,6 +296,7 @@ async function performSearch(groupTempId, query) {
             const productSeries = (product.series || '').replace(/"/g, '&quot;');
             const productType = (product.type || '').replace(/"/g, '&quot;');
             const productImage = product.image_url.replace(/"/g, '&quot;');
+            const productPrice = product.price !== undefined ? product.price : 0.0;
 
             return `
             <div class="search-result-item"
@@ -301,7 +304,8 @@ async function performSearch(groupTempId, query) {
                  data-product-name="${productName}"
                  data-product-series="${productSeries}"
                  data-product-type="${productType}"
-                 data-product-image="${productImage}">
+                 data-product-image="${productImage}"
+                 data-product-price="${productPrice}">
                 <input type="checkbox"
                        class="result-checkbox"
                        ${isChecked ? 'checked' : ''}
@@ -407,7 +411,8 @@ function addProductToGroupFromData(groupTempId, itemElement) {
         name: itemElement.getAttribute('data-product-name'),
         series: itemElement.getAttribute('data-product-series'),
         type: itemElement.getAttribute('data-product-type'),
-        image_url: itemElement.getAttribute('data-product-image')
+        image_url: itemElement.getAttribute('data-product-image'),
+        price: parseFloat(itemElement.getAttribute('data-product-price')) || 0.0
     };
 
     addProductToGroup(groupTempId, product);
@@ -571,7 +576,8 @@ async function addSelectedProducts(groupTempId) {
             name: nameElement.textContent,
             image_url: imgElement ? imgElement.src : '/static/img/product-placeholder.svg',
             series: metaElement ? metaElement.textContent.split(' • ')[0] : '',
-            type: metaElement ? metaElement.textContent.split(' • ')[1] : ''
+            type: metaElement ? metaElement.textContent.split(' • ')[1] : '',
+            price: parseFloat(productItem.getAttribute('data-product-price')) || 0.0
         };
 
         // Check if product is already in group
