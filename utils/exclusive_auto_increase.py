@@ -196,32 +196,25 @@ def check_and_apply_auto_increase(page_id):
             # Dodaj do listy zwiększonych sekcji
             increased_sections.append(section.id)
 
-            # Zaloguj do activity log
+    # Zapisz wszystkie zmiany PRZED próbą logowania do activity_log
+    if increased_sections:
+        db.session.commit()
+        print(f"[AUTO-INCREASE] Changes committed for sections: {increased_sections}")
+
+        # Zaloguj do activity log (osobna operacja, nie blokuje głównej zmiany)
+        for section_id in increased_sections:
             try:
                 from utils.activity_logger import log_activity
                 log_activity(
                     user=None,  # System action
                     action='exclusive_auto_increase_triggered',
                     entity_type='ExclusiveSection',
-                    entity_id=section.id,
-                    old_value=json.dumps({'max': old_max}),
-                    new_value=json.dumps({
-                        'max': new_max,
-                        'trigger_conditions': {
-                            'product_threshold': auto_increase_product_threshold,
-                            'set_threshold': auto_increase_set_threshold,
-                            'increase_amount': auto_increase_amount
-                        },
-                        'products_at_threshold_count': len(products_at_threshold),
-                        'total_products': total_products
-                    })
+                    entity_id=section_id,
+                    old_value=None,
+                    new_value=json.dumps({'section_id': section_id, 'increased': True})
                 )
             except Exception as e:
                 # Nie przerywaj procesu jeśli logowanie nie zadziała
-                print(f"Failed to log auto-increase activity: {e}")
-
-    # Zapisz wszystkie zmiany
-    if increased_sections:
-        db.session.commit()
+                print(f"[AUTO-INCREASE] Failed to log activity (non-critical): {e}")
 
     return increased_sections
