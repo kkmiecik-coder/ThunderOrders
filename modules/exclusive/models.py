@@ -589,8 +589,9 @@ class ExclusiveAutoIncreaseLog(db.Model):
     triggered_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
-    page = db.relationship('ExclusivePage', backref=db.backref('auto_increase_logs', lazy='dynamic'))
-    section = db.relationship('ExclusiveSection', backref=db.backref('auto_increase_logs', lazy='dynamic'))
+    # passive_deletes=True pozwala bazie danych obsłużyć CASCADE DELETE
+    page = db.relationship('ExclusivePage', backref=db.backref('auto_increase_logs', lazy='dynamic', passive_deletes=True))
+    section = db.relationship('ExclusiveSection', backref=db.backref('auto_increase_logs', lazy='dynamic', passive_deletes=True))
 
     def __repr__(self):
         return f'<ExclusiveAutoIncreaseLog section={self.section_id} {self.old_max_quantity}→{self.new_max_quantity}>'
