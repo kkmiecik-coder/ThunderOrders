@@ -138,7 +138,7 @@
             {% if pagination.pages > 1 %}
             <div class="pagination-compact">
                 {% if pagination.has_prev %}
-                <a href="{{ url_for('products.list_products', page=pagination.prev_num, per_page=pagination.per_page, **request.args) }}"
+                <a href="{{ url_for('products.list_products', page=pagination.prev_num, per_page=pagination.per_page, search=request.args.get('search', ''), category=request.args.get('category', ''), status=request.args.get('status', ''), sort=request.args.get('sort', '')) }}"
                    class="pagination-arrow">‹</a>
                 {% else %}
                 <span class="pagination-arrow disabled">‹</span>
@@ -149,13 +149,13 @@
                        value="{{ pagination.page }}"
                        min="1"
                        max="{{ pagination.pages }}"
-                       onchange="window.location.href='{{ url_for('products.list_products', per_page=pagination.per_page, **request.args) }}&page=' + this.value">
+                       onchange="window.location.href='{{ url_for('products.list_products', per_page=pagination.per_page, search=request.args.get('search', ''), category=request.args.get('category', ''), status=request.args.get('status', ''), sort=request.args.get('sort', '')) }}&page=' + this.value">
 
                 <span class="pagination-sep">/</span>
                 <span class="pagination-total">{{ pagination.pages }}</span>
 
                 {% if pagination.has_next %}
-                <a href="{{ url_for('products.list_products', page=pagination.next_num, per_page=pagination.per_page, **request.args) }}"
+                <a href="{{ url_for('products.list_products', page=pagination.next_num, per_page=pagination.per_page, search=request.args.get('search', ''), category=request.args.get('category', ''), status=request.args.get('status', ''), sort=request.args.get('sort', '')) }}"
                    class="pagination-arrow">›</a>
                 {% else %}
                 <span class="pagination-arrow disabled">›</span>
