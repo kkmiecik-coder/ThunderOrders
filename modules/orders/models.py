@@ -622,6 +622,23 @@ class Order(db.Model):
         """Czy dowód odrzucony"""
         return self.payment_proof_status == 'rejected'
 
+    @property
+    def is_payment_proof_upload_disabled(self):
+        """
+        Czy upload dowodu wpłaty jest zablokowany dla danego statusu zamówienia.
+        Lista zablokowanych statusów jest konfigurowana w Ustawienia > Sposoby płatności.
+        """
+        from modules.auth.models import Settings
+        import json
+
+        disabled_statuses_json = Settings.get_value('payment_proof_disabled_statuses', '[]')
+        try:
+            disabled_statuses = json.loads(disabled_statuses_json) if disabled_statuses_json else []
+        except (json.JSONDecodeError, TypeError):
+            disabled_statuses = []
+
+        return self.status in disabled_statuses
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal

@@ -1624,12 +1624,21 @@ def settings():
         'not_fulfilled': get_setting_value('exclusive_closure_status_not_fulfilled', 'anulowane')
     }
 
+    # Load payment proof disabled statuses
+    import json
+    payment_proof_disabled_json = get_setting_value('payment_proof_disabled_statuses', '[]')
+    try:
+        payment_proof_disabled_statuses = json.loads(payment_proof_disabled_json) if payment_proof_disabled_json else []
+    except (json.JSONDecodeError, TypeError):
+        payment_proof_disabled_statuses = []
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
         wms_statuses=wms_statuses,
         payment_methods=payment_methods,
         exclusive_closure_settings=exclusive_closure_settings,
+        payment_proof_disabled_statuses=payment_proof_disabled_statuses,
         page_title='Ustawienia zamówień'
     )
 
@@ -1714,6 +1723,63 @@ def update_exclusive_closure_settings():
         db.session.rollback()
         flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
         return redirect(url_for('orders.settings'))
+
+
+@orders_bp.route('/admin/orders/settings/payment-proof-disabled-statuses', methods=['POST'])
+@login_required
+@role_required('admin')
+def update_payment_proof_disabled_statuses():
+    """
+    Update list of statuses that disable payment proof upload.
+    Only accessible to admins.
+    """
+    from modules.auth.models import Settings
+    import json
+
+    try:
+        # Get selected statuses (list of slugs)
+        disabled_statuses = request.form.getlist('disabled_statuses')
+
+        # Validate that all selected statuses exist
+        valid_statuses = [s.slug for s in OrderStatus.query.filter_by(is_active=True).all()]
+
+        # Filter only valid statuses
+        validated_statuses = [s for s in disabled_statuses if s in valid_statuses]
+
+        # Update or create setting
+        setting = Settings.query.filter_by(key='payment_proof_disabled_statuses').first()
+        if setting:
+            setting.value = json.dumps(validated_statuses)
+            setting.updated_at = datetime.now()
+        else:
+            setting = Settings(
+                key='payment_proof_disabled_statuses',
+                value=json.dumps(validated_statuses),
+                type='json',
+                description='Lista statusów blokujących wgrywanie dowodu wpłaty'
+            )
+            db.session.add(setting)
+
+        db.session.commit()
+
+        # Activity log
+        from utils.activity_logger import log_activity
+        log_activity(
+            user=current_user,
+            action='settings_updated',
+            entity_type='settings',
+            entity_id=None,
+            old_value=None,
+            new_value={'payment_proof_disabled_statuses': validated_statuses}
+        )
+
+        flash('Ustawienia zostały zapisane', 'success')
+        return redirect(url_for('orders.settings') + '#tab-payment-methods')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
+        return redirect(url_for('orders.settings') + '#tab-payment-methods')
 
 
 # ============================================

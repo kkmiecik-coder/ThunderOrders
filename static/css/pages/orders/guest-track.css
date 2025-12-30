@@ -721,3 +721,42 @@
 [data-theme="dark"] .help-text {
     color: rgba(255, 255, 255, 0.5);
 }
+
+
+/* ================================================
+   Disabled Upload Button
+   ================================================ */
+
+.payment-section .btn-disabled,
+.payment-section .upload-btn-disabled {
+    background: #9E9E9E !important;
+    color: #ffffff !important;
+    cursor: not-allowed !important;
+    opacity: 0.7;
+}
+
+.payment-section .btn-disabled:hover,
+.payment-section .upload-btn-disabled:hover {
+    background: #9E9E9E !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.payment-section .upload-disabled-message {
+    margin-top: 12px;
+    font-size: 13px;
+    color: #757575;
+    font-style: italic;
+    text-align: center;
+}
+
+/* Dark mode */
+[data-theme="dark"] .payment-section .btn-disabled,
+[data-theme="dark"] .payment-section .upload-btn-disabled {
+    background: rgba(158, 158, 158, 0.3) !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+[data-theme="dark"] .payment-section .upload-disabled-message {
+    color: rgba(255, 255, 255, 0.4);
+}
