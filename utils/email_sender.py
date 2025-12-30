@@ -284,3 +284,28 @@ def send_order_cancelled_email(user_email, user_name, order_number, page_name,
     except Exception as e:
         logger.error(f"Error sending order cancelled email to {user_email}: {e}")
         return False
+
+
+def send_back_in_stock_email(email, product_name, product_image_url, exclusive_page_name, exclusive_page_url):
+    """
+    Wysyła powiadomienie o powrocie produktu do dostępności na stronie Exclusive.
+
+    Args:
+        email (str): Email odbiorcy
+        product_name (str): Nazwa produktu
+        product_image_url (str): URL do zdjęcia produktu (lub None)
+        exclusive_page_name (str): Nazwa strony Exclusive
+        exclusive_page_url (str): URL do strony Exclusive
+
+    Returns:
+        bool: True jeśli email został wysłany
+    """
+    return send_email(
+        to=email,
+        subject=f'{product_name} jest znów dostępny! - ThunderOrders',
+        template='back_in_stock',
+        product_name=product_name,
+        product_image_url=product_image_url,
+        exclusive_page_name=exclusive_page_name,
+        exclusive_page_url=exclusive_page_url
+    )

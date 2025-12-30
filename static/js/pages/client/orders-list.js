@@ -3,13 +3,18 @@
  */
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Custom Select for Status
-    initCustomSelect();
+    // Initialize Mobile Filters Toggle
+    initFiltersToggle();
+
+    // Initialize Custom Selects (Status, Payment Status, Proof Status)
+    initCustomSelect('status');
+    initCustomSelect('payment-status');
+    initCustomSelect('proof-status');
 
     // Initialize Active Filters Display
     initActiveFilters();
 
-    // Initialize Search Input with Debounce (NEW)
+    // Initialize Search Input with Debounce
     initSearchInput();
 
     // Add loading state to action buttons
@@ -45,17 +50,42 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * Initialize Custom Select (Status Filter)
+ * Initialize Mobile Filters Toggle
  */
-function initCustomSelect() {
-    const wrapper = document.getElementById('status-select-wrapper');
-    const trigger = document.getElementById('status-trigger');
-    const dropdown = document.getElementById('status-dropdown');
-    const input = document.getElementById('status-input');
-    const label = document.getElementById('status-label');
-    const options = dropdown.querySelectorAll('.select-option');
+function initFiltersToggle() {
+    const toggleBtn = document.getElementById('filters-toggle');
+    const filtersPanel = document.querySelector('.filters-panel');
 
-    if (!wrapper || !trigger || !dropdown || !input) return;
+    if (!toggleBtn || !filtersPanel) return;
+
+    toggleBtn.addEventListener('click', function() {
+        filtersPanel.classList.toggle('filters-open');
+    });
+
+    // Keep filters open if any filter is active
+    const params = new URLSearchParams(window.location.search);
+    const hasActiveFilters = params.has('status') || params.has('date_from') || params.has('date_to') ||
+                             params.has('search') || params.has('payment_status') || params.has('proof_status');
+
+    if (hasActiveFilters) {
+        filtersPanel.classList.add('filters-open');
+    }
+}
+
+/**
+ * Initialize Custom Select (Generic - works for any filter)
+ * @param {string} prefix - The prefix used in element IDs (e.g., 'status', 'payment-status', 'proof-status')
+ */
+function initCustomSelect(prefix) {
+    const wrapper = document.getElementById(`${prefix}-select-wrapper`);
+    const trigger = document.getElementById(`${prefix}-trigger`);
+    const dropdown = document.getElementById(`${prefix}-dropdown`);
+    const input = document.getElementById(`${prefix}-input`);
+    const label = document.getElementById(`${prefix}-label`);
+
+    if (!wrapper || !trigger || !dropdown || !input || !label) return;
+
+    const options = dropdown.querySelectorAll('.select-option');
 
     // Set initial label based on current value
     const currentValue = input.value;
@@ -70,6 +100,10 @@ function initCustomSelect() {
     // Toggle dropdown
     trigger.addEventListener('click', function(e) {
         e.stopPropagation();
+        // Close other dropdowns first
+        document.querySelectorAll('.custom-select-wrapper.open').forEach(w => {
+            if (w !== wrapper) w.classList.remove('open');
+        });
         wrapper.classList.toggle('open');
     });
 
@@ -168,10 +202,28 @@ function getActiveFilters() {
         filters.push({ name: 'date_to', label: `Do: ${dateTo}`, value: dateTo });
     }
 
-    // Search filter (NEW)
+    // Search filter
     const search = params.get('search');
     if (search) {
         filters.push({ name: 'search', label: `Szukaj: "${search}"`, value: search });
+    }
+
+    // Payment status filter
+    const paymentStatus = params.get('payment_status');
+    if (paymentStatus) {
+        const dropdown = document.getElementById('payment-status-dropdown');
+        const selectedOption = dropdown?.querySelector(`[data-value="${paymentStatus}"]`);
+        const label = selectedOption?.querySelector('span')?.textContent || paymentStatus;
+        filters.push({ name: 'payment_status', label: `Płatność: ${label}`, value: paymentStatus });
+    }
+
+    // Proof status filter
+    const proofStatus = params.get('proof_status');
+    if (proofStatus) {
+        const dropdown = document.getElementById('proof-status-dropdown');
+        const selectedOption = dropdown?.querySelector(`[data-value="${proofStatus}"]`);
+        const label = selectedOption?.querySelector('span')?.textContent || proofStatus;
+        filters.push({ name: 'proof_status', label: `Dowód: ${label}`, value: proofStatus });
     }
 
     return filters;

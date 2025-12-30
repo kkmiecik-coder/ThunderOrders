@@ -48,23 +48,23 @@
         </div>
 
         <!-- Rząd 2: Payment Status -->
-        <div class="metric-card metric-card-success">
+        <a href="{{ url_for('orders.client_list', payment_status='paid') }}" class="metric-card metric-card-success metric-card-clickable">
             <div class="metric-icon">💰</div>
             <div class="metric-content">
                 <h3 class="metric-title">Zapłacone</h3>
                 <p class="metric-value">{{ payment.paid | format_currency }}</p>
                 <p class="metric-subtitle">Łącznie opłacone</p>
             </div>
-        </div>
+        </a>
 
-        <div class="metric-card metric-card-warning">
+        <a href="{{ url_for('orders.client_list', payment_status='unpaid') }}" class="metric-card metric-card-warning metric-card-clickable">
             <div class="metric-icon">💳</div>
             <div class="metric-content">
                 <h3 class="metric-title">Do zapłaty</h3>
                 <p class="metric-value">{{ payment.to_pay | format_currency }}</p>
                 <p class="metric-subtitle">Pozostało do opłacenia</p>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Grid: Wykres + Ostatnie zamówienia -->

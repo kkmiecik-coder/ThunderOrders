@@ -629,12 +629,12 @@ class Order(db.Model):
         Lista zablokowanych statusów jest konfigurowana w Ustawienia > Sposoby płatności.
         """
         from modules.auth.models import Settings
-        import json
 
-        disabled_statuses_json = Settings.get_value('payment_proof_disabled_statuses', '[]')
-        try:
-            disabled_statuses = json.loads(disabled_statuses_json) if disabled_statuses_json else []
-        except (json.JSONDecodeError, TypeError):
+        # get_value już parsuje JSON dla typu 'json', więc dostajemy listę
+        disabled_statuses = Settings.get_value('payment_proof_disabled_statuses', [])
+
+        # Upewnij się że to lista
+        if not isinstance(disabled_statuses, list):
             disabled_statuses = []
 
         return self.status in disabled_statuses

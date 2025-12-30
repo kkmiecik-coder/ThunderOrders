@@ -753,6 +753,64 @@
     </div>
 </div>
 
+<!-- Notification Subscription Modal -->
+<div id="notificationModal" class="exclusive-modal-overlay">
+    <div class="exclusive-modal-box exclusive-modal-notification">
+        <!-- Close button -->
+        <button type="button" class="exclusive-modal-close-btn" onclick="closeNotificationModal()">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+            </svg>
+        </button>
+
+        <!-- Header with bell icon -->
+        <div class="exclusive-modal-header">
+            <div class="exclusive-modal-sparkle notification-bell-icon-modal">
+                <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z"/>
+                </svg>
+            </div>
+            <h2 class="exclusive-modal-title">Powiadom mnie</h2>
+            <p class="exclusive-modal-subtitle" id="notificationProductName">o dostępności produktu</p>
+        </div>
+
+        <!-- Body -->
+        <div class="exclusive-modal-body">
+            {% if current_user.is_authenticated %}
+            <!-- Logged in user -->
+            <p class="exclusive-modal-message">
+                Gdy produkt stanie się dostępny, wyślemy jednorazowe powiadomienie na adres:
+            </p>
+            <p class="notification-email-display">{{ current_user.email }}</p>
+            {% else %}
+            <!-- Guest user -->
+            <p class="exclusive-modal-message">
+                Podaj swój adres email, a powiadomimy Cię gdy produkt stanie się dostępny.
+            </p>
+            <div class="notification-form-group">
+                <label for="notificationEmail">Adres email</label>
+                <input type="email" id="notificationEmail" class="exclusive-input" placeholder="twoj@email.pl" required>
+                <span id="notificationEmailError" class="notification-error hidden"></span>
+            </div>
+            {% endif %}
+
+            <p class="notification-hint">
+                Powiadomienie jest jednorazowe - po wysłaniu automatycznie usuwamy Twoje dane.
+            </p>
+        </div>
+
+        <!-- Footer -->
+        <div class="exclusive-modal-footer">
+            <button type="button" class="exclusive-btn-submit notification-submit-btn" id="notificationSubmitBtn" onclick="submitNotificationSubscription()">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z"/>
+                </svg>
+                <span>Powiadom mnie</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -774,6 +832,7 @@ window.reserveProductUrl = '/exclusive/{{ page.token }}/reserve';
 window.releaseProductUrl = '/exclusive/{{ page.token }}/release';
 window.restoreReservationUrl = '/exclusive/{{ page.token }}/restore';
 window.extendReservationUrl = '/exclusive/{{ page.token }}/extend';
+window.subscribeNotificationUrl = '/exclusive/{{ page.token }}/subscribe-notification';
 
 // Dynamic URL (function to get current sessionId)
 window.getAvailabilityCheckUrl = function() {

@@ -594,3 +594,56 @@ class ExclusiveAutoIncreaseLog(db.Model):
 
     def __repr__(self):
         return f'<ExclusiveAutoIncreaseLog section={self.section_id} {self.old_max_quantity}→{self.new_max_quantity}>'
+
+
+# ============================================
+# ExclusiveProductNotificationSubscription
+# ============================================
+
+class ExclusiveProductNotificationSubscription(db.Model):
+    """
+    Subskrypcja powiadomienia o powrocie dostępności produktu na stronie Exclusive.
+
+    Użytkownik (zalogowany lub gość) może zapisać się na powiadomienie email,
+    gdy produkt jest niedostępny. Po powrocie dostępności (zwiększenie max_quantity
+    lub auto-increase) system wysyła jednorazowe powiadomienie.
+    """
+    __tablename__ = 'exclusive_product_notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='CASCADE'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+
+    # Dla zalogowanych użytkowników
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
+
+    # Dla gości (niezalogowanych)
+    guest_email = db.Column(db.String(255), nullable=True)
+
+    # Status i timestamps
+    notified = db.Column(db.Boolean, default=False, nullable=False)
+    notified_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+
+    # Relacje
+    page = db.relationship('ExclusivePage', backref=db.backref('notification_subscriptions', lazy='dynamic'))
+    product = db.relationship('Product', backref=db.backref('exclusive_notification_subscriptions', lazy='dynamic'))
+    user = db.relationship('User', backref=db.backref('exclusive_notification_subscriptions', lazy='dynamic'))
+
+    # Constraints - unikalne kombinacje (page + product + user/email)
+    __table_args__ = (
+        db.Index('ix_notification_page_product', 'exclusive_page_id', 'product_id'),
+        db.Index('ix_notification_not_notified', 'exclusive_page_id', 'product_id', 'notified'),
+    )
+
+    def __repr__(self):
+        if self.user_id:
+            return f'<ExclusiveNotification page={self.exclusive_page_id} product={self.product_id} user={self.user_id}>'
+        return f'<ExclusiveNotification page={self.exclusive_page_id} product={self.product_id} email={self.guest_email}>'
+
+    @property
+    def email(self):
+        """Zwraca email subskrybenta (z konta lub guest_email)"""
+        if self.user:
+            return self.user.email
+        return self.guest_email

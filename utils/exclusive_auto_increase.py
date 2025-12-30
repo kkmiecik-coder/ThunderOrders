@@ -201,6 +201,28 @@ def check_and_apply_auto_increase(page_id):
         db.session.commit()
         print(f"[AUTO-INCREASE] Changes committed for sections: {increased_sections}")
 
+        # Wyślij powiadomienia o dostępności dla zwiększonych sekcji
+        for section_id in increased_sections:
+            try:
+                section = ExclusiveSection.query.get(section_id)
+                if section:
+                    from utils.exclusive_notifications import check_and_send_notifications_for_section
+                    # old_max i new_max są już zapisane w logu, pobierz je
+                    log_entry = ExclusiveAutoIncreaseLog.query.filter_by(
+                        section_id=section_id
+                    ).order_by(ExclusiveAutoIncreaseLog.triggered_at.desc()).first()
+                    if log_entry:
+                        sent_count = check_and_send_notifications_for_section(
+                            page_id=page_id,
+                            section_id=section_id,
+                            old_max=log_entry.old_max_quantity,
+                            new_max=log_entry.new_max_quantity
+                        )
+                        if sent_count > 0:
+                            print(f"[AUTO-INCREASE] Sent {sent_count} back-in-stock notifications for section {section_id}")
+            except Exception as e:
+                print(f"[AUTO-INCREASE] Failed to send notifications for section {section_id}: {e}")
+
         # Zaloguj do activity log (osobna operacja, nie blokuje głównej zmiany)
         for section_id in increased_sections:
             try:

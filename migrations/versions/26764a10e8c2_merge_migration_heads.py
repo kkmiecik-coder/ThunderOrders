@@ -1,7 +1,7 @@
 """Merge migration heads
 
 Revision ID: 26764a10e8c2
-Revises: remove_auto_increase, 62fcf074a0ed
+Revises: remove_auto_increase
 Create Date: 2025-12-29 23:09:04.346140
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = '26764a10e8c2'
-down_revision = ('remove_auto_increase', '62fcf074a0ed')
+down_revision = 'remove_auto_increase'
 branch_labels = None
 depends_on = None
 

@@ -460,3 +460,154 @@ def place_order(token):
         return jsonify({'success': True, **result})
     else:
         return jsonify({'success': False, **result}), 400
+
+
+# ============================================
+# Notification Subscription Endpoint
+# ============================================
+
+@exclusive_bp.route('/<token>/subscribe-notification', methods=['POST'])
+def subscribe_notification(token):
+    """
+    Zapisuje użytkownika na powiadomienie o dostępności produktu.
+
+    Dla zalogowanych użytkowników: używa email z konta.
+    Dla gości: wymaga podania email w body.
+
+    Request body:
+    {
+        "product_id": 123,
+        "email": "guest@example.com"  // tylko dla gości
+    }
+    """
+    from .models import ExclusiveProductNotificationSubscription, ExclusiveSection, ExclusiveSetItem
+    from modules.products.models import Product, VariantGroup, variant_products
+    from extensions import db
+    import re
+
+    page = ExclusivePage.get_by_token(token)
+    if not page:
+        return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    # Sprawdź czy strona jest aktywna
+    if not page.is_active:
+        return jsonify({'success': False, 'error': 'page_not_active', 'message': 'Strona nie jest aktywna'}), 403
+
+    data = request.get_json()
+    product_id = data.get('product_id')
+    guest_email = data.get('email')
+
+    if not product_id:
+        return jsonify({'success': False, 'error': 'missing_product_id', 'message': 'Brak ID produktu'}), 400
+
+    # Sprawdź czy produkt istnieje
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'product_not_found', 'message': 'Produkt nie istnieje'}), 404
+
+    # Sprawdź czy produkt jest na tej stronie exclusive
+    product_on_page = False
+
+    # Sprawdź sekcje typu 'product'
+    product_section = ExclusiveSection.query.filter_by(
+        exclusive_page_id=page.id,
+        section_type='product',
+        product_id=product_id
+    ).first()
+
+    if product_section:
+        product_on_page = True
+    else:
+        # Sprawdź w grupach wariantów
+        product_vg_ids = db.session.query(variant_products.c.variant_group_id).filter(
+            variant_products.c.product_id == product_id
+        ).all()
+        product_vg_ids = [vg_id for (vg_id,) in product_vg_ids]
+
+        if product_vg_ids:
+            vg_section = ExclusiveSection.query.filter(
+                ExclusiveSection.exclusive_page_id == page.id,
+                ExclusiveSection.section_type == 'variant_group',
+                ExclusiveSection.variant_group_id.in_(product_vg_ids)
+            ).first()
+
+            if vg_section:
+                product_on_page = True
+
+        if not product_on_page:
+            # Sprawdź w setach (bezpośrednio lub przez grupę wariantów)
+            set_item = ExclusiveSetItem.query.join(ExclusiveSection).filter(
+                ExclusiveSection.exclusive_page_id == page.id,
+                ExclusiveSection.section_type == 'set',
+                ExclusiveSetItem.product_id == product_id
+            ).first()
+
+            if set_item:
+                product_on_page = True
+            elif product_vg_ids:
+                set_item_vg = ExclusiveSetItem.query.join(ExclusiveSection).filter(
+                    ExclusiveSection.exclusive_page_id == page.id,
+                    ExclusiveSection.section_type == 'set',
+                    ExclusiveSetItem.variant_group_id.in_(product_vg_ids)
+                ).first()
+                if set_item_vg:
+                    product_on_page = True
+
+    if not product_on_page:
+        return jsonify({'success': False, 'error': 'product_not_on_page', 'message': 'Produkt nie jest dostępny na tej stronie'}), 400
+
+    # Określ user_id lub guest_email
+    user_id = None
+    email_to_notify = None
+
+    if current_user.is_authenticated:
+        user_id = current_user.id
+        email_to_notify = current_user.email
+    else:
+        # Gość - wymaga email
+        if not guest_email:
+            return jsonify({'success': False, 'error': 'missing_email', 'message': 'Podaj adres email'}), 400
+
+        # Walidacja email
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, guest_email):
+            return jsonify({'success': False, 'error': 'invalid_email', 'message': 'Nieprawidłowy format email'}), 400
+
+        email_to_notify = guest_email.strip().lower()
+
+    # Sprawdź czy już istnieje subskrypcja
+    existing_query = ExclusiveProductNotificationSubscription.query.filter_by(
+        exclusive_page_id=page.id,
+        product_id=product_id,
+        notified=False
+    )
+
+    if user_id:
+        existing = existing_query.filter_by(user_id=user_id).first()
+    else:
+        existing = existing_query.filter_by(guest_email=email_to_notify).first()
+
+    if existing:
+        return jsonify({
+            'success': True,
+            'already_subscribed': True,
+            'message': 'Już zapisano na powiadomienie o tym produkcie'
+        })
+
+    # Utwórz subskrypcję
+    subscription = ExclusiveProductNotificationSubscription(
+        exclusive_page_id=page.id,
+        product_id=product_id,
+        user_id=user_id,
+        guest_email=email_to_notify if not user_id else None,
+        notified=False
+    )
+
+    db.session.add(subscription)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Zapisano! Otrzymasz powiadomienie gdy produkt będzie dostępny.',
+        'email': email_to_notify
+    })

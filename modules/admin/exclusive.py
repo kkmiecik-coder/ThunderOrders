@@ -220,13 +220,18 @@ def exclusive_save(page_id):
                 page.ends_at = None
 
         # Aktualizacja sekcji
+        limit_changes = []
         if 'sections' in data:
-            _update_sections(page, data['sections'])
+            limit_changes = _update_sections(page, data['sections'])
 
         # Ręcznie aktualizuj updated_at (onupdate nie działa przy zmianach w relacjach)
         page.updated_at = datetime.now()
 
         db.session.commit()
+
+        # Po commit wysyłamy powiadomienia dla sekcji z zwiększonymi limitami
+        if limit_changes:
+            _send_notifications_for_limit_changes(page.id, limit_changes)
 
         return jsonify({
             'success': True,
@@ -277,11 +282,17 @@ def _update_sections(page, sections_data):
     Args:
         page: ExclusivePage object
         sections_data: Lista danych sekcji z frontendu
+
+    Returns:
+        list: Lista krotek (section, old_max, new_max, section_type) dla sekcji z zmienionymi limitami
     """
     # Pobierz istniejące sekcje
     existing_sections = {s.id: s for s in page.sections.all()}
     existing_ids = set(existing_sections.keys())
     incoming_ids = set()
+
+    # Śledzenie zmian limitów do powiadomień
+    limit_changes = []
 
     for idx, section_data in enumerate(sections_data):
         # WALIDACJA - sprawdź dane sekcji przed zapisem
@@ -295,21 +306,32 @@ def _update_sections(page, sections_data):
             # Aktualizacja istniejącej sekcji
             section = existing_sections[section_id]
             incoming_ids.add(section_id)
+
+            # Zapamiętaj stare wartości przed zmianą
+            old_max_quantity = section.max_quantity
+            old_set_max_sets = section.set_max_sets
         else:
             # Nowa sekcja
             section = ExclusiveSection(exclusive_page_id=page.id)
             db.session.add(section)
+            old_max_quantity = None
+            old_set_max_sets = None
+
+        # Pobierz nowe wartości
+        new_max_quantity = section_data.get('max_quantity')
+        new_set_max_sets = section_data.get('set_max_sets')
+        section_type = section_data.get('type', 'paragraph')
 
         # Aktualizacja danych sekcji
-        section.section_type = section_data.get('type', 'paragraph')
+        section.section_type = section_type
         section.sort_order = idx
         section.content = section_data.get('content')
         section.product_id = section_data.get('product_id')
         section.min_quantity = section_data.get('min_quantity')
-        section.max_quantity = section_data.get('max_quantity')
+        section.max_quantity = new_max_quantity
         section.set_name = section_data.get('set_name')
         section.set_image = section_data.get('set_image')
-        section.set_max_sets = section_data.get('set_max_sets')
+        section.set_max_sets = new_set_max_sets
         # set_max_per_product: 0 oznacza brak limitu, wartość > 0 to limit sztuk na produkt
         max_per_product = section_data.get('set_max_per_product', 0)
         section.set_max_per_product = max_per_product if max_per_product and max_per_product > 0 else None
@@ -320,10 +342,23 @@ def _update_sections(page, sections_data):
         if section.section_type == 'set' and 'set_items' in section_data:
             _update_set_items(section, section_data['set_items'])
 
+        # Zapisz zmiany limitów do późniejszego sprawdzenia powiadomień
+        if section_type in ['product', 'variant_group']:
+            if old_max_quantity is not None and new_max_quantity is not None:
+                if new_max_quantity > old_max_quantity:
+                    limit_changes.append((section, old_max_quantity, new_max_quantity, section_type))
+        elif section_type == 'set':
+            if old_set_max_sets is not None and new_set_max_sets is not None:
+                if new_set_max_sets > old_set_max_sets:
+                    limit_changes.append((section, old_set_max_sets, new_set_max_sets, section_type))
+
     # Usuń sekcje które nie są w incoming_ids
     sections_to_delete = existing_ids - incoming_ids
     for section_id in sections_to_delete:
         db.session.delete(existing_sections[section_id])
+
+    # Zwróć informacje o zmianach limitów
+    return limit_changes
 
 
 def _update_set_items(section, items_data):
@@ -352,6 +387,46 @@ def _update_set_items(section, items_data):
                 sort_order=idx
             )
             db.session.add(item)
+
+
+def _send_notifications_for_limit_changes(page_id, limit_changes):
+    """
+    Wysyła powiadomienia o dostępności dla sekcji z zwiększonymi limitami.
+
+    Args:
+        page_id (int): ID strony exclusive
+        limit_changes (list): Lista krotek (section, old_max, new_max, section_type)
+    """
+    try:
+        from utils.exclusive_notifications import (
+            check_and_send_notifications_for_section,
+            check_and_send_notifications_for_product_section
+        )
+
+        for section, old_max, new_max, section_type in limit_changes:
+            try:
+                if section_type == 'set':
+                    # Dla sekcji typu 'set' używamy funkcji sprawdzającej całą sekcję
+                    sent = check_and_send_notifications_for_section(
+                        page_id=page_id,
+                        section_id=section.id,
+                        old_max=old_max,
+                        new_max=new_max
+                    )
+                else:
+                    # Dla sekcji typu 'product' lub 'variant_group'
+                    sent = check_and_send_notifications_for_product_section(
+                        page_id=page_id,
+                        section=section,
+                        old_max_quantity=old_max
+                    )
+
+                if sent > 0:
+                    print(f"[NOTIFICATIONS] Sent {sent} back-in-stock notifications for section {section.id}")
+            except Exception as e:
+                print(f"[NOTIFICATIONS] Failed to send notifications for section {section.id}: {e}")
+    except Exception as e:
+        print(f"[NOTIFICATIONS] Failed to import notification module: {e}")
 
 
 # ============================================

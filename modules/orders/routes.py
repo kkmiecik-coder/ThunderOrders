@@ -1450,6 +1450,8 @@ def client_list():
     date_from = request.args.get('date_from')
     date_to = request.args.get('date_to')
     search_query = request.args.get('search', '').strip()
+    payment_status_filter = request.args.get('payment_status', '').strip()
+    proof_status_filter = request.args.get('proof_status', '').strip()
 
     # Base query (only user's orders) with eager loading
     query = Order.query.filter_by(user_id=current_user.id).options(
@@ -1471,6 +1473,43 @@ def client_list():
     # Search filter (by order number)
     if search_query:
         query = query.filter(Order.order_number.ilike(f'%{search_query}%'))
+
+    # Payment status filter
+    if payment_status_filter:
+        if payment_status_filter == 'paid':
+            # Opłacone: paid_amount >= total_amount
+            query = query.filter(Order.paid_amount >= Order.total_amount)
+        elif payment_status_filter == 'unpaid':
+            # Nieopłacone: paid_amount = 0 lub NULL
+            query = query.filter(db.or_(Order.paid_amount == 0, Order.paid_amount.is_(None)))
+        elif payment_status_filter == 'partial':
+            # Częściowo opłacone: 0 < paid_amount < total_amount
+            query = query.filter(
+                Order.paid_amount > 0,
+                Order.paid_amount < Order.total_amount
+            )
+
+    # Payment proof status filter
+    if proof_status_filter:
+        if proof_status_filter == 'none':
+            # Brak dowodu: payment_proof_url jest NULL lub pusty
+            query = query.filter(db.or_(
+                Order.payment_proof_url.is_(None),
+                Order.payment_proof_url == ''
+            ))
+        elif proof_status_filter == 'pending':
+            # Oczekuje na weryfikację
+            query = query.filter(
+                Order.payment_proof_url.isnot(None),
+                Order.payment_proof_url != '',
+                Order.payment_proof_status == 'pending'
+            )
+        elif proof_status_filter == 'approved':
+            # Zaakceptowany
+            query = query.filter(Order.payment_proof_status == 'approved')
+        elif proof_status_filter == 'rejected':
+            # Odrzucony
+            query = query.filter(Order.payment_proof_status == 'rejected')
 
     # Sorting
     query = query.order_by(Order.created_at.desc())
@@ -1750,6 +1789,7 @@ def update_payment_proof_disabled_statuses():
         setting = Settings.query.filter_by(key='payment_proof_disabled_statuses').first()
         if setting:
             setting.value = json.dumps(validated_statuses)
+            setting.type = 'json'  # Upewnij się że typ jest poprawny
             setting.updated_at = datetime.now()
         else:
             setting = Settings(

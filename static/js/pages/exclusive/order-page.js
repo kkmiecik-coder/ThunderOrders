@@ -994,6 +994,9 @@ function renderAvailabilityInfo(productId, available) {
             el.textContent = `Dostępne: ${available}`;
         }
     });
+
+    // Handle notification bell visibility
+    updateNotificationBellVisibility(productId, available);
 }
 
 function optimisticUpdateAvailability(productId, delta) {
@@ -1670,3 +1673,237 @@ function initFullSetButtons() {
     // Uncomment poniżej aby testować popup:
     // setTimeout(() => showDeadlineAlert(10), 2000);
 })();
+
+
+// ============================================
+// NOTIFICATION SUBSCRIPTION MODULE
+// ============================================
+
+// Current product ID for notification subscription
+let currentNotificationProductId = null;
+
+/**
+ * Updates visibility of notification bell based on product availability
+ * @param {number} productId - Product ID
+ * @param {number} available - Available quantity
+ */
+function updateNotificationBellVisibility(productId, available) {
+    // Find all quantity wrappers for this product
+    const availabilityElements = document.querySelectorAll(`[data-availability-for="${productId}"]`);
+
+    availabilityElements.forEach(el => {
+        const quantityWrapper = el.closest('.quantity-wrapper');
+        if (!quantityWrapper) return;
+
+        const quantityControl = quantityWrapper.querySelector('.quantity-control');
+        if (!quantityControl) return;
+
+        // Check if bell already exists
+        let bellBtn = quantityWrapper.querySelector('.notification-bell-btn');
+
+        // Check if current user has this product in cart (they reserved it)
+        const qtyInput = quantityControl.querySelector('.qty-input');
+        const currentUserQty = qtyInput ? (parseInt(qtyInput.value) || 0) : 0;
+
+        // Show bell only if: product unavailable AND current user doesn't have any reserved
+        const shouldShowBell = available <= 0 && currentUserQty === 0;
+
+        if (shouldShowBell) {
+            // Product is unavailable and user doesn't have it - show bell, hide quantity control
+            quantityControl.style.display = 'none';
+
+            if (!bellBtn) {
+                // Create bell button
+                bellBtn = document.createElement('button');
+                bellBtn.type = 'button';
+                bellBtn.className = 'notification-bell-btn';
+                bellBtn.setAttribute('data-product-id', productId);
+                bellBtn.onclick = function() { openNotificationModal(productId); };
+                bellBtn.innerHTML = `
+                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z"/>
+                    </svg>
+                    <span>Powiadom mnie</span>
+                `;
+                quantityWrapper.insertBefore(bellBtn, quantityControl);
+            }
+            bellBtn.style.display = '';
+        } else {
+            // Product is available OR user has it reserved - show quantity control, hide bell
+            quantityControl.style.display = '';
+
+            if (bellBtn) {
+                bellBtn.style.display = 'none';
+            }
+        }
+    });
+}
+
+/**
+ * Opens notification subscription modal
+ * @param {number} productId - Product ID
+ */
+function openNotificationModal(productId) {
+    currentNotificationProductId = productId;
+
+    const modal = document.getElementById('notificationModal');
+    const productNameEl = document.getElementById('notificationProductName');
+
+    // Try to find product name
+    const productCard = document.querySelector(`[data-product-id="${productId}"]`);
+    let productName = 'tego produktu';
+
+    if (productCard) {
+        const nameEl = productCard.querySelector('.product-name, .variant-name, h4');
+        if (nameEl) {
+            productName = nameEl.textContent.trim();
+        }
+    }
+
+    // Also try to find via availability element
+    if (productName === 'tego produktu') {
+        const availEl = document.querySelector(`[data-availability-for="${productId}"]`);
+        if (availEl) {
+            const section = availEl.closest('.section-product, .set-item, .variant-option');
+            if (section) {
+                const nameEl = section.querySelector('.product-name, .variant-name, .set-item-name');
+                if (nameEl) {
+                    productName = nameEl.textContent.trim();
+                }
+            }
+        }
+    }
+
+    productNameEl.textContent = `o dostępności: ${productName}`;
+
+    // Reset form state
+    const emailInput = document.getElementById('notificationEmail');
+    const emailError = document.getElementById('notificationEmailError');
+    const submitBtn = document.getElementById('notificationSubmitBtn');
+
+    if (emailInput) {
+        emailInput.value = '';
+        emailInput.classList.remove('error');
+    }
+    if (emailError) {
+        emailError.classList.add('hidden');
+        emailError.textContent = '';
+    }
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.querySelector('span').textContent = 'Powiadom mnie';
+    }
+
+    modal.classList.add('active');
+}
+
+/**
+ * Closes notification subscription modal
+ */
+function closeNotificationModal() {
+    const modal = document.getElementById('notificationModal');
+    modal.classList.remove('active');
+    currentNotificationProductId = null;
+}
+
+/**
+ * Submits notification subscription
+ */
+async function submitNotificationSubscription() {
+    if (!currentNotificationProductId) return;
+
+    const submitBtn = document.getElementById('notificationSubmitBtn');
+    const emailInput = document.getElementById('notificationEmail');
+    const emailError = document.getElementById('notificationEmailError');
+
+    // For guest users, validate email
+    let email = null;
+    if (!window.isAuthenticated && emailInput) {
+        email = emailInput.value.trim();
+
+        if (!email) {
+            showNotificationError('Podaj adres email');
+            return;
+        }
+
+        // Simple email validation
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(email)) {
+            showNotificationError('Nieprawidłowy format email');
+            return;
+        }
+    }
+
+    // Disable button
+    submitBtn.disabled = true;
+    submitBtn.querySelector('span').textContent = 'Zapisuję...';
+
+    try {
+        const response = await fetch(window.subscribeNotificationUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                product_id: currentNotificationProductId,
+                email: email
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // Show success state
+            submitBtn.querySelector('span').textContent = 'Zapisano!';
+            submitBtn.classList.add('success');
+
+            // Show toast
+            if (typeof showToast === 'function') {
+                showToast(data.message || 'Zapisano na powiadomienie!', 'success');
+            }
+
+            // Close modal after delay
+            setTimeout(() => {
+                closeNotificationModal();
+            }, 1500);
+        } else {
+            showNotificationError(data.message || 'Wystąpił błąd');
+            submitBtn.disabled = false;
+            submitBtn.querySelector('span').textContent = 'Powiadom mnie';
+        }
+    } catch (error) {
+        console.error('Notification subscription error:', error);
+        showNotificationError('Wystąpił błąd. Spróbuj ponownie.');
+        submitBtn.disabled = false;
+        submitBtn.querySelector('span').textContent = 'Powiadom mnie';
+    }
+}
+
+/**
+ * Shows error message in notification modal
+ * @param {string} message - Error message
+ */
+function showNotificationError(message) {
+    const emailInput = document.getElementById('notificationEmail');
+    const emailError = document.getElementById('notificationEmailError');
+
+    if (emailInput) {
+        emailInput.classList.add('error');
+    }
+    if (emailError) {
+        emailError.textContent = message;
+        emailError.classList.remove('hidden');
+    }
+}
+
+// Close modal on overlay click
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('notificationModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeNotificationModal();
+            }
+        });
+    }
+});

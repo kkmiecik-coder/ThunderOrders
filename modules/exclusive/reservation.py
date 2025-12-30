@@ -289,6 +289,40 @@ def extend_reservation(session_id, page_id):
     }
 
 
+def get_sold_counts(page_id, product_ids):
+    """
+    Pobiera liczbę sprzedanych sztuk dla listy produktów na danej stronie exclusive.
+
+    Args:
+        page_id: ID strony exclusive
+        product_ids: Lista ID produktów
+
+    Returns:
+        dict: {product_id: sold_count}
+    """
+    from modules.orders.models import Order, OrderItem
+
+    if not product_ids:
+        return {}
+
+    # Pobierz sumę zamówionych dla każdego produktu
+    results = db.session.query(
+        OrderItem.product_id,
+        func.sum(OrderItem.quantity).label('total')
+    ).join(Order).filter(
+        Order.exclusive_page_id == page_id,
+        Order.status != 'anulowane',
+        OrderItem.product_id.in_(product_ids)
+    ).group_by(OrderItem.product_id).all()
+
+    # Konwertuj do dict
+    sold_counts = {pid: 0 for pid in product_ids}
+    for product_id, total in results:
+        sold_counts[product_id] = int(total) if total else 0
+
+    return sold_counts
+
+
 def get_availability_snapshot(page_id, section_products, session_id):
     """
     Zwraca snapshot dostępności wszystkich produktów

@@ -1,0 +1,19 @@
+Produkt znów dostępny!
+======================
+
+Produkt, na który czekałeś, jest ponownie dostępny na stronie {{ exclusive_page_name }}.
+
+Produkt: {{ product_name }}
+
+Pospiesz się! Ilość produktów jest ograniczona. Zamów teraz, zanim znów się wyprzedadzą!
+
+Zamów teraz: {{ exclusive_page_url }}
+
+---
+
+Otrzymujesz tę wiadomość, ponieważ zapisałeś się na powiadomienie o dostępności tego produktu.
+To powiadomienie jest jednorazowe - nie otrzymasz więcej wiadomości o tym produkcie.
+
+--
+ThunderOrders
+thunderorders.cloud

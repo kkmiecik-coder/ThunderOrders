@@ -93,6 +93,39 @@
     border-left: 4px solid var(--info);
 }
 
+/* Clickable Metric Card */
+a.metric-card-clickable {
+    text-decoration: none;
+    cursor: pointer;
+}
+
+a.metric-card-clickable:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+a.metric-card-clickable.metric-card-success:hover {
+    border-left-color: var(--success);
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.25);
+}
+
+a.metric-card-clickable.metric-card-warning:hover {
+    border-left-color: var(--warning);
+    box-shadow: 0 8px 24px rgba(255, 193, 7, 0.25);
+}
+
+[data-theme="dark"] a.metric-card-clickable:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] a.metric-card-clickable.metric-card-success:hover {
+    box-shadow: 0 8px 24px rgba(76, 175, 80, 0.3);
+}
+
+[data-theme="dark"] a.metric-card-clickable.metric-card-warning:hover {
+    box-shadow: 0 8px 24px rgba(255, 193, 7, 0.3);
+}
+
 /* Metric Icon */
 .metric-icon {
     font-size: 2.5rem;

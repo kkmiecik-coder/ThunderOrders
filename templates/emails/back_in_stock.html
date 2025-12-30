@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produkt znów dostępny - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <!-- Main email container (max-width: 600px) -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <!-- Bell icon -->
+                            <div style="text-align: center; font-size: 48px; margin: 20px 0;">
+                                🔔
+                            </div>
+
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: center;">
+                                Produkt znów dostępny!
+                            </h1>
+
+                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121; text-align: center;">
+                                Produkt, na który czekałeś, jest ponownie dostępny na stronie <strong>{{ exclusive_page_name }}</strong>.
+                            </p>
+
+                            <!-- Product box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 24px; border-radius: 8px; text-align: center;">
+                                        {% if product_image_url %}
+                                        <img src="{{ product_image_url }}" alt="{{ product_name }}" style="max-width: 200px; max-height: 200px; width: auto; height: auto; display: block; margin: 0 auto 16px auto; border-radius: 8px;" />
+                                        {% endif %}
+                                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: #240046;">
+                                            {{ product_name }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Info box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: #fff3e0; border-left: 4px solid #FF9100; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0; font-size: 14px; color: #e65100; font-weight: 600;">
+                                            ⚡ Pospiesz się!
+                                        </p>
+                                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #e65100;">
+                                            Ilość produktów jest ograniczona. Zamów teraz, zanim znów się wyprzedadzą!
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ exclusive_page_url }}" style="display: inline-block; background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%); color: #FFFFFF; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 18px; text-align: center;">
+                                            Zamów teraz
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 30px 0 10px 0; font-size: 14px; color: #616161; text-align: center;">
+                                Link do strony zamówienia:
+                            </p>
+                            <p style="margin: 0 0 20px 0; text-align: center;">
+                                <a href="{{ exclusive_page_url }}" style="color: #7B2CBF; text-decoration: underline; font-size: 14px; word-break: break-all;">
+                                    {{ exclusive_page_url }}
+                                </a>
+                            </p>
+
+                            <p style="margin: 20px 0 0 0; font-size: 12px; color: #9E9E9E; text-align: center;">
+                                Otrzymujesz tę wiadomość, ponieważ zapisałeś się na powiadomienie o dostępności tego produktu.
+                                To powiadomienie jest jednorazowe - nie otrzymasz więcej wiadomości o tym produkcie.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
