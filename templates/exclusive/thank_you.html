@@ -1,33 +1,88 @@
 {% extends "exclusive/base_exclusive.html" %}
 
-{% block title %}Dziękujemy za zamówienie{% endblock %}
+{% block title %}🎉 Gratulacje! Zamówienie złożone{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/exclusive/thank-you.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/exclusive/thank-you.css') }}?v=3">
 {% endblock %}
 
 {% block body_content %}
 <div class="thank-you-page">
+    <!-- Animated Background -->
+    <div class="animated-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="orb orb-4"></div>
+        <div class="orb orb-5"></div>
+        <div class="sparkle sparkle-1"></div>
+        <div class="sparkle sparkle-2"></div>
+        <div class="sparkle sparkle-3"></div>
+        <div class="sparkle sparkle-4"></div>
+        <div class="sparkle sparkle-5"></div>
+        <div class="sparkle sparkle-6"></div>
+        <div class="sparkle sparkle-7"></div>
+        <div class="sparkle sparkle-8"></div>
+        <div class="sparkle sparkle-9"></div>
+        <div class="sparkle sparkle-10"></div>
+        <div class="sparkle sparkle-11"></div>
+        <div class="sparkle sparkle-12"></div>
+        <div class="sparkle sparkle-13"></div>
+        <div class="sparkle sparkle-14"></div>
+        <div class="sparkle sparkle-15"></div>
+    </div>
+
+    <!-- Massive Hero Title -->
+    <div class="hero-title-wrapper">
+        <h1 class="hero-title">GRATULACJE!</h1>
+        <div class="hero-subtitle">Twoje zamówienie zostało pomyślnie złożone</div>
+    </div>
+
     <div class="thank-you-container">
-        <!-- Success Icon & Message -->
+        <!-- Epic Success Icon with Counter Ring -->
         <div class="success-header">
-            <div class="success-icon">
-                <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                </svg>
+            <div class="success-icon-wrapper">
+                <!-- Rotating gradient ring -->
+                <div class="gradient-ring"></div>
+                <div class="gradient-ring ring-2"></div>
+
+                <!-- Checkmark SVG -->
+                <div class="success-icon" id="checkmark-icon">
+                    <svg class="checkmark-svg" viewBox="0 0 52 52">
+                        <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                </div>
             </div>
-            <h1>Dziękujemy za zamówienie!</h1>
+
+            <h2 class="success-message">Zamówienie przyjęte!</h2>
+
             {% if order_data %}
-            <p class="order-number">Numer zamówienia: <strong>{{ order_data.order_number }}</strong></p>
+            <div class="order-number-card">
+                <span class="order-label">Twój numer zamówienia</span>
+                <div class="order-number" id="order-number" data-number="{{ order_data.order_number }}">
+                    <span class="number-display">{{ order_data.order_number }}</span>
+                </div>
+            </div>
             {% endif %}
         </div>
 
         {% if current_user.is_authenticated %}
         <!-- LOGGED IN USER -->
         <div class="logged-user-section">
-            <p>Twoje zamówienie zostało przyjęte i oczekuje na realizację.</p>
-            <a href="{{ url_for('orders.client_list') }}" class="btn btn-primary btn-lg">
-                Zobacz swoje zamówienia
+            <div class="message-box">
+                <div class="icon-wrapper">
+                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="m10.97 4.97-.02.022-3.473 4.425-2.093-2.094a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                    </svg>
+                </div>
+                <p>Twoje zamówienie zostało przyjęte i oczekuje na realizację. Możesz śledzić jego status w swoim panelu.</p>
+            </div>
+
+            <a href="{{ url_for('orders.client_list') }}" class="btn btn-primary btn-lg btn-epic">
+                <span class="btn-text">Zobacz swoje zamówienia</span>
+                <span class="btn-arrow">→</span>
             </a>
         </div>
 
@@ -38,25 +93,37 @@
             <!-- OPTION 1: Create Account -->
             <div class="option-card option-register">
                 <div class="option-header">
-                    <span class="recommended-badge">Zalecane</span>
+                    <span class="recommended-badge">
+                        <span class="badge-icon">⭐</span>
+                        <span>Zalecane</span>
+                    </span>
                     <h3>Załóż konto i śledź zamówienie</h3>
                 </div>
+
                 <ul class="benefits-list">
                     <li>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>
-                        Śledzenie statusu zamówienia w czasie rzeczywistym
+                        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                        </svg>
+                        <span>Śledzenie statusu w czasie rzeczywistym</span>
                     </li>
                     <li>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>
-                        Historia wszystkich zamówień
+                        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                        </svg>
+                        <span>Historia wszystkich zamówień</span>
                     </li>
                     <li>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>
-                        Szybsze składanie kolejnych zamówień
+                        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                        </svg>
+                        <span>Szybsze kolejne zamówienia</span>
                     </li>
                     <li>
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>
-                        Powiadomienia o zmianach statusu
+                        <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                        </svg>
+                        <span>Powiadomienia o zmianach</span>
                     </li>
                 </ul>
 
@@ -65,7 +132,7 @@
                     <input type="hidden" name="order_id" value="{{ order_data.order_id }}">
                     <input type="hidden" name="guest_token" value="{{ order_data.guest_view_token }}">
 
-                    <!-- Pre-filled data (readonly) -->
+                    <!-- Pre-filled data -->
                     <div class="prefilled-info">
                         <div class="info-row">
                             <span class="label">Imię i nazwisko:</span>
@@ -83,7 +150,7 @@
                         {% endif %}
                     </div>
 
-                    <!-- Only password to enter -->
+                    <!-- Password inputs -->
                     <div class="form-group">
                         <label for="password">Ustaw hasło do konta</label>
                         <input type="password" id="password" name="password"
@@ -97,8 +164,9 @@
                                placeholder="Powtórz hasło">
                     </div>
 
-                    <button type="submit" class="btn btn-primary btn-lg btn-block">
-                        Załóż konto
+                    <button type="submit" class="btn btn-primary btn-lg btn-block btn-epic">
+                        <span class="btn-text">Załóż konto</span>
+                        <span class="btn-arrow">→</span>
                     </button>
                 </form>
             </div>
@@ -110,26 +178,62 @@
 
             <!-- OPTION 2: Continue without account -->
             <div class="option-card option-guest">
-                <h3>Kontynuuj bez konta</h3>
-                <p>Możesz śledzić swoje zamówienie używając specjalnego linku.</p>
+                <div class="guest-icon">
+                    <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                    </svg>
+                </div>
+                <h3>Kontynuuj jako gość</h3>
+                <p>Możesz śledzić swoje zamówienie używając specjalnego linku, który wysłaliśmy na Twój email.</p>
+
                 <a href="{{ url_for('orders.guest_track', token=order_data.guest_view_token) }}"
-                   class="btn btn-secondary btn-lg">
-                    Zobacz status zamówienia
+                   class="btn btn-secondary btn-lg btn-epic">
+                    <span class="btn-text">Zobacz status zamówienia</span>
+                    <span class="btn-arrow">→</span>
                 </a>
+
                 <p class="hint">
-                    <small>Link został również wysłany na {{ order_data.guest_email }}</small>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
+                    </svg>
+                    <span>Link wysłany na <strong>{{ order_data.guest_email }}</strong></span>
                 </p>
             </div>
 
         </div>
 
         {% else %}
-        <!-- FALLBACK - No order data (direct page access) -->
+        <!-- FALLBACK -->
         <div class="logged-user-section">
-            <p>Twoje zamówienie zostało przyjęte i oczekuje na realizację.</p>
-            <p class="text-muted">Szczegóły zamówienia zostały wysłane na podany adres email.</p>
+            <div class="message-box">
+                <p>Twoje zamówienie zostało przyjęte i oczekuje na realizację.</p>
+                <p class="text-muted">Szczegóły zamówienia zostały wysłane na podany adres email.</p>
+            </div>
         </div>
         {% endif %}
     </div>
+
+    <!-- Floating Action Buttons -->
+    <div class="floating-actions">
+        <!-- Audio Toggle -->
+        <button id="audio-toggle" class="fab fab-audio" aria-label="Włącz muzykę" title="Włącz/wyłącz muzykę">
+            <svg class="audio-icon" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                <path d="M11.854 4.146a.5.5 0 0 1 0 .708L10.207 6.5l1.647 1.646a.5.5 0 0 1-.708.708L9.5 7.207 7.854 8.854a.5.5 0 1 1-.708-.708L8.793 6.5 7.146 4.854a.5.5 0 1 1 .708-.708L9.5 5.793l1.646-1.647a.5.5 0 0 1 .708 0z"/>
+            </svg>
+        </button>
+    </div>
+
+    <!-- Hidden Audio Element -->
+    <audio id="celebration-audio" preload="auto" loop>
+        <source src="{{ url_for('static', filename='audio/celebration.mp3') }}" type="audio/mpeg">
+    </audio>
+
+    <!-- Click counter for easter egg -->
+    <div id="click-counter" data-count="0" style="display: none;"></div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/exclusive/thank-you.js') }}?v=3"></script>
 {% endblock %}
