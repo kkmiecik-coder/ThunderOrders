@@ -3,3 +3,5 @@
 .env
 .env
 /static/uploads
+/docs
+CLAUDE.md

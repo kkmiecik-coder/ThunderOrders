@@ -70,7 +70,7 @@
             <div class="auth-step active" data-step="register">
                 <div class="auth-header">
                     <h1 class="auth-title">Utwórz konto</h1>
-                    <p class="auth-subtitle">Dolacz do ThunderOrders juz dzis</p>
+                    <p class="auth-subtitle">Dołącz do ThunderOrders już dziś</p>
                 </div>
 
                 <form method="POST" action="{{ url_for('auth.register') }}" class="auth-form" id="register-form">
@@ -81,7 +81,7 @@
                         <div class="auth-input-group">
                             <div class="input-wrapper">
                                 {{ form.first_name(class="auth-input", placeholder=" ", autofocus=true, id="first_name") }}
-                                <label for="first_name" class="auth-input-label">Imie</label>
+                                <label for="first_name" class="auth-input-label">Imię *</label>
                                 <div class="input-glow"></div>
                             </div>
                             {% if form.first_name.errors %}
@@ -92,7 +92,7 @@
                         <div class="auth-input-group">
                             <div class="input-wrapper">
                                 {{ form.last_name(class="auth-input", placeholder=" ", id="last_name") }}
-                                <label for="last_name" class="auth-input-label">Nazwisko</label>
+                                <label for="last_name" class="auth-input-label">Nazwisko *</label>
                                 <div class="input-glow"></div>
                             </div>
                             {% if form.last_name.errors %}
@@ -105,7 +105,7 @@
                     <div class="auth-input-group">
                         <div class="input-wrapper">
                             {{ form.email(class="auth-input", placeholder=" ", id="email") }}
-                            <label for="email" class="auth-input-label">E-mail</label>
+                            <label for="email" class="auth-input-label">E-mail *</label>
                             <div class="input-glow"></div>
                         </div>
                         {% if form.email.errors %}
@@ -113,15 +113,103 @@
                         {% endif %}
                     </div>
 
-                    <!-- Phone Input -->
+                    <!-- Phone Input with Country Prefix -->
                     <div class="auth-input-group">
-                        <div class="input-wrapper">
-                            {{ form.phone(class="auth-input", placeholder=" ", id="phone") }}
-                            <label for="phone" class="auth-input-label">Telefon (opcjonalnie)</label>
-                            <div class="input-glow"></div>
+                        <div class="phone-input-container">
+                            <!-- Country Prefix Selector -->
+                            <div class="phone-prefix-selector" id="phone-prefix-selector">
+                                <button type="button" class="phone-prefix-btn" id="phone-prefix-btn">
+                                    <span class="prefix-flag" id="selected-flag">🇵🇱</span>
+                                    <span class="prefix-code" id="selected-prefix">+48</span>
+                                    <svg class="prefix-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                                <!-- Hidden input for form submission -->
+                                {{ form.phone_prefix(id="phone_prefix", value="+48") }}
+
+                                <!-- Dropdown -->
+                                <div class="phone-prefix-dropdown" id="phone-prefix-dropdown">
+                                    <div class="prefix-option" data-prefix="+48" data-flag="🇵🇱" data-country="Polska" data-length="9">
+                                        <span class="prefix-flag">🇵🇱</span>
+                                        <span class="prefix-country">Polska</span>
+                                        <span class="prefix-code">(+48)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+49" data-flag="🇩🇪" data-country="Niemcy" data-length="10,11">
+                                        <span class="prefix-flag">🇩🇪</span>
+                                        <span class="prefix-country">Niemcy</span>
+                                        <span class="prefix-code">(+49)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+44" data-flag="🇬🇧" data-country="Wielka Brytania" data-length="10">
+                                        <span class="prefix-flag">🇬🇧</span>
+                                        <span class="prefix-country">Wielka Brytania</span>
+                                        <span class="prefix-code">(+44)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+33" data-flag="🇫🇷" data-country="Francja" data-length="9">
+                                        <span class="prefix-flag">🇫🇷</span>
+                                        <span class="prefix-country">Francja</span>
+                                        <span class="prefix-code">(+33)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+420" data-flag="🇨🇿" data-country="Czechy" data-length="9">
+                                        <span class="prefix-flag">🇨🇿</span>
+                                        <span class="prefix-country">Czechy</span>
+                                        <span class="prefix-code">(+420)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+421" data-flag="🇸🇰" data-country="Słowacja" data-length="9">
+                                        <span class="prefix-flag">🇸🇰</span>
+                                        <span class="prefix-country">Słowacja</span>
+                                        <span class="prefix-code">(+421)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+380" data-flag="🇺🇦" data-country="Ukraina" data-length="9">
+                                        <span class="prefix-flag">🇺🇦</span>
+                                        <span class="prefix-country">Ukraina</span>
+                                        <span class="prefix-code">(+380)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+43" data-flag="🇦🇹" data-country="Austria" data-length="10,11">
+                                        <span class="prefix-flag">🇦🇹</span>
+                                        <span class="prefix-country">Austria</span>
+                                        <span class="prefix-code">(+43)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+31" data-flag="🇳🇱" data-country="Holandia" data-length="9">
+                                        <span class="prefix-flag">🇳🇱</span>
+                                        <span class="prefix-country">Holandia</span>
+                                        <span class="prefix-code">(+31)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+32" data-flag="🇧🇪" data-country="Belgia" data-length="9">
+                                        <span class="prefix-flag">🇧🇪</span>
+                                        <span class="prefix-country">Belgia</span>
+                                        <span class="prefix-code">(+32)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+39" data-flag="🇮🇹" data-country="Włochy" data-length="9,10">
+                                        <span class="prefix-flag">🇮🇹</span>
+                                        <span class="prefix-country">Włochy</span>
+                                        <span class="prefix-code">(+39)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+34" data-flag="🇪🇸" data-country="Hiszpania" data-length="9">
+                                        <span class="prefix-flag">🇪🇸</span>
+                                        <span class="prefix-country">Hiszpania</span>
+                                        <span class="prefix-code">(+34)</span>
+                                    </div>
+                                    <div class="prefix-option" data-prefix="+1" data-flag="🇺🇸" data-country="USA" data-length="10">
+                                        <span class="prefix-flag">🇺🇸</span>
+                                        <span class="prefix-country">USA</span>
+                                        <span class="prefix-code">(+1)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Phone Number Input -->
+                            <div class="phone-number-wrapper">
+                                {{ form.phone_number(class="auth-input phone-number-input", placeholder=" ", id="phone_number", inputmode="tel") }}
+                                <label for="phone_number" class="auth-input-label phone-label">Numer telefonu *</label>
+                                <div class="input-glow"></div>
+                            </div>
                         </div>
-                        {% if form.phone.errors %}
-                        <div class="form-error">{{ form.phone.errors[0] }}</div>
+                        {% if form.phone_prefix.errors %}
+                        <div class="form-error">{{ form.phone_prefix.errors[0] }}</div>
+                        {% endif %}
+                        {% if form.phone_number.errors %}
+                        <div class="form-error">{{ form.phone_number.errors[0] }}</div>
                         {% endif %}
                     </div>
 
@@ -129,8 +217,8 @@
                     <div class="auth-input-group">
                         <div class="input-wrapper">
                             {{ form.password(class="auth-input", placeholder=" ", id="password-input") }}
-                            <label for="password-input" class="auth-input-label">Haslo</label>
-                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                            <label for="password-input" class="auth-input-label">Hasło *</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaż hasło">
                                 <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                     <circle cx="12" cy="12" r="3"></circle>
@@ -151,7 +239,7 @@
                     <div class="password-requirements" id="password-requirements">
                         <div class="req-item" id="req-length" data-valid="false">
                             <span class="req-icon"></span>
-                            <span>Min. 8 znakow</span>
+                            <span>Min. 8 znaków</span>
                         </div>
                         <div class="req-item" id="req-uppercase" data-valid="false">
                             <span class="req-icon"></span>
@@ -159,7 +247,7 @@
                         </div>
                         <div class="req-item" id="req-lowercase" data-valid="false">
                             <span class="req-icon"></span>
-                            <span>Mala litera</span>
+                            <span>Mała litera</span>
                         </div>
                         <div class="req-item" id="req-number" data-valid="false">
                             <span class="req-icon"></span>
@@ -171,8 +259,8 @@
                     <div class="auth-input-group">
                         <div class="input-wrapper">
                             {{ form.password_confirm(class="auth-input", placeholder=" ", id="password-confirm-input") }}
-                            <label for="password-confirm-input" class="auth-input-label">Potwierdz haslo</label>
-                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                            <label for="password-confirm-input" class="auth-input-label">Potwierdź hasło *</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaż hasło">
                                 <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                     <circle cx="12" cy="12" r="3"></circle>
@@ -200,9 +288,14 @@
                         </label>
                     </div>
 
+                    <!-- Required Fields Note -->
+                    <div class="required-fields-note">
+                        <span class="required-asterisk">*</span> Pole wymagane
+                    </div>
+
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit">
-                        <span class="btn-text">Zarejestruj sie</span>
+                        <span class="btn-text">Zarejestruj się</span>
                         <span class="btn-loader"></span>
                         <div class="btn-shine"></div>
                     </button>
@@ -210,9 +303,9 @@
 
                 <!-- Login Link -->
                 <div class="auth-footer">
-                    <p>Masz juz konto?</p>
+                    <p>Masz już konto?</p>
                     <a href="{{ url_for('auth.login') }}" class="auth-link">
-                        <span>Zaloguj sie</span>
+                        <span>Zaloguj się</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="5" y1="12" x2="19" y2="12"></line>
                             <polyline points="12 5 19 12 12 19"></polyline>
@@ -228,7 +321,7 @@
                 <div class="auth-header">
                     <h1 class="auth-title">Weryfikacja email</h1>
                     <p class="auth-subtitle">
-                        Wyslalismy 6-cyfrowy kod na adres:<br>
+                        Wysłaliśmy 6-cyfrowy kod na adres:<br>
                         <strong class="highlight-email">{{ user_email }}</strong>
                     </p>
                 </div>
@@ -260,9 +353,9 @@
                     <div class="resend-container">
                         <p class="resend-text" id="resend-text">
                             {% if can_resend %}
-                            Nie otrzymales kodu?
+                            Nie otrzymałeś kodu?
                             {% else %}
-                            Wyslij kod ponownie za <span id="countdown" class="countdown">{{ seconds_remaining }}</span>s
+                            Wyślij kod ponownie za <span id="countdown" class="countdown">{{ seconds_remaining }}</span>s
                             {% endif %}
                         </p>
                         <button type="button"
@@ -270,7 +363,7 @@
                                 id="resend-btn"
                                 data-token="{{ token }}"
                                 {% if not can_resend %}disabled{% endif %}>
-                            Wyslij ponownie
+                            Wyślij ponownie
                         </button>
                     </div>
                 </form>
@@ -282,7 +375,7 @@
                             <line x1="19" y1="12" x2="5" y2="12"></line>
                             <polyline points="12 19 5 12 12 5"></polyline>
                         </svg>
-                        <span>Powrot do logowania</span>
+                        <span>Powrót do logowania</span>
                     </a>
                 </div>
             </div>
@@ -293,7 +386,7 @@
             <div class="auth-step active" data-step="forgot">
                 <div class="auth-header">
                     <h1 class="auth-title">Zresetuj hasło</h1>
-                    <p class="auth-subtitle">Podaj swoj email, a wyslemy Ci link do resetowania hasla.</p>
+                    <p class="auth-subtitle">Podaj swój email, a wyślemy Ci link do resetowania hasła.</p>
                 </div>
 
                 <form method="POST" action="{{ url_for('auth.forgot_password') }}" class="auth-form" id="forgot-form">
@@ -313,7 +406,7 @@
 
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit">
-                        <span class="btn-text">Wyslij link</span>
+                        <span class="btn-text">Wyślij link</span>
                         <span class="btn-loader"></span>
                         <div class="btn-shine"></div>
                     </button>
@@ -326,7 +419,7 @@
                             <line x1="19" y1="12" x2="5" y2="12"></line>
                             <polyline points="12 19 5 12 12 5"></polyline>
                         </svg>
-                        <span>Powrot do logowania</span>
+                        <span>Powrót do logowania</span>
                     </a>
                 </div>
             </div>
@@ -342,8 +435,8 @@
                             <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
                         </svg>
                     </div>
-                    <h1 class="auth-title">Sprawdz skrzynke</h1>
-                    <p class="auth-subtitle">Wyslalismy link do resetowania hasla na podany adres email.</p>
+                    <h1 class="auth-title">Sprawdź skrzynkę</h1>
+                    <p class="auth-subtitle">Wysłaliśmy link do resetowania hasła na podany adres email.</p>
                 </div>
 
                 <div class="info-box">
@@ -353,13 +446,13 @@
                         <line x1="12" y1="8" x2="12.01" y2="8"></line>
                     </svg>
                     <div>
-                        <strong>Nie otrzymales emaila?</strong><br>
-                        Sprawdz folder spam lub <a href="{{ url_for('auth.forgot_password') }}">wyslij ponownie</a>
+                        <strong>Nie otrzymałeś emaila?</strong><br>
+                        Sprawdź folder spam lub <a href="{{ url_for('auth.forgot_password') }}">wyślij ponownie</a>
                     </div>
                 </div>
 
                 <a href="{{ url_for('auth.login') }}" class="auth-submit">
-                    <span class="btn-text">Wroc do logowania</span>
+                    <span class="btn-text">Wróć do logowania</span>
                     <div class="btn-shine"></div>
                 </a>
             </div>
@@ -370,7 +463,7 @@
             <div class="auth-step active" data-step="reset">
                 <div class="auth-header">
                     <h1 class="auth-title">Ustaw nowe hasło</h1>
-                    <p class="auth-subtitle">Wprowadz nowe haslo do swojego konta.</p>
+                    <p class="auth-subtitle">Wprowadź nowe hasło do swojego konta.</p>
                 </div>
 
                 <form method="POST" action="{{ url_for('auth.reset_password', token=token) }}" class="auth-form" id="reset-form">
@@ -380,8 +473,8 @@
                     <div class="auth-input-group">
                         <div class="input-wrapper">
                             {{ form.password(class="auth-input", placeholder=" ", id="password-input", autofocus=true) }}
-                            <label for="password-input" class="auth-input-label">Nowe haslo</label>
-                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                            <label for="password-input" class="auth-input-label">Nowe hasło</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaż hasło">
                                 <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                     <circle cx="12" cy="12" r="3"></circle>
@@ -402,7 +495,7 @@
                     <div class="password-requirements" id="password-requirements">
                         <div class="req-item" id="req-length" data-valid="false">
                             <span class="req-icon"></span>
-                            <span>Min. 8 znakow</span>
+                            <span>Min. 8 znaków</span>
                         </div>
                         <div class="req-item" id="req-uppercase" data-valid="false">
                             <span class="req-icon"></span>
@@ -410,7 +503,7 @@
                         </div>
                         <div class="req-item" id="req-lowercase" data-valid="false">
                             <span class="req-icon"></span>
-                            <span>Mala litera</span>
+                            <span>Mała litera</span>
                         </div>
                         <div class="req-item" id="req-number" data-valid="false">
                             <span class="req-icon"></span>
@@ -422,8 +515,8 @@
                     <div class="auth-input-group">
                         <div class="input-wrapper">
                             {{ form.password_confirm(class="auth-input", placeholder=" ", id="password-confirm-input") }}
-                            <label for="password-confirm-input" class="auth-input-label">Potwierdz nowe haslo</label>
-                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                            <label for="password-confirm-input" class="auth-input-label">Potwierdź nowe hasło</label>
+                            <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaż hasło">
                                 <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                                     <circle cx="12" cy="12" r="3"></circle>
@@ -442,7 +535,7 @@
 
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit">
-                        <span class="btn-text">Zmien haslo</span>
+                        <span class="btn-text">Zmień hasło</span>
                         <span class="btn-loader"></span>
                         <div class="btn-shine"></div>
                     </button>
@@ -455,7 +548,7 @@
                             <line x1="19" y1="12" x2="5" y2="12"></line>
                             <polyline points="12 19 5 12 12 5"></polyline>
                         </svg>
-                        <span>Powrot do logowania</span>
+                        <span>Powrót do logowania</span>
                     </a>
                 </div>
             </div>
@@ -472,11 +565,11 @@
                         </svg>
                     </div>
                     <h1 class="auth-title success-title">{{ success_title|default('Konto aktywowane!') }}</h1>
-                    <p class="auth-subtitle">{{ success_message|default('Twoj adres email zostal pomyslnie zweryfikowany. Mozesz teraz zalogowac sie na swoje konto.') }}</p>
+                    <p class="auth-subtitle">{{ success_message|default('Twój adres email został pomyślnie zweryfikowany. Możesz teraz zalogować się na swoje konto.') }}</p>
                 </div>
 
                 <a href="{{ url_for('auth.login') }}" class="auth-submit success-btn">
-                    <span class="btn-text">Przejdz do logowania</span>
+                    <span class="btn-text">Przejdź do logowania</span>
                     <div class="btn-shine"></div>
                 </a>
             </div>

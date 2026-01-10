@@ -63,7 +63,15 @@
             <!-- Sales Chart -->
             <div class="widget widget-chart">
                 <div class="widget-header">
-                    <h2 class="widget-title">📈 Sprzedaż (7 dni)</h2>
+                    <h2 class="widget-title">📈 Sprzedaż</h2>
+                    <select id="salesRangeDropdown" class="sales-range-dropdown">
+                        <option value="7d">7 dni</option>
+                        <option value="14d">14 dni</option>
+                        <option value="30d">30 dni</option>
+                        <option value="3m">3 miesiące</option>
+                        <option value="12m">12 miesięcy</option>
+                        <option value="ytd">Bieżący rok</option>
+                    </select>
                 </div>
                 <div class="widget-body">
                     <canvas id="salesChart" height="200"></canvas>
@@ -227,8 +235,18 @@
     --gradient-orange: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
 }
 
+/* Box sizing for all dashboard elements */
+.kpop-dashboard,
+.kpop-dashboard * {
+    box-sizing: border-box;
+}
+
 .kpop-dashboard {
     padding: 0 var(--space-6);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 /* ====================================
@@ -419,12 +437,16 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-6);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .dashboard-column {
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
+    min-width: 0; /* Prevents flex items from overflowing */
 }
 
 /* ====================================
@@ -440,6 +462,9 @@
                 box-shadow 0.5s ease,
                 border-color 0.5s ease,
                 backdrop-filter 0.5s ease;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .widget:hover {
@@ -475,6 +500,28 @@
 
 .widget-link:hover {
     color: var(--kpop-pink);
+}
+
+.sales-range-dropdown {
+    padding: 8px 12px;
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    background: white;
+    color: var(--gray-800);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.sales-range-dropdown:hover {
+    border-color: var(--kpop-purple);
+}
+
+.sales-range-dropdown:focus {
+    border-color: var(--kpop-purple);
+    box-shadow: 0 0 0 3px rgba(131, 56, 236, 0.1);
 }
 
 .widget-body {
@@ -893,6 +940,28 @@
     color: #f5576c;
 }
 
+/* Dark mode sales range dropdown */
+[data-theme="dark"] .sales-range-dropdown {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .sales-range-dropdown:hover {
+    border-color: rgba(240, 147, 251, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .sales-range-dropdown:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .sales-range-dropdown option {
+    background: rgba(15, 12, 41, 0.98);
+    color: #f0f0f0;
+}
+
 /* Dark mode stat cards */
 [data-theme="dark"] .stat-card {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
@@ -1146,9 +1215,15 @@ if (salesCtx) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    mode: 'index',
+                    intersect: false,
                     backgroundColor: colors.tooltipBg,
                     borderColor: colors.tooltipBorder,
                     borderWidth: 1,
@@ -1206,9 +1281,15 @@ if (productsCtx && productsData.length > 0) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
+                    mode: 'index',
+                    intersect: false,
                     backgroundColor: colors.tooltipBg,
                     borderColor: colors.tooltipBorder,
                     borderWidth: 1,
@@ -1274,6 +1355,33 @@ const observer = new MutationObserver((mutations) => {
 });
 
 observer.observe(document.documentElement, { attributes: true });
+
+// ====================================
+// SALES RANGE DROPDOWN HANDLER
+// ====================================
+
+const salesRangeDropdown = document.getElementById('salesRangeDropdown');
+
+if (salesRangeDropdown) {
+    salesRangeDropdown.addEventListener('change', function() {
+        const range = this.value;
+
+        // Fetch new data from backend
+        fetch(`/admin/dashboard/sales-data?range=${range}`)
+            .then(response => response.json())
+            .then(data => {
+                if (salesChart && data.success) {
+                    // Update chart data
+                    salesChart.data.labels = data.labels;
+                    salesChart.data.datasets[0].data = data.values;
+
+                    // Update chart with smooth animation
+                    salesChart.update();
+                }
+            })
+            .catch(error => console.error('Error fetching sales data:', error));
+    });
+}
 
 // ====================================
 // TODO FUNCTIONS

@@ -1128,3 +1128,259 @@
 .checkbox-text .privacy-link:hover {
     color: var(--orange-400, #FF9100);
 }
+
+/* ============================================
+   REQUIRED FIELDS NOTE
+   ============================================ */
+
+.required-fields-note {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-align: left;
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.required-fields-note .required-asterisk {
+    color: #f5576c;
+    font-weight: 600;
+}
+
+/* ============================================
+   PHONE INPUT WITH PREFIX SELECTOR
+   ============================================ */
+
+.phone-input-container {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+}
+
+/* Prefix Selector */
+.phone-prefix-selector {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.phone-prefix-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    height: 100%;
+    min-height: 52px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #fff;
+}
+
+.phone-prefix-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+.phone-prefix-btn:focus {
+    outline: none;
+    border-color: rgba(240, 147, 251, 0.5);
+    box-shadow: 0 0 20px rgba(240, 147, 251, 0.2);
+}
+
+.prefix-flag {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.prefix-code {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.prefix-arrow {
+    color: rgba(255, 255, 255, 0.5);
+    transition: transform 0.3s ease;
+}
+
+.phone-prefix-selector.open .prefix-arrow {
+    transform: rotate(180deg);
+}
+
+/* Hidden input for form submission */
+.phone-prefix-selector input[type="text"] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Dropdown */
+.phone-prefix-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 220px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: rgba(30, 30, 50, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+}
+
+.phone-prefix-selector.open .phone-prefix-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Dropdown scrollbar */
+.phone-prefix-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.phone-prefix-dropdown::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+}
+
+.phone-prefix-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(240, 147, 251, 0.3);
+    border-radius: 3px;
+}
+
+.phone-prefix-dropdown::-webkit-scrollbar-thumb:hover {
+    background: rgba(240, 147, 251, 0.5);
+}
+
+/* Prefix Option */
+.prefix-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.prefix-option:first-child {
+    border-radius: 11px 11px 0 0;
+}
+
+.prefix-option:last-child {
+    border-radius: 0 0 11px 11px;
+}
+
+.prefix-option:hover {
+    background: rgba(240, 147, 251, 0.1);
+}
+
+.prefix-option.selected {
+    background: rgba(240, 147, 251, 0.15);
+}
+
+.prefix-option .prefix-flag {
+    font-size: 1.25rem;
+}
+
+.prefix-option .prefix-country {
+    flex: 1;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.prefix-option .prefix-code {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Phone Number Input Wrapper */
+.phone-number-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.phone-number-input {
+    width: 100%;
+    padding: 1rem 1.25rem !important;
+}
+
+/* Floating label for phone input */
+.phone-number-wrapper .phone-label {
+    position: absolute;
+    left: 1.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    background: transparent;
+}
+
+.phone-number-wrapper .phone-number-input:focus + .phone-label,
+.phone-number-wrapper .phone-number-input:not(:placeholder-shown) + .phone-label,
+.phone-number-wrapper .phone-number-input.has-value + .phone-label {
+    top: 0;
+    transform: translateY(-50%);
+    font-size: 0.75rem;
+    color: rgba(240, 147, 251, 0.9);
+    background: rgba(20, 20, 40, 0.95);
+    padding: 0 0.5rem;
+    left: 1rem;
+    border-radius: 4px;
+}
+
+/* Valid state label color */
+.phone-number-wrapper .phone-number-input.input-valid + .phone-label {
+    color: rgba(74, 222, 128, 0.9) !important;
+}
+
+/* Invalid state label color */
+.phone-number-wrapper .phone-number-input.input-invalid + .phone-label {
+    color: rgba(245, 87, 108, 0.9) !important;
+}
+
+/* Phone number input validation states */
+.phone-number-input.input-valid {
+    border-color: rgba(74, 222, 128, 0.5) !important;
+    background: rgba(74, 222, 128, 0.1) !important;
+}
+
+.phone-number-input.input-invalid {
+    border-color: rgba(245, 87, 108, 0.5) !important;
+    background: rgba(245, 87, 108, 0.1) !important;
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+    .phone-input-container {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .phone-prefix-btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 48px;
+    }
+
+    .phone-prefix-dropdown {
+        width: 100%;
+        min-width: auto;
+    }
+}

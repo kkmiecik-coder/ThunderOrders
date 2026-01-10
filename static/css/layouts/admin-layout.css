@@ -12,15 +12,22 @@ body {
 .main-wrapper {
     flex: 1;
     margin-left: var(--sidebar-width);
-    transition: margin-left var(--transition-sidebar);
+    width: calc(100% - var(--sidebar-width));
+    max-width: calc(100% - var(--sidebar-width));
+    transition: margin-left var(--transition-sidebar),
+                width var(--transition-sidebar),
+                max-width var(--transition-sidebar);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden;
 }
 
 /* When sidebar is collapsed */
 .sidebar[data-collapsed="true"] ~ .main-wrapper {
     margin-left: var(--sidebar-width-collapsed);
+    width: calc(100% - var(--sidebar-width-collapsed));
+    max-width: calc(100% - var(--sidebar-width-collapsed));
 }
 
 /* Main content below topbar */
@@ -30,6 +37,8 @@ body {
     background: var(--bg-secondary);
     min-height: 100vh;
     transition: background 0.5s ease;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* ==================== */

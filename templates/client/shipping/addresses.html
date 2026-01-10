@@ -1,0 +1,441 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Adresy dostaw - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/shipping-addresses.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="shipping-addresses-page">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-content">
+            <h1 class="page-title">Adresy dostaw</h1>
+            <p class="page-subtitle">Zarządzaj swoimi zapisanymi adresami dostawy</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddAddressModal()">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Dodaj adres
+        </button>
+    </div>
+
+    <!-- Lista adresów -->
+    <div class="addresses-container">
+        {% if addresses %}
+            <div class="addresses-grid">
+                {% for address in addresses %}
+                <div class="address-card {% if address.is_default %}address-card--default{% endif %}" data-address-id="{{ address.id }}">
+                    {% if address.is_default %}
+                    <div class="address-badge">Domyślny</div>
+                    {% endif %}
+
+                    <div class="address-card__icon">
+                        {% if address.address_type == 'pickup_point' %}
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                        {% else %}
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                        {% endif %}
+                    </div>
+
+                    <div class="address-card__content">
+                        <h3 class="address-card__name">{{ address.display_name }}</h3>
+                        <p class="address-card__details">{{ address.full_address }}</p>
+                        {% if address.address_type == 'pickup_point' %}
+                        <span class="address-card__type">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="3" width="15" height="13"></rect>
+                                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                                <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                            </svg>
+                            {% if address.pickup_courier == 'InPost' %}Paczkomat®{% elif address.pickup_courier == 'Orlen Paczka' %}Orlen Paczka{% else %}Automat paczkowy{% endif %}
+                        </span>
+                        {% else %}
+                        <span class="address-card__type">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                            </svg>
+                            Adres domowy
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="address-card__actions">
+                        {% if not address.is_default %}
+                        <button class="btn btn-secondary btn-sm" onclick="setDefaultAddress({{ address.id }})">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                            </svg>
+                            Ustaw domyślny
+                        </button>
+                        {% endif %}
+                        <button class="btn btn-danger btn-sm" onclick="deleteAddress({{ address.id }})">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                            Usuń
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state__icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                </div>
+                <h3 class="empty-state__title">Brak zapisanych adresów</h3>
+                <p class="empty-state__text">Nie masz jeszcze żadnych zapisanych adresów dostawy. Dodaj swój pierwszy adres, aby przyspieszyć składanie zamówień.</p>
+                <button class="btn btn-primary" onclick="openAddAddressModal()">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                    Dodaj pierwszy adres
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal dodawania adresu -->
+<div id="addAddressModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title">Dodaj nowy adres</h2>
+            <button class="modal-close" onclick="closeAddAddressModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Progress indicator -->
+            <div class="steps-indicator" id="stepsIndicator">
+                <div class="step-dot active" data-step="1"></div>
+                <div class="step-line"></div>
+                <div class="step-dot" data-step="2"></div>
+                <div class="step-line"></div>
+                <div class="step-dot" data-step="3"></div>
+                <div class="step-line step-line--extra hidden" data-extra></div>
+                <div class="step-dot step-dot--extra hidden" data-step="4" data-extra></div>
+            </div>
+
+            <form id="addAddressForm">
+                <!-- KROK 1: Wybór typu dostawy -->
+                <div class="form-step active" id="step1">
+                    <h3 class="step-title">Wybierz sposób dostawy</h3>
+
+                    <div class="delivery-type-grid">
+                        <label class="delivery-type-card" data-type="pickup_point">
+                            <input type="radio" name="address_type" value="pickup_point">
+                            <div class="delivery-type-card__icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="1" y="3" width="15" height="13"></rect>
+                                    <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                                </svg>
+                            </div>
+                            <div class="delivery-type-card__content">
+                                <span class="delivery-type-card__name">Automat paczkowy</span>
+                                <span class="delivery-type-card__desc">Paczkomat® InPost lub Orlen Paczka</span>
+                            </div>
+                            <div class="delivery-type-card__check">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </label>
+
+                        <label class="delivery-type-card" data-type="home">
+                            <input type="radio" name="address_type" value="home">
+                            <div class="delivery-type-card__icon">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                            </div>
+                            <div class="delivery-type-card__content">
+                                <span class="delivery-type-card__name">Adres domowy</span>
+                                <span class="delivery-type-card__desc">Dostawa kurierem pod drzwi</span>
+                            </div>
+                            <div class="delivery-type-card__check">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- KROK 2: Wybór kuriera (dla paczkomatu) -->
+                <div class="form-step" id="step2-pickup">
+                    <h3 class="step-title">Wybierz kuriera</h3>
+
+                    <div class="courier-grid">
+                        <label class="courier-card" data-courier="InPost">
+                            <input type="radio" name="pickup_courier" value="InPost">
+                            <div class="courier-card__logo">
+                                <span class="courier-logo-text">Paczkomat® InPost</span>
+                            </div>
+                            <div class="courier-card__check">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </label>
+
+                        <label class="courier-card" data-courier="Orlen Paczka">
+                            <input type="radio" name="pickup_courier" value="Orlen Paczka">
+                            <div class="courier-card__logo">
+                                <span class="courier-logo-text">Orlen Paczka</span>
+                            </div>
+                            <div class="courier-card__check">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="modal-footer modal-footer--back-only">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            Wstecz
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KROK 3A: InPost - wprowadź dane paczkomatu -->
+                <div class="form-step" id="step3-inpost">
+                    <div class="step-header">
+                        <h3 class="step-title">Wprowadź dane Paczkomatu®</h3>
+                        <a href="https://inpost.pl/znajdz-paczkomat" target="_blank" rel="noopener noreferrer" class="btn-link-external">
+                            Znajdź Paczkomat®
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inpost_point_id" class="form-label">Kod paczkomatu<span class="required">*</span></label>
+                        <input
+                            type="text"
+                            id="inpost_point_id"
+                            name="pickup_point_id"
+                            class="form-control"
+                            placeholder="np. WAW01M"
+                            maxlength="10">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="inpost_address" class="form-label">Adres punktu<span class="required">*</span></label>
+                        <input type="text" id="inpost_address" name="pickup_address" class="form-control" placeholder="ul. Przykładowa 123">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="inpost_postal_code" class="form-label">Kod pocztowy<span class="required">*</span></label>
+                            <input type="text" id="inpost_postal_code" name="pickup_postal_code" class="form-control" placeholder="00-000">
+                        </div>
+                        <div class="form-group">
+                            <label for="inpost_city" class="form-label">Miasto<span class="required">*</span></label>
+                            <input type="text" id="inpost_city" name="pickup_city" class="form-control" placeholder="Warszawa">
+                        </div>
+                    </div>
+
+                    <p class="form-helper"><span class="required">*</span> Pola wymagane</p>
+
+                    <div class="modal-footer modal-footer--no-bg">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            Wstecz
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="goToStep(4)" id="inpostNextBtn" disabled>
+                            Dalej
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KROK 3B: Orlen Paczka - ręczne wprowadzenie -->
+                <div class="form-step" id="step3-orlen">
+                    <div class="step-header">
+                        <h3 class="step-title">Wprowadź dane Orlen Paczka</h3>
+                        <a href="https://www.orlenpaczka.pl/szukaj-punktu-nadania/" target="_blank" rel="noopener noreferrer" class="btn-link-external">
+                            Znajdź automat
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="orlen_point_id" class="form-label">Kod automatu<span class="required">*</span></label>
+                        <input
+                            type="text"
+                            id="orlen_point_id"
+                            class="form-control"
+                            placeholder="np. WAW001"
+                            maxlength="6">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="orlen_address" class="form-label">Adres punktu<span class="required">*</span></label>
+                        <input type="text" id="orlen_address" class="form-control" placeholder="ul. Przykładowa 123">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="orlen_postal_code" class="form-label">Kod pocztowy<span class="required">*</span></label>
+                            <input type="text" id="orlen_postal_code" class="form-control" placeholder="00-000">
+                        </div>
+                        <div class="form-group">
+                            <label for="orlen_city" class="form-label">Miasto<span class="required">*</span></label>
+                            <input type="text" id="orlen_city" class="form-control" placeholder="Warszawa">
+                        </div>
+                    </div>
+
+                    <p class="form-helper"><span class="required">*</span> Pola wymagane</p>
+
+                    <div class="modal-footer modal-footer--no-bg">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            Wstecz
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="goToStep(4)" id="orlenNextBtn" disabled>
+                            Dalej
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KROK 2B: Adres domowy -->
+                <div class="form-step" id="step2-home">
+                    <h3 class="step-title">Wprowadź adres dostawy</h3>
+
+                    <div class="form-group">
+                        <label for="home_name" class="form-label">Imię i nazwisko odbiorcy</label>
+                        <input type="text" id="home_name" name="shipping_name" class="form-control" placeholder="Jan Kowalski">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="home_address" class="form-label">Ulica i numer</label>
+                        <input type="text" id="home_address" name="shipping_address" class="form-control" placeholder="ul. Przykładowa 123/45">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="home_postal_code" class="form-label">Kod pocztowy</label>
+                            <input type="text" id="home_postal_code" name="shipping_postal_code" class="form-control" placeholder="00-000">
+                        </div>
+                        <div class="form-group">
+                            <label for="home_city" class="form-label">Miasto</label>
+                            <input type="text" id="home_city" name="shipping_city" class="form-control" placeholder="Warszawa">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="home_voivodeship" class="form-label">Województwo</label>
+                        <select id="home_voivodeship" name="shipping_voivodeship" class="form-control">
+                            <option value="">Wybierz województwo</option>
+                            <option value="dolnośląskie">dolnośląskie</option>
+                            <option value="kujawsko-pomorskie">kujawsko-pomorskie</option>
+                            <option value="lubelskie">lubelskie</option>
+                            <option value="lubuskie">lubuskie</option>
+                            <option value="łódzkie">łódzkie</option>
+                            <option value="małopolskie">małopolskie</option>
+                            <option value="mazowieckie">mazowieckie</option>
+                            <option value="opolskie">opolskie</option>
+                            <option value="podkarpackie">podkarpackie</option>
+                            <option value="podlaskie">podlaskie</option>
+                            <option value="pomorskie">pomorskie</option>
+                            <option value="śląskie">śląskie</option>
+                            <option value="świętokrzyskie">świętokrzyskie</option>
+                            <option value="warmińsko-mazurskie">warmińsko-mazurskie</option>
+                            <option value="wielkopolskie">wielkopolskie</option>
+                            <option value="zachodniopomorskie">zachodniopomorskie</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            Wstecz
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="goToStep(4)">
+                            Dalej
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KROK 4: Podsumowanie -->
+                <div class="form-step" id="step4">
+                    <h3 class="step-title">Podsumowanie</h3>
+
+                    <div id="summaryContent" class="summary-box"></div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="is_default" id="is_default">
+                            <span class="checkbox-custom"></span>
+                            <span class="checkbox-text">Ustaw jako domyślny adres</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-footer modal-footer--no-bg">
+                        <button type="button" class="btn btn-secondary" onclick="goBack()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                            Wstecz
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            Zapisz adres
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/shipping-addresses.js') }}"></script>
+{% endblock %}

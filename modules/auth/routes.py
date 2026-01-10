@@ -225,12 +225,17 @@ def register():
         # Pobierz zgodę na analytics (checkbox)
         analytics_consent = request.form.get('analytics_consent') == 'on'
 
+        # Połącz prefix + numer telefonu
+        phone_prefix = form.phone_prefix.data.strip() if form.phone_prefix.data else '+48'
+        phone_number = form.phone_number.data.strip() if form.phone_number.data else ''
+        full_phone = f"{phone_prefix}{phone_number}"
+
         # Stwórz nowego użytkownika
         user = User(
             email=form.email.data.lower().strip(),
             first_name=form.first_name.data.strip(),
             last_name=form.last_name.data.strip(),
-            phone=form.phone.data.strip() if form.phone.data else None,
+            phone=full_phone,
             role='client',  # Domyślnie klient
             is_active=True,
             email_verified=False,  # Wymaga weryfikacji

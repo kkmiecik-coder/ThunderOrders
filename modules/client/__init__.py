@@ -5,8 +5,9 @@ Panel klienta
 
 from flask import Blueprint
 
-# Stw�rz blueprint
+# Stwórz blueprint
 client_bp = Blueprint('client', __name__)
 
-# Import routes na koDcu, aby unikn circular imports
+# Import routes na końcu, aby uniknąć circular imports
 from modules.client import routes
+from modules.client import shipping

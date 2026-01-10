@@ -71,16 +71,25 @@ class RegisterForm(FlaskForm):
         render_kw={'placeholder': 'twoj@email.pl'}
     )
 
-    phone = StringField(
-        'Telefon (opcjonalnie)',
+    phone_prefix = StringField(
+        'Prefix',
         validators=[
-            Length(max=20, message='Numer telefonu jest za długi'),
+            DataRequired(message='Prefix jest wymagany')
+        ],
+        render_kw={'readonly': True}
+    )
+
+    phone_number = StringField(
+        'Numer telefonu',
+        validators=[
+            DataRequired(message='Numer telefonu jest wymagany'),
+            Length(min=6, max=15, message='Numer telefonu musi mieć od 6 do 15 cyfr'),
             Regexp(
-                r'^[\d\s\+\-\(\)]*$',
-                message='Niepoprawny format numeru telefonu'
+                r'^\d+$',
+                message='Numer telefonu może zawierać tylko cyfry'
             )
         ],
-        render_kw={'placeholder': '+48 123 456 789'}
+        render_kw={'placeholder': '123456789', 'inputmode': 'tel'}
     )
 
     password = PasswordField(

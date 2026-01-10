@@ -3,7 +3,7 @@ Admin Routes
 Routing dla panelu administratora
 """
 
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from modules.admin import admin_bp
 from utils.decorators import role_required
@@ -12,9 +12,10 @@ from modules.auth.models import User
 from modules.admin.models import AdminTask
 from modules.orders.models import Order, OrderItem
 from modules.products.models import Product
-from sqlalchemy import func, desc, cast, Date
+from sqlalchemy import func, desc, cast, Date, extract
 from datetime import datetime, timedelta
 from decimal import Decimal
+from calendar import month_name
 
 
 @admin_bp.route('/dashboard')
@@ -201,3 +202,181 @@ def dashboard():
         top_products=top_products,
         tasks=tasks
     )
+
+
+@admin_bp.route('/dashboard/sales-data')
+@login_required
+@role_required('admin', 'mod')
+def get_sales_data():
+    """
+    API endpoint zwracający dane sprzedaży dla wybranego zakresu
+
+    Query params:
+    - range: 7d, 14d, 30d, 3m, 12m, ytd
+
+    Returns JSON:
+    {
+        "success": true,
+        "labels": ["01.01", "02.01", ...],
+        "values": [1234.56, 2345.67, ...]
+    }
+    """
+
+    range_param = request.args.get('range', '7d')
+    today = datetime.now().date()
+
+    labels = []
+    values = []
+
+    # Parse range parameter
+    if range_param == '7d':
+        # 7 dni - rozbicie dzienne
+        for i in range(6, -1, -1):
+            date = today - timedelta(days=i)
+            daily_revenue = db.session.query(
+                func.coalesce(func.sum(Order.total_amount), 0)
+            ).filter(
+                func.date(Order.created_at) == date,
+                Order.status != 'anulowane'
+            ).scalar() or Decimal('0.00')
+
+            labels.append(date.strftime('%d.%m'))
+            values.append(float(daily_revenue))
+
+    elif range_param == '14d':
+        # 14 dni - rozbicie dzienne
+        for i in range(13, -1, -1):
+            date = today - timedelta(days=i)
+            daily_revenue = db.session.query(
+                func.coalesce(func.sum(Order.total_amount), 0)
+            ).filter(
+                func.date(Order.created_at) == date,
+                Order.status != 'anulowane'
+            ).scalar() or Decimal('0.00')
+
+            labels.append(date.strftime('%d.%m'))
+            values.append(float(daily_revenue))
+
+    elif range_param == '30d':
+        # 30 dni - rozbicie dzienne
+        for i in range(29, -1, -1):
+            date = today - timedelta(days=i)
+            daily_revenue = db.session.query(
+                func.coalesce(func.sum(Order.total_amount), 0)
+            ).filter(
+                func.date(Order.created_at) == date,
+                Order.status != 'anulowane'
+            ).scalar() or Decimal('0.00')
+
+            labels.append(date.strftime('%d.%m'))
+            values.append(float(daily_revenue))
+
+    elif range_param == '3m':
+        # 3 miesiące - rozbicie miesięczne
+        for i in range(2, -1, -1):
+            # Calculate first day of month
+            if i == 0:
+                month_start = today.replace(day=1)
+            else:
+                # Go back i months
+                year = today.year
+                month = today.month - i
+                if month <= 0:
+                    month += 12
+                    year -= 1
+                month_start = datetime(year, month, 1).date()
+
+            # Calculate last day of month
+            if i == 0:
+                month_end = today
+            else:
+                next_month = month_start.replace(day=28) + timedelta(days=4)
+                month_end = next_month - timedelta(days=next_month.day)
+
+            monthly_revenue = db.session.query(
+                func.coalesce(func.sum(Order.total_amount), 0)
+            ).filter(
+                func.date(Order.created_at) >= month_start,
+                func.date(Order.created_at) <= month_end,
+                Order.status != 'anulowane'
+            ).scalar() or Decimal('0.00')
+
+            # Polish month names
+            polish_months = [
+                'Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze',
+                'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'
+            ]
+            labels.append(polish_months[month_start.month - 1])
+            values.append(float(monthly_revenue))
+
+    elif range_param == '12m':
+        # 12 miesięcy - rozbicie miesięczne
+        for i in range(11, -1, -1):
+            # Calculate first day of month
+            if i == 0:
+                month_start = today.replace(day=1)
+            else:
+                year = today.year
+                month = today.month - i
+                if month <= 0:
+                    month += 12
+                    year -= 1
+                month_start = datetime(year, month, 1).date()
+
+            # Calculate last day of month
+            if i == 0:
+                month_end = today
+            else:
+                next_month = month_start.replace(day=28) + timedelta(days=4)
+                month_end = next_month - timedelta(days=next_month.day)
+
+            monthly_revenue = db.session.query(
+                func.coalesce(func.sum(Order.total_amount), 0)
+            ).filter(
+                func.date(Order.created_at) >= month_start,
+                func.date(Order.created_at) <= month_end,
+                Order.status != 'anulowane'
+            ).scalar() or Decimal('0.00')
+
+            polish_months = [
+                'Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze',
+                'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'
+            ]
+            labels.append(polish_months[month_start.month - 1])
+            values.append(float(monthly_revenue))
+
+    elif range_param == 'ytd':
+        # Bieżący rok - rozbicie miesięczne
+        year_start = today.replace(month=1, day=1)
+        current_month = today.month
+
+        for month_num in range(1, current_month + 1):
+            month_start = datetime(today.year, month_num, 1).date()
+
+            # Calculate last day of month
+            if month_num == current_month:
+                month_end = today
+            else:
+                next_month = month_start.replace(day=28) + timedelta(days=4)
+                month_end = next_month - timedelta(days=next_month.day)
+
+            monthly_revenue = db.session.query(
+                func.coalesce(func.sum(Order.total_amount), 0)
+            ).filter(
+                func.date(Order.created_at) >= month_start,
+                func.date(Order.created_at) <= month_end,
+                Order.status != 'anulowane'
+            ).scalar() or Decimal('0.00')
+
+            polish_months = [
+                'Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze',
+                'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'
+            ]
+            labels.append(polish_months[month_num - 1])
+            values.append(float(monthly_revenue))
+
+    return jsonify({
+        'success': True,
+        'labels': labels,
+        'values': values
+    })

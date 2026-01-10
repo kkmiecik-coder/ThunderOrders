@@ -302,8 +302,15 @@
   padding: var(--space-4, 16px) var(--space-6, 24px);
   border-top: 1px solid var(--gray-200, #e0e0e0);
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: var(--space-3, 12px);
+}
+
+/* Modal Footer - Back Only (no background, no border) */
+.modal-footer.modal-footer--back-only {
+  background: transparent;
+  border-top: none;
+  padding-top: var(--space-2, 8px);
 }
 
 /* ==========================================
@@ -486,6 +493,12 @@
   border-top: 1px solid rgba(240, 147, 251, 0.15);
   background: rgba(255, 255, 255, 0.02);
   transition: all 0.5s ease;
+}
+
+/* Modal Footer - Back Only - Dark Mode */
+[data-theme="dark"] .modal-footer.modal-footer--back-only {
+  background: transparent;
+  border-top: none;
 }
 
 /* Form Elements in Modals - Dark Mode */
@@ -737,7 +750,7 @@
 .modal-footer.product-modal-footer {
   flex-shrink: 0;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: var(--space-3, 12px);
   padding: var(--space-4, 16px) var(--space-6, 24px);
   border-top: 1px solid var(--gray-200, #e0e0e0);

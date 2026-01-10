@@ -71,7 +71,7 @@ class User(UserMixin, db.Model):
     )
 
     # Contact
-    phone = db.Column(db.String(20))
+    phone = db.Column(db.String(20), nullable=False)
 
     # Status
     is_active = db.Column(db.Boolean, default=True)
@@ -124,6 +124,7 @@ class User(UserMixin, db.Model):
     avatar = db.relationship('Avatar', backref='users', foreign_keys=[avatar_id])
     orders = db.relationship('Order', back_populates='user', lazy='dynamic')
     order_comments = db.relationship('OrderComment', back_populates='user', lazy='dynamic')
+    shipping_addresses = db.relationship('ShippingAddress', back_populates='user', lazy='dynamic')
     # activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic')
 
     def __repr__(self):
@@ -583,3 +584,74 @@ class Settings(db.Model):
 
         db.session.commit()
         return setting
+
+
+class ShippingAddress(db.Model):
+    """
+    Model adresu dostawy klienta
+    Obsługuje adresy domowe oraz punkty odbioru (InPost, Orlen Paczka)
+    Tabela: shipping_addresses
+    """
+    __tablename__ = 'shipping_addresses'
+
+    # Primary Key
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Foreign Key
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='CASCADE'),
+        nullable=False,
+        index=True
+    )
+
+    # Address Type: 'home' lub 'pickup_point'
+    address_type = db.Column(db.String(20), nullable=False)
+
+    # Pickup Point fields (dla address_type='pickup_point')
+    pickup_courier = db.Column(db.String(50), nullable=True)  # 'InPost' lub 'Orlen Paczka'
+    pickup_point_id = db.Column(db.String(50), nullable=True)  # ID paczkomatu (np. 'KRA010', 'WAW001')
+    pickup_address = db.Column(db.String(500), nullable=True)  # Pełny adres punktu
+    pickup_postal_code = db.Column(db.String(10), nullable=True)
+    pickup_city = db.Column(db.String(100), nullable=True)
+
+    # Home Address fields (dla address_type='home')
+    shipping_name = db.Column(db.String(200), nullable=True)  # Imię i nazwisko odbiorcy
+    shipping_address = db.Column(db.String(500), nullable=True)  # Ulica i numer
+    shipping_postal_code = db.Column(db.String(10), nullable=True)
+    shipping_city = db.Column(db.String(100), nullable=True)
+    shipping_voivodeship = db.Column(db.String(50), nullable=True)
+    shipping_country = db.Column(db.String(100), nullable=True, default='Polska')
+
+    # Metadata
+    is_default = db.Column(db.Boolean, default=False, index=True)  # Czy domyślny adres
+    is_active = db.Column(db.Boolean, default=True, index=True)  # Soft delete
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+
+    # Relationship
+    user = db.relationship('User', back_populates='shipping_addresses')
+
+    def __repr__(self):
+        if self.address_type == 'pickup_point':
+            return f'<ShippingAddress {self.pickup_courier} {self.pickup_point_id}>'
+        else:
+            return f'<ShippingAddress {self.shipping_name} - {self.shipping_city}>'
+
+    @property
+    def display_name(self):
+        """Human-readable nazwa adresu do wyświetlenia"""
+        if self.address_type == 'pickup_point':
+            return f"{self.pickup_courier} - {self.pickup_point_id}"
+        else:
+            return f"{self.shipping_name}, {self.shipping_city}"
+
+    @property
+    def full_address(self):
+        """Pełny adres do wyświetlenia"""
+        if self.address_type == 'pickup_point':
+            return f"{self.pickup_address}, {self.pickup_postal_code} {self.pickup_city}"
+        else:
+            return f"{self.shipping_address}, {self.shipping_postal_code} {self.shipping_city}"

@@ -207,46 +207,116 @@ function initFieldValidation() {
 }
 
 /* ============================================
-   Phone Input (digits only, min 9)
+   Phone Input with Country Prefix Selector
    ============================================ */
 function initPhoneInput() {
-    const phoneInput = document.getElementById('phone');
-    if (!phoneInput) return;
+    const prefixSelector = document.getElementById('phone-prefix-selector');
+    const phoneNumberInput = document.getElementById('phone_number');
+    const phonePrefixInput = document.getElementById('phone_prefix');
 
-    // Prevent non-digit input
-    phoneInput.addEventListener('keypress', function(e) {
-        // Allow: backspace, delete, tab, escape, enter
-        if ([8, 9, 27, 13, 46].includes(e.keyCode)) {
-            return;
+    if (!prefixSelector || !phoneNumberInput || !phonePrefixInput) return;
+
+    const prefixBtn = document.getElementById('phone-prefix-btn');
+    const dropdown = document.getElementById('phone-prefix-dropdown');
+    const selectedFlag = document.getElementById('selected-flag');
+    const selectedPrefix = document.getElementById('selected-prefix');
+
+    // Country phone length validation rules
+    const countryRules = {
+        '+48': { lengths: [9], country: 'Polska' },
+        '+49': { lengths: [10, 11], country: 'Niemcy' },
+        '+44': { lengths: [10], country: 'Wielka Brytania' },
+        '+33': { lengths: [9], country: 'Francja' },
+        '+420': { lengths: [9], country: 'Czechy' },
+        '+421': { lengths: [9], country: 'Slowacja' },
+        '+380': { lengths: [9], country: 'Ukraina' },
+        '+43': { lengths: [10, 11], country: 'Austria' },
+        '+31': { lengths: [9], country: 'Holandia' },
+        '+32': { lengths: [9], country: 'Belgia' },
+        '+39': { lengths: [9, 10], country: 'Wlochy' },
+        '+34': { lengths: [9], country: 'Hiszpania' },
+        '+1': { lengths: [10], country: 'USA' }
+    };
+
+    let currentPrefix = '+48';
+    let currentLengths = [9];
+
+    // Toggle dropdown
+    prefixBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        prefixSelector.classList.toggle('open');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!prefixSelector.contains(e.target)) {
+            prefixSelector.classList.remove('open');
         }
-        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-        if ((e.ctrlKey || e.metaKey) && [65, 67, 86, 88].includes(e.keyCode)) {
-            return;
-        }
-        // Block non-digit keys
+    });
+
+    // Handle option selection
+    dropdown.querySelectorAll('.prefix-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const prefix = this.dataset.prefix;
+            const flag = this.dataset.flag;
+            const lengthStr = this.dataset.length;
+
+            // Update display
+            selectedFlag.textContent = flag;
+            selectedPrefix.textContent = prefix;
+
+            // Update hidden input
+            phonePrefixInput.value = prefix;
+
+            // Update current rules
+            currentPrefix = prefix;
+            currentLengths = lengthStr.split(',').map(l => parseInt(l.trim()));
+
+            // Mark as selected
+            dropdown.querySelectorAll('.prefix-option').forEach(opt => opt.classList.remove('selected'));
+            this.classList.add('selected');
+
+            // Close dropdown
+            prefixSelector.classList.remove('open');
+
+            // Re-validate phone number
+            validatePhoneNumber();
+
+            // Focus phone input
+            phoneNumberInput.focus();
+        });
+    });
+
+    // Mark default option as selected
+    const defaultOption = dropdown.querySelector('[data-prefix="+48"]');
+    if (defaultOption) defaultOption.classList.add('selected');
+
+    // Phone number input - allow only digits
+    phoneNumberInput.addEventListener('keypress', function(e) {
+        if ([8, 9, 27, 13, 46].includes(e.keyCode)) return;
+        if ((e.ctrlKey || e.metaKey) && [65, 67, 86, 88].includes(e.keyCode)) return;
         if (!/^\d$/.test(e.key)) {
             e.preventDefault();
         }
     });
 
     // Clean pasted content
-    phoneInput.addEventListener('paste', function(e) {
+    phoneNumberInput.addEventListener('paste', function(e) {
         e.preventDefault();
         const pastedText = (e.clipboardData || window.clipboardData).getData('text');
         const digitsOnly = pastedText.replace(/\D/g, '');
 
-        // Insert at cursor position
         const start = this.selectionStart;
         const end = this.selectionEnd;
         const currentValue = this.value;
         this.value = currentValue.substring(0, start) + digitsOnly + currentValue.substring(end);
 
-        // Trigger validation
         this.dispatchEvent(new Event('input'));
     });
 
-    // Remove any non-digits on input (for mobile browsers that may bypass keypress)
-    phoneInput.addEventListener('input', function() {
+    // Validate on input
+    phoneNumberInput.addEventListener('input', function() {
         const digitsOnly = this.value.replace(/\D/g, '');
         if (this.value !== digitsOnly) {
             const cursorPos = this.selectionStart - (this.value.length - digitsOnly.length);
@@ -254,11 +324,55 @@ function initPhoneInput() {
             this.setSelectionRange(cursorPos, cursorPos);
         }
 
-        // Validate: phone is optional, but if filled must be at least 9 digits
-        if (digitsOnly.length === 0) {
-            setInputValidationState(this, null); // Empty is OK (optional field)
+        validatePhoneNumber();
+    });
+
+    // Validation function
+    function validatePhoneNumber() {
+        const value = phoneNumberInput.value.replace(/\D/g, '');
+        const rules = countryRules[currentPrefix] || { lengths: [9] };
+        const validLengths = rules.lengths;
+
+        if (value.length === 0) {
+            setInputValidationState(phoneNumberInput, null);
+            return;
+        }
+
+        const maxLength = Math.max(...validLengths);
+        const isValidLength = validLengths.includes(value.length);
+
+        if (isValidLength) {
+            setInputValidationState(phoneNumberInput, true);
+        } else if (value.length > maxLength) {
+            setInputValidationState(phoneNumberInput, false);
         } else {
-            setInputValidationState(this, digitsOnly.length >= 9);
+            setInputValidationState(phoneNumberInput, null);
+        }
+    }
+
+    // Show invalid on blur only if number is too long (not for empty)
+    phoneNumberInput.addEventListener('blur', function() {
+        const value = this.value.replace(/\D/g, '');
+        if (value.length > 0) {
+            const rules = countryRules[currentPrefix] || { lengths: [9] };
+            const validLengths = rules.lengths;
+            const maxLength = Math.max(...validLengths);
+            const isValidLength = validLengths.includes(value.length);
+
+            if (!isValidLength) {
+                setInputValidationState(this, false);
+            }
+        }
+    });
+
+    // Keyboard navigation for dropdown
+    prefixBtn.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            prefixSelector.classList.toggle('open');
+        }
+        if (e.key === 'Escape') {
+            prefixSelector.classList.remove('open');
         }
     });
 }
