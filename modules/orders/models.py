@@ -9,6 +9,9 @@ Models for orders management:
 - OrderItem: Order line items (products in order)
 - OrderComment: Comments/messages for orders (admin <-> client communication)
 - OrderRefund: Refund records for orders
+- ShippingRequestStatus: Lookup table for shipping request statuses
+- ShippingRequest: Shipping request model (groups orders for shipment)
+- ShippingRequestOrder: Junction table between ShippingRequest and Order
 """
 
 from datetime import datetime, timezone, timedelta
@@ -174,11 +177,16 @@ class Order(db.Model):
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
     payment_method = db.Column(db.String(50), nullable=True)  # przelew, pobranie, gotowka, blik
 
-    # Payment Proof fields
-    payment_proof_file = db.Column(db.String(255), nullable=True)  # Ścieżka do pliku dowodu wpłaty
-    payment_proof_uploaded_at = db.Column(db.DateTime, nullable=True)  # Data/czas wgrania
-    payment_proof_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
-    payment_proof_rejection_reason = db.Column(db.Text, nullable=True)  # Powód odrzucenia
+    # Dual Payment Proof System (order + shipping)
+    payment_proof_order_file = db.Column(db.String(255), nullable=True)  # Dowód za zamówienie (produkty)
+    payment_proof_order_uploaded_at = db.Column(db.DateTime, nullable=True)
+    payment_proof_order_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
+    payment_proof_order_rejection_reason = db.Column(db.Text, nullable=True)
+
+    payment_proof_shipping_file = db.Column(db.String(255), nullable=True)  # Dowód za wysyłkę
+    payment_proof_shipping_uploaded_at = db.Column(db.DateTime, nullable=True)
+    payment_proof_shipping_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
+    payment_proof_shipping_rejection_reason = db.Column(db.Text, nullable=True)
 
     # Exclusive order fields
     is_exclusive = db.Column(db.Boolean, default=False)
@@ -353,7 +361,7 @@ class Order(db.Model):
         """Returns human-readable delivery method name"""
         methods = {
             'kurier': 'Kurier',
-            'paczkomat': 'Paczkomat',
+            'paczkomat': 'InPost',
             'odbior_osobisty': 'Odbiór osobisty',
             'poczta': 'Poczta Polska',
             'dpd_pickup': 'DPD Pickup',
@@ -582,51 +590,234 @@ class Order(db.Model):
         self.total_amount = new_total
         return new_total
 
-    # Payment Proof Properties
+    # ===================================
+    # Payment Proof Properties - NEW SYSTEM
+    # ===================================
+
+    # --- ORDER PROOF (produkty) ---
     @property
-    def has_payment_proof(self):
-        """Czy wgrano dowód wpłaty"""
-        return self.payment_proof_file is not None
+    def has_payment_proof_order(self):
+        """Czy wgrano dowód wpłaty za zamówienie"""
+        return self.payment_proof_order_file is not None
 
     @property
-    def payment_proof_filename(self):
-        """Nazwa pliku (bez ścieżki)"""
-        if not self.payment_proof_file:
+    def payment_proof_order_filename(self):
+        """Nazwa pliku dowodu ORDER (bez ścieżki)"""
+        if not self.payment_proof_order_file:
             return None
-        return self.payment_proof_file.split('/')[-1]
+        return self.payment_proof_order_file.split('/')[-1]
 
     @property
-    def payment_proof_url(self):
-        """URL do podglądu pliku"""
-        if not self.payment_proof_file:
+    def payment_proof_order_url(self):
+        """URL do podglądu dowodu ORDER"""
+        if not self.payment_proof_order_file:
             return None
-        return f'/admin/orders/{self.id}/payment-proof/{self.payment_proof_filename}'
+        return f'/admin/orders/{self.id}/payment-proof-order/{self.payment_proof_order_filename}'
 
     @property
-    def can_upload_payment_proof(self):
-        """Czy można wgrać dowód (brak lub odrzucony)"""
-        return self.payment_proof_status is None or self.payment_proof_status == 'rejected'
+    def can_upload_payment_proof_order(self):
+        """Czy można wgrać dowód ORDER (brak lub odrzucony)"""
+        return self.payment_proof_order_status is None or self.payment_proof_order_status == 'rejected'
 
     @property
-    def payment_proof_is_pending(self):
-        """Czy dowód oczekuje na weryfikację"""
-        return self.payment_proof_status == 'pending'
+    def payment_proof_order_is_pending(self):
+        """Czy dowód ORDER oczekuje na weryfikację"""
+        return self.payment_proof_order_status == 'pending'
 
     @property
-    def payment_proof_is_approved(self):
-        """Czy dowód zaakceptowany"""
-        return self.payment_proof_status == 'approved'
+    def payment_proof_order_is_approved(self):
+        """Czy dowód ORDER zaakceptowany"""
+        return self.payment_proof_order_status == 'approved'
 
     @property
-    def payment_proof_is_rejected(self):
-        """Czy dowód odrzucony"""
-        return self.payment_proof_status == 'rejected'
+    def payment_proof_order_is_rejected(self):
+        """Czy dowód ORDER odrzucony"""
+        return self.payment_proof_order_status == 'rejected'
 
+    # --- SHIPPING PROOF (wysyłka) ---
+    @property
+    def has_payment_proof_shipping(self):
+        """Czy wgrano dowód wpłaty za wysyłkę"""
+        return self.payment_proof_shipping_file is not None
+
+    @property
+    def payment_proof_shipping_filename(self):
+        """Nazwa pliku dowodu SHIPPING (bez ścieżki)"""
+        if not self.payment_proof_shipping_file:
+            return None
+        return self.payment_proof_shipping_file.split('/')[-1]
+
+    @property
+    def payment_proof_shipping_url(self):
+        """URL do podglądu dowodu SHIPPING"""
+        if not self.payment_proof_shipping_file:
+            return None
+        return f'/admin/orders/{self.id}/payment-proof-shipping/{self.payment_proof_shipping_filename}'
+
+    @property
+    def can_upload_payment_proof_shipping(self):
+        """
+        Czy można wgrać dowód SHIPPING (brak lub odrzucony).
+        Wymaga kwoty wysyłki > 0.
+        """
+        # Musi być kwota > 0
+        if not self.shipping_cost or self.shipping_cost <= 0:
+            return False
+
+        # Globalna blokada uploadu
+        if self.is_payment_proof_upload_disabled:
+            return False
+
+        # Status musi być None lub rejected
+        return self.payment_proof_shipping_status is None or self.payment_proof_shipping_status == 'rejected'
+
+    @property
+    def payment_proof_shipping_is_pending(self):
+        """Czy dowód SHIPPING oczekuje na weryfikację"""
+        return self.payment_proof_shipping_status == 'pending'
+
+    @property
+    def payment_proof_shipping_is_approved(self):
+        """Czy dowód SHIPPING zaakceptowany"""
+        return self.payment_proof_shipping_status == 'approved'
+
+    @property
+    def payment_proof_shipping_is_rejected(self):
+        """Czy dowód SHIPPING odrzucony"""
+        return self.payment_proof_shipping_status == 'rejected'
+
+    # ===================================
+    # Icon Status Properties (dla list zamówień)
+    # ===================================
+
+    @property
+    def order_payment_icon_status(self):
+        """
+        Status ikony płatności za zamówienie dla list zamówień.
+        Zwraca: {'status': str, 'color': str, 'tooltip': str}
+
+        Statusy:
+        - 'none' (szary) - brak dowodu
+        - 'pending' (pomarańczowy) - czeka na potwierdzenie
+        - 'approved' (zielony) - wpłata potwierdzona
+        - 'rejected' (fioletowo-czerwony) - odrzucone potwierdzenie
+        - 'error' (czerwony) - błąd
+        """
+        if self.payment_proof_order_is_approved:
+            return {
+                'status': 'approved',
+                'color': '#4CAF50',
+                'tooltip': 'Wpłata za zamówienie potwierdzona'
+            }
+        elif self.payment_proof_order_is_rejected:
+            return {
+                'status': 'rejected',
+                'color': '#f5576c',
+                'tooltip': f'Dowód wpłaty odrzucony: {self.payment_proof_order_rejection_reason or "Brak powodu"}'
+            }
+        elif self.payment_proof_order_is_pending:
+            return {
+                'status': 'pending',
+                'color': '#FF9800',
+                'tooltip': 'Dowód wpłaty czeka na potwierdzenie'
+            }
+        else:
+            return {
+                'status': 'none',
+                'color': '#9E9E9E',
+                'tooltip': 'Brak dowodu wpłaty za zamówienie'
+            }
+
+    @property
+    def shipping_payment_icon_status(self):
+        """
+        Status ikony dostawy + płatności za wysyłkę dla list zamówień.
+        Zwraca: {'status': str, 'color': str, 'tooltip': str, 'tracking': str, 'shipping_request': ShippingRequest|None}
+
+        Statusy:
+        - 'none' (szary) - brak zlecenia wysyłki
+        - 'awaiting_price' (żółty) - ma zlecenie, brak kwoty wysyłki
+        - 'pending' (pomarańczowy) - ma zlecenie i kwotę, czeka na wpłatę
+        - 'shipped' (zielony) - ma numer tracking
+        - 'rejected' (czerwony) - błąd/problem
+        """
+        sr = self.shipping_request
+
+        # Brak zlecenia wysyłki - szara ikona
+        if not sr:
+            return {
+                'status': 'none',
+                'color': '#9E9E9E',
+                'tooltip': 'Brak zlecenia wysyłki',
+                'tracking': None,
+                'shipping_request': None
+            }
+
+        # Ma zlecenie wysyłki
+        tracking = sr.tracking_number
+        tooltip = f'Zlecenie: {sr.request_number}'
+
+        # Dodaj info o innych zamówieniach w tym samym zleceniu
+        other_orders = self.shipping_request_other_orders
+        if other_orders:
+            other_nums = ', '.join([o.order_number for o in other_orders[:3]])
+            if len(other_orders) > 3:
+                other_nums += f' +{len(other_orders) - 3}'
+            tooltip += f' | Razem z: {other_nums}'
+
+        # ZIELONY: Ma numer tracking - wysłane
+        if tracking:
+            tooltip += f' | Nr przesyłki: {tracking}'
+            return {
+                'status': 'shipped',
+                'color': '#4CAF50',
+                'tooltip': tooltip,
+                'tracking': tracking,
+                'shipping_request': sr
+            }
+
+        # CZERWONY: Dowód wpłaty odrzucony
+        if sr.payment_proof_is_rejected:
+            tooltip += ' | Dowód odrzucony'
+            return {
+                'status': 'rejected',
+                'color': '#f5576c',
+                'tooltip': tooltip,
+                'tracking': tracking,
+                'shipping_request': sr
+            }
+
+        # Sprawdź czy jest wycena
+        has_price = sr.total_shipping_cost and sr.total_shipping_cost > 0
+
+        if has_price:
+            tooltip += f' | Koszt: {sr.total_shipping_cost:.2f} zł'
+            # POMARAŃCZOWY: Ma kwotę, czeka na potwierdzenie wpłaty
+            return {
+                'status': 'pending',
+                'color': '#FF9800',
+                'tooltip': tooltip + ' | Czeka na wpłatę',
+                'tracking': tracking,
+                'shipping_request': sr
+            }
+
+        # ŻÓŁTY: Ma zlecenie, brak wyceny
+        tooltip += ' | Oczekuje na wycenę'
+        return {
+            'status': 'awaiting_price',
+            'color': '#FFC107',
+            'tooltip': tooltip,
+            'tracking': tracking,
+            'shipping_request': sr
+        }
+
+    # --- SHARED ---
     @property
     def is_payment_proof_upload_disabled(self):
         """
         Czy upload dowodu wpłaty jest zablokowany dla danego statusu zamówienia.
         Lista zablokowanych statusów jest konfigurowana w Ustawienia > Sposoby płatności.
+        Dotyczy OBUWAŻNE typy dowodów (ORDER i SHIPPING).
         """
         from modules.auth.models import Settings
 
@@ -638,6 +829,31 @@ class Order(db.Model):
             disabled_statuses = []
 
         return self.status in disabled_statuses
+
+    # --- SHIPPING REQUEST INTEGRATION ---
+    @property
+    def shipping_request(self):
+        """
+        Returns the ShippingRequest this order is assigned to, or None.
+        """
+        if self.shipping_request_orders and len(self.shipping_request_orders) > 0:
+            return self.shipping_request_orders[0].shipping_request
+        return None
+
+    @property
+    def is_in_shipping_request(self):
+        """Returns True if this order is assigned to a shipping request."""
+        return self.shipping_request is not None
+
+    @property
+    def shipping_request_other_orders(self):
+        """
+        Returns list of other orders in the same shipping request (excluding this one).
+        """
+        sr = self.shipping_request
+        if not sr:
+            return []
+        return [ro.order for ro in sr.request_orders if ro.order and ro.order.id != self.id]
 
     def recalculate_total(self):
         """Recalculates order total from items"""
@@ -911,3 +1127,255 @@ class OrderShipment(db.Model):
         """Returns courier icon class or SVG identifier"""
         # Can be extended to return actual icons
         return self.courier
+
+
+# ====================
+# SHIPPING REQUESTS
+# ====================
+
+
+class ShippingRequestStatus(db.Model):
+    """
+    Shipping request status lookup table.
+    Allows admin to manage statuses through UI without code changes.
+    """
+    __tablename__ = 'shipping_request_statuses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(50), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    badge_color = db.Column(db.String(7), default='#6B7280')  # HEX color for badge
+    sort_order = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=True)
+    is_initial = db.Column(db.Boolean, default=False)  # Initial status - client can cancel
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+
+    # Relationships
+    shipping_requests = db.relationship('ShippingRequest', back_populates='status_rel', foreign_keys='ShippingRequest.status')
+
+    def __repr__(self):
+        return f'<ShippingRequestStatus {self.slug}>'
+
+    @property
+    def display_name(self):
+        """Returns formatted name for display"""
+        return self.name
+
+
+class ShippingRequest(db.Model):
+    """
+    Shipping request model.
+    Groups multiple orders for a single shipment.
+    """
+    __tablename__ = 'shipping_requests'
+
+    id = db.Column(db.Integer, primary_key=True)
+    request_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: WYS/000001
+
+    # User relationship
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user = db.relationship('User', backref='shipping_requests')
+
+    # Status (foreign key to shipping_request_statuses)
+    status = db.Column(db.String(50), db.ForeignKey('shipping_request_statuses.slug'), default='nowe')
+    status_rel = db.relationship('ShippingRequestStatus', back_populates='shipping_requests', foreign_keys=[status])
+
+    # Shipping Address (copy from ShippingAddress at creation time)
+    address_type = db.Column(db.String(20), nullable=True)  # 'home' or 'pickup_point'
+    shipping_name = db.Column(db.String(200), nullable=True)
+    shipping_address = db.Column(db.String(500), nullable=True)
+    shipping_postal_code = db.Column(db.String(10), nullable=True)
+    shipping_city = db.Column(db.String(100), nullable=True)
+    shipping_voivodeship = db.Column(db.String(50), nullable=True)
+    shipping_country = db.Column(db.String(100), nullable=True, default='Polska')
+    pickup_courier = db.Column(db.String(100), nullable=True)
+    pickup_point_id = db.Column(db.String(50), nullable=True)
+    pickup_address = db.Column(db.String(500), nullable=True)
+    pickup_postal_code = db.Column(db.String(10), nullable=True)
+    pickup_city = db.Column(db.String(100), nullable=True)
+
+    # Financial
+    total_shipping_cost = db.Column(db.Numeric(10, 2), nullable=True)  # Total shipping cost
+
+    # Payment proof for shipping
+    payment_method = db.Column(db.String(100), nullable=True)  # Selected payment method for shipping
+    payment_proof_file = db.Column(db.String(255), nullable=True)
+    payment_proof_uploaded_at = db.Column(db.DateTime, nullable=True)
+    payment_proof_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
+    payment_proof_rejection_reason = db.Column(db.Text, nullable=True)
+
+    # Tracking
+    tracking_number = db.Column(db.String(100), nullable=True)
+    courier = db.Column(db.String(50), nullable=True)
+
+    # Parcel size (for pickup points - A, B, C)
+    parcel_size = db.Column(db.String(1), nullable=True)  # A, B, C
+
+    # Notes
+    admin_notes = db.Column(db.Text, nullable=True)
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+
+    # Relationships
+    request_orders = db.relationship('ShippingRequestOrder', back_populates='shipping_request', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<ShippingRequest {self.request_number}>'
+
+    @property
+    def orders(self):
+        """Returns list of Order objects in this shipping request"""
+        return [ro.order for ro in self.request_orders if ro.order]
+
+    @property
+    def orders_count(self):
+        """Returns number of orders in this shipping request"""
+        return len(self.request_orders)
+
+    @property
+    def status_badge_color(self):
+        """Returns HEX color for status badge"""
+        if self.status_rel:
+            return self.status_rel.badge_color
+        return '#6B7280'  # Default gray
+
+    @property
+    def status_display_name(self):
+        """Returns formatted status name"""
+        if self.status_rel:
+            return self.status_rel.name
+        return self.status
+
+    @property
+    def can_cancel(self):
+        """Returns True if client can cancel this request (only in initial status)"""
+        if self.status_rel:
+            return self.status_rel.is_initial
+        return False
+
+    @property
+    def short_address(self):
+        """Returns short address for display in lists"""
+        if self.address_type == 'pickup_point':
+            if self.pickup_courier and self.pickup_point_id:
+                return f"{self.pickup_courier}: {self.pickup_point_id}"
+            return self.pickup_address or '-'
+        else:
+            if self.shipping_city:
+                return f"{self.shipping_city}, {self.shipping_postal_code or ''}"
+            return self.shipping_address or '-'
+
+    @property
+    def full_address(self):
+        """Returns full address for display"""
+        if self.address_type == 'pickup_point':
+            parts = []
+            if self.pickup_courier:
+                parts.append(self.pickup_courier)
+            if self.pickup_point_id:
+                parts.append(f"({self.pickup_point_id})")
+            if self.pickup_address:
+                parts.append(self.pickup_address)
+            if self.pickup_postal_code and self.pickup_city:
+                parts.append(f"{self.pickup_postal_code} {self.pickup_city}")
+            return ' '.join(parts) if parts else '-'
+        else:
+            parts = []
+            if self.shipping_name:
+                parts.append(self.shipping_name)
+            if self.shipping_address:
+                parts.append(self.shipping_address)
+            if self.shipping_postal_code and self.shipping_city:
+                parts.append(f"{self.shipping_postal_code} {self.shipping_city}")
+            if self.shipping_voivodeship:
+                parts.append(f"woj. {self.shipping_voivodeship}")
+            return ', '.join(parts) if parts else '-'
+
+    @property
+    def has_payment_proof(self):
+        """Returns True if payment proof is uploaded"""
+        return self.payment_proof_file is not None
+
+    @property
+    def payment_proof_is_pending(self):
+        """Returns True if payment proof is pending review"""
+        return self.payment_proof_status == 'pending'
+
+    @property
+    def payment_proof_is_approved(self):
+        """Returns True if payment proof is approved"""
+        return self.payment_proof_status == 'approved'
+
+    @property
+    def payment_proof_is_rejected(self):
+        """Returns True if payment proof is rejected"""
+        return self.payment_proof_status == 'rejected'
+
+    @property
+    def calculated_shipping_cost(self):
+        """
+        Dynamically calculates total shipping cost from all orders in this request.
+        Returns sum of order.shipping_cost for all orders in this shipping request.
+        """
+        from decimal import Decimal
+        total = Decimal('0.00')
+        for ro in self.request_orders:
+            if ro.order and ro.order.shipping_cost:
+                total += Decimal(str(ro.order.shipping_cost))
+        return total if total > 0 else None
+
+    @property
+    def can_upload_payment_proof(self):
+        """Returns True if client can upload payment proof"""
+        # Must have shipping cost set (use calculated cost)
+        cost = self.calculated_shipping_cost
+        if not cost or cost <= 0:
+            return False
+        # Status must be None or rejected
+        return self.payment_proof_status is None or self.payment_proof_status == 'rejected'
+
+    @property
+    def tracking_url(self):
+        """Returns tracking URL based on courier"""
+        if not self.tracking_number or not self.courier:
+            return None
+        from modules.orders.utils import get_tracking_url
+        return get_tracking_url(self.courier, self.tracking_number)
+
+    @classmethod
+    def generate_request_number(cls):
+        """Generates next request number in format WYS/000001"""
+        last_request = cls.query.order_by(cls.id.desc()).first()
+        if last_request and last_request.request_number:
+            try:
+                last_num = int(last_request.request_number.split('/')[1])
+                next_num = last_num + 1
+            except (IndexError, ValueError):
+                next_num = 1
+        else:
+            next_num = 1
+        return f"WYS/{next_num:06d}"
+
+
+class ShippingRequestOrder(db.Model):
+    """
+    Junction table between ShippingRequest and Order.
+    Stores shipping cost per order.
+    """
+    __tablename__ = 'shipping_request_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    shipping_request_id = db.Column(db.Integer, db.ForeignKey('shipping_requests.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
+    shipping_cost = db.Column(db.Numeric(10, 2), nullable=True)  # Shipping cost for this order
+    created_at = db.Column(db.DateTime, default=get_local_now)
+
+    # Relationships
+    shipping_request = db.relationship('ShippingRequest', back_populates='request_orders')
+    order = db.relationship('Order', backref='shipping_request_orders')
+
+    def __repr__(self):
+        return f'<ShippingRequestOrder SR:{self.shipping_request_id} O:{self.order_id}>'

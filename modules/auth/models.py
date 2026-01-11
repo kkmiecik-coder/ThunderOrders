@@ -608,6 +608,9 @@ class ShippingAddress(db.Model):
     # Address Type: 'home' lub 'pickup_point'
     address_type = db.Column(db.String(20), nullable=False)
 
+    # Nazwa adresu (przyjazna nazwa do identyfikacji, np. "Dom", "Biuro", "Mama")
+    name = db.Column(db.String(100), nullable=True)
+
     # Pickup Point fields (dla address_type='pickup_point')
     pickup_courier = db.Column(db.String(50), nullable=True)  # 'InPost' lub 'Orlen Paczka'
     pickup_point_id = db.Column(db.String(50), nullable=True)  # ID paczkomatu (np. 'KRA010', 'WAW001')
@@ -643,6 +646,10 @@ class ShippingAddress(db.Model):
     @property
     def display_name(self):
         """Human-readable nazwa adresu do wyświetlenia"""
+        # Jeśli jest nazwa własna, użyj jej
+        if self.name:
+            return self.name
+        # Fallback do generowanej nazwy
         if self.address_type == 'pickup_point':
             return f"{self.pickup_courier} - {self.pickup_point_id}"
         else:
@@ -652,6 +659,8 @@ class ShippingAddress(db.Model):
     def full_address(self):
         """Pełny adres do wyświetlenia"""
         if self.address_type == 'pickup_point':
-            return f"{self.pickup_address}, {self.pickup_postal_code} {self.pickup_city}"
+            # Include pickup point code (e.g. paczkomat ID)
+            point_id = f" ({self.pickup_point_id})" if self.pickup_point_id else ""
+            return f"{self.pickup_address}, {self.pickup_postal_code} {self.pickup_city}{point_id}"
         else:
             return f"{self.shipping_address}, {self.shipping_postal_code} {self.shipping_city}"

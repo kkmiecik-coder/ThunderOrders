@@ -16,6 +16,19 @@ function openAddAddressModal() {
     resetForm();
 }
 
+// Check URL params on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'add') {
+        // Open modal after short delay for smooth UX
+        setTimeout(function() {
+            openAddAddressModal();
+        }, 200);
+        // Clean URL without reloading
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
+
 function closeAddAddressModal() {
     document.getElementById('addAddressModal').classList.remove('active');
     resetForm();
@@ -51,7 +64,8 @@ function resetForm() {
 
     // Clear all form fields
     const allFields = ['inpost_point_id', 'inpost_address', 'inpost_postal_code', 'inpost_city',
-                       'orlen_point_id', 'orlen_address', 'orlen_postal_code', 'orlen_city'];
+                       'orlen_point_id', 'orlen_address', 'orlen_postal_code', 'orlen_city',
+                       'inpost_address_name', 'orlen_address_name', 'home_address_name'];
     allFields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -336,10 +350,18 @@ function validateOrlenFields() {
 function generateSummary() {
     const summaryContent = document.getElementById('summaryContent');
     let html = '';
+    let addressName = '';
 
     if (selectedDeliveryType === 'pickup_point') {
         if (selectedCourier === 'InPost') {
+            addressName = document.getElementById('inpost_address_name').value.trim();
             html = `
+                ${addressName ? `
+                <div class="summary-row">
+                    <span class="summary-label">Nazwa</span>
+                    <span class="summary-value">${addressName}</span>
+                </div>
+                ` : ''}
                 <div class="summary-row">
                     <span class="summary-label">Typ dostawy</span>
                     <span class="summary-value">Paczkomat® InPost</span>
@@ -358,7 +380,14 @@ function generateSummary() {
                 </div>
             `;
         } else if (selectedCourier === 'Orlen Paczka') {
+            addressName = document.getElementById('orlen_address_name').value.trim();
             html = `
+                ${addressName ? `
+                <div class="summary-row">
+                    <span class="summary-label">Nazwa</span>
+                    <span class="summary-value">${addressName}</span>
+                </div>
+                ` : ''}
                 <div class="summary-row">
                     <span class="summary-label">Typ dostawy</span>
                     <span class="summary-value">Orlen Paczka</span>
@@ -379,7 +408,14 @@ function generateSummary() {
         }
     } else {
         const voivodeship = document.getElementById('home_voivodeship').value;
+        addressName = document.getElementById('home_address_name').value.trim();
         html = `
+            ${addressName ? `
+            <div class="summary-row">
+                <span class="summary-label">Nazwa</span>
+                <span class="summary-value">${addressName}</span>
+            </div>
+            ` : ''}
             <div class="summary-row">
                 <span class="summary-label">Typ dostawy</span>
                 <span class="summary-value">Adres domowy</span>
@@ -504,17 +540,20 @@ async function handleFormSubmit(e) {
         data.pickup_courier = selectedCourier;
 
         if (selectedCourier === 'InPost') {
+            data.name = document.getElementById('inpost_address_name').value.trim() || null;
             data.pickup_point_id = document.getElementById('inpost_point_id').value;
             data.pickup_address = document.getElementById('inpost_address').value;
             data.pickup_postal_code = document.getElementById('inpost_postal_code').value;
             data.pickup_city = document.getElementById('inpost_city').value;
         } else if (selectedCourier === 'Orlen Paczka') {
+            data.name = document.getElementById('orlen_address_name').value.trim() || null;
             data.pickup_point_id = document.getElementById('orlen_point_id').value;
             data.pickup_address = document.getElementById('orlen_address').value;
             data.pickup_postal_code = document.getElementById('orlen_postal_code').value;
             data.pickup_city = document.getElementById('orlen_city').value;
         }
     } else {
+        data.name = document.getElementById('home_address_name').value.trim() || null;
         data.shipping_name = document.getElementById('home_name').value;
         data.shipping_address = document.getElementById('home_address').value;
         data.shipping_postal_code = document.getElementById('home_postal_code').value;

@@ -480,6 +480,19 @@
   background: #ffebee;
 }
 
+.btn-action.disabled,
+.btn-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-action.disabled:hover,
+.btn-action:disabled:hover {
+  background: transparent;
+  color: #999;
+}
+
 /* ==========================================
    Empty State
    ========================================== */
@@ -1007,6 +1020,19 @@
 [data-theme="dark"] .btn-delete:hover {
   color: #f5576c;
   background: rgba(245, 87, 108, 0.15);
+}
+
+[data-theme="dark"] .btn-action.disabled,
+[data-theme="dark"] .btn-action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+[data-theme="dark"] .btn-action.disabled:hover,
+[data-theme="dark"] .btn-action:disabled:hover {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Empty State - Dark Mode */

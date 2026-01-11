@@ -577,7 +577,6 @@
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     0 0 1px rgba(240, 147, 251, 0.3);
-  padding: var(--space-3) 0;
   z-index: 1001;
   opacity: 0;
   visibility: hidden;

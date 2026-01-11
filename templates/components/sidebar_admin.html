@@ -40,6 +40,13 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
+                        <a href="{{ url_for('orders.admin_shipping_requests_list') }}"
+                           class="sidebar-sublink {% if request.endpoint == 'orders.admin_shipping_requests_list' %}active{% endif %}"
+                           data-tooltip="Zlecenia wysyłki">
+                            <span class="sidebar-text">Zlecenia wysyłki</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
                         <a href="#"
                            class="sidebar-sublink disabled"
                            data-tooltip="Standardowe (wkrótce)">

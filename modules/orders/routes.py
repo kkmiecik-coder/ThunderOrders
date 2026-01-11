@@ -17,7 +17,8 @@ from decimal import Decimal
 from modules.orders import orders_bp
 from modules.orders.models import (
     Order, OrderItem, OrderComment, OrderRefund,
-    OrderStatus, OrderType, WmsStatus
+    OrderStatus, OrderType, WmsStatus,
+    ShippingRequestStatus, ShippingRequest, ShippingRequestOrder
 )
 from modules.products.models import Product
 from modules.orders.forms import (
@@ -1575,11 +1576,71 @@ def client_detail(order_id):
 
     timeline.sort(key=lambda x: x['created_at'], reverse=True)
 
+    # Order history - WSZYSTKIE activity logs dla zamówienia
+    from modules.admin.models import ActivityLog
+    import json
+
+    # Mapowanie akcji na polskie opisy
+    action_labels = {
+        'order_created': 'Utworzono zamówienie',
+        'order_status_change': 'Zmieniono status',
+        'order_updated': 'Zaktualizowano zamówienie',
+        'order_item_added': 'Dodano produkt',
+        'order_item_removed': 'Usunięto produkt',
+        'order_item_updated': 'Zaktualizowano produkt',
+        'payment_proof_uploaded': 'Przesłano dowód wpłaty',
+        'payment_proof_order_uploaded': 'Przesłano dowód wpłaty za zamówienie',
+        'payment_proof_shipping_uploaded': 'Przesłano dowód wpłaty za dostawę',
+        'payment_proof_approved': 'Zatwierdzono dowód wpłaty',
+        'payment_proof_order_approved': 'Zatwierdzono dowód wpłaty za zamówienie',
+        'payment_proof_shipping_approved': 'Zatwierdzono dowód wpłaty za dostawę',
+        'payment_proof_rejected': 'Odrzucono dowód wpłaty',
+        'payment_proof_order_rejected': 'Odrzucono dowód wpłaty za zamówienie',
+        'payment_proof_shipping_rejected': 'Odrzucono dowód wpłaty za dostawę',
+        'tracking_number_added': 'Dodano numer śledzenia',
+        'tracking_number_updated': 'Zaktualizowano numer śledzenia',
+        'shipping_requested': 'Utworzono zlecenie wysyłki',
+        'shipping_cost_updated': 'Zaktualizowano koszt wysyłki',
+        'comment_added': 'Dodano komentarz',
+        'order_cancelled': 'Anulowano zamówienie',
+        'order_completed': 'Zamówienie zakończone'
+    }
+
+    order_history = []
+    activity_logs = ActivityLog.query.filter_by(
+        entity_type='order',
+        entity_id=order.id
+    ).order_by(ActivityLog.created_at.desc()).all()
+
+    for log in activity_logs:
+        # Podstawowe dane zdarzenia
+        history_item = {
+            'created_at': log.created_at,
+            'user_name': log.user.full_name if log.user else 'System',
+            'action': log.action,
+            'action_label': action_labels.get(log.action, log.action)
+        }
+
+        # Specjalna obsługa zmian statusu (z kolorowym badge)
+        if log.action == 'order_status_change':
+            new_value_data = json.loads(log.new_value) if log.new_value else {}
+            status_slug = new_value_data.get('status')
+            status_obj = OrderStatus.query.filter_by(slug=status_slug).first()
+
+            history_item['is_status_change'] = True
+            history_item['status_name'] = status_obj.name if status_obj else status_slug
+            history_item['status_color'] = status_obj.badge_color if status_obj else '#6B7280'
+        else:
+            history_item['is_status_change'] = False
+
+        order_history.append(history_item)
+
     return render_template(
         'client/orders/detail.html',
         order=order,
         order_items=order_items,
         timeline=timeline,
+        order_history=order_history,  # Zmieniono z status_history na order_history
         comment_form=comment_form,
         page_title=f'Zamówienie {order.order_number}'
     )
@@ -1671,6 +1732,19 @@ def settings():
     except (json.JSONDecodeError, TypeError):
         payment_proof_disabled_statuses = []
 
+    # Load shipping request statuses
+    shipping_request_statuses = ShippingRequestStatus.query.order_by(ShippingRequestStatus.sort_order).all()
+
+    # Load shipping request allowed statuses
+    shipping_request_allowed_json = get_setting_value('shipping_request_allowed_statuses', '["dostarczone_gom"]')
+    try:
+        shipping_request_allowed_statuses = json.loads(shipping_request_allowed_json) if shipping_request_allowed_json else []
+    except (json.JSONDecodeError, TypeError):
+        shipping_request_allowed_statuses = []
+
+    # Load shipping request default status
+    shipping_request_default_status = get_setting_value('shipping_request_default_status', '')
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
@@ -1678,6 +1752,9 @@ def settings():
         payment_methods=payment_methods,
         exclusive_closure_settings=exclusive_closure_settings,
         payment_proof_disabled_statuses=payment_proof_disabled_statuses,
+        shipping_request_statuses=shipping_request_statuses,
+        shipping_request_allowed_statuses=shipping_request_allowed_statuses,
+        shipping_request_default_status=shipping_request_default_status,
         page_title='Ustawienia zamówień'
     )
 
@@ -1820,6 +1897,281 @@ def update_payment_proof_disabled_statuses():
         db.session.rollback()
         flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
         return redirect(url_for('orders.settings') + '#tab-payment-methods')
+
+
+# ============================================
+# SHIPPING REQUEST SETTINGS
+# ============================================
+
+@orders_bp.route('/admin/orders/update-shipping-request-allowed-statuses', methods=['POST'])
+@login_required
+@role_required('admin')
+def update_shipping_request_allowed_statuses():
+    """
+    Update list of order statuses that qualify for shipping request.
+    Only accessible to admins.
+    """
+    from modules.auth.models import Settings
+
+    try:
+        # Get selected statuses (list of slugs)
+        allowed_statuses = request.form.getlist('allowed_statuses')
+
+        # Validate that all selected statuses exist
+        valid_statuses = [s.slug for s in OrderStatus.query.filter_by(is_active=True).all()]
+
+        # Filter only valid statuses
+        validated_statuses = [s for s in allowed_statuses if s in valid_statuses]
+
+        # Update or create setting
+        setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
+        if setting:
+            setting.value = json.dumps(validated_statuses)
+            setting.type = 'json'
+            setting.updated_at = datetime.now()
+        else:
+            setting = Settings(
+                key='shipping_request_allowed_statuses',
+                value=json.dumps(validated_statuses),
+                type='json',
+                description='Lista statusów zamówień kwalifikujących się do zlecenia wysyłki'
+            )
+            db.session.add(setting)
+
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=current_user,
+            action='settings_updated',
+            entity_type='settings',
+            entity_id=None,
+            old_value=None,
+            new_value={'shipping_request_allowed_statuses': validated_statuses}
+        )
+
+        flash('Ustawienia zostały zapisane', 'success')
+        return redirect(url_for('orders.settings') + '#tab-shipping-requests')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
+        return redirect(url_for('orders.settings') + '#tab-shipping-requests')
+
+
+@orders_bp.route('/admin/orders/settings/shipping-request-default-status', methods=['POST'])
+@login_required
+@role_required('admin')
+def update_shipping_request_default_status():
+    """
+    Update default status for new shipping requests.
+    Only accessible to admins.
+    """
+    from modules.auth.models import Settings
+
+    try:
+        # Get selected status
+        default_status = request.form.get('default_status', '').strip()
+
+        # Validate that status exists
+        if default_status:
+            valid_statuses = [s.slug for s in ShippingRequestStatus.query.filter_by(is_active=True).all()]
+            if default_status not in valid_statuses:
+                flash('Wybrany status nie istnieje lub jest nieaktywny', 'error')
+                return redirect(url_for('orders.settings') + '#tab-shipping-requests')
+
+        # Update or create setting
+        setting = Settings.query.filter_by(key='shipping_request_default_status').first()
+        if setting:
+            setting.value = default_status
+            setting.updated_at = datetime.now()
+        else:
+            setting = Settings(
+                key='shipping_request_default_status',
+                value=default_status,
+                type='string',
+                description='Domyślny status dla nowych zleceń wysyłki'
+            )
+            db.session.add(setting)
+
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=current_user,
+            action='settings_updated',
+            entity_type='settings',
+            entity_id=None,
+            old_value=None,
+            new_value={'shipping_request_default_status': default_status}
+        )
+
+        flash('Ustawienia zostały zapisane', 'success')
+        return redirect(url_for('orders.settings') + '#tab-shipping-requests')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
+        return redirect(url_for('orders.settings') + '#tab-shipping-requests')
+
+
+@orders_bp.route('/admin/orders/shipping-request-statuses/<int:status_id>', methods=['GET'])
+@login_required
+@role_required('admin')
+def get_shipping_request_status(status_id):
+    """Get shipping request status data for edit modal."""
+    status = ShippingRequestStatus.query.get_or_404(status_id)
+    return jsonify({
+        'id': status.id,
+        'name': status.name,
+        'slug': status.slug,
+        'badge_color': status.badge_color,
+        'is_initial': status.is_initial,
+        'is_active': status.is_active
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-request-statuses/create', methods=['POST'])
+@login_required
+@role_required('admin')
+def create_shipping_request_status():
+    """Create new shipping request status."""
+    from modules.orders.utils import generate_slug
+
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+
+        if not name:
+            return jsonify({'success': False, 'error': 'Nazwa jest wymagana'}), 400
+
+        # Generate slug from name
+        slug = generate_slug(name)
+
+        # Check if slug already exists
+        existing = ShippingRequestStatus.query.filter_by(slug=slug).first()
+        if existing:
+            return jsonify({'success': False, 'error': 'Status o takiej nazwie już istnieje'}), 400
+
+        # Get max sort_order
+        max_order = db.session.query(func.max(ShippingRequestStatus.sort_order)).scalar() or 0
+
+        # Create new status
+        status = ShippingRequestStatus(
+            slug=slug,
+            name=name,
+            badge_color=data.get('badge_color', '#6B7280'),
+            is_initial=data.get('is_initial', False),
+            is_active=data.get('is_active', True),
+            sort_order=max_order + 1
+        )
+        db.session.add(status)
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=current_user,
+            action='shipping_request_status_created',
+            entity_type='shipping_request_status',
+            entity_id=status.id,
+            old_value=None,
+            new_value={'name': name, 'slug': slug}
+        )
+
+        return jsonify({'success': True, 'id': status.id})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@orders_bp.route('/admin/orders/shipping-request-statuses/<int:status_id>', methods=['PUT'])
+@login_required
+@role_required('admin')
+def update_shipping_request_status(status_id):
+    """Update shipping request status."""
+    status = ShippingRequestStatus.query.get_or_404(status_id)
+
+    try:
+        data = request.get_json()
+        name = data.get('name', '').strip()
+
+        if not name:
+            return jsonify({'success': False, 'error': 'Nazwa jest wymagana'}), 400
+
+        old_values = {
+            'name': status.name,
+            'badge_color': status.badge_color,
+            'is_initial': status.is_initial,
+            'is_active': status.is_active
+        }
+
+        status.name = name
+        status.badge_color = data.get('badge_color', status.badge_color)
+        status.is_initial = data.get('is_initial', status.is_initial)
+        status.is_active = data.get('is_active', status.is_active)
+        status.updated_at = datetime.now()
+
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=current_user,
+            action='shipping_request_status_updated',
+            entity_type='shipping_request_status',
+            entity_id=status.id,
+            old_value=old_values,
+            new_value={
+                'name': status.name,
+                'badge_color': status.badge_color,
+                'is_initial': status.is_initial,
+                'is_active': status.is_active
+            }
+        )
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@orders_bp.route('/admin/orders/shipping-request-statuses/<int:status_id>', methods=['DELETE'])
+@login_required
+@role_required('admin')
+def delete_shipping_request_status(status_id):
+    """Delete shipping request status."""
+    status = ShippingRequestStatus.query.get_or_404(status_id)
+
+    try:
+        # Check if status is in use
+        in_use_count = ShippingRequest.query.filter_by(status=status.slug).count()
+        if in_use_count > 0:
+            return jsonify({
+                'success': False,
+                'error': f'Nie można usunąć statusu - jest używany w {in_use_count} zleceniach'
+            }), 400
+
+        status_name = status.name
+
+        db.session.delete(status)
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=current_user,
+            action='shipping_request_status_deleted',
+            entity_type='shipping_request_status',
+            entity_id=status_id,
+            old_value={'name': status_name},
+            new_value=None
+        )
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============================================
@@ -2874,7 +3226,7 @@ def guest_upload_payment_proof(token):
 @orders_bp.route('/client/orders/<int:order_id>/upload-payment-proof', methods=['POST'])
 @login_required
 def client_upload_payment_proof(order_id):
-    """Upload dowodu wpłaty przez klienta"""
+    """Upload dowodu wpłaty przez klienta (order lub shipping)"""
     from werkzeug.utils import secure_filename
     from datetime import datetime
     import os
@@ -2886,10 +3238,26 @@ def client_upload_payment_proof(order_id):
         flash('Nie masz dostępu do tego zamówienia', 'error')
         return redirect(url_for('orders.client_detail', order_id=order_id))
 
-    # Sprawdź czy można wgrać dowód
-    if not order.can_upload_payment_proof:
-        flash('Nie można wgrać dowodu płatności dla tego zamówienia', 'error')
+    # Pobierz typ dowodu z formularza
+    proof_type = request.form.get('proof_type', 'order')  # 'order' lub 'shipping'
+
+    if proof_type not in ['order', 'shipping']:
+        flash('Nieprawidłowy typ dowodu', 'error')
         return redirect(url_for('orders.client_detail', order_id=order_id))
+
+    # Sprawdź czy można wgrać dowód (w zależności od typu)
+    if proof_type == 'order':
+        if not order.can_upload_payment_proof_order:
+            flash('Nie można wgrać dowodu płatności za zamówienie', 'error')
+            return redirect(url_for('orders.client_detail', order_id=order_id))
+    else:  # shipping - sprawdź na poziomie ShippingRequest
+        sr = order.shipping_request
+        if not sr:
+            flash('Nie można wgrać dowodu płatności za wysyłkę. Utwórz najpierw zlecenie wysyłki.', 'error')
+            return redirect(url_for('orders.client_detail', order_id=order_id))
+        if not sr.can_upload_payment_proof:
+            flash('Nie można wgrać dowodu płatności za wysyłkę. Wymaga wyceny lub dowód został już zaakceptowany.', 'error')
+            return redirect(url_for('orders.client_detail', order_id=order_id))
 
     # Walidacja pliku
     if 'payment_proof' not in request.files:
@@ -2920,16 +3288,37 @@ def client_upload_payment_proof(order_id):
         return redirect(url_for('orders.client_detail', order_id=order_id))
 
     # Usuń stary plik (jeśli re-upload po odrzuceniu)
-    if order.payment_proof_file:
-        old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], order.payment_proof_file)
+    # Ścieżka do głównego katalogu projektu (3 poziomy w górę z modules/orders/routes.py)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    static_dir = os.path.join(project_root, 'static')
+
+    if proof_type == 'order' and order.payment_proof_order_file:
+        old_file_path = os.path.join(static_dir, order.payment_proof_order_file)
         if os.path.exists(old_file_path):
             os.remove(old_file_path)
+    elif proof_type == 'shipping':
+        # Dla shipping - usuwamy stary plik ze ShippingRequest
+        sr = order.shipping_request
+        if sr and sr.payment_proof_file:
+            old_file_path = os.path.join(static_dir, sr.payment_proof_file)
+            if os.path.exists(old_file_path):
+                os.remove(old_file_path)
 
-    # Zapisz nowy plik
+    # Zapisz nowy plik z nazwą zawierającą typ dowodu
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"order_{order_id}_{timestamp}.{file_ext}"
 
-    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
+    if proof_type == 'order':
+        # Dla order - używamy numeru zamówienia
+        safe_order_number = order.order_number.replace('/', '')
+        filename = f"{safe_order_number}_{proof_type}_{timestamp}.{file_ext}"
+    else:
+        # Dla shipping - używamy numeru zlecenia wysyłki
+        sr = order.shipping_request
+        safe_request_number = sr.request_number.replace('/', '')
+        filename = f"{safe_request_number}_{timestamp}.{file_ext}"
+
+    # Zapisz bezpośrednio do static/payment_proofs/
+    upload_dir = os.path.join(project_root, 'static', 'payment_proofs')
     os.makedirs(upload_dir, exist_ok=True)
 
     file_path = os.path.join(upload_dir, filename)
@@ -2938,15 +3327,28 @@ def client_upload_payment_proof(order_id):
     # Pobierz wybraną metodę płatności z formularza
     payment_method_name = request.form.get('payment_method_name', '').strip()
 
-    # Zapisz w bazie
-    order.payment_proof_file = f"payment_proofs/{filename}"
-    order.payment_proof_uploaded_at = datetime.utcnow()
-    order.payment_proof_status = 'pending'
-    order.payment_proof_rejection_reason = None  # Wyczyść poprzedni powód
+    # Zapisz w bazie (odpowiednie kolumny w zależności od typu)
+    if proof_type == 'order':
+        order.payment_proof_order_file = f"payment_proofs/{filename}"
+        order.payment_proof_order_uploaded_at = datetime.utcnow()
+        order.payment_proof_order_status = 'pending'
+        order.payment_proof_order_rejection_reason = None  # Wyczyść poprzedni powód
+        # Zapisz metodę płatności za zamówienie
+        if payment_method_name:
+            order.payment_method = payment_method_name
+    else:  # shipping - zapisz do ShippingRequest (współdzielone między zamówieniami)
+        sr = order.shipping_request
+        if not sr:
+            flash('Brak zlecenia wysyłki dla tego zamówienia', 'error')
+            return redirect(url_for('orders.client_detail', order_id=order_id))
 
-    # Automatycznie ustaw payment_method na wybraną metodę płatności z modalu
-    if payment_method_name and not order.payment_method:
-        order.payment_method = payment_method_name
+        sr.payment_proof_file = f"payment_proofs/{filename}"
+        sr.payment_proof_uploaded_at = datetime.utcnow()
+        sr.payment_proof_status = 'pending'
+        sr.payment_proof_rejection_reason = None
+        # Zapisz metodę płatności za wysyłkę
+        if payment_method_name:
+            sr.payment_method = payment_method_name
 
     db.session.commit()
 
@@ -2954,12 +3356,13 @@ def client_upload_payment_proof(order_id):
     import json
     log_activity(
         user=current_user,
-        action='payment_proof_uploaded',
+        action=f'payment_proof_{proof_type}_uploaded',
         entity_type='order',
         entity_id=order.id,
         new_value=json.dumps({
             'filename': filename,
-            'order_number': order.order_number
+            'order_number': order.order_number,
+            'proof_type': proof_type
         })
     )
 
@@ -2972,18 +3375,36 @@ def client_upload_payment_proof(order_id):
 # PAYMENT PROOF - ADMIN ROUTES
 # ============================================
 
-@orders_bp.route('/admin/orders/<int:order_id>/payment-proof/<filename>')
+@orders_bp.route('/admin/orders/<int:order_id>/payment-proof-order/<filename>')
 @login_required
 @role_required('admin', 'mod')
-def admin_view_payment_proof(order_id, filename):
-    """Podgląd/download dowodu wpłaty"""
+def admin_view_payment_proof_order(order_id, filename):
+    """Podgląd/download dowodu wpłaty ORDER"""
     from flask import send_from_directory
     import os
 
     order = Order.query.get_or_404(order_id)
 
     # Security: sprawdź czy filename należy do tego zamówienia
-    if order.payment_proof_filename != filename:
+    if order.payment_proof_order_filename != filename:
+        abort(403)
+
+    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
+    return send_from_directory(upload_dir, filename)
+
+
+@orders_bp.route('/admin/orders/<int:order_id>/payment-proof-shipping/<filename>')
+@login_required
+@role_required('admin', 'mod')
+def admin_view_payment_proof_shipping(order_id, filename):
+    """Podgląd/download dowodu wpłaty SHIPPING"""
+    from flask import send_from_directory
+    import os
+
+    order = Order.query.get_or_404(order_id)
+
+    # Security: sprawdź czy filename należy do tego zamówienia
+    if order.payment_proof_shipping_filename != filename:
         abort(403)
 
     upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
@@ -2994,17 +3415,33 @@ def admin_view_payment_proof(order_id, filename):
 @login_required
 @role_required('admin', 'mod')
 def admin_approve_payment_proof(order_id):
-    """Akceptacja dowodu wpłaty"""
+    """Akceptacja dowodu wpłaty (order lub shipping)"""
     order = Order.query.get_or_404(order_id)
 
-    if not order.has_payment_proof or order.payment_proof_status != 'pending':
-        return jsonify({'error': 'Brak dowodu do zaakceptowania'}), 400
+    # Pobierz typ dowodu z formularza JSON
+    data = request.get_json() or {}
+    proof_type = data.get('proof_type', 'order')  # 'order' lub 'shipping'
 
-    # Akceptuj dowód
-    order.payment_proof_status = 'approved'
+    if proof_type not in ['order', 'shipping']:
+        return jsonify({'error': 'Nieprawidłowy typ dowodu'}), 400
 
-    # KLUCZOWE: Ustaw paid_amount = total_amount (BEZ shipping_cost)
-    order.paid_amount = order.total_amount
+    # Walidacja w zależności od typu
+    if proof_type == 'order':
+        if not order.has_payment_proof_order or order.payment_proof_order_status != 'pending':
+            return jsonify({'error': 'Brak dowodu zamówienia do zaakceptowania'}), 400
+    else:  # shipping
+        if not order.has_payment_proof_shipping or order.payment_proof_shipping_status != 'pending':
+            return jsonify({'error': 'Brak dowodu wysyłki do zaakceptowania'}), 400
+
+    # Akceptuj dowód (odpowiednie kolumny)
+    if proof_type == 'order':
+        order.payment_proof_order_status = 'approved'
+        # Ustaw paid_amount += total_amount (produkty)
+        order.paid_amount = order.total_amount
+    else:  # shipping
+        order.payment_proof_shipping_status = 'approved'
+        # Dodaj shipping_cost do paid_amount
+        order.paid_amount = order.total_amount + order.shipping_cost
 
     db.session.commit()
 
@@ -3012,50 +3449,65 @@ def admin_approve_payment_proof(order_id):
     import json
     log_activity(
         user=current_user,
-        action='payment_proof_approved',
+        action=f'payment_proof_{proof_type}_approved',
         entity_type='order',
         entity_id=order.id,
         new_value=json.dumps({
-            'paid_amount': float(order.total_amount),
-            'order_number': order.order_number
+            'paid_amount': float(order.paid_amount),
+            'order_number': order.order_number,
+            'proof_type': proof_type
         })
     )
 
-    # Email do klienta - payment_proof_approved
+    # Email do klienta
     from utils.email_sender import send_payment_proof_approved_email
     try:
         send_payment_proof_approved_email(
             user_email=order.customer_email,
             user_name=order.customer_name,
             order_number=order.order_number,
-            paid_amount=float(order.total_amount)
+            paid_amount=float(order.paid_amount)
         )
     except Exception as e:
         current_app.logger.error(f"Failed to send payment proof approved email: {str(e)}")
 
-    return jsonify({'success': True, 'message': 'Dowód wpłaty został zaakceptowany'})
+    proof_label = 'zamówienia' if proof_type == 'order' else 'wysyłki'
+    return jsonify({'success': True, 'message': f'Dowód wpłaty za {proof_label} został zaakceptowany'})
 
 
 @orders_bp.route('/admin/orders/<int:order_id>/reject-payment-proof', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
 def admin_reject_payment_proof(order_id):
-    """Odrzucenie dowodu wpłaty"""
+    """Odrzucenie dowodu wpłaty (order lub shipping)"""
     order = Order.query.get_or_404(order_id)
 
-    if not order.has_payment_proof or order.payment_proof_status != 'pending':
-        flash('Brak dowodu do odrzucenia', 'error')
-        return redirect(url_for('orders.admin_order_detail', order_id=order_id))
-
-    data = request.get_json()
+    # Pobierz dane z JSON
+    data = request.get_json() or {}
+    proof_type = data.get('proof_type', 'order')  # 'order' lub 'shipping'
     rejection_reason = data.get('rejection_reason', '').strip()
+
+    if proof_type not in ['order', 'shipping']:
+        return jsonify({'error': 'Nieprawidłowy typ dowodu'}), 400
 
     if not rejection_reason:
         return jsonify({'error': 'Podaj powód odrzucenia'}), 400
 
-    # Odrzuć dowód
-    order.payment_proof_status = 'rejected'
-    order.payment_proof_rejection_reason = rejection_reason
+    # Walidacja w zależności od typu
+    if proof_type == 'order':
+        if not order.has_payment_proof_order or order.payment_proof_order_status != 'pending':
+            return jsonify({'error': 'Brak dowodu zamówienia do odrzucenia'}), 400
+    else:  # shipping
+        if not order.has_payment_proof_shipping or order.payment_proof_shipping_status != 'pending':
+            return jsonify({'error': 'Brak dowodu wysyłki do odrzucenia'}), 400
+
+    # Odrzuć dowód (odpowiednie kolumny)
+    if proof_type == 'order':
+        order.payment_proof_order_status = 'rejected'
+        order.payment_proof_order_rejection_reason = rejection_reason
+    else:  # shipping
+        order.payment_proof_shipping_status = 'rejected'
+        order.payment_proof_shipping_rejection_reason = rejection_reason
 
     db.session.commit()
 
@@ -3063,12 +3515,13 @@ def admin_reject_payment_proof(order_id):
     import json
     log_activity(
         user=current_user,
-        action='payment_proof_rejected',
+        action=f'payment_proof_{proof_type}_rejected',
         entity_type='order',
         entity_id=order.id,
         new_value=json.dumps({
             'rejection_reason': rejection_reason,
-            'order_number': order.order_number
+            'order_number': order.order_number,
+            'proof_type': proof_type
         })
     )
 
@@ -3191,3 +3644,331 @@ def reorder_payment_methods():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============================================
+# SHIPPING REQUEST PAYMENT PROOF MANAGEMENT
+# ============================================
+
+@orders_bp.route('/admin/shipping-requests/<int:shipping_request_id>/approve-payment-proof', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_approve_shipping_payment_proof(shipping_request_id):
+    """Approve shipping request payment proof."""
+    from modules.orders.models import ShippingRequest
+
+    shipping_request = ShippingRequest.query.get_or_404(shipping_request_id)
+
+    # Validate payment proof exists and is pending
+    if not shipping_request.has_payment_proof:
+        return jsonify({'error': 'Brak dowodu wpłaty do zaakceptowania'}), 400
+
+    if shipping_request.payment_proof_status != 'pending':
+        return jsonify({'error': 'Dowód wpłaty nie oczekuje na weryfikację'}), 400
+
+    # Approve the payment proof
+    shipping_request.payment_proof_status = 'approved'
+
+    # Update paid_amount for all orders in this shipping request
+    for order in shipping_request.orders:
+        if order.shipping_cost:
+            # Add shipping cost to paid_amount
+            current_paid = order.paid_amount or 0
+            order.paid_amount = current_paid + order.shipping_cost
+
+    db.session.commit()
+
+    # Activity log
+    import json
+    log_activity(
+        user=current_user,
+        action='shipping_payment_proof_approved',
+        entity_type='shipping_request',
+        entity_id=shipping_request.id,
+        new_value=json.dumps({
+            'request_number': shipping_request.request_number,
+            'orders_count': shipping_request.orders_count,
+            'total_shipping_cost': float(shipping_request.calculated_shipping_cost or 0)
+        })
+    )
+
+    # Email notification to client
+    from utils.email_sender import send_payment_proof_approved_email
+    try:
+        user = shipping_request.user
+        send_payment_proof_approved_email(
+            user_email=user.email,
+            user_name=user.display_name or user.username,
+            order_number=shipping_request.request_number,
+            paid_amount=float(shipping_request.calculated_shipping_cost or 0)
+        )
+    except Exception as e:
+        current_app.logger.error(f"Failed to send shipping payment proof approved email: {str(e)}")
+
+    return jsonify({
+        'success': True,
+        'message': f'Dowód wpłaty za wysyłkę ({shipping_request.request_number}) został zaakceptowany'
+    })
+
+
+@orders_bp.route('/admin/shipping-requests/<int:shipping_request_id>/reject-payment-proof', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_reject_shipping_payment_proof(shipping_request_id):
+    """Reject shipping request payment proof."""
+    from modules.orders.models import ShippingRequest
+
+    shipping_request = ShippingRequest.query.get_or_404(shipping_request_id)
+
+    # Get rejection reason from JSON
+    data = request.get_json() or {}
+    rejection_reason = data.get('rejection_reason', '').strip()
+
+    if not rejection_reason:
+        return jsonify({'error': 'Podaj powód odrzucenia'}), 400
+
+    # Validate payment proof exists and is pending
+    if not shipping_request.has_payment_proof:
+        return jsonify({'error': 'Brak dowodu wpłaty do odrzucenia'}), 400
+
+    if shipping_request.payment_proof_status != 'pending':
+        return jsonify({'error': 'Dowód wpłaty nie oczekuje na weryfikację'}), 400
+
+    # Reject the payment proof
+    shipping_request.payment_proof_status = 'rejected'
+    shipping_request.payment_proof_rejection_reason = rejection_reason
+
+    db.session.commit()
+
+    # Activity log
+    import json
+    log_activity(
+        user=current_user,
+        action='shipping_payment_proof_rejected',
+        entity_type='shipping_request',
+        entity_id=shipping_request.id,
+        new_value=json.dumps({
+            'request_number': shipping_request.request_number,
+            'rejection_reason': rejection_reason
+        })
+    )
+
+    # TODO: Email notification to client about rejection
+
+    return jsonify({
+        'success': True,
+        'message': 'Dowód wpłaty za wysyłkę został odrzucony'
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def admin_get_shipping_request(shipping_request_id):
+    """Get shipping request details as JSON."""
+    from modules.orders.models import ShippingRequest
+
+    sr = ShippingRequest.query.get_or_404(shipping_request_id)
+
+    # Build orders list with shipping costs
+    orders_data = []
+    for ro in sr.request_orders:
+        if ro.order:
+            orders_data.append({
+                'id': ro.order.id,
+                'order_number': ro.order.order_number,
+                'total_amount': float(ro.order.total_amount or 0),
+                'shipping_cost': float(ro.order.shipping_cost or 0)
+            })
+
+    return jsonify({
+        'id': sr.id,
+        'request_number': sr.request_number,
+        'status': sr.status,
+        'status_display_name': sr.status_display_name,
+        'courier': sr.courier,
+        'tracking_number': sr.tracking_number,
+        'parcel_size': sr.parcel_size,
+        'calculated_shipping_cost': float(sr.calculated_shipping_cost or 0),
+        'admin_notes': sr.admin_notes,
+        'address_type': sr.address_type,
+        'shipping_name': sr.shipping_name,
+        'shipping_address': sr.shipping_address,
+        'shipping_postal_code': sr.shipping_postal_code,
+        'shipping_city': sr.shipping_city,
+        'shipping_voivodeship': sr.shipping_voivodeship,
+        'pickup_courier': sr.pickup_courier,
+        'pickup_point_id': sr.pickup_point_id,
+        'pickup_address': sr.pickup_address,
+        'pickup_postal_code': sr.pickup_postal_code,
+        'pickup_city': sr.pickup_city,
+        'orders': orders_data,
+        'created_at': sr.created_at.isoformat() if sr.created_at else None
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+def admin_update_shipping_request(shipping_request_id):
+    """Update shipping request."""
+    from modules.orders.models import ShippingRequest
+
+    sr = ShippingRequest.query.get_or_404(shipping_request_id)
+    data = request.get_json() or {}
+
+    # Update basic fields
+    if 'status' in data:
+        sr.status = data['status']
+    if 'courier' in data:
+        sr.courier = data['courier'] or None
+    if 'tracking_number' in data:
+        sr.tracking_number = data['tracking_number'] or None
+    if 'parcel_size' in data:
+        sr.parcel_size = data['parcel_size'] or None
+    if 'admin_notes' in data:
+        sr.admin_notes = data['admin_notes'] or None
+
+    # Update order shipping costs
+    if 'order_costs' in data:
+        for cost_data in data['order_costs']:
+            order_id = cost_data.get('order_id')
+            shipping_cost = cost_data.get('shipping_cost', 0)
+
+            # Find the order and update its shipping cost
+            order = Order.query.get(order_id)
+            if order:
+                order.shipping_cost = shipping_cost if shipping_cost > 0 else None
+
+    db.session.commit()
+
+    # Activity log
+    import json
+    log_activity(
+        user=current_user,
+        action='shipping_request_updated',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        new_value=json.dumps({
+            'request_number': sr.request_number,
+            'status': sr.status,
+            'tracking_number': sr.tracking_number
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Zlecenie {sr.request_number} zostało zaktualizowane'
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>', methods=['DELETE'])
+@login_required
+@role_required('admin', 'mod')
+def admin_delete_shipping_request(shipping_request_id):
+    """Cancel/delete shipping request."""
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder
+
+    sr = ShippingRequest.query.get_or_404(shipping_request_id)
+    request_number = sr.request_number
+
+    # Remove all order associations (orders go back to pool)
+    ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
+
+    # Delete the shipping request
+    db.session.delete(sr)
+    db.session.commit()
+
+    # Activity log
+    import json
+    log_activity(
+        user=current_user,
+        action='shipping_request_cancelled',
+        entity_type='shipping_request',
+        entity_id=shipping_request_id,
+        new_value=json.dumps({
+            'request_number': request_number
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Zlecenie {request_number} zostało anulowane'
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-request-statuses/list', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def admin_list_shipping_request_statuses():
+    """List all active shipping request statuses."""
+    from modules.orders.models import ShippingRequestStatus
+
+    statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
+
+    return jsonify([{
+        'id': s.id,
+        'slug': s.slug,
+        'name': s.name,
+        'badge_color': s.badge_color,
+        'is_initial': s.is_initial
+    } for s in statuses])
+
+
+# ====================
+# ADMIN SHIPPING REQUESTS LIST
+# ====================
+
+@orders_bp.route('/admin/orders/shipping-requests')
+@login_required
+@role_required('admin', 'mod')
+def admin_shipping_requests_list():
+    """
+    Admin shipping requests list with filters and pagination.
+    """
+    from modules.auth.models import User
+
+    # Get filter parameters
+    status_filter = request.args.get('status', '')
+    search = request.args.get('search', '')
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+
+    # Base query
+    query = ShippingRequest.query
+
+    # Apply status filter
+    if status_filter:
+        query = query.filter(ShippingRequest.status == status_filter)
+
+    # Apply search filter (request number or user name)
+    if search:
+        search_term = f"%{search}%"
+        query = query.join(User, ShippingRequest.user_id == User.id).filter(
+            or_(
+                ShippingRequest.request_number.ilike(search_term),
+                User.first_name.ilike(search_term),
+                User.last_name.ilike(search_term),
+                func.concat(User.first_name, ' ', User.last_name).ilike(search_term)
+            )
+        )
+
+    # Order by creation date (newest first)
+    query = query.order_by(ShippingRequest.created_at.desc())
+
+    # Paginate
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    shipping_requests = pagination.items
+
+    # Get all active statuses for filter dropdown
+    statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
+
+    return render_template(
+        'admin/orders/shipping_requests_list.html',
+        shipping_requests=shipping_requests,
+        pagination=pagination,
+        statuses=statuses,
+        current_status=status_filter,
+        search=search,
+        page_title='Zlecenia wysyłki'
+    )

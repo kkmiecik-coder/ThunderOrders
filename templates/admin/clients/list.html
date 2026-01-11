@@ -189,10 +189,16 @@
                                 </a>
                                 {% if current_user.is_admin() %}
                                 {% if client.is_active %}
-                                <button type="button" class="btn-action btn-deactivate"
+                                <button type="button"
+                                        class="btn-action btn-deactivate {% if client.id == current_user.id %}disabled{% endif %}"
                                         data-client-id="{{ client.id }}"
                                         data-client-name="{{ client.full_name }}"
-                                        title="Dezaktywuj">
+                                        {% if client.id == current_user.id %}
+                                        disabled
+                                        title="Nie możesz dezaktywować swojego konta"
+                                        {% else %}
+                                        title="Dezaktywuj"
+                                        {% endif %}>
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                         <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
@@ -208,10 +214,16 @@
                                     </svg>
                                 </button>
                                 {% endif %}
-                                <button type="button" class="btn-action btn-delete"
+                                <button type="button"
+                                        class="btn-action btn-delete {% if client.id == current_user.id %}disabled{% endif %}"
                                         data-client-id="{{ client.id }}"
                                         data-client-name="{{ client.full_name }}"
-                                        title="Usuń">
+                                        {% if client.id == current_user.id %}
+                                        disabled
+                                        title="Nie możesz usunąć swojego konta"
+                                        {% else %}
+                                        title="Usuń"
+                                        {% endif %}>
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                         <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
@@ -488,6 +500,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     deleteButtons.forEach(button => {
         button.addEventListener('click', function() {
+            // Jeśli przycisk jest disabled, nie rób nic
+            if (this.disabled || this.classList.contains('disabled')) {
+                return;
+            }
+
             console.log('Delete button clicked!');
             const clientId = this.getAttribute('data-client-id');
             const clientName = this.getAttribute('data-client-name');
@@ -501,6 +518,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     deactivateButtons.forEach(button => {
         button.addEventListener('click', function() {
+            // Jeśli przycisk jest disabled, nie rób nic
+            if (this.disabled || this.classList.contains('disabled')) {
+                return;
+            }
+
             console.log('Deactivate button clicked!');
             const clientId = this.getAttribute('data-client-id');
             const clientName = this.getAttribute('data-client-name');

@@ -150,9 +150,13 @@ function showFlyout(categoryHeader) {
             flyoutLink.classList.add('disabled');
         }
 
+        // Get text - either from .sidebar-text span or directly from link
         const textSpan = link.querySelector('.sidebar-text');
         if (textSpan) {
             flyoutLink.textContent = textSpan.textContent;
+        } else {
+            // Fallback: get text directly from the link (sublinks don't have .sidebar-text)
+            flyoutLink.textContent = link.textContent.trim();
         }
 
         flyoutItem.appendChild(flyoutLink);

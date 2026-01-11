@@ -1,4 +1,0 @@
-nazwa,sku,ean,kategoria,producent,seria,cena_sprzedazy,cena_zakupu,waluta_zakupu,ilosc,dlugosc,szerokosc,wysokosc,waga,dostawca,tagi,opis,aktywny,grupa_wariantow
-Przykładowy Produkt 1,SKU-001,1234567890123,1,Samsung,Galaxy,199.99,150.00,PLN,10,15.5,10.2,5.0,0.5,1,"elektronika,nowość,promocja","To jest przykładowy opis produktu Samsung Galaxy",true,GALAXY-001
-Przykładowy Produkt 2,SKU-002,1234567890124,Pluszaki,BTS,BT21,49.99,25.00,KRW,50,20.0,15.0,10.0,0.3,2,"pluszak,bt21,kpop","Pluszak BT21 Cooky - oficjalny produkt",true,
-Przykładowy Produkt 3,SKU-003,,2,Blackpink,Album,120.00,80.00,USD,5,30.0,30.0,2.0,0.4,,"kpop,album","Album Blackpink - limitowana edycja",false,

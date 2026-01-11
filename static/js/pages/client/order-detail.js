@@ -81,17 +81,49 @@ function showToast(message, type = 'info') {
 
 /**
  * Open payment proof upload modal
+ * @param {string} proofType - 'order' or 'shipping'
  */
-function openPaymentProofModal() {
+function openPaymentProofModal(proofType = 'order') {
     const modal = document.getElementById('paymentProofModal');
-    if (modal) {
-        // Get order number from the page
-        const orderNumberElement = document.querySelector('.payment-info-box code');
-        const orderNumber = orderNumberElement ? orderNumberElement.textContent.trim() : '';
+    if (!modal) return;
 
-        modal.classList.add('active');
-        loadPaymentMethodsInfo(orderNumber);
+    // Get order number from the page
+    const orderNumberElement = document.querySelector('.value-highlight');
+    const orderNumber = orderNumberElement ? orderNumberElement.textContent.trim() : '';
+
+    // Set proof type in hidden field
+    const proofTypeInput = document.getElementById('selectedProofType');
+    if (proofTypeInput) {
+        proofTypeInput.value = proofType;
     }
+
+    // Update payment info box dynamically based on proof type
+    const paymentInfoBox = document.getElementById('paymentInfoBox');
+    if (paymentInfoBox) {
+        let title = '';
+        let amount = '';
+
+        if (proofType === 'order') {
+            title = 'Płatność za zamówienie';
+            // Get amount from first payment proof section
+            const orderSection = document.querySelector('.payment-proof-section:first-child .payment-amount');
+            amount = orderSection ? orderSection.textContent.trim() : '0.00 PLN';
+        } else if (proofType === 'shipping') {
+            title = 'Płatność za dostawę';
+            // Get amount from second payment proof section (after separator)
+            const shippingSection = document.querySelector('.payment-proof-section:nth-child(3) .payment-amount');
+            amount = shippingSection ? shippingSection.textContent.trim() : '0.00 PLN';
+        }
+
+        paymentInfoBox.innerHTML = `
+            <h3>${title}</h3>
+            <p><strong>Kwota:</strong> ${amount}</p>
+            <p><strong>Tytuł przelewu:</strong> <code>${orderNumber}</code></p>
+        `;
+    }
+
+    modal.classList.add('active');
+    loadPaymentMethodsInfo(orderNumber);
 }
 
 /**
@@ -213,3 +245,20 @@ document.addEventListener('keydown', function(e) {
         closePaymentProofModal();
     }
 });
+
+
+// ============================================
+// COLLAPSIBLE SECTIONS (Historia zamówienia)
+// ============================================
+
+/**
+ * Toggle collapsible section (like in admin panel)
+ */
+function toggleSection(button) {
+    const section = button.closest('.collapsible-section');
+    if (section) {
+        section.classList.toggle('open');
+    }
+}
+
+

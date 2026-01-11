@@ -515,7 +515,7 @@
                         <select class="form-select form-select-sm" id="deliveryMethodSelect" data-original="{{ order.delivery_method or '' }}">
                             <option value="">-- Wybierz --</option>
                             <option value="kurier" {% if order.delivery_method == 'kurier' %}selected{% endif %}>Kurier</option>
-                            <option value="paczkomat" {% if order.delivery_method == 'paczkomat' %}selected{% endif %}>Paczkomat</option>
+                            <option value="paczkomat" {% if order.delivery_method == 'paczkomat' %}selected{% endif %}>InPost</option>
                             <option value="odbior_osobisty" {% if order.delivery_method == 'odbior_osobisty' %}selected{% endif %}>Odbiór osobisty</option>
                             <option value="poczta" {% if order.delivery_method == 'poczta' %}selected{% endif %}>Poczta Polska</option>
                             <option value="dpd_pickup" {% if order.delivery_method == 'dpd_pickup' %}selected{% endif %}>DPD Pickup</option>
@@ -566,92 +566,8 @@
                         </button>
                     </div>
                 </div>
-
-                <!-- Sposób zapłaty - edytowalny -->
-                <div class="info-item editable-row" data-field="payment_method">
-                    <label>Sposób zapłaty:</label>
-                    <div class="editable-display" id="paymentMethodDisplay">
-                        <span class="editable-value" id="paymentMethodValue">{{ order.payment_method_display }}</span>
-                        <button type="button" class="btn-edit-inline" onclick="toggleInlineEditor('paymentMethod')" title="Edytuj">
-                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="editable-editor" id="paymentMethodEditor" style="display: none;">
-                        <select class="form-select form-select-sm" id="paymentMethodSelect" data-original="{{ order.payment_method or '' }}">
-                            <option value="">-- Wybierz --</option>
-                            {% for method in payment_methods %}
-                            <option value="{{ method.name }}" {% if order.payment_method == method.name %}selected{% endif %}>{{ method.name }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="button" class="btn-inline-save" onclick="saveInlineField('paymentMethod')" title="Zapisz">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
-                            </svg>
-                        </button>
-                        <button type="button" class="btn-inline-cancel" onclick="cancelInlineEditor('paymentMethod')" title="Anuluj">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
                     </div>
 
-                    <!-- Prawa kolumna: Dowód wpłaty -->
-                    <div class="payment-delivery-right">
-                        <!-- Payment Proof Section -->
-                        {% if order.has_payment_proof %}
-                <div class="info-item">
-                    <label>Dowód wpłaty:</label>
-                    <div class="payment-proof-container">
-                        <a href="{{ order.payment_proof_url }}"
-                           target="_blank"
-                           class="payment-proof-link">
-                            {{ order.payment_proof_filename }}
-                        </a>
-                        <small class="text-muted">
-                            Wgrano: {{ order.payment_proof_uploaded_at.strftime('%Y-%m-%d %H:%M') }}
-                        </small>
-
-                        {% if order.payment_proof_is_pending %}
-                            <div class="proof-status-pending">
-                                <span class="badge badge-warning">⏱ Oczekuje na weryfikację</span>
-                                <div class="proof-actions">
-                                    <button type="button"
-                                            class="btn-success btn-sm"
-                                            onclick="approvePaymentProof({{ order.id }})">
-                                        ✓ Akceptuj
-                                    </button>
-                                    <button type="button"
-                                            class="btn-danger btn-sm"
-                                            onclick="openRejectPaymentProofModal({{ order.id }})">
-                                        ✗ Odrzuć
-                                    </button>
-                                </div>
-                            </div>
-                        {% elif order.payment_proof_is_approved %}
-                            <span class="badge badge-success">✓ Zaakceptowano</span>
-                        {% elif order.payment_proof_is_rejected %}
-                            <span class="badge badge-danger">✗ Odrzucono</span>
-                            <div class="rejection-reason-bubble">
-                                <strong>Powód odrzucenia:</strong><br>
-                                {{ order.payment_proof_rejection_reason }}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-                        {% else %}
-                <div class="info-item">
-                    <label>Dowód wpłaty:</label>
-                    <div class="payment-proof-empty">
-                        <span class="text-muted">Brak dowodu wpłaty</span>
-                        <small class="text-muted d-block">Klient może wgrać potwierdzenie ze swojego panelu</small>
-                    </div>
-                </div>
-                        {% endif %}
-                    </div>
                 </div>
             </div>
 
@@ -773,189 +689,294 @@
         </div>
     </div>
 
-    <!-- ROW 3: Wysyłka i śledzenie (3 kolumny) -->
-    <div class="shipping-section">
-        <!-- Kolumna 1: Adres dostawy -->
-        <div class="card shipping-card">
+    <!-- ROW 3: Potwierdzenia + Zlecenia wysyłki (2 kolumny) -->
+    <div class="confirmations-shipments-row">
+        <!-- Lewa karta: Potwierdzenia -->
+        <div class="card confirmations-card">
             <h3>
                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A31.493 31.493 0 0 1 8 14.58a31.481 31.481 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z"/>
-                    <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                    <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383l-4.708 2.825L15 11.105V5.383zm-.034 6.876l-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741zM1 11.105l4.708-2.897L1 5.383v5.722z"/>
                 </svg>
-                Adres dostawy
+                Potwierdzenia
             </h3>
-            <form hx-post="{{ url_for('orders.admin_update_shipping_address', order_id=order.id) }}"
-                  hx-target="#shippingAddressStatus"
-                  hx-swap="innerHTML"
-                  class="shipping-form">
-                {{ shipping_address_form.hidden_tag() }}
-                <div class="form-group">
-                    <label class="form-label">Imię i nazwisko</label>
-                    {{ shipping_address_form.shipping_name(class="form-input form-input-sm") }}
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Adres</label>
-                    {{ shipping_address_form.shipping_address(class="form-input form-input-sm") }}
-                </div>
-                <div class="form-row-2">
-                    <div class="form-group">
-                        <label class="form-label">Kod pocztowy</label>
-                        {{ shipping_address_form.shipping_postal_code(class="form-input form-input-sm", id="shippingPostalCode") }}
+
+            <div class="confirmations-horizontal">
+                <!-- Payment Proof 1: ORDER -->
+                <div class="confirmation-section">
+                    <h4>Płatność za zamówienie</h4>
+                    {% if order.payment_method %}
+                    <div class="payment-method-info">
+                        <span class="payment-method-label">Sposób:</span>
+                        <span class="payment-method-value">{{ order.payment_method }}</span>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Miejscowość</label>
-                        {{ shipping_address_form.shipping_city(class="form-input form-input-sm") }}
+                    {% endif %}
+                    {% if order.has_payment_proof_order %}
+                    <div class="payment-proof-container">
+                        <a href="{{ url_for('static', filename=order.payment_proof_order_file) }}"
+                           target="_blank"
+                           class="payment-proof-link">
+                            Podgląd dowodu
+                        </a>
+                        <small class="text-muted">
+                            Wgrano: {{ order.payment_proof_order_uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                        </small>
+
+                        {% if order.payment_proof_order_is_pending %}
+                            <div class="proof-status-pending">
+                                <span class="badge badge-warning">⏱ Oczekuje na weryfikację</span>
+                                <div class="proof-actions">
+                                    <button type="button"
+                                            class="btn-success btn-sm"
+                                            onclick="approvePaymentProof({{ order.id }}, 'order')">
+                                        ✓ Akceptuj
+                                    </button>
+                                    <button type="button"
+                                            class="btn-danger btn-sm"
+                                            onclick="openRejectPaymentProofModal({{ order.id }}, 'order')">
+                                        ✗ Odrzuć
+                                    </button>
+                                </div>
+                            </div>
+                        {% elif order.payment_proof_order_is_approved %}
+                            <span class="badge badge-success">✓ Zaakceptowano</span>
+                        {% elif order.payment_proof_order_is_rejected %}
+                            <span class="badge badge-danger">✗ Odrzucono</span>
+                            <div class="rejection-reason-bubble">
+                                <strong>Powód odrzucenia:</strong><br>
+                                {{ order.payment_proof_order_rejection_reason }}
+                            </div>
+                        {% endif %}
                     </div>
-                </div>
-                <div class="form-row-2">
-                    <div class="form-group">
-                        <label class="form-label">Województwo</label>
-                        {{ shipping_address_form.shipping_voivodeship(class="form-select form-select-sm", id="shippingVoivodeship") }}
+                    {% else %}
+                    <div class="payment-proof-empty">
+                        <span class="text-muted">Brak dowodu wpłaty</span>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Kraj</label>
-                        {{ shipping_address_form.shipping_country(class="form-input form-input-sm") }}
+                    {% endif %}
+                </div>
+
+                <!-- Payment Proof 2: SHIPPING (z ShippingRequest - współdzielone między zamówieniami) -->
+                <div class="confirmation-section">
+                    <h4>Płatność za dostawę</h4>
+                    {% set sr = order.shipping_request %}
+                    {% if sr and sr.payment_method %}
+                    <div class="payment-method-info">
+                        <span class="payment-method-label">Sposób:</span>
+                        <span class="payment-method-value">{{ sr.payment_method }}</span>
                     </div>
+                    {% endif %}
+                    {% if sr and sr.has_payment_proof %}
+                    <div class="payment-proof-container">
+                        <a href="{{ url_for('static', filename=sr.payment_proof_file) }}"
+                           target="_blank"
+                           class="payment-proof-link">
+                            Podgląd dowodu
+                        </a>
+                        <small class="text-muted">
+                            Wgrano: {{ sr.payment_proof_uploaded_at.strftime('%Y-%m-%d %H:%M') }}
+                        </small>
+
+                        {# Info o wspólnym zleceniu #}
+                        {% set other_orders = order.shipping_request_other_orders %}
+                        {% if other_orders %}
+                        <div class="shared-proof-info">
+                            <span class="shared-label">Wspólne z:</span>
+                            {% for other in other_orders[:3] %}
+                            <a href="{{ url_for('orders.admin_detail', order_id=other.id) }}" class="shared-order-link">{{ other.order_number }}</a>
+                            {% endfor %}
+                            {% if other_orders|length > 3 %}
+                            <span class="shared-more">+{{ other_orders|length - 3 }}</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if sr.payment_proof_is_pending %}
+                            <div class="proof-status-pending">
+                                <span class="badge badge-warning">⏱ Oczekuje na weryfikację</span>
+                                <div class="proof-actions">
+                                    <button type="button"
+                                            class="btn-success btn-sm"
+                                            onclick="approveShippingPaymentProof({{ sr.id }})">
+                                        ✓ Akceptuj
+                                    </button>
+                                    <button type="button"
+                                            class="btn-danger btn-sm"
+                                            onclick="openRejectShippingPaymentProofModal({{ sr.id }})">
+                                        ✗ Odrzuć
+                                    </button>
+                                </div>
+                            </div>
+                        {% elif sr.payment_proof_is_approved %}
+                            <span class="badge badge-success">✓ Zaakceptowano</span>
+                        {% elif sr.payment_proof_is_rejected %}
+                            <span class="badge badge-danger">✗ Odrzucono</span>
+                            <div class="rejection-reason-bubble">
+                                <strong>Powód odrzucenia:</strong><br>
+                                {{ sr.payment_proof_rejection_reason }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% elif sr %}
+                    <div class="payment-proof-empty">
+                        <span class="text-muted">Oczekuje na dowód wpłaty</span>
+                        <small class="d-block text-muted">Zlecenie: {{ sr.request_number }}</small>
+                    </div>
+                    {% else %}
+                    <div class="payment-proof-empty">
+                        <span class="text-muted">Brak zlecenia wysyłki</span>
+                    </div>
+                    {% endif %}
                 </div>
-                <div class="form-actions-row">
-                    <button type="submit" class="btn btn-sm btn-secondary">Zapisz adres</button>
-                    <div id="shippingAddressStatus"></div>
-                </div>
-            </form>
+            </div>
         </div>
 
-        <!-- Kolumna 2: Odbiór w punkcie -->
-        <div class="card shipping-card">
-            <h3>
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M2.97 1.35A1 1 0 0 1 3.73 1h8.54a1 1 0 0 1 .76.35l2.609 3.044A1.5 1.5 0 0 1 16 5.37v.255a2.375 2.375 0 0 1-4.25 1.458A2.371 2.371 0 0 1 9.875 8 2.37 2.37 0 0 1 8 7.083 2.37 2.37 0 0 1 6.125 8a2.37 2.37 0 0 1-1.875-.917A2.375 2.375 0 0 1 0 5.625V5.37a1.5 1.5 0 0 1 .361-.976l2.61-3.045zm1.78 4.275a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 1 0 2.75 0V5.37a.5.5 0 0 0-.12-.325L12.27 2H3.73L1.12 5.045A.5.5 0 0 0 1 5.37v.255a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0zM1.5 8.5A.5.5 0 0 1 2 9v6h12V9a.5.5 0 0 1 1 0v6h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1V9a.5.5 0 0 1 .5-.5zm2 .5a.5.5 0 0 1 .5.5V13h8V9.5a.5.5 0 0 1 1 0V13a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a.5.5 0 0 1 .5-.5z"/>
-                </svg>
-                Odbiór w punkcie
-            </h3>
-            <form hx-post="{{ url_for('orders.admin_update_pickup_point', order_id=order.id) }}"
-                  hx-target="#pickupPointStatus"
-                  hx-swap="innerHTML"
-                  class="shipping-form">
-                {{ pickup_point_form.hidden_tag() }}
-                <div class="form-row-2">
-                    <div class="form-group">
-                        <label class="form-label">Kurier</label>
-                        {{ pickup_point_form.pickup_courier(class="form-select form-select-sm") }}
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">ID punktu</label>
-                        {{ pickup_point_form.pickup_point_id(class="form-input form-input-sm") }}
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Adres punktu</label>
-                    {{ pickup_point_form.pickup_address(class="form-input form-input-sm") }}
-                </div>
-                <div class="form-row-2">
-                    <div class="form-group">
-                        <label class="form-label">Kod pocztowy</label>
-                        {{ pickup_point_form.pickup_postal_code(class="form-input form-input-sm") }}
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Miasto</label>
-                        {{ pickup_point_form.pickup_city(class="form-input form-input-sm") }}
-                    </div>
-                </div>
-                <div class="form-actions-row">
-                    <button type="submit" class="btn btn-sm btn-secondary">Zapisz punkt</button>
-                    <div id="pickupPointStatus"></div>
-                </div>
-            </form>
-        </div>
-
-        <!-- Kolumna 3: Przesyłki -->
-        <div class="card shipping-card shipments-card">
+        <!-- Prawa karta: Zlecenia wysyłki -->
+        <div class="card shipping-requests-card">
             <h3>
                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
                 </svg>
-                Przesyłki
-                {% if order.shipments %}
-                <span class="shipments-count">{{ order.shipments|length }}</span>
-                {% endif %}
+                Zlecenie wysyłki
             </h3>
 
-            <!-- Formularz dodawania przesyłki -->
-            <div class="add-shipment-form">
-                <div class="form-row-inline">
-                    <div class="form-group flex-grow">
-                        <input type="text"
-                               id="newShipmentTracking"
-                               class="form-input form-input-sm"
-                               placeholder="Numer przesyłki">
+            {% set sr = order.shipping_request %}
+            {% if sr %}
+            <div class="shipping-request-details">
+                <!-- Header z numerem i statusem -->
+                <div class="sr-header">
+                    <div class="sr-number">
+                        <span class="sr-label">Numer:</span>
+                        <strong>{{ sr.request_number }}</strong>
                     </div>
-                    <div class="form-group">
-                        <select id="newShipmentCourier" class="form-select form-select-sm">
-                            <option value="">Kurier</option>
-                            <option value="inpost">InPost</option>
-                            <option value="dpd">DPD</option>
-                            <option value="dhl">DHL</option>
-                            <option value="gls">GLS</option>
-                            <option value="poczta_polska">Poczta Polska</option>
-                            <option value="orlen">Orlen Paczka</option>
-                            <option value="ups">UPS</option>
-                            <option value="fedex">FedEx</option>
-                            <option value="other">Inny</option>
-                        </select>
+                    <span class="badge" style="background-color: {{ sr.status_badge_color }}; color: #fff;">
+                        {{ sr.status_display_name }}
+                    </span>
+                </div>
+
+                <!-- Informacje podstawowe -->
+                <div class="sr-info-grid">
+                    <div class="sr-info-row">
+                        <span class="sr-info-label">Zamówienia:</span>
+                        <span class="sr-info-value">
+                            {% for o in sr.orders %}
+                            <a href="{{ url_for('orders.admin_detail', order_id=o.id) }}"
+                               class="sr-order-badge {% if o.id == order.id %}current{% endif %}">
+                                {{ o.order_number }}
+                            </a>
+                            {% endfor %}
+                        </span>
                     </div>
-                    <button type="button"
-                            class="btn btn-sm btn-primary btn-add-shipment"
-                            onclick="addShipment({{ order.id }})"
-                            title="Dodaj przesyłkę">
+                    <div class="sr-info-row">
+                        <span class="sr-info-label">Koszt wysyłki:</span>
+                        <span class="sr-info-value">
+                            {% if sr.calculated_shipping_cost %}
+                                <strong>{{ "%.2f"|format(sr.calculated_shipping_cost) }} PLN</strong>
+                            {% else %}
+                                <span class="text-muted">Oczekuje na wycenę</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="sr-info-row">
+                        <span class="sr-info-label">Utworzono:</span>
+                        <span class="sr-info-value">{{ sr.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+                </div>
+
+                <!-- Adres dostawy -->
+                <div class="sr-address-section">
+                    <div class="sr-section-header">
                         <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                            <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
                         </svg>
+                        Adres dostawy
+                    </div>
+                    <div class="sr-address-content">
+                        {% if sr.address_type == 'pickup_point' %}
+                            <div class="sr-pickup-badge">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                </svg>
+                                Paczkomat / Punkt odbioru
+                            </div>
+                            {% if sr.pickup_courier %}<div><strong>{{ sr.pickup_courier }}</strong></div>{% endif %}
+                            {% if sr.pickup_point_id %}<div class="sr-pickup-id">{{ sr.pickup_point_id }}</div>{% endif %}
+                            {% if sr.pickup_address %}<div>{{ sr.pickup_address }}</div>{% endif %}
+                            {% if sr.pickup_postal_code or sr.pickup_city %}
+                                <div>{{ sr.pickup_postal_code }} {{ sr.pickup_city }}</div>
+                            {% endif %}
+                        {% else %}
+                            {% if sr.shipping_name %}<div><strong>{{ sr.shipping_name }}</strong></div>{% endif %}
+                            {% if sr.shipping_address %}<div>{{ sr.shipping_address }}</div>{% endif %}
+                            {% if sr.shipping_postal_code or sr.shipping_city %}
+                                <div>{{ sr.shipping_postal_code }} {{ sr.shipping_city }}</div>
+                            {% endif %}
+                            {% if sr.shipping_voivodeship %}<div class="text-muted">woj. {{ sr.shipping_voivodeship }}</div>{% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Tracking -->
+                {% if sr.tracking_number or sr.courier %}
+                <div class="sr-tracking-section">
+                    <div class="sr-section-header">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                        </svg>
+                        Śledzenie przesyłki
+                    </div>
+                    <div class="sr-tracking-content">
+                        {% if sr.courier %}<span class="sr-courier-badge">{{ sr.courier }}</span>{% endif %}
+                        {% if sr.tracking_number %}
+                            {% if sr.tracking_url %}
+                                <a href="{{ sr.tracking_url }}" target="_blank" class="sr-tracking-link">
+                                    {{ sr.tracking_number }}
+                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                        <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                    </svg>
+                                </a>
+                            {% else %}
+                                <span class="sr-tracking-number">{{ sr.tracking_number }}</span>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Notatki admina -->
+                {% if sr.admin_notes %}
+                <div class="sr-notes-section">
+                    <div class="sr-section-header">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5 4a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm-.5 2.5A.5.5 0 0 1 5 6h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zM5 8a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm0 2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1H5z"/>
+                            <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/>
+                        </svg>
+                        Notatki
+                    </div>
+                    <div class="sr-notes-content">{{ sr.admin_notes }}</div>
+                </div>
+                {% endif %}
+
+                <!-- Przycisk edycji -->
+                <div class="sr-actions">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openShippingRequestModal({{ sr.id }})">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                        </svg>
+                        Edytuj zlecenie
                     </button>
                 </div>
             </div>
-
-            <!-- Lista przesyłek -->
-            <div class="shipments-list" id="shipmentsList">
-                {% if order.shipments %}
-                    {% for shipment in order.shipments %}
-                    <div class="shipment-item" data-shipment-id="{{ shipment.id }}">
-                        <div class="shipment-courier-icon courier-{{ shipment.courier }}">
-                            {{ shipment.courier_display_name[:2]|upper }}
-                        </div>
-                        <div class="shipment-info">
-                            {% if shipment.tracking_url %}
-                            <a href="{{ shipment.tracking_url }}"
-                               target="_blank"
-                               rel="noopener noreferrer"
-                               class="shipment-tracking-link"
-                               title="Śledź przesyłkę">
-                                {{ shipment.tracking_number }}
-                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
-                                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
-                                </svg>
-                            </a>
-                            {% else %}
-                            <span class="shipment-tracking-number">{{ shipment.tracking_number }}</span>
-                            {% endif %}
-                            <span class="shipment-courier-name">{{ shipment.courier_display_name }}</span>
-                        </div>
-                        <button type="button"
-                                class="btn-delete-shipment"
-                                onclick="deleteShipment({{ order.id }}, {{ shipment.id }})"
-                                title="Usuń przesyłkę">
-                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                            </svg>
-                        </button>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="shipments-empty" id="shipmentsEmpty">
-                        <span class="text-muted">Brak przesyłek</span>
-                    </div>
-                {% endif %}
+            {% else %}
+            <div class="shipping-requests-empty">
+                <div class="empty-icon">
+                    <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                    </svg>
+                </div>
+                <h4>Brak zlecenia wysyłki</h4>
+                <p class="text-muted">To zamówienie nie jest jeszcze przypisane do żadnego zlecenia wysyłki.</p>
             </div>
+            {% endif %}
         </div>
     </div>
 
@@ -2028,29 +2049,18 @@ document.getElementById('paidAmountBadge').addEventListener('click', function() 
 // Store original values
 const originalValues = {
     deliveryMethod: null,
-    shippingCost: null,
-    paymentMethod: null
+    shippingCost: null
 };
 
 // Display names mappings
 const deliveryMethodNames = {
     '': '-',
     'kurier': 'Kurier',
-    'paczkomat': 'Paczkomat',
+    'paczkomat': 'InPost',
     'odbior_osobisty': 'Odbiór osobisty',
     'poczta': 'Poczta Polska',
     'dpd_pickup': 'DPD Pickup',
     'orlen_paczka': 'Orlen Paczka'
-};
-
-const paymentMethodNames = {
-    '': '-',
-    'przelew': 'Przelew bankowy',
-    'pobranie': 'Pobranie',
-    'gotowka': 'Gotówka',
-    'blik': 'BLIK',
-    'karta': 'Karta płatnicza',
-    'paypal': 'PayPal'
 };
 
 function toggleInlineEditor(fieldName) {
@@ -2062,8 +2072,6 @@ function toggleInlineEditor(fieldName) {
         originalValues.deliveryMethod = document.getElementById('deliveryMethodSelect').value;
     } else if (fieldName === 'shippingCost') {
         originalValues.shippingCost = document.getElementById('shippingCostInput').value;
-    } else if (fieldName === 'paymentMethod') {
-        originalValues.paymentMethod = document.getElementById('paymentMethodSelect').value;
     }
 
     display.style.display = 'none';
@@ -2076,8 +2084,6 @@ function toggleInlineEditor(fieldName) {
         input.select();
     } else if (fieldName === 'deliveryMethod') {
         document.getElementById('deliveryMethodSelect').focus();
-    } else if (fieldName === 'paymentMethod') {
-        document.getElementById('paymentMethodSelect').focus();
     }
 }
 
@@ -2090,8 +2096,6 @@ function cancelInlineEditor(fieldName) {
         document.getElementById('deliveryMethodSelect').value = originalValues.deliveryMethod;
     } else if (fieldName === 'shippingCost' && originalValues.shippingCost !== null) {
         document.getElementById('shippingCostInput').value = originalValues.shippingCost;
-    } else if (fieldName === 'paymentMethod' && originalValues.paymentMethod !== null) {
-        document.getElementById('paymentMethodSelect').value = originalValues.paymentMethod;
     }
 
     editor.style.display = 'none';
@@ -2111,9 +2115,6 @@ function saveInlineField(fieldName) {
             showToast('Koszt wysyłki nie może być ujemny', 'error');
             return;
         }
-    } else if (fieldName === 'paymentMethod') {
-        value = document.getElementById('paymentMethodSelect').value;
-        apiField = 'payment_method';
     }
 
     fetch(`/admin/orders/${orderId}/update-field`, {
@@ -2155,8 +2156,6 @@ function updateInlineDisplay(fieldName, value, data) {
         if (data.grand_total !== undefined) {
             updateGrandTotalDisplays(data.grand_total, data.paid_amount);
         }
-    } else if (fieldName === 'paymentMethod') {
-        valueSpan.textContent = paymentMethodNames[value] || value || '-';
     }
 
     editor.style.display = 'none';
@@ -2220,15 +2219,6 @@ document.getElementById('deliveryMethodSelect').addEventListener('keydown', func
     }
 });
 
-document.getElementById('paymentMethodSelect').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        saveInlineField('paymentMethod');
-    } else if (e.key === 'Escape') {
-        e.preventDefault();
-        cancelInlineEditor('paymentMethod');
-    }
-});
 </script>
 
 <!-- Reject Payment Proof Modal -->
@@ -2259,5 +2249,136 @@ document.getElementById('paymentMethodSelect').addEventListener('keydown', funct
     </div>
 </div>
 
+<!-- Reject Shipping Payment Proof Modal (for ShippingRequest) -->
+<div id="rejectShippingPaymentProofModal" class="modal-overlay">
+    <div class="modal-content modal-small">
+        <div class="modal-header">
+            <h2>Odrzuć dowód wpłaty za wysyłkę</h2>
+            <button class="modal-close" onclick="closeRejectShippingPaymentProofModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="rejectShippingPaymentProofForm">
+                <div class="form-group">
+                    <label for="shippingRejectionReason">Powód odrzucenia *</label>
+                    <textarea id="shippingRejectionReason"
+                              name="rejection_reason"
+                              rows="4"
+                              required
+                              placeholder="Np. Brak tytułu przelewu, nieczytelny obraz, inna kwota..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeRejectShippingPaymentProofModal()">Anuluj</button>
+                    <button type="submit" class="btn-danger">Odrzuć dowód</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Shipping Request Modal -->
+<div id="editShippingRequestModal" class="modal-overlay">
+    <div class="modal-content modal-large">
+        <div class="modal-header">
+            <h2>
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                </svg>
+                Edytuj zlecenie wysyłki
+                <span id="srModalNumber" class="sr-modal-number"></span>
+            </h2>
+            <button class="modal-close" onclick="closeShippingRequestModal()">&times;</button>
+        </div>
+
+        <div class="modal-body">
+            <form id="editShippingRequestForm">
+                <input type="hidden" id="srModalId" name="shipping_request_id">
+
+                <!-- Status i dane podstawowe -->
+                <div class="sr-modal-section">
+                    <h4>Status i dane podstawowe</h4>
+                    <div class="sr-modal-grid">
+                        <div class="form-group">
+                            <label for="srStatus">Status</label>
+                            <select id="srStatus" name="status" class="form-select">
+                                <!-- Options will be loaded dynamically -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="srCourier">Kurier</label>
+                            <select id="srCourier" name="courier" class="form-select">
+                                <option value="">-- Wybierz kuriera --</option>
+                                <option value="InPost">InPost</option>
+                                <option value="DPD">DPD</option>
+                                <option value="DHL">DHL</option>
+                                <option value="GLS">GLS</option>
+                                <option value="FedEx">FedEx</option>
+                                <option value="UPS">UPS</option>
+                                <option value="Poczta Polska">Poczta Polska</option>
+                                <option value="Inny">Inny</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="srTracking">Numer tracking</label>
+                            <input type="text" id="srTracking" name="tracking_number" class="form-input" placeholder="np. 123456789">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Koszty wysyłki -->
+                <div class="sr-modal-section">
+                    <h4>Koszty wysyłki</h4>
+                    <div class="sr-shipping-costs">
+                        <div class="sr-total-cost-row">
+                            <label>Całkowity koszt wysyłki:</label>
+                            <div class="sr-total-cost-input">
+                                <input type="number" id="srTotalCost" step="0.01" min="0" placeholder="0.00" class="form-input">
+                                <span class="currency">PLN</span>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="distributeShippingCost()">
+                                    Rozłóż na zamówienia
+                                </button>
+                            </div>
+                        </div>
+                        <div class="sr-orders-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Zamówienie</th>
+                                        <th>Wartość</th>
+                                        <th>Koszt wysyłki</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="srOrdersTableBody">
+                                    <!-- Orders will be loaded dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Adres dostawy (readonly) -->
+                <div class="sr-modal-section">
+                    <h4>Adres dostawy</h4>
+                    <div id="srAddressPreview" class="sr-address-preview">
+                        <!-- Address will be loaded dynamically -->
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" onclick="cancelShippingRequest()">
+                        Anuluj zlecenie
+                    </button>
+                    <div class="modal-footer-right">
+                        <button type="button" class="btn btn-secondary" onclick="closeShippingRequestModal()">Zamknij</button>
+                        <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/pages/admin/payment-proof.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/shipping-requests.js') }}"></script>
 {% endblock %}

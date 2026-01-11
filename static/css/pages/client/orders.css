@@ -960,6 +960,58 @@
     color: #9E9E9E;
 }
 
+/* Payment proof icon statuses - with colored backgrounds */
+.status-icon-approved {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50 !important;
+}
+
+.status-icon-pending {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800 !important;
+}
+
+.status-icon-awaiting_price {
+    background: rgba(255, 193, 7, 0.15);
+    color: #FFC107 !important;
+}
+
+.status-icon-rejected {
+    background: rgba(245, 87, 108, 0.15);
+    color: #f5576c !important;
+}
+
+.status-icon-none {
+    background: rgba(158, 158, 158, 0.15);
+    color: #9E9E9E !important;
+}
+
+/* Dark mode - Payment proof icon statuses */
+[data-theme="dark"] .status-icon-approved {
+    background: rgba(76, 175, 80, 0.2);
+    color: #66BB6A !important;
+}
+
+[data-theme="dark"] .status-icon-pending {
+    background: rgba(255, 152, 0, 0.2);
+    color: #FFB74D !important;
+}
+
+[data-theme="dark"] .status-icon-awaiting_price {
+    background: rgba(255, 193, 7, 0.2);
+    color: #FFD54F !important;
+}
+
+[data-theme="dark"] .status-icon-rejected {
+    background: rgba(245, 87, 108, 0.2);
+    color: #f5576c !important;
+}
+
+[data-theme="dark"] .status-icon-none {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4) !important;
+}
+
 .status-icon-link {
     cursor: pointer;
     text-decoration: none;

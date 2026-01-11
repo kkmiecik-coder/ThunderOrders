@@ -255,28 +255,20 @@
                             </span>
                             <!-- Ikony statusów -->
                             <div class="status-icons">
-                                <!-- Płatność -->
-                                <span class="status-icon {% if order.is_fully_paid %}status-icon-active{% elif order.is_partially_paid or order.is_overpaid %}status-icon-warning{% else %}status-icon-inactive{% endif %}" data-tooltip="{% if order.is_fully_paid %}Opłacone{% elif order.is_overpaid %}Nadpłata{% elif order.is_partially_paid %}Częściowo opłacone{% else %}Brak wpłaty{% endif %}">
-                                    $
-                                </span>
-                                <!-- Tracking -->
-                                {% if order.has_tracking %}
-                                <a href="{{ order.first_tracking_url }}" target="_blank" class="status-icon status-icon-active status-icon-link" data-tooltip="Przesyłka {{ order.first_tracking_number }}">
-                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
-                                    </svg>
-                                </a>
-                                {% else %}
-                                <span class="status-icon status-icon-inactive" data-tooltip="Brak listu przewozowego">
-                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                                <!-- Ikona 1: Płatność za zamówienie -->
+                                {% set order_payment = order.order_payment_icon_status %}
+                                <span class="status-icon status-icon-{{ order_payment.status }}" style="color: {{ order_payment.color }};" data-tooltip="{{ order_payment.tooltip }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1H1zm7 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+                                        <path d="M0 5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1V5zm3 0a2 2 0 0 1-2 2v4a2 2 0 0 1 2 2h10a2 2 0 0 1 2-2V7a2 2 0 0 1-2-2H3z"/>
                                     </svg>
                                 </span>
-                                {% endif %}
-                                <!-- Dowód wpłaty -->
-                                <span class="status-icon {% if order.payment_proof_is_approved %}status-icon-active{% elif order.payment_proof_is_pending %}status-icon-warning{% elif order.payment_proof_is_rejected %}status-icon-danger{% else %}status-icon-inactive{% endif %}" data-tooltip="{% if order.payment_proof_is_approved %}Dowód zaakceptowany{% elif order.payment_proof_is_pending %}Dowód oczekuje na weryfikację{% elif order.payment_proof_is_rejected %}Dowód odrzucony{% else %}Brak dowodu wpłaty{% endif %}">
-                                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2.5 1a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-2zm0 3a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1zm3 0a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1h-1z"/>
+
+                                <!-- Ikona 2: Dostawa + płatność za wysyłkę -->
+                                {% set shipping_payment = order.shipping_payment_icon_status %}
+                                <span class="status-icon status-icon-{{ shipping_payment.status }}" style="color: {{ shipping_payment.color }};" data-tooltip="{{ shipping_payment.tooltip }}">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
                                     </svg>
                                 </span>
                             </div>

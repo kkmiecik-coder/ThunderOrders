@@ -32,6 +32,13 @@
                 </svg>
                 <span class="tab-label">Sposoby płatności</span>
             </button>
+            <button class="settings-tab" data-tab="shipping-requests">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/>
+                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-1h3.05a2.5 2.5 0 014.9 0H19a1 1 0 001-1v-2a1 1 0 00-.293-.707l-3-3A1 1 0 0016 7h-5V5a1 1 0 00-1-1H3z"/>
+                </svg>
+                <span class="tab-label">Zlecenia wysyłki</span>
+            </button>
         </div>
 
         <!-- Tab Content -->
@@ -242,6 +249,166 @@
                     <!-- Data rows (dynamically refreshed) -->
                     <div class="payment-methods-list">
                         {% include 'admin/orders/_payment_methods_list.html' %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab: Zlecenia wysyłki -->
+            <div class="tab-panel" id="tab-shipping-requests">
+                <!-- Default Status for New Shipping Requests Section -->
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Domyślny status nowego zlecenia</h3>
+                    </div>
+
+                    <p class="section-description">
+                        Wybierz status, który będzie automatycznie przypisywany do nowo utworzonych zleceń wysyłki.
+                    </p>
+
+                    <form id="shippingRequestDefaultStatusForm" method="POST" action="{{ url_for('orders.update_shipping_request_default_status') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="form-group">
+                            <select id="shippingRequestDefaultStatus" name="default_status" class="form-control" style="max-width: 300px;">
+                                {% for sr_status in shipping_request_statuses %}
+                                    {% if sr_status.is_active %}
+                                    <option value="{{ sr_status.slug }}" {% if sr_status.slug == shipping_request_default_status %}selected{% endif %}>
+                                        {{ sr_status.name }}
+                                    </option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                                </svg>
+                                Zapisz ustawienia
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Shipping Request Allowed Statuses Section -->
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Kwalifikujące statusy zamówień</h3>
+                    </div>
+
+                    <p class="section-description">
+                        Wybierz statusy zamówień, które <strong>kwalifikują się</strong> do zlecenia wysyłki.
+                        Tylko zamówienia z tymi statusami będą widoczne w formularzu tworzenia zlecenia wysyłki.
+                    </p>
+
+                    <form id="shippingRequestAllowedStatusesForm" method="POST" action="{{ url_for('orders.update_shipping_request_allowed_statuses') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Selected statuses badges -->
+                        <div class="selected-statuses-container" id="selectedShippingStatusesContainer">
+                            {% for status in statuses %}
+                                {% if status.slug in shipping_request_allowed_statuses %}
+                                <span class="selected-status-badge" data-slug="{{ status.slug }}" style="background-color: {{ status.badge_color }};">
+                                    {{ status.name }}
+                                    <button type="button" class="remove-status-btn" onclick="removeShippingAllowedStatus('{{ status.slug }}')" title="Usuń">
+                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                        </svg>
+                                    </button>
+                                    <input type="hidden" name="allowed_statuses" value="{{ status.slug }}">
+                                </span>
+                                {% endif %}
+                            {% endfor %}
+                            <span class="no-statuses-message" id="noShippingStatusesMessage" {% if shipping_request_allowed_statuses %}style="display: none;"{% endif %}>
+                                Brak wybranych statusów - żadne zamówienia nie będą kwalifikować się do wysyłki
+                            </span>
+                        </div>
+
+                        <!-- Dropdown to add statuses -->
+                        <div class="add-status-dropdown">
+                            <select id="addShippingAllowedStatusSelect" onchange="addShippingAllowedStatus(this)">
+                                <option value="">+ Dodaj status...</option>
+                                {% for status in statuses %}
+                                <option value="{{ status.slug }}"
+                                        data-name="{{ status.name }}"
+                                        data-color="{{ status.badge_color }}"
+                                        {% if status.slug in shipping_request_allowed_statuses %}disabled{% endif %}>
+                                    {{ status.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                                </svg>
+                                Zapisz ustawienia
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Shipping Request Statuses Section -->
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Statusy zleceń wysyłki</h3>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="addShippingRequestStatus()">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                            </svg>
+                            Dodaj status
+                        </button>
+                    </div>
+
+                    <div class="shipping-request-statuses-list">
+                        <!-- Header row -->
+                        <div class="status-list-header">
+                            <div class="status-col-name">Nazwa statusu</div>
+                            <div class="status-col-initial">Początkowy?</div>
+                            <div class="status-col-active">Status</div>
+                            <div class="status-col-actions">Akcje</div>
+                        </div>
+
+                        <!-- Data rows -->
+                        {% if shipping_request_statuses %}
+                            {% for sr_status in shipping_request_statuses %}
+                                <div class="status-list-item shipping-request-status-item" data-sr-status-id="{{ sr_status.id }}" draggable="true">
+                                    <div class="status-col-name">
+                                        <div class="drag-handle">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"/>
+                                            </svg>
+                                        </div>
+                                        <span class="badge" style="background-color: {{ sr_status.badge_color }}; color: white; padding: 4px 10px; border-radius: 10px; font-size: 12px; font-weight: 600;">{{ sr_status.name }}</span>
+                                    </div>
+                                    <div class="status-col-initial">
+                                        {% if sr_status.is_initial %}
+                                            <span class="badge badge-info">Tak</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">Nie</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="status-col-active">
+                                        {% if sr_status.is_active %}
+                                            <span class="badge badge-success">Aktywny</span>
+                                        {% else %}
+                                            <span class="badge badge-error">Nieaktywny</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="status-col-actions">
+                                        <button type="button" class="action-link sr-status-edit" onclick="editShippingRequestStatus({{ sr_status.id }})">Edytuj</button>
+                                        <button type="button" class="action-link sr-status-delete" onclick="deleteShippingRequestStatus({{ sr_status.id }})">Usuń</button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <p>Brak statusów zleceń wysyłki. Dodaj pierwszy status.</p>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -490,6 +657,73 @@
     </div>
 </div>
 
+<!-- Shipping Request Status Modal -->
+<div id="sr-status-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="sr-status-modal-title">Dodaj status zlecenia</h2>
+            <button type="button" class="modal-close" id="close-sr-status-modal">&times;</button>
+        </div>
+        <form id="sr-status-form">
+            <input type="hidden" id="sr-status-id" name="sr_status_id">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="sr-status-name" class="form-label">Nazwa statusu *</label>
+                    <input type="text" id="sr-status-name" name="name" class="form-control" required>
+                    <span class="form-error" id="error-sr-status-name"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="sr-status-badge-color" class="form-label">Kolor badge</label>
+                    <div class="color-picker-wrapper">
+                        <input
+                            type="color"
+                            id="sr-status-badge-color"
+                            name="badge_color"
+                            class="form-color-picker"
+                            value="#6B7280">
+                        <input
+                            type="text"
+                            id="sr-status-badge-color-hex"
+                            class="form-control color-hex-input"
+                            value="#6B7280"
+                            pattern="^#[0-9A-Fa-f]{6}$"
+                            maxlength="7"
+                            placeholder="#6B7280">
+                        <div class="color-preview" id="sr-status-color-preview" style="background-color: #6B7280;"></div>
+                    </div>
+                    <span class="input-hint">Wybierz kolor lub wpisz kod HEX (np. #3B82F6)</span>
+                    <span class="form-error" id="error-sr-status-badge-color"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label checkbox-label">
+                        <input type="checkbox" id="sr-status-is-initial" name="is_initial">
+                        <span>Status początkowy (można anulować)</span>
+                    </label>
+                    <span class="input-hint">Klient może anulować zlecenie tylko gdy ma ten status.</span>
+                    <span class="form-error" id="error-sr-status-is_initial"></span>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label checkbox-label">
+                        <input type="checkbox" id="sr-status-active" name="is_active" checked>
+                        <span>Aktywny</span>
+                    </label>
+                    <span class="form-error" id="error-sr-status-is_active"></span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-sr-status-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-sr-status-btn">Zapisz</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -555,6 +789,209 @@ function removeDisabledStatus(slug) {
     if (badges.length === 0) {
         document.getElementById('noStatusesMessage').style.display = 'inline';
     }
+}
+
+// Shipping Request Allowed Statuses - Add/Remove functions
+function addShippingAllowedStatus(selectElement) {
+    const slug = selectElement.value;
+    if (!slug) return;
+
+    const option = selectElement.options[selectElement.selectedIndex];
+    const name = option.dataset.name;
+    const color = option.dataset.color;
+
+    // Create badge element
+    const badge = document.createElement('span');
+    badge.className = 'selected-status-badge';
+    badge.dataset.slug = slug;
+    badge.style.backgroundColor = color;
+    badge.innerHTML = `
+        ${name}
+        <button type="button" class="remove-status-btn" onclick="removeShippingAllowedStatus('${slug}')" title="Usuń">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </button>
+        <input type="hidden" name="allowed_statuses" value="${slug}">
+    `;
+
+    // Add to container (before the "no statuses" message)
+    const container = document.getElementById('selectedShippingStatusesContainer');
+    const noMessage = document.getElementById('noShippingStatusesMessage');
+    container.insertBefore(badge, noMessage);
+
+    // Hide "no statuses" message
+    noMessage.style.display = 'none';
+
+    // Disable option in select
+    option.disabled = true;
+
+    // Reset select
+    selectElement.value = '';
+}
+
+function removeShippingAllowedStatus(slug) {
+    // Remove badge
+    const badge = document.querySelector(`#selectedShippingStatusesContainer .selected-status-badge[data-slug="${slug}"]`);
+    if (badge) {
+        badge.remove();
+    }
+
+    // Re-enable option in select
+    const select = document.getElementById('addShippingAllowedStatusSelect');
+    const option = select.querySelector(`option[value="${slug}"]`);
+    if (option) {
+        option.disabled = false;
+    }
+
+    // Show "no statuses" message if no badges left
+    const container = document.getElementById('selectedShippingStatusesContainer');
+    const badges = container.querySelectorAll('.selected-status-badge');
+    if (badges.length === 0) {
+        document.getElementById('noShippingStatusesMessage').style.display = 'inline';
+    }
+}
+
+// Shipping Request Status CRUD
+const srStatusModal = document.getElementById('sr-status-modal');
+const srStatusForm = document.getElementById('sr-status-form');
+const closeSrStatusModalBtn = document.getElementById('close-sr-status-modal');
+const cancelSrStatusBtn = document.getElementById('cancel-sr-status-btn');
+
+// Color picker sync for SR status
+const srColorPicker = document.getElementById('sr-status-badge-color');
+const srColorHex = document.getElementById('sr-status-badge-color-hex');
+const srColorPreview = document.getElementById('sr-status-color-preview');
+
+if (srColorPicker && srColorHex && srColorPreview) {
+    srColorPicker.addEventListener('input', function() {
+        srColorHex.value = this.value;
+        srColorPreview.style.backgroundColor = this.value;
+    });
+
+    srColorHex.addEventListener('input', function() {
+        if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
+            srColorPicker.value = this.value;
+            srColorPreview.style.backgroundColor = this.value;
+        }
+    });
+}
+
+function openSrStatusModal() {
+    srStatusModal.classList.add('active');
+}
+
+function closeSrStatusModal() {
+    srStatusModal.classList.remove('active');
+    srStatusForm.reset();
+    document.getElementById('sr-status-id').value = '';
+    document.getElementById('sr-status-modal-title').textContent = 'Dodaj status zlecenia';
+    // Reset color picker
+    if (srColorPicker && srColorHex && srColorPreview) {
+        srColorPicker.value = '#6B7280';
+        srColorHex.value = '#6B7280';
+        srColorPreview.style.backgroundColor = '#6B7280';
+    }
+}
+
+if (closeSrStatusModalBtn) closeSrStatusModalBtn.addEventListener('click', closeSrStatusModal);
+if (cancelSrStatusBtn) cancelSrStatusBtn.addEventListener('click', closeSrStatusModal);
+
+function addShippingRequestStatus() {
+    document.getElementById('sr-status-modal-title').textContent = 'Dodaj status zlecenia';
+    document.getElementById('sr-status-id').value = '';
+    srStatusForm.reset();
+    document.getElementById('sr-status-active').checked = true;
+    openSrStatusModal();
+}
+
+function editShippingRequestStatus(id) {
+    fetch(`/admin/orders/shipping-request-statuses/${id}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('sr-status-modal-title').textContent = 'Edytuj status zlecenia';
+            document.getElementById('sr-status-id').value = data.id;
+            document.getElementById('sr-status-name').value = data.name;
+            document.getElementById('sr-status-badge-color').value = data.badge_color || '#6B7280';
+            document.getElementById('sr-status-badge-color-hex').value = data.badge_color || '#6B7280';
+            document.getElementById('sr-status-color-preview').style.backgroundColor = data.badge_color || '#6B7280';
+            document.getElementById('sr-status-is-initial').checked = data.is_initial;
+            document.getElementById('sr-status-active').checked = data.is_active;
+            openSrStatusModal();
+        })
+        .catch(error => {
+            console.error('Error fetching status:', error);
+            showToast('Błąd podczas pobierania statusu', 'error');
+        });
+}
+
+function deleteShippingRequestStatus(id) {
+    if (!confirm('Czy na pewno chcesz usunąć ten status?')) return;
+
+    fetch(`/admin/orders/shipping-request-statuses/${id}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Status usunięty', 'success');
+            location.reload();
+        } else {
+            showToast(data.error || 'Błąd podczas usuwania', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Błąd podczas usuwania', 'error');
+    });
+}
+
+// SR Status Form Submit
+if (srStatusForm) {
+    srStatusForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const id = document.getElementById('sr-status-id').value;
+        const isEdit = id !== '';
+        const url = isEdit
+            ? `/admin/orders/shipping-request-statuses/${id}`
+            : '/admin/orders/shipping-request-statuses/create';
+        const method = isEdit ? 'PUT' : 'POST';
+
+        const formData = {
+            name: document.getElementById('sr-status-name').value,
+            badge_color: document.getElementById('sr-status-badge-color').value,
+            is_initial: document.getElementById('sr-status-is-initial').checked,
+            is_active: document.getElementById('sr-status-active').checked
+        };
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(isEdit ? 'Status zaktualizowany' : 'Status dodany', 'success');
+                closeSrStatusModal();
+                location.reload();
+            } else {
+                showToast(data.error || 'Błąd podczas zapisywania', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Błąd podczas zapisywania', 'error');
+        });
+    });
 }
 </script>
 {% endblock %}

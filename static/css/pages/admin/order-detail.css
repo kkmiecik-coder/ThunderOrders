@@ -4167,3 +4167,506 @@ code {
 [data-theme="dark"] .custom-product-row:hover {
     background: linear-gradient(135deg, rgba(240, 147, 251, 0.12) 0%, rgba(245, 87, 108, 0.12) 100%);
 }
+
+/* ====================
+   PAYMENT PROOF BADGES - DARK MODE
+   ==================== */
+
+/* Keep badge colors consistent in dark mode - black text */
+[data-theme="dark"] .payment-proof-container .badge-warning,
+[data-theme="dark"] .proof-status-pending .badge-warning {
+    background-color: #FFC107 !important;
+    color: #000 !important;
+}
+
+[data-theme="dark"] .payment-proof-container .badge-success {
+    background-color: #4CAF50 !important;
+    color: #000 !important;
+}
+
+[data-theme="dark"] .payment-proof-container .badge-danger {
+    background-color: #F44336 !important;
+    color: #000 !important;
+}
+
+/* ====================
+   PAYMENT PROOF SEPARATOR - ADMIN
+   ==================== */
+
+.admin-payment-separator {
+    height: 1px;
+    background: #E0E0E0;
+    margin: 1rem 0;
+}
+
+[data-theme="dark"] .admin-payment-separator {
+    background: rgba(240, 147, 251, 0.15);
+}
+
+/* ============================================
+   ROW 3: Potwierdzenia + Zlecenia wysyłki
+   ============================================ */
+
+/* Container for confirmations and shipping requests */
+.confirmations-shipments-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+/* Confirmations Card */
+.confirmations-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.confirmations-card h3 svg {
+    opacity: 0.7;
+}
+
+/* Horizontal layout for payment proofs */
+.confirmations-horizontal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.confirmation-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.confirmation-section h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+/* Dark mode for confirmations */
+[data-theme="dark"] .confirmation-section h4 {
+    color: #fff;
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Payment Method Info in Confirmations */
+.payment-method-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    background: #F5F5F5;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.payment-method-label {
+    color: #666;
+    font-weight: 500;
+}
+
+.payment-method-value {
+    color: #240046;
+    font-weight: 600;
+}
+
+[data-theme="dark"] .payment-method-info {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .payment-method-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .payment-method-value {
+    color: #f093fb;
+}
+
+/* Shared Payment Proof Info (when multiple orders share the same shipping payment) */
+.shared-proof-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0.375rem 0.5rem;
+    background: rgba(90, 24, 154, 0.08);
+    border-radius: 4px;
+    flex-wrap: wrap;
+}
+
+.shared-label {
+    color: #666;
+    font-weight: 500;
+}
+
+.shared-order-link {
+    display: inline-block;
+    padding: 2px 6px;
+    background: #5A189A;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 3px;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.shared-order-link:hover {
+    background: #7B2CBF;
+    color: #fff;
+}
+
+.shared-more {
+    color: #888;
+    font-size: 0.7rem;
+}
+
+[data-theme="dark"] .shared-proof-info {
+    background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .shared-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .shared-order-link {
+    background: rgba(240, 147, 251, 0.3);
+    color: #fff;
+}
+
+[data-theme="dark"] .shared-order-link:hover {
+    background: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .shared-more {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Shipping Requests Card */
+.shipping-requests-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.shipping-requests-card h3 svg {
+    opacity: 0.7;
+}
+
+/* Empty state for shipping requests */
+.shipping-requests-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.shipping-requests-empty .empty-icon {
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.shipping-requests-empty .empty-icon svg {
+    display: block;
+}
+
+.shipping-requests-empty h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #666;
+    margin: 0 0 0.5rem 0;
+}
+
+.shipping-requests-empty p {
+    margin: 0.25rem 0;
+    color: #999;
+    font-size: 0.875rem;
+}
+
+.shipping-requests-empty p.small {
+    font-size: 0.8125rem;
+    font-style: italic;
+}
+
+/* Dark mode for shipping requests empty state */
+[data-theme="dark"] .shipping-requests-empty h4 {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .shipping-requests-empty p {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .shipping-requests-empty .empty-icon {
+    opacity: 0.2;
+}
+
+/* ====================
+   SHIPPING REQUEST DETAILS
+   ==================== */
+
+.shipping-request-details {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.sr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.sr-number {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sr-label {
+    color: #666;
+    font-size: 0.875rem;
+}
+
+.sr-number strong {
+    font-size: 1rem;
+    color: #240046;
+}
+
+.sr-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sr-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.sr-info-label {
+    color: #666;
+    font-size: 0.8125rem;
+}
+
+.sr-info-value {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+}
+
+.sr-order-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #5A189A;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.sr-order-badge:hover {
+    background: #7B2CBF;
+}
+
+.sr-order-badge.current {
+    background: #FF8500;
+    font-weight: 600;
+}
+
+.sr-address-section,
+.sr-tracking-section,
+.sr-notes-section {
+    background: #F8F9FA;
+    border-radius: 6px;
+    padding: 0.75rem;
+}
+
+.sr-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #5A189A;
+    margin-bottom: 0.5rem;
+}
+
+.sr-address-content {
+    font-size: 0.875rem;
+    color: #333;
+    line-height: 1.5;
+}
+
+.sr-pickup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 8px;
+    background: #E8F5E9;
+    color: #2E7D32;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.sr-pickup-id {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: #5A189A;
+    font-weight: 600;
+}
+
+.sr-tracking-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sr-courier-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #E3F2FD;
+    color: #1565C0;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.sr-tracking-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #5A189A;
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.sr-tracking-link:hover {
+    text-decoration: underline;
+}
+
+.sr-tracking-number {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: #333;
+}
+
+.sr-notes-content {
+    font-size: 0.875rem;
+    color: #666;
+    white-space: pre-wrap;
+}
+
+.sr-actions {
+    padding-top: 0.5rem;
+    border-top: 1px solid #E0E0E0;
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Dark mode for shipping request details */
+[data-theme="dark"] .sr-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .sr-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .sr-number strong {
+    color: #fff;
+}
+
+[data-theme="dark"] .sr-info-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .sr-order-badge {
+    background: #7B2CBF;
+}
+
+[data-theme="dark"] .sr-order-badge:hover {
+    background: #9D4EDD;
+}
+
+[data-theme="dark"] .sr-order-badge.current {
+    background: #FF8500;
+}
+
+[data-theme="dark"] .sr-address-section,
+[data-theme="dark"] .sr-tracking-section,
+[data-theme="dark"] .sr-notes-section {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sr-section-header {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-address-content {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .sr-pickup-badge {
+    background: rgba(46, 125, 50, 0.2);
+    color: #81C784;
+}
+
+[data-theme="dark"] .sr-pickup-id {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-courier-badge {
+    background: rgba(21, 101, 192, 0.2);
+    color: #90CAF9;
+}
+
+[data-theme="dark"] .sr-tracking-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-tracking-number {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .sr-notes-content {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .sr-actions {
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+/* Responsive layout */
+@media (max-width: 1024px) {
+    .confirmations-shipments-row {
+        grid-template-columns: 1fr;
+    }
+
+    .confirmations-horizontal {
+        grid-template-columns: 1fr;
+    }
+}

@@ -12,8 +12,6 @@ body {
 .main-wrapper {
     flex: 1;
     margin-left: var(--sidebar-width);
-    width: calc(100% - var(--sidebar-width));
-    max-width: calc(100% - var(--sidebar-width));
     transition: margin-left var(--transition-sidebar),
                 width var(--transition-sidebar),
                 max-width var(--transition-sidebar);
