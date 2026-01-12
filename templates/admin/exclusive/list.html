@@ -230,6 +230,8 @@
                                         <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
                                     </svg>
                                 </a>
+                                {% endif %}
+                                {% if page.status != 'active' %}
                                 <button type="button" class="btn-action btn-delete"
                                         onclick="openDeleteModal({{ page.id }}, '{{ page.name }}')"
                                         title="Usuń">
@@ -317,7 +319,19 @@
         </div>
         <div class="modal-body">
             <p>Czy na pewno chcesz usunąć stronę <strong id="deletePageName"></strong>?</p>
-            <p class="modal-warning">Ta operacja jest nieodwracalna! Zamówienia powiązane z tą stroną pozostaną w systemie.</p>
+
+            <div id="deleteOrdersWarning" class="delete-orders-warning" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <div class="warning-content">
+                    <span><strong id="deleteOrdersCount">0</strong> zamówień jest powiązanych z tą stroną.</span>
+                    <span class="warning-note">Zamówienia zachowają nazwę strony w historii.</span>
+                </div>
+            </div>
+
+            <p class="modal-warning">
+                Ta operacja jest nieodwracalna!
+                <br><small>Usunięte zostaną: sekcje, rezerwacje produktów, subskrypcje powiadomień.</small>
+            </p>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Anuluj</button>
@@ -410,10 +424,30 @@ function closeCreateModal() {
 // Delete Modal
 let deletePageId = null;
 
-function openDeleteModal(pageId, pageName) {
+async function openDeleteModal(pageId, pageName) {
     deletePageId = pageId;
     document.getElementById('deletePageName').textContent = pageName;
     document.getElementById('deleteForm').action = `/admin/exclusive/${pageId}/delete`;
+
+    // Fetch orders count
+    const warningDiv = document.getElementById('deleteOrdersWarning');
+    const ordersCountSpan = document.getElementById('deleteOrdersCount');
+
+    try {
+        const response = await fetch(`/admin/exclusive/${pageId}/orders-count`);
+        const data = await response.json();
+
+        if (data.success && data.orders_count > 0) {
+            ordersCountSpan.textContent = data.orders_count;
+            warningDiv.style.display = 'flex';
+        } else {
+            warningDiv.style.display = 'none';
+        }
+    } catch (e) {
+        console.error('Failed to fetch orders count:', e);
+        warningDiv.style.display = 'none';
+    }
+
     document.getElementById('deleteModal').classList.add('active');
 }
 
@@ -423,6 +457,8 @@ function closeDeleteModal() {
     setTimeout(() => {
         modal.classList.remove('active', 'closing');
         deletePageId = null;
+        // Reset warning
+        document.getElementById('deleteOrdersWarning').style.display = 'none';
     }, 350);
 }
 

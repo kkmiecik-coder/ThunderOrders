@@ -523,8 +523,8 @@ class ExclusiveReservation(db.Model):
     created_at = db.Column(db.BigInteger, default=lambda: int(__import__('time').time()))
 
     # Relationships
-    page = db.relationship('ExclusivePage', backref=db.backref('reservations', cascade='all, delete-orphan'))
-    product = db.relationship('Product', backref=db.backref('exclusive_reservations', cascade='all, delete-orphan'))
+    page = db.relationship('ExclusivePage', backref=db.backref('reservations', lazy='dynamic', passive_deletes=True))
+    product = db.relationship('Product', backref=db.backref('exclusive_reservations', lazy='dynamic', passive_deletes=True))
 
     # Unique constraint - session can reserve same product on different pages
     __table_args__ = (
@@ -627,9 +627,9 @@ class ExclusiveProductNotificationSubscription(db.Model):
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relacje
-    page = db.relationship('ExclusivePage', backref=db.backref('notification_subscriptions', lazy='dynamic'))
-    product = db.relationship('Product', backref=db.backref('exclusive_notification_subscriptions', lazy='dynamic'))
-    user = db.relationship('User', backref=db.backref('exclusive_notification_subscriptions', lazy='dynamic'))
+    page = db.relationship('ExclusivePage', backref=db.backref('notification_subscriptions', lazy='dynamic', passive_deletes=True))
+    product = db.relationship('Product', backref=db.backref('exclusive_notification_subscriptions', lazy='dynamic', passive_deletes=True))
+    user = db.relationship('User', backref=db.backref('exclusive_notification_subscriptions', lazy='dynamic', passive_deletes=True))
 
     # Constraints - unikalne kombinacje (page + product + user/email)
     __table_args__ = (

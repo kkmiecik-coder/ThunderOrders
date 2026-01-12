@@ -490,23 +490,70 @@ def exclusive_change_status(page_id):
 # Usuwanie strony
 # ============================================
 
+@admin_bp.route('/exclusive/<int:page_id>/orders-count')
+@login_required
+@admin_required
+def exclusive_orders_count(page_id):
+    """Zwraca liczbę zamówień powiązanych ze stroną (AJAX)"""
+    page = ExclusivePage.query.get_or_404(page_id)
+    return jsonify({
+        'success': True,
+        'orders_count': page.orders.count()
+    })
+
+
 @admin_bp.route('/exclusive/<int:page_id>/delete', methods=['POST'])
 @login_required
 @admin_required
 def exclusive_delete(page_id):
-    """Usuwa stronę exclusive"""
+    """Usuwa stronę exclusive wraz z powiązanymi elementami"""
+    import os
+    from flask import current_app
+    from utils.activity_logger import log_activity
+
     page = ExclusivePage.query.get_or_404(page_id)
     name = page.name
+    page_id_for_log = page.id
 
+    # 1. Zlicz zamówienia powiązane (przed usunięciem)
+    orders_count = page.orders.count()
+
+    # 2. Usuń pliki graficzne setów
+    for section in page.sections:
+        if section.set_image:
+            # set_image może być ścieżką względną np. "uploads/exclusive/xxx.jpg"
+            file_path = os.path.join(current_app.static_folder, section.set_image)
+            if os.path.exists(file_path):
+                try:
+                    os.remove(file_path)
+                except OSError:
+                    pass  # Ignoruj błędy usuwania plików
+
+    # 3. Usuń stronę (CASCADE zajmie się sekcjami, rezerwacjami, powiadomieniami)
     db.session.delete(page)
     db.session.commit()
 
-    flash(Markup(f'Strona <strong style="color: #7B2CBF;">{name}</strong> została usunięta.'), 'success')
+    # 4. Zaloguj aktywność
+    log_activity(
+        user=current_user,
+        action='exclusive_deleted',
+        entity_type='exclusive',
+        entity_id=page_id_for_log,
+        old_value={'name': name, 'orders_count': orders_count},
+        new_value=None
+    )
 
     # Sprawdź czy to AJAX request
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return jsonify({'success': True, 'redirect': url_for('admin.exclusive_list')})
+        return jsonify({
+            'success': True,
+            'redirect': url_for('admin.exclusive_list'),
+            'orders_affected': orders_count,
+            'message': f'Strona "{name}" została usunięta.'
+        })
 
+    # Dla non-AJAX - użyj flash
+    flash(f'Strona "{name}" została usunięta.', 'success')
     return redirect(url_for('admin.exclusive_list'))
 
 

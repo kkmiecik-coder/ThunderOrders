@@ -190,8 +190,9 @@ class Order(db.Model):
 
     # Exclusive order fields
     is_exclusive = db.Column(db.Boolean, default=False)
-    exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id'), nullable=True)
+    exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='SET NULL'), nullable=True)
     exclusive_page = db.relationship('ExclusivePage', back_populates='orders')
+    exclusive_page_name = db.Column(db.String(200), nullable=True)  # Preserved page name for history
 
     # Guest order fields
     is_guest_order = db.Column(db.Boolean, default=False)
@@ -282,8 +283,12 @@ class Order(db.Model):
     @property
     def type_display_name(self):
         """Returns formatted type name. For exclusive orders, includes page name."""
-        if self.is_exclusive and self.exclusive_page:
-            return f"Exclusive - {self.exclusive_page.name}"
+        if self.is_exclusive:
+            if self.exclusive_page:
+                return f"Exclusive - {self.exclusive_page.name}"
+            elif self.exclusive_page_name:
+                return f"Exclusive - {self.exclusive_page_name}"
+            return "Exclusive"
         if self.type_rel:
             return self.type_rel.name
         return self.order_type
@@ -451,8 +456,12 @@ class Order(db.Model):
     @property
     def order_source_display(self):
         """Returns order source for display (Exclusive page name or order type)"""
-        if self.is_exclusive and self.exclusive_page:
-            return f"Exclusive: {self.exclusive_page.name}"
+        if self.is_exclusive:
+            if self.exclusive_page:
+                return f"Exclusive: {self.exclusive_page.name}"
+            elif self.exclusive_page_name:
+                return f"Exclusive: {self.exclusive_page_name} (usunięta)"
+            return "Exclusive"
         if self.type_rel:
             return self.type_rel.name
         return self.order_type or 'Standard'
@@ -910,7 +919,7 @@ class OrderItem(db.Model):
     # True = produkt został przydzielony (zmieścił się w komplecie)
     # False = produkt przepadł (nie zmieścił się w komplecie)
     is_set_fulfilled = db.Column(db.Boolean, nullable=True)
-    set_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id'), nullable=True)
+    set_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='SET NULL'), nullable=True)
     # Ilość zrealizowana w secie (dla częściowego zrealizowania)
     # NULL = nie dotyczy setu
     # fulfilled_quantity == quantity = całość zrealizowana

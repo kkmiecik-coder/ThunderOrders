@@ -647,33 +647,155 @@
   transform: translateY(-2px);
 }
 
+/* Warning and Note Text in Modals - Light Mode */
+.modal-warning {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  color: #92400e;
+  transition: all 0.3s ease;
+  position: relative;
+  padding-left: calc(var(--space-4) + 24px);
+}
+
+.modal-warning small {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
 /* Warning and Note Text in Modals - Dark Mode */
 [data-theme="dark"] .modal-warning {
   background: rgba(251, 191, 36, 0.1);
   border: 1px solid rgba(251, 191, 36, 0.3);
   color: #fbbf24;
-  transition: all 0.5s ease;
+  transition: all 0.3s ease;
 }
 
+[data-theme="dark"] .modal-warning::before {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .modal-warning small {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Note Text in Modals - Light Mode */
+.modal-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  color: #1e40af;
+  transition: all 0.3s ease;
+}
+
+.modal-note::before {
+  content: "\f05a";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  color: #3b82f6;
+  flex-shrink: 0;
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+/* Note - Dark Mode */
 [data-theme="dark"] .modal-note {
   background: rgba(96, 165, 250, 0.1);
   border: 1px solid rgba(96, 165, 250, 0.3);
   color: #60a5fa;
-  transition: all 0.5s ease;
+  transition: all 0.3s ease;
 }
 
+[data-theme="dark"] .modal-note::before {
+  color: #60a5fa;
+}
+
+/* Error Text in Modals - Light Mode */
+.modal-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  color: #991b1b;
+  transition: all 0.3s ease;
+}
+
+.modal-error::before {
+  content: "\f06a";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  color: #ef4444;
+  flex-shrink: 0;
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+/* Error - Dark Mode */
 [data-theme="dark"] .modal-error {
   background: rgba(248, 113, 113, 0.1);
   border: 1px solid rgba(248, 113, 113, 0.3);
   color: #f87171;
-  transition: all 0.5s ease;
+  transition: all 0.3s ease;
 }
 
+[data-theme="dark"] .modal-error::before {
+  color: #f87171;
+}
+
+/* Success Text in Modals - Light Mode */
+.modal-success {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  font-size: var(--text-sm);
+  color: #065f46;
+  transition: all 0.3s ease;
+}
+
+.modal-success::before {
+  content: "\f058";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  color: #10b981;
+  flex-shrink: 0;
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+/* Success - Dark Mode */
 [data-theme="dark"] .modal-success {
   background: rgba(52, 211, 153, 0.1);
   border: 1px solid rgba(52, 211, 153, 0.3);
   color: #34d399;
-  transition: all 0.5s ease;
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .modal-success::before {
+  color: #34d399;
 }
 
 /* Animations Update for Dark Mode */

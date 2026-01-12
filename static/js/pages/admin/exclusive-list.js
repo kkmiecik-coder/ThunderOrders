@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSettingsTabs(); // Left sidebar tabs in settings panel
     initializeCustomSelects();
     initializeAutoIncreaseForm();
+    initializeDeleteForm();
 });
 
 /**
@@ -234,6 +235,54 @@ function initializeAutoIncreaseForm() {
             showToast(error.message || 'Wystąpił błąd podczas zapisywania.', 'error');
             saveBtn.innerHTML = originalText;
             checkForChanges(); // Re-enable button if there are still changes
+        });
+    });
+}
+
+/**
+ * Initialize Delete Form - AJAX submission with toast
+ */
+function initializeDeleteForm() {
+    const deleteForm = document.getElementById('deleteForm');
+    if (!deleteForm) return;
+
+    deleteForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const submitBtn = deleteForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Usuwanie...';
+
+        fetch(deleteForm.action, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: new FormData(deleteForm)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show toast
+                showToast(data.message || 'Strona została usunięta.', 'success');
+
+                // Close modal
+                closeDeleteModal();
+
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = data.redirect || '/admin/exclusive';
+                }, 500);
+            } else {
+                throw new Error(data.error || 'Wystąpił błąd podczas usuwania.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast(error.message || 'Wystąpił błąd podczas usuwania.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
         });
     });
 }

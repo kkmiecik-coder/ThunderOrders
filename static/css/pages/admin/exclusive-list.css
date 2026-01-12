@@ -291,10 +291,58 @@
     margin: 0 0 var(--space-4) 0;
 }
 
-/* Modal warning text */
-.modal-warning {
-    color: var(--error);
-    font-weight: var(--font-medium);
+/* Delete Orders Warning Box */
+.delete-orders-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 8px;
+    margin-bottom: var(--space-4);
+}
+
+.delete-orders-warning i {
+    color: #f59e0b;
+    flex-shrink: 0;
+    font-size: 18px;
+    margin-top: 2px;
+}
+
+.delete-orders-warning .warning-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.delete-orders-warning span {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+}
+
+.delete-orders-warning .warning-note {
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+}
+
+/* Dark Mode - Delete Orders Warning */
+[data-theme="dark"] .delete-orders-warning {
+    background: rgba(251, 191, 36, 0.1);
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+[data-theme="dark"] .delete-orders-warning i {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .delete-orders-warning span {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .delete-orders-warning .warning-note {
+    color: rgba(255, 255, 255, 0.6);
 }
 
 /* Form Styles */
