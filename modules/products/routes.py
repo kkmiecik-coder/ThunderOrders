@@ -480,7 +480,16 @@ def delete_product(product_id):
                 f'<strong style="color: #FFC107;">dezaktywowany</strong> (był używany w zamówieniach magazynowych).'
             ), 'warning')
         else:
-            # Hard delete
+            # Hard delete - first delete associated images
+            from utils.image_processor import delete_image_files
+            for image in product.images:
+                try:
+                    delete_image_files(image.path_original, image.path_compressed)
+                except Exception as file_error:
+                    current_app.logger.warning(f"Could not delete image files: {str(file_error)}")
+                db.session.delete(image)
+
+            # Now delete product
             db.session.delete(product)
             db.session.commit()
             flash(Markup(f'Produkt <strong style="color: #7B2CBF;">{product_name}</strong> został usunięty.'), 'success')
@@ -795,6 +804,24 @@ def bulk_delete():
 
         # Hard delete products not in stock orders
         if products_to_delete:
+            # First, delete associated product images (files + DB records)
+            from utils.image_processor import delete_image_files
+            images_to_delete = ProductImage.query.filter(
+                ProductImage.product_id.in_(products_to_delete)
+            ).all()
+
+            for image in images_to_delete:
+                try:
+                    delete_image_files(image.path_original, image.path_compressed)
+                except Exception as file_error:
+                    current_app.logger.warning(f"Could not delete image files: {str(file_error)}")
+
+            # Delete image records from DB
+            ProductImage.query.filter(ProductImage.product_id.in_(products_to_delete)).delete(
+                synchronize_session=False
+            )
+
+            # Now delete products
             deleted_count = Product.query.filter(Product.id.in_(products_to_delete)).delete(
                 synchronize_session=False
             )

@@ -268,7 +268,8 @@
 /* Statuses List        */
 /* ==================== */
 .statuses-list,
-.wms-statuses-list {
+.wms-statuses-list,
+.shipping-request-statuses-list {
     padding: 0;
 }
 
@@ -288,7 +289,8 @@
 }
 
 /* WMS Header row - 4 columns */
-.wms-statuses-list .status-list-header {
+.wms-statuses-list .status-list-header,
+.shipping-request-statuses-list .status-list-header {
     display: grid;
     grid-template-columns: 1fr 100px 100px 150px;
     gap: var(--space-4);
@@ -316,7 +318,8 @@
 }
 
 /* WMS Data rows - 4 columns */
-.wms-statuses-list .status-list-item {
+.wms-statuses-list .status-list-item,
+.shipping-request-statuses-list .status-list-item {
     display: grid;
     grid-template-columns: 1fr 100px 100px 150px;
     gap: var(--space-4);
@@ -707,14 +710,16 @@
 
 /* Status List */
 [data-theme="dark"] .statuses-list .status-list-header,
-[data-theme="dark"] .wms-statuses-list .status-list-header {
+[data-theme="dark"] .wms-statuses-list .status-list-header,
+[data-theme="dark"] .shipping-request-statuses-list .status-list-header {
     background: rgba(255, 255, 255, 0.03);
     border-bottom-color: rgba(240, 147, 251, 0.15);
     color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="dark"] .statuses-list .status-list-item,
-[data-theme="dark"] .wms-statuses-list .status-list-item {
+[data-theme="dark"] .wms-statuses-list .status-list-item,
+[data-theme="dark"] .shipping-request-statuses-list .status-list-item {
     background: rgba(255, 255, 255, 0.02);
     border-bottom-color: rgba(240, 147, 251, 0.1);
 }
@@ -909,8 +914,10 @@
 .tab-description,
 .statuses-list .status-list-header,
 .wms-statuses-list .status-list-header,
+.shipping-request-statuses-list .status-list-header,
 .statuses-list .status-list-item,
 .wms-statuses-list .status-list-item,
+.shipping-request-statuses-list .status-list-item,
 .drag-handle,
 .action-link,
 .status-edit,
