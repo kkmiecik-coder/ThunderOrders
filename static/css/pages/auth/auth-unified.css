@@ -10,13 +10,13 @@
 
 .auth-page {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     position: relative;
-    overflow: hidden;
     padding: 1rem;
+    overflow-x: hidden;
 }
 
 /* ============================================
@@ -24,7 +24,7 @@
    ============================================ */
 
 .animated-bg {
-    position: fixed;
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
@@ -168,6 +168,7 @@
     z-index: 1;
     width: 100%;
     max-width: 480px;
+    flex-shrink: 0;
     background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -210,10 +211,13 @@
 
 .auth-logo a {
     display: inline-block;
+    line-height: 0;
 }
 
 .auth-logo img {
+    display: block;
     max-width: 350px;
+    width: 100%;
     height: auto;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.1));
 }
@@ -1005,17 +1009,10 @@
    ============================================ */
 
 @media (max-width: 520px) {
-    .auth-page {
-        padding: 0.5rem;
-    }
-
     .auth-container {
         padding: 2rem 1.5rem;
         border-radius: 20px;
-    }
-
-    .auth-logo img {
-        max-width: 150px;
+        animation: none; /* Wyłącz glow na mobile */
     }
 
     .auth-title {
@@ -1040,10 +1037,19 @@
         width: 40px;
     }
 
-    /* Reduce animation intensity on mobile */
+    /* Wyłącz kosztowne animacje na mobile - oszczędność baterii */
     .orb {
-        filter: blur(60px);
-        opacity: 0.4;
+        animation: none;
+        filter: blur(40px);
+        opacity: 0.3;
+    }
+
+    .sparkle {
+        display: none;
+    }
+
+    .dynamic-pulse-ring {
+        display: none;
     }
 }
 

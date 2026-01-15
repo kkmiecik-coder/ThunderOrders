@@ -12,7 +12,7 @@ body:has(.builder-page) {
 .builder-page {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 60px);
+    height: calc(100vh - var(--topbar-height, 64px));
     overflow: hidden;
 }
 
@@ -218,7 +218,6 @@ body:has(.builder-page) {
 .preview-title {
     font-size: 2rem;
     font-weight: 700;
-    margin: 0 0 var(--space-2) 0;
     position: relative;
     z-index: 1;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1278,6 +1277,19 @@ body:has(.builder-page) {
     }
 }
 
+/* ==========================================
+   SETTINGS ACCORDION (Mobile)
+   ========================================== */
+
+/* Desktop: accordion behaves like normal section */
+.settings-accordion-toggle {
+    display: none;
+}
+
+.settings-accordion-content {
+    display: block;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .builder-main {
@@ -1288,57 +1300,214 @@ body:has(.builder-page) {
         width: 100%;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
+        max-height: none;
+        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    /* Actions first - horizontal row */
+    .sidebar-actions {
+        order: 1;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+    }
+
+    .sidebar-actions h3 {
+        width: 100%;
+        flex: 0 0 100%;
+    }
+
+    .sidebar-actions .btn {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-bottom: 0;
+    }
+
+    .sidebar-actions .btn-block {
+        width: auto;
+    }
+
+    /* Settings accordion second */
+    .sidebar-settings-accordion {
+        order: 2;
+        margin-bottom: 0;
+    }
+
+    /* Show accordion toggle on mobile */
+    .settings-accordion-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: var(--space-3);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .settings-accordion-toggle:hover {
+        background: var(--bg-hover);
+    }
+
+    .settings-accordion-toggle h3 {
+        margin: 0;
+        font-size: var(--text-sm);
+        font-weight: var(--font-semibold);
+        color: var(--text-primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .accordion-arrow {
+        transition: transform 0.3s ease;
+        color: var(--text-secondary);
+    }
+
+    .settings-accordion-toggle.expanded .accordion-arrow {
+        transform: rotate(180deg);
+    }
+
+    /* Accordion content - collapsed by default */
+    .settings-accordion-content {
+        display: none;
+        padding: var(--space-3);
+        border: 1px solid var(--border-color);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        margin-top: -1px;
+        background: var(--bg-primary);
+    }
+
+    .sidebar-settings-accordion.expanded .settings-accordion-content {
+        display: block;
+    }
+
+    .sidebar-settings-accordion.expanded .settings-accordion-toggle {
+        border-radius: 8px 8px 0 0;
     }
 
     .builder-content {
         flex: 1;
         min-height: 400px;
     }
+
+    /* Hide h3 inside accordion toggle area */
+    .sidebar-settings-accordion > h3 {
+        display: none;
+    }
 }
 
 @media (max-width: 768px) {
     .builder-topbar {
-        flex-direction: column;
-        gap: var(--space-3);
-        padding: var(--space-3);
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-3);
     }
 
-    .topbar-left,
-    .topbar-center,
+    /* Hide back text, show only icon */
+    .topbar-left .btn-back {
+        padding: var(--space-2);
+    }
+
+    .topbar-left .btn-back span {
+        display: none;
+    }
+
+    /* Hide last saved on mobile */
+    .topbar-center .last-saved {
+        display: none;
+    }
+
+    /* Compact buttons - icons only */
     .topbar-right {
-        width: 100%;
-        justify-content: center;
+        gap: var(--space-2);
+    }
+
+    .topbar-right .btn {
+        padding: var(--space-2);
+    }
+
+    /* Hide button text on mobile - show only icons */
+    .topbar-right .btn span {
+        display: none;
+    }
+
+    /* Preview header - compact on mobile */
+    .preview-header {
+        padding: var(--space-4) var(--space-3);
+        border-radius: 8px;
+        margin-bottom: var(--space-3);
+    }
+
+    .preview-title {
+        font-size: 1.25rem;
+    }
+
+    .preview-description {
+        font-size: var(--text-sm);
     }
 
     .form-row {
         grid-template-columns: 1fr;
     }
 
+    /* Set section - mobile layout */
     .set-header-row {
-        flex-direction: column;
-        align-items: stretch;
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        align-items: center;
     }
 
-    .set-name-group {
+    /* Row 1: Nazwa setu - full width */
+    .set-header-row .set-name-col {
+        flex: 0 0 100%;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-1);
+    }
+
+    .set-header-row .set-name-col .form-input {
         width: 100%;
     }
 
-    .set-header-buttons {
-        flex-direction: column;
-        align-self: stretch;
+    /* Row 2: Dodaj tło seta - full width */
+    .set-header-row .set-image-button-col {
+        flex: 0 0 100%;
     }
 
-    .set-header-buttons .btn-set-image {
+    .set-header-row .set-image-button-col .btn-set-image {
         width: 100%;
+        justify-content: center;
     }
 
-    .set-add-buttons {
+    /* Row 3: Buttons + Counter share same row */
+    .set-header-row .set-add-buttons-col {
+        flex: 1 1 auto;
+        display: flex;
         flex-direction: row;
-        width: 100%;
+        gap: var(--space-2);
     }
 
-    .set-add-buttons .btn {
+    .set-header-row .set-add-buttons-col .btn {
         flex: 1;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
+        font-size: var(--text-xs);
+        padding: var(--space-2) var(--space-2);
+    }
+
+    /* Max counter next to buttons - same row */
+    .set-header-row .qty-counter-group {
+        flex: 0 0 auto;
     }
 
     .set-items-list {
@@ -1347,6 +1516,12 @@ body:has(.builder-page) {
 
     .set-item {
         width: 130px;
+    }
+
+    /* Qty counters row */
+    .qty-counters-row {
+        flex-wrap: wrap;
+        gap: var(--space-2);
     }
 }
 
@@ -1423,6 +1598,30 @@ body:has(.builder-page) {
     -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid rgba(240, 147, 251, 0.1);
     transition: all 0.5s ease;
+}
+
+/* Settings Accordion - Dark Mode */
+[data-theme="dark"] .settings-accordion-toggle {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .settings-accordion-toggle:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .settings-accordion-toggle h3 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .accordion-arrow {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .settings-accordion-content {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.15);
 }
 
 [data-theme="dark"] .sidebar-section h3 {

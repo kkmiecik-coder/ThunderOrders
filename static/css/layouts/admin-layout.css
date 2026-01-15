@@ -3,8 +3,8 @@
  * Sidebar + Main Wrapper layout with dark glassmorphism support
  */
 
-/* Body layout with sidebar */
-body {
+/* Body layout with sidebar (exclude auth pages) */
+body:not(.auth-page-body) {
     min-height: 100vh;
 }
 
@@ -32,7 +32,6 @@ body {
 .main-content {
     flex: 1;
     padding-top: var(--topbar-height);
-    background: var(--bg-secondary);
     min-height: 100vh;
     transition: background 0.5s ease;
     overflow-x: hidden;
@@ -43,12 +42,6 @@ body {
 /* Dark Mode - Glassmorphism Background */
 /* ==================== */
 [data-theme="dark"] .main-content {
-    background: linear-gradient(
-        135deg,
-        #0a0819 0%,
-        #1e1a42 50%,
-        #181830 100%
-    );
     background-attachment: fixed;
 }
 
@@ -132,15 +125,19 @@ body {
 
     .main-wrapper {
         margin-left: 0;
+        width: 100%;
+        max-width: 100%;
     }
 
     /* Fix: Collapsed sidebar on mobile should have no margin */
     .sidebar[data-collapsed="true"] ~ .main-wrapper {
         margin-left: 0;
+        width: 100%;
+        max-width: 100%;
     }
 
     .main-content {
         margin-top: 60px; /* Mobile navbar height */
-        padding: var(--space-4);
+        padding: 0;
     }
 }

@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 
+{% block html_class %}auth-html{% endblock %}
+{% block body_class %}auth-page-body{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-unified.css') }}">
 {% endblock %}
@@ -584,9 +587,11 @@
 <script src="{{ url_for('static', filename='js/pages/auth/auth-unified.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Dynamic Pulse Rings
+    // Dynamic Pulse Rings (tylko na desktop - oszczędność baterii na mobile)
     const container = document.getElementById('pulseRingsContainer');
-    if (container) {
+    const isMobile = window.innerWidth <= 520;
+
+    if (container && !isMobile) {
         const colors = [
             'rgba(240, 147, 251, 0.4)',
             'rgba(102, 126, 234, 0.4)',

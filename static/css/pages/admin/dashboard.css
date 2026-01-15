@@ -1,0 +1,891 @@
+/**
+ * Admin Dashboard - K-POP Theme
+ * Styles for admin dashboard page
+ */
+
+/* ====================================
+   K-POP COLOR PALETTE (page-specific)
+   ==================================== */
+:root {
+    --kpop-pink: #FF006E;
+    --kpop-purple: #8338EC;
+    --kpop-cyan: #00F5FF;
+    --kpop-orange: #FF8500;
+    --kpop-dark: #0A0E27;
+    --kpop-light: #F0F4FF;
+
+    /* Gradients */
+    --gradient-purple: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-pink: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-cyan: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --gradient-orange: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+/* ====================================
+   DASHBOARD CONTAINER
+   ==================================== */
+.kpop-dashboard,
+.kpop-dashboard * {
+    box-sizing: border-box;
+}
+
+.kpop-dashboard {
+    padding: 0 var(--space-4) var(--space-4) var(--space-4);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* ====================================
+   HEADER
+   ==================================== */
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-2);
+}
+
+.header-content {
+    flex: 1;
+}
+
+.dashboard-title {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: var(--space-2);
+    transition: color 0.5s ease;
+}
+
+/* Animated gradient for name */
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.title-gradient {
+    background: linear-gradient(
+        135deg,
+        var(--kpop-purple),
+        var(--kpop-pink),
+        var(--kpop-cyan),
+        var(--kpop-purple)
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-shift 3s ease infinite;
+}
+
+.dashboard-subtitle {
+    font-size: 1.125rem;
+    color: var(--gray-600);
+}
+
+.header-actions {
+    display: flex;
+    gap: var(--space-3);
+}
+
+/* ====================================
+   K-POP BUTTONS
+   ==================================== */
+.btn-kpop {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-kpop-primary {
+    background: var(--gradient-purple);
+    color: white;
+}
+
+.btn-kpop-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(131, 56, 236, 0.4);
+}
+
+.btn-kpop-secondary {
+    background: white;
+    color: var(--kpop-purple);
+    border: 2px solid var(--kpop-purple);
+    transition: background 0.5s ease,
+                color 0.5s ease,
+                border-color 0.5s ease,
+                transform 0.3s ease,
+                box-shadow 0.3s ease;
+}
+
+.btn-kpop-secondary:hover {
+    background: var(--kpop-light);
+}
+
+/* ====================================
+   STATS GRID
+   ==================================== */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.stat-card {
+    position: relative;
+    padding: var(--space-4);
+    border-radius: 12px;
+    color: white;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid transparent;
+    transition: box-shadow 0.5s ease,
+                border-color 0.5s ease,
+                transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card-gradient-purple {
+    background: var(--gradient-purple);
+}
+
+.stat-card-gradient-pink {
+    background: var(--gradient-pink);
+}
+
+.stat-card-gradient-cyan {
+    background: var(--gradient-cyan);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    flex-shrink: 0;
+}
+
+.stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    margin-bottom: 2px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    line-height: 1;
+}
+
+.stat-meta {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    display: flex;
+    flex-direction: row;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+/* ====================================
+   DASHBOARD GRID (2 columns)
+   ==================================== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.dashboard-column {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    min-width: 0;
+}
+
+/* ====================================
+   WIDGETS
+   ==================================== */
+.widget {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border: 1px solid transparent;
+    transition: background 0.5s ease,
+                box-shadow 0.5s ease,
+                border-color 0.5s ease,
+                backdrop-filter 0.5s ease;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.widget:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-5);
+    border-bottom: 2px solid var(--gray-100);
+    transition: border-color 0.5s ease, background 0.5s ease;
+}
+
+.widget-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    transition: color 0.5s ease;
+}
+
+.widget-link {
+    color: var(--kpop-purple);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.5s ease;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.widget-link:hover {
+    color: var(--kpop-pink);
+}
+
+.sales-range-dropdown {
+    padding: 8px 12px;
+    border: 2px solid var(--gray-200);
+    border-radius: 8px;
+    background: white;
+    color: var(--gray-800);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.sales-range-dropdown:hover {
+    border-color: var(--kpop-purple);
+}
+
+.sales-range-dropdown:focus {
+    border-color: var(--kpop-purple);
+    box-shadow: 0 0 0 3px rgba(131, 56, 236, 0.1);
+}
+
+.widget-body {
+    padding: var(--space-5);
+}
+
+/* ====================================
+   ORDERS TABLE (Recent Orders Widget)
+   ==================================== */
+.widget-body-table {
+    padding: 0;
+}
+
+.recent-orders-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.recent-orders-table thead {
+    background: var(--gray-50);
+    border-bottom: 2px solid var(--gray-200);
+    transition: background 0.5s ease, border-color 0.5s ease;
+}
+
+.recent-orders-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.recent-orders-table th.text-right {
+    text-align: right;
+}
+
+.recent-orders-table tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+    transition: background 0.2s ease, border-color 0.5s ease;
+}
+
+.recent-orders-table tbody tr:hover {
+    background: var(--kpop-light);
+}
+
+.recent-orders-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.recent-orders-table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+}
+
+.recent-orders-table td.text-right {
+    text-align: right;
+}
+
+.order-number-link {
+    font-weight: 700;
+    color: var(--kpop-purple);
+    transition: color 0.3s ease;
+}
+
+.recent-orders-table tbody tr:hover .order-number-link {
+    color: var(--kpop-pink);
+}
+
+.order-client {
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.order-status {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.5s ease, color 0.5s ease;
+}
+
+.order-amount {
+    font-weight: 600;
+    color: var(--gray-800);
+    transition: color 0.5s ease;
+}
+
+/* ====================================
+   TODO TABLE (Moje TODO Widget)
+   ==================================== */
+.todo-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.todo-table thead {
+    background: var(--gray-50);
+    border-bottom: 2px solid var(--gray-200);
+    transition: background 0.5s ease, border-color 0.5s ease;
+}
+
+.todo-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.todo-table th.text-center {
+    text-align: center;
+}
+
+.todo-table tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+    transition: background 0.2s ease, border-color 0.5s ease;
+}
+
+.todo-table tbody tr:hover {
+    background: var(--kpop-light);
+}
+
+.todo-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.todo-table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+}
+
+.todo-table td.text-center {
+    text-align: center;
+}
+
+.todo-name {
+    font-weight: 600;
+    color: var(--gray-800);
+    transition: color 0.5s ease;
+}
+
+.todo-name.todo-completed {
+    text-decoration: line-through;
+    color: var(--gray-500);
+}
+
+.todo-priority {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.5s ease, color 0.5s ease;
+}
+
+.todo-priority-low { background: #D1FAE5; color: #065F46; }
+.todo-priority-medium { background: #FEF3C7; color: #92400E; }
+.todo-priority-high { background: #FEE2E2; color: #991B1B; }
+
+.todo-date {
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.todo-date.todo-overdue {
+    color: #DC2626;
+    font-weight: 600;
+}
+
+.todo-no-date {
+    color: var(--gray-400);
+}
+
+.todo-status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.5s ease, color 0.5s ease;
+}
+
+.todo-status-badge-pending {
+    background: #E5E7EB;
+    color: #4B5563;
+}
+
+.todo-status-badge-in_progress {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.todo-status-badge-completed {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+/* Row color indicators (subtle left border) */
+.todo-row-status-pending {
+    border-left: 3px solid var(--gray-300);
+}
+
+.todo-row-status-in_progress {
+    border-left: 3px solid var(--kpop-purple);
+}
+
+.todo-row-status-completed {
+    border-left: 3px solid #10b981;
+    opacity: 0.7;
+}
+
+.view-all-link {
+    display: block;
+    text-align: center;
+    margin-top: var(--space-4);
+    color: var(--kpop-purple);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.5s ease;
+}
+
+.view-all-link:hover {
+    color: var(--kpop-pink);
+}
+
+/* ====================================
+   EMPTY STATES
+   ==================================== */
+.empty-state {
+    text-align: center;
+    padding: var(--space-8);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-3);
+}
+
+.empty-text {
+    font-size: 1rem;
+    color: var(--gray-500);
+    margin-bottom: var(--space-4);
+    transition: color 0.5s ease;
+}
+
+/* ====================================
+   RESPONSIVE
+   ==================================== */
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-4);
+    }
+
+    .dashboard-title {
+        font-size: 1.75rem;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Mobile: Icon left, grid right */
+    .stat-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: var(--space-3);
+        padding: var(--space-3);
+    }
+
+    .stat-icon {
+        grid-row: 1 / 3;
+        font-size: 1.75rem;
+        align-self: start;
+        line-height: 1;
+        margin-top: 6px
+    }
+
+    .stat-content {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: var(--space-1);
+    }
+
+    .stat-label {
+        grid-row: 1;
+        grid-column: 1;
+        font-size: 1.5rem;
+        margin-bottom: 0;
+        align-self: center;
+    }
+
+    .stat-value {
+        grid-row: 1;
+        grid-column: 2;
+        font-size: 1.3rem;
+        text-align: right;
+        margin-bottom: 0;
+        align-self: center;
+    }
+
+    .stat-meta {
+        grid-row: 2;
+        grid-column: 1 / 3;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: var(--space-2);
+        padding-top: var(--space-2);
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        margin-top: var(--space-1);
+        font-size: 0.7rem;
+    }
+
+    .stat-meta > div {
+        white-space: nowrap;
+    }
+}
+
+/* ====================================
+   DARK MODE - GLASSMORPHISM
+   ==================================== */
+[data-theme="dark"] .dashboard-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .title-gradient {
+    background: linear-gradient(
+        135deg,
+        #f093fb,
+        #f5576c,
+        #00F5FF,
+        #f093fb
+    );
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Dark mode widgets - glassmorphism */
+[data-theme="dark"] .widget {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .widget:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .widget-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .widget-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .widget-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .widget-link:hover {
+    color: #f5576c;
+}
+
+/* Dark mode sales range dropdown */
+[data-theme="dark"] .sales-range-dropdown {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .sales-range-dropdown:hover {
+    border-color: rgba(240, 147, 251, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .sales-range-dropdown:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .sales-range-dropdown option {
+    background: rgba(15, 12, 41, 0.98);
+    color: #f0f0f0;
+}
+
+/* Dark mode stat cards */
+[data-theme="dark"] .stat-card {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 30px rgba(240, 147, 251, 0.15);
+}
+
+/* Dark mode stat card gradients - darker versions */
+[data-theme="dark"] .stat-card-gradient-purple {
+    background: linear-gradient(135deg, #3d4a8a 0%, #4a2d6b 100%);
+}
+
+[data-theme="dark"] .stat-card-gradient-pink {
+    background: linear-gradient(135deg, #8a4d8a 0%, #8a3344 100%);
+}
+
+[data-theme="dark"] .stat-card-gradient-cyan {
+    background: linear-gradient(135deg, #2d5a8a 0%, #006a6a 100%);
+}
+
+/* Dark mode recent orders table */
+[data-theme="dark"] .recent-orders-table thead {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .recent-orders-table th {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .recent-orders-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .recent-orders-table tbody tr:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .order-number-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .recent-orders-table tbody tr:hover .order-number-link {
+    color: #f5576c;
+}
+
+[data-theme="dark"] .order-client {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .order-amount {
+    color: #f0f0f0;
+}
+
+/* Dark mode todo table */
+[data-theme="dark"] .todo-table thead {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .todo-table th {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .todo-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .todo-table tbody tr:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .todo-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .todo-name.todo-completed {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .todo-date {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .todo-date.todo-overdue {
+    color: #f87171;
+}
+
+[data-theme="dark"] .todo-no-date {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Dark mode priority badges */
+[data-theme="dark"] .todo-priority-low {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+[data-theme="dark"] .todo-priority-medium {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .todo-priority-high {
+    background: rgba(248, 113, 113, 0.2);
+    color: #f87171;
+}
+
+/* Dark mode status badges */
+[data-theme="dark"] .todo-status-badge-pending {
+    background: rgba(156, 163, 175, 0.2);
+    color: #9CA3AF;
+}
+
+[data-theme="dark"] .todo-status-badge-in_progress {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+[data-theme="dark"] .todo-status-badge-completed {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+/* Dark mode row indicators */
+[data-theme="dark"] .todo-row-status-pending {
+    border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .todo-row-status-in_progress {
+    border-left-color: #f093fb;
+}
+
+[data-theme="dark"] .todo-row-status-completed {
+    border-left-color: #4ade80;
+}
+
+/* Dark mode view all link */
+[data-theme="dark"] .view-all-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .view-all-link:hover {
+    color: #f5576c;
+}
+
+/* Dark mode empty states */
+[data-theme="dark"] .empty-text {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Dark mode button */
+[data-theme="dark"] .btn-kpop-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .btn-kpop-secondary:hover {
+    background: rgba(240, 147, 251, 0.15);
+    border-color: rgba(240, 147, 251, 0.5);
+}

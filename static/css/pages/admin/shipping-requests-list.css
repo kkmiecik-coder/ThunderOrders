@@ -410,16 +410,29 @@
 }
 
 /* Modal footer alignment */
-.modal-footer-right {
+.sr-modal-footer {
     display: flex;
-    gap: 8px;
-    margin-left: auto;
+    flex-direction: column;
+    gap: 12px;
 }
 
-#editShippingRequestModal .modal-footer {
+.sr-modal-footer .btn {
+    text-align: center;
+    justify-content: center;
+}
+
+.sr-modal-footer .sr-save-btn {
+    width: 100%;
+}
+
+.sr-footer-bottom {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.sr-footer-bottom .btn {
+    flex: 1;
 }
 
 /* ============================================
@@ -547,8 +560,86 @@
    RESPONSIVE
    ============================================ */
 
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+    /* Hide status sidebar on tablet/mobile */
+    .shipping-requests-page .status-sidebar {
+        display: none;
+    }
+
+    /* Full width for main content */
+    .shipping-requests-page.orders-page-wrapper {
+        grid-template-columns: 1fr;
+    }
+}
+
 @media (max-width: 768px) {
+    /* Page header - stack vertically */
+    .shipping-requests-page .page-header {
+        padding: 1rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+
+    .shipping-requests-page .page-header-left h1 {
+        font-size: 1.25rem;
+    }
+
+    .shipping-requests-page .page-header-right {
+        width: 100%;
+    }
+
+    /* Search form - input and button in one row */
+    .shipping-requests-page .search-form {
+        width: 100%;
+        flex-direction: row;
+        gap: 0.5rem;
+    }
+
+    .shipping-requests-page .search-form .input-icon-wrapper {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .shipping-requests-page .search-form .btn {
+        width: auto;
+        flex-shrink: 0;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    /* Table wrapper - horizontal scroll */
+    .shipping-requests-page .orders-table-wrapper {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0;
+    }
+
+    .shipping-requests-page .orders-table {
+        min-width: 900px;
+    }
+
+    /* Reduce column widths for mobile */
+    .shipping-requests-page .col-orders {
+        min-width: 200px;
+    }
+
+    .shipping-requests-page .col-address {
+        min-width: 150px;
+    }
+
+    /* Pagination */
+    .shipping-requests-page .pagination-wrapper {
+        padding: 1rem;
+    }
+
+    /* Modal form */
     .sr-form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .sr-form-row-4 {
         grid-template-columns: 1fr;
     }
 
@@ -556,21 +647,58 @@
         flex-wrap: wrap;
     }
 
+    .sr-cost-input-group .form-input {
+        max-width: 100%;
+        flex: 1;
+    }
+
     .sr-orders-table-wrapper {
         max-height: 200px;
     }
 
-    #editShippingRequestModal .modal-footer {
+    /* Ensure sticky headers work in modal table */
+    .sr-orders-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--bg-secondary);
+    }
+
+    [data-theme="dark"] .sr-orders-table th {
+        background: rgba(30, 30, 35, 1);
+    }
+
+    /* Modal body scrollable with fixed header/footer */
+    #editShippingRequestModal .modal-body {
+        max-height: calc(100vh - 320px);
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+    }
+
+    #editShippingRequestModal .modal-content {
+        max-height: 95vh;
+        display: flex;
         flex-direction: column;
-        gap: 12px;
     }
 
-    #editShippingRequestModal .modal-footer .btn-danger {
-        order: 2;
+    #editShippingRequestModal .modal-header,
+    #editShippingRequestModal .modal-footer {
+        flex-shrink: 0;
     }
 
-    .modal-footer-right {
-        width: 100%;
-        justify-content: flex-end;
+    #editShippingRequestModal .sr-modal-footer {
+        padding: 1rem;
+    }
+
+    .page-header {
+        margin-bottom: 0;
+    }
+}
+
+/* Dark mode responsive adjustments */
+@media (max-width: 768px) {
+    [data-theme="dark"] .shipping-requests-page .orders-table-wrapper {
+        background: transparent;
     }
 }

@@ -1704,3 +1704,20 @@ function initializeAutoIncreaseForm() {
         });
     });
 }
+
+/**
+ * Toggle Settings Accordion (Mobile)
+ * Expands/collapses the settings section on mobile devices
+ */
+function toggleSettingsAccordion(btn) {
+    const accordion = btn.closest('.sidebar-settings-accordion');
+    const isExpanded = accordion.classList.contains('expanded');
+
+    if (isExpanded) {
+        accordion.classList.remove('expanded');
+        btn.classList.remove('expanded');
+    } else {
+        accordion.classList.add('expanded');
+        btn.classList.add('expanded');
+    }
+}

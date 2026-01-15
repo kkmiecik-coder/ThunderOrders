@@ -28,6 +28,64 @@
   box-sizing: border-box;
 }
 
+/* ====================================
+   CUSTOM SCROLLBARS
+   ==================================== */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--gray-100);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-400);
+  border-radius: 5px;
+  border: 2px solid var(--gray-100);
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-500);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--gray-100);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-400) var(--gray-100);
+}
+
+/* Dark mode scrollbars */
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(240, 147, 251, 0.3);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-corner {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] * {
+  scrollbar-color: rgba(240, 147, 251, 0.3) rgba(255, 255, 255, 0.05);
+}
+
 body {
   font-family: var(--font-primary);
   font-size: var(--text-base);
@@ -37,6 +95,12 @@ body {
   transition: background var(--transition-theme), color var(--transition-theme);
   margin: 0;
   padding: 0;
+}
+
+/* Dark mode solid background */
+[data-theme="dark"] body {
+  background: var(--bg-primary);
+  min-height: 100vh;
 }
 
 /* Buttons */

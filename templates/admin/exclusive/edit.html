@@ -11,11 +11,11 @@
     <!-- Top Bar -->
     <div class="builder-topbar">
         <div class="topbar-left">
-            <a href="{{ url_for('admin.exclusive_list') }}" class="btn-back">
+            <a href="{{ url_for('admin.exclusive_list') }}" class="btn-back" title="Powrót do listy">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
                     <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                 </svg>
-                Powrót do listy
+                <span>Powrót do listy</span>
             </a>
         </div>
         <div class="topbar-center">
@@ -34,19 +34,19 @@
             </span>
         </div>
         <div class="topbar-right">
-            <a href="{{ url_for('exclusive.preview_page', token=page.token) }}" target="_blank" class="btn btn-secondary">
+            <a href="{{ url_for('exclusive.preview_page', token=page.token) }}" target="_blank" class="btn btn-secondary" title="Podgląd">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
                     <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
                 </svg>
-                Podgląd
+                <span>Podgląd</span>
             </a>
-            <button type="button" class="btn btn-secondary" id="btnCopyLink" onclick="copyPageLink()">
+            <button type="button" class="btn btn-secondary" id="btnCopyLink" onclick="copyPageLink()" title="Kopiuj link">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
                     <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
                 </svg>
-                Kopiuj link
+                <span>Kopiuj link</span>
             </button>
         </div>
     </div>
@@ -55,36 +55,7 @@
     <div class="builder-main">
         <!-- Sidebar - Settings -->
         <div class="builder-sidebar">
-            <div class="sidebar-section">
-                <h3>Ustawienia strony</h3>
-
-                <div class="form-group">
-                    <label for="pageName">Nazwa strony</label>
-                    <input type="text" id="pageName" class="form-input" value="{{ page.name }}"
-                           placeholder="Nazwa strony">
-                </div>
-
-                <div class="form-group">
-                    <label for="pageDescription">Opis (pod nagłówkiem)</label>
-                    <textarea id="pageDescription" class="form-textarea" rows="3"
-                              placeholder="Krótki opis wyświetlany pod nazwą strony">{{ page.description or '' }}</textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="startsAt">Data rozpoczęcia</label>
-                    <input type="datetime-local" id="startsAt" class="form-input"
-                           value="{{ page.starts_at|format_datetime_local if page.starts_at else '' }}">
-                    <small class="form-hint">Puste = ręczna publikacja</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="endsAt">Data zakończenia</label>
-                    <input type="datetime-local" id="endsAt" class="form-input"
-                           value="{{ page.ends_at|format_datetime_local if page.ends_at else '' }}">
-                    <small class="form-hint">Puste = bez limitu czasu</small>
-                </div>
-            </div>
-
+            <!-- Actions first on mobile -->
             <div class="sidebar-section sidebar-actions">
                 <h3>Akcje</h3>
 
@@ -136,6 +107,43 @@
                     Cofnij do draftu
                 </button>
                 {% endif %}
+            </div>
+
+            <!-- Settings accordion (collapsed by default on mobile) -->
+            <div class="sidebar-section sidebar-settings-accordion">
+                <button type="button" class="settings-accordion-toggle" onclick="toggleSettingsAccordion(this)">
+                    <h3>Ustawienia strony</h3>
+                    <svg class="accordion-arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+                <div class="settings-accordion-content">
+                    <div class="form-group">
+                        <label for="pageName">Nazwa strony</label>
+                        <input type="text" id="pageName" class="form-input" value="{{ page.name }}"
+                               placeholder="Nazwa strony">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pageDescription">Opis (pod nagłówkiem)</label>
+                        <textarea id="pageDescription" class="form-textarea" rows="3"
+                                  placeholder="Krótki opis wyświetlany pod nazwą strony">{{ page.description or '' }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="startsAt">Data rozpoczęcia</label>
+                        <input type="datetime-local" id="startsAt" class="form-input"
+                               value="{{ page.starts_at|format_datetime_local if page.starts_at else '' }}">
+                        <small class="form-hint">Puste = ręczna publikacja</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="endsAt">Data zakończenia</label>
+                        <input type="datetime-local" id="endsAt" class="form-input"
+                               value="{{ page.ends_at|format_datetime_local if page.ends_at else '' }}">
+                        <small class="form-hint">Puste = bez limitu czasu</small>
+                    </div>
+                </div>
             </div>
         </div>
 

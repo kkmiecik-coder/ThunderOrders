@@ -30,6 +30,7 @@
             <h2>Zamówione produkty</h2>
             <span class="items-count">{{ order.sorted_items|length }} pozycji</span>
         </div>
+        <div class="table-scroll-wrapper">
         <table class="products-table">
             <thead>
                 <tr>
@@ -337,6 +338,7 @@
                 </tr>
             </tfoot>
         </table>
+        </div>
     </div>
 
     <!-- Przycisk: Dodaj produkty (dropdown) -->
@@ -392,20 +394,20 @@
                     <label for="manualProductQty">Ilość *</label>
                     <input type="number" id="manualProductQty" class="form-control" min="1" value="1" required>
                 </div>
+            </div>
+            <div class="form-row">
                 <div class="form-group flex-1">
                     <label for="manualProductPrice">Cena za szt. (PLN) *</label>
                     <input type="number" id="manualProductPrice" class="form-control" step="0.01" min="0" placeholder="0.00" required>
                 </div>
-            </div>
-            <div class="form-row">
                 <div class="form-group flex-1">
                     <label for="manualProductSku">SKU (opcjonalnie)</label>
                     <input type="text" id="manualProductSku" class="form-control" placeholder="np. SET-001">
                 </div>
-                <div class="form-group calculated-total">
-                    <label>Wartość</label>
-                    <span id="manualProductTotal" class="total-value">0.00 PLN</span>
-                </div>
+            </div>
+            <div class="calculated-total-row">
+                <label>Wartość</label>
+                <span id="manualProductTotal" class="total-value">0.00 PLN</span>
             </div>
             <div class="form-actions">
                 <button type="button" class="btn btn-ghost" onclick="hideManualProductForm()">
@@ -497,11 +499,10 @@
                 <!-- Separator 2 -->
                 <div class="info-separator"></div>
 
-                <!-- Sekcja płatności i dostawy - dwukolumnowa -->
+                <!-- Sekcja płatności i dostawy -->
                 <div class="payment-delivery-section">
-                    <div class="payment-delivery-left">
-                        <!-- Sposób dostawy - edytowalny -->
-                <div class="info-item editable-row" data-field="delivery_method">
+                    <!-- Sposób dostawy - edytowalny -->
+                    <div class="info-item editable-row" data-field="delivery_method">
                     <label>Sposób dostawy:</label>
                     <div class="editable-display" id="deliveryMethodDisplay">
                         <span class="editable-value" id="deliveryMethodValue">{{ order.delivery_method_display }}</span>
@@ -566,8 +567,6 @@
                         </button>
                     </div>
                 </div>
-                    </div>
-
                 </div>
             </div>
 
@@ -1231,6 +1230,10 @@
                         <p>Wybierz produkty z listy</p>
                     </div>
                 </div>
+                <div class="selected-products-footer" id="selectedProductsFooter">
+                    <span>Suma:</span>
+                    <span id="selectedProductsTotalValue">0.00 PLN</span>
+                </div>
             </div>
         </div>
 
@@ -1642,12 +1645,10 @@ function updateSelectedProductsPanel() {
         `;
     }).join('');
 
-    container.innerHTML = html + `
-        <div class="selected-products-total">
-            <strong>Suma:</strong>
-            <span>${totalValue.toFixed(2)} PLN</span>
-        </div>
-    `;
+    container.innerHTML = html;
+
+    // Update total in footer
+    document.getElementById('selectedProductsTotalValue').textContent = totalValue.toFixed(2) + ' PLN';
 }
 
 function submitAddProducts() {

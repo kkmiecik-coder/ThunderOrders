@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pl" data-theme="{{ 'dark' if current_user.is_authenticated and current_user.dark_mode_enabled else 'light' }}">
+<html lang="pl" class="{% block html_class %}{% endblock %}" data-theme="{{ 'dark' if current_user.is_authenticated and current_user.dark_mode_enabled else 'light' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -65,7 +65,7 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
     <!-- Login Preloader (overlay) -->
     <div id="login-preloader" class="login-preloader">
         <div class="login-preloader-bg">

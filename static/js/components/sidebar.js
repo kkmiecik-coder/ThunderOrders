@@ -14,9 +14,12 @@ let flyoutHideTimeout = null;
 function toggleSidebarCategory(headerElement) {
     const sidebar = document.getElementById('sidebar');
     const isCollapsed = sidebar && sidebar.getAttribute('data-collapsed') === 'true';
+    const isMobile = window.innerWidth <= 768;
+    const isMobileOpen = sidebar && sidebar.classList.contains('mobile-open');
 
-    // Don't toggle if sidebar is collapsed - flyout menu will handle this
-    if (isCollapsed) {
+    // Don't toggle if sidebar is collapsed on desktop - flyout menu will handle this
+    // On mobile, always allow toggle (even if data-collapsed is true, sidebar shows full width)
+    if (isCollapsed && !isMobile && !isMobileOpen) {
         return;
     }
 

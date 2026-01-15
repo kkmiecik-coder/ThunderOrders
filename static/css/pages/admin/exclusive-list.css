@@ -523,8 +523,22 @@
         flex-direction: column;
     }
 
-    .stats-row {
+    .header-right {
+        width: 100%;
+    }
+
+    .header-right .btn {
+        width: 100%;
         justify-content: center;
+    }
+
+    .stats-row {
+        justify-content: stretch;
+    }
+
+    .stat-card {
+        flex: 1 1 auto;
+        min-width: 80px;
     }
 
     .form-row {
