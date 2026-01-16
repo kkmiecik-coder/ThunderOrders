@@ -12,6 +12,7 @@ from modules.auth.models import User
 from modules.admin.models import AdminTask
 from modules.orders.models import Order, OrderItem
 from modules.products.models import Product
+from modules.exclusive.models import ExclusivePage
 from sqlalchemy import func, desc, cast, Date, extract
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -191,6 +192,38 @@ def dashboard():
         'recent_tasks': user_tasks[:5]
     }
 
+    # 8. Exclusive pages (admin sees all)
+    exclusive_pages_all = ExclusivePage.query.all()
+
+    # Update status for each page (check dates)
+    for page in exclusive_pages_all:
+        page.check_and_update_status()
+
+    # Sort by priority: 1. active (LIVE), 2. scheduled, 3. ended (not closed), 4. closed, 5. paused, 6. draft
+    def get_sort_priority(page):
+        if page.status == 'active':
+            return 0
+        elif page.status == 'scheduled':
+            return 1
+        elif page.status == 'ended' and not page.is_fully_closed:
+            return 2  # Zakończona
+        elif page.status == 'ended' and page.is_fully_closed:
+            return 3  # Zamknięta
+        elif page.status == 'paused':
+            return 4
+        elif page.status == 'draft':
+            return 5
+        return 99
+
+    exclusive_pages_all.sort(key=get_sort_priority)
+
+    exclusive_pages = {
+        'visible': exclusive_pages_all[:5],  # First 5 visible
+        'buffer': exclusive_pages_all[5:10],  # Next 5 in buffer (hidden)
+        'total': len(exclusive_pages_all),
+        'remaining': max(0, len(exclusive_pages_all) - 5)  # Remaining after visible
+    }
+
     return render_template(
         'admin/dashboard.html',
         title='Panel Administratora',
@@ -200,7 +233,8 @@ def dashboard():
         recent_orders=recent_orders,
         sales_chart=sales_chart,
         top_products=top_products,
-        tasks=tasks
+        tasks=tasks,
+        exclusive_pages=exclusive_pages
     )
 
 
@@ -379,4 +413,96 @@ def get_sales_data():
         'success': True,
         'labels': labels,
         'values': values
+    })
+
+
+@admin_bp.route('/dashboard/exclusive-pages')
+@login_required
+@role_required('admin', 'mod')
+def get_exclusive_pages():
+    """
+    API endpoint zwracający strony exclusive z paginacją
+
+    Query params:
+    - offset: od której strony zacząć (domyślnie 0)
+    - limit: ile stron pobrać (domyślnie 5)
+
+    Returns JSON z listą stron i flagą czy są kolejne
+    """
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 5, type=int)
+
+    # Pobierz wszystkie strony
+    exclusive_pages_all = ExclusivePage.query.all()
+
+    # Update status for each page
+    for page in exclusive_pages_all:
+        page.check_and_update_status()
+
+    # Sort by priority
+    def get_sort_priority(page):
+        if page.status == 'active':
+            return 0
+        elif page.status == 'scheduled':
+            return 1
+        elif page.status == 'ended' and not page.is_fully_closed:
+            return 2
+        elif page.status == 'ended' and page.is_fully_closed:
+            return 3
+        elif page.status == 'paused':
+            return 4
+        elif page.status == 'draft':
+            return 5
+        return 99
+
+    exclusive_pages_all.sort(key=get_sort_priority)
+
+    # Paginacja
+    pages_slice = exclusive_pages_all[offset:offset + limit]
+    has_more = len(exclusive_pages_all) > offset + limit
+    remaining = max(0, len(exclusive_pages_all) - offset - limit)
+
+    # Serialize pages
+    pages_data = []
+    for page in pages_slice:
+        # Determine status display
+        if page.status == 'ended' and page.is_fully_closed:
+            status_class = 'closed'
+            status_text = 'Zamknięta'
+        elif page.status == 'ended':
+            status_class = 'ended'
+            status_text = 'Zakończona'
+        elif page.status == 'draft':
+            status_class = 'draft'
+            status_text = 'Wersja robocza'
+        elif page.status == 'scheduled':
+            status_class = 'scheduled'
+            status_text = 'Zaplanowana'
+        elif page.status == 'active':
+            status_class = 'active'
+            status_text = 'Aktywna'
+        elif page.status == 'paused':
+            status_class = 'paused'
+            status_text = 'Wstrzymana'
+        else:
+            status_class = page.status
+            status_text = page.status
+
+        pages_data.append({
+            'id': page.id,
+            'name': page.name,
+            'status': page.status,
+            'status_class': status_class,
+            'status_text': status_text,
+            'starts_at': page.starts_at.strftime('%d.%m.%Y %H:%M') if page.starts_at else None,
+            'ends_at': page.ends_at.strftime('%d.%m.%Y %H:%M') if page.ends_at else None,
+            'edit_url': url_for('admin.exclusive_edit', page_id=page.id)
+        })
+
+    return jsonify({
+        'success': True,
+        'pages': pages_data,
+        'has_more': has_more,
+        'remaining': remaining,
+        'total': len(exclusive_pages_all)
     })

@@ -1034,7 +1034,7 @@ async function updateSetVariantGroupProducts(select) {
                         </div>
                         <div class="variant-product-info">
                             <span class="variant-product-name">${product.name}</span>
-                            <span class="variant-product-price">${parseFloat(product.sale_price).toFixed(2)} PLN</span>
+                            <span class="variant-product-price">${parseFloat(product.price).toFixed(2)} PLN</span>
                         </div>
                     </div>
                 `;

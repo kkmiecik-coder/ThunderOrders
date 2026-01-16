@@ -3,9 +3,11 @@
  * Styles for the page builder interface
  */
 
-/* Disable scroll on body when builder page is present */
-body:has(.builder-page) {
-    overflow: hidden;
+/* Disable scroll on body when builder page is present - desktop only */
+@media (min-width: 1025px) {
+    body:has(.builder-page) {
+        overflow: hidden;
+    }
 }
 
 /* Layout */
@@ -920,7 +922,7 @@ body:has(.builder-page) {
 /* Grid for variant products inside set-item-variant-group-card */
 .set-item-variant-group-card .variant-products-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 150px));
+    grid-template-columns: repeat(auto-fill, minmax(120px, auto));
     gap: 12px;
     padding: 8px 0;
 }
@@ -1292,8 +1294,25 @@ body:has(.builder-page) {
 
 /* Responsive */
 @media (max-width: 1024px) {
+    .builder-page {
+        height: auto;
+        min-height: calc(100vh - var(--topbar-height, 64px));
+        overflow: visible;
+    }
+
+    .builder-topbar {
+        flex-shrink: 0;
+        position: sticky;
+        top: 0;
+        z-index: 99;
+        background: var(--bg-primary);
+        margin: 0;
+    }
+
     .builder-main {
         flex-direction: column;
+        flex: 1;
+        min-height: 0;
     }
 
     .builder-sidebar {
@@ -1462,13 +1481,14 @@ body:has(.builder-page) {
     .set-header-row {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--space-3);
+        gap: var(--space-2);
         align-items: center;
     }
 
     /* Row 1: Nazwa setu - full width */
     .set-header-row .set-name-col {
         flex: 0 0 100%;
+        order: 1;
         display: flex;
         flex-direction: column;
         gap: var(--space-1);
@@ -1478,9 +1498,10 @@ body:has(.builder-page) {
         width: 100%;
     }
 
-    /* Row 2: Dodaj tło seta - full width */
+    /* Row 2: Dodaj tło seta + Max counter */
     .set-header-row .set-image-button-col {
-        flex: 0 0 100%;
+        flex: 1 1 auto;
+        order: 2;
     }
 
     .set-header-row .set-image-button-col .btn-set-image {
@@ -1488,9 +1509,15 @@ body:has(.builder-page) {
         justify-content: center;
     }
 
-    /* Row 3: Buttons + Counter share same row */
+    .set-header-row .qty-counter-group {
+        flex: 0 0 auto;
+        order: 3;
+    }
+
+    /* Row 3: Buttons - full width */
     .set-header-row .set-add-buttons-col {
-        flex: 1 1 auto;
+        flex: 0 0 100%;
+        order: 4;
         display: flex;
         flex-direction: row;
         gap: var(--space-2);
@@ -1503,11 +1530,6 @@ body:has(.builder-page) {
         white-space: nowrap;
         font-size: var(--text-xs);
         padding: var(--space-2) var(--space-2);
-    }
-
-    /* Max counter next to buttons - same row */
-    .set-header-row .qty-counter-group {
-        flex: 0 0 auto;
     }
 
     .set-items-list {
@@ -2269,7 +2291,7 @@ body:has(.builder-page) {
 
 /* Bottom row - 70/30 split */
 .set-bottom-row {
-    display: flex;
+    display: block;
     gap: 20px;
     align-items: flex-start;
 }
@@ -2282,7 +2304,6 @@ body:has(.builder-page) {
 
 /* Right column 30%: Produkt-komplet */
 .set-product-selection {
-    width: 280px;
     flex-shrink: 0;
 }
 

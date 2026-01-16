@@ -68,17 +68,10 @@
         <div class="countdown-timer" id="countdownTimer" data-target="{{ page.starts_at.isoformat() }}" data-order-url="{{ url_for('exclusive.order_page', token=page.token) }}">
             <div class="countdown-unit">
                 <div class="countdown-value-wrapper">
-                    <span class="countdown-value" id="days">00</span>
-                </div>
-                <span class="countdown-label">dni</span>
-            </div>
-            <div class="countdown-separator">
-                <span></span>
-                <span></span>
-            </div>
-            <div class="countdown-unit">
-                <div class="countdown-value-wrapper">
-                    <span class="countdown-value" id="hours">00</span>
+                    <div class="countdown-value" id="hours">
+                        <span class="digit"><span class="digit-inner">0</span></span>
+                        <span class="digit"><span class="digit-inner">0</span></span>
+                    </div>
                 </div>
                 <span class="countdown-label">godzin</span>
             </div>
@@ -88,7 +81,10 @@
             </div>
             <div class="countdown-unit">
                 <div class="countdown-value-wrapper">
-                    <span class="countdown-value" id="minutes">00</span>
+                    <div class="countdown-value" id="minutes">
+                        <span class="digit"><span class="digit-inner">0</span></span>
+                        <span class="digit"><span class="digit-inner">0</span></span>
+                    </div>
                 </div>
                 <span class="countdown-label">minut</span>
             </div>
@@ -98,7 +94,10 @@
             </div>
             <div class="countdown-unit">
                 <div class="countdown-value-wrapper">
-                    <span class="countdown-value" id="seconds">00</span>
+                    <div class="countdown-value" id="seconds">
+                        <span class="digit"><span class="digit-inner">0</span></span>
+                        <span class="digit"><span class="digit-inner">0</span></span>
+                    </div>
                 </div>
                 <span class="countdown-label">sekund</span>
             </div>
@@ -145,28 +144,51 @@
             return;
         }
 
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        // Total hours (including days converted to hours)
+        const hours = Math.floor(distance / (1000 * 60 * 60));
         const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-        // Animate value changes
-        updateValue('days', days);
+        // Animate value changes per digit
         updateValue('hours', hours);
         updateValue('minutes', minutes);
         updateValue('seconds', seconds);
     }
 
     function updateValue(id, value) {
-        const el = document.getElementById(id);
-        const newValue = String(value).padStart(2, '0');
-        if (el.textContent !== newValue) {
-            el.classList.add('flip');
-            setTimeout(() => {
-                el.textContent = newValue;
-                el.classList.remove('flip');
-            }, 150);
-        }
+        const container = document.getElementById(id);
+        const digits = container.querySelectorAll('.digit');
+        const valueStr = String(value).padStart(2, '0');
+
+        digits.forEach((digit, index) => {
+            const inner = digit.querySelector('.digit-inner');
+            const newDigit = valueStr[index];
+            const currentDigit = inner.textContent;
+
+            if (currentDigit !== newDigit) {
+                // Create old digit clone for fade out
+                const oldClone = document.createElement('span');
+                oldClone.className = 'digit-old';
+                oldClone.textContent = currentDigit;
+                digit.appendChild(oldClone);
+
+                // Hide inner immediately, then change content
+                inner.classList.add('digit-hidden');
+                inner.textContent = newDigit;
+
+                // Delay new digit animation to create proper crossfade
+                setTimeout(() => {
+                    inner.classList.remove('digit-hidden');
+                    inner.classList.add('digit-in');
+                }, 200);
+
+                // Cleanup after animation
+                setTimeout(() => {
+                    oldClone.remove();
+                    inner.classList.remove('digit-in');
+                }, 600);
+            }
+        });
     }
 
     updateCountdown();

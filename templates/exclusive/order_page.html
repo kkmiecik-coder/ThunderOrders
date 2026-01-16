@@ -135,6 +135,17 @@
                             {% endif %}
                         </div>
                         {% endif %}
+                        <!-- Kontrolki mobile - widoczne tylko na mobile -->
+                        <div class="product-header-controls">
+                            <p class="product-price">{{ "%.2f"|format(section.product.sale_price) }} PLN</p>
+                            <div class="quantity-control">
+                                <button type="button" class="qty-btn qty-minus" onclick="decreaseQty(this)">-</button>
+                                <input type="number" class="qty-input" value="0" min="0"
+                                       {% if section.has_max_quantity %}max="{{ section.max_quantity }}"{% endif %}
+                                       onchange="updateQty(this)">
+                                <button type="button" class="qty-btn qty-plus" onclick="increaseQty(this)">+</button>
+                            </div>
+                        </div>
                     </div>
                     <!-- Body: obrazek wycentrowany + kontrolki po prawej -->
                     <div class="product-body">
@@ -214,6 +225,7 @@
                                     <div class="set-item" data-item-id="{{ item.id }}" data-product-id="{{ item.product_id }}">
                                         <div class="set-item-info">
                                             <span class="set-item-name">{{ item.product.name }}</span>
+                                            <span class="set-item-price-mobile">{{ "%.2f"|format(item.product.sale_price) }} PLN</span>
                                         </div>
                                         <div class="set-item-qty">
                                             <span class="set-item-price">{{ "%.2f"|format(item.product.sale_price) }} PLN</span>
@@ -234,6 +246,7 @@
                                         <div class="set-item" data-product-id="{{ product.id }}">
                                             <div class="set-item-info">
                                                 <span class="set-item-name">{{ product.name }}</span>
+                                                <span class="set-item-price-mobile">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                             </div>
                                             <div class="set-item-qty">
                                                 <span class="set-item-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>

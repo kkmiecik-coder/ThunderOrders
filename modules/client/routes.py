@@ -3,11 +3,14 @@ Client Module - Routes
 Endpointy panelu klienta
 """
 
+import json
 from flask import render_template, request, jsonify
 from flask_login import login_required, current_user
 from extensions import db
-from modules.orders.models import Order
-from sqlalchemy import func as sql_func
+from modules.orders.models import Order, ShippingRequestOrder
+from modules.auth.models import Settings
+from modules.exclusive.models import ExclusivePage
+from sqlalchemy import func as sql_func, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -41,12 +44,37 @@ def dashboard():
     ).all()
     to_pay_total = sum((o.total_amount - o.paid_amount) for o in to_pay_orders)
 
-    # 3. Recent orders (5 last)
+    # 3. Orders waiting for shipping request
+    # Get allowed order statuses from settings
+    setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
+    allowed_statuses = []
+    if setting and setting.value:
+        try:
+            allowed_statuses = json.loads(setting.value)
+        except (json.JSONDecodeError, TypeError):
+            allowed_statuses = ['dostarczone_gom']
+    else:
+        allowed_statuses = ['dostarczone_gom']
+
+    # Subquery to check if order is in any shipping request
+    in_shipping_request = db.session.query(ShippingRequestOrder.order_id).filter(
+        ShippingRequestOrder.order_id == Order.id
+    ).exists()
+
+    orders_awaiting_shipping = Order.query.filter(
+        and_(
+            Order.user_id == current_user.id,
+            Order.status.in_(allowed_statuses),
+            ~in_shipping_request
+        )
+    ).count()
+
+    # 4. Recent orders (5 last)
     recent_orders = Order.query.filter_by(user_id=current_user.id).order_by(
         Order.created_at.desc()
     ).limit(5).all()
 
-    # 4. Chart data (30 days)
+    # 5. Chart data (30 days)
     # Grupuj zamówienia po dniach (ostatnie 30 dni)
     orders_by_day = db.session.query(
         sql_func.date(Order.created_at).label('order_date'),
@@ -71,20 +99,54 @@ def dashboard():
         chart_data['labels'].append(date_str)
         chart_data['values'].append(orders_dict.get(date_str, 0))
 
+    # 6. Exclusive pages (client sees all except drafts)
+    exclusive_pages_all = ExclusivePage.query.filter(
+        ExclusivePage.status != 'draft'
+    ).all()
+
+    # Update status for each page (check dates)
+    for page in exclusive_pages_all:
+        page.check_and_update_status()
+
+    # Sort by priority: 1. active (LIVE), 2. scheduled, 3. ended (not closed), 4. closed, 5. paused
+    def get_sort_priority(page):
+        if page.status == 'active':
+            return 0
+        elif page.status == 'scheduled':
+            return 1
+        elif page.status == 'ended' and not page.is_fully_closed:
+            return 2  # Zakończona
+        elif page.status == 'ended' and page.is_fully_closed:
+            return 3  # Zamknięta
+        elif page.status == 'paused':
+            return 4
+        return 99
+
+    exclusive_pages_all.sort(key=get_sort_priority)
+
+    exclusive_pages = {
+        'visible': exclusive_pages_all[:5],  # First 5 visible
+        'buffer': exclusive_pages_all[5:10],  # Next 5 in buffer (hidden)
+        'total': len(exclusive_pages_all),
+        'remaining': max(0, len(exclusive_pages_all) - 5)
+    }
+
     return render_template(
         'client/dashboard.html',
         title='Panel Klienta',
         orders={
             'all': orders_all,
             'in_progress': orders_in_progress,
-            'delivered': orders_delivered
+            'delivered': orders_delivered,
+            'awaiting_shipping': orders_awaiting_shipping
         },
         payment={
             'paid': float(paid_total),
             'to_pay': float(to_pay_total)
         },
         recent_orders=recent_orders,
-        chart_data=chart_data
+        chart_data=chart_data,
+        exclusive_pages=exclusive_pages
     )
 
 
@@ -168,3 +230,101 @@ def get_chart_data():
             chart_data['values'].append(orders_dict.get(month_str, 0))
 
     return jsonify(chart_data)
+
+
+@client_bp.route('/api/exclusive-pages')
+@login_required
+def get_exclusive_pages():
+    """
+    API endpoint zwracający strony exclusive z paginacją dla klienta
+
+    Query params:
+    - offset: od której strony zacząć (domyślnie 0)
+    - limit: ile stron pobrać (domyślnie 5)
+
+    Returns JSON z listą stron i flagą czy są kolejne
+    """
+    from flask import url_for
+
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 5, type=int)
+
+    # Pobierz wszystkie strony (bez drafts)
+    exclusive_pages_all = ExclusivePage.query.filter(
+        ExclusivePage.status != 'draft'
+    ).all()
+
+    # Update status for each page
+    for page in exclusive_pages_all:
+        page.check_and_update_status()
+
+    # Sort by priority
+    def get_sort_priority(page):
+        if page.status == 'active':
+            return 0
+        elif page.status == 'scheduled':
+            return 1
+        elif page.status == 'ended' and not page.is_fully_closed:
+            return 2
+        elif page.status == 'ended' and page.is_fully_closed:
+            return 3
+        elif page.status == 'paused':
+            return 4
+        return 99
+
+    exclusive_pages_all.sort(key=get_sort_priority)
+
+    # Paginacja
+    pages_slice = exclusive_pages_all[offset:offset + limit]
+    has_more = len(exclusive_pages_all) > offset + limit
+    remaining = max(0, len(exclusive_pages_all) - offset - limit)
+
+    # Serialize pages
+    pages_data = []
+    for page in pages_slice:
+        # Determine status display
+        if page.status == 'active':
+            status_class = 'live'
+            status_text = 'LIVE'
+            is_live = True
+        elif page.status == 'ended' and page.is_fully_closed:
+            status_class = 'closed'
+            status_text = 'Zamknięta'
+            is_live = False
+        elif page.status == 'ended':
+            status_class = 'ended'
+            status_text = 'Zakończona'
+            is_live = False
+        elif page.status == 'scheduled':
+            status_class = 'scheduled'
+            status_text = 'Zaplanowana'
+            is_live = False
+        elif page.status == 'paused':
+            status_class = 'paused'
+            status_text = 'Wstrzymana'
+            is_live = False
+        else:
+            status_class = page.status
+            status_text = page.status
+            is_live = False
+
+        pages_data.append({
+            'id': page.id,
+            'name': page.name,
+            'status': page.status,
+            'status_class': status_class,
+            'status_text': status_text,
+            'is_live': is_live,
+            'is_important': page.status in ['active', 'scheduled'],
+            'starts_at': page.starts_at.isoformat() if page.starts_at else None,
+            'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+            'page_url': url_for('exclusive.order_page', token=page.token)
+        })
+
+    return jsonify({
+        'success': True,
+        'pages': pages_data,
+        'has_more': has_more,
+        'remaining': remaining,
+        'total': len(exclusive_pages_all)
+    })

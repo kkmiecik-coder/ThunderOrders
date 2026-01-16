@@ -48,15 +48,6 @@
         </div>
 
         <!-- Rząd 2: Payment Status -->
-        <a href="{{ url_for('orders.client_list', payment_status='paid') }}" class="metric-card metric-card-success metric-card-clickable">
-            <div class="metric-icon">💰</div>
-            <div class="metric-content">
-                <h3 class="metric-title">Zapłacone</h3>
-                <p class="metric-value">{{ payment.paid | format_currency }}</p>
-                <p class="metric-subtitle">Łącznie opłacone</p>
-            </div>
-        </a>
-
         <a href="{{ url_for('orders.client_list', payment_status='unpaid') }}" class="metric-card metric-card-warning metric-card-clickable">
             <div class="metric-icon">💳</div>
             <div class="metric-content">
@@ -65,7 +56,198 @@
                 <p class="metric-subtitle">Pozostało do opłacenia</p>
             </div>
         </a>
+
+        <a href="{{ url_for('client.shipping_requests_list') }}" class="metric-card metric-card-info metric-card-clickable">
+            <div class="metric-icon">📬</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Czeka na wysyłkę</h3>
+                <p class="metric-value">{{ orders.awaiting_shipping }}</p>
+                <p class="metric-subtitle">Zleć wysyłkę</p>
+            </div>
+        </a>
     </div>
+
+    <!-- Exclusive Pages Widget -->
+    {% if exclusive_pages.visible|length > 0 %}
+    <div class="exclusive-widget-container">
+        <div class="widget widget-exclusive" id="exclusiveWidget">
+            <div class="widget-header">
+                <h2 class="widget-title">✨ Strony Exclusive</h2>
+            </div>
+            <div class="widget-body widget-body-table">
+                <!-- Desktop: Table view -->
+                <table class="exclusive-table exclusive-desktop">
+                    <thead>
+                        <tr>
+                            <th>Nazwa</th>
+                            <th>Status</th>
+                            <th>Czas</th>
+                            <th class="text-center">Link</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exclusiveTableBody">
+                        {# Visible pages #}
+                        {% for page in exclusive_pages.visible %}
+                        <tr>
+                            <td>
+                                <span class="exclusive-name">{{ page.name }}</span>
+                            </td>
+                            <td>
+                                {% if page.status == 'active' %}
+                                    <span class="exclusive-status exclusive-status-live">
+                                        <span class="live-dot"></span>LIVE
+                                    </span>
+                                {% elif page.status == 'ended' and page.is_fully_closed %}
+                                    <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                {% elif page.status == 'ended' %}
+                                    <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                {% else %}
+                                    <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                        {% if page.status == 'scheduled' %}Zaplanowana
+                                        {% elif page.status == 'paused' %}Wstrzymana
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                                      data-status="{{ page.status }}"
+                                      data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
+                                      data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-link-btn" target="_blank">
+                                    Otwórz →
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {# Buffer pages (hidden) #}
+                        {% for page in exclusive_pages.buffer %}
+                        <tr class="exclusive-buffered" style="display: none;">
+                            <td>
+                                <span class="exclusive-name">{{ page.name }}</span>
+                            </td>
+                            <td>
+                                {% if page.status == 'active' %}
+                                    <span class="exclusive-status exclusive-status-live">
+                                        <span class="live-dot"></span>LIVE
+                                    </span>
+                                {% elif page.status == 'ended' and page.is_fully_closed %}
+                                    <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                {% elif page.status == 'ended' %}
+                                    <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                {% else %}
+                                    <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                        {% if page.status == 'scheduled' %}Zaplanowana
+                                        {% elif page.status == 'paused' %}Wstrzymana
+                                        {% endif %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                                      data-status="{{ page.status }}"
+                                      data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
+                                      data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-link-btn" target="_blank">
+                                    Otwórz →
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Mobile: Cards view -->
+                <div class="exclusive-cards exclusive-mobile" id="exclusiveCardsBody">
+                    {# Visible pages #}
+                    {% for page in exclusive_pages.visible %}
+                    <div class="exclusive-card">
+                        <div class="exclusive-card-header">
+                            <span class="exclusive-name">{{ page.name }}</span>
+                            {% if page.status == 'active' %}
+                                <span class="exclusive-status exclusive-status-live">
+                                    <span class="live-dot"></span>LIVE
+                                </span>
+                            {% elif page.status == 'ended' and page.is_fully_closed %}
+                                <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                            {% elif page.status == 'ended' %}
+                                <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                            {% else %}
+                                <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                    {% if page.status == 'scheduled' %}Zaplanowana
+                                    {% elif page.status == 'paused' %}Wstrzymana
+                                    {% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="exclusive-card-footer">
+                            <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                                  data-status="{{ page.status }}"
+                                  data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
+                                  data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
+                            </span>
+                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-card-btn" target="_blank">
+                                Otwórz →
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {# Buffer pages (hidden) #}
+                    {% for page in exclusive_pages.buffer %}
+                    <div class="exclusive-card exclusive-buffered" style="display: none;">
+                        <div class="exclusive-card-header">
+                            <span class="exclusive-name">{{ page.name }}</span>
+                            {% if page.status == 'active' %}
+                                <span class="exclusive-status exclusive-status-live">
+                                    <span class="live-dot"></span>LIVE
+                                </span>
+                            {% elif page.status == 'ended' and page.is_fully_closed %}
+                                <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                            {% elif page.status == 'ended' %}
+                                <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                            {% else %}
+                                <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                    {% if page.status == 'scheduled' %}Zaplanowana
+                                    {% elif page.status == 'paused' %}Wstrzymana
+                                    {% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="exclusive-card-footer">
+                            <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                                  data-status="{{ page.status }}"
+                                  data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
+                                  data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
+                            </span>
+                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-card-btn" target="_blank">
+                                Otwórz →
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                {% if exclusive_pages.remaining > 0 %}
+                <div class="exclusive-show-more" id="exclusiveShowMore">
+                    <button type="button" class="show-more-btn" id="exclusiveLoadMoreBtn"
+                            data-visible="{{ exclusive_pages.visible|length }}"
+                            data-buffer="{{ exclusive_pages.buffer|length }}"
+                            data-total="{{ exclusive_pages.total }}"
+                            data-remaining="{{ exclusive_pages.remaining }}">
+                        Pokaż {{ [exclusive_pages.remaining, 5]|min }} więcej →
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Grid: Wykres + Ostatnie zamówienia -->
     <div class="dashboard-grid">
@@ -250,6 +432,258 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
+
+    // ====================================
+    // EXCLUSIVE PAGES - DYNAMIC TIMING
+    // ====================================
+    function updateExclusiveTimings() {
+        const timingElements = document.querySelectorAll('.exclusive-timing');
+        const now = new Date();
+
+        timingElements.forEach(el => {
+            const status = el.dataset.status;
+            const startsAt = el.dataset.starts ? new Date(el.dataset.starts) : null;
+            const endsAt = el.dataset.ends ? new Date(el.dataset.ends) : null;
+
+            let text = '';
+
+            if (status === 'scheduled' && startsAt) {
+                const diffMs = startsAt - now;
+                const diffHours = diffMs / (1000 * 60 * 60);
+
+                if (diffHours > 24) {
+                    // > 24h - show date and time
+                    text = `Start: ${formatDateTime(startsAt)}`;
+                } else if (diffMs > 0) {
+                    // < 24h - show countdown
+                    text = `Aktywna za ${formatCountdown(diffMs)}`;
+                } else {
+                    text = 'Oczekuje na start';
+                }
+            } else if (status === 'active') {
+                if (endsAt) {
+                    const diffMs = endsAt - now;
+                    if (diffMs > 0) {
+                        text = `Zamknięcie za ${formatCountdown(diffMs)}`;
+                    } else {
+                        text = 'Kończy się...';
+                    }
+                } else {
+                    text = 'Bez daty zakończenia';
+                }
+            } else if (status === 'ended') {
+                if (endsAt) {
+                    text = `Zamknięto ${formatDateTime(endsAt)}`;
+                } else {
+                    text = 'Zakończona';
+                }
+            } else if (status === 'paused') {
+                text = 'Sprzedaż wstrzymana';
+            } else {
+                text = '—';
+            }
+
+            el.textContent = text;
+        });
+    }
+
+    function formatDateTime(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day}.${month}.${year} ${hours}:${minutes}`;
+    }
+
+    function formatCountdown(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const days = Math.floor(totalSeconds / 86400);
+        const hours = Math.floor((totalSeconds % 86400) / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+        if (days > 0) {
+            return `${days}d ${hours}h`;
+        } else if (hours > 0) {
+            return `${hours}h ${minutes}m`;
+        } else {
+            return `${minutes}m`;
+        }
+    }
+
+    // Initial update and refresh every minute
+    updateExclusiveTimings();
+    setInterval(updateExclusiveTimings, 60000);
+
+    // ====================================
+    // EXCLUSIVE PAGES - LAZY LOADING
+    // ====================================
+    (function() {
+        const loadMoreBtn = document.getElementById('exclusiveLoadMoreBtn');
+        const tableBody = document.getElementById('exclusiveTableBody');
+        const cardsBody = document.getElementById('exclusiveCardsBody');
+        const showMoreContainer = document.getElementById('exclusiveShowMore');
+
+        if (!loadMoreBtn) return;
+
+        let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
+        let isLoading = false;
+
+        // Create table row HTML from page data
+        function createTableRowHTML(page) {
+            const statusHTML = getStatusHTML(page);
+            const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' exclusive-timing-important' : '';
+
+            return `
+                <tr>
+                    <td><span class="exclusive-name">${page.name}</span></td>
+                    <td>${statusHTML}</td>
+                    <td>
+                        <span class="exclusive-timing${timingClass}"
+                              data-status="${page.status}"
+                              data-starts="${page.starts_at || ''}"
+                              data-ends="${page.ends_at || ''}">
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <a href="${page.page_url}" class="exclusive-link-btn" target="_blank">Otwórz →</a>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Create card HTML from page data
+        function createCardHTML(page) {
+            const statusHTML = getStatusHTML(page);
+            const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' exclusive-timing-important' : '';
+
+            return `
+                <div class="exclusive-card">
+                    <div class="exclusive-card-header">
+                        <span class="exclusive-name">${page.name}</span>
+                        ${statusHTML}
+                    </div>
+                    <div class="exclusive-card-footer">
+                        <span class="exclusive-timing${timingClass}"
+                              data-status="${page.status}"
+                              data-starts="${page.starts_at || ''}"
+                              data-ends="${page.ends_at || ''}">
+                        </span>
+                        <a href="${page.page_url}" class="exclusive-card-btn" target="_blank">Otwórz →</a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Get status badge HTML
+        function getStatusHTML(page) {
+            if (page.is_live) {
+                return '<span class="exclusive-status exclusive-status-live"><span class="live-dot"></span>LIVE</span>';
+            }
+            return `<span class="exclusive-status exclusive-status-${page.status_class}">${page.status_text}</span>`;
+        }
+
+        // Fetch more pages from API
+        async function fetchMorePages(offset, limit = 5) {
+            try {
+                const response = await fetch(`/client/api/exclusive-pages?offset=${offset}&limit=${limit}`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching exclusive pages:', error);
+                return null;
+            }
+        }
+
+        // Update button text
+        function updateButtonText(remaining) {
+            if (remaining <= 0) {
+                showMoreContainer.style.display = 'none';
+            } else {
+                loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, 5)} więcej →`;
+                loadMoreBtn.dataset.remaining = remaining;
+            }
+        }
+
+        // Handle load more click
+        loadMoreBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            if (isLoading) return;
+
+            // 1. Show buffered items first (both table rows and cards)
+            const bufferedRows = tableBody ? tableBody.querySelectorAll('.exclusive-buffered') : [];
+            const bufferedCards = cardsBody ? cardsBody.querySelectorAll('.exclusive-buffered') : [];
+            let shownFromBuffer = 0;
+
+            bufferedRows.forEach((row, index) => {
+                if (index < 5 && row.style.display === 'none') {
+                    row.style.display = '';
+                    row.classList.remove('exclusive-buffered');
+                    shownFromBuffer++;
+                }
+            });
+
+            bufferedCards.forEach((card, index) => {
+                if (index < 5 && card.style.display === 'none') {
+                    card.style.display = '';
+                    card.classList.remove('exclusive-buffered');
+                }
+            });
+
+            // Calculate new remaining
+            let remaining = parseInt(loadMoreBtn.dataset.remaining) - shownFromBuffer;
+
+            // 2. If we showed buffered items, fetch more for the buffer in background
+            if (shownFromBuffer > 0 && remaining > 0) {
+                isLoading = true;
+                loadMoreBtn.textContent = 'Ładowanie...';
+
+                const data = await fetchMorePages(currentOffset, 5);
+
+                if (data && data.success && data.pages.length > 0) {
+                    // Add new rows as buffered (hidden)
+                    data.pages.forEach(page => {
+                        // Add table row
+                        if (tableBody) {
+                            const rowHTML = createTableRowHTML(page);
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = rowHTML;
+                            const newRow = tempDiv.firstElementChild;
+                            newRow.classList.add('exclusive-buffered');
+                            newRow.style.display = 'none';
+                            tableBody.appendChild(newRow);
+                        }
+
+                        // Add card
+                        if (cardsBody) {
+                            const cardHTML = createCardHTML(page);
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = cardHTML;
+                            const newCard = tempDiv.firstElementChild;
+                            newCard.classList.add('exclusive-buffered');
+                            newCard.style.display = 'none';
+                            cardsBody.appendChild(newCard);
+                        }
+                    });
+
+                    currentOffset += data.pages.length;
+
+                    // Update timing displays for newly added elements
+                    updateExclusiveTimings();
+                }
+
+                isLoading = false;
+            }
+
+            // Recalculate remaining based on actual visible items
+            const visibleRows = tableBody ? tableBody.querySelectorAll('tr:not([style*="display: none"])').length : 0;
+            const total = parseInt(loadMoreBtn.dataset.total);
+            remaining = Math.max(0, total - visibleRows);
+
+            updateButtonText(remaining);
+        });
+    })();
 });
 </script>
 {% endblock %}

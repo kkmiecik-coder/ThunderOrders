@@ -4,13 +4,19 @@
  */
 
 /* ==========================================
+   Body Background
+   ========================================== */
+body.exclusive-page-body {
+    background: #1a1730;
+}
+
+/* ==========================================
    Base Layout
    ========================================== */
 .exclusive-order-page {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     position: relative;
     /* Stały padding-top na banner rezerwacji (56px height + 8px buffer) */
     padding-top: 64px;
@@ -22,9 +28,10 @@
 .order-animated-bg {
     position: fixed;
     inset: 0;
-    overflow: hidden;
     pointer-events: none;
     z-index: 0;
+    top: 320px;
+    left: 50px;
 }
 
 .order-animated-bg .orb {
@@ -44,8 +51,8 @@
 }
 
 .order-animated-bg .orb-2 {
-    width: 500px;
-    height: 500px;
+    width: 200px;
+    height: 200px;
     background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
     top: 30%;
     right: -150px;
@@ -542,22 +549,59 @@
     color: var(--gray-500);
 }
 
-/* Responsywność - na mniejszych ekranach kontrolki pod obrazkiem */
+/* Kontrolki mobile w headerze - ukryte na desktop */
+.product-header-controls {
+    display: none;
+}
+
+/* Responsywność - na mniejszych ekranach */
 @media (max-width: 640px) {
+    /* Header: nazwa po lewej, kontrolki po prawej */
+    .product-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+    }
+
+    .product-name {
+        font-size: var(--text-lg);
+        flex: 1;
+        min-width: 0;
+    }
+
+    .product-limits {
+        display: none;
+    }
+
+    /* Pokazujemy kontrolki w headerze na mobile */
+    .product-header-controls {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: var(--space-1);
+        flex-shrink: 0;
+    }
+
+    .product-header-controls .product-price {
+        font-size: var(--text-base);
+        font-weight: var(--font-bold);
+        color: #e91e63;
+        margin: 0;
+    }
+
+    .product-header-controls .quantity-control {
+        transform: scale(0.85);
+        transform-origin: right center;
+    }
+
     .product-body {
         flex-direction: column;
     }
 
+    /* Ukryj kontrolki w body na mobile */
     .product-controls-box {
-        width: 100%;
-        flex-direction: row;
-        justify-content: space-between;
-        padding: var(--space-3);
-    }
-
-    .product-controls-box .quantity-wrapper {
-        flex-direction: row;
-        gap: var(--space-3);
+        display: none;
     }
 }
 
@@ -743,6 +787,11 @@
     font-weight: var(--font-bold);
     white-space: nowrap;
     margin: 0;
+}
+
+/* Cena mobile - ukryta na desktop */
+.set-item-price-mobile {
+    display: none;
 }
 
 .set-item-qty {
@@ -1474,44 +1523,50 @@
         height: 200px;
     }
 
+    /* Set items - mobile: nazwa+cena po lewej, kontrolki po prawej */
     .set-item {
-        flex-wrap: wrap;
-    }
-
-    .set-item-qty {
-        width: 100%;
-        margin-top: var(--space-2);
-    }
-
-    .set-item-qty .quantity-control {
-        width: 100%;
-        justify-content: center;
-    }
-
-    /* Set items - mobile adjustments */
-    .set-item {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        align-items: center;
     }
 
     .set-item-info {
-        flex-wrap: wrap;
-        width: 100%;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
 
     .set-item-name {
+        font-size: var(--text-base);
         white-space: normal;
-        flex: 1;
-        min-width: 100px;
+    }
+
+    /* Cena pod nazwą - widoczna tylko na mobile */
+    .set-item-price-mobile {
+        display: block;
+        font-size: var(--text-sm);
+        color: #e91e63;
+        font-weight: var(--font-bold);
     }
 
     .set-item-qty {
-        width: 100%;
-        margin-top: var(--space-2);
+        width: auto;
+        gap: var(--space-2);
+    }
+
+    /* Ukryj cenę w qty na mobile */
+    .set-item-qty .set-item-price {
+        display: none;
     }
 
     .set-item-qty .quantity-control {
-        width: 100%;
-        justify-content: center;
+        transform: scale(0.9);
+        transform-origin: right center;
+    }
+
+    .set-item-qty .availability-info {
+        font-size: var(--text-xs);
     }
 
     /* Variant group in set - mobile */
@@ -2784,6 +2839,14 @@
 
     .full-set-controls {
         order: 3;
+    }
+
+    .full-set-confetti-container {
+        border-radius: 0 0 16px 16px;
+    }
+
+    .full-set-confetti-container::before {
+        border-radius: 0 0 16px 16px;
     }
 }
 

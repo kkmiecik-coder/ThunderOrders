@@ -889,3 +889,219 @@
     background: rgba(240, 147, 251, 0.15);
     border-color: rgba(240, 147, 251, 0.5);
 }
+
+/* ====================================
+   EXCLUSIVE PAGES TABLE
+   ==================================== */
+.widget-exclusive .widget-body-table {
+    overflow-x: auto;
+}
+
+.exclusive-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 500px;
+}
+
+.exclusive-table thead {
+    background: var(--gray-50);
+    border-bottom: 2px solid var(--gray-200);
+    transition: background 0.5s ease, border-color 0.5s ease;
+}
+
+.exclusive-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.exclusive-table tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+    transition: background 0.2s ease, border-color 0.5s ease;
+}
+
+.exclusive-table tbody tr:hover {
+    background: var(--kpop-light);
+}
+
+.exclusive-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.exclusive-table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+}
+
+.exclusive-name {
+    font-weight: 600;
+    color: var(--gray-800);
+    transition: color 0.5s ease;
+}
+
+.exclusive-table tbody tr:hover .exclusive-name {
+    color: var(--kpop-purple);
+}
+
+.exclusive-date {
+    color: var(--gray-600);
+    font-size: 0.8rem;
+    transition: color 0.5s ease;
+}
+
+.exclusive-no-date {
+    color: var(--gray-400);
+}
+
+/* Exclusive Status Badges */
+.exclusive-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.5s ease, color 0.5s ease;
+}
+
+.exclusive-status-draft {
+    background: #E5E7EB;
+    color: #4B5563;
+}
+
+.exclusive-status-scheduled {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.exclusive-status-active {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.exclusive-status-paused {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.exclusive-status-ended {
+    background: #F3F4F6;
+    color: #6B7280;
+}
+
+.exclusive-status-closed {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+/* Show More Button */
+.exclusive-show-more {
+    padding: var(--space-3) var(--space-4);
+    text-align: center;
+    border-top: 1px solid var(--gray-100);
+}
+
+.show-more-btn {
+    color: var(--kpop-purple);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.3s ease;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.show-more-btn:hover {
+    color: var(--kpop-pink);
+}
+
+.show-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ====================================
+   DARK MODE - EXCLUSIVE PAGES
+   ==================================== */
+[data-theme="dark"] .exclusive-table thead {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .exclusive-table th {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .exclusive-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .exclusive-table tbody tr:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .exclusive-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .exclusive-table tbody tr:hover .exclusive-name {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .exclusive-date {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .exclusive-no-date {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Dark mode status badges */
+[data-theme="dark"] .exclusive-status-draft {
+    background: rgba(156, 163, 175, 0.2);
+    color: #9CA3AF;
+}
+
+[data-theme="dark"] .exclusive-status-scheduled {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+[data-theme="dark"] .exclusive-status-active {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+[data-theme="dark"] .exclusive-status-paused {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .exclusive-status-ended {
+    background: rgba(156, 163, 175, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .exclusive-status-closed {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .exclusive-show-more {
+    border-top-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .show-more-btn {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .show-more-btn:hover {
+    color: #f5576c;
+}

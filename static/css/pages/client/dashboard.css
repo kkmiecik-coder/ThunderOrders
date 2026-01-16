@@ -27,13 +27,13 @@
 }
 
 /* ================================================
-   Metrics Grid
+   Metrics - Flex Wrap Layout
    ================================================ */
 
 .dashboard-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: var(--space-6);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
     margin-bottom: var(--space-8);
 }
 
@@ -53,12 +53,16 @@
     background: var(--card-bg);
     border: 1px solid var(--card-border);
     border-radius: 12px;
-    padding: var(--space-6);
+    padding: var(--space-4);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     display: flex;
-    align-items: flex-start;
-    gap: var(--space-4);
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
     transition: all 0.3s ease;
+    min-width: 160px;
+    flex: 1 1 160px;
 }
 
 .metric-card:hover {
@@ -128,7 +132,7 @@ a.metric-card-clickable.metric-card-warning:hover {
 
 /* Metric Icon */
 .metric-icon {
-    font-size: 2.5rem;
+    font-size: var(--text-sm);
     line-height: 1;
 }
 
@@ -462,10 +466,6 @@ a.metric-card-clickable.metric-card-warning:hover {
 
 /* Tablet (max-width: 1024px) */
 @media (max-width: 1024px) {
-    .dashboard-metrics {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
@@ -487,11 +487,6 @@ a.metric-card-clickable.metric-card-warning:hover {
 
     .dashboard-title {
         font-size: 2rem;
-    }
-
-    .dashboard-metrics {
-        grid-template-columns: 1fr;
-        gap: var(--space-4);
     }
 
     .chart-container {
@@ -524,14 +519,6 @@ a.metric-card-clickable.metric-card-warning:hover {
 
 /* Mobile Small (max-width: 480px) */
 @media (max-width: 480px) {
-    .metric-card {
-        padding: var(--space-4);
-    }
-
-    .metric-icon {
-        font-size: 2rem;
-    }
-
     .metric-value {
         font-size: var(--text-2xl);
     }
@@ -694,4 +681,462 @@ a.metric-card-clickable.metric-card-warning:hover {
 
 [data-theme="dark"] .widget-link:hover {
     color: #f5576c;
+}
+
+/* ================================================
+   Exclusive Pages Widget
+   ================================================ */
+
+.exclusive-widget-container {
+    margin-bottom: var(--space-6);
+}
+
+.widget-exclusive {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+[data-theme="dark"] .widget-exclusive {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+.exclusive-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.exclusive-table thead {
+    background: var(--gray-50);
+    border-bottom: 2px solid var(--gray-200);
+    transition: background 0.5s ease, border-color 0.5s ease;
+}
+
+.exclusive-table th {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--gray-600);
+    transition: color 0.5s ease;
+}
+
+.exclusive-table th.text-center {
+    text-align: center;
+}
+
+.exclusive-table tbody tr {
+    border-bottom: 1px solid var(--gray-100);
+    transition: background 0.2s ease, border-color 0.5s ease;
+}
+
+.exclusive-table tbody tr:hover {
+    background: rgba(255, 133, 0, 0.05);
+}
+
+.exclusive-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.exclusive-table td {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+}
+
+.exclusive-table td.text-center {
+    text-align: center;
+}
+
+.exclusive-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: color 0.5s ease;
+}
+
+.exclusive-date {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    transition: color 0.5s ease;
+}
+
+.exclusive-no-date {
+    color: var(--text-tertiary);
+}
+
+/* Exclusive Status Badges */
+.exclusive-status {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.5s ease, color 0.5s ease;
+}
+
+.exclusive-status-scheduled {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.exclusive-status-active {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.exclusive-status-paused {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.exclusive-status-ended {
+    background: #F3F4F6;
+    color: #6B7280;
+}
+
+.exclusive-status-closed {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+/* LIVE Status Badge - Pulsing Red */
+.exclusive-status-live {
+    background: #DC2626;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    animation: live-pulse 2s ease-in-out infinite;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+    animation: live-dot-blink 1s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(220, 38, 38, 0);
+    }
+}
+
+@keyframes live-dot-blink {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+/* Link Button */
+.exclusive-link-btn {
+    display: inline-block;
+    padding: 6px 12px;
+    background: var(--orange-300);
+    color: white;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.exclusive-link-btn:hover {
+    background: var(--orange-400);
+    transform: translateY(-1px);
+}
+
+/* Show More */
+.exclusive-show-more {
+    padding: var(--space-3) var(--space-4);
+    text-align: center;
+    border-top: 1px solid var(--gray-100);
+}
+
+.show-more-text {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* ================================================
+   Dark Mode - Exclusive Pages
+   ================================================ */
+[data-theme="dark"] .exclusive-table thead {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .exclusive-table th {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .exclusive-table tbody tr {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .exclusive-table tbody tr:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .exclusive-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .exclusive-date {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .exclusive-no-date {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Dark mode status badges */
+[data-theme="dark"] .exclusive-status-scheduled {
+    background: rgba(79, 172, 254, 0.2);
+    color: #4facfe;
+}
+
+[data-theme="dark"] .exclusive-status-active {
+    background: rgba(74, 222, 128, 0.2);
+    color: #4ade80;
+}
+
+[data-theme="dark"] .exclusive-status-paused {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .exclusive-status-ended {
+    background: rgba(156, 163, 175, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .exclusive-status-closed {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .exclusive-link-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .exclusive-link-btn:hover {
+    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+/* Show More Button */
+.exclusive-show-more {
+    padding: var(--space-3) var(--space-4);
+    text-align: center;
+    border-top: 1px solid var(--gray-100);
+}
+
+.show-more-btn {
+    color: var(--orange-400);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.3s ease;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--space-2) var(--space-4);
+}
+
+.show-more-btn:hover {
+    color: var(--orange-500);
+}
+
+.show-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+[data-theme="dark"] .exclusive-show-more {
+    border-top-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .show-more-btn {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .show-more-btn:hover {
+    color: #f5576c;
+}
+
+/* Dark mode LIVE badge - keep red for visibility */
+[data-theme="dark"] .exclusive-status-live {
+    background: #DC2626;
+    color: white;
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.5);
+}
+
+/* Timing text */
+.exclusive-timing {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    transition: color 0.5s ease;
+}
+
+/* Important timing - for scheduled and active statuses */
+.exclusive-timing-important {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+[data-theme="dark"] .exclusive-timing {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .exclusive-timing-important {
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(240, 147, 251, 0.4);
+}
+
+/* ================================================
+   Exclusive Pages - Mobile Cards
+   ================================================ */
+
+/* Desktop table visible by default, mobile cards hidden */
+.exclusive-desktop {
+    display: table;
+}
+
+.exclusive-mobile {
+    display: none;
+}
+
+/* Mobile Cards Container - hidden by default on desktop */
+.exclusive-cards.exclusive-mobile {
+    display: none;
+    padding: var(--space-4);
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Single Card */
+.exclusive-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    transition: all 0.3s ease;
+}
+
+.exclusive-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.exclusive-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.exclusive-card-header .exclusive-name {
+    flex: 1;
+    font-size: 1rem;
+}
+
+.exclusive-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.exclusive-card-btn {
+    display: inline-block;
+    padding: var(--space-2) var(--space-4);
+    background: var(--orange-300);
+    color: white;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.exclusive-card-btn:hover {
+    background: var(--orange-400);
+}
+
+/* Dark Mode - Mobile Cards */
+[data-theme="dark"] .exclusive-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .exclusive-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .exclusive-card-btn {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .exclusive-card-btn:hover {
+    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
+}
+
+/* ================================================
+   Responsive - Switch to Cards on Mobile
+   ================================================ */
+@media (max-width: 768px) {
+    .exclusive-desktop {
+        display: none !important;
+    }
+
+    .exclusive-cards.exclusive-mobile {
+        display: flex;
+    }
+}
+
+/* ================================================
+   Mobile: Timing Badge for Important Statuses
+   ================================================ */
+.exclusive-card .exclusive-timing {
+    flex: 1;
+}
+
+.exclusive-card .exclusive-timing-important {
+    display: inline-block;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.15) 0%, rgba(245, 87, 108, 0.15) 100%);
+    border: 1px solid rgba(240, 147, 251, 0.3);
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #9333ea;
+}
+
+[data-theme="dark"] .exclusive-card .exclusive-timing-important {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(245, 87, 108, 0.2) 100%);
+    border-color: rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+    text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
 }

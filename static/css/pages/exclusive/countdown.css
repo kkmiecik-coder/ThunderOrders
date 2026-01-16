@@ -339,18 +339,67 @@
 }
 
 .countdown-value {
+    display: flex;
+    justify-content: center;
     font-size: clamp(32px, 8vw, 48px);
     font-weight: 700;
     color: white;
     font-variant-numeric: tabular-nums;
     line-height: 1;
     text-shadow: 0 0 30px rgba(240, 147, 251, 0.5);
-    transition: transform 0.15s ease-out, opacity 0.15s ease-out;
 }
 
-.countdown-value.flip {
-    transform: scale(1.1);
-    opacity: 0.7;
+/* Individual digit styling */
+.countdown-value .digit {
+    position: relative;
+    display: inline-block;
+    width: 0.6em;
+}
+
+.countdown-value .digit-inner {
+    display: block;
+}
+
+.countdown-value .digit-inner.digit-hidden {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+/* Old digit fading out */
+.countdown-value .digit-old {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    animation: digitOut 0.4s ease-out forwards;
+}
+
+@keyframes digitOut {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+}
+
+/* New digit fading in */
+.countdown-value .digit-inner.digit-in {
+    animation: digitIn 0.4s ease-out;
+}
+
+@keyframes digitIn {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .countdown-label {
@@ -488,22 +537,51 @@
     }
 
     .countdown-container {
-        padding: var(--space-8) var(--space-5);
+        padding: var(--space-6) var(--space-4);
         border-radius: 24px;
     }
 
+    /* Logo - smaller on mobile */
+    .countdown-logo img {
+        height: 40px;
+    }
+
+    .countdown-header {
+        margin-bottom: var(--space-6);
+    }
+
+    .countdown-title {
+        font-size: clamp(22px, 5vw, 28px);
+    }
+
+    .countdown-subtitle {
+        font-size: var(--text-base);
+    }
+
+    /* Timer - all 4 units in one row */
     .countdown-timer {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: var(--space-2);
     }
 
     .countdown-unit {
-        flex: 0 0 calc(50% - var(--space-4));
+        flex: 1;
+        min-width: 0;
     }
 
     .countdown-value-wrapper {
-        min-width: 70px;
-        padding: var(--space-3) var(--space-4);
+        min-width: unset;
+        padding: var(--space-4) var(--space-4);
+        border-radius: 16px;
+    }
+
+    .countdown-value {
+        font-size: clamp(36px, 10vw, 48px);
+    }
+
+    .countdown-label {
+        font-size: 11px;
+        letter-spacing: 1.5px;
     }
 
     .countdown-separator {

@@ -207,6 +207,123 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Exclusive Pages Widget -->
+            <div class="widget widget-exclusive" id="exclusiveWidget">
+                <div class="widget-header">
+                    <h2 class="widget-title">✨ Strony Exclusive</h2>
+                    <a href="{{ url_for('admin.exclusive_list') }}" class="widget-link">Zarządzaj →</a>
+                </div>
+                <div class="widget-body widget-body-table">
+                    {% if exclusive_pages.visible|length > 0 %}
+                        <table class="exclusive-table">
+                            <thead>
+                                <tr>
+                                    <th>Nazwa</th>
+                                    <th>Status</th>
+                                    <th>Start</th>
+                                    <th>Koniec</th>
+                                </tr>
+                            </thead>
+                            <tbody id="exclusiveTableBody">
+                                {# Visible pages #}
+                                {% for page in exclusive_pages.visible %}
+                                <tr onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'" style="cursor: pointer;">
+                                    <td>
+                                        <span class="exclusive-name">{{ page.name }}</span>
+                                    </td>
+                                    <td>
+                                        {% if page.status == 'ended' and page.is_fully_closed %}
+                                            <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                        {% elif page.status == 'ended' %}
+                                            <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                        {% else %}
+                                            <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                                {% if page.status == 'draft' %}Draft
+                                                {% elif page.status == 'scheduled' %}Zaplanowana
+                                                {% elif page.status == 'active' %}Aktywna
+                                                {% elif page.status == 'paused' %}Wstrzymana
+                                                {% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if page.starts_at %}
+                                            <span class="exclusive-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                        {% else %}
+                                            <span class="exclusive-no-date">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if page.ends_at %}
+                                            <span class="exclusive-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                        {% else %}
+                                            <span class="exclusive-no-date">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {# Buffer pages (hidden, will be shown on "load more") #}
+                                {% for page in exclusive_pages.buffer %}
+                                <tr class="exclusive-buffered" style="display: none;" onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'">
+                                    <td>
+                                        <span class="exclusive-name">{{ page.name }}</span>
+                                    </td>
+                                    <td>
+                                        {% if page.status == 'ended' and page.is_fully_closed %}
+                                            <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                        {% elif page.status == 'ended' %}
+                                            <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                        {% else %}
+                                            <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                                {% if page.status == 'draft' %}Draft
+                                                {% elif page.status == 'scheduled' %}Zaplanowana
+                                                {% elif page.status == 'active' %}Aktywna
+                                                {% elif page.status == 'paused' %}Wstrzymana
+                                                {% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if page.starts_at %}
+                                            <span class="exclusive-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                        {% else %}
+                                            <span class="exclusive-no-date">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if page.ends_at %}
+                                            <span class="exclusive-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                        {% else %}
+                                            <span class="exclusive-no-date">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% if exclusive_pages.remaining > 0 %}
+                            <div class="exclusive-show-more" id="exclusiveShowMore">
+                                <button type="button" class="show-more-btn" id="exclusiveLoadMoreBtn"
+                                        data-visible="{{ exclusive_pages.visible|length }}"
+                                        data-buffer="{{ exclusive_pages.buffer|length }}"
+                                        data-total="{{ exclusive_pages.total }}"
+                                        data-remaining="{{ exclusive_pages.remaining }}">
+                                    Pokaż {{ [exclusive_pages.remaining, 5]|min }} więcej →
+                                </button>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="empty-state">
+                            <p class="empty-icon">✨</p>
+                            <p class="empty-text">Brak stron Exclusive</p>
+                            <a href="{{ url_for('admin.exclusive_list') }}" class="btn-kpop btn-kpop-secondary">
+                                Utwórz pierwszą
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -474,5 +591,109 @@ function openTaskPreview(taskId) {
     // Redirect to tasks page and open preview modal for this task
     window.location.href = `/admin/tasks?view=${taskId}`;
 }
+
+// ====================================
+// EXCLUSIVE PAGES - LAZY LOADING
+// ====================================
+(function() {
+    const loadMoreBtn = document.getElementById('exclusiveLoadMoreBtn');
+    const tableBody = document.getElementById('exclusiveTableBody');
+    const showMoreContainer = document.getElementById('exclusiveShowMore');
+
+    if (!loadMoreBtn || !tableBody) return;
+
+    let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
+    let isLoading = false;
+
+    // Create row HTML from page data
+    function createRowHTML(page) {
+        return `
+            <tr onclick="window.location.href='${page.edit_url}'" style="cursor: pointer;">
+                <td><span class="exclusive-name">${page.name}</span></td>
+                <td><span class="exclusive-status exclusive-status-${page.status_class}">${page.status_text}</span></td>
+                <td>${page.starts_at ? `<span class="exclusive-date">${page.starts_at}</span>` : '<span class="exclusive-no-date">—</span>'}</td>
+                <td>${page.ends_at ? `<span class="exclusive-date">${page.ends_at}</span>` : '<span class="exclusive-no-date">—</span>'}</td>
+            </tr>
+        `;
+    }
+
+    // Fetch more pages from API
+    async function fetchMorePages(offset, limit = 5) {
+        try {
+            const response = await fetch(`/admin/dashboard/exclusive-pages?offset=${offset}&limit=${limit}`);
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error fetching exclusive pages:', error);
+            return null;
+        }
+    }
+
+    // Update button text
+    function updateButtonText(remaining) {
+        if (remaining <= 0) {
+            showMoreContainer.style.display = 'none';
+        } else {
+            loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, 5)} więcej →`;
+            loadMoreBtn.dataset.remaining = remaining;
+        }
+    }
+
+    // Handle load more click
+    loadMoreBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+
+        if (isLoading) return;
+
+        // 1. Show buffered rows first
+        const bufferedRows = tableBody.querySelectorAll('.exclusive-buffered');
+        let shownFromBuffer = 0;
+
+        bufferedRows.forEach((row, index) => {
+            if (index < 5 && row.style.display === 'none') {
+                row.style.display = '';
+                row.classList.remove('exclusive-buffered');
+                shownFromBuffer++;
+            }
+        });
+
+        // Calculate new remaining
+        let remaining = parseInt(loadMoreBtn.dataset.remaining) - shownFromBuffer;
+
+        // 2. If we showed buffered rows, fetch more for the buffer in background
+        if (shownFromBuffer > 0 && remaining > 0) {
+            isLoading = true;
+            loadMoreBtn.textContent = 'Ładowanie...';
+
+            const data = await fetchMorePages(currentOffset, 5);
+
+            if (data && data.success && data.pages.length > 0) {
+                // Add new rows as buffered (hidden)
+                data.pages.forEach(page => {
+                    const rowHTML = createRowHTML(page);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = rowHTML;
+                    const newRow = tempDiv.firstElementChild;
+                    newRow.classList.add('exclusive-buffered');
+                    newRow.style.display = 'none';
+                    tableBody.appendChild(newRow);
+                });
+
+                currentOffset += data.pages.length;
+                remaining = data.remaining + (data.pages.length > 0 ? data.pages.length : 0);
+                remaining = Math.max(0, parseInt(loadMoreBtn.dataset.total) - tableBody.querySelectorAll('tr:not([style*="display: none"])').length);
+            }
+
+            isLoading = false;
+        }
+
+        // Recalculate remaining based on actual visible rows
+        const visibleRows = tableBody.querySelectorAll('tr:not([style*="display: none"])').length;
+        const total = parseInt(loadMoreBtn.dataset.total);
+        remaining = Math.max(0, total - visibleRows);
+
+        updateButtonText(remaining);
+    });
+})();
 </script>
 {% endblock %}
