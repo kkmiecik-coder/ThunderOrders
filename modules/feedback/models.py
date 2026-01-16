@@ -186,6 +186,37 @@ class FeedbackSurvey(db.Model):
         """Liczba odpowiedzi na ankietę"""
         return self.responses.count()
 
+    def get_overall_average_rating(self):
+        """
+        Oblicza średnią ocenę ze wszystkich pytań ratingowych w ankiecie.
+        Zwraca None jeśli brak pytań ratingowych lub odpowiedzi.
+        """
+        rating_types = ['rating_scale', 'rating_10', 'emoji_rating']
+        rating_questions = self.questions.filter(
+            FeedbackQuestion.question_type.in_(rating_types)
+        ).all()
+
+        if not rating_questions:
+            return None
+
+        total_sum = 0
+        total_count = 0
+
+        for question in rating_questions:
+            avg = question.get_average_rating()
+            if avg is not None:
+                # Normalizuj do skali 0-1 dla porównania
+                max_val = 10 if question.question_type == 'rating_10' else 5
+                normalized = avg / max_val
+                total_sum += normalized
+                total_count += 1
+
+        if total_count == 0:
+            return None
+
+        # Zwróć średnią znormalizowaną do skali 5
+        return (total_sum / total_count) * 5
+
     # ============================================
     # URL Helpers
     # ============================================

@@ -1,23 +1,18 @@
-{% extends "client/base_client.html" %}
+{% extends "base.html" %}
 
 {% block title %}Dziękujemy! - {{ survey.name }}{% endblock %}
 
 {% block extra_css %}
-{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/feedback/survey.css') }}">
 <style>
-.thank-you-page {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: var(--space-6);
-    text-align: center;
-}
-
 .thank-you-card {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 16px;
     padding: var(--space-10) var(--space-6);
-    margin-top: var(--space-8);
+    text-align: center;
+    max-width: 500px;
+    margin: 0 auto;
 }
 
 .success-icon {
@@ -68,18 +63,19 @@
     align-items: center;
     gap: var(--space-2);
     padding: var(--space-3) var(--space-6);
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
     border-radius: 8px;
-    color: var(--text-primary);
+    color: white;
     text-decoration: none;
     font-weight: var(--font-medium);
     transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .btn-back:hover {
-    background: var(--bg-hover);
     transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
 }
 
 /* Dark mode */
@@ -90,7 +86,6 @@
 }
 
 [data-theme="dark"] .success-icon {
-    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
     box-shadow: 0 8px 32px rgba(52, 211, 153, 0.3);
 }
 
@@ -107,20 +102,26 @@
 }
 
 [data-theme="dark"] .btn-back {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: rgba(255, 255, 255, 0.9);
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.3);
 }
 
 [data-theme="dark"] .btn-back:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 6px 24px rgba(240, 147, 251, 0.4);
 }
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="thank-you-page">
+{% block body_content %}
+<div class="survey-wrapper">
+    <!-- Logo Header -->
+    <div class="survey-logo-header">
+        <a href="{{ url_for('client.dashboard') }}" class="logo-link">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="survey-logo">
+        </a>
+    </div>
+
+    <!-- Thank You Card -->
     <div class="thank-you-card">
         <div class="success-icon">
             <svg viewBox="0 0 16 16" fill="currentColor">
