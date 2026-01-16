@@ -132,6 +132,15 @@
                     <span class="sidebar-text">Moje zadania</span>
                 </a>
             </li>
+
+            <li class="sidebar-item">
+                <a href="{{ url_for('feedback.admin_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'feedback' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Feedback">
+                    <img src="{{ url_for('static', filename='img/icons/feedback.svg') }}" alt="Feedback" class="sidebar-icon">
+                    <span class="sidebar-text">Feedback</span>
+                </a>
+            </li>
         </ul>
     </nav>
 </aside>

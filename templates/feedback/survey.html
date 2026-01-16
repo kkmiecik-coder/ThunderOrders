@@ -1,0 +1,367 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}{{ survey.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/feedback/survey.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="survey-page">
+    <!-- Survey Header -->
+    <div class="survey-header">
+        <h1 class="survey-title">{{ survey.name }}</h1>
+        {% if survey.description %}
+        <p class="survey-description">{{ survey.description }}</p>
+        {% endif %}
+    </div>
+
+    <!-- Survey Form -->
+    <form id="surveyForm" class="survey-form">
+        {% for question in questions %}
+        <div class="question-block" data-question-id="{{ question.id }}" data-question-type="{{ question.question_type }}" {% if question.is_required %}data-required="true"{% endif %}>
+
+            {% if question.question_type == 'section_header' %}
+            <!-- Section Header -->
+            <h2 class="section-header">{{ question.content }}</h2>
+
+            {% elif question.question_type == 'text' %}
+            <!-- Text/Description -->
+            <p class="section-text">{{ question.content }}</p>
+
+            {% elif question.question_type == 'rating_scale' %}
+            <!-- Rating 1-5 Stars -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="rating-stars" data-value="">
+                    <button type="button" class="star-btn" data-value="1" title="1 - Bardzo źle">
+                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="star-btn" data-value="2" title="2 - Źle">
+                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="star-btn" data-value="3" title="3 - Średnio">
+                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="star-btn" data-value="4" title="4 - Dobrze">
+                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                        </svg>
+                    </button>
+                    <button type="button" class="star-btn" data-value="5" title="5 - Świetnie">
+                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            {% elif question.question_type == 'rating_10' %}
+            <!-- Rating 1-10 -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="rating-numbers" data-value="">
+                    {% for i in range(1, 11) %}
+                    <button type="button" class="num-btn" data-value="{{ i }}">{{ i }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% elif question.question_type == 'emoji_rating' %}
+            <!-- Emoji Rating -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="rating-emoji" data-value="">
+                    <button type="button" class="emoji-btn" data-value="1" title="Bardzo źle">&#128577;</button>
+                    <button type="button" class="emoji-btn" data-value="2" title="Źle">&#128528;</button>
+                    <button type="button" class="emoji-btn" data-value="3" title="Średnio">&#128578;</button>
+                    <button type="button" class="emoji-btn" data-value="4" title="Dobrze">&#128512;</button>
+                    <button type="button" class="emoji-btn" data-value="5" title="Świetnie">&#129321;</button>
+                </div>
+            </div>
+
+            {% elif question.question_type == 'yes_no' %}
+            <!-- Yes/No -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="yes-no-buttons" data-value="">
+                    <button type="button" class="yn-btn yn-yes" data-value="yes">Tak</button>
+                    <button type="button" class="yn-btn yn-no" data-value="no">Nie</button>
+                </div>
+            </div>
+
+            {% elif question.question_type == 'yes_no_comment' %}
+            <!-- Yes/No + Comment -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="yes-no-buttons" data-value="">
+                    <button type="button" class="yn-btn yn-yes" data-value="yes">Tak</button>
+                    <button type="button" class="yn-btn yn-no" data-value="no">Nie</button>
+                </div>
+                <textarea class="comment-field" placeholder="Dodaj komentarz (opcjonalnie)..." rows="3"></textarea>
+            </div>
+
+            {% elif question.question_type == 'multiple_choice' %}
+            <!-- Multiple Choice (Single Select) -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="options-list radio-list">
+                    {% for option in question.options %}
+                    <label class="option-item">
+                        <input type="radio" name="q_{{ question.id }}" value="{{ option }}">
+                        <span class="option-marker"></span>
+                        <span class="option-text">{{ option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% elif question.question_type == 'checkbox_list' %}
+            <!-- Checkbox List (Multi Select) -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <div class="options-list checkbox-list">
+                    {% for option in question.options %}
+                    <label class="option-item">
+                        <input type="checkbox" name="q_{{ question.id }}" value="{{ option }}">
+                        <span class="option-marker"></span>
+                        <span class="option-text">{{ option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {% elif question.question_type == 'textarea' %}
+            <!-- Textarea -->
+            <div class="question-content">
+                <label class="question-label">
+                    {{ question.content }}
+                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                </label>
+                <textarea class="answer-textarea" placeholder="Twoja odpowiedź..." rows="4"></textarea>
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+
+        <!-- Submit Button -->
+        <div class="survey-actions">
+            <button type="submit" class="btn btn-primary btn-submit">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+                </svg>
+                Wyślij odpowiedzi
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('surveyForm');
+    const surveyToken = '{{ survey.token }}';
+
+    // Star rating
+    document.querySelectorAll('.rating-stars').forEach(container => {
+        const stars = container.querySelectorAll('.star-btn');
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                const value = star.dataset.value;
+                container.dataset.value = value;
+                stars.forEach((s, idx) => {
+                    s.classList.toggle('active', idx < parseInt(value));
+                });
+            });
+        });
+    });
+
+    // Number rating
+    document.querySelectorAll('.rating-numbers').forEach(container => {
+        const nums = container.querySelectorAll('.num-btn');
+        nums.forEach(num => {
+            num.addEventListener('click', () => {
+                const value = num.dataset.value;
+                container.dataset.value = value;
+                nums.forEach(n => n.classList.remove('active'));
+                num.classList.add('active');
+            });
+        });
+    });
+
+    // Emoji rating
+    document.querySelectorAll('.rating-emoji').forEach(container => {
+        const emojis = container.querySelectorAll('.emoji-btn');
+        emojis.forEach(emoji => {
+            emoji.addEventListener('click', () => {
+                const value = emoji.dataset.value;
+                container.dataset.value = value;
+                emojis.forEach(e => e.classList.remove('active'));
+                emoji.classList.add('active');
+            });
+        });
+    });
+
+    // Yes/No buttons
+    document.querySelectorAll('.yes-no-buttons').forEach(container => {
+        const btns = container.querySelectorAll('.yn-btn');
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const value = btn.dataset.value;
+                container.dataset.value = value;
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            });
+        });
+    });
+
+    // Form submit
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        // Validate required fields
+        let hasErrors = false;
+        document.querySelectorAll('.question-block[data-required="true"]').forEach(block => {
+            const type = block.dataset.questionType;
+            let hasValue = false;
+
+            if (['rating_scale', 'rating_10', 'emoji_rating'].includes(type)) {
+                const container = block.querySelector('[data-value]');
+                hasValue = container && container.dataset.value;
+            } else if (['yes_no', 'yes_no_comment'].includes(type)) {
+                const container = block.querySelector('.yes-no-buttons');
+                hasValue = container && container.dataset.value;
+            } else if (type === 'multiple_choice') {
+                hasValue = block.querySelector('input[type="radio"]:checked');
+            } else if (type === 'checkbox_list') {
+                hasValue = block.querySelector('input[type="checkbox"]:checked');
+            } else if (type === 'textarea') {
+                const textarea = block.querySelector('.answer-textarea');
+                hasValue = textarea && textarea.value.trim();
+            }
+
+            if (!hasValue) {
+                hasErrors = true;
+                block.classList.add('has-error');
+                block.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            } else {
+                block.classList.remove('has-error');
+            }
+        });
+
+        if (hasErrors) {
+            showToast('Wypełnij wszystkie wymagane pola', 'error');
+            return;
+        }
+
+        // Collect answers
+        const answers = {};
+        document.querySelectorAll('.question-block').forEach(block => {
+            const questionId = block.dataset.questionId;
+            const type = block.dataset.questionType;
+
+            // Skip display-only elements
+            if (['section_header', 'text'].includes(type)) return;
+
+            const answerData = { value: null, text: null, options: null };
+
+            if (['rating_scale', 'rating_10', 'emoji_rating'].includes(type)) {
+                const container = block.querySelector('[data-value]');
+                answerData.value = container ? container.dataset.value : null;
+            } else if (type === 'yes_no') {
+                const container = block.querySelector('.yes-no-buttons');
+                answerData.value = container ? container.dataset.value : null;
+            } else if (type === 'yes_no_comment') {
+                const container = block.querySelector('.yes-no-buttons');
+                const comment = block.querySelector('.comment-field');
+                answerData.value = container ? container.dataset.value : null;
+                answerData.text = comment ? comment.value : null;
+            } else if (type === 'multiple_choice') {
+                const checked = block.querySelector('input[type="radio"]:checked');
+                answerData.value = checked ? checked.value : null;
+            } else if (type === 'checkbox_list') {
+                const checked = block.querySelectorAll('input[type="checkbox"]:checked');
+                answerData.options = Array.from(checked).map(c => c.value);
+            } else if (type === 'textarea') {
+                const textarea = block.querySelector('.answer-textarea');
+                answerData.text = textarea ? textarea.value : null;
+            }
+
+            answers[questionId] = answerData;
+        });
+
+        // Submit
+        const submitBtn = form.querySelector('.btn-submit');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner"></span> Wysyłanie...';
+
+        try {
+            const response = await fetch(`/feedback/${surveyToken}/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ answers: answers })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                window.location.href = result.redirect_url;
+            } else {
+                showToast(`Błąd: ${result.error}`, 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/></svg> Wyślij odpowiedzi';
+            }
+        } catch (error) {
+            console.error('Submit error:', error);
+            showToast('Błąd podczas wysyłania', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/></svg> Wyślij odpowiedzi';
+        }
+    });
+
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+});
+</script>
+{% endblock %}

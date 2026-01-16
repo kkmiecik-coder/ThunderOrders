@@ -1,0 +1,380 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Edycja: {{ survey.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/feedback-builder.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="builder-page" data-survey-id="{{ survey.id }}">
+    <!-- Top Bar -->
+    <div class="builder-topbar">
+        <div class="topbar-left">
+            <a href="{{ url_for('feedback.admin_list') }}" class="btn-back" title="Powrót do listy">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
+                <span>Powrót do listy</span>
+            </a>
+        </div>
+        <div class="topbar-center">
+            <span class="status-indicator status-{{ survey.status }}">
+                {% if survey.status == 'draft' %}Draft
+                {% elif survey.status == 'active' %}Aktywna
+                {% elif survey.status == 'closed' %}Zamknięta
+                {% endif %}
+            </span>
+            <span class="last-saved" id="lastSaved">
+                {% if survey.updated_at %}
+                Ostatni zapis: {{ survey.updated_at.strftime('%H:%M:%S') }}
+                {% endif %}
+            </span>
+        </div>
+        <div class="topbar-right">
+            {% if survey.status == 'active' %}
+            <a href="{{ url_for('feedback.survey_page', token=survey.token) }}" target="_blank" class="btn btn-secondary" title="Podgląd">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                    <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+                </svg>
+                <span>Podgląd</span>
+            </a>
+            {% endif %}
+            <button type="button" class="btn btn-secondary" id="btnCopyLink" onclick="copySurveyLink()" title="Kopiuj link">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
+                    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+                </svg>
+                <span>Kopiuj link</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Builder Area -->
+    <div class="builder-main">
+        <!-- Sidebar - Settings -->
+        <div class="builder-sidebar">
+            <!-- Actions first on mobile -->
+            <div class="sidebar-section sidebar-actions">
+                <h3>Akcje</h3>
+
+                {% if survey.status == 'draft' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="saveSurvey()">
+                    Zapisz draft
+                </button>
+                <button type="button" class="btn btn-success btn-block" onclick="activateSurvey()">
+                    Aktywuj ankietę
+                </button>
+                {% elif survey.status == 'active' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="saveSurvey()">
+                    Zapisz zmiany
+                </button>
+                <button type="button" class="btn btn-warning btn-block" onclick="closeSurvey()">
+                    Zamknij ankietę
+                </button>
+                {% elif survey.status == 'closed' %}
+                <button type="button" class="btn btn-secondary btn-block" onclick="saveSurvey()">
+                    Zapisz zmiany
+                </button>
+                <button type="button" class="btn btn-success btn-block" onclick="reopenSurvey()">
+                    Otwórz ponownie
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Settings accordion (collapsed by default on mobile) -->
+            <div class="sidebar-section sidebar-settings-accordion">
+                <button type="button" class="settings-accordion-toggle" onclick="toggleSettingsAccordion(this)">
+                    <h3>Ustawienia ankiety</h3>
+                    <svg class="accordion-arrow" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+                <div class="settings-accordion-content">
+                    <div class="form-group">
+                        <label for="surveyName">Nazwa ankiety</label>
+                        <input type="text" id="surveyName" class="form-input" value="{{ survey.name }}"
+                               placeholder="Nazwa ankiety">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="surveyDescription">Opis (opcjonalny)</label>
+                        <textarea id="surveyDescription" class="form-textarea" rows="3"
+                                  placeholder="Krótki opis wyświetlany na początku ankiety">{{ survey.description or '' }}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="closesAt">Data zamknięcia (opcjonalna)</label>
+                        <input type="datetime-local" id="closesAt" class="form-input"
+                               value="{{ survey.closes_at.strftime('%Y-%m-%dT%H:%M') if survey.closes_at else '' }}">
+                        <small class="form-hint">Puste = bez limitu czasu</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="isAnonymous" {% if survey.is_anonymous %}checked{% endif %}>
+                            <span>Ankieta anonimowa</span>
+                        </label>
+                        <small class="form-hint">Ukryj kto odpowiedział</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="allowMultiple" {% if survey.allow_multiple_responses %}checked{% endif %}>
+                            <span>Pozwól na wielokrotne wypełnienie</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area - Question Builder -->
+        <div class="builder-content">
+            <div class="content-header">
+                <h2>Pytania ankiety</h2>
+                <div class="add-question-dropdown">
+                    <button type="button" class="btn btn-primary" id="addQuestionBtn">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                        </svg>
+                        Dodaj pytanie
+                    </button>
+                    <div class="dropdown-menu" id="addQuestionMenu">
+                        <div class="dropdown-section">
+                            <span class="dropdown-label">Elementy</span>
+                            <button type="button" onclick="addQuestion('section_header')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8.637 13V3.669H7.379V7.62H2.758V3.67H1.5V13h1.258V8.728h4.62V13h1.259zm5.329 0V3.669h-1.244L10.5 5.316v1.265l2.16-1.565h.062V13h1.244z"/>
+                                </svg>
+                                Nagłówek sekcji
+                            </button>
+                            <button type="button" onclick="addQuestion('text')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M2 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5zm0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/>
+                                </svg>
+                                Tekst/Opis
+                            </button>
+                        </div>
+                        <div class="dropdown-section">
+                            <span class="dropdown-label">Skale ocen</span>
+                            <button type="button" onclick="addQuestion('rating_scale')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                                </svg>
+                                Ocena 1-5 (gwiazdki)
+                            </button>
+                            <button type="button" onclick="addQuestion('rating_10')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M3 0h10a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm1 2v2h2V2H4zm3 0v2h2V2H7zm3 0v2h2V2h-2z"/>
+                                </svg>
+                                Ocena 1-10
+                            </button>
+                            <button type="button" onclick="addQuestion('emoji_rating')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                    <path d="M4.285 9.567a.5.5 0 0 1 .683.183A3.498 3.498 0 0 0 8 11.5a3.498 3.498 0 0 0 3.032-1.75.5.5 0 1 1 .866.5A4.498 4.498 0 0 1 8 12.5a4.498 4.498 0 0 1-3.898-2.25.5.5 0 0 1 .183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"/>
+                                </svg>
+                                Ocena emoji
+                            </button>
+                        </div>
+                        <div class="dropdown-section">
+                            <span class="dropdown-label">Tak/Nie</span>
+                            <button type="button" onclick="addQuestion('yes_no')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                                </svg>
+                                Tak/Nie
+                            </button>
+                            <button type="button" onclick="addQuestion('yes_no_comment')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2.5a2 2 0 0 0-1.6.8L8 14.333 6.1 11.8a2 2 0 0 0-1.6-.8H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12z"/>
+                                </svg>
+                                Tak/Nie + komentarz
+                            </button>
+                        </div>
+                        <div class="dropdown-section">
+                            <span class="dropdown-label">Wybór opcji</span>
+                            <button type="button" onclick="addQuestion('multiple_choice')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                    <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                                </svg>
+                                Wybór jednokrotny
+                            </button>
+                            <button type="button" onclick="addQuestion('checkbox_list')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                                    <path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.235.235 0 0 1 .02-.022z"/>
+                                </svg>
+                                Wybór wielokrotny
+                            </button>
+                        </div>
+                        <div class="dropdown-section">
+                            <span class="dropdown-label">Tekst</span>
+                            <button type="button" onclick="addQuestion('textarea')">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm15 0a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2z"/>
+                                </svg>
+                                Odpowiedź tekstowa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Survey Preview Header -->
+            <div class="preview-header" id="previewHeader">
+                <h1 class="preview-title" id="previewTitle">{{ survey.name }}</h1>
+                <p class="preview-description" id="previewDescription">{{ survey.description or '' }}</p>
+            </div>
+
+            <!-- Questions Container (sortable) -->
+            <div class="questions-container" id="questionsContainer">
+                {% for question in questions %}
+                <div class="question-card" data-question-id="{{ question.id }}" data-question-type="{{ question.question_type }}">
+                    <div class="question-header">
+                        <div class="question-drag-handle">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                            </svg>
+                        </div>
+                        <span class="question-type-label">
+                            {% if question.question_type == 'section_header' %}Nagłówek
+                            {% elif question.question_type == 'text' %}Tekst
+                            {% elif question.question_type == 'rating_scale' %}Ocena 1-5
+                            {% elif question.question_type == 'rating_10' %}Ocena 1-10
+                            {% elif question.question_type == 'emoji_rating' %}Emoji
+                            {% elif question.question_type == 'yes_no' %}Tak/Nie
+                            {% elif question.question_type == 'yes_no_comment' %}Tak/Nie + komentarz
+                            {% elif question.question_type == 'multiple_choice' %}Wybór jednokrotny
+                            {% elif question.question_type == 'checkbox_list' %}Wybór wielokrotny
+                            {% elif question.question_type == 'textarea' %}Odpowiedź tekstowa
+                            {% endif %}
+                        </span>
+                        {% if not question.is_display_only %}
+                        <label class="required-toggle" title="Pytanie wymagane">
+                            <input type="checkbox" class="question-required" {% if question.is_required %}checked{% endif %}>
+                            <span class="required-label">Wymagane</span>
+                        </label>
+                        {% endif %}
+                        <button type="button" class="btn-delete-question" onclick="deleteQuestion(this)">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="question-body">
+                        {% if question.question_type == 'section_header' %}
+                        <input type="text" class="form-input question-content" value="{{ question.content or '' }}"
+                               placeholder="Nagłówek sekcji (np. Sekcja 1: Zamówienia Exclusive)">
+                        {% elif question.question_type == 'text' %}
+                        <textarea class="form-textarea question-content" rows="2"
+                                  placeholder="Tekst opisowy (np. instrukcje dla użytkownika)">{{ question.content or '' }}</textarea>
+                        {% elif question.question_type in ['rating_scale', 'rating_10', 'emoji_rating', 'yes_no', 'yes_no_comment', 'textarea'] %}
+                        <input type="text" class="form-input question-content" value="{{ question.content or '' }}"
+                               placeholder="Treść pytania">
+                        <div class="question-preview">
+                            {% if question.question_type == 'rating_scale' %}
+                            <div class="preview-stars">
+                                <span class="star">&#9733;</span>
+                                <span class="star">&#9733;</span>
+                                <span class="star">&#9733;</span>
+                                <span class="star">&#9733;</span>
+                                <span class="star">&#9733;</span>
+                            </div>
+                            {% elif question.question_type == 'rating_10' %}
+                            <div class="preview-rating-10">
+                                {% for i in range(1, 11) %}
+                                <span class="rating-num">{{ i }}</span>
+                                {% endfor %}
+                            </div>
+                            {% elif question.question_type == 'emoji_rating' %}
+                            <div class="preview-emoji">
+                                <span class="emoji">&#128577;</span>
+                                <span class="emoji">&#128528;</span>
+                                <span class="emoji">&#128578;</span>
+                                <span class="emoji">&#128512;</span>
+                                <span class="emoji">&#129321;</span>
+                            </div>
+                            {% elif question.question_type == 'yes_no' %}
+                            <div class="preview-yes-no">
+                                <span class="btn-preview btn-yes">Tak</span>
+                                <span class="btn-preview btn-no">Nie</span>
+                            </div>
+                            {% elif question.question_type == 'yes_no_comment' %}
+                            <div class="preview-yes-no-comment">
+                                <div class="preview-yes-no">
+                                    <span class="btn-preview btn-yes">Tak</span>
+                                    <span class="btn-preview btn-no">Nie</span>
+                                </div>
+                                <div class="preview-comment-box">+ pole komentarza</div>
+                            </div>
+                            {% elif question.question_type == 'textarea' %}
+                            <div class="preview-textarea">
+                                <div class="textarea-placeholder">Pole tekstowe dla odpowiedzi</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% elif question.question_type in ['multiple_choice', 'checkbox_list'] %}
+                        <input type="text" class="form-input question-content" value="{{ question.content or '' }}"
+                               placeholder="Treść pytania">
+                        <div class="options-editor">
+                            <label>Opcje wyboru:</label>
+                            <div class="options-list">
+                                {% if question.options %}
+                                {% for opt in question.options %}
+                                <div class="option-item">
+                                    <span class="option-marker">{% if question.question_type == 'multiple_choice' %}&#9675;{% else %}&#9744;{% endif %}</span>
+                                    <input type="text" class="form-input option-input" value="{{ opt }}" placeholder="Opcja">
+                                    <button type="button" class="btn-remove-option" onclick="removeOption(this)">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                {% endfor %}
+                                {% endif %}
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline" onclick="addOption(this)">
+                                + Dodaj opcję
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Empty State -->
+            {% if not questions %}
+            <div class="empty-questions" id="emptyQuestions">
+                <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+                </svg>
+                <p>Ankieta jest pusta. Dodaj pierwsze pytanie.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toastContainer" class="toast-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/feedback-builder.js') }}"></script>
+<script>
+    // Initialize builder
+    document.addEventListener('DOMContentLoaded', function() {
+        initFeedbackBuilder({
+            surveyId: {{ survey.id }},
+            csrfToken: '{{ csrf_token() }}',
+            surveyToken: '{{ survey.token }}'
+        });
+    });
+</script>
+{% endblock %}

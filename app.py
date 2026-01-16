@@ -120,6 +120,10 @@ def register_blueprints(app):
     from modules.payments import payments_bp
     app.register_blueprint(payments_bp)
 
+    # Feedback module (ankiety i zbieranie opinii)
+    from modules.feedback import feedback_bp
+    app.register_blueprint(feedback_bp)
+
     # Strona główna - smart redirect
     @app.route('/')
     def index():

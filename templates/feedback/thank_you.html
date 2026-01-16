@@ -1,0 +1,145 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Dziękujemy! - {{ survey.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.thank-you-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: var(--space-6);
+    text-align: center;
+}
+
+.thank-you-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: var(--space-10) var(--space-6);
+    margin-top: var(--space-8);
+}
+
+.success-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--space-6) auto;
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: popIn 0.5s ease;
+}
+
+.success-icon svg {
+    width: 40px;
+    height: 40px;
+    color: white;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.thank-you-title {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-3) 0;
+}
+
+.thank-you-message {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-6) 0;
+    line-height: 1.6;
+}
+
+.survey-name {
+    font-weight: var(--font-semibold);
+    color: var(--primary-color);
+}
+
+.btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-6);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: var(--font-medium);
+    transition: all 0.2s;
+}
+
+.btn-back:hover {
+    background: var(--bg-hover);
+    transform: translateY(-2px);
+}
+
+/* Dark mode */
+[data-theme="dark"] .thank-you-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .success-icon {
+    background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    box-shadow: 0 8px 32px rgba(52, 211, 153, 0.3);
+}
+
+[data-theme="dark"] .thank-you-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .thank-you-message {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .survey-name {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .btn-back {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .btn-back:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="thank-you-page">
+    <div class="thank-you-card">
+        <div class="success-icon">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+                <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+            </svg>
+        </div>
+
+        <h1 class="thank-you-title">Dziękujemy!</h1>
+
+        <p class="thank-you-message">
+            Twoje odpowiedzi w ankiecie <span class="survey-name">{{ survey.name }}</span> zostały zapisane.
+            Doceniamy Twój czas i feedback!
+        </p>
+
+        <a href="{{ url_for('client.dashboard') }}" class="btn-back">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+            </svg>
+            Wróć do panelu
+        </a>
+    </div>
+</div>
+{% endblock %}
