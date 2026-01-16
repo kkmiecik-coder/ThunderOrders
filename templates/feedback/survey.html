@@ -204,6 +204,35 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('surveyForm');
     const surveyToken = '{{ survey.token }}';
 
+    // Logo theme switching
+    function updateLogo() {
+        const theme = document.documentElement.getAttribute('data-theme') || 'light';
+        const lightLogo = document.querySelector('.survey-logo-light');
+        const darkLogo = document.querySelector('.survey-logo-dark');
+        if (lightLogo && darkLogo) {
+            if (theme === 'dark') {
+                lightLogo.style.display = 'none';
+                darkLogo.style.display = 'block';
+            } else {
+                lightLogo.style.display = 'block';
+                darkLogo.style.display = 'none';
+            }
+        }
+    }
+
+    // Run on load
+    updateLogo();
+
+    // Watch for theme changes
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.attributeName === 'data-theme') {
+                updateLogo();
+            }
+        });
+    });
+    observer.observe(document.documentElement, { attributes: true });
+
     // Star rating
     document.querySelectorAll('.rating-stars').forEach(container => {
         const stars = container.querySelectorAll('.star-btn');
