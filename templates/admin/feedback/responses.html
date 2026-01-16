@@ -3,397 +3,30 @@
 {% block title %}Odpowiedzi: {{ survey.name }}{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/feedback-list.css') }}">
-<style>
-/* Responses specific styles */
-.responses-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--space-6);
-    gap: var(--space-4);
-}
-
-.header-info h1 {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-    margin: 0 0 var(--space-2) 0;
-}
-
-.header-info p {
-    color: var(--text-secondary);
-    margin: 0;
-}
-
-.header-actions {
-    display: flex;
-    gap: var(--space-2);
-}
-
-/* Stats Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--space-4);
-    margin-bottom: var(--space-6);
-}
-
-.stat-box {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: var(--space-5);
-}
-
-.stat-box h3 {
-    font-size: var(--text-sm);
-    font-weight: var(--font-medium);
-    color: var(--text-secondary);
-    margin: 0 0 var(--space-2) 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.stat-value {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: var(--text-primary);
-}
-
-.stat-value.stat-rating {
-    color: #ffc107;
-}
-
-/* Question Stats */
-.question-stats {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
-    margin-bottom: var(--space-6);
-}
-
-.question-stat-card {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: var(--space-5);
-}
-
-.question-stat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--space-3);
-}
-
-.question-stat-title {
-    font-size: var(--text-base);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-    margin: 0;
-}
-
-.question-stat-type {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    background: var(--bg-secondary);
-    padding: var(--space-1) var(--space-2);
-    border-radius: 4px;
-}
-
-/* Rating stats */
-.rating-stats {
-    display: flex;
-    align-items: center;
-    gap: var(--space-4);
-}
-
-.rating-average {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
-    color: #ffc107;
-}
-
-.rating-bars {
-    flex: 1;
-}
-
-.rating-bar-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    margin-bottom: var(--space-1);
-}
-
-.rating-bar-label {
-    width: 20px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    text-align: right;
-}
-
-.rating-bar-track {
-    flex: 1;
-    height: 8px;
-    background: var(--bg-secondary);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.rating-bar-fill {
-    height: 100%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 4px;
-    transition: width 0.3s;
-}
-
-.rating-bar-count {
-    width: 30px;
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-}
-
-/* Yes/No stats */
-.yes-no-stats {
-    display: flex;
-    gap: var(--space-4);
-}
-
-.yes-no-stat {
-    flex: 1;
-    text-align: center;
-    padding: var(--space-3);
-    border-radius: 8px;
-}
-
-.yes-no-stat.yes-stat {
-    background: rgba(76, 175, 80, 0.1);
-    border: 1px solid rgba(76, 175, 80, 0.2);
-}
-
-.yes-no-stat.no-stat {
-    background: rgba(244, 67, 54, 0.1);
-    border: 1px solid rgba(244, 67, 54, 0.2);
-}
-
-.yes-no-percent {
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-}
-
-.yes-stat .yes-no-percent { color: var(--success); }
-.no-stat .yes-no-percent { color: var(--error); }
-
-.yes-no-label {
-    font-size: var(--text-sm);
-    color: var(--text-secondary);
-}
-
-/* Choice stats */
-.choice-stats {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.choice-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-}
-
-.choice-label {
-    min-width: 150px;
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-}
-
-.choice-bar-track {
-    flex: 1;
-    height: 24px;
-    background: var(--bg-secondary);
-    border-radius: 6px;
-    overflow: hidden;
-    position: relative;
-}
-
-.choice-bar-fill {
-    height: 100%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 6px;
-    transition: width 0.3s;
-}
-
-.choice-bar-value {
-    position: absolute;
-    right: var(--space-2);
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: var(--text-xs);
-    font-weight: var(--font-semibold);
-    color: var(--text-primary);
-}
-
-/* Text responses */
-.text-responses {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-}
-
-.text-response-item {
-    padding: var(--space-3);
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    line-height: 1.5;
-}
-
-.text-response-meta {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    margin-top: var(--space-1);
-}
-
-/* Responses Table */
-.responses-table-section {
-    background: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.responses-table-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--space-4);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.responses-table-header h2 {
-    font-size: var(--text-lg);
-    font-weight: var(--font-semibold);
-    margin: 0;
-}
-
-/* No responses state */
-.no-responses {
-    text-align: center;
-    padding: var(--space-12) var(--space-6);
-    color: var(--text-secondary);
-}
-
-.no-responses svg {
-    opacity: 0.3;
-    margin-bottom: var(--space-4);
-}
-
-/* Dark Mode */
-[data-theme="dark"] .stat-box {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .stat-box h3 {
-    color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="dark"] .stat-value {
-    color: #ffffff;
-}
-
-[data-theme="dark"] .question-stat-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .question-stat-title {
-    color: #ffffff;
-}
-
-[data-theme="dark"] .question-stat-type {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="dark"] .rating-bar-track {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-[data-theme="dark"] .rating-bar-fill {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-[data-theme="dark"] .yes-no-stat.yes-stat {
-    background: rgba(52, 211, 153, 0.15);
-    border-color: rgba(52, 211, 153, 0.3);
-}
-
-[data-theme="dark"] .yes-no-stat.no-stat {
-    background: rgba(248, 113, 113, 0.15);
-    border-color: rgba(248, 113, 113, 0.3);
-}
-
-[data-theme="dark"] .yes-stat .yes-no-percent { color: #34d399; }
-[data-theme="dark"] .no-stat .yes-no-percent { color: #f87171; }
-
-[data-theme="dark"] .choice-bar-track {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-[data-theme="dark"] .choice-bar-fill {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-[data-theme="dark"] .text-response-item {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.9);
-}
-
-[data-theme="dark"] .responses-table-section {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .responses-table-header {
-    border-bottom-color: rgba(240, 147, 251, 0.1);
-}
-
-[data-theme="dark"] .responses-table-header h2 {
-    color: #ffffff;
-}
-
-@media (max-width: 768px) {
-    .responses-header {
-        flex-direction: column;
-    }
-
-    .stats-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .rating-stats {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
-    .yes-no-stats {
-        flex-direction: column;
-    }
-}
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/feedback-responses.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="feedback-page">
+<div class="responses-page">
     <!-- Header -->
     <div class="responses-header">
-        <div class="header-info">
-            <h1>{{ survey.name }}</h1>
-            <p>Przegląd odpowiedzi na ankietę</p>
+        <div class="header-left">
+            <h1>
+                {{ survey.name }}
+                <span class="status-indicator status-{{ survey.status }}">
+                    {% if survey.status == 'draft' %}
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
+                    Draft
+                    {% elif survey.status == 'active' %}
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
+                    Aktywna
+                    {% elif survey.status == 'closed' %}
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor"><circle cx="4" cy="4" r="4"/></svg>
+                    Zamknięta
+                    {% endif %}
+                </span>
+            </h1>
+            <p class="header-subtitle">Przegląd odpowiedzi na ankietę</p>
         </div>
         <div class="header-actions">
             <a href="{{ url_for('feedback.admin_edit', survey_id=survey.id) }}" class="btn btn-secondary">
@@ -414,186 +47,315 @@
 
     {% if responses %}
     <!-- Stats Overview -->
-    <div class="stats-grid">
-        <div class="stat-box">
-            <h3>Odpowiedzi</h3>
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-icon icon-responses">
+                <svg viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                    <path d="M3 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM3 6a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 6zm0 2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+                </svg>
+            </div>
             <div class="stat-value">{{ responses|length }}</div>
+            <div class="stat-label">Odpowiedzi</div>
         </div>
-        <div class="stat-box">
-            <h3>Pytania</h3>
-            <div class="stat-value">{{ questions|length }}</div>
-        </div>
-        <div class="stat-box">
-            <h3>Status</h3>
-            <div class="stat-value" style="font-size: var(--text-lg);">
-                {% if survey.status == 'draft' %}Draft
-                {% elif survey.status == 'active' %}Aktywna
-                {% elif survey.status == 'closed' %}Zamknięta
-                {% endif %}
+        <div class="stat-card">
+            <div class="stat-icon icon-questions">
+                <svg viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+                </svg>
             </div>
+            <div class="stat-value">{{ questions|rejectattr('is_display_only')|list|length }}</div>
+            <div class="stat-label">Pytań</div>
         </div>
-    </div>
-
-    <!-- Question Statistics -->
-    <div class="question-stats">
-        {% for question in questions %}
-        {% if not question.is_display_only %}
-        <div class="question-stat-card">
-            <div class="question-stat-header">
-                <h3 class="question-stat-title">{{ question.content }}</h3>
-                <span class="question-stat-type">
-                    {% if question.question_type == 'rating_scale' %}Ocena 1-5
-                    {% elif question.question_type == 'rating_10' %}Ocena 1-10
-                    {% elif question.question_type == 'emoji_rating' %}Emoji
-                    {% elif question.question_type == 'yes_no' %}Tak/Nie
-                    {% elif question.question_type == 'yes_no_comment' %}Tak/Nie + komentarz
-                    {% elif question.question_type == 'multiple_choice' %}Wybór jednokrotny
-                    {% elif question.question_type == 'checkbox_list' %}Wybór wielokrotny
-                    {% elif question.question_type == 'textarea' %}Tekst
+        <div class="stat-card">
+            <div class="stat-icon icon-rating">
+                <svg viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                </svg>
+            </div>
+            {% set rating_questions = questions|selectattr('question_type', 'in', ['rating_scale', 'rating_10', 'emoji_rating'])|list %}
+            {% if rating_questions %}
+                {% set total_avg = namespace(sum=0, count=0) %}
+                {% for q in rating_questions %}
+                    {% set avg = q.get_average_rating() %}
+                    {% if avg %}
+                        {% set _ = total_avg.__setattr__('sum', total_avg.sum + avg) %}
+                        {% set _ = total_avg.__setattr__('count', total_avg.count + 1) %}
                     {% endif %}
-                </span>
-            </div>
-
-            {% if question.question_type in ['rating_scale', 'rating_10', 'emoji_rating'] %}
-            <!-- Rating Statistics -->
-            {% set avg = question.get_average_rating() %}
-            {% set max_val = 10 if question.question_type == 'rating_10' else 5 %}
-            <div class="rating-stats">
-                <div class="rating-average">
-                    {% if avg %}{{ "%.1f"|format(avg) }}{% else %}-{% endif %}
-                </div>
-                <div class="rating-bars">
-                    {% for i in range(max_val, 0, -1) %}
-                    {% set count = question.answers.filter_by(answer_value=i|string).count() %}
-                    {% set total = question.answers.count() %}
-                    {% set percent = (count / total * 100) if total > 0 else 0 %}
-                    <div class="rating-bar-row">
-                        <span class="rating-bar-label">{{ i }}</span>
-                        <div class="rating-bar-track">
-                            <div class="rating-bar-fill" style="width: {{ percent }}%"></div>
-                        </div>
-                        <span class="rating-bar-count">{{ count }}</span>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-
-            {% elif question.question_type in ['yes_no', 'yes_no_comment'] %}
-            <!-- Yes/No Statistics -->
-            {% set stats = question.get_yes_no_stats() %}
-            {% if stats %}
-            <div class="yes-no-stats">
-                <div class="yes-no-stat yes-stat">
-                    <div class="yes-no-percent">{{ "%.0f"|format(stats.yes_percent) }}%</div>
-                    <div class="yes-no-label">Tak ({{ stats.yes }})</div>
-                </div>
-                <div class="yes-no-stat no-stat">
-                    <div class="yes-no-percent">{{ "%.0f"|format(stats.no_percent) }}%</div>
-                    <div class="yes-no-label">Nie ({{ stats.no }})</div>
-                </div>
-            </div>
-            {% endif %}
-
-            {% elif question.question_type in ['multiple_choice', 'checkbox_list'] %}
-            <!-- Choice Statistics -->
-            {% set stats = question.get_choice_stats() %}
-            {% if stats %}
-            <div class="choice-stats">
-                {% for item in stats %}
-                <div class="choice-row">
-                    <span class="choice-label">{{ item.option }}</span>
-                    <div class="choice-bar-track">
-                        <div class="choice-bar-fill" style="width: {{ item.percent }}%"></div>
-                        <span class="choice-bar-value">{{ item.count }} ({{ "%.0f"|format(item.percent) }}%)</span>
-                    </div>
-                </div>
                 {% endfor %}
-            </div>
+                <div class="stat-value">{% if total_avg.count > 0 %}{{ "%.1f"|format(total_avg.sum / total_avg.count) }}{% else %}-{% endif %}</div>
+            {% else %}
+                <div class="stat-value">-</div>
             {% endif %}
-
-            {% elif question.question_type == 'textarea' %}
-            <!-- Text Responses -->
-            <div class="text-responses">
-                {% for answer in question.answers.limit(5).all() %}
-                {% if answer.answer_text %}
-                <div class="text-response-item">
-                    {{ answer.answer_text }}
-                    <div class="text-response-meta">
-                        {% if not survey.is_anonymous and answer.response.user %}
-                        {{ answer.response.user.full_name or answer.response.user.email }} -
-                        {% endif %}
-                        {{ answer.response.submitted_at.strftime('%d.%m.%Y %H:%M') }}
-                    </div>
-                </div>
-                {% endif %}
-                {% endfor %}
-                {% if question.answers.count() > 5 %}
-                <p style="color: var(--text-secondary); font-size: var(--text-sm);">
-                    ... i {{ question.answers.count() - 5 }} więcej odpowiedzi
-                </p>
-                {% endif %}
-            </div>
-            {% endif %}
+            <div class="stat-label">Średnia ocena</div>
         </div>
-        {% endif %}
-        {% endfor %}
+        <div class="stat-card">
+            <div class="stat-icon icon-completion">
+                <svg viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                </svg>
+            </div>
+            <div class="stat-value">100%</div>
+            <div class="stat-label">Ukończone</div>
+        </div>
     </div>
 
-    <!-- Responses Table -->
-    <div class="responses-table-section">
-        <div class="responses-table-header">
-            <h2>Wszystkie odpowiedzi ({{ responses|length }})</h2>
+    <!-- Tabs -->
+    <div class="tabs-container">
+        <div class="tabs-nav">
+            <button class="tab-btn active" data-tab="statistics">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                </svg>
+                Statystyki
+            </button>
+            <button class="tab-btn" data-tab="responses">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                </svg>
+                Indywidualne odpowiedzi ({{ responses|length }})
+            </button>
         </div>
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Data</th>
-                        {% if not survey.is_anonymous %}
-                        <th>Użytkownik</th>
+
+        <!-- Statistics Tab -->
+        <div class="tab-content active" id="tab-statistics">
+            <div class="stats-section">
+                {% for question in questions %}
+                {% if not question.is_display_only %}
+                <div class="question-stat-card">
+                    <div class="question-stat-header">
+                        <h3 class="question-stat-title">{{ question.content }}</h3>
+                        <span class="question-stat-badge">
+                            {% if question.question_type == 'rating_scale' %}⭐ Ocena 1-5
+                            {% elif question.question_type == 'rating_10' %}🔢 Ocena 1-10
+                            {% elif question.question_type == 'emoji_rating' %}😊 Emoji
+                            {% elif question.question_type == 'yes_no' %}✓ Tak/Nie
+                            {% elif question.question_type == 'yes_no_comment' %}✓ Tak/Nie + komentarz
+                            {% elif question.question_type == 'multiple_choice' %}○ Wybór jednokrotny
+                            {% elif question.question_type == 'checkbox_list' %}☑ Wybór wielokrotny
+                            {% elif question.question_type == 'textarea' %}📝 Tekst
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="question-stat-body">
+                        {% if question.question_type in ['rating_scale', 'rating_10', 'emoji_rating'] %}
+                        <!-- Rating Statistics -->
+                        {% set avg = question.get_average_rating() %}
+                        {% set max_val = 10 if question.question_type == 'rating_10' else 5 %}
+                        <div class="rating-display">
+                            <div class="rating-big-number">
+                                <div class="number">{% if avg %}{{ "%.1f"|format(avg) }}{% else %}-{% endif %}</div>
+                                <div class="label">średnia z {{ max_val }}</div>
+                            </div>
+                            <div class="rating-bars-container">
+                                {% for i in range(max_val, 0, -1) %}
+                                {% set count = question.answers.filter_by(answer_value=i|string).count() %}
+                                {% set total = question.answers.count() %}
+                                {% set percent = (count / total * 100) if total > 0 else 0 %}
+                                <div class="rating-bar-item">
+                                    <span class="rating-bar-label">{{ i }}</span>
+                                    <div class="rating-bar-track">
+                                        <div class="rating-bar-fill" style="width: {{ percent }}%"></div>
+                                    </div>
+                                    <span class="rating-bar-count">{{ count }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        {% elif question.question_type in ['yes_no', 'yes_no_comment'] %}
+                        <!-- Yes/No Statistics -->
+                        {% set stats = question.get_yes_no_stats() %}
+                        {% if stats %}
+                        <div class="yesno-display">
+                            <div class="yesno-item yes-item">
+                                <div class="percent">{{ "%.0f"|format(stats.yes_percent) }}%</div>
+                                <div class="count">Tak ({{ stats.yes }} głosów)</div>
+                            </div>
+                            <div class="yesno-item no-item">
+                                <div class="percent">{{ "%.0f"|format(stats.no_percent) }}%</div>
+                                <div class="count">Nie ({{ stats.no }} głosów)</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <p style="color: var(--text-secondary); text-align: center;">Brak odpowiedzi</p>
                         {% endif %}
-                        {% for q in questions if not q.is_display_only %}
-                        <th style="max-width: 200px;">{{ q.content[:30] }}{% if q.content|length > 30 %}...{% endif %}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for response in responses %}
-                    <tr>
-                        <td>
-                            <span class="date-cell">{{ response.submitted_at.strftime('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ response.submitted_at.strftime('%H:%M') }}</span>
-                        </td>
-                        {% if not survey.is_anonymous %}
-                        <td>{{ response.respondent_name }}</td>
+
+                        {% elif question.question_type in ['multiple_choice', 'checkbox_list'] %}
+                        <!-- Choice Statistics -->
+                        {% set stats = question.get_choice_stats() %}
+                        {% if stats %}
+                        <div class="choice-display">
+                            {% for item in stats %}
+                            <div class="choice-item">
+                                <span class="choice-label">{{ item.option }}</span>
+                                <div class="choice-bar-wrapper">
+                                    <div class="choice-bar-track">
+                                        <div class="choice-bar-fill" style="width: {{ item.percent }}%">
+                                            <span>{{ "%.0f"|format(item.percent) }}%</span>
+                                        </div>
+                                    </div>
+                                    <span class="choice-count">{{ item.count }} głosów</span>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p style="color: var(--text-secondary); text-align: center;">Brak odpowiedzi</p>
                         {% endif %}
-                        {% for q in questions if not q.is_display_only %}
-                        {% set answer = response.answers.filter_by(question_id=q.id).first() %}
-                        <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
-                            {% if answer %}{{ answer.display_value }}{% else %}-{% endif %}
-                        </td>
-                        {% endfor %}
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+
+                        {% elif question.question_type == 'textarea' %}
+                        <!-- Text Responses -->
+                        <div class="text-responses-display">
+                            {% for answer in question.answers.limit(5).all() %}
+                            {% if answer.answer_text %}
+                            <div class="text-response-card">
+                                <div class="text-response-content">{{ answer.answer_text }}</div>
+                                <div class="text-response-meta">
+                                    {% if not survey.is_anonymous and answer.response.user %}
+                                    <span class="user-avatar">{{ answer.response.user.full_name[0] if answer.response.user.full_name else answer.response.user.email[0] }}</span>
+                                    <span>{{ answer.response.user.full_name or answer.response.user.email }}</span>
+                                    <span>•</span>
+                                    {% endif %}
+                                    <span>{{ answer.response.submitted_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            {% if question.answers.count() > 5 %}
+                            <div class="more-responses-link">
+                                ... i {{ question.answers.count() - 5 }} więcej odpowiedzi
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Individual Responses Tab -->
+        <div class="tab-content" id="tab-responses">
+            <div class="responses-list">
+                {% for response in responses %}
+                <div class="response-card">
+                    <div class="response-card-header">
+                        <div class="response-user">
+                            <div class="response-avatar">
+                                {% if not survey.is_anonymous and response.user %}
+                                {{ response.user.full_name[0] if response.user.full_name else response.user.email[0] }}
+                                {% else %}
+                                #{{ loop.index }}
+                                {% endif %}
+                            </div>
+                            <div class="response-user-info">
+                                <h4>
+                                    {% if not survey.is_anonymous and response.user %}
+                                    {{ response.user.full_name or response.user.email }}
+                                    {% else %}
+                                    Odpowiedź #{{ loop.index }}
+                                    {% endif %}
+                                </h4>
+                                <p>
+                                    {% if not survey.is_anonymous and response.user and response.user.email %}
+                                    {{ response.user.email }}
+                                    {% else %}
+                                    Anonimowa odpowiedź
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="response-meta">
+                            <div class="response-date">{{ response.submitted_at.strftime('%d.%m.%Y') }}</div>
+                            <div class="response-time">{{ response.submitted_at.strftime('%H:%M') }}</div>
+                        </div>
+                    </div>
+                    <div class="response-card-body">
+                        <div class="response-answers">
+                            {% for q in questions if not q.is_display_only %}
+                            {% set answer = response.answers.filter_by(question_id=q.id).first() %}
+                            {% if answer %}
+                            <div class="answer-item">
+                                <div class="answer-question">{{ q.content }}</div>
+                                <div class="answer-value {% if q.question_type in ['rating_scale', 'rating_10', 'emoji_rating'] %}rating-answer{% elif q.question_type in ['yes_no', 'yes_no_comment'] and answer.answer_value == 'yes' %}yes-answer{% elif q.question_type in ['yes_no', 'yes_no_comment'] and answer.answer_value == 'no' %}no-answer{% endif %}">
+                                    {% if q.question_type in ['rating_scale', 'emoji_rating'] %}
+                                    <span class="stars">
+                                        {% for i in range(1, 6) %}
+                                        <span class="star{% if i > (answer.answer_value|int) %} empty{% endif %}">★</span>
+                                        {% endfor %}
+                                    </span>
+                                    {{ answer.answer_value }}/5
+                                    {% elif q.question_type == 'rating_10' %}
+                                    {{ answer.answer_value }}/10
+                                    {% elif q.question_type in ['yes_no', 'yes_no_comment'] %}
+                                    {% if answer.answer_value == 'yes' %}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>
+                                    Tak
+                                    {% else %}
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                                    Nie
+                                    {% endif %}
+                                    {% if answer.answer_text %}
+                                    <br><small style="color: var(--text-secondary); font-weight: normal;">{{ answer.answer_text }}</small>
+                                    {% endif %}
+                                    {% else %}
+                                    {{ answer.display_value }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
         </div>
     </div>
 
     {% else %}
     <!-- No Responses -->
-    <div class="no-responses">
-        <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
-        </svg>
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+                <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+            </svg>
+        </div>
         <h3>Brak odpowiedzi</h3>
         <p>Nikt jeszcze nie wypełnił tej ankiety.</p>
         {% if survey.status == 'draft' %}
-        <p style="margin-top: var(--space-2);">
-            <a href="{{ url_for('feedback.admin_edit', survey_id=survey.id) }}">Aktywuj ankietę</a>, aby zbierać odpowiedzi.
-        </p>
+        <a href="{{ url_for('feedback.admin_edit', survey_id=survey.id) }}" class="btn btn-primary" style="margin-top: var(--space-4);">
+            Aktywuj ankietę
+        </a>
         {% endif %}
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab switching
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const tabId = this.getAttribute('data-tab');
+
+            // Remove active class from all
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Add active class to clicked
+            this.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+        });
+    });
+});
+</script>
 {% endblock %}
