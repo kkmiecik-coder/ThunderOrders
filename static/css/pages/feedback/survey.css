@@ -3,10 +3,37 @@
  * Styles for the public survey filling page
  */
 
+/* Survey Wrapper - Fullscreen layout without sidebar */
+.survey-wrapper {
+    min-height: 100vh;
+    background: var(--bg-secondary);
+    padding: var(--space-6) var(--space-4);
+}
+
+/* Logo Header */
+.survey-logo-header {
+    text-align: center;
+    margin-bottom: var(--space-6);
+}
+
+.logo-link {
+    display: inline-block;
+    transition: transform 0.2s;
+}
+
+.logo-link:hover {
+    transform: scale(1.02);
+}
+
+.survey-logo {
+    height: 40px;
+    width: auto;
+}
+
 .survey-page {
     max-width: 700px;
     margin: 0 auto;
-    padding: var(--space-6);
+    padding: 0;
 }
 
 /* Survey Header */
@@ -485,6 +512,14 @@
 /* ==========================================
    DARK MODE
    ========================================== */
+
+[data-theme="dark"] .survey-wrapper {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+}
+
+[data-theme="dark"] .survey-logo {
+    filter: brightness(1.1);
+}
 
 [data-theme="dark"] .survey-page {
     background: transparent;

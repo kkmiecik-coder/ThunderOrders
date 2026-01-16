@@ -1,4 +1,4 @@
-{% extends "client/base_client.html" %}
+{% extends "base.html" %}
 
 {% block title %}{{ survey.name }}{% endblock %}
 
@@ -6,182 +6,191 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/feedback/survey.css') }}">
 {% endblock %}
 
-{% block content %}
-<div class="survey-page">
-    <!-- Survey Header -->
-    <div class="survey-header">
-        <h1 class="survey-title">{{ survey.name }}</h1>
-        {% if survey.description %}
-        <p class="survey-description">{{ survey.description }}</p>
-        {% endif %}
+{% block body_content %}
+<div class="survey-wrapper">
+    <!-- Logo Header -->
+    <div class="survey-logo-header">
+        <a href="{{ url_for('client.dashboard') }}" class="logo-link">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="survey-logo">
+        </a>
     </div>
 
-    <!-- Survey Form -->
-    <form id="surveyForm" class="survey-form">
-        {% for question in questions %}
-        <div class="question-block" data-question-id="{{ question.id }}" data-question-type="{{ question.question_type }}" {% if question.is_required %}data-required="true"{% endif %}>
-
-            {% if question.question_type == 'section_header' %}
-            <!-- Section Header -->
-            <h2 class="section-header">{{ question.content }}</h2>
-
-            {% elif question.question_type == 'text' %}
-            <!-- Text/Description -->
-            <p class="section-text">{{ question.content }}</p>
-
-            {% elif question.question_type == 'rating_scale' %}
-            <!-- Rating 1-5 Stars -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="rating-stars" data-value="">
-                    <button type="button" class="star-btn" data-value="1" title="1 - Bardzo źle">
-                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-                        </svg>
-                    </button>
-                    <button type="button" class="star-btn" data-value="2" title="2 - Źle">
-                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-                        </svg>
-                    </button>
-                    <button type="button" class="star-btn" data-value="3" title="3 - Średnio">
-                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-                        </svg>
-                    </button>
-                    <button type="button" class="star-btn" data-value="4" title="4 - Dobrze">
-                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-                        </svg>
-                    </button>
-                    <button type="button" class="star-btn" data-value="5" title="5 - Świetnie">
-                        <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            {% elif question.question_type == 'rating_10' %}
-            <!-- Rating 1-10 -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="rating-numbers" data-value="">
-                    {% for i in range(1, 11) %}
-                    <button type="button" class="num-btn" data-value="{{ i }}">{{ i }}</button>
-                    {% endfor %}
-                </div>
-            </div>
-
-            {% elif question.question_type == 'emoji_rating' %}
-            <!-- Emoji Rating -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="rating-emoji" data-value="">
-                    <button type="button" class="emoji-btn" data-value="1" title="Bardzo źle">&#128577;</button>
-                    <button type="button" class="emoji-btn" data-value="2" title="Źle">&#128528;</button>
-                    <button type="button" class="emoji-btn" data-value="3" title="Średnio">&#128578;</button>
-                    <button type="button" class="emoji-btn" data-value="4" title="Dobrze">&#128512;</button>
-                    <button type="button" class="emoji-btn" data-value="5" title="Świetnie">&#129321;</button>
-                </div>
-            </div>
-
-            {% elif question.question_type == 'yes_no' %}
-            <!-- Yes/No -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="yes-no-buttons" data-value="">
-                    <button type="button" class="yn-btn yn-yes" data-value="yes">Tak</button>
-                    <button type="button" class="yn-btn yn-no" data-value="no">Nie</button>
-                </div>
-            </div>
-
-            {% elif question.question_type == 'yes_no_comment' %}
-            <!-- Yes/No + Comment -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="yes-no-buttons" data-value="">
-                    <button type="button" class="yn-btn yn-yes" data-value="yes">Tak</button>
-                    <button type="button" class="yn-btn yn-no" data-value="no">Nie</button>
-                </div>
-                <textarea class="comment-field" placeholder="Dodaj komentarz (opcjonalnie)..." rows="3"></textarea>
-            </div>
-
-            {% elif question.question_type == 'multiple_choice' %}
-            <!-- Multiple Choice (Single Select) -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="options-list radio-list">
-                    {% for option in question.options %}
-                    <label class="option-item">
-                        <input type="radio" name="q_{{ question.id }}" value="{{ option }}">
-                        <span class="option-marker"></span>
-                        <span class="option-text">{{ option }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-
-            {% elif question.question_type == 'checkbox_list' %}
-            <!-- Checkbox List (Multi Select) -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <div class="options-list checkbox-list">
-                    {% for option in question.options %}
-                    <label class="option-item">
-                        <input type="checkbox" name="q_{{ question.id }}" value="{{ option }}">
-                        <span class="option-marker"></span>
-                        <span class="option-text">{{ option }}</span>
-                    </label>
-                    {% endfor %}
-                </div>
-            </div>
-
-            {% elif question.question_type == 'textarea' %}
-            <!-- Textarea -->
-            <div class="question-content">
-                <label class="question-label">
-                    {{ question.content }}
-                    {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
-                </label>
-                <textarea class="answer-textarea" placeholder="Twoja odpowiedź..." rows="4"></textarea>
-            </div>
+    <div class="survey-page">
+        <!-- Survey Header -->
+        <div class="survey-header">
+            <h1 class="survey-title">{{ survey.name }}</h1>
+            {% if survey.description %}
+            <p class="survey-description">{{ survey.description }}</p>
             {% endif %}
-
         </div>
-        {% endfor %}
 
-        <!-- Submit Button -->
-        <div class="survey-actions">
-            <button type="submit" class="btn btn-primary btn-submit">
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
-                </svg>
-                Wyślij odpowiedzi
-            </button>
-        </div>
-    </form>
+        <!-- Survey Form -->
+        <form id="surveyForm" class="survey-form">
+            {% for question in questions %}
+            <div class="question-block" data-question-id="{{ question.id }}" data-question-type="{{ question.question_type }}" {% if question.is_required %}data-required="true"{% endif %}>
+
+                {% if question.question_type == 'section_header' %}
+                <!-- Section Header -->
+                <h2 class="section-header">{{ question.content }}</h2>
+
+                {% elif question.question_type == 'text' %}
+                <!-- Text/Description -->
+                <p class="section-text">{{ question.content }}</p>
+
+                {% elif question.question_type == 'rating_scale' %}
+                <!-- Rating 1-5 Stars -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="rating-stars" data-value="">
+                        <button type="button" class="star-btn" data-value="1" title="1 - Bardzo źle">
+                            <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="star-btn" data-value="2" title="2 - Źle">
+                            <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="star-btn" data-value="3" title="3 - Średnio">
+                            <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="star-btn" data-value="4" title="4 - Dobrze">
+                            <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                            </svg>
+                        </button>
+                        <button type="button" class="star-btn" data-value="5" title="5 - Świetnie">
+                            <svg width="32" height="32" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M3.612 15.443c-.386.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.36.79-.746.592L8 13.187l-4.389 2.256z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                {% elif question.question_type == 'rating_10' %}
+                <!-- Rating 1-10 -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="rating-numbers" data-value="">
+                        {% for i in range(1, 11) %}
+                        <button type="button" class="num-btn" data-value="{{ i }}">{{ i }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% elif question.question_type == 'emoji_rating' %}
+                <!-- Emoji Rating -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="rating-emoji" data-value="">
+                        <button type="button" class="emoji-btn" data-value="1" title="Bardzo źle">&#128577;</button>
+                        <button type="button" class="emoji-btn" data-value="2" title="Źle">&#128528;</button>
+                        <button type="button" class="emoji-btn" data-value="3" title="Średnio">&#128578;</button>
+                        <button type="button" class="emoji-btn" data-value="4" title="Dobrze">&#128512;</button>
+                        <button type="button" class="emoji-btn" data-value="5" title="Świetnie">&#129321;</button>
+                    </div>
+                </div>
+
+                {% elif question.question_type == 'yes_no' %}
+                <!-- Yes/No -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="yes-no-buttons" data-value="">
+                        <button type="button" class="yn-btn yn-yes" data-value="yes">Tak</button>
+                        <button type="button" class="yn-btn yn-no" data-value="no">Nie</button>
+                    </div>
+                </div>
+
+                {% elif question.question_type == 'yes_no_comment' %}
+                <!-- Yes/No + Comment -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="yes-no-buttons" data-value="">
+                        <button type="button" class="yn-btn yn-yes" data-value="yes">Tak</button>
+                        <button type="button" class="yn-btn yn-no" data-value="no">Nie</button>
+                    </div>
+                    <textarea class="comment-field" placeholder="Dodaj komentarz (opcjonalnie)..." rows="3"></textarea>
+                </div>
+
+                {% elif question.question_type == 'multiple_choice' %}
+                <!-- Multiple Choice (Single Select) -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="options-list radio-list">
+                        {% for option in question.options %}
+                        <label class="option-item">
+                            <input type="radio" name="q_{{ question.id }}" value="{{ option }}">
+                            <span class="option-marker"></span>
+                            <span class="option-text">{{ option }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% elif question.question_type == 'checkbox_list' %}
+                <!-- Checkbox List (Multi Select) -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <div class="options-list checkbox-list">
+                        {% for option in question.options %}
+                        <label class="option-item">
+                            <input type="checkbox" name="q_{{ question.id }}" value="{{ option }}">
+                            <span class="option-marker"></span>
+                            <span class="option-text">{{ option }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% elif question.question_type == 'textarea' %}
+                <!-- Textarea -->
+                <div class="question-content">
+                    <label class="question-label">
+                        {{ question.content }}
+                        {% if question.is_required %}<span class="required-mark">*</span>{% endif %}
+                    </label>
+                    <textarea class="answer-textarea" placeholder="Twoja odpowiedź..." rows="4"></textarea>
+                </div>
+                {% endif %}
+
+            </div>
+            {% endfor %}
+
+            <!-- Submit Button -->
+            <div class="survey-actions">
+                <button type="submit" class="btn btn-primary btn-submit">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338a.5.5 0 0 0-.154-.154l-.338-.215 7.494-7.494 1.178-.471-.47 1.178Z"/>
+                    </svg>
+                    Wyślij odpowiedzi
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <!-- Toast Container -->
