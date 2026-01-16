@@ -30,6 +30,15 @@
     width: auto;
 }
 
+/* Logo theme switching */
+.survey-logo-light {
+    display: block;
+}
+
+.survey-logo-dark {
+    display: none;
+}
+
 .survey-page {
     max-width: 700px;
     margin: 0 auto;
@@ -517,8 +526,13 @@
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
 }
 
-[data-theme="dark"] .survey-logo {
-    filter: brightness(1.1);
+/* Logo switching in dark mode */
+[data-theme="dark"] .survey-logo-light {
+    display: none;
+}
+
+[data-theme="dark"] .survey-logo-dark {
+    display: block;
 }
 
 [data-theme="dark"] .survey-page {
