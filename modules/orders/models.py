@@ -177,17 +177,6 @@ class Order(db.Model):
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
     payment_method = db.Column(db.String(50), nullable=True)  # przelew, pobranie, gotowka, blik
 
-    # Dual Payment Proof System (order + shipping)
-    payment_proof_order_file = db.Column(db.String(255), nullable=True)  # Dowód za zamówienie (produkty)
-    payment_proof_order_uploaded_at = db.Column(db.DateTime, nullable=True)
-    payment_proof_order_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
-    payment_proof_order_rejection_reason = db.Column(db.Text, nullable=True)
-
-    payment_proof_shipping_file = db.Column(db.String(255), nullable=True)  # Dowód za wysyłkę
-    payment_proof_shipping_uploaded_at = db.Column(db.DateTime, nullable=True)
-    payment_proof_shipping_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
-    payment_proof_shipping_rejection_reason = db.Column(db.Text, nullable=True)
-
     # Exclusive order fields
     is_exclusive = db.Column(db.Boolean, default=False)
     exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='SET NULL'), nullable=True)
@@ -599,272 +588,6 @@ class Order(db.Model):
         self.total_amount = new_total
         return new_total
 
-    # ===================================
-    # Payment Proof Properties - NEW SYSTEM
-    # ===================================
-
-    # --- ORDER PROOF (produkty) ---
-    @property
-    def has_payment_proof_order(self):
-        """Czy wgrano dowód wpłaty za zamówienie"""
-        return self.payment_proof_order_file is not None
-
-    @property
-    def payment_proof_order_filename(self):
-        """Nazwa pliku dowodu ORDER (bez ścieżki)"""
-        if not self.payment_proof_order_file:
-            return None
-        return self.payment_proof_order_file.split('/')[-1]
-
-    @property
-    def payment_proof_order_url(self):
-        """URL do podglądu dowodu ORDER"""
-        if not self.payment_proof_order_file:
-            return None
-        return f'/admin/orders/{self.id}/payment-proof-order/{self.payment_proof_order_filename}'
-
-    @property
-    def can_upload_payment_proof_order(self):
-        """Czy można wgrać dowód ORDER (brak lub odrzucony)"""
-        return self.payment_proof_order_status is None or self.payment_proof_order_status == 'rejected'
-
-    @property
-    def payment_proof_order_is_pending(self):
-        """Czy dowód ORDER oczekuje na weryfikację"""
-        return self.payment_proof_order_status == 'pending'
-
-    @property
-    def payment_proof_order_is_approved(self):
-        """Czy dowód ORDER zaakceptowany"""
-        return self.payment_proof_order_status == 'approved'
-
-    @property
-    def payment_proof_order_is_rejected(self):
-        """Czy dowód ORDER odrzucony"""
-        return self.payment_proof_order_status == 'rejected'
-
-    # --- SHIPPING PROOF (wysyłka) ---
-    @property
-    def has_payment_proof_shipping(self):
-        """Czy wgrano dowód wpłaty za wysyłkę"""
-        return self.payment_proof_shipping_file is not None
-
-    @property
-    def payment_proof_shipping_filename(self):
-        """Nazwa pliku dowodu SHIPPING (bez ścieżki)"""
-        if not self.payment_proof_shipping_file:
-            return None
-        return self.payment_proof_shipping_file.split('/')[-1]
-
-    @property
-    def payment_proof_shipping_url(self):
-        """URL do podglądu dowodu SHIPPING"""
-        if not self.payment_proof_shipping_file:
-            return None
-        return f'/admin/orders/{self.id}/payment-proof-shipping/{self.payment_proof_shipping_filename}'
-
-    @property
-    def can_upload_payment_proof_shipping(self):
-        """
-        Czy można wgrać dowód SHIPPING (brak lub odrzucony).
-        Wymaga kwoty wysyłki > 0.
-        """
-        # Musi być kwota > 0
-        if not self.shipping_cost or self.shipping_cost <= 0:
-            return False
-
-        # Globalna blokada uploadu
-        if self.is_payment_proof_upload_disabled:
-            return False
-
-        # Status musi być None lub rejected
-        return self.payment_proof_shipping_status is None or self.payment_proof_shipping_status == 'rejected'
-
-    @property
-    def payment_proof_shipping_is_pending(self):
-        """Czy dowód SHIPPING oczekuje na weryfikację"""
-        return self.payment_proof_shipping_status == 'pending'
-
-    @property
-    def payment_proof_shipping_is_approved(self):
-        """Czy dowód SHIPPING zaakceptowany"""
-        return self.payment_proof_shipping_status == 'approved'
-
-    @property
-    def payment_proof_shipping_is_rejected(self):
-        """Czy dowód SHIPPING odrzucony"""
-        return self.payment_proof_shipping_status == 'rejected'
-
-    # ===================================
-    # Icon Status Properties (dla list zamówień)
-    # ===================================
-
-    @property
-    def order_payment_icon_status(self):
-        """
-        Status ikony płatności za zamówienie dla list zamówień.
-        Zwraca: {'status': str, 'color': str, 'tooltip': str}
-
-        Statusy:
-        - 'none' (szary) - brak dowodu
-        - 'pending' (pomarańczowy) - czeka na potwierdzenie
-        - 'approved' (zielony) - wpłata potwierdzona
-        - 'rejected' (fioletowo-czerwony) - odrzucone potwierdzenie
-        - 'error' (czerwony) - błąd
-        """
-        if self.payment_proof_order_is_approved:
-            return {
-                'status': 'approved',
-                'color': '#4CAF50',
-                'tooltip': 'Wpłata za zamówienie potwierdzona'
-            }
-        elif self.payment_proof_order_is_rejected:
-            return {
-                'status': 'rejected',
-                'color': '#f5576c',
-                'tooltip': f'Dowód wpłaty odrzucony: {self.payment_proof_order_rejection_reason or "Brak powodu"}'
-            }
-        elif self.payment_proof_order_is_pending:
-            return {
-                'status': 'pending',
-                'color': '#FF9800',
-                'tooltip': 'Dowód wpłaty czeka na potwierdzenie'
-            }
-        else:
-            return {
-                'status': 'none',
-                'color': '#9E9E9E',
-                'tooltip': 'Brak dowodu wpłaty za zamówienie'
-            }
-
-    @property
-    def shipping_payment_icon_status(self):
-        """
-        Status ikony dostawy + płatności za wysyłkę dla list zamówień.
-        Zwraca: {'status': str, 'color': str, 'tooltip': str, 'tracking': str, 'shipping_request': ShippingRequest|None}
-
-        Statusy:
-        - 'none' (szary) - brak zlecenia wysyłki
-        - 'awaiting_price' (żółty) - ma zlecenie, brak kwoty wysyłki
-        - 'awaiting_payment' (pomarańczowy) - ma wycenę, brak dowodu wpłaty
-        - 'awaiting_confirmation' (fioletowy) - dowód wgrany, czeka na weryfikację admina
-        - 'paid' (niebieski) - wpłata potwierdzona, czeka na wysłanie
-        - 'shipped' (zielony) - ma numer tracking
-        - 'rejected' (czerwony) - dowód wpłaty odrzucony
-        """
-        sr = self.shipping_request
-
-        # Brak zlecenia wysyłki - szara ikona
-        if not sr:
-            return {
-                'status': 'none',
-                'color': '#9E9E9E',
-                'tooltip': 'Brak zlecenia wysyłki',
-                'tracking': None,
-                'shipping_request': None
-            }
-
-        # Ma zlecenie wysyłki
-        tracking = sr.tracking_number
-        tooltip = f'Zlecenie: {sr.request_number}'
-
-        # Dodaj info o innych zamówieniach w tym samym zleceniu
-        other_orders = self.shipping_request_other_orders
-        if other_orders:
-            other_nums = ', '.join([o.order_number for o in other_orders[:3]])
-            if len(other_orders) > 3:
-                other_nums += f' +{len(other_orders) - 3}'
-            tooltip += f' | Razem z: {other_nums}'
-
-        # ZIELONY: Ma numer tracking - wysłane
-        if tracking:
-            tooltip += f' | Nr przesyłki: {tracking}'
-            return {
-                'status': 'shipped',
-                'color': '#4CAF50',
-                'tooltip': tooltip,
-                'tracking': tracking,
-                'shipping_request': sr
-            }
-
-        # CZERWONY: Dowód wpłaty odrzucony
-        if sr.payment_proof_is_rejected:
-            tooltip += ' | Dowód odrzucony'
-            return {
-                'status': 'rejected',
-                'color': '#f5576c',
-                'tooltip': tooltip,
-                'tracking': tracking,
-                'shipping_request': sr
-            }
-
-        # Sprawdź czy jest wycena
-        has_price = sr.total_shipping_cost and sr.total_shipping_cost > 0
-
-        if has_price:
-            tooltip += f' | Koszt: {sr.total_shipping_cost:.2f} zł'
-
-            # Sprawdź status dowodu wpłaty
-            proof_status = sr.payment_proof_status
-
-            # NIEBIESKI: Wpłata potwierdzona, czeka na wysłanie
-            if proof_status == 'approved':
-                return {
-                    'status': 'paid',
-                    'color': '#3B82F6',
-                    'tooltip': tooltip + ' | Opłacone, czeka na wysłanie',
-                    'tracking': tracking,
-                    'shipping_request': sr
-                }
-
-            # FIOLETOWY: Dowód wgrany, czeka na weryfikację
-            if proof_status == 'pending' and sr.payment_proof_file:
-                return {
-                    'status': 'awaiting_confirmation',
-                    'color': '#8B5CF6',
-                    'tooltip': tooltip + ' | Oczekuje na potwierdzenie wpłaty',
-                    'tracking': tracking,
-                    'shipping_request': sr
-                }
-
-            # POMARAŃCZOWY: Ma wycenę, brak dowodu wpłaty
-            return {
-                'status': 'awaiting_payment',
-                'color': '#FF9800',
-                'tooltip': tooltip + ' | Czeka na wpłatę',
-                'tracking': tracking,
-                'shipping_request': sr
-            }
-
-        # ŻÓŁTY: Ma zlecenie, brak wyceny
-        tooltip += ' | Oczekuje na wycenę'
-        return {
-            'status': 'awaiting_price',
-            'color': '#FFC107',
-            'tooltip': tooltip,
-            'tracking': tracking,
-            'shipping_request': sr
-        }
-
-    # --- SHARED ---
-    @property
-    def is_payment_proof_upload_disabled(self):
-        """
-        Czy upload dowodu wpłaty jest zablokowany dla danego statusu zamówienia.
-        Lista zablokowanych statusów jest konfigurowana w Ustawienia > Sposoby płatności.
-        Dotyczy OBUWAŻNE typy dowodów (ORDER i SHIPPING).
-        """
-        from modules.auth.models import Settings
-
-        # get_value już parsuje JSON dla typu 'json', więc dostajemy listę
-        disabled_statuses = Settings.get_value('payment_proof_disabled_statuses', [])
-
-        # Upewnij się że to lista
-        if not isinstance(disabled_statuses, list):
-            disabled_statuses = []
-
-        return self.status in disabled_statuses
-
     # --- SHIPPING REQUEST INTEGRATION ---
     @property
     def shipping_request(self):
@@ -1233,13 +956,6 @@ class ShippingRequest(db.Model):
     # Financial
     total_shipping_cost = db.Column(db.Numeric(10, 2), nullable=True)  # Total shipping cost
 
-    # Payment proof for shipping
-    payment_method = db.Column(db.String(100), nullable=True)  # Selected payment method for shipping
-    payment_proof_file = db.Column(db.String(255), nullable=True)
-    payment_proof_uploaded_at = db.Column(db.DateTime, nullable=True)
-    payment_proof_status = db.Column(db.String(20), nullable=True)  # pending, approved, rejected
-    payment_proof_rejection_reason = db.Column(db.Text, nullable=True)
-
     # Tracking
     tracking_number = db.Column(db.String(100), nullable=True)
     courier = db.Column(db.String(50), nullable=True)
@@ -1291,7 +1007,6 @@ class ShippingRequest(db.Model):
         Cancellation is allowed only when:
         - Status is initial (czeka_na_wycene)
         - No shipping cost has been set (no admin quote)
-        - No payment proof has been uploaded
         - No tracking number has been added
         """
         if not self.status_rel or not self.status_rel.is_initial:
@@ -1300,8 +1015,6 @@ class ShippingRequest(db.Model):
         # Check if any action has been taken
         if self.total_shipping_cost is not None:
             return False  # Admin added shipping quote
-        if self.payment_proof_file:
-            return False  # Client uploaded payment proof
         if self.tracking_number:
             return False  # Admin added tracking
 
@@ -1346,26 +1059,6 @@ class ShippingRequest(db.Model):
             return ', '.join(parts) if parts else '-'
 
     @property
-    def has_payment_proof(self):
-        """Returns True if payment proof is uploaded"""
-        return self.payment_proof_file is not None
-
-    @property
-    def payment_proof_is_pending(self):
-        """Returns True if payment proof is pending review"""
-        return self.payment_proof_status == 'pending'
-
-    @property
-    def payment_proof_is_approved(self):
-        """Returns True if payment proof is approved"""
-        return self.payment_proof_status == 'approved'
-
-    @property
-    def payment_proof_is_rejected(self):
-        """Returns True if payment proof is rejected"""
-        return self.payment_proof_status == 'rejected'
-
-    @property
     def calculated_shipping_cost(self):
         """
         Dynamically calculates total shipping cost from all orders in this request.
@@ -1377,16 +1070,6 @@ class ShippingRequest(db.Model):
             if ro.order and ro.order.shipping_cost:
                 total += Decimal(str(ro.order.shipping_cost))
         return total if total > 0 else None
-
-    @property
-    def can_upload_payment_proof(self):
-        """Returns True if client can upload payment proof"""
-        # Must have shipping cost set (use calculated cost)
-        cost = self.calculated_shipping_cost
-        if not cost or cost <= 0:
-            return False
-        # Status must be None or rejected
-        return self.payment_proof_status is None or self.payment_proof_status == 'rejected'
 
     @property
     def tracking_url(self):

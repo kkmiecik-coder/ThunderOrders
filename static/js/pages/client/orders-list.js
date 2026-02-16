@@ -6,10 +6,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize Mobile Filters Toggle
     initFiltersToggle();
 
-    // Initialize Custom Selects (Status, Payment Status, Proof Status)
+    // Initialize Custom Selects (Status, Payment Status)
     initCustomSelect('status');
     initCustomSelect('payment-status');
-    initCustomSelect('proof-status');
 
     // Initialize Active Filters Display
     initActiveFilters();
@@ -65,7 +64,7 @@ function initFiltersToggle() {
     // Keep filters open if any filter is active
     const params = new URLSearchParams(window.location.search);
     const hasActiveFilters = params.has('status') || params.has('statuses') || params.has('date_from') || params.has('date_to') ||
-                             params.has('search') || params.has('payment_status') || params.has('proof_status');
+                             params.has('search') || params.has('payment_status');
 
     if (hasActiveFilters) {
         filtersPanel.classList.add('filters-open');
@@ -74,7 +73,7 @@ function initFiltersToggle() {
 
 /**
  * Initialize Custom Select (Generic - works for any filter)
- * @param {string} prefix - The prefix used in element IDs (e.g., 'status', 'payment-status', 'proof-status')
+ * @param {string} prefix - The prefix used in element IDs (e.g., 'status', 'payment-status')
  */
 function initCustomSelect(prefix) {
     const wrapper = document.getElementById(`${prefix}-select-wrapper`);
@@ -228,15 +227,6 @@ function getActiveFilters() {
         const selectedOption = dropdown?.querySelector(`[data-value="${paymentStatus}"]`);
         const label = selectedOption?.querySelector('span')?.textContent || paymentStatus;
         filters.push({ name: 'payment_status', label: `Płatność: ${label}`, value: paymentStatus });
-    }
-
-    // Proof status filter
-    const proofStatus = params.get('proof_status');
-    if (proofStatus) {
-        const dropdown = document.getElementById('proof-status-dropdown');
-        const selectedOption = dropdown?.querySelector(`[data-value="${proofStatus}"]`);
-        const label = selectedOption?.querySelector('span')?.textContent || proofStatus;
-        filters.push({ name: 'proof_status', label: `Dowód: ${label}`, value: proofStatus });
     }
 
     return filters;

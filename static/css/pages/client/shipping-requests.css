@@ -324,32 +324,6 @@
     visibility: visible;
 }
 
-/* Proof indicator */
-.request-card .proof-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.request-card .proof-pending {
-    background: #fef3c7;
-    color: #d97706;
-}
-
-.request-card .proof-approved {
-    background: #d1fae5;
-    color: #059669;
-}
-
-.request-card .proof-rejected {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
 /* ================================
    EMPTY STATE
    ================================ */
@@ -928,21 +902,6 @@
 
 [data-theme="dark"] .request-card .cancel-tooltip::after {
     border-top-color: rgba(30, 30, 50, 0.95);
-}
-
-[data-theme="dark"] .request-card .proof-pending {
-    background: rgba(251, 191, 36, 0.15);
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .request-card .proof-approved {
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
-}
-
-[data-theme="dark"] .request-card .proof-rejected {
-    background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
 }
 
 /* Pagination dark mode */

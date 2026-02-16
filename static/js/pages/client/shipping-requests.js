@@ -6,7 +6,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize
     initCreateRequestModal();
-    initUploadProofModal();
     initCancelButtons();
 });
 
@@ -442,215 +441,6 @@ function submitShippingRequest() {
 }
 
 // ================================
-// UPLOAD PROOF MODAL
-// ================================
-
-function initUploadProofModal() {
-    const modal = document.getElementById('upload-proof-modal');
-    const closeBtn = document.getElementById('close-upload-modal');
-    const cancelBtn = document.getElementById('cancel-upload-btn');
-    const form = document.getElementById('upload-proof-form');
-
-    // Open modal via buttons
-    document.querySelectorAll('.upload-proof-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const requestId = this.dataset.requestId;
-            const requestNumber = this.dataset.requestNumber || '';
-            const shippingCost = this.dataset.shippingCost || '';
-            openUploadModal(requestId, requestNumber, shippingCost);
-        });
-    });
-
-    // Close modal
-    if (closeBtn) closeBtn.addEventListener('click', closeUploadModal);
-    if (cancelBtn) cancelBtn.addEventListener('click', closeUploadModal);
-
-    // Click outside to close
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeUploadModal();
-            }
-        });
-    }
-
-    // Form submit
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            submitPaymentProof();
-        });
-    }
-}
-
-function openUploadModal(requestId, requestNumber, shippingCost) {
-    const modal = document.getElementById('upload-proof-modal');
-    const requestIdInput = document.getElementById('upload-request-id');
-
-    if (requestIdInput) requestIdInput.value = requestId;
-
-    // Fill payment info box
-    const paymentInfoBox = document.getElementById('paymentInfoBox');
-    if (paymentInfoBox) {
-        const costDisplay = shippingCost ? `${shippingCost} PLN` : 'Oczekuje na wycenę';
-        paymentInfoBox.innerHTML = `
-            <h3>Płatność za wysyłkę</h3>
-            <p><strong>Numer zlecenia:</strong> <code>${requestNumber}</code></p>
-            <p><strong>Kwota:</strong> ${costDisplay}</p>
-            <p><strong>Tytuł przelewu:</strong> <code>${requestNumber}</code></p>
-        `;
-    }
-
-    // Load payment methods
-    loadPaymentMethodsInfo(requestNumber);
-
-    if (modal) modal.classList.add('active');
-}
-
-/**
- * Load active payment methods from API
- */
-async function loadPaymentMethodsInfo(requestNumber) {
-    const container = document.getElementById('paymentMethodsInfo');
-    if (!container) return;
-
-    container.innerHTML = '<p class="text-muted">Ładowanie metod płatności...</p>';
-
-    try {
-        const response = await fetch('/api/payment-methods/active');
-        const methods = await response.json();
-
-        if (methods.length === 0) {
-            container.innerHTML = '<p class="text-muted">Brak dostępnych metod płatności</p>';
-            return;
-        }
-
-        let html = '<h3 class="payment-methods-heading">Wybierz metodę płatności:</h3>';
-        html += '<div class="payment-method-buttons">';
-
-        methods.forEach((method, index) => {
-            html += `
-                <button type="button"
-                        class="payment-method-button ${index === 0 ? 'active' : ''}"
-                        onclick="selectPaymentMethod(${index}, '${method.name.replace(/'/g, "\\'")}')"
-                        data-method-index="${index}">
-                    ${method.name}
-                </button>
-            `;
-        });
-
-        html += '</div>';
-        html += '<div class="payment-method-details-container">';
-
-        methods.forEach((method, index) => {
-            // Replace [NUMER ZAMÓWIENIA] placeholder with request number
-            let detailsText = method.details || '';
-            detailsText = detailsText.replace(/\[NUMER ZAMÓWIENIA\]/g, requestNumber);
-
-            html += `
-                <div class="payment-method-details ${index === 0 ? 'active' : ''}"
-                     data-details-index="${index}">
-                    <pre>${detailsText}</pre>
-                </div>
-            `;
-        });
-
-        html += '</div>';
-
-        container.innerHTML = html;
-
-        // Set default payment method (first one) in hidden field
-        if (methods.length > 0) {
-            const hiddenInput = document.getElementById('selectedPaymentMethodName');
-            if (hiddenInput) {
-                hiddenInput.value = methods[0].name;
-            }
-        }
-    } catch (error) {
-        console.error('Error loading payment methods:', error);
-        container.innerHTML = '<p class="text-danger">Błąd ładowania metod płatności</p>';
-    }
-}
-
-/**
- * Select payment method and show its details
- */
-function selectPaymentMethod(index, methodName) {
-    // Deactivate all buttons and details
-    document.querySelectorAll('.payment-method-button').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    document.querySelectorAll('.payment-method-details').forEach(details => {
-        details.classList.remove('active');
-    });
-
-    // Activate selected button and details
-    const selectedButton = document.querySelector(`[data-method-index="${index}"]`);
-    const selectedDetails = document.querySelector(`[data-details-index="${index}"]`);
-
-    if (selectedButton) {
-        selectedButton.classList.add('active');
-
-        // Update hidden field with selected payment method name
-        const hiddenInput = document.getElementById('selectedPaymentMethodName');
-        if (hiddenInput) {
-            hiddenInput.value = methodName;
-        }
-    }
-    if (selectedDetails) selectedDetails.classList.add('active');
-}
-
-function closeUploadModal() {
-    const modal = document.getElementById('upload-proof-modal');
-    const form = document.getElementById('upload-proof-form');
-
-    if (modal) modal.classList.remove('active');
-    if (form) form.reset();
-}
-
-function submitPaymentProof() {
-    const form = document.getElementById('upload-proof-form');
-    const submitBtn = document.querySelector('.modal-footer button[type="submit"]');
-
-    if (!form) return;
-
-    const formData = new FormData(form);
-
-    // Disable button
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = 'Wgrywanie...';
-    }
-
-    fetch('/client/shipping/requests/upload-proof', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('Dowód wpłaty został wgrany', 'success');
-            closeUploadModal();
-            location.reload();
-        } else {
-            showToast(data.error || 'Błąd podczas wgrywania', 'error');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Wgraj dowód';
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showToast('Błąd podczas wgrywania', 'error');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Wgraj dowód';
-        }
-    });
-}
-
-// ================================
 // CANCEL REQUEST
 // ================================
 
@@ -709,7 +499,6 @@ function refreshRequestsList() {
             if (data.success) {
                 renderRequestsTable(data.requests);
                 // Re-initialize event listeners
-                initUploadProofModal();
                 initCancelButtons();
             }
         })
@@ -797,41 +586,6 @@ function renderRequestRow(req) {
 
     // Render actions
     let actionsHtml = '';
-
-    if (req.can_upload_payment_proof) {
-        const shippingCostStr = req.total_shipping_cost ? req.total_shipping_cost.toFixed(2) : '';
-        actionsHtml += `
-            <button type="button" class="btn btn-sm btn-secondary upload-proof-btn"
-                    data-request-id="${req.id}"
-                    data-request-number="${req.request_number}"
-                    data-shipping-cost="${shippingCostStr}"
-                    title="Wgraj dowód wpłaty">
-                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                </svg>
-            </button>
-        `;
-    }
-
-    if (req.has_payment_proof) {
-        let proofIcon = '';
-        if (req.payment_proof_status === 'pending') {
-            proofIcon = `<svg width="14" height="14" fill="#F59E0B" viewBox="0 0 16 16">
-                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3.5a.5.5 0 0 1-.5-.5v-3.5A.5.5 0 0 1 8 4z"/>
-            </svg>`;
-        } else if (req.payment_proof_status === 'approved') {
-            proofIcon = `<svg width="14" height="14" fill="#10B981" viewBox="0 0 16 16">
-                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-            </svg>`;
-        } else if (req.payment_proof_status === 'rejected') {
-            proofIcon = `<svg width="14" height="14" fill="#EF4444" viewBox="0 0 16 16">
-                <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
-            </svg>`;
-        }
-        actionsHtml += `<span class="proof-status-icon proof-status-${req.payment_proof_status}" title="Dowód wpłaty: ${req.payment_proof_status}">${proofIcon}</span>`;
-    }
 
     if (req.can_cancel) {
         actionsHtml += `

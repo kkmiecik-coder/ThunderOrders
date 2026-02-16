@@ -228,26 +228,6 @@ def send_exclusive_closure_email(customer_email, customer_name, page_name, items
     )
 
 
-def send_payment_proof_approved_email(user_email, user_name, order_number, paid_amount):
-    """
-    Wysyła email do klienta po zaakceptowaniu dowodu wpłaty.
-
-    Args:
-        user_email (str): Email klienta
-        user_name (str): Imię klienta
-        order_number (str): Numer zamówienia (np. ST/00000001)
-        paid_amount (float): Zapłacona kwota
-    """
-    return send_email(
-        to=user_email,
-        subject=f'Płatność potwierdzona - {order_number} - ThunderOrders',
-        template='payment_proof_approved',
-        user_name=user_name,
-        order_number=order_number,
-        paid_amount=paid_amount
-    )
-
-
 def send_order_cancelled_email(user_email, user_name, order_number, page_name,
                                cancelled_items, reason=''):
     """

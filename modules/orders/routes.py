@@ -1453,8 +1453,6 @@ def client_list():
     date_to = request.args.get('date_to')
     search_query = request.args.get('search', '').strip()
     payment_status_filter = request.args.get('payment_status', '').strip()
-    proof_status_filter = request.args.get('proof_status', '').strip()
-
     # Base query (only user's orders) with eager loading
     query = Order.query.filter_by(user_id=current_user.id).options(
         db.joinedload(Order.items).joinedload(OrderItem.product)
@@ -1495,28 +1493,6 @@ def client_list():
                 Order.paid_amount > 0,
                 Order.paid_amount < Order.total_amount
             )
-
-    # Payment proof status filter
-    if proof_status_filter:
-        if proof_status_filter == 'none':
-            # Brak dowodu: payment_proof_url jest NULL lub pusty
-            query = query.filter(db.or_(
-                Order.payment_proof_url.is_(None),
-                Order.payment_proof_url == ''
-            ))
-        elif proof_status_filter == 'pending':
-            # Oczekuje na weryfikację
-            query = query.filter(
-                Order.payment_proof_url.isnot(None),
-                Order.payment_proof_url != '',
-                Order.payment_proof_status == 'pending'
-            )
-        elif proof_status_filter == 'approved':
-            # Zaakceptowany
-            query = query.filter(Order.payment_proof_status == 'approved')
-        elif proof_status_filter == 'rejected':
-            # Odrzucony
-            query = query.filter(Order.payment_proof_status == 'rejected')
 
     # Sorting
     query = query.order_by(Order.created_at.desc())
@@ -1600,16 +1576,6 @@ def client_detail(order_id):
         'order_products_added': {'label': 'Dodano produkty', 'icon': '➕'},
         'order_field_updated': {'label': 'Zaktualizowano dane zamówienia', 'icon': '✏️'},
         'order_payment_updated': {'label': 'Zaktualizowano płatność', 'icon': '💳'},
-        'payment_proof_uploaded': {'label': 'Przesłano dowód wpłaty', 'icon': '📤'},
-        'payment_proof_order_uploaded': {'label': 'Przesłano dowód wpłaty za zamówienie', 'icon': '📤'},
-        'payment_proof_shipping_uploaded': {'label': 'Przesłano dowód wpłaty za dostawę', 'icon': '📤'},
-        'payment_proof_uploaded_guest': {'label': 'Gość przesłał dowód wpłaty', 'icon': '📤'},
-        'payment_proof_approved': {'label': 'Zatwierdzono dowód wpłaty', 'icon': '✅'},
-        'payment_proof_order_approved': {'label': 'Zatwierdzono dowód wpłaty za zamówienie', 'icon': '✅'},
-        'payment_proof_shipping_approved': {'label': 'Zatwierdzono dowód wpłaty za dostawę', 'icon': '✅'},
-        'payment_proof_rejected': {'label': 'Odrzucono dowód wpłaty', 'icon': '❌'},
-        'payment_proof_order_rejected': {'label': 'Odrzucono dowód wpłaty za zamówienie', 'icon': '❌'},
-        'payment_proof_shipping_rejected': {'label': 'Odrzucono dowód wpłaty za dostawę', 'icon': '❌'},
         'tracking_number_added': {'label': 'Dodano numer śledzenia', 'icon': '🚚'},
         'tracking_number_updated': {'label': 'Zaktualizowano numer śledzenia', 'icon': '🚚'},
         'shipping_requested': {'label': 'Utworzono zlecenie wysyłki', 'icon': '📬'},
@@ -1742,14 +1708,6 @@ def settings():
         'not_fulfilled': get_setting_value('exclusive_closure_status_not_fulfilled', 'anulowane')
     }
 
-    # Load payment proof disabled statuses
-    import json
-    payment_proof_disabled_json = get_setting_value('payment_proof_disabled_statuses', '[]')
-    try:
-        payment_proof_disabled_statuses = json.loads(payment_proof_disabled_json) if payment_proof_disabled_json else []
-    except (json.JSONDecodeError, TypeError):
-        payment_proof_disabled_statuses = []
-
     # Load shipping request statuses
     shipping_request_statuses = ShippingRequestStatus.query.order_by(ShippingRequestStatus.sort_order).all()
 
@@ -1769,7 +1727,6 @@ def settings():
         wms_statuses=wms_statuses,
         payment_methods=payment_methods,
         exclusive_closure_settings=exclusive_closure_settings,
-        payment_proof_disabled_statuses=payment_proof_disabled_statuses,
         shipping_request_statuses=shipping_request_statuses,
         shipping_request_allowed_statuses=shipping_request_allowed_statuses,
         shipping_request_default_status=shipping_request_default_status,
@@ -1857,64 +1814,6 @@ def update_exclusive_closure_settings():
         db.session.rollback()
         flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
         return redirect(url_for('orders.settings'))
-
-
-@orders_bp.route('/admin/orders/settings/payment-proof-disabled-statuses', methods=['POST'])
-@login_required
-@role_required('admin')
-def update_payment_proof_disabled_statuses():
-    """
-    Update list of statuses that disable payment proof upload.
-    Only accessible to admins.
-    """
-    from modules.auth.models import Settings
-    import json
-
-    try:
-        # Get selected statuses (list of slugs)
-        disabled_statuses = request.form.getlist('disabled_statuses')
-
-        # Validate that all selected statuses exist
-        valid_statuses = [s.slug for s in OrderStatus.query.filter_by(is_active=True).all()]
-
-        # Filter only valid statuses
-        validated_statuses = [s for s in disabled_statuses if s in valid_statuses]
-
-        # Update or create setting
-        setting = Settings.query.filter_by(key='payment_proof_disabled_statuses').first()
-        if setting:
-            setting.value = json.dumps(validated_statuses)
-            setting.type = 'json'  # Upewnij się że typ jest poprawny
-            setting.updated_at = datetime.now()
-        else:
-            setting = Settings(
-                key='payment_proof_disabled_statuses',
-                value=json.dumps(validated_statuses),
-                type='json',
-                description='Lista statusów blokujących wgrywanie dowodu wpłaty'
-            )
-            db.session.add(setting)
-
-        db.session.commit()
-
-        # Activity log
-        from utils.activity_logger import log_activity
-        log_activity(
-            user=current_user,
-            action='settings_updated',
-            entity_type='settings',
-            entity_id=None,
-            old_value=None,
-            new_value={'payment_proof_disabled_statuses': validated_statuses}
-        )
-
-        flash('Ustawienia zostały zapisane', 'success')
-        return redirect(url_for('orders.settings') + '#tab-payment-methods')
-
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
-        return redirect(url_for('orders.settings') + '#tab-payment-methods')
 
 
 # ============================================
@@ -3146,408 +3045,6 @@ def guest_track(token):
     return render_template('orders/guest_track.html', order=order)
 
 
-@orders_bp.route('/order/track/<token>/upload-payment-proof', methods=['POST'])
-def guest_upload_payment_proof(token):
-    """Upload dowodu wpłaty przez gościa (bez logowania)"""
-    from werkzeug.utils import secure_filename
-    from datetime import datetime
-    import os
-
-    order = Order.get_by_guest_token(token)
-
-    if not order:
-        abort(404)
-
-    # Sprawdź czy można wgrać dowód
-    if not order.can_upload_payment_proof:
-        flash('Nie można wgrać dowodu płatności dla tego zamówienia', 'error')
-        return redirect(url_for('orders.guest_track', token=token))
-
-    # Walidacja pliku
-    if 'payment_proof' not in request.files:
-        flash('Nie wybrano pliku', 'error')
-        return redirect(url_for('orders.guest_track', token=token))
-
-    file = request.files['payment_proof']
-
-    if file.filename == '':
-        flash('Nie wybrano pliku', 'error')
-        return redirect(url_for('orders.guest_track', token=token))
-
-    # Walidacja rozszerzenia
-    allowed_extensions = {'jpg', 'jpeg', 'png', 'pdf'}
-    file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-
-    if file_ext not in allowed_extensions:
-        flash('Dozwolone formaty: JPG, PNG, PDF', 'error')
-        return redirect(url_for('orders.guest_track', token=token))
-
-    # Walidacja rozmiaru (max 5MB)
-    file.seek(0, os.SEEK_END)
-    file_size = file.tell()
-    file.seek(0)
-
-    if file_size > 5 * 1024 * 1024:  # 5MB
-        flash('Plik jest za duży. Maksymalny rozmiar: 5MB', 'error')
-        return redirect(url_for('orders.guest_track', token=token))
-
-    # Usuń stary plik (jeśli re-upload po odrzuceniu)
-    if order.payment_proof_file:
-        old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], order.payment_proof_file)
-        if os.path.exists(old_file_path):
-            os.remove(old_file_path)
-
-    # Zapisz nowy plik
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f"order_{order.id}_{timestamp}.{file_ext}"
-
-    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_path = os.path.join(upload_dir, filename)
-    file.save(file_path)
-
-    # Pobierz wybraną metodę płatności z formularza
-    payment_method_name = request.form.get('payment_method_name', '').strip()
-
-    # Zapisz w bazie
-    order.payment_proof_file = f"payment_proofs/{filename}"
-    order.payment_proof_uploaded_at = datetime.utcnow()
-    order.payment_proof_status = 'pending'
-    order.payment_proof_rejection_reason = None  # Wyczyść poprzedni powód
-
-    # Automatycznie ustaw payment_method na wybraną metodę płatności z modalu
-    if payment_method_name and not order.payment_method:
-        order.payment_method = payment_method_name
-
-    db.session.commit()
-
-    # Log aktywności (dla gości zapisujemy z user=None)
-    import json
-    log_activity(
-        user=None,
-        action='payment_proof_uploaded_guest',
-        entity_type='order',
-        entity_id=order.id,
-        old_value=None,
-        new_value={'filename': filename, 'payment_method': payment_method_name, 'guest_email': order.guest_email}
-    )
-
-    flash('Dowód wpłaty został przesłany. Oczekuj na weryfikację.', 'success')
-    return redirect(url_for('orders.guest_track', token=token))
-
-
-# ============================================
-# PAYMENT PROOF - CLIENT ROUTES
-# ============================================
-
-@orders_bp.route('/client/orders/<int:order_id>/upload-payment-proof', methods=['POST'])
-@login_required
-def client_upload_payment_proof(order_id):
-    """Upload dowodu wpłaty przez klienta (order lub shipping)"""
-    from werkzeug.utils import secure_filename
-    from datetime import datetime
-    import os
-
-    order = Order.query.get_or_404(order_id)
-
-    # Sprawdź czy to zamówienie klienta
-    if order.user_id != current_user.id:
-        flash('Nie masz dostępu do tego zamówienia', 'error')
-        return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    # Pobierz typ dowodu z formularza
-    proof_type = request.form.get('proof_type', 'order')  # 'order' lub 'shipping'
-
-    if proof_type not in ['order', 'shipping']:
-        flash('Nieprawidłowy typ dowodu', 'error')
-        return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    # Sprawdź czy można wgrać dowód (w zależności od typu)
-    if proof_type == 'order':
-        if not order.can_upload_payment_proof_order:
-            flash('Nie można wgrać dowodu płatności za zamówienie', 'error')
-            return redirect(url_for('orders.client_detail', order_id=order_id))
-    else:  # shipping - sprawdź na poziomie ShippingRequest
-        sr = order.shipping_request
-        if not sr:
-            flash('Nie można wgrać dowodu płatności za wysyłkę. Utwórz najpierw zlecenie wysyłki.', 'error')
-            return redirect(url_for('orders.client_detail', order_id=order_id))
-        if not sr.can_upload_payment_proof:
-            flash('Nie można wgrać dowodu płatności za wysyłkę. Wymaga wyceny lub dowód został już zaakceptowany.', 'error')
-            return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    # Walidacja pliku
-    if 'payment_proof' not in request.files:
-        flash('Nie wybrano pliku', 'error')
-        return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    file = request.files['payment_proof']
-
-    if file.filename == '':
-        flash('Nie wybrano pliku', 'error')
-        return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    # Walidacja rozszerzenia
-    allowed_extensions = {'jpg', 'jpeg', 'png', 'pdf'}
-    file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-
-    if file_ext not in allowed_extensions:
-        flash('Dozwolone formaty: JPG, PNG, PDF', 'error')
-        return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    # Walidacja rozmiaru (max 5MB)
-    file.seek(0, os.SEEK_END)
-    file_size = file.tell()
-    file.seek(0)
-
-    if file_size > 5 * 1024 * 1024:  # 5MB
-        flash('Plik jest za duży. Maksymalny rozmiar: 5MB', 'error')
-        return redirect(url_for('orders.client_detail', order_id=order_id))
-
-    # Usuń stary plik (jeśli re-upload po odrzuceniu)
-    # Ścieżka do głównego katalogu projektu (3 poziomy w górę z modules/orders/routes.py)
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    static_dir = os.path.join(project_root, 'static')
-
-    if proof_type == 'order' and order.payment_proof_order_file:
-        old_file_path = os.path.join(static_dir, order.payment_proof_order_file)
-        if os.path.exists(old_file_path):
-            os.remove(old_file_path)
-    elif proof_type == 'shipping':
-        # Dla shipping - usuwamy stary plik ze ShippingRequest
-        sr = order.shipping_request
-        if sr and sr.payment_proof_file:
-            old_file_path = os.path.join(static_dir, sr.payment_proof_file)
-            if os.path.exists(old_file_path):
-                os.remove(old_file_path)
-
-    # Zapisz nowy plik z nazwą zawierającą typ dowodu
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-    if proof_type == 'order':
-        # Dla order - używamy numeru zamówienia
-        safe_order_number = order.order_number.replace('/', '')
-        filename = f"{safe_order_number}_{proof_type}_{timestamp}.{file_ext}"
-    else:
-        # Dla shipping - używamy numeru zlecenia wysyłki
-        sr = order.shipping_request
-        safe_request_number = sr.request_number.replace('/', '')
-        filename = f"{safe_request_number}_{timestamp}.{file_ext}"
-
-    # Zapisz bezpośrednio do static/payment_proofs/
-    upload_dir = os.path.join(project_root, 'static', 'payment_proofs')
-    os.makedirs(upload_dir, exist_ok=True)
-
-    file_path = os.path.join(upload_dir, filename)
-    file.save(file_path)
-
-    # Pobierz wybraną metodę płatności z formularza
-    payment_method_name = request.form.get('payment_method_name', '').strip()
-
-    # Zapisz w bazie (odpowiednie kolumny w zależności od typu)
-    if proof_type == 'order':
-        order.payment_proof_order_file = f"payment_proofs/{filename}"
-        order.payment_proof_order_uploaded_at = datetime.utcnow()
-        order.payment_proof_order_status = 'pending'
-        order.payment_proof_order_rejection_reason = None  # Wyczyść poprzedni powód
-        # Zapisz metodę płatności za zamówienie
-        if payment_method_name:
-            order.payment_method = payment_method_name
-    else:  # shipping - zapisz do ShippingRequest (współdzielone między zamówieniami)
-        sr = order.shipping_request
-        if not sr:
-            flash('Brak zlecenia wysyłki dla tego zamówienia', 'error')
-            return redirect(url_for('orders.client_detail', order_id=order_id))
-
-        sr.payment_proof_file = f"payment_proofs/{filename}"
-        sr.payment_proof_uploaded_at = datetime.utcnow()
-        sr.payment_proof_status = 'pending'
-        sr.payment_proof_rejection_reason = None
-        # Zapisz metodę płatności za wysyłkę
-        if payment_method_name:
-            sr.payment_method = payment_method_name
-
-    db.session.commit()
-
-    # Log aktywności
-    import json
-    log_activity(
-        user=current_user,
-        action=f'payment_proof_{proof_type}_uploaded',
-        entity_type='order',
-        entity_id=order.id,
-        new_value=json.dumps({
-            'filename': filename,
-            'order_number': order.order_number,
-            'proof_type': proof_type
-        })
-    )
-
-    # TODO: Email notification do admina
-
-    return redirect(url_for('orders.client_detail', order_id=order_id))
-
-
-# ============================================
-# PAYMENT PROOF - ADMIN ROUTES
-# ============================================
-
-@orders_bp.route('/admin/orders/<int:order_id>/payment-proof-order/<filename>')
-@login_required
-@role_required('admin', 'mod')
-def admin_view_payment_proof_order(order_id, filename):
-    """Podgląd/download dowodu wpłaty ORDER"""
-    from flask import send_from_directory
-    import os
-
-    order = Order.query.get_or_404(order_id)
-
-    # Security: sprawdź czy filename należy do tego zamówienia
-    if order.payment_proof_order_filename != filename:
-        abort(403)
-
-    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
-    return send_from_directory(upload_dir, filename)
-
-
-@orders_bp.route('/admin/orders/<int:order_id>/payment-proof-shipping/<filename>')
-@login_required
-@role_required('admin', 'mod')
-def admin_view_payment_proof_shipping(order_id, filename):
-    """Podgląd/download dowodu wpłaty SHIPPING"""
-    from flask import send_from_directory
-    import os
-
-    order = Order.query.get_or_404(order_id)
-
-    # Security: sprawdź czy filename należy do tego zamówienia
-    if order.payment_proof_shipping_filename != filename:
-        abort(403)
-
-    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_proofs')
-    return send_from_directory(upload_dir, filename)
-
-
-@orders_bp.route('/admin/orders/<int:order_id>/approve-payment-proof', methods=['POST'])
-@login_required
-@role_required('admin', 'mod')
-def admin_approve_payment_proof(order_id):
-    """Akceptacja dowodu wpłaty (order lub shipping)"""
-    order = Order.query.get_or_404(order_id)
-
-    # Pobierz typ dowodu z formularza JSON
-    data = request.get_json() or {}
-    proof_type = data.get('proof_type', 'order')  # 'order' lub 'shipping'
-
-    if proof_type not in ['order', 'shipping']:
-        return jsonify({'error': 'Nieprawidłowy typ dowodu'}), 400
-
-    # Walidacja w zależności od typu
-    if proof_type == 'order':
-        if not order.has_payment_proof_order or order.payment_proof_order_status != 'pending':
-            return jsonify({'error': 'Brak dowodu zamówienia do zaakceptowania'}), 400
-    else:  # shipping
-        if not order.has_payment_proof_shipping or order.payment_proof_shipping_status != 'pending':
-            return jsonify({'error': 'Brak dowodu wysyłki do zaakceptowania'}), 400
-
-    # Akceptuj dowód (odpowiednie kolumny)
-    if proof_type == 'order':
-        order.payment_proof_order_status = 'approved'
-        # Ustaw paid_amount += total_amount (produkty)
-        order.paid_amount = order.total_amount
-    else:  # shipping
-        order.payment_proof_shipping_status = 'approved'
-        # Dodaj shipping_cost do paid_amount
-        order.paid_amount = order.total_amount + order.shipping_cost
-
-    db.session.commit()
-
-    # Activity log
-    import json
-    log_activity(
-        user=current_user,
-        action=f'payment_proof_{proof_type}_approved',
-        entity_type='order',
-        entity_id=order.id,
-        new_value=json.dumps({
-            'paid_amount': float(order.paid_amount),
-            'order_number': order.order_number,
-            'proof_type': proof_type
-        })
-    )
-
-    # Email do klienta
-    from utils.email_sender import send_payment_proof_approved_email
-    try:
-        send_payment_proof_approved_email(
-            user_email=order.customer_email,
-            user_name=order.customer_name,
-            order_number=order.order_number,
-            paid_amount=float(order.paid_amount)
-        )
-    except Exception as e:
-        current_app.logger.error(f"Failed to send payment proof approved email: {str(e)}")
-
-    proof_label = 'zamówienia' if proof_type == 'order' else 'wysyłki'
-    return jsonify({'success': True, 'message': f'Dowód wpłaty za {proof_label} został zaakceptowany'})
-
-
-@orders_bp.route('/admin/orders/<int:order_id>/reject-payment-proof', methods=['POST'])
-@login_required
-@role_required('admin', 'mod')
-def admin_reject_payment_proof(order_id):
-    """Odrzucenie dowodu wpłaty (order lub shipping)"""
-    order = Order.query.get_or_404(order_id)
-
-    # Pobierz dane z JSON
-    data = request.get_json() or {}
-    proof_type = data.get('proof_type', 'order')  # 'order' lub 'shipping'
-    rejection_reason = data.get('rejection_reason', '').strip()
-
-    if proof_type not in ['order', 'shipping']:
-        return jsonify({'error': 'Nieprawidłowy typ dowodu'}), 400
-
-    if not rejection_reason:
-        return jsonify({'error': 'Podaj powód odrzucenia'}), 400
-
-    # Walidacja w zależności od typu
-    if proof_type == 'order':
-        if not order.has_payment_proof_order or order.payment_proof_order_status != 'pending':
-            return jsonify({'error': 'Brak dowodu zamówienia do odrzucenia'}), 400
-    else:  # shipping
-        if not order.has_payment_proof_shipping or order.payment_proof_shipping_status != 'pending':
-            return jsonify({'error': 'Brak dowodu wysyłki do odrzucenia'}), 400
-
-    # Odrzuć dowód (odpowiednie kolumny)
-    if proof_type == 'order':
-        order.payment_proof_order_status = 'rejected'
-        order.payment_proof_order_rejection_reason = rejection_reason
-    else:  # shipping
-        order.payment_proof_shipping_status = 'rejected'
-        order.payment_proof_shipping_rejection_reason = rejection_reason
-
-    db.session.commit()
-
-    # Activity log
-    import json
-    log_activity(
-        user=current_user,
-        action=f'payment_proof_{proof_type}_rejected',
-        entity_type='order',
-        entity_id=order.id,
-        new_value=json.dumps({
-            'rejection_reason': rejection_reason,
-            'order_number': order.order_number,
-            'proof_type': proof_type
-        })
-    )
-
-    # TODO: Email do klienta - payment_proof_rejected
-
-    return jsonify({'success': True, 'message': 'Dowód wpłaty został odrzucony'})
-
-
 # ============================================
 # PAYMENT METHODS CRUD (Settings Tab)
 # ============================================
@@ -3635,10 +3132,45 @@ def delete_payment_method(id):
 def get_payment_methods_list():
     """Get payment methods list HTML (for AJAX refresh)."""
     from modules.payments.models import PaymentMethod
+    from flask import render_template_string
 
     payment_methods = PaymentMethod.query.order_by(PaymentMethod.sort_order, PaymentMethod.name).all()
 
-    return render_template('admin/orders/_payment_methods_list.html', payment_methods=payment_methods)
+    template = '''<!-- Data rows -->
+{% if payment_methods %}
+    {% for method in payment_methods %}
+        <div class="payment-method-list-item" data-method-id="{{ method.id }}" draggable="true">
+            <div class="payment-method-col-name">
+                <div class="drag-handle">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"/>
+                    </svg>
+                </div>
+                <strong>{{ method.name }}</strong>
+            </div>
+            <div class="payment-method-col-details">
+                <pre class="payment-details-preview">{{ method.details[:100] }}{% if method.details|length > 100 %}...{% endif %}</pre>
+            </div>
+            <div class="payment-method-col-status">
+                {% if method.is_active %}
+                    <span class="badge badge-success">Aktywny</span>
+                {% else %}
+                    <span class="badge badge-secondary">Nieaktywny</span>
+                {% endif %}
+            </div>
+            <div class="payment-method-col-actions">
+                <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.id }}, "{{ method.name }}", {{ method.details|tojson }}, {{ method.is_active|tojson }})'>Edytuj</button>
+                <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, '{{ method.name }}')">Usuń</button>
+            </div>
+        </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <p>Brak metod płatności. Dodaj pierwszą metodę.</p>
+    </div>
+{% endif %}'''
+
+    return render_template_string(template, payment_methods=payment_methods)
 
 
 @orders_bp.route('/admin/orders/payment-methods/reorder', methods=['POST'])
@@ -3662,121 +3194,6 @@ def reorder_payment_methods():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# ============================================
-# SHIPPING REQUEST PAYMENT PROOF MANAGEMENT
-# ============================================
-
-@orders_bp.route('/admin/shipping-requests/<int:shipping_request_id>/approve-payment-proof', methods=['POST'])
-@login_required
-@role_required('admin', 'mod')
-def admin_approve_shipping_payment_proof(shipping_request_id):
-    """Approve shipping request payment proof."""
-    from modules.orders.models import ShippingRequest
-
-    shipping_request = ShippingRequest.query.get_or_404(shipping_request_id)
-
-    # Validate payment proof exists and is pending
-    if not shipping_request.has_payment_proof:
-        return jsonify({'error': 'Brak dowodu wpłaty do zaakceptowania'}), 400
-
-    if shipping_request.payment_proof_status != 'pending':
-        return jsonify({'error': 'Dowód wpłaty nie oczekuje na weryfikację'}), 400
-
-    # Approve the payment proof
-    shipping_request.payment_proof_status = 'approved'
-
-    # Update paid_amount for all orders in this shipping request
-    for order in shipping_request.orders:
-        if order.shipping_cost:
-            # Add shipping cost to paid_amount
-            current_paid = order.paid_amount or 0
-            order.paid_amount = current_paid + order.shipping_cost
-
-    db.session.commit()
-
-    # Activity log
-    import json
-    log_activity(
-        user=current_user,
-        action='shipping_payment_proof_approved',
-        entity_type='shipping_request',
-        entity_id=shipping_request.id,
-        new_value=json.dumps({
-            'request_number': shipping_request.request_number,
-            'orders_count': shipping_request.orders_count,
-            'total_shipping_cost': float(shipping_request.calculated_shipping_cost or 0)
-        })
-    )
-
-    # Email notification to client
-    from utils.email_sender import send_payment_proof_approved_email
-    try:
-        user = shipping_request.user
-        send_payment_proof_approved_email(
-            user_email=user.email,
-            user_name=user.display_name or user.username,
-            order_number=shipping_request.request_number,
-            paid_amount=float(shipping_request.calculated_shipping_cost or 0)
-        )
-    except Exception as e:
-        current_app.logger.error(f"Failed to send shipping payment proof approved email: {str(e)}")
-
-    return jsonify({
-        'success': True,
-        'message': f'Dowód wpłaty za wysyłkę ({shipping_request.request_number}) został zaakceptowany'
-    })
-
-
-@orders_bp.route('/admin/shipping-requests/<int:shipping_request_id>/reject-payment-proof', methods=['POST'])
-@login_required
-@role_required('admin', 'mod')
-def admin_reject_shipping_payment_proof(shipping_request_id):
-    """Reject shipping request payment proof."""
-    from modules.orders.models import ShippingRequest
-
-    shipping_request = ShippingRequest.query.get_or_404(shipping_request_id)
-
-    # Get rejection reason from JSON
-    data = request.get_json() or {}
-    rejection_reason = data.get('rejection_reason', '').strip()
-
-    if not rejection_reason:
-        return jsonify({'error': 'Podaj powód odrzucenia'}), 400
-
-    # Validate payment proof exists and is pending
-    if not shipping_request.has_payment_proof:
-        return jsonify({'error': 'Brak dowodu wpłaty do odrzucenia'}), 400
-
-    if shipping_request.payment_proof_status != 'pending':
-        return jsonify({'error': 'Dowód wpłaty nie oczekuje na weryfikację'}), 400
-
-    # Reject the payment proof
-    shipping_request.payment_proof_status = 'rejected'
-    shipping_request.payment_proof_rejection_reason = rejection_reason
-
-    db.session.commit()
-
-    # Activity log
-    import json
-    log_activity(
-        user=current_user,
-        action='shipping_payment_proof_rejected',
-        entity_type='shipping_request',
-        entity_id=shipping_request.id,
-        new_value=json.dumps({
-            'request_number': shipping_request.request_number,
-            'rejection_reason': rejection_reason
-        })
-    )
-
-    # TODO: Email notification to client about rejection
-
-    return jsonify({
-        'success': True,
-        'message': 'Dowód wpłaty za wysyłkę został odrzucony'
-    })
 
 
 @orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>', methods=['GET'])

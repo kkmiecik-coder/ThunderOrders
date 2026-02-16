@@ -166,66 +166,6 @@
 
             <!-- Tab: Sposoby płatności -->
             <div class="tab-panel" id="tab-payment-methods">
-                <!-- Payment Proof Disabled Statuses Section -->
-                <div class="settings-card payment-proof-settings-card">
-                    <div class="card-header">
-                        <h3>Blokowanie wgrywania dowodu wpłaty</h3>
-                    </div>
-
-                    <p class="section-description">
-                        Wybierz statusy zamówień, przy których przycisk "Wgraj potwierdzenie przelewu" będzie <strong>nieaktywny</strong>.
-                        Klient zobaczy szary przycisk z komunikatem informacyjnym.
-                    </p>
-
-                    <form id="paymentProofDisabledStatusesForm" method="POST" action="{{ url_for('orders.update_payment_proof_disabled_statuses') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                        <!-- Selected statuses badges -->
-                        <div class="selected-statuses-container" id="selectedStatusesContainer">
-                            {% for status in statuses %}
-                                {% if status.slug in payment_proof_disabled_statuses %}
-                                <span class="selected-status-badge" data-slug="{{ status.slug }}" style="background-color: {{ status.badge_color }};">
-                                    {{ status.name }}
-                                    <button type="button" class="remove-status-btn" onclick="removeDisabledStatus('{{ status.slug }}')" title="Usuń">
-                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                                        </svg>
-                                    </button>
-                                    <input type="hidden" name="disabled_statuses" value="{{ status.slug }}">
-                                </span>
-                                {% endif %}
-                            {% endfor %}
-                            <span class="no-statuses-message" id="noStatusesMessage" {% if payment_proof_disabled_statuses %}style="display: none;"{% endif %}>
-                                Brak wybranych statusów - przycisk będzie zawsze aktywny
-                            </span>
-                        </div>
-
-                        <!-- Dropdown to add statuses -->
-                        <div class="add-status-dropdown">
-                            <select id="addDisabledStatusSelect" onchange="addDisabledStatus(this)">
-                                <option value="">+ Dodaj status...</option>
-                                {% for status in statuses %}
-                                <option value="{{ status.slug }}"
-                                        data-name="{{ status.name }}"
-                                        data-color="{{ status.badge_color }}"
-                                        {% if status.slug in payment_proof_disabled_statuses %}disabled{% endif %}>
-                                    {{ status.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary btn-sm">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
-                                </svg>
-                                Zapisz ustawienia
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
                 <!-- Payment Methods List Section -->
                 <div class="settings-card">
                     <div class="card-header">
@@ -248,7 +188,39 @@
 
                     <!-- Data rows (dynamically refreshed) -->
                     <div class="payment-methods-list">
-                        {% include 'admin/orders/_payment_methods_list.html' %}
+                        <!-- Data rows -->
+                        {% if payment_methods %}
+                            {% for method in payment_methods %}
+                                <div class="payment-method-list-item" data-method-id="{{ method.id }}" draggable="true">
+                                    <div class="payment-method-col-name">
+                                        <div class="drag-handle">
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"/>
+                                            </svg>
+                                        </div>
+                                        <strong>{{ method.name }}</strong>
+                                    </div>
+                                    <div class="payment-method-col-details">
+                                        <pre class="payment-details-preview">{{ method.details[:100] }}{% if method.details|length > 100 %}...{% endif %}</pre>
+                                    </div>
+                                    <div class="payment-method-col-status">
+                                        {% if method.is_active %}
+                                            <span class="badge badge-success">Aktywny</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">Nieaktywny</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="payment-method-col-actions">
+                                        <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.id }}, "{{ method.name }}", {{ method.details|tojson }}, {{ method.is_active|tojson }})'>Edytuj</button>
+                                        <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, '{{ method.name }}')">Usuń</button>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="empty-state">
+                                <p>Brak metod płatności. Dodaj pierwszą metodę.</p>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -730,67 +702,6 @@
 <script src="{{ url_for('static', filename='js/pages/admin/orders-settings.js') }}?v=4"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/payment-methods.js') }}"></script>
 <script>
-// Payment Proof Disabled Statuses - Add/Remove functions
-function addDisabledStatus(selectElement) {
-    const slug = selectElement.value;
-    if (!slug) return;
-
-    const option = selectElement.options[selectElement.selectedIndex];
-    const name = option.dataset.name;
-    const color = option.dataset.color;
-
-    // Create badge element
-    const badge = document.createElement('span');
-    badge.className = 'selected-status-badge';
-    badge.dataset.slug = slug;
-    badge.style.backgroundColor = color;
-    badge.innerHTML = `
-        ${name}
-        <button type="button" class="remove-status-btn" onclick="removeDisabledStatus('${slug}')" title="Usuń">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-            </svg>
-        </button>
-        <input type="hidden" name="disabled_statuses" value="${slug}">
-    `;
-
-    // Add to container (before the "no statuses" message)
-    const container = document.getElementById('selectedStatusesContainer');
-    const noMessage = document.getElementById('noStatusesMessage');
-    container.insertBefore(badge, noMessage);
-
-    // Hide "no statuses" message
-    noMessage.style.display = 'none';
-
-    // Disable option in select
-    option.disabled = true;
-
-    // Reset select
-    selectElement.value = '';
-}
-
-function removeDisabledStatus(slug) {
-    // Remove badge
-    const badge = document.querySelector(`.selected-status-badge[data-slug="${slug}"]`);
-    if (badge) {
-        badge.remove();
-    }
-
-    // Re-enable option in select
-    const select = document.getElementById('addDisabledStatusSelect');
-    const option = select.querySelector(`option[value="${slug}"]`);
-    if (option) {
-        option.disabled = false;
-    }
-
-    // Show "no statuses" message if no badges left
-    const container = document.getElementById('selectedStatusesContainer');
-    const badges = container.querySelectorAll('.selected-status-badge');
-    if (badges.length === 0) {
-        document.getElementById('noStatusesMessage').style.display = 'inline';
-    }
-}
-
 // Shipping Request Allowed Statuses - Add/Remove functions
 function addShippingAllowedStatus(selectElement) {
     const slug = selectElement.value;

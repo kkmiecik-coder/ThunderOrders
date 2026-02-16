@@ -3,10 +3,8 @@ Client Shipping Module - Routes
 Endpointy zarządzania adresami dostawy i zleceniami wysyłki
 """
 
-import os
 import json
 from datetime import datetime
-from werkzeug.utils import secure_filename
 from flask import render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from extensions import db
@@ -14,8 +12,7 @@ from modules.client import client_bp
 from modules.auth.models import ShippingAddress, Settings
 from sqlalchemy import and_, not_, exists
 from modules.orders.models import (
-    Order, ShippingRequest, ShippingRequestOrder, ShippingRequestStatus,
-    get_local_now
+    Order, ShippingRequest, ShippingRequestOrder, ShippingRequestStatus
 )
 
 
@@ -235,9 +232,6 @@ def shipping_requests_list_json():
                 'status_badge_color': req.status_badge_color,
                 'created_at': req.created_at.strftime('%d.%m.%Y %H:%M'),
                 'can_cancel': req.can_cancel,
-                'can_upload_payment_proof': req.can_upload_payment_proof,
-                'has_payment_proof': req.has_payment_proof,
-                'payment_proof_status': req.payment_proof_status,
                 'tracking_number': req.tracking_number,
                 'tracking_url': req.tracking_url
             })
@@ -490,89 +484,3 @@ def shipping_requests_cancel(request_id):
         db.session.rollback()
         current_app.logger.error(f'Error canceling shipping request: {e}')
         return jsonify({'success': False, 'error': 'Błąd podczas anulowania zlecenia'}), 500
-
-
-@client_bp.route('/shipping/requests/upload-proof', methods=['POST'])
-@login_required
-def shipping_requests_upload_proof():
-    """
-    Wgrywanie dowodu wpłaty za wysyłkę
-    """
-    try:
-        request_id = request.form.get('request_id')
-        if not request_id:
-            return jsonify({'success': False, 'error': 'Brak ID zlecenia'}), 400
-
-        shipping_request = ShippingRequest.query.filter_by(
-            id=request_id,
-            user_id=current_user.id
-        ).first()
-
-        if not shipping_request:
-            return jsonify({'success': False, 'error': 'Zlecenie nie istnieje'}), 404
-
-        if not shipping_request.can_upload_payment_proof:
-            return jsonify({
-                'success': False,
-                'error': 'Nie można wgrać dowodu wpłaty dla tego zlecenia'
-            }), 400
-
-        # Check if file was uploaded
-        if 'payment_proof' not in request.files:
-            return jsonify({'success': False, 'error': 'Nie wybrano pliku'}), 400
-
-        file = request.files['payment_proof']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'Nie wybrano pliku'}), 400
-
-        # Validate file type
-        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'pdf'}
-        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
-        if file_ext not in allowed_extensions:
-            return jsonify({
-                'success': False,
-                'error': 'Dozwolone formaty: PNG, JPG, JPEG, GIF, PDF'
-            }), 400
-
-        # Create upload directory if not exists
-        upload_dir = os.path.join(current_app.static_folder, 'uploads', 'shipping_proofs')
-        os.makedirs(upload_dir, exist_ok=True)
-
-        # Generate unique filename
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = secure_filename(f"shipping_{shipping_request.id}_{timestamp}.{file_ext}")
-        filepath = os.path.join(upload_dir, filename)
-
-        # Delete old file if exists
-        if shipping_request.payment_proof_file:
-            old_filepath = os.path.join(upload_dir, shipping_request.payment_proof_file)
-            if os.path.exists(old_filepath):
-                os.remove(old_filepath)
-
-        # Save new file
-        file.save(filepath)
-
-        # Get payment method name from form
-        payment_method_name = request.form.get('payment_method_name', '').strip()
-
-        # Update shipping request
-        shipping_request.payment_proof_file = f"uploads/shipping_proofs/{filename}"
-        shipping_request.payment_proof_uploaded_at = get_local_now()
-        shipping_request.payment_proof_status = 'pending'
-        shipping_request.payment_proof_rejection_reason = None
-
-        # Save payment method if provided
-        if payment_method_name:
-            shipping_request.payment_method = payment_method_name
-
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Dowód wpłaty został wgrany'
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Error uploading payment proof: {e}')
-        return jsonify({'success': False, 'error': 'Błąd podczas wgrywania pliku'}), 500

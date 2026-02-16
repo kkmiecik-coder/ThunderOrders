@@ -858,147 +858,9 @@
         </div>
     </div>
 
-    <!-- ROW 3: Potwierdzenia + Zlecenia wysyłki (2 kolumny) -->
+    <!-- ROW 3: Zlecenie wysyłki -->
     <div class="confirmations-shipments-row">
-        <!-- Lewa karta: Potwierdzenia -->
-        <div class="card confirmations-card">
-            <h3>
-                <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2zm13 2.383l-4.708 2.825L15 11.105V5.383zm-.034 6.876l-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741zM1 11.105l4.708-2.897L1 5.383v5.722z"/>
-                </svg>
-                Potwierdzenia
-            </h3>
-
-            <div class="confirmations-horizontal">
-                <!-- Payment Proof 1: ORDER -->
-                <div class="confirmation-section">
-                    <h4>Płatność za zamówienie</h4>
-                    {% if order.payment_method %}
-                    <div class="payment-method-info">
-                        <span class="payment-method-label">Sposób:</span>
-                        <span class="payment-method-value">{{ order.payment_method }}</span>
-                    </div>
-                    {% endif %}
-                    {% if order.has_payment_proof_order %}
-                    <div class="payment-proof-container">
-                        <a href="{{ url_for('static', filename=order.payment_proof_order_file) }}"
-                           target="_blank"
-                           class="payment-proof-link">
-                            Podgląd dowodu
-                        </a>
-                        <small class="text-muted">
-                            Wgrano: {{ order.payment_proof_order_uploaded_at.strftime('%Y-%m-%d %H:%M') }}
-                        </small>
-
-                        {% if order.payment_proof_order_is_pending %}
-                            <div class="proof-status-pending">
-                                <span class="badge badge-warning">⏱ Oczekuje na weryfikację</span>
-                                <div class="proof-actions">
-                                    <button type="button"
-                                            class="btn-success btn-sm"
-                                            onclick="approvePaymentProof({{ order.id }}, 'order')">
-                                        ✓ Akceptuj
-                                    </button>
-                                    <button type="button"
-                                            class="btn-danger btn-sm"
-                                            onclick="openRejectPaymentProofModal({{ order.id }}, 'order')">
-                                        ✗ Odrzuć
-                                    </button>
-                                </div>
-                            </div>
-                        {% elif order.payment_proof_order_is_approved %}
-                            <span class="badge badge-success">✓ Zaakceptowano</span>
-                        {% elif order.payment_proof_order_is_rejected %}
-                            <span class="badge badge-danger">✗ Odrzucono</span>
-                            <div class="rejection-reason-bubble">
-                                <strong>Powód odrzucenia:</strong><br>
-                                {{ order.payment_proof_order_rejection_reason }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    {% else %}
-                    <div class="payment-proof-empty">
-                        <span class="text-muted">Brak dowodu wpłaty</span>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Payment Proof 2: SHIPPING (z ShippingRequest - współdzielone między zamówieniami) -->
-                <div class="confirmation-section">
-                    <h4>Płatność za dostawę</h4>
-                    {% set sr = order.shipping_request %}
-                    {% if sr and sr.payment_method %}
-                    <div class="payment-method-info">
-                        <span class="payment-method-label">Sposób:</span>
-                        <span class="payment-method-value">{{ sr.payment_method }}</span>
-                    </div>
-                    {% endif %}
-                    {% if sr and sr.has_payment_proof %}
-                    <div class="payment-proof-container">
-                        <a href="{{ url_for('static', filename=sr.payment_proof_file) }}"
-                           target="_blank"
-                           class="payment-proof-link">
-                            Podgląd dowodu
-                        </a>
-                        <small class="text-muted">
-                            Wgrano: {{ sr.payment_proof_uploaded_at.strftime('%Y-%m-%d %H:%M') }}
-                        </small>
-
-                        {# Info o wspólnym zleceniu #}
-                        {% set other_orders = order.shipping_request_other_orders %}
-                        {% if other_orders %}
-                        <div class="shared-proof-info">
-                            <span class="shared-label">Wspólne z:</span>
-                            {% for other in other_orders[:3] %}
-                            <a href="{{ url_for('orders.admin_detail', order_id=other.id) }}" class="shared-order-link">{{ other.order_number }}</a>
-                            {% endfor %}
-                            {% if other_orders|length > 3 %}
-                            <span class="shared-more">+{{ other_orders|length - 3 }}</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-
-                        {% if sr.payment_proof_is_pending %}
-                            <div class="proof-status-pending">
-                                <span class="badge badge-warning">⏱ Oczekuje na weryfikację</span>
-                                <div class="proof-actions">
-                                    <button type="button"
-                                            class="btn-success btn-sm"
-                                            onclick="approveShippingPaymentProof({{ sr.id }})">
-                                        ✓ Akceptuj
-                                    </button>
-                                    <button type="button"
-                                            class="btn-danger btn-sm"
-                                            onclick="openRejectShippingPaymentProofModal({{ sr.id }})">
-                                        ✗ Odrzuć
-                                    </button>
-                                </div>
-                            </div>
-                        {% elif sr.payment_proof_is_approved %}
-                            <span class="badge badge-success">✓ Zaakceptowano</span>
-                        {% elif sr.payment_proof_is_rejected %}
-                            <span class="badge badge-danger">✗ Odrzucono</span>
-                            <div class="rejection-reason-bubble">
-                                <strong>Powód odrzucenia:</strong><br>
-                                {{ sr.payment_proof_rejection_reason }}
-                            </div>
-                        {% endif %}
-                    </div>
-                    {% elif sr %}
-                    <div class="payment-proof-empty">
-                        <span class="text-muted">Oczekuje na dowód wpłaty</span>
-                        <small class="d-block text-muted">Zlecenie: {{ sr.request_number }}</small>
-                    </div>
-                    {% else %}
-                    <div class="payment-proof-empty">
-                        <span class="text-muted">Brak zlecenia wysyłki</span>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Prawa karta: Zlecenia wysyłki -->
+        <!-- Karta: Zlecenia wysyłki -->
         <div class="card shipping-requests-card">
             <h3>
                 <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
@@ -1284,24 +1146,6 @@
                                 <span class="history-icon">🗑️</span>
                                 <span class="history-text">
                                     Usunięto produkt "{{ event.old_value.product_name }}" ({{ event.old_value.quantity }} szt.)
-                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
-                                </span>
-                                {% elif event.action == 'payment_proof_uploaded' %}
-                                <span class="history-icon">📤</span>
-                                <span class="history-text">
-                                    Klient wgrał dowód wpłaty
-                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
-                                </span>
-                                {% elif event.action == 'payment_proof_approved' %}
-                                <span class="history-icon">✅</span>
-                                <span class="history-text">
-                                    Dowód wpłaty zaakceptowany{% if event.new_value and event.new_value.paid_amount %} ({{ "%.2f"|format(event.new_value.paid_amount) }} PLN){% endif %}
-                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
-                                </span>
-                                {% elif event.action == 'payment_proof_rejected' %}
-                                <span class="history-icon">❌</span>
-                                <span class="history-text">
-                                    Dowód wpłaty odrzucony{% if event.new_value and event.new_value.rejection_reason %}: {{ event.new_value.rejection_reason }}{% endif %}
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
                                 {% else %}
@@ -2550,6 +2394,5 @@ document.getElementById('deliveryMethodSelect').addEventListener('keydown', func
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/pages/admin/payment-proof.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/shipping-requests.js') }}"></script>
 {% endblock %}

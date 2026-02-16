@@ -101,41 +101,6 @@
 
             <!-- Card Footer - Actions -->
             <div class="card-footer">
-                {% if req.can_upload_payment_proof %}
-                <button type="button" class="btn-action btn-upload upload-proof-btn"
-                        data-request-id="{{ req.id }}"
-                        data-request-number="{{ req.request_number }}"
-                        data-shipping-cost="{{ '%.2f'|format(req.calculated_shipping_cost) if req.calculated_shipping_cost else '' }}">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                    </svg>
-                    Wgraj dowód
-                </button>
-                {% endif %}
-
-                {% if req.has_payment_proof %}
-                <span class="proof-indicator proof-{{ req.payment_proof_status }}" title="Dowód wpłaty: {{ req.payment_proof_status }}">
-                    {% if req.payment_proof_is_pending %}
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3.5a.5.5 0 0 1-.5-.5v-3.5A.5.5 0 0 1 8 4z"/>
-                    </svg>
-                    Oczekuje
-                    {% elif req.payment_proof_is_approved %}
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                    </svg>
-                    Zatwierdzony
-                    {% elif req.payment_proof_is_rejected %}
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
-                    </svg>
-                    Odrzucony
-                    {% endif %}
-                </span>
-                {% endif %}
-
                 <!-- Cancel Button - always visible, disabled when can't cancel -->
                 <div class="cancel-btn-wrapper">
                     <button type="button"
@@ -271,45 +236,6 @@
             <button type="button" class="btn btn-secondary" id="cancel-create-btn">Anuluj</button>
             <button type="button" class="btn btn-primary" id="wizard-next-btn" disabled>Dalej</button>
             <button type="button" class="btn btn-primary" id="wizard-submit-btn" style="display: none;">Zleć wysyłkę</button>
-        </div>
-    </div>
-</div>
-
-<!-- Upload Payment Proof Modal -->
-<div id="upload-proof-modal" class="modal-overlay">
-    <div class="modal-content modal-medium">
-        <div class="modal-header">
-            <h2 class="modal-title">Wgraj potwierdzenie płatności za wysyłkę</h2>
-            <button type="button" class="modal-close" id="close-upload-modal">&times;</button>
-        </div>
-
-        <div class="modal-body">
-            <!-- Payment info box - dynamically filled -->
-            <div id="paymentInfoBox" class="payment-info-box">
-                <!-- Filled by JS -->
-            </div>
-
-            <!-- Payment methods list - loaded from API -->
-            <div id="paymentMethodsInfo" class="payment-methods-list">
-                <!-- Loaded by JS -->
-            </div>
-
-            <form id="upload-proof-form" enctype="multipart/form-data">
-                <input type="hidden" id="upload-request-id" name="request_id">
-                <input type="hidden" id="selectedPaymentMethodName" name="payment_method_name" value="">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                <div class="file-upload-section">
-                    <label for="proof-file">Plik (JPG, PNG lub PDF, max 5MB) *</label>
-                    <input type="file" id="proof-file" name="payment_proof" accept=".jpg,.jpeg,.png,.pdf" required>
-                    <small class="form-text">Po wgraniu pliku NIE będzie można go zmienić (chyba że zostanie odrzucony przez administratora)</small>
-                </div>
-            </form>
-        </div>
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" id="cancel-upload-btn">Anuluj</button>
-            <button type="submit" form="upload-proof-form" class="btn btn-primary">Wgraj dowód</button>
         </div>
     </div>
 </div>
