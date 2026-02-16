@@ -3,12 +3,12 @@ Auth Module - Routes
 Endpointy autentykacji: login, register, logout, password reset
 """
 
-from flask import render_template, redirect, url_for, flash, request, current_app
+from flask import render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_user, logout_user, current_user, login_required
 from datetime import datetime
 
 # Import db z extensions.py (unika circular import)
-from extensions import db
+from extensions import db, csrf
 from modules.auth import auth_bp
 from modules.auth.models import User
 from modules.auth.forms import (
@@ -122,14 +122,33 @@ def send_password_reset_email(user):
 # =============================================
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
+@csrf.exempt
 def login():
     """
     Strona logowania
     GET: Wyświetla formularz
-    POST: Przetwarza logowanie
+    POST: Przetwarza logowanie (obsługuje też AJAX, bez CSRF dla AJAX)
     """
+    # Helper do wykrywania żądań AJAX
+    def is_ajax_request():
+        return (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            'application/json' in request.headers.get('Accept', '')
+        )
+
+    is_ajax = is_ajax_request()
+
     # Jeśli użytkownik już zalogowany, przekieruj
     if current_user.is_authenticated:
+        if is_ajax:
+            return jsonify({
+                'success': True,
+                'user': {
+                    'full_name': current_user.full_name,
+                    'email': current_user.email,
+                    'avatar_url': current_user.avatar_url
+                }
+            })
         if current_user.role in ['admin', 'mod']:
             return redirect(url_for('admin.dashboard'))
         else:
@@ -137,6 +156,81 @@ def login():
 
     form = LoginForm()
 
+    # Dla żądań AJAX - ręczna walidacja bez CSRF
+    if is_ajax and request.method == 'POST':
+        email = request.form.get('email', '').lower().strip()
+        password = request.form.get('password', '')
+        remember = request.form.get('remember_me') == 'on'
+        ip_address = request.remote_addr
+
+        # Podstawowa walidacja
+        if not email or not password:
+            return jsonify({
+                'success': False,
+                'error': 'Email i hasło są wymagane.'
+            }), 400
+
+        # Sprawdź rate limiting
+        is_locked, minutes = check_login_attempts(email, ip_address)
+        if is_locked:
+            return jsonify({
+                'success': False,
+                'error': f'Zbyt wiele nieudanych prób logowania. Spróbuj ponownie za {minutes} minut.'
+            }), 429
+
+        # Znajdź użytkownika
+        user = User.get_by_email(email)
+
+        # Sprawdź czy użytkownik istnieje i hasło jest poprawne
+        if user is None or not user.check_password(password):
+            record_login_attempt(email, ip_address, success=False)
+            return jsonify({
+                'success': False,
+                'error': 'Nieprawidłowy email lub hasło.'
+            }), 401
+
+        # Sprawdź czy konto jest aktywne
+        if not user.is_active:
+            return jsonify({
+                'success': False,
+                'error': 'Twoje konto zostało dezaktywowane. Skontaktuj się z administratorem.'
+            }), 403
+
+        # Sprawdź czy email został zweryfikowany
+        if not user.email_verified:
+            # Jeśli nie ma tokena sesji lub kod wygasł, wygeneruj nowy
+            if not user.verification_session_token or not user.email_verification_code_expires or \
+               datetime.now() > user.email_verification_code_expires:
+                code, session_token = user.generate_verification_code()
+                db.session.commit()
+                # Wyślij nowy kod
+                send_verification_code(user, code)
+            else:
+                session_token = user.verification_session_token
+
+            return jsonify({
+                'success': False,
+                'error': 'Twoje konto nie zostało jeszcze zweryfikowane. Sprawdź swoją skrzynkę email.',
+                'requires_verification': True,
+                'verification_url': url_for('auth.verify_email_code', token=session_token)
+            }), 403
+
+        # Logowanie pomyślne
+        login_user(user, remember=remember)
+        user.update_last_login()
+        record_login_attempt(email, ip_address, success=True)
+
+        return jsonify({
+            'success': True,
+            'user': {
+                'full_name': user.full_name,
+                'email': user.email,
+                'avatar_url': user.avatar_url
+            },
+            'requires_avatar': not user.has_avatar
+        })
+
+    # Standardowa walidacja formularza (z CSRF) dla zwykłych żądań
     if form.validate_on_submit():
         email = form.email.data.lower().strip()
         password = form.password.data

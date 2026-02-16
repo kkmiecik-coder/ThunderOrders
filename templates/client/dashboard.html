@@ -20,32 +20,32 @@
     <!-- Kafelki z metrykami -->
     <div class="dashboard-metrics">
         <!-- Rząd 1: Zamówienia -->
-        <div class="metric-card">
+        <a href="{{ url_for('orders.client_list') }}" class="metric-card metric-card-primary metric-card-clickable">
             <div class="metric-icon">📦</div>
             <div class="metric-content">
                 <h3 class="metric-title">Wszystkie zamówienia</h3>
                 <p class="metric-value">{{ orders.all }}</p>
                 <p class="metric-subtitle">Łącznie</p>
             </div>
-        </div>
+        </a>
 
-        <div class="metric-card">
+        <a href="{{ url_for('orders.client_list', statuses='nowe,oczekujace,w_realizacji,spakowane,wyslane') }}" class="metric-card metric-card-progress metric-card-clickable">
             <div class="metric-icon">🚀</div>
             <div class="metric-content">
                 <h3 class="metric-title">W realizacji</h3>
                 <p class="metric-value">{{ orders.in_progress }}</p>
                 <p class="metric-subtitle">Zamówienia w trakcie</p>
             </div>
-        </div>
+        </a>
 
-        <div class="metric-card">
+        <a href="{{ url_for('orders.client_list', status='dostarczone') }}" class="metric-card metric-card-success metric-card-clickable">
             <div class="metric-icon">✅</div>
             <div class="metric-content">
                 <h3 class="metric-title">Dostarczone</h3>
                 <p class="metric-value">{{ orders.delivered }}</p>
                 <p class="metric-subtitle">Zakończone</p>
             </div>
-        </div>
+        </a>
 
         <!-- Rząd 2: Payment Status -->
         <a href="{{ url_for('orders.client_list', payment_status='unpaid') }}" class="metric-card metric-card-warning metric-card-clickable">
@@ -275,13 +275,13 @@
 
         <!-- Ostatnie zamówienia -->
         <div class="dashboard-section">
-            <div class="widget widget-orders">
+            <div class="widget widget-orders" id="recentOrdersWidget">
                 <div class="widget-header">
                     <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
                     <a href="{{ url_for('orders.client_list') }}" class="widget-link">Zobacz wszystkie →</a>
                 </div>
                 <div class="widget-body widget-body-table">
-                    {% if recent_orders|length > 0 %}
+                    {% if recent_orders.visible|length > 0 %}
                         <table class="recent-orders-table">
                             <thead>
                                 <tr>
@@ -291,9 +291,29 @@
                                     <th class="text-right">Kwota</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {% for order in recent_orders %}
+                            <tbody id="recentOrdersTableBody">
+                                {# Visible orders #}
+                                {% for order in recent_orders.visible %}
                                 <tr onclick="window.location.href='{{ url_for('orders.client_detail', order_id=order.id) }}'" style="cursor: pointer;">
+                                    <td>
+                                        <span class="order-number-link">{{ order.order_number }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="order-client">{{ order.customer_name }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                            {{ order.status_display_name }}
+                                        </span>
+                                    </td>
+                                    <td class="text-right">
+                                        <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {# Buffer orders (hidden, will be shown on "load more") #}
+                                {% for order in recent_orders.buffer %}
+                                <tr class="orders-buffered" style="display: none;" onclick="window.location.href='{{ url_for('orders.client_detail', order_id=order.id) }}'">
                                     <td>
                                         <span class="order-number-link">{{ order.order_number }}</span>
                                     </td>
@@ -312,6 +332,17 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+                        {% if recent_orders.remaining > 0 %}
+                            <div class="orders-show-more" id="ordersShowMore">
+                                <button type="button" class="show-more-btn" id="ordersLoadMoreBtn"
+                                        data-visible="{{ recent_orders.visible|length }}"
+                                        data-buffer="{{ recent_orders.buffer|length }}"
+                                        data-total="{{ recent_orders.total }}"
+                                        data-remaining="{{ recent_orders.remaining }}">
+                                    Pokaż {{ [recent_orders.remaining, 5]|min }} więcej →
+                                </button>
+                            </div>
+                        {% endif %}
                     {% else %}
                         <div class="empty-state">
                             <p class="empty-icon">📭</p>
@@ -678,6 +709,118 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Recalculate remaining based on actual visible items
             const visibleRows = tableBody ? tableBody.querySelectorAll('tr:not([style*="display: none"])').length : 0;
+            const total = parseInt(loadMoreBtn.dataset.total);
+            remaining = Math.max(0, total - visibleRows);
+
+            updateButtonText(remaining);
+        });
+    })();
+
+    // ====================================
+    // RECENT ORDERS - LAZY LOADING
+    // ====================================
+    (function() {
+        const loadMoreBtn = document.getElementById('ordersLoadMoreBtn');
+        const tableBody = document.getElementById('recentOrdersTableBody');
+        const showMoreContainer = document.getElementById('ordersShowMore');
+
+        if (!loadMoreBtn || !tableBody) return;
+
+        let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
+        let isLoading = false;
+
+        // Create row HTML from order data
+        function createRowHTML(order) {
+            return `
+                <tr onclick="window.location.href='${order.detail_url}'" style="cursor: pointer;">
+                    <td>
+                        <span class="order-number-link">${order.order_number}</span>
+                    </td>
+                    <td>
+                        <span class="order-client">${order.customer_name}</span>
+                    </td>
+                    <td>
+                        <span class="order-status" style="background-color: ${order.status_badge_color}; color: white;">
+                            ${order.status_display_name}
+                        </span>
+                    </td>
+                    <td class="text-right">
+                        <span class="order-amount">${order.effective_grand_total.toFixed(2)} PLN</span>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Fetch more orders from API
+        async function fetchMoreOrders(offset, limit = 5) {
+            try {
+                const response = await fetch(`/client/api/recent-orders?offset=${offset}&limit=${limit}`);
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching recent orders:', error);
+                return null;
+            }
+        }
+
+        // Update button text
+        function updateButtonText(remaining) {
+            if (remaining <= 0) {
+                showMoreContainer.style.display = 'none';
+            } else {
+                loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, 5)} więcej →`;
+                loadMoreBtn.dataset.remaining = remaining;
+            }
+        }
+
+        // Handle load more click
+        loadMoreBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            if (isLoading) return;
+
+            // 1. Show buffered rows first
+            const bufferedRows = tableBody.querySelectorAll('.orders-buffered');
+            let shownFromBuffer = 0;
+
+            bufferedRows.forEach((row, index) => {
+                if (index < 5 && row.style.display === 'none') {
+                    row.style.display = '';
+                    row.classList.remove('orders-buffered');
+                    shownFromBuffer++;
+                }
+            });
+
+            // Calculate new remaining
+            let remaining = parseInt(loadMoreBtn.dataset.remaining) - shownFromBuffer;
+
+            // 2. If we showed buffered rows, fetch more for the buffer in background
+            if (shownFromBuffer > 0 && remaining > 0) {
+                isLoading = true;
+                loadMoreBtn.textContent = 'Ładowanie...';
+
+                const data = await fetchMoreOrders(currentOffset, 5);
+
+                if (data && data.success && data.orders.length > 0) {
+                    // Add new rows as buffered (hidden)
+                    data.orders.forEach(order => {
+                        const rowHTML = createRowHTML(order);
+                        const tempTable = document.createElement('table');
+                        tempTable.innerHTML = `<tbody>${rowHTML}</tbody>`;
+                        const newRow = tempTable.querySelector('tr');
+                        newRow.classList.add('orders-buffered');
+                        newRow.style.display = 'none';
+                        tableBody.appendChild(newRow);
+                    });
+
+                    currentOffset += data.orders.length;
+                }
+
+                isLoading = false;
+            }
+
+            // Recalculate remaining based on actual visible rows
+            const visibleRows = tableBody.querySelectorAll('tr:not([style*="display: none"])').length;
             const total = parseInt(loadMoreBtn.dataset.total);
             remaining = Math.max(0, total - visibleRows);
 

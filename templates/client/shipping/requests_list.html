@@ -19,79 +19,69 @@
         </button>
     </div>
 
-    <!-- Requests Table -->
-    <div class="table-container">
-        {% if requests %}
-        <table class="requests-table">
-            <thead>
-                <tr>
-                    <th class="col-number">Numer zlecenia</th>
-                    <th class="col-orders">Zamówienia</th>
-                    <th class="col-address">Adres dostawy</th>
-                    <th class="col-cost text-right">Koszt</th>
-                    <th class="col-tracking">Nr przesyłki</th>
-                    <th class="col-status">Status</th>
-                    <th class="col-date">Data</th>
-                    <th class="col-actions">Akcje</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for req in requests %}
-                <tr data-request-id="{{ req.id }}">
-                    <!-- Numer zlecenia -->
-                    <td class="col-number" data-label="Numer">
-                        <span class="request-number">{{ req.request_number }}</span>
-                    </td>
+    <!-- Requests Cards Grid -->
+    {% if requests %}
+    <div class="requests-grid">
+        {% for req in requests %}
+        <div class="request-card" data-request-id="{{ req.id }}">
+            <!-- Card Header -->
+            <div class="card-header">
+                <span class="request-number">{{ req.request_number }}</span>
+                <span class="status-badge" style="background-color: {{ req.status_badge_color }};">
+                    {{ req.status_display_name }}
+                </span>
+            </div>
 
-                    <!-- Zamówienia -->
-                    <td class="col-orders" data-label="Zamówienia">
-                        <div class="orders-badges">
-                            {% for ro in req.request_orders[:3] %}
-                            <a href="{{ url_for('orders.client_detail', order_id=ro.order.id) }}" class="order-badge" title="{{ ro.order.order_number }}">
-                                {{ ro.order.order_number }}
-                            </a>
-                            {% endfor %}
-                            {% if req.request_orders|length > 3 %}
-                            <span class="orders-more">+{{ req.request_orders|length - 3 }}</span>
-                            {% endif %}
-                        </div>
-                    </td>
+            <!-- Card Body -->
+            <div class="card-body">
+                <!-- Orders -->
+                <div class="card-row">
+                    <span class="row-label">Zamówienia</span>
+                    <div class="orders-badges">
+                        {% for ro in req.request_orders[:3] %}
+                        <a href="{{ url_for('orders.client_detail', order_id=ro.order.id) }}" class="order-badge">
+                            {{ ro.order.order_number }}
+                        </a>
+                        {% endfor %}
+                        {% if req.request_orders|length > 3 %}
+                        <span class="orders-more">+{{ req.request_orders|length - 3 }}</span>
+                        {% endif %}
+                    </div>
+                </div>
 
-                    <!-- Adres dostawy -->
-                    <td class="col-address" data-label="Adres">
-                        <div class="address-cell">
-                            {% if req.address_type == 'pickup_point' %}
-                            <span class="address-icon" title="Paczkomat">
-                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                </svg>
-                            </span>
-                            {% else %}
-                            <span class="address-icon" title="Adres domowy">
-                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
-                                </svg>
-                            </span>
-                            {% endif %}
-                            <span class="address-text" title="{{ req.full_address }}">{{ req.short_address }}</span>
-                        </div>
-                    </td>
+                <!-- Address -->
+                <div class="card-row">
+                    <span class="row-label">Adres dostawy</span>
+                    <div class="address-value">
+                        {% if req.address_type == 'pickup_point' %}
+                        <svg class="address-icon" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                        </svg>
+                        {% else %}
+                        <svg class="address-icon" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
+                        </svg>
+                        {% endif %}
+                        <span class="address-text" title="{{ req.full_address }}">{{ req.short_address }}</span>
+                    </div>
+                </div>
 
-                    <!-- Koszt wysyłki -->
-                    <td class="col-cost text-right" data-label="Koszt">
+                <!-- Cost & Tracking Row -->
+                <div class="card-row-dual">
+                    <div class="dual-item">
+                        <span class="row-label">Koszt</span>
                         {% if req.calculated_shipping_cost %}
                         <span class="cost-value">{{ "%.2f"|format(req.calculated_shipping_cost) }} zł</span>
                         {% else %}
                         <span class="cost-pending">Oczekuje</span>
                         {% endif %}
-                    </td>
-
-                    <!-- Numer przesyłki -->
-                    <td class="col-tracking" data-label="Nr przesyłki">
+                    </div>
+                    <div class="dual-item">
+                        <span class="row-label">Nr przesyłki</span>
                         {% if req.tracking_number %}
                         <span class="tracking-number">
                             {% if req.tracking_url %}
-                            <a href="{{ req.tracking_url }}" target="_blank" title="Śledź przesyłkę">{{ req.tracking_number }}</a>
+                            <a href="{{ req.tracking_url }}" target="_blank">{{ req.tracking_number }}</a>
                             {% else %}
                             {{ req.tracking_number }}
                             {% endif %}
@@ -99,81 +89,84 @@
                         {% else %}
                         <span class="tracking-pending">—</span>
                         {% endif %}
-                    </td>
+                    </div>
+                </div>
 
-                    <!-- Status -->
-                    <td class="col-status" data-label="Status">
-                        <span class="badge status-badge" style="background-color: {{ req.status_badge_color }}; color: #fff;">
-                            {{ req.status_display_name }}
-                        </span>
-                    </td>
+                <!-- Date -->
+                <div class="card-row">
+                    <span class="row-label">Data utworzenia</span>
+                    <span class="date-value">{{ req.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                </div>
+            </div>
 
-                    <!-- Data utworzenia -->
-                    <td class="col-date" data-label="Data">
-                        {{ req.created_at|format_datetime('%d.%m.%Y %H:%M') }}
-                    </td>
+            <!-- Card Footer - Actions -->
+            <div class="card-footer">
+                {% if req.can_upload_payment_proof %}
+                <button type="button" class="btn-action btn-upload upload-proof-btn"
+                        data-request-id="{{ req.id }}"
+                        data-request-number="{{ req.request_number }}"
+                        data-shipping-cost="{{ '%.2f'|format(req.calculated_shipping_cost) if req.calculated_shipping_cost else '' }}">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                        <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+                    </svg>
+                    Wgraj dowód
+                </button>
+                {% endif %}
 
-                    <!-- Akcje -->
-                    <td class="col-actions" data-label="Akcje">
-                        <div class="actions-group">
-                            {% if req.can_upload_payment_proof %}
-                            <button type="button" class="btn btn-sm btn-secondary upload-proof-btn"
-                                    data-request-id="{{ req.id }}"
-                                    data-request-number="{{ req.request_number }}"
-                                    data-shipping-cost="{{ '%.2f'|format(req.calculated_shipping_cost) if req.calculated_shipping_cost else '' }}"
-                                    title="Wgraj dowód wpłaty">
-                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                    <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-                                </svg>
-                            </button>
-                            {% endif %}
+                {% if req.has_payment_proof %}
+                <span class="proof-indicator proof-{{ req.payment_proof_status }}" title="Dowód wpłaty: {{ req.payment_proof_status }}">
+                    {% if req.payment_proof_is_pending %}
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3.5a.5.5 0 0 1-.5-.5v-3.5A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                    Oczekuje
+                    {% elif req.payment_proof_is_approved %}
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    </svg>
+                    Zatwierdzony
+                    {% elif req.payment_proof_is_rejected %}
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
+                    </svg>
+                    Odrzucony
+                    {% endif %}
+                </span>
+                {% endif %}
 
-                            {% if req.has_payment_proof %}
-                            <span class="proof-status-icon proof-status-{{ req.payment_proof_status }}" title="Dowód wpłaty: {{ req.payment_proof_status }}">
-                                {% if req.payment_proof_is_pending %}
-                                <svg width="14" height="14" fill="#F59E0B" viewBox="0 0 16 16">
-                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3.5a.5.5 0 0 1-.5-.5v-3.5A.5.5 0 0 1 8 4z"/>
-                                </svg>
-                                {% elif req.payment_proof_is_approved %}
-                                <svg width="14" height="14" fill="#10B981" viewBox="0 0 16 16">
-                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
-                                </svg>
-                                {% elif req.payment_proof_is_rejected %}
-                                <svg width="14" height="14" fill="#EF4444" viewBox="0 0 16 16">
-                                    <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/>
-                                </svg>
-                                {% endif %}
-                            </span>
-                            {% endif %}
-
-                            {% if req.can_cancel %}
-                            <button type="button" class="btn btn-sm btn-danger cancel-request-btn" data-request-id="{{ req.id }}" title="Anuluj zlecenie">
-                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                </svg>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        {% else %}
-        <div class="empty-state">
-            <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
-            </svg>
-            <h3>Brak zleceń wysyłki</h3>
-            <p>Nie masz jeszcze żadnych zleceń wysyłki</p>
-            <button type="button" class="btn btn-primary" id="create-request-btn-empty">Zleć pierwszą wysyłkę</button>
+                <!-- Cancel Button - always visible, disabled when can't cancel -->
+                <div class="cancel-btn-wrapper">
+                    <button type="button"
+                            class="btn-action btn-cancel cancel-request-btn"
+                            data-request-id="{{ req.id }}"
+                            {% if not req.can_cancel %}disabled{% endif %}>
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                        Anuluj
+                    </button>
+                    {% if not req.can_cancel %}
+                    <div class="cancel-tooltip">Zlecenie w trakcie realizacji - nie można anulować</div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
-        {% endif %}
+        {% endfor %}
     </div>
+
+    {% else %}
+    <div class="empty-state">
+        <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+        </svg>
+        <h3>Brak zleceń wysyłki</h3>
+        <p>Nie masz jeszcze żadnych zleceń wysyłki</p>
+        <button type="button" class="btn btn-primary" id="create-request-btn-empty">Zleć pierwszą wysyłkę</button>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Create Shipping Request Modal -->

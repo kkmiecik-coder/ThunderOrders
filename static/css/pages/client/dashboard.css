@@ -85,6 +85,14 @@
 }
 
 /* Metric Card Variants */
+.metric-card-primary {
+    border-left: 4px solid var(--purple-400);
+}
+
+.metric-card-progress {
+    border-left: 4px solid var(--orange-300);
+}
+
 .metric-card-success {
     border-left: 4px solid var(--success);
 }
@@ -108,6 +116,16 @@ a.metric-card-clickable:hover {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
+a.metric-card-clickable.metric-card-primary:hover {
+    border-left-color: var(--purple-400);
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.25);
+}
+
+a.metric-card-clickable.metric-card-progress:hover {
+    border-left-color: var(--orange-300);
+    box-shadow: 0 8px 24px rgba(255, 133, 0, 0.25);
+}
+
 a.metric-card-clickable.metric-card-success:hover {
     border-left-color: var(--success);
     box-shadow: 0 8px 24px rgba(76, 175, 80, 0.25);
@@ -118,8 +136,21 @@ a.metric-card-clickable.metric-card-warning:hover {
     box-shadow: 0 8px 24px rgba(255, 193, 7, 0.25);
 }
 
+a.metric-card-clickable.metric-card-info:hover {
+    border-left-color: var(--info);
+    box-shadow: 0 8px 24px rgba(33, 150, 243, 0.25);
+}
+
 [data-theme="dark"] a.metric-card-clickable:hover {
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] a.metric-card-clickable.metric-card-primary:hover {
+    box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="dark"] a.metric-card-clickable.metric-card-progress:hover {
+    box-shadow: 0 8px 24px rgba(255, 133, 0, 0.3);
 }
 
 [data-theme="dark"] a.metric-card-clickable.metric-card-success:hover {
@@ -128,6 +159,10 @@ a.metric-card-clickable.metric-card-warning:hover {
 
 [data-theme="dark"] a.metric-card-clickable.metric-card-warning:hover {
     box-shadow: 0 8px 24px rgba(255, 193, 7, 0.3);
+}
+
+[data-theme="dark"] a.metric-card-clickable.metric-card-info:hover {
+    box-shadow: 0 8px 24px rgba(33, 150, 243, 0.3);
 }
 
 /* Metric Icon */
@@ -939,7 +974,8 @@ a.metric-card-clickable.metric-card-warning:hover {
 }
 
 /* Show More Button */
-.exclusive-show-more {
+.exclusive-show-more,
+.orders-show-more {
     padding: var(--space-3) var(--space-4);
     text-align: center;
     border-top: 1px solid var(--gray-100);
@@ -966,7 +1002,8 @@ a.metric-card-clickable.metric-card-warning:hover {
     cursor: not-allowed;
 }
 
-[data-theme="dark"] .exclusive-show-more {
+[data-theme="dark"] .exclusive-show-more,
+[data-theme="dark"] .orders-show-more {
     border-top-color: rgba(240, 147, 251, 0.08);
 }
 

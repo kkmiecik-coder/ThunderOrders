@@ -2,10 +2,10 @@
 <aside class="sidebar" id="sidebar" data-collapsed="{{ 'true' if current_user.sidebar_collapsed else 'false' }}">
     <!-- Logo -->
     <div class="sidebar-header">
-        <div class="sidebar-logo">
+        <a href="{{ url_for('admin.dashboard') }}" class="sidebar-logo">
             <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="logo-full">
             <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="TO" class="logo-icon">
-        </div>
+        </a>
     </div>
 
     <!-- Navigation -->

@@ -27,24 +27,36 @@
                 {% if series.avatar_count > 0 %}
                 <div class="avatar-series-row">
                     <h2 class="series-title">{{ series.name }}</h2>
-                    <div class="avatar-carousel">
-                        <div class="avatar-carousel-track">
-                            {% for avatar in series.avatars %}
-                            <div class="avatar-option {% if current_avatar_id == avatar.id %}selected{% endif %}"
-                                 data-avatar-id="{{ avatar.id }}"
-                                 onclick="selectAvatar({{ avatar.id }}, this)">
-                                <div class="avatar-image-wrapper">
-                                    <img src="{{ avatar.url }}" alt="{{ series.name }}">
-                                    <div class="avatar-glow"></div>
+                    <div class="avatar-carousel-wrapper">
+                        <button type="button" class="carousel-nav carousel-nav-prev" onclick="scrollCarousel(this, -1)" aria-label="Poprzedni">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6"></polyline>
+                            </svg>
+                        </button>
+                        <div class="avatar-carousel">
+                            <div class="avatar-carousel-track">
+                                {% for avatar in series.avatars %}
+                                <div class="avatar-option {% if current_avatar_id == avatar.id %}selected{% endif %}"
+                                     data-avatar-id="{{ avatar.id }}"
+                                     onclick="selectAvatar({{ avatar.id }}, this)">
+                                    <div class="avatar-image-wrapper">
+                                        <img src="{{ avatar.url }}" alt="{{ series.name }}">
+                                        <div class="avatar-glow"></div>
+                                    </div>
+                                    <div class="avatar-check">
+                                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                        </svg>
+                                    </div>
                                 </div>
-                                <div class="avatar-check">
-                                    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
-                                        <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
-                                    </svg>
-                                </div>
+                                {% endfor %}
                             </div>
-                            {% endfor %}
                         </div>
+                        <button type="button" class="carousel-nav carousel-nav-next" onclick="scrollCarousel(this, 1)" aria-label="Następny">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 {% endif %}
@@ -110,5 +122,47 @@ function selectAvatar(avatarId, element) {
 if (selectedAvatarId) {
     document.getElementById('submitBtn').disabled = false;
 }
+
+// Carousel navigation
+function scrollCarousel(button, direction) {
+    const wrapper = button.closest('.avatar-carousel-wrapper');
+    const carousel = wrapper.querySelector('.avatar-carousel');
+    const scrollAmount = 300; // px to scroll
+
+    if (carousel) {
+        carousel.scrollBy({
+            left: direction * scrollAmount,
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Update nav buttons visibility based on scroll position
+function updateCarouselNavButtons() {
+    document.querySelectorAll('.avatar-carousel-wrapper').forEach(wrapper => {
+        const carousel = wrapper.querySelector('.avatar-carousel');
+        const prevBtn = wrapper.querySelector('.carousel-nav-prev');
+        const nextBtn = wrapper.querySelector('.carousel-nav-next');
+
+        if (!carousel || !prevBtn || !nextBtn) return;
+
+        const isAtStart = carousel.scrollLeft <= 10;
+        const isAtEnd = carousel.scrollLeft >= carousel.scrollWidth - carousel.clientWidth - 10;
+
+        // Left button hidden at start, right button hidden at end
+        prevBtn.classList.toggle('hidden', isAtStart);
+        nextBtn.classList.toggle('hidden', isAtEnd);
+    });
+}
+
+// Add scroll listeners to carousels
+document.querySelectorAll('.avatar-carousel').forEach(carousel => {
+    carousel.addEventListener('scroll', updateCarouselNavButtons);
+});
+
+// Initial check - wait for images to load so scrollWidth is calculated correctly
+window.addEventListener('load', updateCarouselNavButtons);
+// Also check after a short delay as fallback
+setTimeout(updateCarouselNavButtons, 100);
 </script>
 {% endblock %}

@@ -14,7 +14,7 @@
 }
 
 /* ====================
-   STATUS SIDEBAR
+   STATUS SIDEBAR (Fixed position)
    ==================== */
 
 .status-sidebar {
@@ -25,11 +25,24 @@
     padding: 1.5rem 0;
     display: flex;
     flex-direction: column;
-    /* Sticky sidebar */
-    position: sticky;
-    top: 0;
-    height: 100vh;
+    /* Fixed sidebar */
+    position: fixed;
+    top: 60px; /* Topbar height */
+    left: var(--sidebar-width); /* After main sidebar */
+    height: calc(100vh - 60px);
     overflow-y: auto;
+    z-index: 100;
+}
+
+/* Adjust main content to account for fixed status sidebar */
+.orders-list-page {
+    margin-left: 220px;
+    flex: 1;
+}
+
+/* When main sidebar is collapsed, adjust status sidebar position */
+.sidebar[data-collapsed="true"] ~ .main-wrapper .status-sidebar {
+    left: var(--sidebar-width-collapsed);
 }
 
 /* Scrollbar styling for status sidebar */
@@ -223,7 +236,6 @@
     font-weight: 600;
     color: #240046;
     user-select: none;
-    border-bottom: 1px solid rgba(157, 78, 221, 0.1);
     transition: all 0.2s ease;
 }
 
@@ -388,6 +400,102 @@
     border-top: 1px solid #E0E0E0;
 }
 
+/* ====================
+   MOBILE STATUS FILTER (hidden on desktop)
+   ==================== */
+
+.mobile-only-filter {
+    display: none;
+}
+
+.status-filter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.status-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    background: #F5F5F5;
+    border: 1px solid #E0E0E0;
+    border-radius: 20px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #616161;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+/* Hide checkbox input */
+.status-filter-chip input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.status-filter-chip:hover {
+    background: #EEEEEE;
+    border-color: #BDBDBD;
+    color: #424242;
+}
+
+.status-filter-chip.active,
+.status-filter-chip:has(input:checked) {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+    border-color: #7B2CBF;
+    color: #fff;
+}
+
+.status-filter-chip .chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-filter-chip .chip-count {
+    padding: 0.125rem 0.5rem;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.status-filter-chip:not(.active):not(:has(input:checked)) .chip-count {
+    background: #E0E0E0;
+    color: #616161;
+}
+
+[data-theme="dark"] .status-filter-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .status-filter-chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #fff;
+}
+
+[data-theme="dark"] .status-filter-chip.active,
+[data-theme="dark"] .status-filter-chip:has(input:checked) {
+    background: linear-gradient(135deg, rgba(157, 78, 221, 0.8) 0%, rgba(123, 44, 191, 0.8) 100%);
+    border-color: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .status-filter-chip:not(.active):not(:has(input:checked)) .chip-count {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
 .btn {
     display: inline-flex;
     align-items: center;
@@ -501,6 +609,18 @@
     flex-shrink: 0;
     color: #9E9E9E;
     transition: color 0.2s ease;
+}
+
+/* Status filter tag with colored dot */
+.filter-tag-status {
+    padding-left: 0.625rem;
+}
+
+.filter-tag-status .status-dot-small {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .clear-all-filters {
@@ -1161,6 +1281,16 @@
         display: none;
     }
 
+    /* Remove margin for status sidebar on mobile */
+    .orders-list-page {
+        margin-left: 0;
+    }
+
+    /* Show status filter in advanced filters on mobile */
+    .mobile-only-filter {
+        display: block;
+    }
+
     .page-header-left {
         flex-direction: column;
         align-items: flex-start;
@@ -1811,7 +1941,6 @@
 
 [data-theme="dark"] .filters-header {
     background: rgba(255, 255, 255, 0.03);
-    border-bottom-color: rgba(240, 147, 251, 0.15);
     color: #f0f0f0;
 }
 
@@ -2462,7 +2591,10 @@
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 500;
-    white-space: nowrap;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -2520,7 +2652,10 @@
     border-radius: 4px;
     font-size: 0.7rem;
     font-weight: 500;
-    white-space: nowrap;
+    white-space: normal;
+    width: max-content;
+    max-width: 280px;
+    text-align: center;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 

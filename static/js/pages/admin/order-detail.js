@@ -608,9 +608,14 @@
     // ====================
 
     /**
-     * Toggle status dropdown open/close
+     * Toggle order status dropdown open/close (unique name to avoid conflict with shipping-requests.js)
      */
-    window.toggleStatusDropdown = function() {
+    window.toggleOrderStatusDropdown = function(e) {
+        // Stop propagation to prevent document click listener from closing dropdown immediately
+        if (e) {
+            e.stopPropagation();
+        }
+
         const dropdown = document.getElementById('statusDropdown');
         if (dropdown) {
             dropdown.classList.toggle('open');

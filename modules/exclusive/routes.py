@@ -128,8 +128,11 @@ def preview_page(token):
 @exclusive_bp.route('/<token>/status')
 def check_status(token):
     """
-    API endpoint do sprawdzania statusu strony (używany przez countdown)
-    Zwraca aktualny status strony - pozwala wykryć ręczną aktywację przez admina
+    API endpoint do sprawdzania statusu strony (używany przez countdown i order-page)
+    Zwraca aktualny status strony - pozwala wykryć:
+    - Ręczną aktywację przez admina
+    - Dodanie/zmianę daty końcowej
+    - Ręczne zakończenie sprzedaży
     """
     page = ExclusivePage.get_by_token(token)
 
@@ -141,7 +144,9 @@ def check_status(token):
 
     return jsonify({
         'status': page.status,
-        'is_active': page.is_active
+        'is_active': page.is_active,
+        'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+        'is_manually_closed': page.status == 'closed'
     })
 
 

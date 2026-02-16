@@ -841,18 +841,24 @@ body.exclusive-page-body {
     position: relative;
 }
 
+/* Image doesn't need expanding - disable interaction */
+.set-background.expandable-image.no-expand {
+    cursor: default;
+}
+
 .set-background.expandable-image .image-wrapper {
     overflow: hidden;
-    transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 20px;
 }
 
 .set-background.expandable-image.collapsed .image-wrapper {
     max-height: 300px;
+    transition: max-height 0.3s ease-out;
 }
 
 .set-background.expandable-image.expanded .image-wrapper {
     max-height: 5000px;
+    transition: max-height 0.5s ease-in;
 }
 
 .set-background.expandable-image img {
@@ -862,7 +868,7 @@ body.exclusive-page-body {
     vertical-align: bottom;
 }
 
-/* Expand overlay (shown on hover at bottom when collapsed) */
+/* Expand overlay (always visible when collapsed, hidden when expanded) */
 .set-background.expandable-image .expand-overlay {
     position: absolute;
     bottom: 0;
@@ -876,16 +882,31 @@ body.exclusive-page-body {
     justify-content: center;
     padding-bottom: 12px;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease, background 0.2s ease, padding-bottom 0.2s ease;
     pointer-events: none;
 }
 
-.set-background.expandable-image.collapsed:hover .expand-overlay {
+/* Always visible when collapsed */
+.set-background.expandable-image.collapsed .expand-overlay {
     opacity: 1;
 }
 
+/* Hover effect - purple gradient and lower text */
+.set-background.expandable-image.collapsed:hover .expand-overlay {
+    background: linear-gradient(to top, rgba(157, 78, 221, 0.85), transparent);
+    padding-bottom: 8px;
+}
+
+/* Hidden when expanded */
+.set-background.expandable-image.expanded .expand-overlay {
+    opacity: 0;
+}
+
+/* Show on hover when expanded to allow collapsing */
 .set-background.expandable-image.expanded:hover .expand-overlay {
     opacity: 1;
+    background: linear-gradient(to top, rgba(157, 78, 221, 0.85), transparent);
+    padding-bottom: 8px;
 }
 
 .set-background.expandable-image .expand-text {
@@ -898,6 +919,11 @@ body.exclusive-page-body {
 /* Dark mode */
 [data-theme="dark"] .set-background.expandable-image .expand-overlay {
     background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+}
+
+[data-theme="dark"] .set-background.expandable-image.collapsed:hover .expand-overlay,
+[data-theme="dark"] .set-background.expandable-image.expanded:hover .expand-overlay {
+    background: linear-gradient(to top, rgba(240, 147, 251, 0.85), transparent);
 }
 
 .set-card.has-image .set-item:hover {
@@ -1931,6 +1957,50 @@ body.exclusive-page-body {
     margin: 0;
 }
 
+/* Logout Button in User Card */
+.exclusive-logout-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    background: rgba(244, 67, 54, 0.08);
+    color: #f44336;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    font-size: var(--text-sm);
+    font-weight: 500;
+}
+
+.exclusive-logout-btn:hover {
+    background: rgba(244, 67, 54, 0.15);
+    border-color: rgba(244, 67, 54, 0.4);
+    transform: scale(1.02);
+}
+
+.exclusive-logout-btn:active {
+    transform: scale(0.98);
+}
+
+.exclusive-logout-btn svg {
+    flex-shrink: 0;
+}
+
+/* Dark Mode - Logout Button */
+[data-theme="dark"] .exclusive-logout-btn {
+    background: rgba(244, 67, 54, 0.1);
+    border-color: rgba(244, 67, 54, 0.3);
+    color: #ff6b6b;
+}
+
+[data-theme="dark"] .exclusive-logout-btn:hover {
+    background: rgba(244, 67, 54, 0.2);
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
 /* Guest Badge */
 .exclusive-guest-badge {
     display: inline-flex;
@@ -2273,6 +2343,47 @@ body.exclusive-page-body {
 .btn-extend:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Extend button wrapper with tooltip */
+.extend-btn-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.extend-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.extend-tooltip::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    right: 16px;
+    border: 6px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.85);
+}
+
+/* Show tooltip only when button is disabled */
+.extend-btn-wrapper:hover .btn-extend:disabled + .extend-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 /* Warning state - less than 2 minutes */
@@ -3152,6 +3263,12 @@ body.exclusive-page-body {
     max-width: 450px;
 }
 
+.exclusive-modal-login .exclusive-modal-footer {
+    padding: 0;
+    background: transparent;
+    border-top: none;
+}
+
 .exclusive-form-error {
     background: rgba(244, 67, 54, 0.1);
     border: 1px solid rgba(244, 67, 54, 0.3);
@@ -3179,6 +3296,53 @@ body.exclusive-page-body {
     margin-bottom: 0;
 }
 
+/* Password field with toggle */
+.exclusive-password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.exclusive-password-wrapper .exclusive-form-input {
+    padding-right: 48px;
+}
+
+.exclusive-password-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--gray-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: color 0.2s ease, background 0.2s ease;
+}
+
+.exclusive-password-toggle:hover {
+    color: var(--gray-700);
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.exclusive-password-toggle:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Dark Mode - Password Toggle */
+[data-theme="dark"] .exclusive-password-toggle {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .exclusive-password-toggle:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.1);
+}
+
 /* Button loading state */
 .exclusive-btn-submit:disabled,
 .exclusive-btn-submit.loading {
@@ -3189,6 +3353,72 @@ body.exclusive-page-body {
 .exclusive-btn-submit:disabled span,
 .exclusive-btn-submit.loading span {
     opacity: 0.8;
+}
+
+/* ==========================================
+   Login Overlay (Loading State)
+   ========================================== */
+.exclusive-login-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(4px);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    z-index: 10;
+}
+
+.exclusive-login-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.exclusive-login-overlay-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.exclusive-login-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(139, 92, 246, 0.2);
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: exclusiveLoginSpin 0.8s linear infinite;
+}
+
+@keyframes exclusiveLoginSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.exclusive-login-overlay-text {
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: #6b7280;
+    letter-spacing: 0.025em;
+}
+
+/* Dark Mode - Login Overlay */
+[data-theme="dark"] .exclusive-login-overlay {
+    background: rgba(17, 17, 17, 0.9);
+}
+
+[data-theme="dark"] .exclusive-login-spinner {
+    border-color: rgba(240, 147, 251, 0.2);
+    border-top-color: #f093fb;
+}
+
+[data-theme="dark"] .exclusive-login-overlay-text {
+    color: rgba(255, 255, 255, 0.8);
 }
 
 /* Responsive adjustments */

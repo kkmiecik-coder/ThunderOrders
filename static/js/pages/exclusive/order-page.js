@@ -76,6 +76,9 @@ document.addEventListener('keydown', function(e) {
 // Expandable Set Background Image
 // ============================================
 function toggleSetImage(wrapper) {
+    // Don't toggle if image doesn't need expanding
+    if (wrapper.classList.contains('no-expand')) return;
+
     const isCollapsed = wrapper.classList.contains('collapsed');
     const expandText = wrapper.querySelector('.expand-text');
 
@@ -95,6 +98,45 @@ function toggleSetImage(wrapper) {
         }
     }
 }
+
+// Check if expandable images actually need the expand feature
+function initExpandableImages() {
+    const MAX_HEIGHT = 300; // Same as CSS max-height for collapsed state
+
+    document.querySelectorAll('.set-background.expandable-image').forEach(wrapper => {
+        const img = wrapper.querySelector('img');
+        if (!img) return;
+
+        // Wait for image to load to get actual height
+        const checkImageHeight = () => {
+            const imgHeight = img.naturalHeight;
+            const imgWidth = img.naturalWidth;
+            const wrapperWidth = wrapper.offsetWidth;
+
+            // Calculate displayed height based on aspect ratio
+            const displayedHeight = (imgHeight / imgWidth) * wrapperWidth;
+
+            if (displayedHeight <= MAX_HEIGHT) {
+                // Image fits without scrolling - disable expand feature
+                wrapper.classList.remove('collapsed');
+                wrapper.classList.add('no-expand');
+                const overlay = wrapper.querySelector('.expand-overlay');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            }
+        };
+
+        if (img.complete) {
+            checkImageHeight();
+        } else {
+            img.addEventListener('load', checkImageHeight);
+        }
+    });
+}
+
+// Initialize expandable images on page load
+document.addEventListener('DOMContentLoaded', initExpandableImages);
 
 // ============================================
 // Cart state
@@ -423,6 +465,113 @@ function backToGuestChoice() {
     }, 400);
 }
 
+// Show/hide login overlay
+function showLoginOverlay() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+    }
+}
+
+function hideLoginOverlay() {
+    const overlay = document.getElementById('loginOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+}
+
+// Toggle password visibility
+function togglePasswordVisibility() {
+    const passwordInput = document.getElementById('loginPassword');
+    const eyeShow = document.querySelector('.exclusive-password-toggle .eye-show');
+    const eyeHide = document.querySelector('.exclusive-password-toggle .eye-hide');
+
+    if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        eyeShow.style.display = 'none';
+        eyeHide.style.display = 'block';
+    } else {
+        passwordInput.type = 'password';
+        eyeShow.style.display = 'block';
+        eyeHide.style.display = 'none';
+    }
+}
+
+// Generate HTML for logged-in user view in order modal
+function generateLoggedInUserHTML(user) {
+    const avatarContent = user.avatar_url
+        ? `<img src="${user.avatar_url}" alt="${user.full_name}" class="user-avatar-img">`
+        : `<svg width="28" height="28" viewBox="0 0 16 16" fill="currentColor">
+               <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+               <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+           </svg>`;
+
+    return `
+        <div class="exclusive-user-card">
+            <div class="exclusive-user-avatar">
+                ${avatarContent}
+            </div>
+            <div class="exclusive-user-info">
+                <p class="exclusive-user-name">${user.full_name}</p>
+                <p class="exclusive-user-email">${user.email}</p>
+            </div>
+            <button type="button" class="exclusive-logout-btn" onclick="handleLogout()" title="Wyloguj się">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M7.5 1v7h1V1h-1z"/>
+                    <path d="M3 8.812a4.999 4.999 0 0 1 2.578-4.375l-.485-.874A6 6 0 1 0 11 3.616l-.501.865A5 5 0 1 1 3 8.812z"/>
+                </svg>
+                <span>Wyloguj</span>
+            </button>
+        </div>
+
+        <div class="exclusive-form-field">
+            <label class="exclusive-form-label">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5 4a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm-.5 2.5A.5.5 0 0 1 5 6h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zM5 8a.5.5 0 0 0 0 1h6a.5.5 0 0 0 0-1H5zm0 2a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1H5z"/>
+                    <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/>
+                </svg>
+                <span>Notatka do zamówienia <span class="exclusive-opt">(opcjonalnie)</span></span>
+            </label>
+            <textarea id="orderNote" class="exclusive-form-textarea" rows="3" placeholder="Dodatkowe informacje, uwagi, preferencje..."></textarea>
+        </div>
+    `;
+}
+
+// Handle logout from exclusive page
+async function handleLogout() {
+    try {
+        const response = await fetch('/auth/logout', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        // Reload page after logout to reset state
+        window.location.reload();
+    } catch (error) {
+        console.error('Logout error:', error);
+        // Fallback - redirect to logout URL
+        window.location.href = '/auth/logout';
+    }
+}
+
+// Update order modal to show logged-in user view
+function updateOrderModalForLoggedInUser(user) {
+    const orderModal = document.getElementById('orderModal');
+    if (!orderModal) return;
+
+    const modalBody = orderModal.querySelector('.exclusive-modal-body');
+    if (!modalBody) return;
+
+    // Replace modal body content with logged-in user view
+    modalBody.innerHTML = generateLoggedInUserHTML(user);
+
+    // Update global state
+    window.isAuthenticated = true;
+    window.isGuest = false;
+}
+
 async function handleLogin(event) {
     event.preventDefault();
 
@@ -430,9 +579,14 @@ async function handleLogin(event) {
     const originalText = btn.innerHTML;
     const errorEl = document.getElementById('loginError');
 
+    // Hide any previous errors
     errorEl.style.display = 'none';
+
+    // Show overlay with loading animation
+    showLoginOverlay();
+
+    // Disable button (as backup, overlay covers it anyway)
     btn.disabled = true;
-    btn.innerHTML = '<span>Logowanie...</span>';
 
     try {
         const email = document.getElementById('loginEmail').value;
@@ -442,6 +596,8 @@ async function handleLogin(event) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             },
             body: new URLSearchParams({
                 'email': email,
@@ -450,23 +606,53 @@ async function handleLogin(event) {
             })
         });
 
-        if (response.ok) {
+        const data = await response.json();
+
+        if (data.success) {
             // GA4: Track successful login
             trackUserLoginSuccess();
 
-            window.location.reload();
+            // Update order modal with logged-in user view
+            updateOrderModalForLoggedInUser(data.user);
+
+            // Hide overlay
+            hideLoginOverlay();
+
+            // Close login modal
+            closeLoginModal();
+
+            // Open order modal after a short delay
+            setTimeout(() => {
+                const orderModal = document.getElementById('orderModal');
+                if (orderModal) {
+                    orderModal.classList.add('active');
+                }
+            }, 400);
+
         } else {
-            let errorMessage = 'Nieprawidłowy email lub hasło.';
-            errorEl.textContent = errorMessage;
+            // Hide overlay
+            hideLoginOverlay();
+
+            // Show error message
+            errorEl.textContent = data.error || 'Nieprawidłowy email lub hasło.';
             errorEl.style.display = 'block';
+
+            // Re-enable button
             btn.disabled = false;
             btn.innerHTML = originalText;
         }
 
     } catch (error) {
         console.error('Login error:', error);
+
+        // Hide overlay
+        hideLoginOverlay();
+
+        // Show error message
         errorEl.textContent = 'Wystąpił błąd połączenia. Spróbuj ponownie.';
         errorEl.style.display = 'block';
+
+        // Re-enable button
         btn.disabled = false;
         btn.innerHTML = originalText;
     }
@@ -1066,13 +1252,20 @@ function updateReservationTimer() {
     timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
     const extendBtn = document.getElementById('extendBtn');
+    const extendTooltip = document.getElementById('extendTooltip');
     const canExtend = !reservationState.extended && diff < 120;
     extendBtn.disabled = !canExtend;
 
     if (reservationState.extended) {
         extendBtn.textContent = 'Przedłużono';
+        if (extendTooltip) {
+            extendTooltip.textContent = 'Rezerwację można przedłużyć tylko raz';
+        }
     } else if (diff >= 120) {
         extendBtn.textContent = 'Przedłuż +2 min';
+        if (extendTooltip) {
+            extendTooltip.textContent = 'Możesz przedłużyć gdy zostanie < 2 min';
+        }
     } else {
         extendBtn.textContent = 'Przedłuż +2 min';
     }
@@ -1907,3 +2100,216 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ============================================
+// STATUS POLLING - Auto-refresh for deadline changes & manual closure
+// ============================================
+(function() {
+    // Skip polling in preview mode
+    if (window.previewMode) return;
+
+    // Check if statusCheckUrl is available
+    if (!window.statusCheckUrl) return;
+
+    const POLL_INTERVAL = 1000; // 1 second - fast polling for manual closure detection
+    let currentEndsAt = window.initialEndsAt;
+    let pollingInterval = null;
+    let isClosed = false;
+
+    /**
+     * Checks status from server and handles changes
+     */
+    async function checkStatusChanges() {
+        // Stop checking if already closed
+        if (isClosed) return;
+
+        try {
+            const response = await fetch(window.statusCheckUrl);
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            // Handle manual closure by admin
+            if (data.is_manually_closed || !data.is_active) {
+                handleSaleClosed();
+                return;
+            }
+
+            // Handle ends_at change (admin added/changed deadline)
+            if (data.ends_at !== currentEndsAt) {
+                handleDeadlineChanged(data.ends_at);
+            }
+
+        } catch (error) {
+            console.error('Status check failed:', error);
+        }
+    }
+
+    /**
+     * Handles when sale is closed by admin
+     */
+    function handleSaleClosed() {
+        // Prevent multiple triggers
+        if (isClosed) return;
+        isClosed = true;
+
+        // Stop polling
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+
+        // Show toast notification
+        if (typeof showToast === 'function') {
+            showToast('Sprzedaż została zakończona przez administratora', 'info');
+        }
+
+        // Reload page after short delay to show closed state
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+    }
+
+    /**
+     * Handles when deadline is changed/added by admin
+     * @param {string|null} newEndsAt - New deadline ISO string or null
+     */
+    function handleDeadlineChanged(newEndsAt) {
+        const oldEndsAt = currentEndsAt;
+        currentEndsAt = newEndsAt;
+
+        if (!newEndsAt) {
+            // Deadline was removed - refresh to show "unknown date" state
+            window.location.reload();
+            return;
+        }
+
+        // Deadline was added or changed
+        const headerRight = document.querySelector('.header-right');
+        if (!headerRight) return;
+
+        const newDeadlineDate = new Date(newEndsAt);
+        const formattedDate = formatDeadlineDate(newDeadlineDate);
+
+        // Check if there's already a deadline banner
+        const existingBanner = headerRight.querySelector('.deadline-banner:not(.deadline-unknown)');
+        const unknownBanner = headerRight.querySelector('.deadline-unknown');
+
+        if (unknownBanner) {
+            // Replace "unknown date" banner with real deadline
+            unknownBanner.outerHTML = `
+                <div class="deadline-banner" data-deadline="${newEndsAt}">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                    </svg>
+                    <span>Koniec zamówień: <strong>${formattedDate}</strong></span>
+                </div>
+                <div id="dynamicCountdown" class="deadline-countdown hidden">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                    </svg>
+                    <span>Do końca: <strong id="countdownTime">--:--</strong></span>
+                </div>
+            `;
+
+            // Initialize the deadline timer for the new deadline
+            initializeDeadlineTimer(newEndsAt);
+
+            // Show toast
+            if (typeof showToast === 'function') {
+                showToast('Ustawiono datę zakończenia sprzedaży: ' + formattedDate, 'info');
+            }
+        } else if (existingBanner) {
+            // Update existing banner with new date
+            existingBanner.setAttribute('data-deadline', newEndsAt);
+            const strongEl = existingBanner.querySelector('strong');
+            if (strongEl) {
+                strongEl.textContent = formattedDate;
+            }
+
+            // Reinitialize timer with new deadline
+            initializeDeadlineTimer(newEndsAt);
+
+            // Show toast about changed deadline
+            if (typeof showToast === 'function') {
+                showToast('Zmieniono datę zakończenia sprzedaży: ' + formattedDate, 'info');
+            }
+        }
+    }
+
+    /**
+     * Formats deadline date for display
+     * @param {Date} date - Date object
+     * @returns {string} Formatted date string
+     */
+    function formatDeadlineDate(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day}.${month}.${year}, ${hours}:${minutes}`;
+    }
+
+    /**
+     * Initializes or reinitializes the deadline timer
+     * @param {string} deadlineStr - ISO deadline string
+     */
+    function initializeDeadlineTimer(deadlineStr) {
+        const deadlineDate = new Date(deadlineStr);
+        const dynamicCountdown = document.getElementById('dynamicCountdown');
+        const countdownTime = document.getElementById('countdownTime');
+
+        // Clear any existing timer
+        if (window._deadlineTimerInterval) {
+            clearInterval(window._deadlineTimerInterval);
+        }
+
+        function formatTime(minutes, seconds) {
+            const m = String(minutes).padStart(2, '0');
+            const s = String(seconds).padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function updateTimer() {
+            const now = new Date();
+            const diff = deadlineDate - now;
+
+            if (diff <= 0) {
+                // Deadline passed - reload page
+                window.location.reload();
+                return;
+            }
+
+            const totalSeconds = Math.floor(diff / 1000);
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            const minutes = Math.floor(totalMinutes % 60);
+            const seconds = totalSeconds % 60;
+
+            if (totalMinutes < 10 && dynamicCountdown && countdownTime) {
+                if (dynamicCountdown.classList.contains('hidden')) {
+                    dynamicCountdown.classList.remove('hidden');
+                }
+
+                countdownTime.textContent = formatTime(minutes, seconds);
+
+                if (totalMinutes < 2) {
+                    dynamicCountdown.classList.add('urgent');
+                } else {
+                    dynamicCountdown.classList.remove('urgent');
+                }
+            }
+        }
+
+        updateTimer();
+        window._deadlineTimerInterval = setInterval(updateTimer, 1000);
+    }
+
+    // Start polling
+    pollingInterval = setInterval(checkStatusChanges, POLL_INTERVAL);
+
+    // Also check immediately after page load (with small delay)
+    setTimeout(checkStatusChanges, 3000);
+})();

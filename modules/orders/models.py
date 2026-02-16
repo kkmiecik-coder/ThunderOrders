@@ -746,9 +746,11 @@ class Order(db.Model):
         Statusy:
         - 'none' (szary) - brak zlecenia wysyłki
         - 'awaiting_price' (żółty) - ma zlecenie, brak kwoty wysyłki
-        - 'pending' (pomarańczowy) - ma zlecenie i kwotę, czeka na wpłatę
+        - 'awaiting_payment' (pomarańczowy) - ma wycenę, brak dowodu wpłaty
+        - 'awaiting_confirmation' (fioletowy) - dowód wgrany, czeka na weryfikację admina
+        - 'paid' (niebieski) - wpłata potwierdzona, czeka na wysłanie
         - 'shipped' (zielony) - ma numer tracking
-        - 'rejected' (czerwony) - błąd/problem
+        - 'rejected' (czerwony) - dowód wpłaty odrzucony
         """
         sr = self.shipping_request
 
@@ -801,9 +803,33 @@ class Order(db.Model):
 
         if has_price:
             tooltip += f' | Koszt: {sr.total_shipping_cost:.2f} zł'
-            # POMARAŃCZOWY: Ma kwotę, czeka na potwierdzenie wpłaty
+
+            # Sprawdź status dowodu wpłaty
+            proof_status = sr.payment_proof_status
+
+            # NIEBIESKI: Wpłata potwierdzona, czeka na wysłanie
+            if proof_status == 'approved':
+                return {
+                    'status': 'paid',
+                    'color': '#3B82F6',
+                    'tooltip': tooltip + ' | Opłacone, czeka na wysłanie',
+                    'tracking': tracking,
+                    'shipping_request': sr
+                }
+
+            # FIOLETOWY: Dowód wgrany, czeka na weryfikację
+            if proof_status == 'pending' and sr.payment_proof_file:
+                return {
+                    'status': 'awaiting_confirmation',
+                    'color': '#8B5CF6',
+                    'tooltip': tooltip + ' | Oczekuje na potwierdzenie wpłaty',
+                    'tracking': tracking,
+                    'shipping_request': sr
+                }
+
+            # POMARAŃCZOWY: Ma wycenę, brak dowodu wpłaty
             return {
-                'status': 'pending',
+                'status': 'awaiting_payment',
                 'color': '#FF9800',
                 'tooltip': tooltip + ' | Czeka na wpłatę',
                 'tracking': tracking,
@@ -1187,7 +1213,7 @@ class ShippingRequest(db.Model):
     user = db.relationship('User', backref='shipping_requests')
 
     # Status (foreign key to shipping_request_statuses)
-    status = db.Column(db.String(50), db.ForeignKey('shipping_request_statuses.slug'), default='nowe')
+    status = db.Column(db.String(50), db.ForeignKey('shipping_request_statuses.slug'), default='czeka_na_wycene')
     status_rel = db.relationship('ShippingRequestStatus', back_populates='shipping_requests', foreign_keys=[status])
 
     # Shipping Address (copy from ShippingAddress at creation time)
@@ -1260,10 +1286,26 @@ class ShippingRequest(db.Model):
 
     @property
     def can_cancel(self):
-        """Returns True if client can cancel this request (only in initial status)"""
-        if self.status_rel:
-            return self.status_rel.is_initial
-        return False
+        """Returns True if client can cancel this request.
+
+        Cancellation is allowed only when:
+        - Status is initial (czeka_na_wycene)
+        - No shipping cost has been set (no admin quote)
+        - No payment proof has been uploaded
+        - No tracking number has been added
+        """
+        if not self.status_rel or not self.status_rel.is_initial:
+            return False
+
+        # Check if any action has been taken
+        if self.total_shipping_cost is not None:
+            return False  # Admin added shipping quote
+        if self.payment_proof_file:
+            return False  # Client uploaded payment proof
+        if self.tracking_number:
+            return False  # Admin added tracking
+
+        return True
 
     @property
     def short_address(self):

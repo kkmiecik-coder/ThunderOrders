@@ -308,6 +308,30 @@ def register_template_filters(app):
             return result
         return {k: v for k, v in d.items() if k != key}
 
+    @app.template_filter('reject_status')
+    def reject_status_filter(d, status_to_remove):
+        """
+        Usuwa pojedynczą wartość statusu z listy statusów w request.args.
+        Użycie: {{ request.args|reject_status('nowe') }}
+        """
+        result = {}
+        for k in d.keys():
+            values = d.getlist(k)
+            if k == 'status':
+                # Filtruj listę statusów, usuwając wskazany
+                filtered = [v for v in values if v != status_to_remove]
+                if filtered:
+                    if len(filtered) == 1:
+                        result[k] = filtered[0]
+                    else:
+                        result[k] = filtered
+            else:
+                if len(values) == 1:
+                    result[k] = values[0]
+                else:
+                    result[k] = values
+        return result
+
 
 # Uruchomienie aplikacji (tylko dla development)
 if __name__ == '__main__':

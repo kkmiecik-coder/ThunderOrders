@@ -144,7 +144,11 @@ function toggleDarkMode() {
 }
 
 function applyDarkMode(isDark) {
-  DOM.html.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  const theme = isDark ? 'dark' : 'light';
+  DOM.html.setAttribute('data-theme', theme);
+
+  // Dispatch themeChanged event for components that need to update (e.g. charts)
+  document.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));
 }
 
 async function saveDarkModeState(enabled) {

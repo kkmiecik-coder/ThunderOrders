@@ -69,10 +69,19 @@ def dashboard():
         )
     ).count()
 
-    # 4. Recent orders (5 last)
-    recent_orders = Order.query.filter_by(user_id=current_user.id).order_by(
+    # 4. Recent orders (with lazy loading support)
+    recent_orders_all = Order.query.filter_by(user_id=current_user.id).order_by(
         Order.created_at.desc()
-    ).limit(5).all()
+    ).limit(15).all()  # Fetch up to 15 for initial load (5 visible + 5 buffer + 5 for API)
+
+    total_orders = Order.query.filter_by(user_id=current_user.id).count()
+
+    recent_orders = {
+        'visible': recent_orders_all[:5],  # First 5 visible
+        'buffer': recent_orders_all[5:10],  # Next 5 in buffer (hidden)
+        'total': total_orders,
+        'remaining': max(0, total_orders - 5)
+    }
 
     # 5. Chart data (30 days)
     # Grupuj zamówienia po dniach (ostatnie 30 dni)
@@ -230,6 +239,51 @@ def get_chart_data():
             chart_data['values'].append(orders_dict.get(month_str, 0))
 
     return jsonify(chart_data)
+
+
+@client_bp.route('/api/recent-orders')
+@login_required
+def get_recent_orders():
+    """
+    API endpoint zwracający ostatnie zamówienia z paginacją
+
+    Query params:
+    - offset: od którego zamówienia zacząć (domyślnie 0)
+    - limit: ile zamówień pobrać (domyślnie 5)
+
+    Returns JSON z listą zamówień i flagą czy są kolejne
+    """
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 5, type=int)
+
+    # Pobierz zamówienia z paginacją
+    orders = Order.query.filter_by(user_id=current_user.id).order_by(
+        Order.created_at.desc()
+    ).offset(offset).limit(limit).all()
+
+    total = Order.query.filter_by(user_id=current_user.id).count()
+    remaining = max(0, total - offset - limit)
+
+    # Serialize orders
+    orders_data = []
+    for order in orders:
+        orders_data.append({
+            'id': order.id,
+            'order_number': order.order_number,
+            'customer_name': order.customer_name,
+            'status': order.status,
+            'status_display_name': order.status_display_name,
+            'status_badge_color': order.status_badge_color,
+            'effective_grand_total': float(order.effective_grand_total),
+            'detail_url': url_for('orders.client_detail', order_id=order.id)
+        })
+
+    return jsonify({
+        'success': True,
+        'orders': orders_data,
+        'remaining': remaining,
+        'total': total
+    })
 
 
 @client_bp.route('/api/exclusive-pages')

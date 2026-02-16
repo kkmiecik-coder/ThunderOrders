@@ -19,6 +19,10 @@
             </a>
             <h1>{{ order.order_number }}</h1>
             <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">{{ order.type_display_name }}</span>
+            <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
+        </div>
+        <div class="order-header-right">
+            <span class="order-total">{{ "%.2f"|format(order.effective_total) }} PLN</span>
         </div>
     </div>
 
@@ -58,6 +62,12 @@
                                             {% if item.product_ean %}
                                             <span>EAN: {{ item.product_ean }}</span>
                                             {% endif %}
+                                        </div>
+                                        <!-- Mobile values row -->
+                                        <div class="mobile-values-row">
+                                            <span class="mobile-value"><span class="label">Ilość:</span> {{ item.quantity }}</span>
+                                            <span class="mobile-value"><span class="label">Cena:</span> {{ "%.2f"|format(item.price) }} PLN</span>
+                                            <span class="mobile-value total"><span class="label">Wartość:</span> {{ "%.2f"|format(item.total) }} PLN</span>
                                         </div>
                                     </div>
                                 </td>
@@ -420,14 +430,26 @@
                             <div class="history-list">
                                 {% for history_item in order_history %}
                                 <div class="history-item">
+                                    <span class="history-icon">{{ history_item.action_icon }}</span>
                                     {% if history_item.is_status_change %}
                                         {# Zmiana statusu - kolorowy badge #}
-                                        <span class="badge" style="background-color: {{ history_item.status_color }}; color: #fff; font-size: 0.75rem;">
-                                            {{ history_item.status_name }}
+                                        <span class="history-text">
+                                            Zmiana statusu:
+                                            <span class="badge" style="background-color: {{ history_item.status_color }}; color: #fff; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.25rem;">
+                                                {{ history_item.status_name }}
+                                            </span>
+                                            {% if history_item.user_name != 'System' %}
+                                            <span class="history-user">przez {{ history_item.user_name }}</span>
+                                            {% endif %}
                                         </span>
                                     {% else %}
                                         {# Inne akcje - zwykły tekst #}
-                                        <span class="history-text">{{ history_item.action_label }}</span>
+                                        <span class="history-text">
+                                            {{ history_item.action_label }}
+                                            {% if history_item.user_name != 'System' %}
+                                            <span class="history-user">przez {{ history_item.user_name }}</span>
+                                            {% endif %}
+                                        </span>
                                     {% endif %}
                                     <span class="history-date">{{ history_item.created_at|format_datetime('%Y-%m-%d %H:%M') }}</span>
                                 </div>

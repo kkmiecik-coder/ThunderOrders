@@ -419,8 +419,10 @@ function submitShippingRequest() {
         if (data.success) {
             showToast('Zlecenie wysyłki zostało utworzone', 'success');
             closeCreateModal();
-            // Refresh list dynamically
-            refreshRequestsList();
+            // Reload page to refresh the list
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         } else {
             showToast(data.error || 'Błąd podczas tworzenia zlecenia', 'error');
             if (submitBtn) {
@@ -654,7 +656,12 @@ function submitPaymentProof() {
 
 function initCancelButtons() {
     document.querySelectorAll('.cancel-request-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(e) {
+            // Ignore click if button is disabled
+            if (this.disabled) {
+                e.preventDefault();
+                return;
+            }
             const requestId = this.dataset.requestId;
             cancelRequest(requestId);
         });
@@ -662,7 +669,7 @@ function initCancelButtons() {
 }
 
 function cancelRequest(requestId) {
-    if (!confirm('Czy na pewno chcesz anulować to zlecenie wysyłki?')) {
+    if (!confirm('Czy na pewno chcesz anulować to zlecenie wysyłki?\n\nZamówienia przypisane do tego zlecenia wrócą do puli i będą dostępne do ponownego zlecenia wysyłki.')) {
         return;
     }
 
@@ -677,8 +684,10 @@ function cancelRequest(requestId) {
     .then(data => {
         if (data.success) {
             showToast('Zlecenie zostało anulowane', 'success');
-            // Refresh list dynamically
-            refreshRequestsList();
+            // Reload page to refresh the list
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         } else {
             showToast(data.error || 'Błąd podczas anulowania', 'error');
         }

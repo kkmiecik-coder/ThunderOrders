@@ -1448,6 +1448,7 @@ def client_list():
     """
     # Filters
     status_filter = request.args.get('status')
+    statuses_filter = request.args.get('statuses', '').strip()  # comma-separated list of statuses
     date_from = request.args.get('date_from')
     date_to = request.args.get('date_to')
     search_query = request.args.get('search', '').strip()
@@ -1460,7 +1461,12 @@ def client_list():
     )
 
     # Apply filters
-    if status_filter:
+    if statuses_filter:
+        # Multiple statuses (comma-separated)
+        status_list = [s.strip() for s in statuses_filter.split(',') if s.strip()]
+        if status_list:
+            query = query.filter(Order.status.in_(status_list))
+    elif status_filter:
         query = query.filter(Order.status == status_filter)
 
     if date_from:
@@ -1580,30 +1586,38 @@ def client_detail(order_id):
     from modules.admin.models import ActivityLog
     import json
 
-    # Mapowanie akcji na polskie opisy
-    action_labels = {
-        'order_created': 'Utworzono zamówienie',
-        'order_status_change': 'Zmieniono status',
-        'order_updated': 'Zaktualizowano zamówienie',
-        'order_item_added': 'Dodano produkt',
-        'order_item_removed': 'Usunięto produkt',
-        'order_item_updated': 'Zaktualizowano produkt',
-        'payment_proof_uploaded': 'Przesłano dowód wpłaty',
-        'payment_proof_order_uploaded': 'Przesłano dowód wpłaty za zamówienie',
-        'payment_proof_shipping_uploaded': 'Przesłano dowód wpłaty za dostawę',
-        'payment_proof_approved': 'Zatwierdzono dowód wpłaty',
-        'payment_proof_order_approved': 'Zatwierdzono dowód wpłaty za zamówienie',
-        'payment_proof_shipping_approved': 'Zatwierdzono dowód wpłaty za dostawę',
-        'payment_proof_rejected': 'Odrzucono dowód wpłaty',
-        'payment_proof_order_rejected': 'Odrzucono dowód wpłaty za zamówienie',
-        'payment_proof_shipping_rejected': 'Odrzucono dowód wpłaty za dostawę',
-        'tracking_number_added': 'Dodano numer śledzenia',
-        'tracking_number_updated': 'Zaktualizowano numer śledzenia',
-        'shipping_requested': 'Utworzono zlecenie wysyłki',
-        'shipping_cost_updated': 'Zaktualizowano koszt wysyłki',
-        'comment_added': 'Dodano komentarz',
-        'order_cancelled': 'Anulowano zamówienie',
-        'order_completed': 'Zamówienie zakończone'
+    # Mapowanie akcji na polskie opisy i ikony
+    action_config = {
+        'order_created': {'label': 'Zamówienie utworzone', 'icon': '📦'},
+        'order_status_change': {'label': 'Zmiana statusu', 'icon': '🔄'},
+        'order_status_auto_updated': {'label': 'Automatyczna zmiana statusu', 'icon': '⚡'},
+        'order_updated': {'label': 'Zaktualizowano zamówienie', 'icon': '✏️'},
+        'order_item_added': {'label': 'Dodano produkt', 'icon': '➕'},
+        'order_item_added_custom': {'label': 'Dodano produkt niestandardowy', 'icon': '➕'},
+        'order_item_removed': {'label': 'Usunięto produkt', 'icon': '🗑️'},
+        'order_item_deleted': {'label': 'Usunięto produkt', 'icon': '🗑️'},
+        'order_item_updated': {'label': 'Zaktualizowano produkt', 'icon': '✏️'},
+        'order_products_added': {'label': 'Dodano produkty', 'icon': '➕'},
+        'order_field_updated': {'label': 'Zaktualizowano dane zamówienia', 'icon': '✏️'},
+        'order_payment_updated': {'label': 'Zaktualizowano płatność', 'icon': '💳'},
+        'payment_proof_uploaded': {'label': 'Przesłano dowód wpłaty', 'icon': '📤'},
+        'payment_proof_order_uploaded': {'label': 'Przesłano dowód wpłaty za zamówienie', 'icon': '📤'},
+        'payment_proof_shipping_uploaded': {'label': 'Przesłano dowód wpłaty za dostawę', 'icon': '📤'},
+        'payment_proof_uploaded_guest': {'label': 'Gość przesłał dowód wpłaty', 'icon': '📤'},
+        'payment_proof_approved': {'label': 'Zatwierdzono dowód wpłaty', 'icon': '✅'},
+        'payment_proof_order_approved': {'label': 'Zatwierdzono dowód wpłaty za zamówienie', 'icon': '✅'},
+        'payment_proof_shipping_approved': {'label': 'Zatwierdzono dowód wpłaty za dostawę', 'icon': '✅'},
+        'payment_proof_rejected': {'label': 'Odrzucono dowód wpłaty', 'icon': '❌'},
+        'payment_proof_order_rejected': {'label': 'Odrzucono dowód wpłaty za zamówienie', 'icon': '❌'},
+        'payment_proof_shipping_rejected': {'label': 'Odrzucono dowód wpłaty za dostawę', 'icon': '❌'},
+        'tracking_number_added': {'label': 'Dodano numer śledzenia', 'icon': '🚚'},
+        'tracking_number_updated': {'label': 'Zaktualizowano numer śledzenia', 'icon': '🚚'},
+        'shipping_requested': {'label': 'Utworzono zlecenie wysyłki', 'icon': '📬'},
+        'shipping_cost_updated': {'label': 'Zaktualizowano koszt wysyłki', 'icon': '💰'},
+        'comment_added': {'label': 'Dodano komentarz', 'icon': '💬'},
+        'order_cancelled': {'label': 'Anulowano zamówienie', 'icon': '🚫'},
+        'order_completed': {'label': 'Zamówienie zakończone', 'icon': '🎉'},
+        'refund_issued': {'label': 'Wystawiono zwrot', 'icon': '💸'}
     }
 
     order_history = []
@@ -1613,12 +1627,16 @@ def client_detail(order_id):
     ).order_by(ActivityLog.created_at.desc()).all()
 
     for log in activity_logs:
+        # Pobierz konfigurację akcji
+        config = action_config.get(log.action, {'label': log.action, 'icon': '📝'})
+
         # Podstawowe dane zdarzenia
         history_item = {
             'created_at': log.created_at,
             'user_name': log.user.full_name if log.user else 'System',
             'action': log.action,
-            'action_label': action_labels.get(log.action, log.action)
+            'action_label': config['label'],
+            'action_icon': config['icon']
         }
 
         # Specjalna obsługa zmian statusu (z kolorowym badge)
@@ -3894,6 +3912,158 @@ def admin_delete_shipping_request(shipping_request_id):
     return jsonify({
         'success': True,
         'message': f'Zlecenie {request_number} zostało anulowane'
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/bulk-cancel', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_bulk_cancel_shipping_requests():
+    """Bulk cancel/delete multiple shipping requests."""
+    data = request.get_json()
+    ids = data.get('ids', [])
+
+    if not ids:
+        return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
+
+    deleted_numbers = []
+
+    for sr_id in ids:
+        sr = ShippingRequest.query.get(sr_id)
+        if sr:
+            deleted_numbers.append(sr.request_number)
+            # Remove all order associations (orders go back to pool)
+            ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
+            # Delete the shipping request
+            db.session.delete(sr)
+
+    db.session.commit()
+
+    # Activity log
+    log_activity(
+        user=current_user,
+        action='shipping_requests_bulk_cancelled',
+        entity_type='shipping_request',
+        new_value=json.dumps({
+            'request_numbers': deleted_numbers,
+            'count': len(deleted_numbers)
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Usunięto {len(deleted_numbers)} zleceń'
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/bulk-merge', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_bulk_merge_shipping_requests():
+    """
+    Merge multiple shipping requests into one.
+    Uses the oldest request (lowest ID) as the target.
+    All orders from other requests are moved to the target.
+    Other requests are deleted.
+    """
+    data = request.get_json()
+    ids = data.get('ids', [])
+
+    if len(ids) < 2:
+        return jsonify({'error': 'Wybierz co najmniej 2 zlecenia do scalenia'}), 400
+
+    # Get all shipping requests and sort by ID (oldest first)
+    shipping_requests = ShippingRequest.query.filter(ShippingRequest.id.in_(ids)).order_by(ShippingRequest.id.asc()).all()
+
+    if len(shipping_requests) < 2:
+        return jsonify({'error': 'Nie znaleziono wybranych zleceń'}), 404
+
+    # Verify all requests belong to the same user
+    user_ids = set(sr.user_id for sr in shipping_requests)
+    if len(user_ids) > 1:
+        return jsonify({'error': 'Zaznaczone zlecenia pochodzą od różnych klientów'}), 400
+
+    # Target is the oldest request (first in sorted list)
+    target_request = shipping_requests[0]
+    requests_to_delete = shipping_requests[1:]
+    merged_numbers = [sr.request_number for sr in requests_to_delete]
+
+    # Move all orders from other requests to the target
+    for sr in requests_to_delete:
+        # Update all ShippingRequestOrder associations
+        ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).update({
+            'shipping_request_id': target_request.id
+        })
+
+    # Delete the now-empty requests
+    for sr in requests_to_delete:
+        db.session.delete(sr)
+
+    db.session.commit()
+
+    # Activity log
+    log_activity(
+        user=current_user,
+        action='shipping_requests_merged',
+        entity_type='shipping_request',
+        entity_id=target_request.id,
+        new_value=json.dumps({
+            'target_request_number': target_request.request_number,
+            'merged_request_numbers': merged_numbers,
+            'count': len(merged_numbers) + 1
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Scalono {len(shipping_requests)} zleceń w {target_request.request_number}'
+    })
+
+
+@orders_bp.route('/admin/orders/shipping-requests/bulk-status', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_bulk_status_shipping_requests():
+    """Bulk change status for multiple shipping requests."""
+    data = request.get_json()
+    ids = data.get('ids', [])
+    new_status = data.get('status')
+
+    if not ids:
+        return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
+
+    if not new_status:
+        return jsonify({'error': 'Nie wybrano nowego statusu'}), 400
+
+    # Verify status exists
+    status_obj = ShippingRequestStatus.query.filter_by(slug=new_status, is_active=True).first()
+    if not status_obj:
+        return jsonify({'error': 'Nieprawidłowy status'}), 400
+
+    updated_count = 0
+    for sr_id in ids:
+        sr = ShippingRequest.query.get(sr_id)
+        if sr:
+            sr.status = new_status
+            updated_count += 1
+
+    db.session.commit()
+
+    # Activity log
+    log_activity(
+        user=current_user,
+        action='shipping_requests_bulk_status_change',
+        entity_type='shipping_request',
+        new_value=json.dumps({
+            'ids': ids,
+            'new_status': new_status,
+            'count': updated_count
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'message': f'Zmieniono status {updated_count} zleceń na "{status_obj.name}"'
     })
 
 

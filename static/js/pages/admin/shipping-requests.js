@@ -2,6 +2,266 @@
 // ADMIN SHIPPING REQUESTS MANAGEMENT
 // ============================================
 
+// ============================================
+// CARD SELECTION SYSTEM
+// ============================================
+
+// Store selected shipping request IDs
+let selectedRequests = new Set();
+// Store client IDs for selected requests (key: requestId, value: clientId)
+let selectedRequestClients = new Map();
+
+/**
+ * Toggle card selection when clicking on the card
+ * @param {HTMLElement} card - The card element
+ * @param {Event} event - The click event
+ */
+function toggleCardSelection(card, event) {
+    // Don't toggle if clicking on interactive elements
+    if (event.target.closest('a, button, input, select, textarea')) {
+        return;
+    }
+
+    const checkbox = card.querySelector('.sr-checkbox');
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        handleCheckboxChange(checkbox);
+    }
+}
+
+/**
+ * Handle checkbox change
+ * @param {HTMLInputElement} checkbox - The checkbox element
+ */
+function handleCheckboxChange(checkbox) {
+    const card = checkbox.closest('.sr-card');
+    const requestId = checkbox.dataset.id;
+    const clientId = card.dataset.clientId || '';
+
+    if (checkbox.checked) {
+        selectedRequests.add(requestId);
+        selectedRequestClients.set(requestId, clientId);
+        card.classList.add('selected');
+    } else {
+        selectedRequests.delete(requestId);
+        selectedRequestClients.delete(requestId);
+        card.classList.remove('selected');
+    }
+
+    updateBulkToolbar();
+}
+
+/**
+ * Check if all selected requests belong to the same client
+ * @returns {boolean} True if all requests are from the same client
+ */
+function allSelectedFromSameClient() {
+    if (selectedRequestClients.size <= 1) return true;
+
+    const clientIds = Array.from(selectedRequestClients.values());
+    const firstClientId = clientIds[0];
+
+    // All must have the same non-empty client ID
+    return firstClientId !== '' && clientIds.every(id => id === firstClientId);
+}
+
+/**
+ * Update the bulk toolbar visibility and count
+ */
+function updateBulkToolbar() {
+    const bulkToolbar = document.getElementById('bulkToolbar');
+    const selectedCountEl = document.getElementById('selectedCount');
+    const mergeBtn = document.getElementById('btnBulkMerge');
+    const mergeTooltip = document.getElementById('bulkMergeTooltip');
+
+    if (!bulkToolbar) return;
+
+    const count = selectedRequests.size;
+
+    if (selectedCountEl) {
+        selectedCountEl.textContent = `${count} zaznaczonych`;
+    }
+
+    // Update merge button state and tooltip
+    if (mergeBtn) {
+        const sameClient = allSelectedFromSameClient();
+        const canMerge = count >= 2 && sameClient;
+        mergeBtn.disabled = !canMerge;
+
+        // Update tooltip message based on reason for disabled state
+        if (mergeTooltip) {
+            if (count < 2) {
+                mergeTooltip.textContent = 'Zaznacz co najmniej 2 zlecenia do scalenia';
+            } else if (!sameClient) {
+                mergeTooltip.textContent = 'Zaznaczone zlecenia pochodzą od różnych klientów';
+            }
+        }
+    }
+
+    if (count > 0) {
+        bulkToolbar.classList.remove('hidden');
+    } else {
+        bulkToolbar.classList.add('hidden');
+    }
+}
+
+/**
+ * Clear all selections
+ */
+function clearSelection() {
+    selectedRequests.clear();
+    selectedRequestClients.clear();
+
+    // Uncheck all checkboxes
+    document.querySelectorAll('.sr-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+
+    // Remove selected class from all cards
+    document.querySelectorAll('.sr-card').forEach(card => {
+        card.classList.remove('selected');
+    });
+
+    updateBulkToolbar();
+}
+
+/**
+ * Get array of selected request IDs
+ * @returns {string[]} Array of selected IDs
+ */
+function getSelectedRequestIds() {
+    return Array.from(selectedRequests);
+}
+
+// ============================================
+// BULK ACTIONS
+// ============================================
+
+/**
+ * Toggle status dropdown
+ */
+function toggleStatusDropdown() {
+    const dropdown = document.getElementById('bulkStatusDropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('show');
+    }
+}
+
+/**
+ * Bulk change status
+ * @param {string} newStatus - New status slug
+ */
+async function bulkChangeStatus(newStatus) {
+    const ids = getSelectedRequestIds();
+    if (ids.length === 0) return;
+
+    try {
+        const response = await fetch('/admin/orders/shipping-requests/bulk-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                ids: ids.map(id => parseInt(id)),
+                status: newStatus
+            })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Błąd podczas zmiany statusu');
+        }
+    } catch (error) {
+        console.error('Error changing status:', error);
+        alert('Błąd podczas zmiany statusu');
+    }
+}
+
+/**
+ * Bulk delete requests
+ */
+async function bulkDeleteRequests() {
+    const ids = getSelectedRequestIds();
+    if (ids.length === 0) return;
+
+    if (!confirm(`Czy na pewno usunąć ${ids.length} zaznaczonych zleceń?\n\nWszystkie zamówienia zostaną odłączone od tych zleceń i wrócą do puli dostępnych zamówień klienta.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/orders/shipping-requests/bulk-cancel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                ids: ids.map(id => parseInt(id))
+            })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Błąd podczas usuwania zleceń');
+        }
+    } catch (error) {
+        console.error('Error deleting requests:', error);
+        alert('Błąd podczas usuwania zleceń');
+    }
+}
+
+/**
+ * Bulk merge requests
+ */
+async function bulkMergeRequests() {
+    const ids = getSelectedRequestIds();
+    if (ids.length < 2) {
+        alert('Wybierz co najmniej 2 zlecenia do scalenia');
+        return;
+    }
+
+    if (!allSelectedFromSameClient()) {
+        alert('Zaznaczone zlecenia pochodzą od różnych klientów. Scalanie możliwe tylko dla zleceń tego samego klienta.');
+        return;
+    }
+
+    if (!confirm(`Czy na pewno scalić ${ids.length} zaznaczonych zleceń w jedno?\n\nWszystkie zamówienia z wybranych zleceń zostaną połączone w jedno zlecenie.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/admin/orders/shipping-requests/bulk-merge', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                ids: ids.map(id => parseInt(id))
+            })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Błąd podczas scalania zleceń');
+        }
+    } catch (error) {
+        console.error('Error merging requests:', error);
+        alert('Błąd podczas scalania zleceń');
+    }
+}
+
+// ============================================
+// PRODUCTS TOGGLE
+// ============================================
+
 /**
  * Toggle visibility of hidden order products
  * @param {HTMLElement} button - The toggle button
@@ -103,14 +363,20 @@ async function openShippingRequestModal(shippingRequestId) {
 }
 
 /**
- * Close shipping request modal
+ * Close shipping request modal with animation
  */
 function closeShippingRequestModal() {
     const modal = document.getElementById('editShippingRequestModal');
-    if (modal) {
-        modal.classList.remove('active');
+    if (!modal || !modal.classList.contains('active')) return;
+
+    // Add closing class to trigger exit animation
+    modal.classList.add('closing');
+
+    // Wait for animation to complete (350ms as defined in modals.css)
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
         currentShippingRequest = null;
-    }
+    }, 350);
 }
 
 /**
@@ -297,7 +563,7 @@ async function cancelShippingRequest() {
     }
 }
 
-// Form submit handler
+// Form submit handler and event listeners
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('editShippingRequestForm');
     if (form) {
@@ -351,6 +617,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeShippingRequestModal();
+            // Also close status dropdown
+            const dropdown = document.getElementById('bulkStatusDropdown');
+            if (dropdown) dropdown.classList.remove('show');
         }
     });
 
@@ -363,4 +632,47 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // ============================================
+    // BULK TOOLBAR EVENT LISTENERS
+    // ============================================
+
+    // Status button - toggle dropdown
+    const statusBtn = document.querySelector('.btn-bulk[data-action="status"]');
+    if (statusBtn) {
+        statusBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleStatusDropdown();
+        });
+    }
+
+    // Status dropdown options
+    document.querySelectorAll('.bulk-status-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const status = this.dataset.status;
+            bulkChangeStatus(status);
+        });
+    });
+
+    // Merge button
+    const mergeBtn = document.querySelector('.btn-bulk[data-action="merge"]');
+    if (mergeBtn) {
+        mergeBtn.addEventListener('click', bulkMergeRequests);
+    }
+
+    // Delete button
+    const deleteBtn = document.querySelector('.btn-bulk[data-action="delete"]');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', bulkDeleteRequests);
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('bulkStatusDropdown');
+        const statusWrapper = document.querySelector('.bulk-status-wrapper');
+
+        if (dropdown && statusWrapper && !statusWrapper.contains(e.target)) {
+            dropdown.classList.remove('show');
+        }
+    });
 });

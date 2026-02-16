@@ -156,6 +156,8 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .sidebar[data-collapsed="true"] .sidebar-logo {

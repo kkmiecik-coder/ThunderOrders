@@ -986,6 +986,27 @@
     color: #9E9E9E !important;
 }
 
+/* Shipping payment icon - new statuses */
+.status-icon-awaiting_payment {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800 !important;
+}
+
+.status-icon-awaiting_confirmation {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8B5CF6 !important;
+}
+
+.status-icon-paid {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3B82F6 !important;
+}
+
+.status-icon-shipped {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22C55E !important;
+}
+
 /* Dark mode - Payment proof icon statuses */
 [data-theme="dark"] .status-icon-approved {
     background: rgba(76, 175, 80, 0.2);
@@ -1010,6 +1031,27 @@
 [data-theme="dark"] .status-icon-none {
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Dark mode - Shipping payment icon statuses */
+[data-theme="dark"] .status-icon-awaiting_payment {
+    background: rgba(255, 152, 0, 0.2);
+    color: #FFB74D !important;
+}
+
+[data-theme="dark"] .status-icon-awaiting_confirmation {
+    background: rgba(139, 92, 246, 0.25);
+    color: #A78BFA !important;
+}
+
+[data-theme="dark"] .status-icon-paid {
+    background: rgba(59, 130, 246, 0.25);
+    color: #60A5FA !important;
+}
+
+[data-theme="dark"] .status-icon-shipped {
+    background: rgba(34, 197, 94, 0.25);
+    color: #4ADE80 !important;
 }
 
 .status-icon-link {

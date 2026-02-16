@@ -64,7 +64,7 @@ function initFiltersToggle() {
 
     // Keep filters open if any filter is active
     const params = new URLSearchParams(window.location.search);
-    const hasActiveFilters = params.has('status') || params.has('date_from') || params.has('date_to') ||
+    const hasActiveFilters = params.has('status') || params.has('statuses') || params.has('date_from') || params.has('date_to') ||
                              params.has('search') || params.has('payment_status') || params.has('proof_status');
 
     if (hasActiveFilters) {
@@ -169,7 +169,7 @@ function updateActiveFilters() {
 
     // Create badges
     filters.forEach(filter => {
-        const badge = createFilterBadge(filter.label, filter.name, filter.value);
+        const badge = createFilterBadge(filter.label, filter.name, filter.value, filter.isMulti || false);
         badgesContainer.appendChild(badge);
     });
 }
@@ -181,13 +181,26 @@ function getActiveFilters() {
     const filters = [];
     const params = new URLSearchParams(window.location.search);
 
-    // Status filter
+    // Status filter (single)
     const status = params.get('status');
     if (status) {
         const statusDropdown = document.getElementById('status-dropdown');
         const selectedOption = statusDropdown?.querySelector(`[data-value="${status}"]`);
         const label = selectedOption?.querySelector('span')?.textContent || status;
         filters.push({ name: 'status', label: `Status: ${label}`, value: status });
+    }
+
+    // Statuses filter (multiple, comma-separated)
+    const statuses = params.get('statuses');
+    if (statuses) {
+        const statusList = statuses.split(',').map(s => s.trim()).filter(s => s);
+        const statusDropdown = document.getElementById('status-dropdown');
+
+        statusList.forEach(statusSlug => {
+            const selectedOption = statusDropdown?.querySelector(`[data-value="${statusSlug}"]`);
+            const label = selectedOption?.querySelector('span')?.textContent || statusSlug;
+            filters.push({ name: 'statuses', label: `Status: ${label}`, value: statusSlug, isMulti: true });
+        });
     }
 
     // Date from filter
@@ -232,12 +245,12 @@ function getActiveFilters() {
 /**
  * Create Filter Badge Element
  */
-function createFilterBadge(label, name, value) {
+function createFilterBadge(label, name, value, isMulti = false) {
     const badge = document.createElement('div');
     badge.className = 'filter-badge';
     badge.innerHTML = `
         <span>${label}</span>
-        <span class="filter-badge-remove" data-filter="${name}">
+        <span class="filter-badge-remove" data-filter="${name}" data-value="${value}" data-multi="${isMulti}">
             <svg viewBox="0 0 12 12" fill="currentColor">
                 <path d="M10 2L6 6L2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 <path d="M2 10L6 6L10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -248,7 +261,15 @@ function createFilterBadge(label, name, value) {
     // Add remove handler
     const removeBtn = badge.querySelector('.filter-badge-remove');
     removeBtn.addEventListener('click', function() {
-        removeFilter(name);
+        const filterName = this.dataset.filter;
+        const filterValue = this.dataset.value;
+        const isMultiFilter = this.dataset.multi === 'true';
+
+        if (isMultiFilter) {
+            removeMultiFilter(filterName, filterValue);
+        } else {
+            removeFilter(filterName);
+        }
     });
 
     return badge;
@@ -266,6 +287,34 @@ function removeFilter(filterName) {
     if (!page) {
         params.delete('page');
     }
+
+    // Redirect with updated params
+    const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.location.href = newUrl;
+}
+
+/**
+ * Remove Single Value from Multi-Value Filter (e.g., statuses)
+ */
+function removeMultiFilter(filterName, valueToRemove) {
+    const params = new URLSearchParams(window.location.search);
+    const currentValue = params.get(filterName);
+
+    if (!currentValue) {
+        return;
+    }
+
+    // Split, filter out the value, rejoin
+    const values = currentValue.split(',').map(v => v.trim()).filter(v => v && v !== valueToRemove);
+
+    if (values.length > 0) {
+        params.set(filterName, values.join(','));
+    } else {
+        params.delete(filterName);
+    }
+
+    // Reset pagination when filter changes
+    params.delete('page');
 
     // Redirect with updated params
     const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');

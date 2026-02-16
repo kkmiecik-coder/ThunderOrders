@@ -210,8 +210,10 @@
 }
 
 .status-logo img {
-    height: 56px;
+    height: auto;
     width: auto;
+    max-width: 100%;
+    max-height: 56px;
     filter: drop-shadow(0 4px 20px rgba(240, 147, 251, 0.3));
 }
 
