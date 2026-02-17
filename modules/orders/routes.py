@@ -14,6 +14,7 @@ from sqlalchemy import or_, and_, func
 from datetime import datetime
 from decimal import Decimal
 
+from werkzeug.utils import secure_filename
 from modules.orders import orders_bp
 from modules.orders.models import (
     Order, OrderItem, OrderComment, OrderRefund,
@@ -3049,6 +3050,21 @@ def guest_track(token):
 # PAYMENT METHODS CRUD (Settings Tab)
 # ============================================
 
+def _save_payment_method_logo(file, method_id, logo_type):
+    """Zapisuje logo metody płatności i zwraca nazwę pliku."""
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    if ext not in ALLOWED_EXTENSIONS:
+        return None
+
+    upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_methods')
+    os.makedirs(upload_dir, exist_ok=True)
+
+    filename = secure_filename(f"method_{method_id}_{logo_type}.{ext}")
+    file.save(os.path.join(upload_dir, filename))
+    return filename
+
+
 @orders_bp.route('/admin/orders/payment-methods/create', methods=['POST'])
 @login_required
 @role_required('admin')
@@ -3057,11 +3073,11 @@ def create_payment_method():
     from modules.payments.models import PaymentMethod
 
     name = request.form.get('name', '').strip()
-    details = request.form.get('details', '').strip()
+    method_type = request.form.get('method_type', 'other')
     is_active = request.form.get('is_active') == 'on'
 
-    if not name or not details:
-        return jsonify({'success': False, 'error': 'Nazwa i szczegóły są wymagane'}), 400
+    if not name:
+        return jsonify({'success': False, 'error': 'Nazwa metody jest wymagana'}), 400
 
     try:
         # Auto-assign sort_order (max + 1)
@@ -3070,12 +3086,33 @@ def create_payment_method():
 
         method = PaymentMethod(
             name=name,
-            details=details,
+            method_type=method_type,
+            recipient=request.form.get('recipient', '').strip() or None,
+            account_number=request.form.get('account_number', '').strip() or None,
+            code=request.form.get('code', '').strip() or None,
+            transfer_title=request.form.get('transfer_title', '').strip() or None,
+            additional_info=request.form.get('additional_info', '').strip() or None,
             is_active=is_active,
             sort_order=sort_order
         )
 
         db.session.add(method)
+        db.session.flush()  # Potrzebujemy method.id do nazwy pliku
+
+        # Upload logo light
+        logo_light_file = request.files.get('logo_light')
+        if logo_light_file and logo_light_file.filename:
+            filename = _save_payment_method_logo(logo_light_file, method.id, 'light')
+            if filename:
+                method.logo_light = filename
+
+        # Upload logo dark
+        logo_dark_file = request.files.get('logo_dark')
+        if logo_dark_file and logo_dark_file.filename:
+            filename = _save_payment_method_logo(logo_dark_file, method.id, 'dark')
+            if filename:
+                method.logo_dark = filename
+
         db.session.commit()
 
         return jsonify({'success': True})
@@ -3095,9 +3132,51 @@ def edit_payment_method(id):
 
     try:
         method.name = request.form.get('name', '').strip()
-        method.details = request.form.get('details', '').strip()
+        method.method_type = request.form.get('method_type', 'other')
+        method.recipient = request.form.get('recipient', '').strip() or None
+        method.account_number = request.form.get('account_number', '').strip() or None
+        method.code = request.form.get('code', '').strip() or None
+        method.transfer_title = request.form.get('transfer_title', '').strip() or None
+        method.additional_info = request.form.get('additional_info', '').strip() or None
         method.is_active = request.form.get('is_active') == 'on'
         # sort_order is managed by drag & drop, don't change it here
+
+        # Upload logo light
+        logo_light_file = request.files.get('logo_light')
+        if logo_light_file and logo_light_file.filename:
+            # Usuń stare logo jeśli istnieje
+            if method.logo_light:
+                old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_methods', method.logo_light)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            filename = _save_payment_method_logo(logo_light_file, method.id, 'light')
+            if filename:
+                method.logo_light = filename
+
+        # Upload logo dark
+        logo_dark_file = request.files.get('logo_dark')
+        if logo_dark_file and logo_dark_file.filename:
+            # Usuń stare logo jeśli istnieje
+            if method.logo_dark:
+                old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_methods', method.logo_dark)
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            filename = _save_payment_method_logo(logo_dark_file, method.id, 'dark')
+            if filename:
+                method.logo_dark = filename
+
+        # Usunięcie logo (jeśli zaznaczono checkbox "usuń")
+        if request.form.get('remove_logo_light') == '1' and method.logo_light:
+            old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_methods', method.logo_light)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+            method.logo_light = None
+
+        if request.form.get('remove_logo_dark') == '1' and method.logo_dark:
+            old_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'payment_methods', method.logo_dark)
+            if os.path.exists(old_path):
+                os.remove(old_path)
+            method.logo_dark = None
 
         db.session.commit()
 
@@ -3148,8 +3227,19 @@ def get_payment_methods_list():
                 </div>
                 <strong>{{ method.name }}</strong>
             </div>
-            <div class="payment-method-col-details">
-                <pre class="payment-details-preview">{{ method.details[:100] }}{% if method.details|length > 100 %}...{% endif %}</pre>
+            <div class="payment-method-col-type">
+                {% if method.method_type == 'transfer' %}
+                    <span class="badge badge-info">Przelew</span>
+                {% elif method.method_type == 'instant' %}
+                    <span class="badge badge-warning">Błyskawiczna</span>
+                {% elif method.method_type == 'online' %}
+                    <span class="badge badge-success">Online</span>
+                {% else %}
+                    <span class="badge badge-secondary">Inna</span>
+                {% endif %}
+            </div>
+            <div class="payment-method-col-account">
+                <code>{{ method.account_number or '—' }}</code>
             </div>
             <div class="payment-method-col-status">
                 {% if method.is_active %}
@@ -3159,8 +3249,8 @@ def get_payment_methods_list():
                 {% endif %}
             </div>
             <div class="payment-method-col-actions">
-                <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.id }}, "{{ method.name }}", {{ method.details|tojson }}, {{ method.is_active|tojson }})'>Edytuj</button>
-                <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, '{{ method.name }}')">Usuń</button>
+                <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.to_dict()|tojson }})'>Edytuj</button>
+                <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, &#39;{{ method.name }}&#39;)">Usuń</button>
             </div>
         </div>
     {% endfor %}

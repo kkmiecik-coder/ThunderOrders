@@ -731,10 +731,18 @@ def send_closure_emails(page_id):
         # Przygotuj metody płatności z podstawionym numerem zamówienia
         payment_methods = []
         for method in payment_methods_raw:
-            details = method.details.replace('[NUMER ZAMÓWIENIA]', order.order_number)
+            # Podstaw numer zamówienia w tytule przelewu
+            title = (method.transfer_title or '').replace('[NUMER ZAMÓWIENIA]', order.order_number)
+            additional = (method.additional_info or '').replace('[NUMER ZAMÓWIENIA]', order.order_number)
+
             payment_methods.append({
                 'name': method.name,
-                'details': details
+                'method_type': method.method_type,
+                'recipient': method.recipient,
+                'account_number': method.account_number,
+                'code': method.code,
+                'transfer_title': title,
+                'additional_info': additional
             })
 
         # URL do wgrania dowodu - różny dla gości i zalogowanych użytkowników

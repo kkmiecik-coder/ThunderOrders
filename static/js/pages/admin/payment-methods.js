@@ -3,14 +3,105 @@
 // ============================================
 
 /**
+ * Toggle visibility of payment method fields based on method type
+ */
+function togglePaymentMethodFields(prefix) {
+    const methodType = document.getElementById(prefix + 'MethodType').value;
+    const recipientField = document.getElementById(prefix + '-field-recipient');
+    const codeField = document.getElementById(prefix + '-field-code');
+
+    if (methodType === 'transfer') {
+        // Przelew: pokaż odbiorcę i kod (SWIFT)
+        recipientField.style.display = 'block';
+        codeField.style.display = 'block';
+    } else if (methodType === 'instant') {
+        // BLIK: ukryj odbiorcę i kod
+        recipientField.style.display = 'none';
+        codeField.style.display = 'none';
+    } else if (methodType === 'online') {
+        // Online: ukryj odbiorcę, pokaż kod (Revolut)
+        recipientField.style.display = 'none';
+        codeField.style.display = 'block';
+    } else {
+        // Other: pokaż wszystko
+        recipientField.style.display = 'block';
+        codeField.style.display = 'block';
+    }
+}
+
+/**
+ * Podgląd wybranego logo
+ */
+function previewLogo(input, prefix, type) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const preview = document.getElementById(prefix + '-logo-' + type + '-preview');
+    const img = document.getElementById(prefix + '-logo-' + type + '-img');
+    const selectLabel = document.getElementById(prefix + '-logo-' + type + '-select');
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        img.src = e.target.result;
+        preview.style.display = 'flex';
+        selectLabel.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+/**
+ * Usuń podgląd logo (i oznacz do usunięcia na backendzie)
+ */
+function removeLogoPreview(prefix, type) {
+    const preview = document.getElementById(prefix + '-logo-' + type + '-preview');
+    const img = document.getElementById(prefix + '-logo-' + type + '-img');
+    const selectLabel = document.getElementById(prefix + '-logo-' + type + '-select');
+    const fileInput = selectLabel.querySelector('input[type="file"]');
+
+    preview.style.display = 'none';
+    img.src = '';
+    selectLabel.style.display = 'flex';
+    fileInput.value = '';
+
+    // W trybie edycji — oznacz logo do usunięcia na backendzie
+    if (prefix === 'edit') {
+        const removeField = document.getElementById('edit-remove-logo-' + type);
+        if (removeField) removeField.value = '1';
+    }
+}
+
+/**
+ * Resetuj pola logo w modalu
+ */
+function resetLogoFields(prefix) {
+    ['light', 'dark'].forEach(function(type) {
+        const preview = document.getElementById(prefix + '-logo-' + type + '-preview');
+        const img = document.getElementById(prefix + '-logo-' + type + '-img');
+        const selectLabel = document.getElementById(prefix + '-logo-' + type + '-select');
+        const fileInput = selectLabel ? selectLabel.querySelector('input[type="file"]') : null;
+
+        if (preview) preview.style.display = 'none';
+        if (img) img.src = '';
+        if (selectLabel) selectLabel.style.display = 'flex';
+        if (fileInput) fileInput.value = '';
+
+        if (prefix === 'edit') {
+            const removeField = document.getElementById('edit-remove-logo-' + type);
+            if (removeField) removeField.value = '0';
+        }
+    });
+}
+
+/**
  * Open create payment method modal
  */
 function openCreatePaymentMethodModal() {
     const modal = document.getElementById('createPaymentMethodModal');
     if (modal) {
-        // Reset form
         document.getElementById('createPaymentMethodForm').reset();
+        resetLogoFields('create');
         modal.classList.add('active');
+        togglePaymentMethodFields('create');
         document.getElementById('createName').focus();
     }
 }
@@ -27,18 +118,47 @@ function closeCreatePaymentMethodModal() {
 }
 
 /**
- * Open edit payment method modal
+ * Open edit payment method modal with data from method object
  */
-function openEditPaymentMethodModal(id, name, details, isActive) {
+function openEditPaymentMethodModal(methodData) {
     const modal = document.getElementById('editPaymentMethodModal');
     const form = document.getElementById('editPaymentMethodForm');
 
     if (modal && form) {
-        form.action = `/admin/orders/payment-methods/${id}/edit`;
-        document.getElementById('editName').value = name;
-        document.getElementById('editDetails').value = details;
-        document.getElementById('editIsActive').checked = isActive;
+        form.action = '/admin/orders/payment-methods/' + methodData.id + '/edit';
+        document.getElementById('editName').value = methodData.name || '';
+        document.getElementById('editMethodType').value = methodData.method_type || 'other';
+        document.getElementById('editRecipient').value = methodData.recipient || '';
+        document.getElementById('editAccountNumber').value = methodData.account_number || '';
+        document.getElementById('editCode').value = methodData.code || '';
+        document.getElementById('editTransferTitle').value = methodData.transfer_title || '';
+        document.getElementById('editAdditionalInfo').value = methodData.additional_info || '';
+        document.getElementById('editIsActive').checked = methodData.is_active;
 
+        // Resetuj pola logo i wypełnij istniejącymi
+        resetLogoFields('edit');
+
+        // Pokaż istniejące logo light
+        if (methodData.logo_light_url) {
+            var lightImg = document.getElementById('edit-logo-light-img');
+            var lightPreview = document.getElementById('edit-logo-light-preview');
+            var lightSelect = document.getElementById('edit-logo-light-select');
+            lightImg.src = methodData.logo_light_url;
+            lightPreview.style.display = 'flex';
+            lightSelect.style.display = 'none';
+        }
+
+        // Pokaż istniejące logo dark
+        if (methodData.logo_dark_url) {
+            var darkImg = document.getElementById('edit-logo-dark-img');
+            var darkPreview = document.getElementById('edit-logo-dark-preview');
+            var darkSelect = document.getElementById('edit-logo-dark-select');
+            darkImg.src = methodData.logo_dark_url;
+            darkPreview.style.display = 'flex';
+            darkSelect.style.display = 'none';
+        }
+
+        togglePaymentMethodFields('edit');
         modal.classList.add('active');
         document.getElementById('editName').focus();
     }
@@ -56,24 +176,21 @@ function closeEditPaymentMethodModal() {
 
 // Delete payment method
 function deletePaymentMethod(id, name) {
-    if (!confirm(`Czy na pewno usunąć metodę płatności "${name}"?`)) {
+    if (!confirm('Czy na pewno usunąć metodę płatności "' + name + '"?')) {
         return;
     }
 
     const formData = new FormData();
     formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
 
-    fetch(`/admin/orders/payment-methods/${id}/delete`, {
+    fetch('/admin/orders/payment-methods/' + id + '/delete', {
         method: 'POST',
         body: formData
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Refresh payment methods list
             refreshPaymentMethodsList();
-
-            // Show success message
             showFlashMessage('Metoda płatności została usunięta', 'success');
         } else {
             showFlashMessage(data.error || 'Wystąpił błąd', 'error');
@@ -113,13 +230,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Close modal
                     closeCreatePaymentMethodModal();
-
-                    // Refresh payment methods list
                     refreshPaymentMethodsList();
-
-                    // Show success message
                     showFlashMessage('Metoda płatności została dodana', 'success');
                 } else {
                     showFlashMessage(data.error || 'Wystąpił błąd', 'error');
@@ -147,13 +259,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Close modal
                     closeEditPaymentMethodModal();
-
-                    // Refresh payment methods list
                     refreshPaymentMethodsList();
-
-                    // Show success message
                     showFlashMessage('Metoda płatności została zaktualizowana', 'success');
                 } else {
                     showFlashMessage(data.error || 'Wystąpił błąd', 'error');
@@ -165,6 +272,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // Initialize field toggle for create modal
+    togglePaymentMethodFields('create');
 });
 
 /**
@@ -191,11 +301,9 @@ function refreshPaymentMethodsList() {
  * Show flash message (toast notification)
  */
 function showFlashMessage(message, type) {
-    // Jeśli istnieje globalny system toast, użyj go
     if (typeof window.showToast === 'function') {
         window.showToast(message, type);
     } else {
-        // Fallback - prosty alert
         alert(message);
     }
 }
@@ -210,7 +318,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const paymentMethodsList = document.querySelector('.payment-methods-list');
     if (!paymentMethodsList) return;
 
-    // Dodaj event listenery do wszystkich elementów
     setupPaymentMethodDragAndDrop();
 });
 

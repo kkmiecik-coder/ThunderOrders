@@ -12,6 +12,7 @@ Models for orders management:
 - ShippingRequestStatus: Lookup table for shipping request statuses
 - ShippingRequest: Shipping request model (groups orders for shipment)
 - ShippingRequestOrder: Junction table between ShippingRequest and Order
+- PaymentConfirmation: Potwierdzenia płatności dla zamówień Exclusive
 """
 
 from datetime import datetime, timezone, timedelta
@@ -226,6 +227,7 @@ class Order(db.Model):
     comments = db.relationship('OrderComment', back_populates='order', cascade='all, delete-orphan', order_by='OrderComment.created_at.desc()')
     refunds = db.relationship('OrderRefund', back_populates='order', cascade='all, delete-orphan')
     shipments = db.relationship('OrderShipment', back_populates='order', cascade='all, delete-orphan', order_by='OrderShipment.created_at.desc()')
+    payment_confirmations = db.relationship('PaymentConfirmation', back_populates='order', lazy='dynamic', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Order {self.order_number}>'
@@ -612,6 +614,53 @@ class Order(db.Model):
         if not sr:
             return []
         return [ro.order for ro in sr.request_orders if ro.order and ro.order.id != self.id]
+
+    # === PAYMENT CONFIRMATIONS PROPERTIES ===
+
+    @property
+    def product_payment_confirmation(self):
+        """Zwraca obiekt PaymentConfirmation dla etapu 'product' (jeśli istnieje)."""
+        return self.payment_confirmations.filter_by(payment_stage='product').first()
+
+    @property
+    def has_product_payment_confirmation(self):
+        """Czy zamówienie ma potwierdzenie płatności za produkt"""
+        conf = self.product_payment_confirmation
+        return conf is not None and conf.has_proof
+
+    @property
+    def product_payment_status(self):
+        """Status płatności za produkt: 'none', 'pending', 'approved', 'rejected'"""
+        conf = self.product_payment_confirmation
+        if not conf:
+            return 'none'
+        return conf.status
+
+    @property
+    def can_upload_product_payment(self):
+        """
+        Czy można wgrać potwierdzenie płatności za produkt.
+        Dozwolone statusy obejmują różne etapy realizacji zamówienia,
+        aby klient mógł wgrać potwierdzenie nawet jeśli zapomni na etapie 'oczekujace'.
+        """
+        allowed_statuses = [
+            'oczekujace',
+            'dostarczone_proxy',
+            'w_drodze_polska',
+            'urzad_celny',
+            'dostarczone_gom',
+            'do_pakowania',
+            'spakowane',
+        ]
+
+        if self.status not in allowed_statuses:
+            return False
+
+        conf = self.product_payment_confirmation
+        if conf and conf.is_approved:
+            return False  # Już zatwierdzone
+
+        return True
 
     def recalculate_total(self):
         """Recalculates order total from items"""
@@ -1113,3 +1162,91 @@ class ShippingRequestOrder(db.Model):
 
     def __repr__(self):
         return f'<ShippingRequestOrder SR:{self.shipping_request_id} O:{self.order_id}>'
+
+
+# ====================
+# PAYMENT CONFIRMATIONS
+# ====================
+
+
+class PaymentConfirmation(db.Model):
+    """
+    Potwierdzenia płatności dla zamówień Exclusive.
+    Wieloetapowy system płatności (produkt, wysyłka KR, cło/VAT, wysyłka PL).
+    Jeden plik może być przypisany do wielu zamówień.
+    """
+    __tablename__ = 'payment_confirmations'
+
+    # Klucze
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
+
+    # Etap płatności
+    payment_stage = db.Column(
+        db.String(50),
+        nullable=False,
+        comment="Etap: 'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'"
+    )
+
+    # Kwota i potwierdzenie
+    amount = db.Column(db.Numeric(10, 2), nullable=False, comment="Kwota do zapłaty w PLN")
+    proof_file = db.Column(db.String(255), nullable=True, comment="Nazwa pliku potwierdzenia")
+    uploaded_at = db.Column(db.DateTime, nullable=True, comment="Data uploadu przez klienta")
+
+    # Status i weryfikacja
+    status = db.Column(
+        db.String(20),
+        nullable=False,
+        default='pending',
+        comment="Status: 'pending', 'approved', 'rejected'"
+    )
+    rejection_reason = db.Column(db.Text, nullable=True, comment="Powód odrzucenia (admin)")
+
+    # Timestamps
+    created_at = db.Column(db.DateTime, nullable=False, default=get_local_now)
+    updated_at = db.Column(db.DateTime, nullable=False, default=get_local_now, onupdate=get_local_now)
+
+    # Relacje
+    order = db.relationship('Order', back_populates='payment_confirmations')
+
+    @property
+    def is_pending(self):
+        """Czy potwierdzenie oczekuje na weryfikację"""
+        return self.status == 'pending'
+
+    @property
+    def is_approved(self):
+        """Czy potwierdzenie zostało zaakceptowane"""
+        return self.status == 'approved'
+
+    @property
+    def is_rejected(self):
+        """Czy potwierdzenie zostało odrzucone"""
+        return self.status == 'rejected'
+
+    @property
+    def has_proof(self):
+        """Czy potwierdzenie ma uploadowany plik"""
+        return self.proof_file is not None
+
+    @property
+    def proof_url(self):
+        """URL do pliku potwierdzenia"""
+        if not self.proof_file:
+            return None
+        from flask import url_for
+        return url_for('static', filename=f'payment_confirmations/{self.proof_file}')
+
+    @property
+    def stage_display_name(self):
+        """Nazwa etapu po polsku"""
+        stages = {
+            'product': 'Płatność za produkt',
+            'korean_shipping': 'Wysyłka z Korei',
+            'customs_vat': 'Cło i VAT',
+            'domestic_shipping': 'Wysyłka krajowa'
+        }
+        return stages.get(self.payment_stage, self.payment_stage)
+
+    def __repr__(self):
+        return f'<PaymentConfirmation {self.id} Order:{self.order_id} Stage:{self.payment_stage} Status:{self.status}>'

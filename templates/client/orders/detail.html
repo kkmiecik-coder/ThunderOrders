@@ -181,6 +181,97 @@
                             {% endif %}
                         </div>
                     </div>
+
+                    {# Widget płatności #}
+                    {% set pc_status = order.product_payment_status %}
+                    <div class="card pc-widget-card">
+                        <div class="card-header">
+                            <h2>Płatności</h2>
+                        </div>
+                        <div class="pc-widget-body">
+                            {# Tabela płatności (div-based) #}
+                            <div class="pc-payments-table">
+                                <div class="pc-payments-header">
+                                    <div class="pc-payments-col pc-col-type">Rodzaj</div>
+                                    <div class="pc-payments-col pc-col-status">Status</div>
+                                    <div class="pc-payments-col pc-col-amount">Kwota</div>
+                                </div>
+
+                                {# Wiersz: Produkty #}
+                                <div class="pc-payments-row">
+                                    <div class="pc-payments-col pc-col-type" data-label="Rodzaj">Produkty</div>
+                                    <div class="pc-payments-col pc-col-status" data-label="Status">
+                                        {% if pc_status == 'none' %}
+                                            <span class="badge badge-secondary">Brak potwierdzenia</span>
+                                        {% elif pc_status == 'pending' %}
+                                            <span class="badge badge-warning">Oczekuje</span>
+                                        {% elif pc_status == 'approved' %}
+                                            <span class="badge badge-success">Zatwierdzona</span>
+                                        {% elif pc_status == 'rejected' %}
+                                            <span class="badge badge-error">Odrzucona</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="pc-payments-col pc-col-amount" data-label="Kwota">{{ "%.2f"|format(order.effective_total) }} PLN</div>
+                                </div>
+
+                                {# Tutaj w przyszłości dodamy kolejne wiersze (np. Wysyłka) #}
+                            </div>
+
+                            {# Suma do zapłaty #}
+                            <div class="pc-widget-amount">
+                                <span class="pc-widget-amount-label">Kwota do zapłaty:</span>
+                                <span class="pc-widget-amount-value">{{ "%.2f"|format(order.effective_total) }} PLN</span>
+                            </div>
+
+                            {# Info o odrzuceniu (jeśli dotyczy) #}
+                            {% if pc_status == 'rejected' and order.product_payment_confirmation and order.product_payment_confirmation.rejection_reason %}
+                            <div class="pc-widget-rejection">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 8v4"/>
+                                    <path d="M12 16h.01"/>
+                                </svg>
+                                <div>
+                                    <strong>Powód odrzucenia:</strong>
+                                    <p>{{ order.product_payment_confirmation.rejection_reason }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {# Przycisk akcji #}
+                            {% if order.can_upload_product_payment %}
+                            <a href="{{ url_for('client.payment_confirmations') }}?preselect={{ order.id }}" class="btn btn-primary pc-widget-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                    <polyline points="17 8 12 3 7 8"/>
+                                    <line x1="12" y1="3" x2="12" y2="15"/>
+                                </svg>
+                                {% if order.has_product_payment_confirmation %}
+                                    Wgraj ponownie
+                                {% else %}
+                                    Wgraj potwierdzenie płatności
+                                {% endif %}
+                            </a>
+                            {% elif pc_status == 'approved' %}
+                            <div class="pc-widget-status-info pc-widget-status-approved">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                                Płatność zatwierdzona
+                            </div>
+                            {% else %}
+                            <div class="pc-widget-status-info pc-widget-status-disabled">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 16v-4"/>
+                                    <path d="M12 8h.01"/>
+                                </svg>
+                                Upload niedostępny na obecnym etapie zamówienia
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
 
             <!-- Timeline / Comments Card -->

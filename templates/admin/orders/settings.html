@@ -181,7 +181,8 @@
                     <!-- Header row (static) -->
                     <div class="payment-method-list-header">
                         <div class="payment-method-col-name">Nazwa</div>
-                        <div class="payment-method-col-details">Szczegóły</div>
+                        <div class="payment-method-col-type">Typ</div>
+                        <div class="payment-method-col-account">Konto/Tel/Email</div>
                         <div class="payment-method-col-status">Status</div>
                         <div class="payment-method-col-actions">Akcje</div>
                     </div>
@@ -200,8 +201,19 @@
                                         </div>
                                         <strong>{{ method.name }}</strong>
                                     </div>
-                                    <div class="payment-method-col-details">
-                                        <pre class="payment-details-preview">{{ method.details[:100] }}{% if method.details|length > 100 %}...{% endif %}</pre>
+                                    <div class="payment-method-col-type">
+                                        {% if method.method_type == 'transfer' %}
+                                            <span class="badge badge-info">Przelew</span>
+                                        {% elif method.method_type == 'instant' %}
+                                            <span class="badge badge-warning">Błyskawiczna</span>
+                                        {% elif method.method_type == 'online' %}
+                                            <span class="badge badge-success">Online</span>
+                                        {% else %}
+                                            <span class="badge badge-secondary">Inna</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="payment-method-col-account">
+                                        <code>{{ method.account_number or '—' }}</code>
                                     </div>
                                     <div class="payment-method-col-status">
                                         {% if method.is_active %}
@@ -211,7 +223,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="payment-method-col-actions">
-                                        <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.id }}, "{{ method.name }}", {{ method.details|tojson }}, {{ method.is_active|tojson }})'>Edytuj</button>
+                                        <button type="button" class="action-link" onclick='openEditPaymentMethodModal({{ method.to_dict()|tojson }})'>Edytuj</button>
                                         <button type="button" class="action-link delete-link" onclick="deletePaymentMethod({{ method.id }}, '{{ method.name }}')">Usuń</button>
                                     </div>
                                 </div>
@@ -576,12 +588,66 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="createName">Nazwa *</label>
-                    <input type="text" id="createName" name="name" class="form-control" required placeholder="np. ING Bank">
+                    <input type="text" id="createName" name="name" class="form-control" required placeholder="np. ING Bank, BLIK, PayPal">
                 </div>
                 <div class="form-group">
-                    <label for="createDetails">Szczegóły (dane do przelewu) *</label>
-                    <textarea id="createDetails" name="details" class="form-control" rows="6" required placeholder="Numer konta: XX XXXX XXXX XXXX XXXX XXXX XXXX&#10;Odbiorca: ThunderOrders Sp. z o.o.&#10;Tytuł: [NUMER ZAMÓWIENIA]"></textarea>
-                    <small class="input-hint">Użyj [NUMER ZAMÓWIENIA] jako placeholder - zostanie zastąpiony rzeczywistym numerem</small>
+                    <label for="createMethodType">Typ metody *</label>
+                    <select id="createMethodType" name="method_type" class="form-control" required onchange="togglePaymentMethodFields('create')">
+                        <option value="transfer">Przelew bankowy</option>
+                        <option value="instant">Płatność błyskawiczna (BLIK)</option>
+                        <option value="online">Płatność online (PayPal, Revolut)</option>
+                        <option value="other">Inna</option>
+                    </select>
+                </div>
+                <div class="form-group pm-field-recipient" id="create-field-recipient">
+                    <label for="createRecipient">Odbiorca przelewu</label>
+                    <input type="text" id="createRecipient" name="recipient" class="form-control" placeholder="Imię i nazwisko / nazwa firmy">
+                </div>
+                <div class="form-group pm-field-account" id="create-field-account">
+                    <label for="createAccountNumber">Numer konta / Telefon / Email *</label>
+                    <input type="text" id="createAccountNumber" name="account_number" class="form-control" placeholder="Nr konta, telefon lub email">
+                    <small class="input-hint">Numer konta (przelew), telefon (BLIK), email (PayPal/Revolut)</small>
+                </div>
+                <div class="form-group pm-field-code" id="create-field-code">
+                    <label for="createCode">Kod / SWIFT</label>
+                    <input type="text" id="createCode" name="code" class="form-control" placeholder="Kod Revolut, SWIFT, BIC">
+                </div>
+                <div class="form-group">
+                    <label for="createTransferTitle">Tytuł przelewu</label>
+                    <input type="text" id="createTransferTitle" name="transfer_title" class="form-control" placeholder="np. [NUMER ZAMÓWIENIA]">
+                    <small class="input-hint">Użyj [NUMER ZAMÓWIENIA] jako placeholder</small>
+                </div>
+                <div class="form-group">
+                    <label for="createAdditionalInfo">Dodatkowe informacje</label>
+                    <textarea id="createAdditionalInfo" name="additional_info" class="form-control" rows="3" placeholder="Opcjonalne instrukcje dla klienta"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Logo (light mode)</label>
+                    <div class="pm-logo-upload" id="create-logo-light-upload">
+                        <div class="pm-logo-preview" id="create-logo-light-preview" style="display:none;">
+                            <img id="create-logo-light-img" src="" alt="Logo light preview">
+                            <button type="button" class="pm-logo-remove" onclick="removeLogoPreview('create', 'light')">&times;</button>
+                        </div>
+                        <label class="pm-logo-select" id="create-logo-light-select">
+                            <input type="file" name="logo_light" accept="image/*" onchange="previewLogo(this, 'create', 'light')" hidden>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Wybierz plik</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Logo (dark mode)</label>
+                    <div class="pm-logo-upload" id="create-logo-dark-upload">
+                        <div class="pm-logo-preview" id="create-logo-dark-preview" style="display:none;">
+                            <img id="create-logo-dark-img" src="" alt="Logo dark preview">
+                            <button type="button" class="pm-logo-remove" onclick="removeLogoPreview('create', 'dark')">&times;</button>
+                        </div>
+                        <label class="pm-logo-select" id="create-logo-dark-select">
+                            <input type="file" name="logo_dark" accept="image/*" onchange="previewLogo(this, 'create', 'dark')" hidden>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Wybierz plik</span>
+                        </label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="checkbox-label">
@@ -612,8 +678,65 @@
                     <input type="text" id="editName" name="name" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label for="editDetails">Szczegóły *</label>
-                    <textarea id="editDetails" name="details" class="form-control" rows="6" required></textarea>
+                    <label for="editMethodType">Typ metody *</label>
+                    <select id="editMethodType" name="method_type" class="form-control" required onchange="togglePaymentMethodFields('edit')">
+                        <option value="transfer">Przelew bankowy</option>
+                        <option value="instant">Płatność błyskawiczna (BLIK)</option>
+                        <option value="online">Płatność online (PayPal, Revolut)</option>
+                        <option value="other">Inna</option>
+                    </select>
+                </div>
+                <div class="form-group pm-field-recipient" id="edit-field-recipient">
+                    <label for="editRecipient">Odbiorca przelewu</label>
+                    <input type="text" id="editRecipient" name="recipient" class="form-control">
+                </div>
+                <div class="form-group pm-field-account" id="edit-field-account">
+                    <label for="editAccountNumber">Numer konta / Telefon / Email *</label>
+                    <input type="text" id="editAccountNumber" name="account_number" class="form-control">
+                    <small class="input-hint">Numer konta (przelew), telefon (BLIK), email (PayPal/Revolut)</small>
+                </div>
+                <div class="form-group pm-field-code" id="edit-field-code">
+                    <label for="editCode">Kod / SWIFT</label>
+                    <input type="text" id="editCode" name="code" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editTransferTitle">Tytuł przelewu</label>
+                    <input type="text" id="editTransferTitle" name="transfer_title" class="form-control">
+                    <small class="input-hint">Użyj [NUMER ZAMÓWIENIA] jako placeholder</small>
+                </div>
+                <div class="form-group">
+                    <label for="editAdditionalInfo">Dodatkowe informacje</label>
+                    <textarea id="editAdditionalInfo" name="additional_info" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Logo (light mode)</label>
+                    <div class="pm-logo-upload" id="edit-logo-light-upload">
+                        <div class="pm-logo-preview" id="edit-logo-light-preview" style="display:none;">
+                            <img id="edit-logo-light-img" src="" alt="Logo light preview">
+                            <button type="button" class="pm-logo-remove" onclick="removeLogoPreview('edit', 'light')">&times;</button>
+                        </div>
+                        <label class="pm-logo-select" id="edit-logo-light-select">
+                            <input type="file" name="logo_light" accept="image/*" onchange="previewLogo(this, 'edit', 'light')" hidden>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Wybierz plik</span>
+                        </label>
+                    </div>
+                    <input type="hidden" id="edit-remove-logo-light" name="remove_logo_light" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Logo (dark mode)</label>
+                    <div class="pm-logo-upload" id="edit-logo-dark-upload">
+                        <div class="pm-logo-preview" id="edit-logo-dark-preview" style="display:none;">
+                            <img id="edit-logo-dark-img" src="" alt="Logo dark preview">
+                            <button type="button" class="pm-logo-remove" onclick="removeLogoPreview('edit', 'dark')">&times;</button>
+                        </div>
+                        <label class="pm-logo-select" id="edit-logo-dark-select">
+                            <input type="file" name="logo_dark" accept="image/*" onchange="previewLogo(this, 'edit', 'dark')" hidden>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Wybierz plik</span>
+                        </label>
+                    </div>
+                    <input type="hidden" id="edit-remove-logo-dark" name="remove_logo_dark" value="0">
                 </div>
                 <div class="form-group">
                     <label class="checkbox-label">

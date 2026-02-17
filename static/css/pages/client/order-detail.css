@@ -1523,4 +1523,273 @@
     .summary-row {
         max-width: none;
     }
+
+    .payments-shipping-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ================================================
+   PAYMENTS-SHIPPING GRID LAYOUT
+   ================================================ */
+
+.payments-shipping-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+    margin-bottom: var(--space-6);
+}
+
+@media (max-width: 768px) {
+    .payments-shipping-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ================================================
+   PAYMENT CONFIRMATION WIDGET (on order detail)
+   ================================================ */
+
+.pc-widget-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-lg);
+    padding: 0;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .pc-widget-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+.pc-widget-card .card-header {
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--card-border);
+}
+
+[data-theme="dark"] .pc-widget-card .card-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+.pc-widget-card .card-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+[data-theme="dark"] .pc-widget-card .card-header h2 {
+    color: #ffffff;
+}
+
+.pc-widget-body {
+    padding: var(--space-5);
+}
+
+/* Tabela płatności (div-based) */
+.pc-payments-table {
+    margin-bottom: var(--space-4);
+}
+
+.pc-payments-header {
+    display: flex;
+    padding: var(--space-2) 0;
+    border-bottom: 2px solid var(--border-primary, #E0E0E0);
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.pc-payments-row {
+    display: flex;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--border-primary, #E0E0E0);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    align-items: center;
+}
+
+.pc-payments-row:last-child {
+    border-bottom: none;
+}
+
+.pc-payments-col.pc-col-type {
+    flex: 1;
+    font-weight: var(--font-medium);
+}
+
+.pc-payments-col.pc-col-status {
+    flex: 1;
+    text-align: center;
+}
+
+.pc-payments-col.pc-col-amount {
+    flex: 0 0 auto;
+    text-align: right;
+    font-weight: var(--font-semibold);
+    min-width: 100px;
+}
+
+[data-theme="dark"] .pc-payments-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .pc-payments-row {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Kwota do zapłaty (suma) */
+.pc-widget-amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4) 0;
+    margin-bottom: var(--space-4);
+    border-top: 2px solid var(--border-primary, #E0E0E0);
+}
+
+[data-theme="dark"] .pc-widget-amount {
+    border-top-color: rgba(240, 147, 251, 0.2);
+}
+
+.pc-widget-amount-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-weight: var(--font-medium);
+}
+
+[data-theme="dark"] .pc-widget-amount-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.pc-widget-amount-value {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .pc-widget-amount-value {
+    color: #ffffff;
+}
+
+/* Przycisk upload */
+.pc-widget-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    text-align: center;
+    text-decoration: none;
+}
+
+/* Rejection info */
+.pc-widget-rejection {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(244, 67, 54, 0.08);
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    border-radius: var(--radius-md, 8px);
+    margin-bottom: var(--space-4);
+    font-size: var(--text-sm);
+    color: #991b1b;
+}
+
+.pc-widget-rejection svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--error, #F44336);
+}
+
+.pc-widget-rejection p {
+    margin: var(--space-1) 0 0 0;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+}
+
+[data-theme="dark"] .pc-widget-rejection {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: #f87171;
+}
+
+[data-theme="dark"] .pc-widget-rejection svg {
+    color: #f87171;
+}
+
+[data-theme="dark"] .pc-widget-rejection p {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Status info (zatwierdzona / niedostępny) */
+.pc-widget-status-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md, 8px);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+}
+
+.pc-widget-status-approved {
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    color: #2e7d32;
+}
+
+.pc-widget-status-approved svg {
+    color: var(--success, #4CAF50);
+}
+
+[data-theme="dark"] .pc-widget-status-approved {
+    background: rgba(52, 211, 153, 0.1);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: #34d399;
+}
+
+[data-theme="dark"] .pc-widget-status-approved svg {
+    color: #34d399;
+}
+
+.pc-widget-status-disabled {
+    background: rgba(158, 158, 158, 0.08);
+    border: 1px solid rgba(158, 158, 158, 0.2);
+    color: var(--text-tertiary);
+}
+
+.pc-widget-status-disabled svg {
+    color: var(--text-tertiary);
+}
+
+[data-theme="dark"] .pc-widget-status-disabled {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .pc-widget-status-disabled svg {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Badge secondary (reuse z payment-confirmations.css jeśli nie załadowany) */
+.pc-widget-card .badge-secondary {
+    background: var(--gray-200, #EEEEEE);
+    color: var(--gray-600, #757575);
+}
+
+[data-theme="dark"] .pc-widget-card .badge-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
 }
