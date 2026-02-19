@@ -1050,3 +1050,1471 @@ function saveCustomsVat() {
             if (window.Toast) window.Toast.show('Błąd połączenia z serwerem', 'error');
         });
 }
+
+// ============================================
+// Inline Functions (moved from stock_orders.html)
+// ============================================
+
+// ============================================
+// Filter Functions
+// ============================================
+
+let selectedStatuses = [];
+
+/**
+ * Toggle status multi-select dropdown
+ */
+function toggleStatusMultiSelect() {
+    const dropdown = document.getElementById('statusMultiSelect');
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+/**
+ * Update status filter when checkboxes change
+ */
+function updateStatusFilter() {
+    const checkboxes = document.querySelectorAll('#statusMultiSelect input[type="checkbox"]:checked');
+    selectedStatuses = Array.from(checkboxes).map(cb => cb.value);
+
+    // Update trigger button text
+    const statusText = document.getElementById('statusSelectText');
+    if (selectedStatuses.length === 0) {
+        statusText.textContent = 'Wszystkie statusy';
+    } else if (selectedStatuses.length === 1) {
+        statusText.textContent = `1 status`;
+    } else {
+        statusText.textContent = `${selectedStatuses.length} statusy`;
+    }
+
+    applyFilters();
+}
+
+/**
+ * Apply all filters (date + status)
+ */
+function applyFilters() {
+    const orderNumberFilter = document.getElementById('filterOrderNumber').value.toLowerCase().trim();
+    const dateFrom = document.getElementById('filterDateFrom').value;
+    const dateTo = document.getElementById('filterDateTo').value;
+
+    const rows = document.querySelectorAll('#proxyOrdersTable tbody tr');
+
+    rows.forEach(row => {
+        let showRow = true;
+
+        // Order number filter
+        if (orderNumberFilter) {
+            const rowOrderNumber = (row.dataset.orderNumber || '').toLowerCase();
+            if (!rowOrderNumber.includes(orderNumberFilter)) {
+                showRow = false;
+            }
+        }
+
+        // Date filter
+        const rowDate = row.dataset.dateFormatted;
+        if (rowDate) {
+            if (dateFrom && rowDate < dateFrom) {
+                showRow = false;
+            }
+            if (dateTo && rowDate > dateTo) {
+                showRow = false;
+            }
+        }
+
+        // Status filter
+        if (selectedStatuses.length > 0) {
+            const rowStatus = row.dataset.status;
+            if (!selectedStatuses.includes(rowStatus)) {
+                showRow = false;
+            }
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    });
+
+    // Update select all checkbox state
+    updateSelectAllState();
+}
+
+/**
+ * Clear all filters
+ */
+function clearAllFilters() {
+    document.getElementById('filterOrderNumber').value = '';
+    document.getElementById('filterDateFrom').value = '';
+    document.getElementById('filterDateTo').value = '';
+
+    // Uncheck all status checkboxes
+    document.querySelectorAll('#statusMultiSelect input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    selectedStatuses = [];
+    document.getElementById('statusSelectText').textContent = 'Wszystkie statusy';
+
+    // Show all rows
+    document.querySelectorAll('.data-table tbody tr').forEach(row => {
+        row.style.display = '';
+    });
+
+    updateSelectAllState();
+}
+
+// Close multi-select when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.multi-select-wrapper')) {
+        const dropdown = document.getElementById('statusMultiSelect');
+        if (dropdown) dropdown.style.display = 'none';
+    }
+});
+
+// ============================================
+// Checkbox & Bulk Actions Functions
+// ============================================
+
+/**
+ * Toggle select all checkboxes
+ */
+function toggleSelectAll(selectAllCheckbox) {
+    const visibleRows = document.querySelectorAll('.data-table tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.order-checkbox'));
+
+    checkboxes.forEach(checkbox => {
+        if (checkbox) {
+            checkbox.checked = selectAllCheckbox.checked;
+            const row = checkbox.closest('tr');
+            if (selectAllCheckbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+        }
+    });
+
+    updateBulkActionsModal();
+}
+
+/**
+ * Handle individual checkbox change
+ */
+function handleCheckboxChange() {
+    const checkbox = event.target;
+    const row = checkbox.closest('tr');
+
+    if (checkbox.checked) {
+        row.classList.add('selected');
+    } else {
+        row.classList.remove('selected');
+    }
+
+    updateSelectAllState();
+    updateBulkActionsModal();
+}
+
+/**
+ * Update select all checkbox state based on individual checkboxes
+ */
+function updateSelectAllState() {
+    const selectAllCheckbox = document.getElementById('selectAllOrders');
+    if (!selectAllCheckbox) return;
+
+    const visibleRows = document.querySelectorAll('.data-table tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.order-checkbox')).filter(cb => cb);
+
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    const someChecked = checkboxes.some(cb => cb.checked);
+
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = someChecked && !allChecked;
+}
+
+/**
+ * Update bulk actions modal visibility
+ */
+function updateBulkActionsModal() {
+    const checkedBoxes = document.querySelectorAll('.order-checkbox:checked');
+    const modal = document.getElementById('bulkActionsModal');
+    const countSpan = document.getElementById('selectedCount');
+
+    if (checkedBoxes.length > 0) {
+        modal.classList.remove('hidden');
+        countSpan.textContent = checkedBoxes.length;
+    } else {
+        modal.classList.add('hidden');
+        hideBulkStatusDropdown();
+    }
+}
+
+/**
+ * Get selected order IDs
+ */
+function getSelectedOrderIds() {
+    return Array.from(document.querySelectorAll('.order-checkbox:checked')).map(cb => cb.value);
+}
+
+/**
+ * Open bulk status change dropdown
+ */
+function openBulkStatusChange() {
+    const dropdown = document.getElementById('bulkStatusDropdown');
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+/**
+ * Hide bulk status dropdown
+ */
+function hideBulkStatusDropdown() {
+    const dropdown = document.getElementById('bulkStatusDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+/**
+ * Apply bulk status change
+ */
+function applyBulkStatus(newStatus) {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    const activeTab = (window.STOCK_ORDERS_CONFIG && window.STOCK_ORDERS_CONFIG.activeTab) || 'proxy';
+
+    const statusLabelsProxy = {
+        'zamowiono': 'Zamówiono',
+        'dostarczone_do_proxy': 'Dostarczone do Proxy',
+        'anulowane': 'Anulowane'
+    };
+    const statusLabelsPoland = {
+        'zamowione': 'Zamówione',
+        'urzad_celny': 'Urząd celny',
+        'dostarczone_gom': 'Dostarczone GOM',
+        'anulowane': 'Anulowane'
+    };
+    const statusLabels = activeTab === 'polska' ? statusLabelsPoland : statusLabelsProxy;
+    const rowPrefix = activeTab === 'polska' ? 'poland-order-row' : 'order-row';
+
+    let completed = 0;
+    let errors = 0;
+
+    orderIds.forEach(orderId => {
+        const endpoint = activeTab === 'polska'
+            ? `/admin/products/poland-orders/${orderId}/status`
+            : `/admin/products/proxy-orders/${orderId}/status`;
+
+        fetch(endpoint, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                const row = document.getElementById(`${rowPrefix}-${orderId}`);
+
+                if (row) {
+                    const button = row.querySelector('.status-badge-button');
+                    if (button) {
+                        button.className = `status-badge-button badge-${newStatus}`;
+                        button.childNodes[0].textContent = (statusLabels[newStatus] || newStatus) + ' ';
+                    }
+                    row.dataset.status = newStatus;
+
+                    const checkbox = row.querySelector('.order-checkbox');
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        row.classList.remove('selected');
+                    }
+                }
+            } else {
+                errors++;
+            }
+
+            if (completed === orderIds.length) {
+                hideBulkStatusDropdown();
+                updateBulkActionsModal();
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Status ${orderIds.length} zamówień został zmieniony`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Zmieniono status ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Bulk status change error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+/**
+ * Bulk delete orders
+ */
+function bulkDeleteOrders() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień?\n\nTa operacja jest nieodwracalna.`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (!data.success) {
+                errors++;
+            }
+
+            // Gdy wszystkie requesty się zakończą — przeładuj stronę
+            if (completed === orderIds.length) {
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk delete error:', error);
+            errors++;
+            completed++;
+
+            if (completed === orderIds.length) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }
+        });
+    });
+}
+
+/**
+ * Bulk move orders to POLSKA tab
+ */
+function bulkMoveToPolska() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki POLSKA?`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+    const movedCount = orderIds.length;
+    const successfulMoves = [];
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/move`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ order_type: 'polska' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                successfulMoves.push(orderId);
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(50px)';
+                }
+            } else {
+                errors++;
+            }
+
+            // When all requests complete
+            if (completed === orderIds.length) {
+                // Hide bulk actions modal
+                const modal = document.getElementById('bulkActionsModal');
+                if (modal) modal.classList.remove('visible');
+
+                // Update tab badges
+                updateTabBadges('proxy', 'polska', movedCount - errors);
+
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${movedCount} zamówień do zakładki POLSKA`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+
+                // Wait for animation to complete, then remove rows and check if empty
+                setTimeout(() => {
+                    successfulMoves.forEach(id => {
+                        const row = document.getElementById(`order-row-${id}`);
+                        if (row) row.remove();
+                    });
+
+                    // Check if table is empty after removing rows
+                    const tbody = document.querySelector('.data-table tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        showEmptyState();
+                    }
+                }, 350);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk move error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+/**
+ * Bulk move orders to PROXY tab
+ */
+function bulkMoveToProxy() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki PROXY?`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+    const movedCount = orderIds.length;
+    const successfulMoves = [];
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/stock-orders/${orderId}/move`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ order_type: 'proxy' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+
+            if (data.success) {
+                successfulMoves.push(orderId);
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(-50px)';
+                }
+            } else {
+                errors++;
+            }
+
+            // When all requests complete
+            if (completed === orderIds.length) {
+                // Hide bulk actions modal
+                const modal = document.getElementById('bulkActionsModal');
+                if (modal) modal.classList.remove('visible');
+
+                // Update tab badges
+                updateTabBadges('polska', 'proxy', movedCount - errors);
+
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${movedCount} zamówień do zakładki PROXY`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+
+                // Wait for animation to complete, then remove rows and check if empty
+                setTimeout(() => {
+                    successfulMoves.forEach(id => {
+                        const row = document.getElementById(`order-row-${id}`);
+                        if (row) row.remove();
+                    });
+
+                    // Check if table is empty after removing rows
+                    const tbody = document.querySelector('.data-table tbody');
+                    if (tbody && tbody.children.length === 0) {
+                        showEmptyState();
+                    }
+                }, 350);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk move error:', error);
+            errors++;
+            completed++;
+        });
+    });
+}
+
+/**
+ * Update tab badges after moving orders
+ */
+function updateTabBadges(fromTab, toTab, count) {
+    const proxyBadge = document.getElementById('proxyCountBadge');
+    const polskaBadge = document.getElementById('polskaCountBadge');
+
+    if (fromTab === 'proxy' && proxyBadge) {
+        let currentCount = parseInt(proxyBadge.textContent) || 0;
+        let newCount = Math.max(0, currentCount - count);
+        proxyBadge.textContent = newCount;
+        proxyBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+
+    if (fromTab === 'polska' && polskaBadge) {
+        let currentCount = parseInt(polskaBadge.textContent) || 0;
+        let newCount = Math.max(0, currentCount - count);
+        polskaBadge.textContent = newCount;
+        polskaBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+
+    if (toTab === 'proxy' && proxyBadge) {
+        let currentCount = parseInt(proxyBadge.textContent) || 0;
+        let newCount = currentCount + count;
+        proxyBadge.textContent = newCount;
+        proxyBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+
+    if (toTab === 'polska' && polskaBadge) {
+        let currentCount = parseInt(polskaBadge.textContent) || 0;
+        let newCount = currentCount + count;
+        polskaBadge.textContent = newCount;
+        polskaBadge.style.display = newCount > 0 ? '' : 'none';
+    }
+}
+
+// Close bulk status dropdown when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.bulk-action-status') && !event.target.closest('.bulk-status-dropdown')) {
+        hideBulkStatusDropdown();
+    }
+});
+
+// ============================================
+// Existing Functions
+// ============================================
+
+/**
+ * Toggle status dropdown
+ * Note: In dark mode, .tab-pane has backdrop-filter which creates a new containing block.
+ * We move dropdown to body to ensure position:fixed works relative to viewport.
+ */
+function toggleStatusDropdown(orderId) {
+    const dropdown = document.getElementById(`status-dropdown-${orderId}`);
+    const button = document.querySelector(`[onclick="toggleStatusDropdown(${orderId})"]`);
+    const allDropdowns = document.querySelectorAll('.status-dropdown');
+
+    // Close all other dropdowns
+    allDropdowns.forEach(d => {
+        if (d.id !== `status-dropdown-${orderId}`) {
+            d.style.display = 'none';
+        }
+    });
+
+    // Toggle current dropdown
+    if (dropdown.style.display === 'none' || !dropdown.style.display) {
+        // Move dropdown to body to escape backdrop-filter containing block
+        if (dropdown.parentElement !== document.body) {
+            document.body.appendChild(dropdown);
+        }
+
+        // Position dropdown relative to button
+        const rect = button.getBoundingClientRect();
+        const dropdownHeight = 280; // Approximate height of dropdown
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        // Check if dropdown fits below button, otherwise show above
+        let top;
+        if (rect.bottom + dropdownHeight > viewportHeight) {
+            // Not enough space below - show above
+            top = rect.top - dropdownHeight - 4;
+        } else {
+            // Show below
+            top = rect.bottom + 4;
+        }
+
+        // Check if dropdown fits horizontally, adjust if needed
+        let left = rect.left;
+        const dropdownWidth = 180; // min-width from CSS
+        if (left + dropdownWidth > viewportWidth) {
+            left = viewportWidth - dropdownWidth - 16;
+        }
+
+        dropdown.style.top = `${top}px`;
+        dropdown.style.left = `${left}px`;
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+/**
+ * Close dropdowns when clicking outside
+ */
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.status-dropdown-wrapper')) {
+        document.querySelectorAll('.status-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+    }
+});
+
+/**
+ * Re-position dropdowns on scroll (for fixed position)
+ */
+const tableResponsive = document.querySelector('.table-responsive');
+if (tableResponsive) {
+    tableResponsive.addEventListener('scroll', function() {
+        // Close all dropdowns on scroll
+        document.querySelectorAll('.status-dropdown').forEach(d => {
+            d.style.display = 'none';
+        });
+    });
+}
+
+/**
+ * Change order status
+ */
+function changeOrderStatus(orderId, newStatus) {
+    fetch(`/admin/products/proxy-orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close dropdown first
+            const dropdown = document.getElementById(`status-dropdown-${orderId}`);
+            if (dropdown) {
+                dropdown.style.display = 'none';
+            }
+
+            const statusLabels = {
+                'zamowiono': 'Zamówiono',
+                'dostarczone_do_proxy': 'Dostarczone do Proxy',
+                'anulowane': 'Anulowane'
+            };
+
+            // Update the badge and status changed cell
+            const row = document.getElementById(`order-row-${orderId}`);
+            if (row) {
+                const statusButton = row.querySelector('.status-badge-button');
+                if (statusButton) {
+                    const label = statusLabels[newStatus] || newStatus;
+                    statusButton.className = `status-badge-button badge-${newStatus}`;
+                    statusButton.innerHTML = `${label} <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L2 4h8L6 8z"/></svg>`;
+                }
+
+                row.dataset.status = newStatus;
+
+                // Update "Ostatnia zmiana" column
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
+
+                // Columns: checkbox(0), order_number(1), products(2), status(3), ostatnia_zmiana(4), date(5), amount(6), actions(7)
+                const cells = row.querySelectorAll('td');
+                const statusChangedCell = cells[4]; // 5th column (0-indexed)
+                if (statusChangedCell) {
+                    statusChangedCell.textContent = formattedDate;
+                    statusChangedCell.className = 'text-muted';
+
+                    statusChangedCell.style.transition = 'background-color 0.3s';
+                    statusChangedCell.style.backgroundColor = 'rgba(90, 24, 154, 0.15)';
+                    setTimeout(() => {
+                        statusChangedCell.style.backgroundColor = '';
+                    }, 1000);
+                }
+
+                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
+            }
+
+            if (window.Toast) {
+                window.Toast.show('Status zamowienia zostal zmieniony', 'success');
+            }
+        } else {
+            if (window.Toast) {
+                window.Toast.show('Blad: ' + data.error, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Status change error:', error);
+        if (window.Toast) {
+            window.Toast.show('Wystapil blad podczas zmiany statusu', 'error');
+        }
+    });
+}
+
+
+/**
+ * Delete order
+ */
+function deleteOrder(orderId) {
+    if (confirm('Czy na pewno chcesz usunąć to zamówienie?\n\nTa operacja jest nieodwracalna.')) {
+        fetch(`/admin/products/stock-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (window.Toast) {
+                    window.Toast.show('Zamówienie zostało usunięte', 'success');
+                }
+                // Przeładuj tę samą zakładkę — countery i listy się odświeżą
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                if (window.Toast) {
+                    window.Toast.show('Błąd: ' + data.error, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            if (window.Toast) {
+                window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
+            }
+        });
+    }
+}
+
+/**
+ * Toggle hidden products in Poland tab
+ */
+function togglePolandProducts(toggleEl) {
+    const container = toggleEl.closest('.poland-products-cell') || toggleEl.closest('.products-cell');
+    const hiddenItems = container.querySelectorAll('.poland-product-hidden');
+    const isExpanded = toggleEl.dataset.expanded === 'true';
+
+    hiddenItems.forEach(item => {
+        item.style.display = isExpanded ? 'none' : '';
+    });
+
+    if (isExpanded) {
+        toggleEl.textContent = `Pokaż więcej (${hiddenItems.length})`;
+        toggleEl.dataset.expanded = 'false';
+    } else {
+        toggleEl.textContent = 'Pokaż mniej';
+        toggleEl.dataset.expanded = 'true';
+    }
+}
+
+/**
+ * Delete Poland order
+ */
+function deletePolandOrder(orderId) {
+    if (confirm('Czy na pewno chcesz usunąć to zamówienie POLSKA?\n\nTa operacja jest nieodwracalna.')) {
+        fetch(`/admin/products/poland-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (window.Toast) {
+                    window.Toast.show('Zamówienie POLSKA zostało usunięte', 'success');
+                }
+                // Przeładuj tę samą zakładkę — countery i listy się odświeżą
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                if (window.Toast) {
+                    window.Toast.show('Błąd: ' + data.error, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            if (window.Toast) {
+                window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
+            }
+        });
+    }
+}
+
+// ============================================
+// POLSKA Tab Functions
+// ============================================
+
+let selectedStatusesPoland = [];
+
+function toggleStatusMultiSelectPoland() {
+    const dropdown = document.getElementById('statusMultiSelectPoland');
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+function updateStatusFilterPoland() {
+    const checkboxes = document.querySelectorAll('#statusMultiSelectPoland input[type="checkbox"]:checked');
+    selectedStatusesPoland = Array.from(checkboxes).map(cb => cb.value);
+
+    const statusText = document.getElementById('statusSelectTextPoland');
+    if (selectedStatusesPoland.length === 0) {
+        statusText.textContent = 'Wszystkie statusy';
+    } else if (selectedStatusesPoland.length === 1) {
+        statusText.textContent = '1 status';
+    } else {
+        statusText.textContent = `${selectedStatusesPoland.length} statusy`;
+    }
+
+    applyFiltersPoland();
+}
+
+function applyFiltersPoland() {
+    const orderNumberFilter = document.getElementById('filterOrderNumberPoland').value.toLowerCase().trim();
+    const trackingFilter = document.getElementById('filterTrackingPoland').value.toLowerCase().trim();
+    const dateFrom = document.getElementById('filterDateFromPoland').value;
+    const dateTo = document.getElementById('filterDateToPoland').value;
+
+    const table = document.getElementById('polandOrdersTable');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+
+    rows.forEach(row => {
+        let showRow = true;
+
+        // Order number filter
+        if (orderNumberFilter) {
+            const rowOrderNumber = (row.dataset.orderNumber || '').toLowerCase();
+            if (!rowOrderNumber.includes(orderNumberFilter)) {
+                showRow = false;
+            }
+        }
+
+        // Tracking number (Kfriday RS) filter
+        if (trackingFilter) {
+            const rowTracking = (row.dataset.tracking || '').toLowerCase();
+            if (!rowTracking.includes(trackingFilter)) {
+                showRow = false;
+            }
+        }
+
+        // Date filter (using timestamp)
+        if (dateFrom || dateTo) {
+            const rowTimestamp = parseFloat(row.dataset.date) || 0;
+            const rowDateStr = new Date(rowTimestamp * 1000).toISOString().split('T')[0];
+            if (dateFrom && rowDateStr < dateFrom) showRow = false;
+            if (dateTo && rowDateStr > dateTo) showRow = false;
+        }
+
+        // Status filter
+        if (selectedStatusesPoland.length > 0) {
+            if (!selectedStatusesPoland.includes(row.dataset.status)) {
+                showRow = false;
+            }
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    });
+
+    updateSelectAllStatePoland();
+}
+
+function clearAllFiltersPoland() {
+    document.getElementById('filterOrderNumberPoland').value = '';
+    document.getElementById('filterTrackingPoland').value = '';
+    document.getElementById('filterDateFromPoland').value = '';
+    document.getElementById('filterDateToPoland').value = '';
+
+    document.querySelectorAll('#statusMultiSelectPoland input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    selectedStatusesPoland = [];
+    document.getElementById('statusSelectTextPoland').textContent = 'Wszystkie statusy';
+
+    const table = document.getElementById('polandOrdersTable');
+    if (table) {
+        table.querySelectorAll('tbody tr').forEach(row => {
+            row.style.display = '';
+        });
+    }
+
+    updateSelectAllStatePoland();
+}
+
+function toggleSelectAllPoland(selectAllCheckbox) {
+    const table = document.getElementById('polandOrdersTable');
+    if (!table) return;
+    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+
+    visibleRows.forEach(row => {
+        const checkbox = row.querySelector('.poland-checkbox');
+        if (checkbox) {
+            checkbox.checked = selectAllCheckbox.checked;
+            if (selectAllCheckbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+        }
+    });
+
+    updateBulkActionsModal();
+}
+
+function handleCheckboxChangePoland() {
+    const checkbox = event.target;
+    const row = checkbox.closest('tr');
+
+    if (checkbox.checked) {
+        row.classList.add('selected');
+    } else {
+        row.classList.remove('selected');
+    }
+
+    updateSelectAllStatePoland();
+    updateBulkActionsModal();
+}
+
+function updateSelectAllStatePoland() {
+    const selectAllCheckbox = document.getElementById('selectAllPolandOrders');
+    if (!selectAllCheckbox) return;
+
+    const table = document.getElementById('polandOrdersTable');
+    if (!table) return;
+    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.poland-checkbox')).filter(cb => cb);
+
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    const someChecked = checkboxes.some(cb => cb.checked);
+
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = someChecked && !allChecked;
+}
+
+function togglePolandStatusDropdown(orderId) {
+    const allDropdowns = document.querySelectorAll('[id^="poland-status-dropdown-"]');
+    allDropdowns.forEach(d => {
+        if (d.id !== `poland-status-dropdown-${orderId}`) {
+            d.style.display = 'none';
+        }
+    });
+
+    const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
+    if (!dropdown) return;
+
+    if (dropdown.style.display === 'none') {
+        const button = dropdown.previousElementSibling || dropdown.closest('.status-dropdown-wrapper').querySelector('.status-badge-button');
+        const rect = button.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.display = 'block';
+        document.body.appendChild(dropdown);
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+function changePolandOrderStatus(orderId, newStatus) {
+    const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
+    if (dropdown) dropdown.style.display = 'none';
+
+    fetch(`/admin/products/poland-orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById(`poland-order-row-${orderId}`);
+            if (row) {
+                const button = row.querySelector('.status-badge-button');
+                if (button) {
+                    const statusLabels = {
+                        'zamowione': 'Zamówione',
+                        'urzad_celny': 'Urząd celny',
+                        'dostarczone_gom': 'Dostarczone GOM',
+                        'anulowane': 'Anulowane'
+                    };
+                    button.className = `status-badge-button badge-${newStatus}`;
+                    button.childNodes[0].textContent = (statusLabels[newStatus] || newStatus) + ' ';
+                }
+                row.dataset.status = newStatus;
+
+                // Update date in merged "Data" column
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
+
+                const dateSecondary = row.querySelector('.poland-date-secondary');
+                if (dateSecondary) {
+                    dateSecondary.textContent = formattedDate;
+                    dateSecondary.style.transition = 'background-color 0.3s';
+                    dateSecondary.style.backgroundColor = 'rgba(249, 115, 22, 0.15)';
+                    setTimeout(() => {
+                        dateSecondary.style.backgroundColor = '';
+                    }, 1000);
+                }
+                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
+            }
+
+            if (window.Toast) {
+                window.Toast.show(data.message || 'Status zmieniony', 'success');
+            }
+        } else {
+            if (window.Toast) {
+                window.Toast.show('Błąd: ' + data.error, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Poland status change error:', error);
+        if (window.Toast) {
+            window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
+        }
+    });
+}
+
+function bulkDeletePolandOrders() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień POLSKA?\n\nTa operacja jest nieodwracalna.`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/poland-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+            if (!data.success) errors++;
+
+            if (completed === orderIds.length) {
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+                setTimeout(() => { window.location.reload(); }, 500);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk delete Poland error:', error);
+            errors++;
+            completed++;
+            if (completed === orderIds.length) {
+                setTimeout(() => { window.location.reload(); }, 500);
+            }
+        });
+    });
+}
+
+// Close Poland multi-select when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.multi-select-wrapper')) {
+        const dropdown = document.getElementById('statusMultiSelectPoland');
+        if (dropdown) dropdown.style.display = 'none';
+    }
+    // Close Poland status dropdowns when clicking outside
+    if (!event.target.closest('.status-dropdown-wrapper') && !event.target.closest('.status-dropdown')) {
+        document.querySelectorAll('[id^="poland-status-dropdown-"]').forEach(d => {
+            d.style.display = 'none';
+        });
+    }
+});
+
+/**
+ * Show empty state when table becomes empty
+ */
+function showEmptyState() {
+    // Hide the filters section
+    const filtersSection = document.querySelector('.orders-filters');
+    if (filtersSection) {
+        filtersSection.style.display = 'none';
+    }
+
+    const tableResponsive = document.querySelector('.table-responsive');
+    if (tableResponsive) {
+        tableResponsive.remove();
+    }
+
+    const ordersList = document.querySelector('.orders-list');
+    if (ordersList) {
+        const activeTab = (window.STOCK_ORDERS_CONFIG && window.STOCK_ORDERS_CONFIG.activeTab) || 'proxy';
+        let emptyStateHTML = `
+            <div class="empty-state">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                    <line x1="1" y1="10" x2="23" y2="10"></line>
+                </svg>
+                <h3>Brak zamówień</h3>
+        `;
+
+        if (activeTab === 'proxy') {
+            emptyStateHTML += `
+                <p>Nie znaleziono żadnych zamówień dla kategorii PROXY</p>
+            `;
+        } else {
+            emptyStateHTML += `
+                <p>Zamówienia pojawią się tutaj po zmianie statusu na "Dostarczone GOM" w zakładce PROXY</p>
+                <a href="${(window.STOCK_ORDERS_CONFIG && window.STOCK_ORDERS_CONFIG.proxyTabUrl) || '/admin/products/stock-orders?tab=proxy'}" class="btn btn-primary">
+                    Przejdź do PROXY
+                </a>
+            `;
+        }
+
+        emptyStateHTML += '</div>';
+        ordersList.innerHTML = emptyStateHTML;
+    }
+}
+
+// ============================================
+// DO ZAMÓWIENIA Tab Functions
+// ============================================
+
+/**
+ * Filter rows in DO ZAMÓWIENIA tab
+ */
+function applyToOrderFilters() {
+    const productFilter = document.getElementById('filterToOrderProduct').value.toLowerCase().trim();
+    const paymentFilter = document.getElementById('filterToOrderPayment').value;
+    const rows = document.querySelectorAll('#toOrderTable tbody .to-order-row');
+
+    rows.forEach(row => {
+        const productName = (row.dataset.productName || '').toLowerCase();
+        const paymentType = row.dataset.paymentType || '';
+
+        const matchProduct = !productFilter || productName.includes(productFilter);
+        const matchPayment = !paymentFilter || paymentType === paymentFilter;
+
+        row.style.display = (matchProduct && matchPayment) ? '' : 'none';
+    });
+
+    // Update select all checkbox state after filter change
+    handleToOrderCheckboxChange();
+}
+
+/**
+ * Toggle select all products in DO ZAMÓWIENIA tab
+ */
+function toggleSelectAllToOrder(checkbox) {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox');
+    checkboxes.forEach(cb => {
+        const row = cb.closest('tr');
+        const isVisible = row.style.display !== 'none';
+        if (isVisible) {
+            cb.checked = checkbox.checked;
+            if (checkbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+        }
+    });
+    handleToOrderCheckboxChange();
+}
+
+/**
+ * Handle checkbox change in DO ZAMÓWIENIA tab
+ */
+function handleToOrderCheckboxChange() {
+    const allCheckboxes = document.querySelectorAll('.to-order-checkbox');
+    const visibleCheckboxes = [...allCheckboxes].filter(cb => cb.closest('tr').style.display !== 'none');
+    const visibleChecked = visibleCheckboxes.filter(cb => cb.checked);
+
+    const bulkToolbar = document.getElementById('toOrderBulkToolbar');
+    const selectedCount = document.getElementById('toOrderSelectedCount');
+
+    // Count all checked (visible + hidden) for toolbar
+    const totalChecked = document.querySelectorAll('.to-order-checkbox:checked').length;
+    if (totalChecked > 0) {
+        bulkToolbar.classList.remove('hidden');
+        selectedCount.textContent = totalChecked;
+    } else {
+        bulkToolbar.classList.add('hidden');
+    }
+
+    // Update select all checkbox state based on visible rows only
+    const selectAllCheckbox = document.getElementById('selectAllToOrder');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = visibleCheckboxes.length > 0 && visibleChecked.length === visibleCheckboxes.length;
+        selectAllCheckbox.indeterminate = visibleChecked.length > 0 && visibleChecked.length < visibleCheckboxes.length;
+    }
+}
+
+/**
+ * Clear selection in DO ZAMÓWIENIA tab
+ */
+function clearToOrderSelection() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+        cb.closest('tr').classList.remove('selected');
+    });
+    const selectAllCheckbox = document.getElementById('selectAllToOrder');
+    if (selectAllCheckbox) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+    }
+    document.getElementById('toOrderBulkToolbar').classList.add('hidden');
+}
+
+/**
+ * Suppliers data for the modal dropdown
+ */
+
+// suppliersData is declared in the HTML template (Jinja2 data bridge)
+
+// Zamknij modal grupowy po kliknięciu na overlay
+(function() {
+    const groupModal = document.getElementById('groupOrderModal');
+    if (groupModal) {
+        groupModal.addEventListener('click', function(e) {
+            if (e.target === groupModal) {
+                closeGroupOrderModal();
+            }
+        });
+    }
+})();
+
+// Podświetlanie zaznaczonych wierszy w tabeli DO ZAMÓWIENIA
+document.querySelectorAll('.to-order-checkbox').forEach(box => {
+    box.addEventListener('change', function() {
+        const row = this.closest('tr');
+        if (this.checked) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+    });
+});
+
+/**
+ * Otwórz modal zamówienia grupowego z walidacją typów płatności
+ */
+function openOrderProductsModal() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
+    if (checkboxes.length === 0) {
+        if (window.Toast) {
+            window.Toast.show('Zaznacz produkty do zamówienia', 'warning');
+        }
+        return;
+    }
+
+    // Sprawdź typy płatności (Proxy vs Polska)
+    const paymentTypes = new Set();
+    checkboxes.forEach(box => {
+        paymentTypes.add(box.dataset.paymentType);
+    });
+
+    // WALIDACJA: NIE można mieszać Proxy + Polska
+    if (paymentTypes.size > 1) {
+        if (window.Toast) {
+            window.Toast.show('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.', 'error');
+        } else {
+            alert('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.');
+        }
+        return;
+    }
+
+    const orderType = Array.from(paymentTypes)[0]; // 'proxy' lub 'polska'
+    const orderTypeLabel = orderType === 'proxy' ? 'Proxy' : 'Polska';
+
+    // Uzupełnij dane w modalu
+    document.getElementById('groupOrderCount').textContent = checkboxes.length;
+    document.getElementById('groupOrderType').textContent = orderTypeLabel;
+
+    // Wypełnij tabelę produktów
+    const tbody = document.getElementById('groupOrderTableBody');
+    tbody.innerHTML = '';
+    let total = 0;
+
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const productName = row.dataset.productName;
+        const toOrder = parseInt(row.dataset.toOrder);
+        const purchasePrice = parseFloat(row.dataset.purchasePrice) || 0;
+        const rowTotal = toOrder * purchasePrice;
+        total += rowTotal;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(productName)}</td>
+            <td class="text-center">${toOrder}</td>
+            <td class="text-right">${purchasePrice.toFixed(2)} PLN</td>
+            <td class="text-right font-semibold">${rowTotal.toFixed(2)} PLN</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('groupOrderTotal').textContent = total.toFixed(2) + ' PLN';
+
+    // Pokaż modal
+    document.getElementById('groupOrderModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Zamknij modal zamówienia grupowego
+ */
+function closeGroupOrderModal() {
+    const modal = document.getElementById('groupOrderModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.classList.remove('active');
+            modal.classList.remove('closing');
+            document.body.style.overflow = '';
+            document.getElementById('groupOrderNote').value = '';
+        }, 350);
+    }
+}
+
+/**
+ * Potwierdź i utwórz zamówienie grupowe
+ */
+function confirmGroupOrder() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
+    if (checkboxes.length === 0) return;
+
+    const note = document.getElementById('groupOrderNote').value.trim();
+    const orderType = checkboxes[0].dataset.paymentType;
+
+    // Zbierz dane produktów
+    const products = [];
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        products.push({
+            product_id: parseInt(checkbox.value),
+            supplier_id: row.dataset.supplierId ? parseInt(row.dataset.supplierId) : null,
+            quantity: parseInt(row.dataset.toOrder),
+            unit_price: parseFloat(row.dataset.purchasePrice) || 0
+        });
+    });
+
+    // Wyłącz przycisk
+    const btn = document.getElementById('btnConfirmGroupOrder');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-small"></span> Tworzenie...';
+
+    // AJAX: Utwórz zamówienie grupowe
+    fetch('/admin/products/api/create-group-proxy-order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            products: products,
+            order_type: orderType,
+            note: note
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeGroupOrderModal();
+            if (window.Toast) {
+                window.Toast.show(`Zamówienie grupowe utworzone! Numer: ${data.order_number}`, 'success');
+            }
+            // Przekieruj do odpowiedniej zakładki
+            setTimeout(() => {
+                window.location.href = `/admin/products/stock-orders?tab=${orderType}`;
+            }, 1000);
+        } else {
+            if (window.Toast) {
+                window.Toast.show('Błąd: ' + (data.error || 'Nieznany błąd'), 'error');
+            }
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 01-8 0"></path>
+                </svg>
+                Potwierdź zamówienie
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (window.Toast) {
+            window.Toast.show('Wystąpił błąd podczas tworzenia zamówienia', 'error');
+        }
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 01-8 0"></path>
+            </svg>
+            Potwierdź zamówienie
+        `;
+    });
+}
