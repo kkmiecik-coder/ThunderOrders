@@ -143,6 +143,25 @@
                                value="{{ page.ends_at|format_datetime_local if page.ends_at else '' }}">
                         <small class="form-hint">Puste = bez limitu czasu</small>
                     </div>
+
+                    <!-- Typ realizacji zamówień -->
+                    <div class="form-group">
+                        <label>Zamówienie do:</label>
+                        <div class="payment-stages-toggle">
+                            <span class="toggle-label-side {% if page.payment_stages != 3 %}active{% endif %}" id="labelProxy">Proxy</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="paymentStagesToggle"
+                                       {% if page.payment_stages == 3 %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label-side {% if page.payment_stages == 3 %}active{% endif %}" id="labelPolska">Polska</span>
+                        </div>
+                        <input type="hidden" id="paymentStages" value="{{ page.payment_stages or 4 }}">
+                        <small class="form-hint">
+                            Proxy = 4 plat. (Produkt + Wysylka KR + Clo/VAT + Wysylka PL)<br>
+                            Polska = 3 plat. (Produkt + Clo/VAT + Wysylka PL)
+                        </small>
+                    </div>
                 </div>
             </div>
         </div>

@@ -219,6 +219,11 @@ def exclusive_save(page_id):
             else:
                 page.ends_at = None
 
+        if 'payment_stages' in data:
+            payment_stages = int(data['payment_stages'])
+            if payment_stages in (3, 4):
+                page.payment_stages = payment_stages
+
         # Aktualizacja sekcji
         limit_changes = []
         if 'sections' in data:
@@ -754,6 +759,7 @@ def exclusive_duplicate(page_id):
         token=ExclusivePage.generate_token(),
         status='draft',
         footer_content=original.footer_content,
+        payment_stages=original.payment_stages,
         created_by=current_user.id
     )
     db.session.add(new_page)

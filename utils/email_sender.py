@@ -266,6 +266,52 @@ def send_order_cancelled_email(user_email, user_name, order_number, page_name,
         return False
 
 
+def send_payment_approved_email(user_email, user_name, order_number, amount, order_detail_url):
+    """
+    Wysyła email o zaakceptowaniu potwierdzenia płatności
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        amount (float): Kwota płatności
+        order_detail_url (str): URL do szczegółów zamówienia
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Płatność zatwierdzona - {order_number} - ThunderOrders',
+        template='payment_approved',
+        user_name=user_name,
+        order_number=order_number,
+        amount=amount,
+        order_detail_url=order_detail_url
+    )
+
+
+def send_payment_rejected_email(user_email, user_name, order_number, amount, rejection_reason, upload_url):
+    """
+    Wysyła email o odrzuceniu potwierdzenia płatności
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        amount (float): Kwota płatności
+        rejection_reason (str): Powód odrzucenia
+        upload_url (str): URL do ponownego wgrania potwierdzenia
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Płatność odrzucona - {order_number} - ThunderOrders',
+        template='payment_rejected',
+        user_name=user_name,
+        order_number=order_number,
+        amount=amount,
+        rejection_reason=rejection_reason,
+        upload_url=upload_url
+    )
+
+
 def send_back_in_stock_email(email, product_name, product_image_url, exclusive_page_name, exclusive_page_url):
     """
     Wysyła powiadomienie o powrocie produktu do dostępności na stronie Exclusive.

@@ -52,16 +52,27 @@
                     </th>
                     <th class="col-number">Numer zamówienia</th>
                     <th class="col-items hide-mobile">Produkty</th>
-                    <th class="col-amount">Kwota do zapłaty</th>
-                    <th class="col-paid hide-mobile">Zapłacono</th>
-                    <th class="col-remaining hide-mobile">Pozostało</th>
-                    <th class="col-payments">Płatności</th>
+                    <th class="col-amount">Kwota</th>
+                    <th class="col-stage">E1: Produkt</th>
+                    {% if any_order_has_4_stages %}
+                    <th class="col-stage">E2: Wysyłka KR</th>
+                    {% endif %}
+                    <th class="col-stage">E3: Cło/VAT</th>
+                    <th class="col-stage">E4: Wysyłka PL</th>
                     <th class="col-actions">Akcje</th>
                 </tr>
             </thead>
             <tbody>
                 {% for order in orders %}
-                <tr data-order-id="{{ order.id }}">
+                <tr data-order-id="{{ order.id }}"
+                    data-payment-stages="{{ order.payment_stages or 3 }}"
+                    data-stage2-status="{{ order.stage_2_status or '' }}"
+                    data-stage3-status="{{ order.stage_3_status }}"
+                    data-stage4-status="{{ order.stage_4_status }}"
+                    data-can-upload-stage2="{{ 'true' if order.can_upload_stage_2 else 'false' }}"
+                    data-can-upload-stage3="{{ 'true' if order.can_upload_stage_3 else 'false' }}"
+                    data-can-upload-stage4="{{ 'true' if order.can_upload_stage_4 else 'false' }}"
+                >
                     <td class="pc-col-checkbox" data-label="">
                         <input
                             type="checkbox"
@@ -70,6 +81,7 @@
                             data-order-number="{{ order.order_number }}"
                             data-amount="{{ order.effective_total }}"
                             data-product-status="{{ order.product_payment_status }}"
+                            data-payment-stages="{{ order.payment_stages or 3 }}"
                             {% if not order.can_upload_product_payment %}disabled{% endif %}
                         >
                     </td>
@@ -140,61 +152,80 @@
                         </div>
                     </td>
 
-                    <td class="col-amount" data-label="Kwota do zapłaty">
-                        <span class="amount-cell">{{ "%.2f"|format(order.grand_total) }} zł</span>
+                    <td class="col-amount" data-label="Kwota">
+                        <span class="amount-cell">{{ "%.2f"|format(order.effective_total) }} zł</span>
                     </td>
 
-                    <td class="col-paid hide-mobile" data-label="Zapłacono">
-                        <span class="amount-cell pc-paid-value">{{ "%.2f"|format(order.paid_amount) }} zł</span>
+                    <!-- E1: Produkt -->
+                    <td class="col-stage" data-label="E1">
+                        {% set e1_status = order.product_payment_status %}
+                        {% if e1_status == 'approved' %}
+                            <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
+                        {% elif e1_status == 'pending' %}
+                            <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
+                        {% elif e1_status == 'rejected' %}
+                            <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
+                        {% else %}
+                            <span class="pc-stage-badge pc-stage-badge-soon">Oczekuje</span>
+                        {% endif %}
                     </td>
 
-                    <td class="col-remaining hide-mobile" data-label="Pozostało">
-                        {% set remaining = order.remaining_amount %}
-                        <span class="amount-cell pc-remaining-value{% if remaining > 0 %} pc-remaining-positive{% endif %}">
-                            {{ "%.2f"|format(remaining) }} zł
-                        </span>
-                    </td>
-
-                    <td class="col-payments" data-label="Płatności">
-                        {% set status = order.product_payment_status %}
-                        <div class="pc-payment-stages">
-                            <div class="pc-stage-row">
-                                <span class="pc-stage-label">Produkty</span>
-                                <div class="pc-stage-status">
-                                    {% if status == 'none' %}
-                                    <span class="pc-status-icon pc-status-none" title="Brak potwierdzenia">
-                                        <img src="{{ url_for('static', filename='img/icons/payment-none.svg') }}" alt="Brak potwierdzenia" width="18" height="18">
-                                    </span>
-                                    {% elif status == 'pending' %}
-                                    <span class="pc-status-icon pc-status-pending" title="Oczekuje na weryfikację">
-                                        <img src="{{ url_for('static', filename='img/icons/payment-pending.svg') }}" alt="Oczekuje na weryfikację" width="18" height="18">
-                                    </span>
-                                    {% elif status == 'approved' %}
-                                    <span class="pc-status-icon pc-status-approved" title="Potwierdzone">
-                                        <img src="{{ url_for('static', filename='img/icons/payment-approved.svg') }}" alt="Potwierdzone" width="18" height="18">
-                                    </span>
-                                    {% elif status == 'rejected' %}
-                                    <span class="pc-status-icon pc-status-rejected" title="Odrzucone — wgraj ponownie">
-                                        <img src="{{ url_for('static', filename='img/icons/payment-rejected.svg') }}" alt="Odrzucone" width="18" height="18">
-                                    </span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% if status == 'rejected' and order.product_payment_confirmation and order.product_payment_confirmation.rejection_reason %}
-                            <div class="pc-rejection-reason">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <path d="M12 16v-4"/>
-                                    <path d="M12 8h.01"/>
-                                </svg>
-                                <span>{{ order.product_payment_confirmation.rejection_reason }}</span>
-                            </div>
+                    <!-- E2: Wysyłka KR - tylko dla 4-płatnościowych -->
+                    {% if any_order_has_4_stages %}
+                    <td class="col-stage" data-label="E2">
+                        {% if order.payment_stages == 4 %}
+                            {% set e2_status = order.stage_2_status %}
+                            {% if e2_status == 'approved' %}
+                                <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
+                            {% elif e2_status == 'pending' %}
+                                <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
+                            {% elif e2_status == 'rejected' %}
+                                <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
+                            {% elif order.can_upload_stage_2 %}
+                                <span class="pc-stage-badge pc-stage-badge-ready">Gotowe</span>
+                            {% else %}
+                                <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                             {% endif %}
-                        </div>
+                        {% else %}
+                            <span class="pc-stage-badge pc-stage-badge-na">Nie dotyczy</span>
+                        {% endif %}
+                    </td>
+                    {% endif %}
+
+                    <!-- E3: Cło/VAT - zawsze -->
+                    <td class="col-stage" data-label="E3">
+                        {% set e3_status = order.stage_3_status %}
+                        {% if e3_status == 'approved' %}
+                            <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
+                        {% elif e3_status == 'pending' %}
+                            <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
+                        {% elif e3_status == 'rejected' %}
+                            <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
+                        {% elif order.can_upload_stage_3 %}
+                            <span class="pc-stage-badge pc-stage-badge-ready">Gotowe</span>
+                        {% else %}
+                            <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- E4: Wysyłka PL - zawsze -->
+                    <td class="col-stage" data-label="E4">
+                        {% set e4_status = order.stage_4_status %}
+                        {% if e4_status == 'approved' %}
+                            <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
+                        {% elif e4_status == 'pending' %}
+                            <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
+                        {% elif e4_status == 'rejected' %}
+                            <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
+                        {% elif order.can_upload_stage_4 %}
+                            <span class="pc-stage-badge pc-stage-badge-ready">Gotowe</span>
+                        {% else %}
+                            <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
+                        {% endif %}
                     </td>
 
                     <td class="col-actions" data-label="Akcje">
-                        {% if order.can_upload_product_payment %}
+                        {% if order.can_upload_product_payment or order.can_upload_stage_2 or order.can_upload_stage_3 or order.can_upload_stage_4 %}
                         <button
                             type="button"
                             class="btn btn-sm btn-primary pc-row-action-btn"

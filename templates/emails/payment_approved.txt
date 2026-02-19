@@ -1,0 +1,13 @@
+Płatność zatwierdzona - ThunderOrders
+
+Cześć {{ user_name }}!
+
+Twoje potwierdzenie płatności za produkt w zamówieniu {{ order_number }} zostało zaakceptowane.
+
+Kwota: {{ "%.2f"|format(amount) }} PLN
+
+Zobacz szczegóły zamówienia: {{ order_detail_url }}
+
+Pozdrawiamy,
+ThunderOrders
+https://thunderorders.cloud

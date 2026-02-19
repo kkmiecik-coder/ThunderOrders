@@ -2,6 +2,10 @@
 
 {% block title %}Zamówienia produktów - ThunderOrders{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/warehouse-settings.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="stock-orders-page">
     <!-- Tabs Navigation -->
@@ -35,6 +39,26 @@
             <!-- DO ZAMÓWIENIA Tab Content -->
             <div class="tab-header">
                 <h2>Produkty do zamówienia</h2>
+                <div class="tab-filters">
+                    <div class="filter-group">
+                        <input type="text" id="filterToOrderProduct" class="filter-input" placeholder="Szukaj produktu..." oninput="applyToOrderFilters()">
+                    </div>
+                    <div class="filter-group">
+                        <select id="filterToOrderPayment" class="filter-select" onchange="applyToOrderFilters()">
+                            <option value="">Wszystkie typy płatności</option>
+                            {% set payment_types = [] %}
+                            {% for item in products_to_order %}
+                                {% set pt = 'proxy' if item.payment_stages == 4 else 'polska' %}
+                                {% if pt not in payment_types %}
+                                    {% if payment_types.append(pt) %}{% endif %}
+                                {% endif %}
+                            {% endfor %}
+                            {% for pt in payment_types|sort %}
+                            <option value="{{ pt }}">{{ 'Proxy (4 płat.)' if pt == 'proxy' else 'Polska (3 płat.)' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
             </div>
 
             <!-- Products to Order Table -->
@@ -47,29 +71,34 @@
                                     <th class="col-checkbox">
                                         <input type="checkbox" id="selectAllToOrder" onchange="toggleSelectAllToOrder(this)">
                                     </th>
-                                    <th>Produkt</th>
-                                    <th>SKU</th>
-                                    <th>Dostawca</th>
-                                    <th class="text-center">Zamówione przez klientów</th>
-                                    <th class="text-center">Już zamówione</th>
-                                    <th class="text-center text-orange">Do zamówienia</th>
-                                    <th class="text-right">Cena zakupu</th>
-                                    <th class="text-right">Wartość</th>
+                                    <th class="sortable" data-column="product_name" onclick="sortTable('product_name')">Produkt</th>
+                                    <th class="sortable" data-column="sku" onclick="sortTable('sku')">SKU</th>
+                                    <th class="sortable text-center" data-column="quantity" onclick="sortTable('quantity')">Ilość</th>
+                                    <th class="sortable text-center" data-column="payment_type" onclick="sortTable('payment_type')">Typ płatności</th>
+                                    <th class="sortable text-right" data-column="purchase_price" onclick="sortTable('purchase_price')">Cena zakupu</th>
+                                    <th class="sortable text-right" data-column="purchase_value" onclick="sortTable('purchase_value')">Wartość zakupu</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for item in products_to_order %}
                                 {% set product = item.product %}
                                 {% set primary_image = product.primary_image %}
+                                {% set payment_type = 'proxy' if item.payment_stages == 4 else 'polska' %}
+                                {% set price_pln = product.purchase_price_pln or product.purchase_price or 0 %}
                                 <tr class="to-order-row"
                                     data-product-id="{{ product.id }}"
                                     data-product-name="{{ product.name }}"
                                     data-supplier-id="{{ product.supplier_id or '' }}"
                                     data-supplier-name="{{ product.supplier.name if product.supplier else 'Brak dostawcy' }}"
+                                    data-sku="{{ product.sku or '' }}"
                                     data-to-order="{{ item.to_order }}"
-                                    data-purchase-price="{{ product.purchase_price_pln or product.purchase_price or 0 }}">
+                                    data-purchase-price="{{ price_pln }}"
+                                    data-purchase-value="{{ item.to_order * price_pln }}"
+                                    data-payment-type="{{ payment_type }}">
                                     <td class="col-checkbox">
-                                        <input type="checkbox" class="to-order-checkbox" value="{{ product.id }}" onchange="handleToOrderCheckboxChange()">
+                                        <input type="checkbox" class="to-order-checkbox" value="{{ product.id }}"
+                                               data-payment-type="{{ payment_type }}"
+                                               onchange="handleToOrderCheckboxChange()">
                                     </td>
                                     <td>
                                         <div class="product-cell">
@@ -92,34 +121,45 @@
                                         </div>
                                     </td>
                                     <td class="text-muted">{{ product.sku or '-' }}</td>
-                                    <td>
-                                        {% if product.supplier %}
-                                        <span class="supplier-badge">{{ product.supplier.name }}</span>
+                                    <td class="text-center font-semibold">{{ item.to_order }}</td>
+                                    <td class="text-center payment-stages-cell">
+                                        {% if item.payment_stages == 4 %}
+                                        <span class="badge-payment badge-payment-purple" title="Zamówienia przez proxy (4 płatności)">
+                                            Proxy (4 płat.)
+                                        </span>
+                                        {% elif item.payment_stages == 3 %}
+                                        <span class="badge-payment badge-payment-blue" title="Zamówienia do Polski (3 płatności)">
+                                            Polska (3 płat.)
+                                        </span>
                                         {% else %}
-                                        <span class="text-muted">Brak dostawcy</span>
+                                        <span class="text-muted">—</span>
                                         {% endif %}
                                     </td>
-                                    <td class="text-center">{{ item.total_ordered }}</td>
-                                    <td class="text-center">{{ item.already_ordered }}</td>
-                                    <td class="text-center text-orange font-semibold">{{ item.to_order }}</td>
                                     <td class="text-right">
                                         {% if product.purchase_price_pln %}
-                                        {{ "%.2f"|format(product.purchase_price_pln) }} PLN
+                                            <div class="price-pln">{{ "%.2f"|format(product.purchase_price_pln) }} PLN</div>
+                                            {% if product.purchase_currency == 'KRW' and product.purchase_price %}
+                                                <div class="price-krw">{{ "{:,.0f}"|format(product.purchase_price) }} ₩</div>
+                                            {% endif %}
                                         {% elif product.purchase_price %}
-                                        {{ "%.2f"|format(product.purchase_price) }} {{ product.purchase_currency }}
+                                            <div class="price-pln">{{ "%.2f"|format(product.purchase_price) }} {{ product.purchase_currency }}</div>
                                         {% else %}
-                                        <span class="text-muted">-</span>
+                                            <span class="text-muted">—</span>
                                         {% endif %}
                                     </td>
-                                    <td class="text-right font-semibold">
+                                    <td class="text-right">
                                         {% if product.purchase_price_pln %}
-                                        {% set total_value = item.total_ordered * product.purchase_price_pln %}
-                                        {{ "%.2f"|format(total_value) }} PLN
+                                            {% set total_pln = item.to_order * product.purchase_price_pln %}
+                                            <div class="price-pln"><strong>{{ "%.2f"|format(total_pln) }} PLN</strong></div>
+                                            {% if product.purchase_currency == 'KRW' and product.purchase_price %}
+                                                {% set total_krw = item.to_order * product.purchase_price %}
+                                                <div class="price-krw">{{ "{:,.0f}"|format(total_krw) }} ₩</div>
+                                            {% endif %}
                                         {% elif product.purchase_price %}
-                                        {% set total_value = item.total_ordered * product.purchase_price %}
-                                        {{ "%.2f"|format(total_value) }} {{ product.purchase_currency }}
+                                            {% set total_value = item.to_order * product.purchase_price %}
+                                            <div class="price-pln"><strong>{{ "%.2f"|format(total_value) }} {{ product.purchase_currency }}</strong></div>
                                         {% else %}
-                                        <span class="text-muted">-</span>
+                                            <span class="text-muted">—</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -140,23 +180,18 @@
                 {% endif %}
             </div>
 
-            {% else %}
-            <!-- PROXY / POLSKA Tab Content -->
+            {% elif active_tab == 'proxy' %}
+            <!-- PROXY Tab Content -->
             <div class="tab-header">
-                <h2>Zamówienia {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</h2>
-                {% if active_tab == 'proxy' %}
-                <button class="btn btn-primary" id="btnNewOrder">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Nowe zamówienie
-                </button>
-                {% endif %}
+                <h2>Zamówienia PROXY</h2>
             </div>
 
             <!-- Filters Section -->
             <div class="orders-filters">
+                <div class="filter-group">
+                    <label>Nr zamówienia</label>
+                    <input type="text" id="filterOrderNumber" class="filter-input" placeholder="Szukaj..." oninput="applyFilters()">
+                </div>
                 <div class="filter-group">
                     <label>Data od</label>
                     <input type="date" id="filterDateFrom" class="filter-input" onchange="applyFilters()">
@@ -177,38 +212,14 @@
                         <div id="statusMultiSelect" class="multi-select-dropdown" style="display: none;">
                             <div class="multi-select-option">
                                 <label>
-                                    <input type="checkbox" value="nowe" onchange="updateStatusFilter()">
-                                    <span class="badge badge-nowe">Nowe</span>
+                                    <input type="checkbox" value="zamowiono" onchange="updateStatusFilter()">
+                                    <span class="badge badge-zamowiono">Zamówiono</span>
                                 </label>
                             </div>
                             <div class="multi-select-option">
                                 <label>
-                                    <input type="checkbox" value="oczekujace" onchange="updateStatusFilter()">
-                                    <span class="badge badge-oczekujace">Oczekujące</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="dostarczone_proxy" onchange="updateStatusFilter()">
-                                    <span class="badge badge-dostarczone_proxy">Dostarczone Proxy</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="w_drodze_polska" onchange="updateStatusFilter()">
-                                    <span class="badge badge-w_drodze_polska">W Drodze Polska</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="urzad_celny" onchange="updateStatusFilter()">
-                                    <span class="badge badge-urzad_celny">Urząd Celny</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="dostarczone_gom" onchange="updateStatusFilter()">
-                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+                                    <input type="checkbox" value="dostarczone_do_proxy" onchange="updateStatusFilter()">
+                                    <span class="badge badge-dostarczone_do_proxy">Dostarczone do Proxy</span>
                                 </label>
                             </div>
                             <div class="multi-select-option">
@@ -222,97 +233,87 @@
                 </div>
                 <div class="filter-actions-inline">
                     <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFilters()">
-                        Wyczyść filtry
+                        Wyczysc filtry
                     </button>
                 </div>
             </div>
 
-            <!-- Orders List -->
+            <!-- Proxy Orders List -->
             <div class="orders-list">
-                {% if stock_orders %}
+                {% if proxy_orders %}
                     <div class="table-responsive">
-                        <table class="data-table">
+                        <table class="data-table" id="proxyOrdersTable">
                             <thead>
                                 <tr>
                                     <th class="col-checkbox">
                                         <input type="checkbox" id="selectAllOrders" onchange="toggleSelectAll(this)">
                                     </th>
-                                    <th class="sortable" data-column="order_number" onclick="sortTable('order_number')">Nr zamówienia</th>
-                                    <th class="sortable" data-column="product" onclick="sortTable('product')">Produkt</th>
-                                    <th class="sortable" data-column="supplier" onclick="sortTable('supplier')">Dostawca</th>
-                                    <th class="sortable text-center" data-column="quantity" onclick="sortTable('quantity')">Ilość</th>
+                                    <th class="sortable" data-column="order_number" onclick="sortTable('order_number')">Nr zamowienia</th>
+                                    <th>Produkty</th>
                                     <th class="sortable" data-column="status" onclick="sortTable('status')">Status</th>
                                     <th class="sortable" data-column="status_changed" onclick="sortTable('status_changed')">Ostatnia zmiana</th>
-                                    <th class="sortable" data-column="date" onclick="sortTable('date')">Data zamówienia</th>
+                                    <th class="sortable" data-column="date" onclick="sortTable('date')">Data zamowienia</th>
                                     <th class="sortable" data-column="amount" onclick="sortTable('amount')">Kwota</th>
+                                    <th>Notatka</th>
                                     <th>Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for order in stock_orders %}
-                                {% set first_item = order.items.first() %}
-                                {% set product = first_item.product if first_item else None %}
-                                {% set primary_image = product.primary_image if product else None %}
+                                {% for order in proxy_orders %}
                                 <tr id="order-row-{{ order.id }}"
                                     data-order-id="{{ order.id }}"
                                     data-order-number="{{ order.order_number }}"
-                                    data-product="{{ product.name if product else '' }}"
-                                    data-supplier="{{ order.supplier.name if order.supplier else '' }}"
-                                    data-quantity="{{ first_item.quantity if first_item else 0 }}"
                                     data-status="{{ order.status }}"
                                     data-date="{{ order.created_at.timestamp() }}"
-                                    data-date-formatted="{{ order.created_at|format_date }}"
                                     data-status-changed="{{ order.updated_at.timestamp() if order.updated_at else order.created_at.timestamp() }}"
                                     data-amount="{{ order.total_amount_pln }}">
                                     <td class="col-checkbox">
-                                        <input type="checkbox" class="order-checkbox" value="{{ order.id }}" onchange="handleCheckboxChange()">
+                                        <input type="checkbox" class="order-checkbox proxy-checkbox" value="{{ order.id }}" onchange="handleCheckboxChange()">
                                     </td>
                                     <td class="font-semibold">{{ order.order_number }}</td>
-                                    <td>
-                                        <div class="product-cell">
-                                            {% if primary_image %}
+                                    <td class="products-cell">
+                                        <div class="products-list-compact">
+                                            {% for item in order.items %}
+                                            {% set product = item.product %}
+                                            {% set primary_image = product.primary_image if product else None %}
+                                            <div class="product-item-compact">
+                                                {% if primary_image %}
                                                 <img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
-                                                     alt="{{ product.name }}"
-                                                     class="product-thumbnail-small">
-                                            {% else %}
-                                                <div class="product-thumbnail-small product-thumbnail-placeholder-small">
-                                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                                     alt="{{ product.name }}" class="product-thumb-compact">
+                                                {% else %}
+                                                <div class="product-thumb-compact product-thumb-placeholder">
+                                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                                         <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
                                                         <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"></path>
                                                     </svg>
                                                 </div>
-                                            {% endif %}
-                                            <span class="product-name-small">{{ product.name if product else '-' }}</span>
+                                                {% endif %}
+                                                <div class="product-item-info">
+                                                    <span class="product-item-name">{{ product.name if product else '-' }}</span>
+                                                    <span class="product-item-qty">({{ item.quantity }} szt)</span>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
                                         </div>
                                     </td>
-                                    <td>{{ order.supplier.name if order.supplier else '-' }}</td>
-                                    <td class="text-center">{{ first_item.quantity if first_item else '-' }}</td>
                                     <td>
                                         <div class="status-dropdown-wrapper">
                                             <button class="status-badge-button badge-{{ order.status }}" onclick="toggleStatusDropdown({{ order.id }})">
-                                                {{ order.status|replace('_', ' ')|title }}
+                                                {% if order.status == 'zamowiono' %}Zamówiono
+                                                {% elif order.status == 'dostarczone_do_proxy' %}Dostarczone do Proxy
+                                                {% elif order.status == 'anulowane' %}Anulowane
+                                                {% else %}{{ order.status|replace('_', ' ')|title }}
+                                                {% endif %}
                                                 <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
                                                     <path d="M6 8L2 4h8L6 8z"/>
                                                 </svg>
                                             </button>
                                             <div id="status-dropdown-{{ order.id }}" class="status-dropdown" style="display: none;">
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'nowe')">
-                                                    <span class="badge badge-nowe">Nowe</span>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'zamowiono')">
+                                                    <span class="badge badge-zamowiono">Zamówiono</span>
                                                 </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'oczekujace')">
-                                                    <span class="badge badge-oczekujace">Oczekujące</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'dostarczone_proxy')">
-                                                    <span class="badge badge-dostarczone_proxy">Dostarczone Proxy</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'w_drodze_polska')">
-                                                    <span class="badge badge-w_drodze_polska">W Drodze Polska</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'urzad_celny')">
-                                                    <span class="badge badge-urzad_celny">Urząd Celny</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'dostarczone_gom')">
-                                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'dostarczone_do_proxy')">
+                                                    <span class="badge badge-dostarczone_do_proxy">Dostarczone do Proxy</span>
                                                 </div>
                                                 <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'anulowane')">
                                                     <span class="badge badge-anulowane">Anulowane</span>
@@ -325,9 +326,16 @@
                                     <td class="font-semibold">
                                         {{ '%.2f'|format(order.total_amount_pln) }} PLN
                                     </td>
+                                    <td class="notes-cell">
+                                        {% if order.notes %}
+                                        <span class="note-text" title="{{ order.notes }}">{{ order.notes[:50] }}{% if order.notes|length > 50 %}...{% endif %}</span>
+                                        {% else %}
+                                        <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {% if current_user.role == 'admin' %}
-                                        <button class="btn btn-sm btn-danger" title="Usuń" onclick="deleteOrder({{ order.id }})">
+                                        <button class="btn btn-sm btn-danger" title="Usun" onclick="deleteOrder({{ order.id }})">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                                 <polyline points="3 6 5 6 21 6"></polyline>
                                                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -348,22 +356,250 @@
                             <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
                             <line x1="1" y1="10" x2="23" y2="10"></line>
                         </svg>
-                        <h3>Brak zamówień</h3>
-                        {% if active_tab == 'proxy' %}
-                        <p>Nie znaleziono żadnych zamówień dla kategorii PROXY</p>
-                        <button class="btn btn-primary" id="btnNewOrderEmpty">
-                            Utwórz pierwsze zamówienie
-                        </button>
-                        {% else %}
-                        <p>Zamówienia pojawią się tutaj po zmianie statusu na "Dostarczone GOM" w zakładce PROXY</p>
-                        <a href="{{ url_for('products.stock_orders', tab='proxy') }}" class="btn btn-primary" id="btnGoToProxy">
-                            Przejdź do PROXY
-                        </a>
-                        {% endif %}
+                        <h3>Brak zamowien</h3>
+                        <p>Nie znaleziono zadnych zamowien dla kategorii PROXY</p>
                     </div>
                 {% endif %}
             </div>
-            {% endif %} {# End of else block for PROXY/POLSKA tabs #}
+
+            {% elif active_tab == 'polska' %}
+            <!-- POLSKA Tab Content -->
+            <div class="tab-header">
+                <h2>Zamówienia POLSKA</h2>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="orders-filters">
+                <div class="filter-group">
+                    <label>Nr zamówienia</label>
+                    <input type="text" id="filterOrderNumberPoland" class="filter-input" placeholder="Szukaj..." oninput="applyFiltersPoland()">
+                </div>
+                <div class="filter-group">
+                    <label>Numer Kfriday RS</label>
+                    <input type="text" id="filterTrackingPoland" class="filter-input" placeholder="Szukaj..." oninput="applyFiltersPoland()">
+                </div>
+                <div class="filter-group">
+                    <label>Data od</label>
+                    <input type="date" id="filterDateFromPoland" class="filter-input" onchange="applyFiltersPoland()">
+                </div>
+                <div class="filter-group">
+                    <label>Data do</label>
+                    <input type="date" id="filterDateToPoland" class="filter-input" onchange="applyFiltersPoland()">
+                </div>
+                <div class="filter-group filter-group-status">
+                    <label>Status</label>
+                    <div class="multi-select-wrapper">
+                        <button type="button" class="multi-select-trigger" onclick="toggleStatusMultiSelectPoland()">
+                            <span id="statusSelectTextPoland">Wszystkie statusy</span>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                <path d="M6 8L2 4h8L6 8z"/>
+                            </svg>
+                        </button>
+                        <div id="statusMultiSelectPoland" class="multi-select-dropdown" style="display: none;">
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="zamowione" onchange="updateStatusFilterPoland()">
+                                    <span class="badge badge-zamowione">Zamówione</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="dostarczone_gom" onchange="updateStatusFilterPoland()">
+                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+                                </label>
+                            </div>
+                            <div class="multi-select-option">
+                                <label>
+                                    <input type="checkbox" value="anulowane" onchange="updateStatusFilterPoland()">
+                                    <span class="badge badge-anulowane">Anulowane</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-actions-inline">
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFiltersPoland()">
+                        Wyczyść filtry
+                    </button>
+                </div>
+            </div>
+
+            <!-- Poland Orders List -->
+            <div class="orders-list">
+                {% if poland_orders %}
+                    <div class="table-responsive">
+                        <table class="data-table" id="polandOrdersTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-checkbox">
+                                        <input type="checkbox" id="selectAllPolandOrders" onchange="toggleSelectAllPoland(this)">
+                                    </th>
+                                    <th class="sortable" data-column="order_number" onclick="sortTable('order_number')">Nr</th>
+                                    <th>Produkty</th>
+                                    <th class="sortable" data-column="status" onclick="sortTable('status')">Status</th>
+                                    <th>Kfriday RS</th>
+                                    <th class="sortable" data-column="amount" onclick="sortTable('amount')">Koszty</th>
+                                    <th class="sortable" data-column="date" onclick="sortTable('date')">Info</th>
+                                    <th>Akcje</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in poland_orders %}
+                                <tr id="poland-order-row-{{ order.id }}"
+                                    data-order-id="{{ order.id }}"
+                                    data-order-number="{{ order.order_number }}"
+                                    data-tracking="{{ order.tracking_number or '' }}"
+                                    data-status="{{ order.status }}"
+                                    data-date="{{ order.created_at.timestamp() if order.created_at else 0 }}"
+                                    data-status-changed="{{ order.updated_at.timestamp() if order.updated_at else order.created_at.timestamp() if order.created_at else 0 }}"
+                                    data-amount="{{ order.total_amount }}">
+                                    <td class="col-checkbox">
+                                        <input type="checkbox" class="order-checkbox poland-checkbox" value="{{ order.id }}" onchange="handleCheckboxChangePoland()">
+                                    </td>
+                                    <td class="font-semibold">{{ order.order_number }}</td>
+                                    <td class="products-cell poland-products-cell">
+                                        <table class="poland-products-inner-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nazwa</th>
+                                                    <th class="text-right">Koszt zakupu (szt.)</th>
+                                                    <th class="text-right">Cło/VAT (szt.)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in order.items %}
+                                                {% set product = item.product %}
+                                                {% set primary_image = product.primary_image if product else None %}
+                                                {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
+                                                <tr class="{% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
+                                                    <td class="poland-inner-product-name">
+                                                        <div class="product-item-compact">
+                                                            {% if primary_image %}
+                                                            <img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
+                                                                 alt="{{ product.name }}" class="product-thumb-compact">
+                                                            {% else %}
+                                                            <div class="product-thumb-compact product-thumb-placeholder">
+                                                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                                                    <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
+                                                                    <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"></path>
+                                                                </svg>
+                                                            </div>
+                                                            {% endif %}
+                                                            <div class="product-item-info">
+                                                                <span class="product-item-name">{{ product.name if product else '-' }}</span>
+                                                                <span class="product-item-qty">({{ item.quantity }} szt)</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-right text-nowrap">{{ '%.2f'|format(purchase_price) }} zł</td>
+                                                    <td class="text-right text-nowrap poland-customs-item-cell">
+                                                        <span class="poland-item-customs-amount" data-item-id="{{ item.id }}">{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
+                                                        <button class="btn-edit-customs-item" onclick="openCustomsVatModalForItem({{ order.id }}, {{ item.id }})" title="Edytuj Cło/VAT">
+                                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                                <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.33301 14.6667L2.66634 10.6667L11.333 2.00004Z"/>
+                                                            </svg>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                        {% if order.items|length > 3 %}
+                                        <span class="poland-products-toggle" onclick="togglePolandProducts(this)">Pokaż więcej ({{ order.items|length - 3 }})</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="status-dropdown-wrapper">
+                                            <button class="status-badge-button badge-{{ order.status }}" onclick="togglePolandStatusDropdown({{ order.id }})">
+                                                {% if order.status == 'zamowione' %}Zamówione
+                                                {% elif order.status == 'urzad_celny' %}Urząd celny
+                                                {% elif order.status == 'dostarczone_gom' %}Dostarczone GOM
+                                                {% elif order.status == 'anulowane' %}Anulowane
+                                                {% endif %}
+                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                    <path d="M6 8L2 4h8L6 8z"/>
+                                                </svg>
+                                            </button>
+                                            <div id="poland-status-dropdown-{{ order.id }}" class="status-dropdown" style="display: none;">
+                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'zamowione')">
+                                                    <span class="badge badge-zamowione">Zamówione</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'urzad_celny')">
+                                                    <span class="badge badge-urzad_celny">Urząd celny</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'dostarczone_gom')">
+                                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
+                                                </div>
+                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'anulowane')">
+                                                    <span class="badge badge-anulowane">Anulowane</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ order.tracking_number or '-' }}</td>
+                                    <td class="poland-costs-cell" data-order-id="{{ order.id }}">
+                                        <table class="poland-costs-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="poland-cost-label">Produkty</td>
+                                                    <td class="poland-cost-value poland-product-value-cell" data-order-id="{{ order.id }}">{{ '%.2f'|format(order.total_amount - order.shipping_cost - (order.customs_cost or 0)) }} PLN</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="poland-cost-label">Wysyłka</td>
+                                                    <td class="poland-cost-value">{{ '%.2f'|format(order.shipping_cost) }} PLN</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="poland-cost-label">Cło/VAT</td>
+                                                    <td class="poland-cost-value poland-customs-cost-cell" data-order-id="{{ order.id }}">{{ '%.2f'|format(order.customs_cost or 0) }} PLN</td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="poland-cost-total">
+                                                    <td class="poland-cost-label">Razem</td>
+                                                    <td class="poland-cost-value poland-total-amount-cell" data-order-id="{{ order.id }}">{{ '%.2f'|format(order.total_amount) }} PLN</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </td>
+                                    <td class="poland-extra-info-cell">
+                                        <div class="poland-date-cell">
+                                            <div class="poland-date-primary">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</div>
+                                            <div class="poland-date-secondary">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</div>
+                                        </div>
+                                        <span class="poland-note-icon {% if order.notes %}has-note{% endif %}" {% if order.notes %}data-tooltip="{{ order.notes }}"{% endif %}>
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2.5a2 2 0 0 0-1.6.8L8 14.333 6.1 11.8a2 2 0 0 0-1.6-.8H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2.5a1 1 0 0 1 .8.4l1.9 2.533a1 1 0 0 0 1.6 0l1.9-2.533a1 1 0 0 1 .8-.4H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                                                <path d="M3 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM3 6a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 6zm0 2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+                                            </svg>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if current_user.role == 'admin' %}
+                                        <button class="btn btn-sm btn-danger" title="Usuń" onclick="deletePolandOrder({{ order.id }})">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            </svg>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                            <line x1="1" y1="10" x2="23" y2="10"></line>
+                        </svg>
+                        <h3>Brak zamówień do Polski</h3>
+                        <p>Zamówienia pojawią się tutaj po utworzeniu ich z zakładki DO ZAMÓWIENIA lub PROXY</p>
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %} {# End of tab content blocks #}
         </div>
     </div>
 
@@ -401,18 +637,21 @@
         </div>
         <div class="bulk-actions-buttons">
             {% if active_tab == 'proxy' %}
-            <button type="button" class="bulk-action-btn bulk-action-move" onclick="bulkMoveToPolska()">
+            <button type="button" class="bulk-action-btn bulk-action-move" id="btnOrderToPoland" onclick="openPolandOrderModal()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <path d="M16 10a4 4 0 01-8 0"></path>
                 </svg>
-                Przenieś do POLSKA
+                Zamów do Polska
             </button>
-            {% elif active_tab == 'polska' %}
-            <button type="button" class="bulk-action-btn bulk-action-move" onclick="bulkMoveToProxy()">
+            {% endif %}
+            {% if active_tab == 'polska' %}
+            <button type="button" class="bulk-action-btn bulk-action-customs" onclick="openBulkCustomsVatModal()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
                 </svg>
-                Przenieś do PROXY
+                Dodaj Cło/VAT
             </button>
             {% endif %}
             <button type="button" class="bulk-action-btn bulk-action-status" onclick="openBulkStatusChange()">
@@ -423,7 +662,7 @@
                 Zmień status
             </button>
             {% if current_user.role == 'admin' %}
-            <button type="button" class="bulk-action-btn bulk-action-delete" onclick="bulkDeleteOrders()">
+            <button type="button" class="bulk-action-btn bulk-action-delete" onclick="{% if active_tab == 'polska' %}bulkDeletePolandOrders(){% else %}bulkDeleteOrders(){% endif %}">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -437,20 +676,22 @@
 
 <!-- Bulk Status Change Dropdown -->
 <div id="bulkStatusDropdown" class="bulk-status-dropdown" style="display: none;">
-    <div class="bulk-status-option" onclick="applyBulkStatus('nowe')">
-        <span class="badge badge-nowe">Nowe</span>
+    {% if active_tab == 'proxy' %}
+    <div class="bulk-status-option" onclick="applyBulkStatus('zamowiono')">
+        <span class="badge badge-zamowiono">Zamówiono</span>
     </div>
-    <div class="bulk-status-option" onclick="applyBulkStatus('oczekujace')">
-        <span class="badge badge-oczekujace">Oczekujące</span>
+    <div class="bulk-status-option" onclick="applyBulkStatus('dostarczone_do_proxy')">
+        <span class="badge badge-dostarczone_do_proxy">Dostarczone do Proxy</span>
     </div>
-    <div class="bulk-status-option" onclick="applyBulkStatus('dostarczone_proxy')">
-        <span class="badge badge-dostarczone_proxy">Dostarczone Proxy</span>
+    <div class="bulk-status-option" onclick="applyBulkStatus('anulowane')">
+        <span class="badge badge-anulowane">Anulowane</span>
     </div>
-    <div class="bulk-status-option" onclick="applyBulkStatus('w_drodze_polska')">
-        <span class="badge badge-w_drodze_polska">W Drodze Polska</span>
+    {% elif active_tab == 'polska' %}
+    <div class="bulk-status-option" onclick="applyBulkStatus('zamowione')">
+        <span class="badge badge-zamowione">Zamówione</span>
     </div>
     <div class="bulk-status-option" onclick="applyBulkStatus('urzad_celny')">
-        <span class="badge badge-urzad_celny">Urząd Celny</span>
+        <span class="badge badge-urzad_celny">Urząd celny</span>
     </div>
     <div class="bulk-status-option" onclick="applyBulkStatus('dostarczone_gom')">
         <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
@@ -458,145 +699,60 @@
     <div class="bulk-status-option" onclick="applyBulkStatus('anulowane')">
         <span class="badge badge-anulowane">Anulowane</span>
     </div>
+    {% endif %}
 </div>
 
-<!-- Modal: New Stock Order -->
-<div id="newOrderModal" class="modal-overlay">
-    <div class="modal modal-xl">
+<!-- Modal: Edycja Cło/VAT -->
+<div id="customsVatModal" class="modal-overlay">
+    <div class="modal modal-lg">
         <div class="modal-header">
-            <h2 class="modal-title">Nowe zamówienie {{ 'PROXY' if active_tab == 'proxy' else 'POLSKA' }}</h2>
-            <button class="modal-close" onclick="closeNewOrderModal()">
+            <h2 class="modal-title" id="customsVatModalTitle">Edycja Cło/VAT</h2>
+            <button class="modal-close" onclick="closeCustomsVatModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
             </button>
         </div>
-
         <div class="modal-body">
-            <!-- Search & Filters Section -->
-            <div class="search-section">
-                <div class="search-bar">
-                    <input type="text" id="productSearch" placeholder="Szukaj produktu po nazwie, SKU, EAN..." class="search-input">
-                    <button class="btn-filter" onclick="toggleFilters()">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                        </svg>
-                        Filtry
-                    </button>
-                </div>
-
-                <!-- Filters Panel -->
-                <div id="filtersPanel" class="filters-panel-wrapper" style="display: none;">
-                    <div class="filters-grid">
-                        <div class="filter-group">
-                            <label>Kategoria</label>
-                            <select id="filterCategory" class="filter-select">
-                                <option value="">Wszystkie</option>
-                                {% for category in categories %}
-                                <option value="{{ category.id }}">{{ category.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="filter-group">
-                            <label>Producent</label>
-                            <select id="filterManufacturer" class="filter-select">
-                                <option value="">Wszystkie</option>
-                                {% for manufacturer in manufacturers %}
-                                <option value="{{ manufacturer.id }}">{{ manufacturer.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="filter-group">
-                            <label>Dostawca</label>
-                            <select id="filterSupplier" class="filter-select">
-                                <option value="">Wszystkie</option>
-                                {% for supplier in suppliers %}
-                                <option value="{{ supplier.id }}">{{ supplier.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="filter-group">
-                            <label>Seria</label>
-                            <select id="filterSeries" class="filter-select">
-                                <option value="">Wszystkie</option>
-                                {% for series in series_list %}
-                                <option value="{{ series.id }}">{{ series.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div class="filter-group">
-                            <label>Tagi</label>
-                            <select id="filterTag" class="filter-select" multiple>
-                                {% for tag in tags %}
-                                <option value="{{ tag.id }}">{{ tag.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="filters-actions">
-                        <button class="btn btn-secondary" onclick="clearFilters()">Wyczyść filtry</button>
+            <!-- Globalny % (widoczny tylko w trybie bulk) -->
+            <div id="customsVatGlobalSection" class="customs-vat-global-section" style="display: none;">
+                <div class="customs-vat-global-row">
+                    <label for="customsVatGlobalPercent">Zastosuj % do wszystkich produktów:</label>
+                    <div class="customs-vat-global-input-group">
+                        <input type="number" id="customsVatGlobalPercent" class="form-control customs-vat-percent-input" min="0" max="100" step="0.01" placeholder="np. 23">
+                        <span class="input-suffix">%</span>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="applyGlobalCustomsPercentage()">Zastosuj</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Search Results -->
-            <div id="searchResults" class="search-results">
-                <p class="text-muted">Wpisz nazwę produktu lub użyj filtrów, aby wyszukać produkty</p>
+            <!-- Kontener na zamówienia/produkty -->
+            <div id="customsVatItemsContainer" class="customs-vat-items-container">
+                <div class="loading-spinner">Ładowanie danych...</div>
             </div>
 
-            <!-- Selected Products Table -->
-            <div id="selectedProductsSection" class="selected-products-section" style="display: none;">
-                <h3>Wybrane produkty do zamówienia</h3>
-                <div class="table-responsive">
-                    <table class="selected-products-table">
-                        <thead>
-                            <tr>
-                                <th>Zdjęcie</th>
-                                <th>Nazwa</th>
-                                <th>SKU</th>
-                                <th>Dostawca</th>
-                                <th>Cena zakupu</th>
-                                <th>Ilość</th>
-                                <th>Suma</th>
-                                <th>Akcje</th>
-                            </tr>
-                        </thead>
-                        <tbody id="selectedProductsTableBody">
-                            <!-- Products will be added here dynamically -->
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td colspan="6" class="text-right font-semibold">Łącznie:</td>
-                                <td class="font-semibold" id="totalAmount">0.00 PLN</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
+            <!-- Podsumowanie -->
+            <div class="customs-vat-summary">
+                <div class="customs-vat-summary-row">
+                    <span>Suma Cło/VAT:</span>
+                    <strong id="customsVatTotalAmount">0,00 zł</strong>
                 </div>
             </div>
         </div>
-
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeNewOrderModal()">Anuluj</button>
-            <button class="btn btn-primary" id="btnSubmitOrders" onclick="submitStockOrders()" disabled>
-                Złóż zamówienia (<span id="orderCount">0</span>)
-            </button>
+            <button type="button" class="btn btn-secondary" onclick="closeCustomsVatModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" onclick="saveCustomsVat()">Zapisz</button>
         </div>
     </div>
 </div>
 
-<!-- Modal: Order Products from Aggregation -->
-<div id="orderProductsModal" class="modal-overlay">
+<!-- Modal: Zamówienie grupowe -->
+<div id="groupOrderModal" class="modal-overlay">
     <div class="modal modal-lg">
         <div class="modal-header">
-            <h2 class="modal-title">Zamów wybrane produkty</h2>
-            <button class="modal-close" onclick="closeOrderProductsModal()">
+            <h2 class="modal-title">Zamówienie grupowe</h2>
+            <button class="modal-close" onclick="closeGroupOrderModal()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -605,49 +761,128 @@
         </div>
 
         <div class="modal-body">
-            <!-- Order Type Selection -->
-            <div class="form-group">
-                <label for="orderType">Typ zamówienia</label>
-                <select id="orderType" class="form-select">
-                    <option value="proxy">PROXY</option>
-                    <option value="polska">POLSKA</option>
-                </select>
-            </div>
+            <p>Tworzysz zamówienie grupowe dla <strong id="groupOrderCount">0</strong> produktów
+                (<span id="groupOrderType" class="font-semibold">...</span>).</p>
 
-            <!-- Products Table -->
+            <!-- Podsumowanie produktów -->
             <div class="order-products-table-wrapper">
-                <table class="data-table order-products-table" id="orderProductsTable">
+                <table class="data-table order-products-table" id="groupOrderTable">
                     <thead>
                         <tr>
                             <th>Produkt</th>
-                            <th>Dostawca</th>
                             <th class="text-center" style="width: 100px;">Ilość</th>
-                            <th class="text-right">Cena jednostkowa</th>
+                            <th class="text-right">Cena jedn.</th>
                             <th class="text-right">Suma</th>
                         </tr>
                     </thead>
-                    <tbody id="orderProductsTableBody">
-                        <!-- Dynamically populated via JS -->
+                    <tbody id="groupOrderTableBody">
                     </tbody>
                     <tfoot>
                         <tr class="total-row">
-                            <td colspan="4" class="text-right font-semibold">Suma całkowita:</td>
-                            <td class="text-right font-semibold" id="orderProductsTotal">0.00 PLN</td>
+                            <td colspan="3" class="text-right font-semibold">Suma całkowita:</td>
+                            <td class="text-right font-semibold" id="groupOrderTotal">0.00 PLN</td>
                         </tr>
                     </tfoot>
                 </table>
             </div>
+
+            <div class="form-group" style="margin-top: 16px;">
+                <label for="groupOrderNote">Notatka (opcjonalna):</label>
+                <textarea
+                    id="groupOrderNote"
+                    class="form-input"
+                    rows="3"
+                    placeholder="Dodaj notatkę do zamówienia..."></textarea>
+            </div>
         </div>
 
         <div class="modal-footer">
-            <button class="btn btn-secondary" onclick="closeOrderProductsModal()">Anuluj</button>
-            <button class="btn btn-primary" id="btnConfirmOrderProducts" onclick="confirmOrderProducts()">
+            <button class="btn btn-secondary" onclick="closeGroupOrderModal()">Anuluj</button>
+            <button class="btn btn-primary" id="btnConfirmGroupOrder" onclick="confirmGroupOrder()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
                     <line x1="3" y1="6" x2="21" y2="6"></line>
                     <path d="M16 10a4 4 0 01-8 0"></path>
                 </svg>
-                Utwórz zamówienie
+                Potwierdź zamówienie
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Zamów do Polska -->
+<div id="orderToPolandModal" class="modal-overlay">
+    <div class="modal modal-lg">
+        <div class="modal-header">
+            <h2 class="modal-title">Zamówienie do Polski</h2>
+            <button class="modal-close" onclick="closePolandModal()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Tracking + Total shipping cost — two separate boxes -->
+            <div class="poland-modal-top-row">
+                <div class="poland-modal-box tracking-box">
+                    <label for="polandTrackingNumber">Numer kfriday Shipping:</label>
+                    <div class="tracking-input-group">
+                        <span class="tracking-prefix">KB88900-RS</span>
+                        <input
+                            type="number"
+                            id="polandTrackingNumber"
+                            class="form-input tracking-number-field"
+                            placeholder="nr"
+                            min="1">
+                    </div>
+                </div>
+                <div class="poland-modal-box shipping-cost-box">
+                    <label for="totalShippingCost">Całkowity koszt wysyłki:</label>
+                    <div class="total-shipping-input-group">
+                        <input
+                            type="number"
+                            id="totalShippingCost"
+                            class="form-input total-shipping-field"
+                            placeholder="0.00"
+                            step="0.01"
+                            min="0">
+                        <span class="input-suffix">PLN</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products table (filled by JS) -->
+            <div id="polandProductsTable"></div>
+
+            <!-- Summary -->
+            <div class="shipping-summary-box">
+                <div class="summary-row-item">
+                    <span>Suma kosztów wysyłki:</span>
+                    <strong id="sumShippingCost">0.00 PLN</strong>
+                </div>
+                <div class="summary-row-item summary-difference">
+                    <span>Różnica (deklarowane - suma):</span>
+                    <strong id="shippingDifference">0.00 PLN</strong>
+                </div>
+            </div>
+
+            <!-- Note -->
+            <div class="form-group poland-note-group">
+                <label for="polandOrderNote">Notatka (opcjonalna):</label>
+                <textarea
+                    id="polandOrderNote"
+                    class="form-input"
+                    rows="2"
+                    placeholder="Dodaj notatkę..."></textarea>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closePolandModal()">Anuluj</button>
+            <button class="btn btn-primary" id="btnConfirmPolandOrder" onclick="confirmPolandOrder()">
+                Potwierdź zamówienie
             </button>
         </div>
     </div>
@@ -719,6 +954,61 @@
     font-weight: 600;
     color: #1a1a1a;
     margin: 0;
+}
+
+/* Tab Filters (inline in tab-header) */
+.tab-filters {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.filter-input,
+.filter-select {
+    padding: 7px 12px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #374151;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.filter-input::placeholder {
+    color: #9ca3af;
+}
+
+.filter-select {
+    cursor: pointer;
+}
+
+[data-theme="dark"] .filter-input,
+[data-theme="dark"] .filter-select {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .filter-input:focus,
+[data-theme="dark"] .filter-select:focus {
+    border-color: rgba(240, 147, 251, 0.5);
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .filter-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .filter-select option {
+    background: #1e1e2e;
+    color: #ffffff;
 }
 
 /* Orders Filters */
@@ -968,11 +1258,15 @@
 
 .data-table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 
 .data-table thead {
     background-color: #f9fafb;
+}
+
+.data-table thead th {
     border-bottom: 2px solid #e5e7eb;
 }
 
@@ -1014,8 +1308,11 @@
 }
 
 .data-table tbody tr {
-    border-bottom: 1px solid #e5e7eb;
     transition: background-color 0.2s;
+}
+
+.data-table tbody td {
+    border-bottom: 1px solid #e5e7eb;
 }
 
 .data-table tbody tr:hover {
@@ -1028,8 +1325,276 @@
     color: #374151;
 }
 
+.data-table th,
+.data-table td {
+    border-right: 1px solid #e8e0f0;
+}
+
+.data-table th:last-child,
+.data-table td:last-child {
+    border-right: none;
+}
+
+[data-theme="dark"] .data-table th,
+[data-theme="dark"] .data-table td {
+    border-right-color: #3d2d50;
+}
+
+[data-theme="dark"] .data-table th:last-child,
+[data-theme="dark"] .data-table td:last-child {
+    border-right: none;
+}
+
+#polandOrdersTable {
+    width: 100%;
+}
+
+#polandOrdersTable th,
+#polandOrdersTable td {
+    white-space: nowrap;
+}
+
+#polandOrdersTable th:nth-child(3),
+#polandOrdersTable td:nth-child(3) {
+    width: 100%;
+    white-space: normal;
+}
+
 .font-semibold {
     font-weight: 600;
+}
+
+/* Notes cell (Proxy table) */
+.notes-cell {
+    max-width: 200px;
+}
+
+.note-text {
+    font-size: 13px;
+    color: #6b7280;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+    cursor: default;
+}
+
+[data-theme="dark"] .note-text {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Poland Costs Column (inner table) */
+.poland-costs-cell {
+    padding: 6px 8px !important;
+}
+
+.poland-costs-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+.poland-costs-table td {
+    padding: 2px 0;
+    border: none !important;
+    background: none;
+}
+
+.poland-cost-label {
+    color: #6b7280;
+    white-space: nowrap;
+    padding-right: 12px !important;
+    font-size: 11px;
+}
+
+.poland-cost-value {
+    text-align: right;
+    white-space: nowrap;
+    color: #374151;
+    font-weight: 500;
+}
+
+.poland-costs-table tfoot .poland-cost-total td {
+    border-top: 1px solid #d1d5db !important;
+    padding-top: 3px !important;
+}
+
+.poland-cost-total .poland-cost-label {
+    font-weight: 600;
+    color: #111827;
+    font-size: 12px;
+}
+
+.poland-cost-total .poland-cost-value {
+    font-weight: 700;
+    color: #111827;
+    font-size: 13px;
+}
+
+[data-theme="dark"] .poland-costs-table {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .poland-cost-label {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .poland-cost-value {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="dark"] .poland-costs-table tfoot .poland-cost-total td {
+    border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+[data-theme="dark"] .poland-cost-total .poland-cost-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .poland-cost-total .poland-cost-value {
+    color: #ffffff;
+}
+
+/* Poland Extra Info Column (dates + note icon) */
+.poland-extra-info-cell {
+    white-space: nowrap;
+}
+
+.poland-date-cell {
+    white-space: nowrap;
+}
+
+.poland-date-primary {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    line-height: 1.4;
+}
+
+.poland-date-secondary {
+    font-size: 12px;
+    font-weight: 400;
+    color: #f97316;
+    line-height: 1.4;
+}
+
+[data-theme="dark"] .poland-date-primary {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .poland-date-secondary {
+    color: #fb923c;
+}
+
+/* Note icon in Poland table */
+.poland-note-icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    color: #9ca3af;
+    cursor: default;
+    margin-top: 4px;
+}
+
+.poland-note-icon.has-note {
+    color: #22c55e;
+    cursor: help;
+}
+
+[data-theme="dark"] .poland-note-icon {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .poland-note-icon.has-note {
+    color: #4ade80;
+}
+
+/* Note icon tooltip */
+.poland-note-icon.has-note::before,
+.poland-note-icon.has-note::after {
+    position: absolute;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.poland-note-icon.has-note::before {
+    content: '';
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #333;
+    margin-bottom: -6px;
+}
+
+.poland-note-icon.has-note::after {
+    content: attr(data-tooltip);
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: normal;
+    max-width: 200px;
+    text-align: left;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.poland-note-icon.has-note:hover::before,
+.poland-note-icon.has-note:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+[data-theme="dark"] .poland-note-icon.has-note::before {
+    border-top-color: rgba(30, 30, 50, 0.95);
+}
+
+[data-theme="dark"] .poland-note-icon.has-note::after {
+    background: rgba(30, 30, 50, 0.95);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Poland Products Toggle */
+.poland-products-toggle {
+    display: inline-block;
+    margin: 4px 0 4px 6px;
+    font-size: 12px;
+    color: #6366f1;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.poland-products-toggle:hover {
+    color: #4f46e5;
+    text-decoration: underline;
+}
+
+[data-theme="dark"] .poland-products-toggle {
+    color: #a5b4fc;
+}
+
+[data-theme="dark"] .poland-products-toggle:hover {
+    color: #c7d2fe;
 }
 
 /* Badge Styling */
@@ -1048,24 +1613,29 @@
     color: #1e40af;
 }
 
-.badge-oczekujace {
+.badge-zamowiono {
     background-color: #fef3c7;
     color: #92400e;
 }
 
-.badge-dostarczone_proxy {
+.badge-dostarczone_do_proxy {
     background-color: #ddd6fe;
     color: #5b21b6;
 }
 
-.badge-w_drodze_polska {
+.badge-w_drodze {
     background-color: #fce7f3;
     color: #9f1239;
 }
 
-.badge-urzad_celny {
+.badge-w_urzedzie_celnym {
     background-color: #e0e7ff;
     color: #3730a3;
+}
+
+.badge-zamowione {
+    background-color: #fef3c7;
+    color: #92400e;
 }
 
 .badge-dostarczone_gom {
@@ -1076,6 +1646,17 @@
 .badge-anulowane {
     background-color: #f3f4f6;
     color: #6b7280;
+}
+
+/* Legacy badge aliases */
+.badge-oczekujace {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.badge-dostarczone_proxy {
+    background-color: #ddd6fe;
+    color: #5b21b6;
 }
 
 /* Actions Group */
@@ -1157,84 +1738,6 @@
     margin: 0 0 24px 0;
 }
 
-/* Search Section */
-.search-section {
-    margin-bottom: 24px;
-}
-
-.search-bar {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
-}
-
-.search-input {
-    flex: 1;
-    padding: 12px 16px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 14px;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: #FF8500;
-    box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.1);
-}
-
-.btn-filter {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 20px;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    color: #374151;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-filter:hover {
-    background: #e5e7eb;
-}
-
-/* Filters Panel */
-.filters-panel-wrapper {
-    padding: 16px;
-    background: #f9fafb;
-    border-radius: 6px;
-    margin-bottom: 16px;
-}
-
-.filters-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-@media (max-width: 1024px) {
-    .filters-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 640px) {
-    .filters-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.filters-actions {
-    display: flex;
-    justify-content: flex-end;
-    padding-top: 12px;
-    border-top: 1px solid #e5e7eb;
-}
-
 .filter-group {
     display: flex;
     flex-direction: column;
@@ -1262,227 +1765,11 @@
     border-color: #FF8500;
 }
 
-/* Search Results */
-.search-results {
-    margin-bottom: 24px;
-    min-height: 200px;
-}
-
 .text-muted {
     color: #9ca3af;
     font-size: 14px;
     text-align: center;
     padding: 40px 0;
-}
-
-.products-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
-}
-
-.product-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
-}
-
-.product-card {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.product-card:hover {
-    border-color: #FF8500;
-    box-shadow: 0 4px 12px rgba(255, 133, 0, 0.1);
-    transform: translateY(-2px);
-}
-
-.product-card-image {
-    width: 100%;
-    max-width: 140px;
-    height: 120px;
-    object-fit: contain;
-    border-radius: 4px;
-    margin: 0 auto 10px auto;
-    display: block;
-}
-
-.product-thumbnail-placeholder {
-    width: 100%;
-    max-width: 140px;
-    height: 120px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f5f5f5;
-    border: 1px dashed #ddd;
-    border-radius: 4px;
-    color: #bbb;
-    margin: 0 auto 10px auto;
-}
-
-.product-image {
-    width: 100%;
-    height: 150px;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-bottom: 12px;
-}
-
-.product-name {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin-bottom: 4px;
-}
-
-.product-sku {
-    font-size: 12px;
-    color: #6b7280;
-    margin-bottom: 8px;
-}
-
-.product-price {
-    font-size: 14px;
-    font-weight: 600;
-    color: #FF8500;
-}
-
-/* Selected Products Section */
-.selected-products-section {
-    margin-top: 24px;
-    padding-top: 24px;
-    border-top: 2px solid #e5e7eb;
-}
-
-.selected-products-section h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 16px 0;
-}
-
-.selected-products-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.selected-products-table th {
-    padding: 12px;
-    text-align: left;
-    font-size: 12px;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-    border-bottom: 2px solid #e5e7eb;
-}
-
-.selected-products-table td {
-    padding: 12px;
-    border-bottom: 1px solid #e5e7eb;
-    font-size: 14px;
-}
-
-.selected-products-table tfoot td {
-    border-top: 2px solid #e5e7eb;
-    border-bottom: none;
-    padding-top: 16px;
-}
-
-.product-thumbnail {
-    width: 60px;
-    height: 60px;
-    object-fit: cover;
-    border-radius: 4px;
-}
-
-img.table-product-image {
-    width: 60px;
-    height: 60px;
-    object-fit: contain;
-    border-radius: 4px;
-    border: 1px solid #e5e7eb;
-}
-
-div.table-product-image {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f5f5f5;
-    border: 1px dashed #ddd;
-    border-radius: 4px;
-    color: #bbb;
-}
-
-.quantity-control {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.qty-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    font-size: 18px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.qty-btn:hover {
-    background: #e5e7eb;
-    border-color: #d1d5db;
-}
-
-.qty-input {
-    width: 60px;
-    padding: 6px 8px;
-    text-align: center;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.qty-input:focus {
-    outline: none;
-    border-color: #FF8500;
-}
-
-.btn-remove {
-    padding: 6px;
-    background: transparent;
-    color: #dc2626;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-remove:hover {
-    background: #fef2f2;
-}
-
-.btn-remove svg {
-    width: 16px;
-    height: 16px;
 }
 
 .text-right {
@@ -1497,48 +1784,6 @@ div.table-product-image {
 
 .font-semibold {
     font-weight: 600;
-}
-
-.no-products {
-    text-align: center;
-    color: #9ca3af;
-    padding: 40px 20px;
-    font-style: italic;
-}
-
-.product-card-info {
-    text-align: center;
-}
-
-.product-card-info h4 {
-    font-size: 13px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin: 0 0 6px 0;
-    line-height: 1.3;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-
-.product-card-info .product-sku,
-.product-card-info .product-supplier,
-.product-card-info .product-price {
-    margin: 3px 0;
-    font-size: 11px;
-}
-
-.product-supplier {
-    font-size: 11px;
-    color: #6b7280;
-}
-
-.product-card-info .product-price {
-    font-size: 12px;
-    font-weight: 600;
-    color: #FF8500;
 }
 
 /* Product cell in orders table */
@@ -1680,6 +1925,27 @@ div.table-product-image {
 }
 
 /* Status colors - applied to button */
+.status-badge-button.badge-zamowiono {
+    background: #f59e0b;
+    color: white;
+}
+
+.status-badge-button.badge-dostarczone_do_proxy {
+    background: #8b5cf6;
+    color: white;
+}
+
+.status-badge-button.badge-anulowane {
+    background: #dc2626;
+    color: white;
+}
+
+.status-badge-button.badge-zamowione {
+    background: #f59e0b;
+    color: white;
+}
+
+/* Legacy status colors (backward compat) */
 .status-badge-button.badge-nowe {
     background: #3b82f6;
     color: white;
@@ -1707,11 +1973,6 @@ div.table-product-image {
 
 .status-badge-button.badge-dostarczone_gom {
     background: #059669;
-    color: white;
-}
-
-.status-badge-button.badge-anulowane {
-    background: #dc2626;
     color: white;
 }
 
@@ -1858,7 +2119,10 @@ div.table-product-image {
 
 [data-theme="dark"] .data-table thead {
     background-color: rgba(255, 255, 255, 0.03);
-    border-bottom: 2px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .data-table thead th {
+    border-bottom: 2px solid #3d2d50;
 }
 
 [data-theme="dark"] .data-table th {
@@ -1874,8 +2138,8 @@ div.table-product-image {
     color: #f093fb;
 }
 
-[data-theme="dark"] .data-table tbody tr {
-    border-bottom-color: rgba(240, 147, 251, 0.1);
+[data-theme="dark"] .data-table tbody td {
+    border-bottom-color: #3d2d50;
 }
 
 [data-theme="dark"] .data-table tbody tr:hover {
@@ -1940,12 +2204,38 @@ div.table-product-image {
     color: #10b981;
 }
 
+[data-theme="dark"] .badge-zamowione {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+}
+
 [data-theme="dark"] .badge-anulowane {
     background: rgba(220, 38, 38, 0.3);
     color: #f87171;
 }
 
 /* Status Badge Button - Dark Mode */
+[data-theme="dark"] .status-badge-button.badge-zamowione {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .status-badge-button.badge-zamowiono {
+    background: rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .status-badge-button.badge-dostarczone_do_proxy {
+    background: rgba(139, 92, 246, 0.3);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .status-badge-button.badge-anulowane {
+    background: rgba(220, 38, 38, 0.3);
+    color: #f87171;
+}
+
+/* Legacy dark mode (backward compat) */
 [data-theme="dark"] .status-badge-button.badge-nowe {
     background: rgba(59, 130, 246, 0.3);
     color: #60a5fa;
@@ -1974,11 +2264,6 @@ div.table-product-image {
 [data-theme="dark"] .status-badge-button.badge-dostarczone_gom {
     background: rgba(5, 150, 105, 0.3);
     color: #10b981;
-}
-
-[data-theme="dark"] .status-badge-button.badge-anulowane {
-    background: rgba(220, 38, 38, 0.3);
-    color: #f87171;
 }
 
 /* Status Dropdown - Dark Mode */
@@ -2130,39 +2415,7 @@ div.table-product-image {
     border-top-color: rgba(240, 147, 251, 0.15);
 }
 
-/* Search Section - Dark Mode */
-[data-theme="dark"] .search-input {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] .search-input::placeholder {
-    color: rgba(255, 255, 255, 0.4);
-}
-
-[data-theme="dark"] .search-input:focus {
-    border-color: #f093fb;
-    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .btn-filter {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .btn-filter:hover {
-    background: rgba(240, 147, 251, 0.1);
-    border-color: rgba(240, 147, 251, 0.4);
-}
-
-/* Filters Panel - Dark Mode */
-[data-theme="dark"] .filters-panel-wrapper {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(240, 147, 251, 0.1);
-}
-
+/* Filters - Dark Mode */
 [data-theme="dark"] .filter-group label {
     color: #f093fb;
 }
@@ -2176,113 +2429,6 @@ div.table-product-image {
 [data-theme="dark"] .filter-select:focus {
     border-color: #f093fb;
     box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .filters-actions {
-    border-top-color: rgba(240, 147, 251, 0.1);
-}
-
-/* Search Results - Dark Mode */
-[data-theme="dark"] .search-results .text-muted {
-    color: rgba(255, 255, 255, 0.4);
-}
-
-/* Product Card - Dark Mode */
-[data-theme="dark"] .product-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .product-card:hover {
-    border-color: #f093fb;
-    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.2);
-}
-
-[data-theme="dark"] .product-thumbnail-placeholder {
-    background: rgba(255, 255, 255, 0.03);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="dark"] .product-name {
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] .product-sku {
-    color: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .product-price {
-    color: #f093fb;
-}
-
-[data-theme="dark"] .product-supplier {
-    color: rgba(255, 255, 255, 0.5);
-}
-
-/* Selected Products Section - Dark Mode */
-[data-theme="dark"] .selected-products-section {
-    border-top-color: rgba(240, 147, 251, 0.2);
-}
-
-[data-theme="dark"] .selected-products-section h3 {
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] .selected-products-table th {
-    color: rgba(255, 255, 255, 0.7);
-    border-bottom-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .selected-products-table td {
-    border-bottom-color: rgba(240, 147, 251, 0.1);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .selected-products-table tfoot td {
-    border-top-color: rgba(240, 147, 251, 0.2);
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] img.table-product-image {
-    border-color: rgba(240, 147, 251, 0.2);
-}
-
-[data-theme="dark"] div.table-product-image {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: rgba(255, 255, 255, 0.3);
-}
-
-/* Quantity Control - Dark Mode */
-[data-theme="dark"] .qty-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="dark"] .qty-btn:hover {
-    background: rgba(240, 147, 251, 0.15);
-    border-color: rgba(240, 147, 251, 0.4);
-}
-
-[data-theme="dark"] .qty-input {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.2);
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] .qty-input:focus {
-    border-color: #f093fb;
-}
-
-/* Remove Button - Dark Mode */
-[data-theme="dark"] .btn-remove {
-    color: #f87171;
-}
-
-[data-theme="dark"] .btn-remove:hover {
-    background: rgba(248, 113, 113, 0.15);
 }
 
 /* Text Utilities - Dark Mode */
@@ -2335,21 +2481,7 @@ div.table-product-image {
 .modal-title,
 .modal-close,
 .modal-footer,
-.search-input,
-.btn-filter,
-.filters-panel-wrapper,
 .filter-select,
-.product-card,
-.product-thumbnail-placeholder,
-.product-name,
-.product-sku,
-.product-price,
-.selected-products-section,
-.selected-products-table th,
-.selected-products-table td,
-.qty-btn,
-.qty-input,
-.btn-remove,
 .text-muted {
     transition: all 0.5s ease;
 }
@@ -2442,6 +2574,28 @@ div.table-product-image {
     font-size: 13px;
     font-weight: 500;
     line-height: 1.4;
+}
+
+/* Cena PLN + KRW (dwuwierszowo) */
+.price-pln {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.price-krw {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+/* Zaznaczony wiersz */
+.to-order-row.selected {
+    background: rgba(255, 133, 0, 0.06);
+}
+
+.to-order-row.selected:hover {
+    background: rgba(255, 133, 0, 0.1);
 }
 
 /* Supplier Badge */
@@ -2626,6 +2780,24 @@ div.table-product-image {
     color: #f0f0f0;
 }
 
+/* Dark mode - Cena PLN + KRW */
+[data-theme="dark"] .price-pln {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .price-krw {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Dark mode - Zaznaczony wiersz */
+[data-theme="dark"] .to-order-row.selected {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .to-order-row.selected:hover {
+    background: rgba(240, 147, 251, 0.12);
+}
+
 /* Dark mode - Bulk Toolbar */
 [data-theme="dark"] .bulk-toolbar {
     background: linear-gradient(135deg, rgba(15, 12, 41, 0.98) 0%, rgba(48, 43, 99, 0.98) 100%);
@@ -2677,6 +2849,783 @@ div.table-product-image {
 [data-theme="dark"] .empty-state h3 {
     color: rgba(255, 255, 255, 0.9);
 }
+
+/* === PROXY ORDERS - Products Column === */
+.products-cell {
+    max-width: 350px;
+}
+
+.products-list-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.product-item-compact {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: #f9fafb;
+    border-radius: 6px;
+}
+
+.product-thumb-compact {
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.product-thumb-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e5e7eb;
+    color: #9ca3af;
+}
+
+.product-item-info {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.product-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.product-item-qty {
+    font-size: 12px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+/* === POLAND ORDER MODAL === */
+.poland-modal-top-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.poland-modal-box {
+    border-radius: 6px;
+    padding: 10px 14px;
+}
+
+.poland-modal-box label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin: 0 0 6px 0;
+    white-space: nowrap;
+}
+
+.tracking-box {
+    background: #f0f4ff;
+    border: 1px solid #6366f1;
+    flex: 0 0 auto;
+}
+
+.shipping-cost-box {
+    background: #fff7ed;
+    border: 1px solid #FF8500;
+    flex: 1 1 auto;
+}
+
+.tracking-input-group {
+    display: flex;
+    align-items: stretch;
+}
+
+.tracking-prefix {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    background: #e5e7eb;
+    border: 1px solid #d1d5db;
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    padding: 0 8px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+}
+
+.tracking-number-field {
+    font-size: 13px;
+    font-weight: 600;
+    width: 55px;
+    padding: 6px 8px;
+    border-radius: 0 4px 4px 0 !important;
+    border: 1px solid #d1d5db;
+    text-align: center;
+    -moz-appearance: textfield;
+}
+
+.tracking-number-field::-webkit-outer-spin-button,
+.tracking-number-field::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Validation error */
+.input-error {
+    border: 2px solid #ef4444 !important;
+    animation: shakeInput 0.3s ease-in-out;
+    background-color: rgba(239, 68, 68, 0.05) !important;
+}
+
+[data-theme="dark"] .input-error {
+    border: 2px solid #f87171 !important;
+    background-color: rgba(248, 113, 113, 0.1) !important;
+}
+
+@keyframes shakeInput {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
+.total-shipping-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.total-shipping-field {
+    font-size: 14px;
+    font-weight: 600;
+    width: 140px;
+    padding: 6px 10px;
+}
+
+.input-suffix {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.help-text-small {
+    font-size: 11px;
+    color: #9ca3af;
+    margin: 4px 0 0 0;
+}
+
+.package-shipping-input,
+.shipping-price-input,
+.shipping-value-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 8px;
+    background: #fff7ed;
+    border: 1px solid #FF8500;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: right;
+}
+
+.package-shipping-input:focus,
+.shipping-price-input:focus,
+.shipping-value-input:focus {
+    border-color: #FF8500;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 133, 0, 0.1);
+}
+
+/* Poland package (generated by JS) */
+.poland-package {
+    margin-bottom: 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f9fafb;
+}
+
+.poland-package-separator {
+    border: none;
+    height: 2px;
+    background: #d1d5db;
+    margin: 14px 0;
+}
+
+.poland-package-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    background: #eef0f3;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.poland-package-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.poland-package-shipping {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.poland-package-shipping label {
+    margin: 0;
+    font-weight: 500;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.poland-products-table {
+    margin-bottom: 0;
+    table-layout: fixed;
+    width: 100%;
+}
+
+.poland-products-table thead th {
+    padding: 4px 10px;
+    font-size: 11px;
+    text-align: left;
+}
+
+.poland-products-table td {
+    padding: 5px 10px;
+    font-size: 13px;
+    text-align: left;
+    overflow: hidden;
+}
+
+.poland-note-group {
+    margin-top: 10px;
+}
+
+.poland-note-group label {
+    font-size: 13px;
+}
+
+.shipping-summary-box {
+    background: #f9fafb;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 12px;
+}
+
+.summary-row-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 13px;
+}
+
+.summary-row-item.summary-difference {
+    border-top: 1px solid #e5e7eb;
+    margin-top: 4px;
+    padding-top: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Dark mode - proxy products column */
+[data-theme="dark"] .product-item-compact {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .product-item-name {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .product-thumb-placeholder {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Dark mode - Poland modal */
+[data-theme="dark"] .poland-modal-box label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .tracking-box {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+[data-theme="dark"] .shipping-cost-box {
+    background: rgba(255, 133, 0, 0.1);
+    border-color: rgba(255, 133, 0, 0.4);
+}
+
+[data-theme="dark"] .tracking-prefix {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .tracking-number-field {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+[data-theme="dark"] .tracking-number-field:focus {
+    border-color: rgba(99, 102, 241, 0.5);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+[data-theme="dark"] .input-suffix {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .package-shipping-input,
+[data-theme="dark"] .shipping-price-input,
+[data-theme="dark"] .shipping-value-input {
+    background: rgba(255, 133, 0, 0.1);
+    border-color: rgba(255, 133, 0, 0.4);
+    color: #fff;
+}
+
+[data-theme="dark"] .package-shipping-input:focus,
+[data-theme="dark"] .shipping-price-input:focus,
+[data-theme="dark"] .shipping-value-input:focus {
+    border-color: rgba(255, 133, 0, 0.5);
+    box-shadow: 0 0 0 2px rgba(255, 133, 0, 0.15);
+}
+
+[data-theme="dark"] .poland-package {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .poland-package-separator {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .poland-package-header {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .poland-package-title {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .poland-package-shipping label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .shipping-summary-box {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .help-text-small {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.text-nowrap {
+    white-space: nowrap;
+}
+
+/* ==========================================
+   Poland Orders - Inner Products Table
+   ========================================== */
+.poland-products-cell {
+    padding: 0 !important;
+    min-width: 280px;
+    vertical-align: top;
+}
+
+.poland-products-inner-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 12px;
+}
+
+.poland-products-inner-table thead th {
+    padding: 2px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: none;
+    white-space: nowrap;
+}
+
+.poland-products-inner-table tbody td {
+    padding: 4px 6px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+    border-right: none;
+}
+
+.poland-products-inner-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.poland-inner-product-name {
+    max-width: 180px;
+}
+
+.poland-inner-product-name .product-item-compact {
+    margin: 0;
+    padding: 0;
+}
+
+.btn-edit-customs-vat {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #6366f1;
+    background: none;
+    border: 1px solid #e0e7ff;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-edit-customs-vat:hover {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
+/* Dark mode - Inner Products Table */
+[data-theme="dark"] .poland-products-inner-table thead th {
+    color: rgba(255, 255, 255, 0.5);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+    border-right: none;
+}
+
+[data-theme="dark"] .poland-products-inner-table tbody td {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+    border-right: none;
+}
+
+[data-theme="dark"] .btn-edit-customs-vat {
+    color: #a5b4fc;
+    border-color: rgba(165, 180, 252, 0.2);
+}
+
+[data-theme="dark"] .btn-edit-customs-vat:hover {
+    background: rgba(165, 180, 252, 0.1);
+    color: #c7d2fe;
+}
+
+/* Per-item customs edit button */
+.poland-customs-item-cell {
+    white-space: nowrap;
+}
+
+.poland-customs-item-cell .poland-item-customs-amount {
+    vertical-align: middle;
+}
+
+.poland-customs-item-cell .btn-edit-customs-item {
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.btn-edit-customs-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 3px;
+    color: #9ca3af;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+
+.btn-edit-customs-item:hover {
+    color: #6366f1;
+    background: #e0e7ff;
+}
+
+[data-theme="dark"] .btn-edit-customs-item {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .btn-edit-customs-item:hover {
+    color: #a5b4fc;
+    background: rgba(165, 180, 252, 0.15);
+}
+
+/* ==========================================
+   Customs/VAT Modal
+   ========================================== */
+.customs-vat-global-section {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+}
+
+.customs-vat-global-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+
+.customs-vat-global-row label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    white-space: nowrap;
+}
+
+.customs-vat-global-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.customs-vat-percent-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.customs-vat-percent-input {
+    width: 70px;
+    padding: 4px 8px;
+    font-size: 13px;
+    text-align: center;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+}
+
+.customs-vat-percent-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    outline: none;
+}
+
+.input-suffix {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.customs-vat-order-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    background: #f9fafb;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.customs-vat-order-header:first-child {
+    margin-top: 0;
+}
+
+.customs-vat-order-header svg {
+    color: #6b7280;
+}
+
+.customs-vat-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.customs-vat-table thead th {
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.customs-vat-table tbody td {
+    padding: 8px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.customs-vat-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.customs-vat-product-cell {
+    max-width: 200px;
+}
+
+.customs-vat-product {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.customs-vat-product-name {
+    font-size: 13px;
+    line-height: 1.3;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.customs-vat-amount-cell {
+    font-weight: 600;
+    color: #059669;
+}
+
+.customs-vat-summary {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+}
+
+.customs-vat-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+.customs-vat-summary-row strong {
+    font-size: 16px;
+    color: #059669;
+}
+
+.customs-vat-items-container .loading-spinner {
+    text-align: center;
+    padding: 40px;
+    color: #6b7280;
+}
+
+.customs-vat-items-container .empty-state-small {
+    text-align: center;
+    padding: 40px;
+    color: #ef4444;
+}
+
+/* Bulk action customs button */
+.bulk-action-customs {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.bulk-action-customs:hover {
+    background: #d1fae5;
+}
+
+/* Dark mode - Customs/VAT Modal */
+[data-theme="dark"] .customs-vat-global-section {
+    background: rgba(96, 165, 250, 0.08);
+    border-color: rgba(96, 165, 250, 0.2);
+}
+
+[data-theme="dark"] .customs-vat-global-row label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .customs-vat-percent-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .customs-vat-percent-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .input-suffix {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .customs-vat-order-header {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .customs-vat-order-header svg {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .customs-vat-table thead th {
+    color: rgba(255, 255, 255, 0.5);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .customs-vat-table tbody td {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .customs-vat-product-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .customs-vat-amount-cell {
+    color: #34d399;
+}
+
+[data-theme="dark"] .customs-vat-summary {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .customs-vat-summary-row {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .customs-vat-summary-row strong {
+    color: #34d399;
+}
+
+[data-theme="dark"] .customs-vat-items-container .loading-spinner {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .bulk-action-customs {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+}
+
+[data-theme="dark"] .bulk-action-customs:hover {
+    background: rgba(52, 211, 153, 0.25);
+}
+
 </style>
 
 <script src="{{ url_for('static', filename='js/pages/admin/stock-orders.js') }}"></script>
@@ -2724,13 +3673,22 @@ function updateStatusFilter() {
  * Apply all filters (date + status)
  */
 function applyFilters() {
+    const orderNumberFilter = document.getElementById('filterOrderNumber').value.toLowerCase().trim();
     const dateFrom = document.getElementById('filterDateFrom').value;
     const dateTo = document.getElementById('filterDateTo').value;
 
-    const rows = document.querySelectorAll('.data-table tbody tr');
+    const rows = document.querySelectorAll('#proxyOrdersTable tbody tr');
 
     rows.forEach(row => {
         let showRow = true;
+
+        // Order number filter
+        if (orderNumberFilter) {
+            const rowOrderNumber = (row.dataset.orderNumber || '').toLowerCase();
+            if (!rowOrderNumber.includes(orderNumberFilter)) {
+                showRow = false;
+            }
+        }
 
         // Date filter
         const rowDate = row.dataset.dateFormatted;
@@ -2762,6 +3720,7 @@ function applyFilters() {
  * Clear all filters
  */
 function clearAllFilters() {
+    document.getElementById('filterOrderNumber').value = '';
     document.getElementById('filterDateFrom').value = '';
     document.getElementById('filterDateTo').value = '';
 
@@ -2901,16 +3860,31 @@ function applyBulkStatus(newStatus) {
 
     const activeTab = '{{ active_tab }}';
 
-    // Process each order
+    const statusLabelsProxy = {
+        'zamowiono': 'Zamówiono',
+        'dostarczone_do_proxy': 'Dostarczone do Proxy',
+        'anulowane': 'Anulowane'
+    };
+    const statusLabelsPoland = {
+        'zamowione': 'Zamówione',
+        'urzad_celny': 'Urząd celny',
+        'dostarczone_gom': 'Dostarczone GOM',
+        'anulowane': 'Anulowane'
+    };
+    const statusLabels = activeTab === 'polska' ? statusLabelsPoland : statusLabelsProxy;
+    const rowPrefix = activeTab === 'polska' ? 'poland-order-row' : 'order-row';
+
     let completed = 0;
     let errors = 0;
 
     orderIds.forEach(orderId => {
-        fetch(`/admin/products/stock-orders/${orderId}/status`, {
+        const endpoint = activeTab === 'polska'
+            ? `/admin/products/poland-orders/${orderId}/status`
+            : `/admin/products/proxy-orders/${orderId}/status`;
+
+        fetch(endpoint, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus })
         })
         .then(response => response.json())
@@ -2918,26 +3892,16 @@ function applyBulkStatus(newStatus) {
             completed++;
 
             if (data.success) {
-                const row = document.getElementById(`order-row-${orderId}`);
+                const row = document.getElementById(`${rowPrefix}-${orderId}`);
 
-                // If status is "dostarczone_gom" and we're on PROXY tab, remove row
-                if (newStatus === 'dostarczone_gom' && activeTab === 'proxy') {
-                    if (row) {
-                        row.style.transition = 'opacity 0.3s';
-                        row.style.opacity = '0';
-                        setTimeout(() => row.remove(), 300);
-                    }
-                } else {
-                    // Update the badge
+                if (row) {
                     const button = row.querySelector('.status-badge-button');
                     if (button) {
-                        const statusText = newStatus.replace(/_/g, ' ');
-                        const statusTextCapitalized = statusText.charAt(0).toUpperCase() + statusText.slice(1);
                         button.className = `status-badge-button badge-${newStatus}`;
-                        button.childNodes[0].textContent = statusTextCapitalized + ' ';
+                        button.childNodes[0].textContent = (statusLabels[newStatus] || newStatus) + ' ';
                     }
+                    row.dataset.status = newStatus;
 
-                    // Uncheck the checkbox
                     const checkbox = row.querySelector('.order-checkbox');
                     if (checkbox) {
                         checkbox.checked = false;
@@ -2948,7 +3912,6 @@ function applyBulkStatus(newStatus) {
                 errors++;
             }
 
-            // When all requests complete
             if (completed === orderIds.length) {
                 hideBulkStatusDropdown();
                 updateBulkActionsModal();
@@ -2998,22 +3961,12 @@ function bulkDeleteOrders() {
         .then(data => {
             completed++;
 
-            if (data.success) {
-                const row = document.getElementById(`order-row-${orderId}`);
-                if (row) {
-                    row.style.transition = 'opacity 0.3s';
-                    row.style.opacity = '0';
-                    setTimeout(() => row.remove(), 300);
-                }
-            } else {
+            if (!data.success) {
                 errors++;
             }
 
-            // When all requests complete
+            // Gdy wszystkie requesty się zakończą — przeładuj stronę
             if (completed === orderIds.length) {
-                updateBulkActionsModal();
-                updateSelectAllState();
-
                 if (errors === 0) {
                     if (window.Toast) {
                         window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
@@ -3024,17 +3977,21 @@ function bulkDeleteOrders() {
                     }
                 }
 
-                // Check if table is empty
-                const tbody = document.querySelector('.data-table tbody');
-                if (tbody && tbody.children.length === 0) {
-                    showEmptyState();
-                }
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
             }
         })
         .catch(error => {
             console.error('Bulk delete error:', error);
             errors++;
             completed++;
+
+            if (completed === orderIds.length) {
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            }
         });
     });
 }
@@ -3337,7 +4294,7 @@ if (tableResponsive) {
  * Change order status
  */
 function changeOrderStatus(orderId, newStatus) {
-    fetch(`/admin/products/stock-orders/${orderId}/status`, {
+    fetch(`/admin/products/proxy-orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json'
@@ -3347,57 +4304,31 @@ function changeOrderStatus(orderId, newStatus) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // If status is "dostarczone_gom" and we're on PROXY tab, remove row (it moved to POLSKA)
-            const activeTab = '{{ active_tab }}';
-            if (newStatus === 'dostarczone_gom' && activeTab === 'proxy') {
-                const row = document.getElementById(`order-row-${orderId}`);
-                if (row) {
-                    const tbody = row.parentElement; // Get tbody BEFORE removing
-                    row.style.transition = 'opacity 0.3s';
-                    row.style.opacity = '0';
-                    setTimeout(() => {
-                        row.remove();
-                        // Check if table is now empty
-                        if (tbody && tbody.children.length === 0) {
-                            showEmptyState();
-                        }
-                    }, 300);
-                }
-                if (window.Toast) {
-                    window.Toast.show('Zamówienie przeniesione do zakładki POLSKA', 'success');
-                }
-                return;
-            }
-
             // Close dropdown first
             const dropdown = document.getElementById(`status-dropdown-${orderId}`);
             if (dropdown) {
                 dropdown.style.display = 'none';
             }
 
+            const statusLabels = {
+                'zamowiono': 'Zamówiono',
+                'dostarczone_do_proxy': 'Dostarczone do Proxy',
+                'anulowane': 'Anulowane'
+            };
+
             // Update the badge and status changed cell
             const row = document.getElementById(`order-row-${orderId}`);
             if (row) {
-                // Find the status button in this row
                 const statusButton = row.querySelector('.status-badge-button');
                 if (statusButton) {
-                    // Format status text properly (each word capitalized)
-                    const statusText = newStatus.replace(/_/g, ' ');
-                    const statusTextCapitalized = statusText.split(' ').map(word =>
-                        word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ');
-
-                    // Reset to base class + new status
+                    const label = statusLabels[newStatus] || newStatus;
                     statusButton.className = `status-badge-button badge-${newStatus}`;
-
-                    // Update text while keeping the SVG chevron
-                    statusButton.innerHTML = `${statusTextCapitalized} <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L2 4h8L6 8z"/></svg>`;
+                    statusButton.innerHTML = `${label} <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L2 4h8L6 8z"/></svg>`;
                 }
 
-                // Update data-status attribute on row for filtering
                 row.dataset.status = newStatus;
 
-                // Update "Ostatnia zmiana" column with current date/time
+                // Update "Ostatnia zmiana" column
                 const now = new Date();
                 const day = String(now.getDate()).padStart(2, '0');
                 const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -3406,16 +4337,13 @@ function changeOrderStatus(orderId, newStatus) {
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
 
-                // Find the "Ostatnia zmiana" cell - it's the 7th cell (index 6)
-                // Columns: checkbox(0), order_number(1), product(2), supplier(3), quantity(4), status(5), ostatnia_zmiana(6), date(7), amount(8), actions(9)
+                // Columns: checkbox(0), order_number(1), products(2), status(3), ostatnia_zmiana(4), date(5), amount(6), actions(7)
                 const cells = row.querySelectorAll('td');
-                const statusChangedCell = cells[6]; // 7th column (0-indexed)
+                const statusChangedCell = cells[4]; // 5th column (0-indexed)
                 if (statusChangedCell) {
-                    // Update text content and preserve the class for proper styling
                     statusChangedCell.textContent = formattedDate;
                     statusChangedCell.className = 'text-muted';
 
-                    // Flash animation to highlight the change
                     statusChangedCell.style.transition = 'background-color 0.3s';
                     statusChangedCell.style.backgroundColor = 'rgba(90, 24, 154, 0.15)';
                     setTimeout(() => {
@@ -3423,85 +4351,26 @@ function changeOrderStatus(orderId, newStatus) {
                     }, 1000);
                 }
 
-                // Update data attribute for sorting
                 row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
             }
 
             if (window.Toast) {
-                window.Toast.show('Status zamówienia został zmieniony', 'success');
+                window.Toast.show('Status zamowienia zostal zmieniony', 'success');
             }
         } else {
             if (window.Toast) {
-                window.Toast.show('Błąd: ' + data.error, 'error');
+                window.Toast.show('Blad: ' + data.error, 'error');
             }
         }
     })
     .catch(error => {
         console.error('Status change error:', error);
         if (window.Toast) {
-            window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
+            window.Toast.show('Wystapil blad podczas zmiany statusu', 'error');
         }
     });
 }
 
-/**
- * Table sorting
- */
-let currentSortColumn = null;
-let currentSortDirection = 'asc';
-
-function sortTable(column) {
-    const table = document.querySelector('.data-table');
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-
-    // Determine sort direction
-    if (currentSortColumn === column) {
-        currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-    } else {
-        currentSortDirection = 'asc';
-    }
-    currentSortColumn = column;
-
-    // Update header indicators
-    const headers = table.querySelectorAll('th.sortable');
-    headers.forEach(th => {
-        th.classList.remove('sorted-asc', 'sorted-desc');
-        if (th.dataset.column === column) {
-            th.classList.add(currentSortDirection === 'asc' ? 'sorted-asc' : 'sorted-desc');
-        }
-    });
-
-    // Sort rows
-    rows.sort((a, b) => {
-        let aValue = a.dataset[column === 'order_number' ? 'orderNumber' :
-                              column === 'date' ? 'date' :
-                              column === 'status_changed' ? 'statusChanged' :
-                              column === 'amount' ? 'amount' :
-                              column === 'quantity' ? 'quantity' : column];
-        let bValue = b.dataset[column === 'order_number' ? 'orderNumber' :
-                              column === 'date' ? 'date' :
-                              column === 'status_changed' ? 'statusChanged' :
-                              column === 'amount' ? 'amount' :
-                              column === 'quantity' ? 'quantity' : column];
-
-        // Handle numeric columns
-        if (column === 'date' || column === 'status_changed' || column === 'amount' || column === 'quantity') {
-            aValue = parseFloat(aValue) || 0;
-            bValue = parseFloat(bValue) || 0;
-        } else {
-            aValue = aValue.toLowerCase();
-            bValue = bValue.toLowerCase();
-        }
-
-        if (aValue < bValue) return currentSortDirection === 'asc' ? -1 : 1;
-        if (aValue > bValue) return currentSortDirection === 'asc' ? 1 : -1;
-        return 0;
-    });
-
-    // Re-append sorted rows
-    rows.forEach(row => tbody.appendChild(row));
-}
 
 /**
  * Delete order
@@ -3517,25 +4386,13 @@ function deleteOrder(orderId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Remove the row from table
-                const row = document.getElementById(`order-row-${orderId}`);
-                if (row) {
-                    const tbody = row.parentElement; // Get tbody BEFORE removing
-                    row.style.transition = 'opacity 0.3s';
-                    row.style.opacity = '0';
-                    setTimeout(() => {
-                        row.remove();
-
-                        // Check if table is now empty
-                        if (tbody && tbody.children.length === 0) {
-                            showEmptyState();
-                        }
-                    }, 300);
-                }
-
                 if (window.Toast) {
                     window.Toast.show('Zamówienie zostało usunięte', 'success');
                 }
+                // Przeładuj tę samą zakładkę — countery i listy się odświeżą
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
             } else {
                 if (window.Toast) {
                     window.Toast.show('Błąd: ' + data.error, 'error');
@@ -3550,6 +4407,364 @@ function deleteOrder(orderId) {
         });
     }
 }
+
+/**
+ * Toggle hidden products in Poland tab
+ */
+function togglePolandProducts(toggleEl) {
+    const container = toggleEl.closest('.poland-products-cell') || toggleEl.closest('.products-cell');
+    const hiddenItems = container.querySelectorAll('.poland-product-hidden');
+    const isExpanded = toggleEl.dataset.expanded === 'true';
+
+    hiddenItems.forEach(item => {
+        item.style.display = isExpanded ? 'none' : '';
+    });
+
+    if (isExpanded) {
+        toggleEl.textContent = `Pokaż więcej (${hiddenItems.length})`;
+        toggleEl.dataset.expanded = 'false';
+    } else {
+        toggleEl.textContent = 'Pokaż mniej';
+        toggleEl.dataset.expanded = 'true';
+    }
+}
+
+/**
+ * Delete Poland order
+ */
+function deletePolandOrder(orderId) {
+    if (confirm('Czy na pewno chcesz usunąć to zamówienie POLSKA?\n\nTa operacja jest nieodwracalna.')) {
+        fetch(`/admin/products/poland-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (window.Toast) {
+                    window.Toast.show('Zamówienie POLSKA zostało usunięte', 'success');
+                }
+                // Przeładuj tę samą zakładkę — countery i listy się odświeżą
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                if (window.Toast) {
+                    window.Toast.show('Błąd: ' + data.error, 'error');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            if (window.Toast) {
+                window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
+            }
+        });
+    }
+}
+
+// ============================================
+// POLSKA Tab Functions
+// ============================================
+
+let selectedStatusesPoland = [];
+
+function toggleStatusMultiSelectPoland() {
+    const dropdown = document.getElementById('statusMultiSelectPoland');
+    if (dropdown.style.display === 'none') {
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+function updateStatusFilterPoland() {
+    const checkboxes = document.querySelectorAll('#statusMultiSelectPoland input[type="checkbox"]:checked');
+    selectedStatusesPoland = Array.from(checkboxes).map(cb => cb.value);
+
+    const statusText = document.getElementById('statusSelectTextPoland');
+    if (selectedStatusesPoland.length === 0) {
+        statusText.textContent = 'Wszystkie statusy';
+    } else if (selectedStatusesPoland.length === 1) {
+        statusText.textContent = '1 status';
+    } else {
+        statusText.textContent = `${selectedStatusesPoland.length} statusy`;
+    }
+
+    applyFiltersPoland();
+}
+
+function applyFiltersPoland() {
+    const orderNumberFilter = document.getElementById('filterOrderNumberPoland').value.toLowerCase().trim();
+    const trackingFilter = document.getElementById('filterTrackingPoland').value.toLowerCase().trim();
+    const dateFrom = document.getElementById('filterDateFromPoland').value;
+    const dateTo = document.getElementById('filterDateToPoland').value;
+
+    const table = document.getElementById('polandOrdersTable');
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+
+    rows.forEach(row => {
+        let showRow = true;
+
+        // Order number filter
+        if (orderNumberFilter) {
+            const rowOrderNumber = (row.dataset.orderNumber || '').toLowerCase();
+            if (!rowOrderNumber.includes(orderNumberFilter)) {
+                showRow = false;
+            }
+        }
+
+        // Tracking number (Kfriday RS) filter
+        if (trackingFilter) {
+            const rowTracking = (row.dataset.tracking || '').toLowerCase();
+            if (!rowTracking.includes(trackingFilter)) {
+                showRow = false;
+            }
+        }
+
+        // Date filter (using timestamp)
+        if (dateFrom || dateTo) {
+            const rowTimestamp = parseFloat(row.dataset.date) || 0;
+            const rowDateStr = new Date(rowTimestamp * 1000).toISOString().split('T')[0];
+            if (dateFrom && rowDateStr < dateFrom) showRow = false;
+            if (dateTo && rowDateStr > dateTo) showRow = false;
+        }
+
+        // Status filter
+        if (selectedStatusesPoland.length > 0) {
+            if (!selectedStatusesPoland.includes(row.dataset.status)) {
+                showRow = false;
+            }
+        }
+
+        row.style.display = showRow ? '' : 'none';
+    });
+
+    updateSelectAllStatePoland();
+}
+
+function clearAllFiltersPoland() {
+    document.getElementById('filterOrderNumberPoland').value = '';
+    document.getElementById('filterTrackingPoland').value = '';
+    document.getElementById('filterDateFromPoland').value = '';
+    document.getElementById('filterDateToPoland').value = '';
+
+    document.querySelectorAll('#statusMultiSelectPoland input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    selectedStatusesPoland = [];
+    document.getElementById('statusSelectTextPoland').textContent = 'Wszystkie statusy';
+
+    const table = document.getElementById('polandOrdersTable');
+    if (table) {
+        table.querySelectorAll('tbody tr').forEach(row => {
+            row.style.display = '';
+        });
+    }
+
+    updateSelectAllStatePoland();
+}
+
+function toggleSelectAllPoland(selectAllCheckbox) {
+    const table = document.getElementById('polandOrdersTable');
+    if (!table) return;
+    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+
+    visibleRows.forEach(row => {
+        const checkbox = row.querySelector('.poland-checkbox');
+        if (checkbox) {
+            checkbox.checked = selectAllCheckbox.checked;
+            if (selectAllCheckbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+        }
+    });
+
+    updateBulkActionsModal();
+}
+
+function handleCheckboxChangePoland() {
+    const checkbox = event.target;
+    const row = checkbox.closest('tr');
+
+    if (checkbox.checked) {
+        row.classList.add('selected');
+    } else {
+        row.classList.remove('selected');
+    }
+
+    updateSelectAllStatePoland();
+    updateBulkActionsModal();
+}
+
+function updateSelectAllStatePoland() {
+    const selectAllCheckbox = document.getElementById('selectAllPolandOrders');
+    if (!selectAllCheckbox) return;
+
+    const table = document.getElementById('polandOrdersTable');
+    if (!table) return;
+    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.poland-checkbox')).filter(cb => cb);
+
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    const someChecked = checkboxes.some(cb => cb.checked);
+
+    selectAllCheckbox.checked = allChecked;
+    selectAllCheckbox.indeterminate = someChecked && !allChecked;
+}
+
+function togglePolandStatusDropdown(orderId) {
+    const allDropdowns = document.querySelectorAll('[id^="poland-status-dropdown-"]');
+    allDropdowns.forEach(d => {
+        if (d.id !== `poland-status-dropdown-${orderId}`) {
+            d.style.display = 'none';
+        }
+    });
+
+    const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
+    if (!dropdown) return;
+
+    if (dropdown.style.display === 'none') {
+        const button = dropdown.previousElementSibling || dropdown.closest('.status-dropdown-wrapper').querySelector('.status-badge-button');
+        const rect = button.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.display = 'block';
+        document.body.appendChild(dropdown);
+    } else {
+        dropdown.style.display = 'none';
+    }
+}
+
+function changePolandOrderStatus(orderId, newStatus) {
+    const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
+    if (dropdown) dropdown.style.display = 'none';
+
+    fetch(`/admin/products/poland-orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById(`poland-order-row-${orderId}`);
+            if (row) {
+                const button = row.querySelector('.status-badge-button');
+                if (button) {
+                    const statusLabels = {
+                        'zamowione': 'Zamówione',
+                        'urzad_celny': 'Urząd celny',
+                        'dostarczone_gom': 'Dostarczone GOM',
+                        'anulowane': 'Anulowane'
+                    };
+                    button.className = `status-badge-button badge-${newStatus}`;
+                    button.childNodes[0].textContent = (statusLabels[newStatus] || newStatus) + ' ';
+                }
+                row.dataset.status = newStatus;
+
+                // Update date in merged "Data" column
+                const now = new Date();
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
+
+                const dateSecondary = row.querySelector('.poland-date-secondary');
+                if (dateSecondary) {
+                    dateSecondary.textContent = formattedDate;
+                    dateSecondary.style.transition = 'background-color 0.3s';
+                    dateSecondary.style.backgroundColor = 'rgba(249, 115, 22, 0.15)';
+                    setTimeout(() => {
+                        dateSecondary.style.backgroundColor = '';
+                    }, 1000);
+                }
+                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
+            }
+
+            if (window.Toast) {
+                window.Toast.show(data.message || 'Status zmieniony', 'success');
+            }
+        } else {
+            if (window.Toast) {
+                window.Toast.show('Błąd: ' + data.error, 'error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Poland status change error:', error);
+        if (window.Toast) {
+            window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
+        }
+    });
+}
+
+function bulkDeletePolandOrders() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień POLSKA?\n\nTa operacja jest nieodwracalna.`)) {
+        return;
+    }
+
+    let completed = 0;
+    let errors = 0;
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/poland-orders/${orderId}/delete`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+            if (!data.success) errors++;
+
+            if (completed === orderIds.length) {
+                if (errors === 0) {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    }
+                }
+                setTimeout(() => { window.location.reload(); }, 500);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk delete Poland error:', error);
+            errors++;
+            completed++;
+            if (completed === orderIds.length) {
+                setTimeout(() => { window.location.reload(); }, 500);
+            }
+        });
+    });
+}
+
+// Close Poland multi-select when clicking outside
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.multi-select-wrapper')) {
+        const dropdown = document.getElementById('statusMultiSelectPoland');
+        if (dropdown) dropdown.style.display = 'none';
+    }
+    // Close Poland status dropdowns when clicking outside
+    if (!event.target.closest('.status-dropdown-wrapper') && !event.target.closest('.status-dropdown')) {
+        document.querySelectorAll('[id^="poland-status-dropdown-"]').forEach(d => {
+            d.style.display = 'none';
+        });
+    }
+});
 
 /**
  * Show empty state when table becomes empty
@@ -3581,9 +4796,6 @@ function showEmptyState() {
         if (activeTab === 'proxy') {
             emptyStateHTML += `
                 <p>Nie znaleziono żadnych zamówień dla kategorii PROXY</p>
-                <button class="btn btn-primary" id="btnNewOrderEmpty" onclick="openNewOrderModal()">
-                    Utwórz pierwsze zamówienie
-                </button>
             `;
         } else {
             emptyStateHTML += `
@@ -3604,12 +4816,43 @@ function showEmptyState() {
 // ============================================
 
 /**
+ * Filter rows in DO ZAMÓWIENIA tab
+ */
+function applyToOrderFilters() {
+    const productFilter = document.getElementById('filterToOrderProduct').value.toLowerCase().trim();
+    const paymentFilter = document.getElementById('filterToOrderPayment').value;
+    const rows = document.querySelectorAll('#toOrderTable tbody .to-order-row');
+
+    rows.forEach(row => {
+        const productName = (row.dataset.productName || '').toLowerCase();
+        const paymentType = row.dataset.paymentType || '';
+
+        const matchProduct = !productFilter || productName.includes(productFilter);
+        const matchPayment = !paymentFilter || paymentType === paymentFilter;
+
+        row.style.display = (matchProduct && matchPayment) ? '' : 'none';
+    });
+
+    // Update select all checkbox state after filter change
+    handleToOrderCheckboxChange();
+}
+
+/**
  * Toggle select all products in DO ZAMÓWIENIA tab
  */
 function toggleSelectAllToOrder(checkbox) {
     const checkboxes = document.querySelectorAll('.to-order-checkbox');
     checkboxes.forEach(cb => {
-        cb.checked = checkbox.checked;
+        const row = cb.closest('tr');
+        const isVisible = row.style.display !== 'none';
+        if (isVisible) {
+            cb.checked = checkbox.checked;
+            if (checkbox.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
+        }
     });
     handleToOrderCheckboxChange();
 }
@@ -3618,23 +4861,27 @@ function toggleSelectAllToOrder(checkbox) {
  * Handle checkbox change in DO ZAMÓWIENIA tab
  */
 function handleToOrderCheckboxChange() {
-    const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
+    const allCheckboxes = document.querySelectorAll('.to-order-checkbox');
+    const visibleCheckboxes = [...allCheckboxes].filter(cb => cb.closest('tr').style.display !== 'none');
+    const visibleChecked = visibleCheckboxes.filter(cb => cb.checked);
+
     const bulkToolbar = document.getElementById('toOrderBulkToolbar');
     const selectedCount = document.getElementById('toOrderSelectedCount');
 
-    if (checkboxes.length > 0) {
+    // Count all checked (visible + hidden) for toolbar
+    const totalChecked = document.querySelectorAll('.to-order-checkbox:checked').length;
+    if (totalChecked > 0) {
         bulkToolbar.classList.remove('hidden');
-        selectedCount.textContent = checkboxes.length;
+        selectedCount.textContent = totalChecked;
     } else {
         bulkToolbar.classList.add('hidden');
     }
 
-    // Update select all checkbox state
-    const allCheckboxes = document.querySelectorAll('.to-order-checkbox');
+    // Update select all checkbox state based on visible rows only
     const selectAllCheckbox = document.getElementById('selectAllToOrder');
     if (selectAllCheckbox) {
-        selectAllCheckbox.checked = checkboxes.length === allCheckboxes.length && allCheckboxes.length > 0;
-        selectAllCheckbox.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+        selectAllCheckbox.checked = visibleCheckboxes.length > 0 && visibleChecked.length === visibleCheckboxes.length;
+        selectAllCheckbox.indeterminate = visibleChecked.length > 0 && visibleChecked.length < visibleCheckboxes.length;
     }
 }
 
@@ -3645,6 +4892,7 @@ function clearToOrderSelection() {
     const checkboxes = document.querySelectorAll('.to-order-checkbox');
     checkboxes.forEach(cb => {
         cb.checked = false;
+        cb.closest('tr').classList.remove('selected');
     });
     const selectAllCheckbox = document.getElementById('selectAllToOrder');
     if (selectAllCheckbox) {
@@ -3663,159 +4911,158 @@ const suppliersData = [
     {% endfor %}
 ];
 
+// Zamknij modal grupowy po kliknięciu na overlay
+(function() {
+    const groupModal = document.getElementById('groupOrderModal');
+    if (groupModal) {
+        groupModal.addEventListener('click', function(e) {
+            if (e.target === groupModal) {
+                closeGroupOrderModal();
+            }
+        });
+    }
+})();
+
+// Podświetlanie zaznaczonych wierszy w tabeli DO ZAMÓWIENIA
+document.querySelectorAll('.to-order-checkbox').forEach(box => {
+    box.addEventListener('change', function() {
+        const row = this.closest('tr');
+        if (this.checked) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+    });
+});
+
 /**
- * Open Order Products Modal
+ * Otwórz modal zamówienia grupowego z walidacją typów płatności
  */
 function openOrderProductsModal() {
     const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
-    if (checkboxes.length === 0) return;
-
-    const tbody = document.getElementById('orderProductsTableBody');
-    tbody.innerHTML = '';
-
-    let total = 0;
-
-    checkboxes.forEach(checkbox => {
-        const row = checkbox.closest('tr');
-        const productId = row.dataset.productId;
-        const productName = row.dataset.productName;
-        const supplierId = row.dataset.supplierId;
-        const supplierName = row.dataset.supplierName;
-        const toOrder = parseInt(row.dataset.toOrder);
-        const purchasePrice = parseFloat(row.dataset.purchasePrice) || 0;
-
-        const rowTotal = toOrder * purchasePrice;
-        total += rowTotal;
-
-        // Create supplier options
-        let supplierOptions = '<option value="">Wybierz dostawcę</option>';
-        suppliersData.forEach(s => {
-            const selected = s.id == supplierId ? 'selected' : '';
-            supplierOptions += `<option value="${s.id}" ${selected}>${s.name}</option>`;
-        });
-
-        const tr = document.createElement('tr');
-        tr.dataset.productId = productId;
-        tr.innerHTML = `
-            <td>${productName}</td>
-            <td>
-                <select class="supplier-select" onchange="updateOrderProductRow(this)">
-                    ${supplierOptions}
-                </select>
-            </td>
-            <td class="text-center">
-                <input type="number" class="quantity-input" value="${toOrder}" min="1"
-                       onchange="updateOrderProductRow(this)">
-            </td>
-            <td class="text-right">${purchasePrice.toFixed(2)} PLN</td>
-            <td class="text-right row-total">${rowTotal.toFixed(2)} PLN</td>
-        `;
-        tbody.appendChild(tr);
-    });
-
-    document.getElementById('orderProductsTotal').textContent = total.toFixed(2) + ' PLN';
-
-    // Show modal
-    document.getElementById('orderProductsModal').classList.add('active');
-}
-
-/**
- * Update row total when quantity or supplier changes
- */
-function updateOrderProductRow(element) {
-    const row = element.closest('tr');
-    const quantityInput = row.querySelector('.quantity-input');
-    const quantity = parseInt(quantityInput.value) || 0;
-
-    // Get price from the price cell (4th column)
-    const priceText = row.cells[3].textContent;
-    const price = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
-
-    const rowTotal = quantity * price;
-    row.querySelector('.row-total').textContent = rowTotal.toFixed(2) + ' PLN';
-
-    // Update total
-    updateOrderProductsTotal();
-}
-
-/**
- * Update total amount in modal
- */
-function updateOrderProductsTotal() {
-    const rows = document.querySelectorAll('#orderProductsTableBody tr');
-    let total = 0;
-    rows.forEach(row => {
-        const rowTotalText = row.querySelector('.row-total').textContent;
-        total += parseFloat(rowTotalText.replace(/[^\d.]/g, '')) || 0;
-    });
-    document.getElementById('orderProductsTotal').textContent = total.toFixed(2) + ' PLN';
-}
-
-/**
- * Close Order Products Modal
- */
-function closeOrderProductsModal() {
-    document.getElementById('orderProductsModal').classList.remove('active');
-}
-
-/**
- * Confirm and create stock orders from aggregation
- */
-function confirmOrderProducts() {
-    const orderType = document.getElementById('orderType').value;
-    const rows = document.querySelectorAll('#orderProductsTableBody tr');
-
-    if (rows.length === 0) return;
-
-    const products = [];
-    rows.forEach(row => {
-        const productId = row.dataset.productId;
-        const supplierSelect = row.querySelector('.supplier-select');
-        const supplierId = supplierSelect.value;
-        const quantity = parseInt(row.querySelector('.quantity-input').value) || 0;
-        const priceText = row.cells[3].textContent;
-        const unitPrice = parseFloat(priceText.replace(/[^\d.]/g, '')) || 0;
-
-        if (quantity > 0) {
-            products.push({
-                product_id: parseInt(productId),
-                supplier_id: supplierId ? parseInt(supplierId) : null,
-                quantity: quantity,
-                unit_price: unitPrice
-            });
-        }
-    });
-
-    if (products.length === 0) {
+    if (checkboxes.length === 0) {
         if (window.Toast) {
-            window.Toast.show('Proszę dodać przynajmniej jeden produkt z ilością > 0', 'warning');
+            window.Toast.show('Zaznacz produkty do zamówienia', 'warning');
         }
         return;
     }
 
-    // Disable button while processing
-    const btn = document.getElementById('btnConfirmOrderProducts');
+    // Sprawdź typy płatności (Proxy vs Polska)
+    const paymentTypes = new Set();
+    checkboxes.forEach(box => {
+        paymentTypes.add(box.dataset.paymentType);
+    });
+
+    // WALIDACJA: NIE można mieszać Proxy + Polska
+    if (paymentTypes.size > 1) {
+        if (window.Toast) {
+            window.Toast.show('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.', 'error');
+        } else {
+            alert('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.');
+        }
+        return;
+    }
+
+    const orderType = Array.from(paymentTypes)[0]; // 'proxy' lub 'polska'
+    const orderTypeLabel = orderType === 'proxy' ? 'Proxy' : 'Polska';
+
+    // Uzupełnij dane w modalu
+    document.getElementById('groupOrderCount').textContent = checkboxes.length;
+    document.getElementById('groupOrderType').textContent = orderTypeLabel;
+
+    // Wypełnij tabelę produktów
+    const tbody = document.getElementById('groupOrderTableBody');
+    tbody.innerHTML = '';
+    let total = 0;
+
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const productName = row.dataset.productName;
+        const toOrder = parseInt(row.dataset.toOrder);
+        const purchasePrice = parseFloat(row.dataset.purchasePrice) || 0;
+        const rowTotal = toOrder * purchasePrice;
+        total += rowTotal;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${escapeHtml(productName)}</td>
+            <td class="text-center">${toOrder}</td>
+            <td class="text-right">${purchasePrice.toFixed(2)} PLN</td>
+            <td class="text-right font-semibold">${rowTotal.toFixed(2)} PLN</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    document.getElementById('groupOrderTotal').textContent = total.toFixed(2) + ' PLN';
+
+    // Pokaż modal
+    document.getElementById('groupOrderModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+/**
+ * Zamknij modal zamówienia grupowego
+ */
+function closeGroupOrderModal() {
+    const modal = document.getElementById('groupOrderModal');
+    if (modal) {
+        modal.classList.add('closing');
+        setTimeout(() => {
+            modal.classList.remove('active');
+            modal.classList.remove('closing');
+            document.body.style.overflow = '';
+            document.getElementById('groupOrderNote').value = '';
+        }, 350);
+    }
+}
+
+/**
+ * Potwierdź i utwórz zamówienie grupowe
+ */
+function confirmGroupOrder() {
+    const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
+    if (checkboxes.length === 0) return;
+
+    const note = document.getElementById('groupOrderNote').value.trim();
+    const orderType = checkboxes[0].dataset.paymentType;
+
+    // Zbierz dane produktów
+    const products = [];
+    checkboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        products.push({
+            product_id: parseInt(checkbox.value),
+            supplier_id: row.dataset.supplierId ? parseInt(row.dataset.supplierId) : null,
+            quantity: parseInt(row.dataset.toOrder),
+            unit_price: parseFloat(row.dataset.purchasePrice) || 0
+        });
+    });
+
+    // Wyłącz przycisk
+    const btn = document.getElementById('btnConfirmGroupOrder');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-small"></span> Tworzenie...';
 
-    fetch('/admin/products/api/create-stock-orders-from-aggregation', {
+    // AJAX: Utwórz zamówienie grupowe
+    fetch('/admin/products/api/create-group-proxy-order', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+            products: products,
             order_type: orderType,
-            products: products
+            note: note
         })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            closeOrderProductsModal();
+            closeGroupOrderModal();
             if (window.Toast) {
-                window.Toast.show(`Utworzono ${data.orders_created} zamówień`, 'success');
+                window.Toast.show(`Zamówienie grupowe utworzone! Numer: ${data.order_number}`, 'success');
             }
-            // Redirect to the appropriate tab
+            // Przekieruj do odpowiedniej zakładki
             setTimeout(() => {
                 window.location.href = `/admin/products/stock-orders?tab=${orderType}`;
             }, 1000);
@@ -3830,14 +5077,14 @@ function confirmOrderProducts() {
                     <line x1="3" y1="6" x2="21" y2="6"></line>
                     <path d="M16 10a4 4 0 01-8 0"></path>
                 </svg>
-                Utwórz zamówienie
+                Potwierdź zamówienie
             `;
         }
     })
     .catch(error => {
         console.error('Error:', error);
         if (window.Toast) {
-            window.Toast.show('Wystąpił błąd podczas tworzenia zamówień', 'error');
+            window.Toast.show('Wystąpił błąd podczas tworzenia zamówienia', 'error');
         }
         btn.disabled = false;
         btn.innerHTML = `
@@ -3846,7 +5093,7 @@ function confirmOrderProducts() {
                 <line x1="3" y1="6" x2="21" y2="6"></line>
                 <path d="M16 10a4 4 0 01-8 0"></path>
             </svg>
-            Utwórz zamówienie
+            Potwierdź zamówienie
         `;
     });
 }

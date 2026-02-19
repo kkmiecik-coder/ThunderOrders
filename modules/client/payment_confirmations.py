@@ -86,12 +86,16 @@ def payment_confirmations():
         Order.status.in_(allowed_statuses)
     ).order_by(Order.created_at.desc()).all()
 
+    # Sprawdź czy którekolwiek zamówienie ma 4 etapy (dla warunkowego renderowania kolumny E4)
+    any_order_has_4_stages = any(order.payment_stages == 4 for order in orders)
+
     # Metody płatności (dane do przelewu)
     payment_methods = PaymentMethod.get_active()
 
     return render_template(
         'client/payment_confirmations/list.html',
         orders=orders,
+        any_order_has_4_stages=any_order_has_4_stages,
         payment_methods=payment_methods,
         title='Potwierdzenia płatności'
     )
@@ -112,7 +116,7 @@ def payment_confirmations_upload():
     Tworzy osobny rekord PaymentConfirmation dla każdego zamówienia × etap
     z tą samą nazwą pliku.
     """
-    VALID_STAGES = {'product'}  # Na razie tylko 'product' jest obsługiwany
+    VALID_STAGES = {'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'}
 
     try:
         # === Parsowanie order_stages lub order_ids (fallback) ===
@@ -187,11 +191,28 @@ def payment_confirmations_upload():
             flash('Nie masz uprawnień do wybranych zamówień.', 'error')
             return redirect(url_for('client.payment_confirmations'))
 
-        # Sprawdź uprawnienia per zamówienie
-        cannot_upload = [orders_by_id[oid] for oid in all_order_ids
-                         if oid in orders_by_id and not orders_by_id[oid].can_upload_product_payment]
-        if cannot_upload:
-            order_numbers = ', '.join(o.order_number for o in cannot_upload)
+        # Sprawdź uprawnienia per zamówienie × etap
+        cannot_upload_entries = []
+        for entry in order_stages:
+            order = orders_by_id.get(entry['order_id'])
+            if not order:
+                continue
+            for stage in entry['stages']:
+                can_upload = False
+                if stage == 'product':
+                    can_upload = order.can_upload_product_payment
+                elif stage == 'korean_shipping':
+                    can_upload = order.can_upload_stage_2
+                elif stage == 'customs_vat':
+                    can_upload = order.can_upload_stage_3
+                elif stage == 'domestic_shipping':
+                    can_upload = order.can_upload_stage_4
+                if not can_upload:
+                    cannot_upload_entries.append(order.order_number)
+                    break
+
+        if cannot_upload_entries:
+            order_numbers = ', '.join(set(cannot_upload_entries))
             flash(f'Nie można wgrać potwierdzenia dla zamówień: {order_numbers}', 'error')
             return redirect(url_for('client.payment_confirmations'))
 

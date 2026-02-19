@@ -268,32 +268,33 @@ product_tags = db.Table('product_tags',
 )
 
 
-class StockOrder(db.Model):
-    """Stock Order - zamówienia produktów od dostawców"""
-    __tablename__ = 'stock_orders'
+class ProxyOrder(db.Model):
+    """Proxy Order - zamówienia produktów od dostawców przez proxy"""
+    __tablename__ = 'proxy_orders'
 
     id = db.Column(db.Integer, primary_key=True)
-    order_number = db.Column(db.String(50), unique=True, nullable=False)  # Format: SO/PROXY/00001 lub SO/PL/00001
+    order_number = db.Column(db.String(50), unique=True, nullable=False)  # Format: PRX/00001
     order_type = db.Column(db.Enum('proxy', 'polska', name='stock_order_types'), nullable=False)
 
     supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'), nullable=True)
 
-    # Status based on PRD order statuses
+    # Status
     status = db.Column(db.Enum(
-        'nowe',
-        'oczekujace',
-        'dostarczone_proxy',
-        'w_drodze_polska',
-        'urzad_celny',
-        'dostarczone_gom',
+        'zamowiono',
+        'dostarczone_do_proxy',
         'anulowane',
-        name='stock_order_status'
-    ), default='nowe', nullable=False)
+        name='proxy_order_status'
+    ), default='zamowiono', nullable=False)
 
     # Financial
     total_amount = db.Column(db.Numeric(10, 2), default=0.00)
     currency = db.Column(db.Enum('PLN', 'KRW', 'USD', name='order_currency_types'), default='PLN')
-    total_amount_pln = db.Column(db.Numeric(10, 2), default=0.00)  # Converted to PLN
+    total_amount_pln = db.Column(db.Numeric(10, 2), default=0.00)
+
+    # Shipping costs (from Poland order modal)
+    shipping_cost_total = db.Column(db.Numeric(10, 2), default=0.00)
+    shipping_cost_declared = db.Column(db.Numeric(10, 2), default=0.00)
+    shipping_cost_difference = db.Column(db.Numeric(10, 2), default=0.00)
 
     # Dates
     order_date = db.Column(db.DateTime, default=get_local_now)
@@ -311,32 +312,113 @@ class StockOrder(db.Model):
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
     # Relationships
-    supplier = db.relationship('Supplier', backref='stock_orders')
-    items = db.relationship('StockOrderItem', back_populates='stock_order', lazy='dynamic', cascade='all, delete-orphan')
+    supplier = db.relationship('Supplier', backref='proxy_orders')
+    items = db.relationship('ProxyOrderItem', back_populates='proxy_order', lazy='dynamic', cascade='all, delete-orphan')
+    poland_orders = db.relationship('PolandOrder', back_populates='proxy_order', cascade='all, delete-orphan')
 
     def __repr__(self):
-        return f'<StockOrder {self.order_number}>'
+        return f'<ProxyOrder {self.order_number}>'
 
 
-class StockOrderItem(db.Model):
-    """Stock Order Item - produkty w zamówieniu magazynowym"""
-    __tablename__ = 'stock_order_items'
+# Backward compatibility alias
+StockOrder = ProxyOrder
+
+
+class ProxyOrderItem(db.Model):
+    """Proxy Order Item - produkty w zamówieniu proxy"""
+    __tablename__ = 'proxy_order_items'
 
     id = db.Column(db.Integer, primary_key=True)
-    stock_order_id = db.Column(db.Integer, db.ForeignKey('stock_orders.id'), nullable=False)
+    proxy_order_id = db.Column(db.Integer, db.ForeignKey('proxy_orders.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=True)  # Link to client order
 
     quantity = db.Column(db.Integer, nullable=False, default=1)
     unit_price = db.Column(db.Numeric(10, 2), nullable=False)
     total_price = db.Column(db.Numeric(10, 2), nullable=False)
 
-    received_quantity = db.Column(db.Integer, default=0)  # Ilość otrzymana
+    # Shipping costs (from Poland order modal)
+    shipping_cost_per_item = db.Column(db.Numeric(10, 2), default=0.00)
+    shipping_cost_total = db.Column(db.Numeric(10, 2), default=0.00)
+
+    received_quantity = db.Column(db.Integer, default=0)
 
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
-    stock_order = db.relationship('StockOrder', back_populates='items')
-    product = db.relationship('Product', backref='stock_order_items')
+    proxy_order = db.relationship('ProxyOrder', back_populates='items')
+    product = db.relationship('Product', backref='proxy_order_items')
+    order = db.relationship('Order')
 
     def __repr__(self):
-        return f'<StockOrderItem {self.id} - Product {self.product_id}>'
+        return f'<ProxyOrderItem {self.id} - Product {self.product_id}>'
+
+
+# Backward compatibility alias
+StockOrderItem = ProxyOrderItem
+
+
+class PolandOrder(db.Model):
+    """Poland Order - zamówienia wysyłki do Polski"""
+    __tablename__ = 'poland_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(50), unique=True, nullable=False)  # PRX/PL/00001
+    proxy_order_id = db.Column(db.Integer, db.ForeignKey('proxy_orders.id'), nullable=False)
+
+    status = db.Column(db.Enum(
+        'zamowione',
+        'urzad_celny',
+        'dostarczone_gom',
+        'anulowane',
+        name='poland_order_status'
+    ), default='zamowione', nullable=False)
+
+    total_amount = db.Column(db.Numeric(10, 2), default=0.00)
+    shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)
+    customs_cost = db.Column(db.Numeric(10, 2), default=0.00)
+
+    notes = db.Column(db.Text, nullable=True)
+    admin_notes = db.Column(db.Text, nullable=True)
+    tracking_number = db.Column(db.String(100), nullable=True)
+
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+    shipped_at = db.Column(db.DateTime, nullable=True)
+    delivered_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    proxy_order = db.relationship('ProxyOrder', back_populates='poland_orders')
+    items = db.relationship('PolandOrderItem', back_populates='poland_order', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<PolandOrder {self.order_number}>'
+
+
+class PolandOrderItem(db.Model):
+    """Poland Order Item - produkty w zamówieniu do Polski"""
+    __tablename__ = 'poland_order_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    poland_order_id = db.Column(db.Integer, db.ForeignKey('poland_orders.id'), nullable=False)
+    proxy_order_item_id = db.Column(db.Integer, db.ForeignKey('proxy_order_items.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=True)
+
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)
+
+    # Cło/VAT
+    customs_vat_percentage = db.Column(db.Numeric(5, 2), default=0.00)
+    customs_vat_amount = db.Column(db.Numeric(10, 2), default=0.00)
+
+    created_at = db.Column(db.DateTime, default=get_local_now)
+
+    # Relationships
+    poland_order = db.relationship('PolandOrder', back_populates='items')
+    proxy_order_item = db.relationship('ProxyOrderItem')
+    product = db.relationship('Product')
+    order = db.relationship('Order')
+
+    def __repr__(self):
+        return f'<PolandOrderItem {self.id} - Product {self.product_id}>'

@@ -81,6 +81,11 @@ class ExclusivePage(db.Model):
     created_at = db.Column(db.DateTime, default=get_local_now)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
 
+    # Typ realizacji zamówień (liczba etapów płatności)
+    # 3 = Zamówienie do Polski (3 płatności: Produkt + Cło/VAT + Wysyłka PL)
+    # 4 = Zamówienie przez proxy (4 płatności: Produkt + Wysyłka KR + Cło/VAT + Wysyłka PL)
+    payment_stages = db.Column(db.Integer, default=4, nullable=False)
+
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)
     closed_at = db.Column(db.DateTime, nullable=True)

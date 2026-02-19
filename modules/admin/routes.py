@@ -233,6 +233,10 @@ def dashboard():
         'remaining': max(0, len(exclusive_pages_all) - 5)  # Remaining after visible
     }
 
+    # 9. Pending payment confirmations count
+    from modules.orders.models import PaymentConfirmation
+    pending_payment_confirmations = PaymentConfirmation.query.filter_by(status='pending').count()
+
     return render_template(
         'admin/dashboard.html',
         title='Panel Administratora',
@@ -243,7 +247,8 @@ def dashboard():
         sales_chart=sales_chart,
         top_products=top_products,
         tasks=tasks,
-        exclusive_pages=exclusive_pages
+        exclusive_pages=exclusive_pages,
+        pending_payment_confirmations=pending_payment_confirmations
     )
 
 

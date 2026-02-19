@@ -13,6 +13,22 @@
         </div>
     </div>
 
+    <!-- Oczekujące potwierdzenia płatności -->
+    {% if pending_payment_confirmations > 0 %}
+    <div class="pc-dashboard-widget">
+        <div class="pc-dashboard-widget-left">
+            <div class="pc-dashboard-widget-icon">&#128176;</div>
+            <div class="pc-dashboard-widget-text">
+                <h3>{{ pending_payment_confirmations }} {{ 'potwierdzenie oczekuje' if pending_payment_confirmations == 1 else 'potwierdzeń oczekuje' }} na weryfikację</h3>
+                <p>Klienci wgrali dowody wpłaty - sprawdź je</p>
+            </div>
+        </div>
+        <a href="{{ url_for('admin.payment_confirmations_list', status='pending') }}" class="pc-dashboard-widget-link">
+            Sprawdź &rarr;
+        </a>
+    </div>
+    {% endif %}
+
     <!-- Statistics Cards Grid -->
     <div class="stats-grid">
         <!-- Revenue Card -->
@@ -380,6 +396,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/payment-confirmations.css') }}">
 {% endblock %}
 
 {% block extra_js %}

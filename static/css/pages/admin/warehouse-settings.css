@@ -581,6 +581,26 @@
     color: var(--text-primary);
 }
 
+.data-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s;
+}
+
+.data-table th.sortable:hover {
+    color: #FF8500;
+}
+
+.data-table th.sorted-asc::after {
+    content: ' \2191';
+    color: #FF8500;
+}
+
+.data-table th.sorted-desc::after {
+    content: ' \2193';
+    color: #FF8500;
+}
+
 .action-link {
     color: var(--purple-400);
     text-decoration: none;
@@ -1068,6 +1088,15 @@
     background: rgba(255, 255, 255, 0.05);
 }
 
+[data-theme="dark"] .data-table th.sortable:hover {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .data-table th.sorted-asc::after,
+[data-theme="dark"] .data-table th.sorted-desc::after {
+    color: #f093fb;
+}
+
 [data-theme="dark"] .action-link {
     color: #f093fb;
 }
@@ -1197,4 +1226,39 @@
 
 [data-theme="dark"] .checkbox-hint {
     color: rgba(255, 255, 255, 0.4);
+}
+
+/* ==================== */
+/* Payment Stages Badges */
+/* ==================== */
+.payment-stages-cell {
+    white-space: nowrap;
+}
+
+.badge-payment {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-block;
+    margin: 2px;
+}
+
+.badge-payment-purple {
+    background: linear-gradient(135deg, #a855f7, #9333ea);
+    color: white;
+}
+
+.badge-payment-blue {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+}
+
+/* Payment Stages Badges - Dark Mode */
+[data-theme="dark"] .badge-payment-purple {
+    background: linear-gradient(135deg, #9333ea, #7e22ce);
+}
+
+[data-theme="dark"] .badge-payment-blue {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
 }

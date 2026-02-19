@@ -183,6 +183,7 @@ class Order(db.Model):
     exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='SET NULL'), nullable=True)
     exclusive_page = db.relationship('ExclusivePage', back_populates='orders')
     exclusive_page_name = db.Column(db.String(200), nullable=True)  # Preserved page name for history
+    payment_stages = db.Column(db.Integer, nullable=True)  # Dziedziczone z ExclusivePage (2 lub 3)
 
     # Guest order fields
     is_guest_order = db.Column(db.Boolean, default=False)
@@ -661,6 +662,109 @@ class Order(db.Model):
             return False  # Już zatwierdzone
 
         return True
+
+    # === E2: Wysyłka z Korei (TYLKO dla 4-płatnościowych) ===
+
+    @property
+    def stage_2_confirmation(self):
+        """E2: Wysyłka KR — tylko dla payment_stages == 4"""
+        if self.payment_stages == 4:
+            return PaymentConfirmation.query.filter_by(
+                order_id=self.id,
+                payment_stage='korean_shipping'
+            ).first()
+        return None
+
+    @property
+    def stage_2_name(self):
+        """Nazwa E2"""
+        if self.payment_stages == 4:
+            return 'Wysyłka z Korei'
+        return None
+
+    @property
+    def stage_2_status(self):
+        """Status E2: None (nie dotyczy) / none/pending/approved/rejected"""
+        if self.payment_stages != 4:
+            return None  # Dla 3-płatnościowych E2 nie istnieje
+        conf = self.stage_2_confirmation
+        if not conf:
+            return 'none'
+        return conf.status
+
+    # === E3: Cło/VAT (ZAWSZE — dla obu typów) ===
+
+    @property
+    def stage_3_confirmation(self):
+        """E3: Cło/VAT — dla obu typów zamówień"""
+        return PaymentConfirmation.query.filter_by(
+            order_id=self.id,
+            payment_stage='customs_vat'
+        ).first()
+
+    @property
+    def stage_3_name(self):
+        """Nazwa E3: zawsze Cło/VAT"""
+        return 'Cło/VAT'
+
+    @property
+    def stage_3_status(self):
+        """Status E3: none/pending/approved/rejected"""
+        conf = self.stage_3_confirmation
+        if not conf:
+            return 'none'
+        return conf.status
+
+    # === E4: Wysyłka lokalna PL (ZAWSZE — dla obu typów) ===
+
+    @property
+    def stage_4_confirmation(self):
+        """E4: Wysyłka lokalna PL — dla obu typów zamówień"""
+        return PaymentConfirmation.query.filter_by(
+            order_id=self.id,
+            payment_stage='domestic_shipping'
+        ).first()
+
+    @property
+    def stage_4_name(self):
+        """Nazwa E4: zawsze Wysyłka lokalna PL"""
+        return 'Wysyłka lokalna PL'
+
+    @property
+    def stage_4_status(self):
+        """Status E4: none/pending/approved/rejected"""
+        conf = self.stage_4_confirmation
+        if not conf:
+            return 'none'
+        return conf.status
+
+    # === Helper: Can upload dla E2-E4 ===
+
+    @property
+    def can_upload_stage_2(self):
+        """Można wgrać E2? (tylko 4-płatnościowe, po E1 approved)"""
+        if self.payment_stages != 4:
+            return False
+        if self.stage_2_status in ['approved', 'pending']:
+            return False
+        return self.product_payment_status == 'approved'
+
+    @property
+    def can_upload_stage_3(self):
+        """Można wgrać E3? (po E2 approved dla 4-płat, po E1 approved dla 3-płat)"""
+        if self.stage_3_status in ['approved', 'pending']:
+            return False
+        if self.payment_stages == 4:
+            return self.stage_2_status == 'approved'
+        else:
+            return self.product_payment_status == 'approved'
+
+    @property
+    def can_upload_stage_4(self):
+        """Można wgrać E4? (po E3 approved, dla obu typów)"""
+        if self.stage_4_status in ['approved', 'pending']:
+            return False
+        return self.stage_3_status == 'approved'
 
     def recalculate_total(self):
         """Recalculates order total from items"""

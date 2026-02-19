@@ -1,0 +1,718 @@
+/* ================================
+   ADMIN PAYMENT CONFIRMATIONS
+   Lista potwierdzeń płatności
+   ================================ */
+
+/* ================================
+   PAGE LAYOUT
+   Reuse: .page-header, .quick-filters, .table-container, .orders-table
+   z orders-list.css (ładowane z base_admin)
+   ================================ */
+
+.pc-list-page {
+    padding: 2rem;
+}
+
+/* Text utility (na wypadek braku globalnej definicji) */
+.pc-list-page .text-muted {
+    color: #999;
+}
+
+[data-theme="dark"] .pc-list-page .text-muted {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Quick filter badges z licznikiem */
+.filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.1);
+    margin-left: 4px;
+}
+
+.filter-btn.active .filter-count {
+    background: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+[data-theme="dark"] .filter-count {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .filter-btn.active .filter-count {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Wiersze oczekujące - subtelne podświetlenie */
+.orders-table tbody tr.row-pending {
+    background: #fffde7;
+}
+
+[data-theme="dark"] .orders-table tbody tr.row-pending {
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.orders-table tbody tr.row-pending:hover {
+    background: #fff9c4;
+}
+
+[data-theme="dark"] .orders-table tbody tr.row-pending:hover {
+    background: rgba(255, 193, 7, 0.08);
+}
+
+/* Rejection reason hint pod badge */
+.rejection-reason-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 4px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .rejection-reason-hint {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Status badges specyficzne dla payment confirmations */
+.pc-badge-pending {
+    background-color: #FF9800 !important;
+    color: #fff !important;
+}
+
+.pc-badge-approved {
+    background-color: #4CAF50 !important;
+    color: #fff !important;
+}
+
+.pc-badge-rejected {
+    background-color: #F44336 !important;
+    color: #fff !important;
+}
+
+/* ================================
+   STAGE BADGE
+   ================================ */
+
+.pc-stage-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+[data-theme="dark"] .pc-stage-badge {
+    background: rgba(33, 150, 243, 0.15);
+    color: #64b5f6;
+}
+
+/* ================================
+   THUMBNAIL (w tabeli)
+   ================================ */
+
+.pc-thumbnail-wrapper {
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.pc-thumbnail {
+    max-height: 50px;
+    max-width: 70px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid #e0e0e0;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.pc-thumbnail:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .pc-thumbnail {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .pc-thumbnail:hover {
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.2);
+}
+
+.pc-thumbnail-pdf {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    background: #f5f5f5;
+    font-size: 11px;
+    font-weight: 700;
+    color: #666;
+}
+
+[data-theme="dark"] .pc-thumbnail-pdf {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ================================
+   ACTION BUTTONS (w tabeli)
+   ================================ */
+
+.pc-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.pc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.pc-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pc-btn-approve {
+    background: #4CAF50;
+    color: #fff;
+}
+
+.pc-btn-approve:hover:not(:disabled) {
+    background: #388E3C;
+}
+
+.pc-btn-reject {
+    background: #e53935;
+    color: #fff;
+}
+
+.pc-btn-reject:hover:not(:disabled) {
+    background: #c62828;
+}
+
+[data-theme="dark"] .pc-btn-approve {
+    background: rgba(76, 175, 80, 0.8);
+}
+
+[data-theme="dark"] .pc-btn-approve:hover:not(:disabled) {
+    background: rgba(76, 175, 80, 1);
+}
+
+[data-theme="dark"] .pc-btn-reject {
+    background: rgba(229, 57, 53, 0.8);
+}
+
+[data-theme="dark"] .pc-btn-reject:hover:not(:disabled) {
+    background: rgba(229, 57, 53, 1);
+}
+
+/* ================================
+   LOADING STATE
+   ================================ */
+
+.pc-btn.loading {
+    position: relative;
+    color: transparent;
+    pointer-events: none;
+}
+
+.pc-btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    top: 50%;
+    left: 50%;
+    margin-top: -7px;
+    margin-left: -7px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: pc-spinner 0.6s linear infinite;
+}
+
+@keyframes pc-spinner {
+    to { transform: rotate(360deg); }
+}
+
+/* ================================
+   LIGHTBOX
+   ================================ */
+
+.pc-lightbox {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 40px;
+    box-sizing: border-box;
+}
+
+.pc-lightbox.active {
+    display: flex;
+}
+
+.pc-lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 24px;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 36px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    z-index: 10001;
+    line-height: 1;
+}
+
+.pc-lightbox-close:hover {
+    opacity: 1;
+}
+
+.pc-lightbox-image {
+    max-width: 90%;
+    max-height: 70vh;
+    border-radius: 8px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+    object-fit: contain;
+}
+
+.pc-lightbox-pdf {
+    width: 90%;
+    height: 70vh;
+    border: none;
+    border-radius: 8px;
+}
+
+.pc-lightbox-info {
+    margin-top: 20px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+}
+
+.pc-lightbox-info strong {
+    color: #fff;
+}
+
+.pc-lightbox-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.pc-lightbox-actions .pc-btn {
+    padding: 10px 24px;
+    font-size: 14px;
+    border-radius: 8px;
+}
+
+/* ================================
+   CONFIRM MODAL (approve)
+   Używa .modal-overlay z modals.css
+   ================================ */
+
+.pc-confirm-icon {
+    margin-bottom: 16px;
+}
+
+.pc-confirm-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 8px 0;
+}
+
+[data-theme="dark"] .pc-confirm-title {
+    color: #ffffff;
+}
+
+.pc-confirm-text {
+    font-size: 14px;
+    color: #666;
+    margin: 0 0 24px 0;
+}
+
+[data-theme="dark"] .pc-confirm-text {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.pc-confirm-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.pc-confirm-actions .pc-btn {
+    padding: 10px 24px;
+    font-size: 14px;
+}
+
+/* ================================
+   REJECT MODAL
+   Używa .modal-overlay z modals.css
+   ================================ */
+
+.pc-reject-header-title {
+    color: #c62828 !important;
+}
+
+[data-theme="dark"] .pc-reject-header-title {
+    color: #e57373 !important;
+}
+
+.pc-reject-textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.pc-reject-textarea.error {
+    border-color: #e53935 !important;
+}
+
+.pc-reject-error {
+    font-size: 12px;
+    color: #e53935;
+    margin-top: 6px;
+    display: none;
+}
+
+.pc-reject-error.visible {
+    display: block;
+}
+
+/* ================================
+   EMPTY STATE
+   Reuse: .empty-state z orders-list.css
+   ================================ */
+
+/* ================================
+   PAYMENT CONFIRMATION WIDGET
+   (for order detail page)
+   ================================ */
+
+.pc-widget {
+    margin-top: 16px;
+}
+
+.pc-widget-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.pc-widget-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+[data-theme="dark"] .pc-widget-header h4 {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.pc-widget-content {
+    background: #f8f8ff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+[data-theme="dark"] .pc-widget-content {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+.pc-widget-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+}
+
+.pc-widget-row + .pc-widget-row {
+    border-top: 1px solid #f0f0f0;
+}
+
+[data-theme="dark"] .pc-widget-row + .pc-widget-row {
+    border-top-color: rgba(255, 255, 255, 0.05);
+}
+
+.pc-widget-label {
+    font-size: 13px;
+    color: #888;
+}
+
+[data-theme="dark"] .pc-widget-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.pc-widget-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+[data-theme="dark"] .pc-widget-value {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.pc-widget-thumbnail {
+    max-height: 48px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #e0e0e0;
+}
+
+[data-theme="dark"] .pc-widget-thumbnail {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+.pc-widget-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.pc-widget-empty {
+    text-align: center;
+    padding: 16px;
+    color: #999;
+    font-size: 13px;
+    font-style: italic;
+}
+
+[data-theme="dark"] .pc-widget-empty {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Status badge reuse w widgecie */
+.pc-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pc-status-badge.pending {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+.pc-status-badge.approved {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.pc-status-badge.rejected {
+    background: #fbe9e7;
+    color: #c62828;
+}
+
+[data-theme="dark"] .pc-status-badge.pending {
+    background: rgba(255, 152, 0, 0.2);
+    color: #ffb74d;
+}
+
+[data-theme="dark"] .pc-status-badge.approved {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+}
+
+[data-theme="dark"] .pc-status-badge.rejected {
+    background: rgba(244, 67, 54, 0.2);
+    color: #e57373;
+}
+
+/* ================================
+   DASHBOARD WIDGET
+   ================================ */
+
+.pc-dashboard-widget {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #fff3e0;
+    border: 1px solid #ffcc80;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    transition: background-color 0.2s;
+}
+
+.pc-dashboard-widget:hover {
+    background: #ffe0b2;
+}
+
+[data-theme="dark"] .pc-dashboard-widget {
+    background: rgba(255, 152, 0, 0.1);
+    border-color: rgba(255, 152, 0, 0.25);
+}
+
+[data-theme="dark"] .pc-dashboard-widget:hover {
+    background: rgba(255, 152, 0, 0.15);
+}
+
+.pc-dashboard-widget-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.pc-dashboard-widget-icon {
+    font-size: 28px;
+}
+
+.pc-dashboard-widget-text h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #e65100;
+}
+
+[data-theme="dark"] .pc-dashboard-widget-text h3 {
+    color: #ffb74d;
+}
+
+.pc-dashboard-widget-text p {
+    margin: 2px 0 0 0;
+    font-size: 13px;
+    color: #bf360c;
+}
+
+[data-theme="dark"] .pc-dashboard-widget-text p {
+    color: rgba(255, 183, 77, 0.7);
+}
+
+.pc-dashboard-widget-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    background: #e65100;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.pc-dashboard-widget-link:hover {
+    background: #bf360c;
+    color: #fff;
+    text-decoration: none;
+}
+
+[data-theme="dark"] .pc-dashboard-widget-link {
+    background: rgba(255, 152, 0, 0.6);
+}
+
+[data-theme="dark"] .pc-dashboard-widget-link:hover {
+    background: rgba(255, 152, 0, 0.8);
+}
+
+/* ================================
+   RESPONSIVE
+   ================================ */
+
+@media (max-width: 768px) {
+    .pc-list-page {
+        padding: 1rem;
+    }
+
+    /* Ukryj kolumny na mobile */
+    .pc-list-page .orders-table th.hide-mobile,
+    .pc-list-page .orders-table td.hide-mobile {
+        display: none;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .quick-filters {
+        flex-wrap: wrap;
+    }
+
+    .pc-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .pc-btn {
+        padding: 8px 12px;
+        font-size: 11px;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pc-lightbox {
+        padding: 20px;
+    }
+
+    .pc-lightbox-image {
+        max-width: 100%;
+        max-height: 60vh;
+    }
+
+    .pc-lightbox-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .pc-lightbox-actions .pc-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .pc-dashboard-widget {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+}

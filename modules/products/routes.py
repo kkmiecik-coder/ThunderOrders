@@ -14,7 +14,9 @@ from uuid import uuid4
 from modules.products import products_bp
 from modules.products.models import (
     Product, Category, Tag, Supplier, ProductImage, product_tags,
-    StockOrder, StockOrderItem, Manufacturer, ProductSeries, VariantGroup
+    ProxyOrder, ProxyOrderItem, StockOrder, StockOrderItem,
+    PolandOrder, PolandOrderItem,
+    Manufacturer, ProductSeries, VariantGroup
 )
 from modules.products.forms import (
     ProductForm, CategoryForm, TagForm, SupplierForm,
@@ -466,12 +468,12 @@ def delete_product(product_id):
     product_name = product.name
 
     try:
-        # Check if product is referenced in stock_order_items
-        is_in_stock_orders = db.session.query(StockOrderItem).filter(
-            StockOrderItem.product_id == product_id
+        # Check if product is referenced in proxy_order_items
+        is_in_proxy_orders = db.session.query(ProxyOrderItem).filter(
+            ProxyOrderItem.product_id == product_id
         ).first() is not None
 
-        if is_in_stock_orders:
+        if is_in_proxy_orders:
             # Soft delete - just deactivate
             product.is_active = False
             db.session.commit()
@@ -786,18 +788,18 @@ def bulk_delete():
         return jsonify({'error': 'Nie wybrano żadnych produktów.'}), 400
 
     try:
-        # Check which products are referenced in stock_order_items
-        products_in_stock_orders = db.session.query(Product.id).join(
-            StockOrderItem, Product.id == StockOrderItem.product_id
+        # Check which products are referenced in proxy_order_items
+        products_in_proxy_orders = db.session.query(Product.id).join(
+            ProxyOrderItem, Product.id == ProxyOrderItem.product_id
         ).filter(Product.id.in_(product_ids)).distinct().all()
 
-        products_in_stock_orders_ids = [p.id for p in products_in_stock_orders]
+        products_in_proxy_orders_ids = [p.id for p in products_in_proxy_orders]
 
-        # Products that can be safely deleted (not in stock orders)
-        products_to_delete = [pid for pid in product_ids if pid not in products_in_stock_orders_ids]
+        # Products that can be safely deleted (not in proxy orders)
+        products_to_delete = [pid for pid in product_ids if pid not in products_in_proxy_orders_ids]
 
-        # Products that need soft delete (in stock orders)
-        products_to_deactivate = products_in_stock_orders_ids
+        # Products that need soft delete (in proxy orders)
+        products_to_deactivate = products_in_proxy_orders_ids
 
         deleted_count = 0
         deactivated_count = 0
@@ -2037,10 +2039,10 @@ def get_tag(id):
 def get_products_to_order():
     """
     Calculate products that need to be ordered based on customer orders.
-    Returns list of products with aggregated quantities minus already ordered in StockOrders.
+    Returns list of products with aggregated quantities minus already ordered in ProxyOrders.
     """
-    from modules.products.models import StockOrder, StockOrderItem
-    from modules.orders.models import Order, OrderItem
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+    from modules.orders.models import Order, OrderItem, PaymentConfirmation
     from modules.auth.models import Settings
     from sqlalchemy import func
     import json
@@ -2063,52 +2065,72 @@ def get_products_to_order():
     if not aggregation_types or not aggregation_statuses:
         return []
 
-    # Step 1: Aggregate products from customer orders
-    # Query: SUM(quantity) GROUP BY product_id for orders matching criteria
+    # Step 1: Agregacja produktów z zamówień klientów
+    # GROUP BY (product_id, payment_stages) — osobny wiersz per typ płatności
+    # Tylko zamówienia z zaakceptowanym E1 (płatność za produkt)
     customer_orders_subq = db.session.query(
         OrderItem.product_id,
+        Order.payment_stages,
         func.sum(OrderItem.quantity).label('total_ordered')
     ).join(
         Order, OrderItem.order_id == Order.id
+    ).join(
+        PaymentConfirmation,
+        db.and_(
+            PaymentConfirmation.order_id == Order.id,
+            PaymentConfirmation.payment_stage == 'product',
+            PaymentConfirmation.status == 'approved'
+        )
     ).filter(
         Order.order_type.in_(aggregation_types),
         Order.status.in_(aggregation_statuses)
-    ).group_by(OrderItem.product_id).subquery()
+    ).group_by(OrderItem.product_id, Order.payment_stages).subquery()
 
-    # Step 2: Aggregate products already in stock orders (not cancelled)
-    stock_orders_subq = db.session.query(
-        StockOrderItem.product_id,
-        func.sum(StockOrderItem.quantity).label('already_ordered')
+    # Step 2: Produkty już zamówione u dostawców (nie anulowane) — per (product_id, order_type)
+    already_ordered_subq = db.session.query(
+        ProxyOrderItem.product_id,
+        ProxyOrder.order_type,
+        func.sum(ProxyOrderItem.quantity).label('already_ordered')
     ).join(
-        StockOrder, StockOrderItem.stock_order_id == StockOrder.id
+        ProxyOrder, ProxyOrderItem.proxy_order_id == ProxyOrder.id
     ).filter(
-        StockOrder.status != 'anulowane'
-    ).group_by(StockOrderItem.product_id).subquery()
+        ProxyOrder.status != 'anulowane'
+    ).group_by(ProxyOrderItem.product_id, ProxyOrder.order_type).subquery()
 
-    # Step 3: Calculate difference - products that still need to be ordered
-    from sqlalchemy import case, literal_column
+    # Step 3: Pobierz produkty z zamówieniami klientów
     from sqlalchemy.sql import func as sql_func
-
     results = db.session.query(
         Product,
+        customer_orders_subq.c.payment_stages,
         customer_orders_subq.c.total_ordered,
-        sql_func.coalesce(stock_orders_subq.c.already_ordered, 0).label('already_ordered')
     ).join(
         customer_orders_subq, Product.id == customer_orders_subq.c.product_id
-    ).outerjoin(
-        stock_orders_subq, Product.id == stock_orders_subq.c.product_id
     ).all()
 
-    # Build result list with products that still need to be ordered
+    # Pobierz already_ordered per (product_id, payment_stages)
+    ORDER_TYPE_TO_STAGES = {'proxy': 4, 'polska': 3}
+    already_map = {}
+    for product_id, order_type, already in db.session.query(
+        already_ordered_subq.c.product_id,
+        already_ordered_subq.c.order_type,
+        already_ordered_subq.c.already_ordered
+    ).all():
+        ps = ORDER_TYPE_TO_STAGES.get(order_type)
+        if ps:
+            already_map[(product_id, ps)] = already_map.get((product_id, ps), 0) + already
+
+    # Buduj listę — odejmuj already_ordered per (product_id, payment_stages)
     products_to_order = []
-    for product, total_ordered, already_ordered in results:
-        to_order = total_ordered - already_ordered
+    for product, payment_stages, total_ordered in results:
+        already = already_map.get((product.id, payment_stages), 0)
+        to_order = total_ordered - already
         if to_order > 0:
             products_to_order.append({
                 'product': product,
                 'total_ordered': total_ordered,
-                'already_ordered': already_ordered,
-                'to_order': to_order
+                'already_ordered': already,
+                'to_order': to_order,
+                'payment_stages': payment_stages,
             })
 
     return products_to_order
@@ -2119,7 +2141,7 @@ def get_products_to_order():
 @role_required('admin', 'mod')
 def stock_orders():
     """Stock orders page with tabs for DO ZAMÓWIENIA, PROXY and Polska"""
-    from modules.products.models import StockOrder, ProductSeries, Manufacturer
+    from modules.products.models import ProxyOrder, PolandOrder, ProductSeries, Manufacturer
 
     # Get active tab from query parameter (default: do_zamowienia)
     active_tab = request.args.get('tab', 'do_zamowienia')
@@ -2129,23 +2151,30 @@ def stock_orders():
         active_tab = 'do_zamowienia'
 
     # Initialize variables
-    stock_orders_list = []
+    proxy_orders_list = []
+    poland_orders_list = []
     products_to_order = []
 
     # Always get counts for all tabs (for badges)
     all_products_to_order = get_products_to_order()
     to_order_count = len(all_products_to_order)
-    proxy_count = StockOrder.query.filter_by(order_type='proxy').count()
-    polska_count = StockOrder.query.filter_by(order_type='polska').count()
+    # Proxy tab: order_type='proxy' BEZ powiązanego PolandOrder
+    proxy_count = ProxyOrder.query.filter(
+        ProxyOrder.order_type == 'proxy',
+        ~ProxyOrder.poland_orders.any()
+    ).count()
+    polska_count = PolandOrder.query.count()
 
     # Get data based on active tab
     if active_tab == 'do_zamowienia':
-        # Use already fetched data
         products_to_order = all_products_to_order
     elif active_tab == 'proxy':
-        stock_orders_list = StockOrder.query.filter_by(order_type='proxy').order_by(StockOrder.created_at.desc()).all()
+        proxy_orders_list = ProxyOrder.query.filter(
+            ProxyOrder.order_type == 'proxy',
+            ~ProxyOrder.poland_orders.any()
+        ).order_by(ProxyOrder.created_at.desc()).all()
     else:  # polska
-        stock_orders_list = StockOrder.query.filter_by(order_type='polska').order_by(StockOrder.created_at.desc()).all()
+        poland_orders_list = PolandOrder.query.order_by(PolandOrder.created_at.desc()).all()
 
     # Get filter data for modal
     categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
@@ -2157,7 +2186,8 @@ def stock_orders():
     return render_template(
         'admin/warehouse/stock_orders.html',
         active_tab=active_tab,
-        stock_orders=stock_orders_list,
+        proxy_orders=proxy_orders_list,
+        poland_orders=poland_orders_list,
         products_to_order=products_to_order,
         to_order_count=to_order_count,
         proxy_count=proxy_count,
@@ -2246,7 +2276,7 @@ def search_products():
 @role_required('admin', 'mod')
 @csrf.exempt
 def create_stock_orders():
-    """Create multiple stock orders (one per product)"""
+    """Create multiple proxy orders (one per product)"""
     try:
         data = request.get_json()
         order_type = data.get('order_type', 'proxy')
@@ -2263,42 +2293,37 @@ def create_stock_orders():
             unit_price = product_data.get('unit_price', 0)
             currency = product_data.get('currency', 'PLN')
 
-            # Get product from database
             product = Product.query.get(product_id)
             if not product:
                 continue
 
-            # Generate unique order number
-            order_number = generate_stock_order_number(order_type)
+            order_number = generate_proxy_order_number()
 
-            # Calculate total
             total_price = unit_price * quantity
 
-            # Create stock order
-            stock_order = StockOrder(
+            proxy_order = ProxyOrder(
                 order_number=order_number,
                 order_type=order_type,
                 supplier_id=product.supplier_id,
-                status='nowe',
+                status='zamowiono',
                 total_amount=total_price,
-                currency='PLN',  # Already converted to PLN
+                currency='PLN',
                 total_amount_pln=total_price,
                 notes=f'Automatycznie utworzone zamówienie dla produktu: {product.name}'
             )
 
-            db.session.add(stock_order)
-            db.session.flush()  # Get stock_order.id
+            db.session.add(proxy_order)
+            db.session.flush()
 
-            # Create stock order item
-            stock_order_item = StockOrderItem(
-                stock_order_id=stock_order.id,
+            proxy_order_item = ProxyOrderItem(
+                proxy_order_id=proxy_order.id,
                 product_id=product_id,
                 quantity=quantity,
                 unit_price=unit_price,
                 total_price=total_price
             )
 
-            db.session.add(stock_order_item)
+            db.session.add(proxy_order_item)
             orders_created += 1
 
         db.session.commit()
@@ -2311,7 +2336,7 @@ def create_stock_orders():
 
     except Exception as e:
         db.session.rollback()
-        print(f"Error creating stock orders: {str(e)}")
+        print(f"Error creating proxy orders: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -2320,7 +2345,7 @@ def create_stock_orders():
 @role_required('admin', 'mod')
 @csrf.exempt
 def create_stock_orders_from_aggregation():
-    """Create stock orders from aggregated customer orders (DO ZAMÓWIENIA tab)"""
+    """Create proxy orders from aggregated customer orders (DO ZAMÓWIENIA tab)"""
     try:
         data = request.get_json()
         order_type = data.get('order_type', 'proxy')
@@ -2337,22 +2362,17 @@ def create_stock_orders_from_aggregation():
             quantity = product_data.get('quantity', 1)
             unit_price = product_data.get('unit_price', 0)
 
-            # Get product from database
             product = Product.query.get(product_id)
             if not product:
                 continue
 
-            # Use provided supplier_id or fallback to product's supplier
             final_supplier_id = supplier_id if supplier_id else product.supplier_id
 
-            # Generate unique order number
-            order_number = generate_stock_order_number(order_type)
+            order_number = generate_proxy_order_number()
 
-            # Calculate total
             total_price = unit_price * quantity
 
-            # Create stock order
-            stock_order = StockOrder(
+            proxy_order = ProxyOrder(
                 order_number=order_number,
                 order_type=order_type,
                 supplier_id=final_supplier_id,
@@ -2363,19 +2383,18 @@ def create_stock_orders_from_aggregation():
                 notes=f'Zamówienie z agregacji zamówień klientów - {product.name}'
             )
 
-            db.session.add(stock_order)
-            db.session.flush()  # Get stock_order.id
+            db.session.add(proxy_order)
+            db.session.flush()
 
-            # Create stock order item
-            stock_order_item = StockOrderItem(
-                stock_order_id=stock_order.id,
+            proxy_order_item = ProxyOrderItem(
+                proxy_order_id=proxy_order.id,
                 product_id=product_id,
                 quantity=quantity,
                 unit_price=unit_price,
                 total_price=total_price
             )
 
-            db.session.add(stock_order_item)
+            db.session.add(proxy_order_item)
             orders_created += 1
 
         db.session.commit()
@@ -2388,67 +2407,333 @@ def create_stock_orders_from_aggregation():
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error creating stock orders from aggregation: {str(e)}")
+        current_app.logger.error(f"Error creating proxy orders from aggregation: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@products_bp.route('/stock-orders/<int:id>/status', methods=['PUT'])
+@products_bp.route('/api/create-group-proxy-order', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
 @csrf.exempt
-def update_stock_order_status(id):
-    """Update stock order status"""
+def create_group_proxy_order():
+    """
+    Tworzy grupowe zamówienie.
+    order_type='proxy' (payment_stages=4) → proxy_orders, status='zamowiono'
+    order_type='polska' (payment_stages=3) → proxy_orders + poland_orders, status='zamowione'
+    """
     try:
         data = request.get_json()
-        new_status = data.get('status')
+        products_data = data.get('products', [])
+        order_type = data.get('order_type', 'proxy')
+        note = data.get('note', '').strip()
 
-        # Validate status
-        valid_statuses = ['nowe', 'oczekujace', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny', 'dostarczone_gom', 'anulowane']
-        if new_status not in valid_statuses:
-            return jsonify({'success': False, 'error': 'Nieprawidłowy status'}), 400
+        if not products_data:
+            return jsonify({'success': False, 'error': 'Brak produktów'}), 400
 
-        stock_order = StockOrder.query.get_or_404(id)
-        old_status = stock_order.status
+        # Always create a proxy order first
+        proxy_order_number = generate_proxy_order_number()
 
-        # Update status
-        stock_order.status = new_status
+        proxy_order = ProxyOrder(
+            order_number=proxy_order_number,
+            order_type=order_type,
+            status='zamowiono',
+            total_amount=0,
+            currency='PLN',
+            total_amount_pln=0,
+            notes=note if note else f'Zamówienie grupowe ({len(products_data)} produktów)'
+        )
+        db.session.add(proxy_order)
+        db.session.flush()
 
-        # When status CHANGES TO "dostarczone_gom", move order to POLSKA tab AND ADD to product stock
-        if new_status == 'dostarczone_gom' and old_status != 'dostarczone_gom':
-            stock_order.order_type = 'polska'
+        total_amount_pln = 0
+        proxy_items = []
+        for item_data in products_data:
+            product = Product.query.get(item_data.get('product_id'))
+            if not product:
+                continue
 
-            # Update product stock for each item in the order (ADD)
-            for item in stock_order.items:
-                if item.product:
-                    item.product.quantity = (item.product.quantity or 0) + item.quantity
-                    current_app.logger.info(
-                        f"Stock ADDED for product {item.product.id} ({item.product.name}): "
-                        f"+{item.quantity}, new quantity: {item.product.quantity}"
-                    )
+            quantity = item_data.get('quantity', 1)
+            unit_price = item_data.get('unit_price', 0)
+            total_price = quantity * unit_price
 
-        # When status CHANGES FROM "dostarczone_gom" to something else, SUBTRACT from product stock
-        elif old_status == 'dostarczone_gom' and new_status != 'dostarczone_gom':
-            stock_order.order_type = 'proxy'  # Move back to PROXY tab
+            proxy_order_item = ProxyOrderItem(
+                proxy_order_id=proxy_order.id,
+                product_id=product.id,
+                quantity=quantity,
+                unit_price=unit_price,
+                total_price=total_price
+            )
+            db.session.add(proxy_order_item)
+            db.session.flush()
+            proxy_items.append(proxy_order_item)
+            total_amount_pln += total_price
 
-            # Update product stock for each item in the order (SUBTRACT)
-            for item in stock_order.items:
-                if item.product:
-                    item.product.quantity = (item.product.quantity or 0) - item.quantity
-                    current_app.logger.info(
-                        f"Stock SUBTRACTED for product {item.product.id} ({item.product.name}): "
-                        f"-{item.quantity}, new quantity: {item.product.quantity}"
-                    )
+        proxy_order.total_amount = total_amount_pln
+        proxy_order.total_amount_pln = total_amount_pln
+
+        first_supplier_id = products_data[0].get('supplier_id') if products_data else None
+        if first_supplier_id:
+            proxy_order.supplier_id = first_supplier_id
+
+        result_order_number = proxy_order_number
+        result_tab = 'proxy'
+
+        # For polska type, also create a PolandOrder linked to this proxy order
+        if order_type == 'polska':
+            poland_order_number = generate_poland_order_number()
+
+            poland_order = PolandOrder(
+                order_number=poland_order_number,
+                proxy_order_id=proxy_order.id,
+                status='zamowione',
+                total_amount=total_amount_pln,
+                notes=note if note else None,
+            )
+            db.session.add(poland_order)
+            db.session.flush()
+
+            for proxy_item in proxy_items:
+                poland_item = PolandOrderItem(
+                    poland_order_id=poland_order.id,
+                    proxy_order_item_id=proxy_item.id,
+                    product_id=proxy_item.product_id,
+                    quantity=proxy_item.quantity,
+                )
+                db.session.add(poland_item)
+
+            result_order_number = poland_order_number
+            result_tab = 'polska'
 
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'message': f'Status zamówienia {stock_order.order_number} został zmieniony z {old_status} na {new_status}'
+            'order_number': result_order_number,
+            'order_id': proxy_order.id,
+            'tab': result_tab
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating group proxy order: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _update_client_orders_if_fully_delivered(proxy_order_type):
+    """
+    Sprawdź czy zamówienia klientów mają wszystkie produkty dostarczone do proxy.
+    Mapowanie: proxy order type 'polska' → payment_stages=3, 'proxy' → payment_stages=4.
+    Jeśli suma dostarczonych >= suma zamówionych per produkt → zmień status klienta.
+    """
+    from modules.orders.models import Order, OrderItem, PaymentConfirmation
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+    from sqlalchemy import func
+
+    ORDER_TYPE_TO_STAGES = {'polska': 3, 'proxy': 4}
+    target_stages = ORDER_TYPE_TO_STAGES.get(proxy_order_type)
+    if not target_stages:
+        return
+
+    # Ile dostarczono per produkt (proxy orders ze statusem 'dostarczone_do_proxy' i odpowiednim typem)
+    delivered = dict(
+        db.session.query(
+            ProxyOrderItem.product_id,
+            func.sum(ProxyOrderItem.quantity)
+        ).join(ProxyOrder).filter(
+            ProxyOrder.status == 'dostarczone_do_proxy',
+            ProxyOrder.order_type == proxy_order_type
+        ).group_by(ProxyOrderItem.product_id).all()
+    )
+
+    if not delivered:
+        return
+
+    # Pobierz zamówienia klientów z odpowiednim payment_stages i statusem 'oczekujace'
+    client_orders = Order.query.filter(
+        Order.payment_stages == target_stages,
+        Order.status == 'oczekujace',
+        Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
+    ).all()
+
+    # Dla każdego sprawdź czy wszystkie produkty są pokryte
+    # Liczymy kumulatywnie — "zużywamy" dostarczone ilości od zamówień
+    remaining_delivered = dict(delivered)
+
+    for order in client_orders:
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        all_covered = True
+
+        for item in items:
+            if item.quantity <= 0:
+                continue
+            available = remaining_delivered.get(item.product_id, 0)
+            if available < item.quantity:
+                all_covered = False
+                break
+
+        if all_covered:
+            # "Zużyj" dostarczone ilości
+            for item in items:
+                if item.quantity > 0:
+                    remaining_delivered[item.product_id] = remaining_delivered.get(item.product_id, 0) - item.quantity
+            order.status = 'dostarczone_proxy'
+
+
+def _update_client_orders_on_customs(poland_order):
+    """
+    Gdy zamówienie Poland przechodzi na 'urzad_celny', zmień status zamówień klientów
+    których produkty są w tej paczce na 'urzad_celny'.
+    Analogicznie do _update_client_orders_on_gom_delivery.
+    """
+    from modules.orders.models import Order, OrderItem
+    from modules.products.models import PolandOrder, PolandOrderItem
+    from sqlalchemy import func, or_, and_
+
+    # Ile jest w urzędzie celnym per produkt (poland orders ze statusem 'urzad_celny')
+    at_customs = dict(
+        db.session.query(
+            PolandOrderItem.product_id,
+            func.sum(PolandOrderItem.quantity)
+        ).join(PolandOrder).filter(
+            PolandOrder.status == 'urzad_celny'
+        ).group_by(PolandOrderItem.product_id).all()
+    )
+
+    if not at_customs:
+        return
+
+    # Zamówienia klientów:
+    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace' → 'urzad_celny'
+    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy' → 'urzad_celny'
+    client_orders = Order.query.filter(
+        or_(
+            and_(Order.payment_stages == 3, Order.status == 'oczekujace'),
+            and_(Order.payment_stages == 4, Order.status == 'dostarczone_proxy'),
+        ),
+        Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
+    ).all()
+
+    remaining = dict(at_customs)
+
+    for order in client_orders:
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        all_covered = True
+
+        for item in items:
+            if item.quantity <= 0:
+                continue
+            available = remaining.get(item.product_id, 0)
+            if available < item.quantity:
+                all_covered = False
+                break
+
+        if all_covered:
+            for item in items:
+                if item.quantity > 0:
+                    remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
+            order.status = 'urzad_celny'
+
+
+def _update_client_orders_on_gom_delivery():
+    """
+    Sprawdź czy zamówienia klientów mają wszystkie produkty dostarczone do GOM.
+    Dotyczy zamówień klientów z payment_stages=3 (polska) i statusem 'dostarczone_proxy'.
+    Jeśli suma dostarczonych do GOM >= suma zamówionych per produkt → zmień status na 'dostarczone_gom'.
+    """
+    from modules.orders.models import Order, OrderItem
+    from modules.products.models import PolandOrder, PolandOrderItem
+    from sqlalchemy import func
+
+    # Ile dostarczono do GOM per produkt (poland orders ze statusem 'dostarczone_gom')
+    delivered = dict(
+        db.session.query(
+            PolandOrderItem.product_id,
+            func.sum(PolandOrderItem.quantity)
+        ).join(PolandOrder).filter(
+            PolandOrder.status == 'dostarczone_gom'
+        ).group_by(PolandOrderItem.product_id).all()
+    )
+
+    if not delivered:
+        return
+
+    # Zamówienia klientów:
+    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace' lub 'urzad_celny' → 'dostarczone_gom'
+    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy' lub 'urzad_celny' → 'dostarczone_gom'
+    from sqlalchemy import or_, and_
+    client_orders = Order.query.filter(
+        or_(
+            and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'urzad_celny'])),
+            and_(Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'urzad_celny'])),
+        ),
+        Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
+    ).all()
+
+    remaining_delivered = dict(delivered)
+
+    for order in client_orders:
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        all_covered = True
+
+        for item in items:
+            if item.quantity <= 0:
+                continue
+            available = remaining_delivered.get(item.product_id, 0)
+            if available < item.quantity:
+                all_covered = False
+                break
+
+        if all_covered:
+            for item in items:
+                if item.quantity > 0:
+                    remaining_delivered[item.product_id] = remaining_delivered.get(item.product_id, 0) - item.quantity
+            order.status = 'dostarczone_gom'
+
+
+@products_bp.route('/proxy-orders/<int:order_id>/status', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def update_proxy_order_status(order_id):
+    """Update proxy order status"""
+    from modules.orders.models import Order
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+
+        valid_statuses = ['zamowiono', 'dostarczone_do_proxy', 'anulowane']
+        if new_status not in valid_statuses:
+            return jsonify({'success': False, 'error': 'Nieprawidłowy status'}), 400
+
+        proxy_order = ProxyOrder.query.get_or_404(order_id)
+        old_status = proxy_order.status
+
+        proxy_order.status = new_status
+
+        # Gdy status zmienia się na 'dostarczone_do_proxy', sprawdź zamówienia klientów
+        if new_status == 'dostarczone_do_proxy' and old_status != 'dostarczone_do_proxy':
+            _update_client_orders_if_fully_delivered(proxy_order.order_type)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'new_status': new_status,
+            'message': f'Status zamówienia {proxy_order.order_number} zmieniony z {old_status} na {new_status}'
         })
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating stock order status: {str(e)}")
+        print(f"Error updating proxy order status: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# Keep old endpoint for backward compatibility
+@products_bp.route('/stock-orders/<int:id>/status', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def update_stock_order_status(id):
+    """Backward compatible - redirects to proxy order status update"""
+    return update_proxy_order_status(id)
 
 
 @products_bp.route('/stock-orders/<int:id>/delete', methods=['DELETE'])
@@ -2456,24 +2741,102 @@ def update_stock_order_status(id):
 @role_required('admin')
 @csrf.exempt
 def delete_stock_order(id):
-    """Delete stock order (admin only)"""
+    """Delete proxy order (admin only)"""
     try:
-        stock_order = StockOrder.query.get_or_404(id)
+        proxy_order = ProxyOrder.query.get_or_404(id)
 
-        # Delete associated items (should cascade automatically, but being explicit)
-        StockOrderItem.query.filter_by(stock_order_id=id).delete()
-
-        # Delete the order
-        db.session.delete(stock_order)
+        db.session.delete(proxy_order)
         db.session.commit()
 
         return jsonify({
             'success': True,
-            'message': f'Zamówienie {stock_order.order_number} zostało usunięte'
+            'message': f'Zamówienie {proxy_order.order_number} zostało usunięte'
         })
     except Exception as e:
         db.session.rollback()
-        print(f"Error deleting stock order: {str(e)}")
+        print(f"Error deleting proxy order: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/poland-orders/<int:order_id>/status', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def update_poland_order_status(order_id):
+    """Update Poland order status"""
+    from modules.orders.models import Order
+    try:
+        data = request.get_json()
+        new_status = data.get('status')
+
+        valid_statuses = ['zamowione', 'urzad_celny', 'dostarczone_gom', 'anulowane']
+        if new_status not in valid_statuses:
+            return jsonify({'success': False, 'error': 'Nieprawidłowy status'}), 400
+
+        poland_order = PolandOrder.query.get_or_404(order_id)
+        old_status = poland_order.status
+
+        poland_order.status = new_status
+
+        # Gdy status zmienia się na 'urzad_celny', zaktualizuj zamówienia klientów
+        if new_status == 'urzad_celny' and old_status != 'urzad_celny':
+            _update_client_orders_on_customs(poland_order)
+
+        # Gdy status zmienia się na 'dostarczone_gom', sprawdź zamówienia klientów
+        if new_status == 'dostarczone_gom' and old_status != 'dostarczone_gom':
+            _update_client_orders_on_gom_delivery()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'new_status': new_status,
+            'message': f'Status zamówienia {poland_order.order_number} zmieniony z {old_status} na {new_status}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating Poland order status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/poland-orders/<int:id>/delete', methods=['DELETE'])
+@login_required
+@role_required('admin')
+@csrf.exempt
+def delete_poland_order(id):
+    """Delete Poland order (admin only)"""
+    try:
+        poland_order = PolandOrder.query.get_or_404(id)
+        proxy_order = poland_order.proxy_order
+
+        db.session.delete(poland_order)
+
+        if proxy_order:
+            if proxy_order.order_type == 'polska':
+                # Zamówienie złożone bezpośrednio jako polska — usuń też ProxyOrder
+                db.session.delete(proxy_order)
+                message = f'Zamówienie {poland_order.order_number} zostało usunięte.'
+            else:
+                # Zamówienie przeniesione z Proxy — wyczyść shipping i zwróć do Proxy
+                proxy_order.shipping_cost_total = 0
+                proxy_order.shipping_cost_declared = 0
+                proxy_order.shipping_cost_difference = 0
+                for item in proxy_order.items:
+                    item.shipping_cost_per_item = 0
+                    item.shipping_cost_total = 0
+                message = f'Zamówienie {poland_order.order_number} usunięte. Zamówienie proxy wróciło do zakładki Proxy.'
+        else:
+            message = f'Zamówienie {poland_order.order_number} zostało usunięte.'
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': message
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting Poland order: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -2482,25 +2845,23 @@ def delete_stock_order(id):
 @role_required('admin', 'mod')
 @csrf.exempt
 def move_stock_order(id):
-    """Move stock order between PROXY and POLSKA tabs (change order_type)"""
+    """Move proxy order between PROXY and POLSKA tabs (change order_type)"""
     try:
         data = request.get_json()
         new_order_type = data.get('order_type')
 
-        # Validate order_type
         if new_order_type not in ['proxy', 'polska']:
             return jsonify({'success': False, 'error': 'Nieprawidłowy typ zamówienia'}), 400
 
-        stock_order = StockOrder.query.get_or_404(id)
-        old_order_type = stock_order.order_type
+        proxy_order = ProxyOrder.query.get_or_404(id)
+        old_order_type = proxy_order.order_type
 
-        # Only update if different
         if old_order_type != new_order_type:
-            stock_order.order_type = new_order_type
+            proxy_order.order_type = new_order_type
             db.session.commit()
 
             current_app.logger.info(
-                f"Stock order {stock_order.order_number} moved from {old_order_type} to {new_order_type}"
+                f"Proxy order {proxy_order.order_number} moved from {old_order_type} to {new_order_type}"
             )
 
         return jsonify({
@@ -2512,31 +2873,367 @@ def move_stock_order(id):
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Error moving stock order: {str(e)}")
+        current_app.logger.error(f"Error moving proxy order: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def generate_stock_order_number(order_type):
-    """Generate unique order number in format SO/PROXY/00001 or SO/PL/00001"""
-    prefix = 'SO/PROXY/' if order_type == 'proxy' else 'SO/PL/'
+def generate_proxy_order_number():
+    """Generate unique order number in format PRX/00001"""
+    last_order = ProxyOrder.query.filter(
+        ProxyOrder.order_number.like('PRX/%'),
+        ~ProxyOrder.order_number.like('PRX/PL/%')
+    ).order_by(ProxyOrder.id.desc()).first()
 
-    # Find the latest order number with this prefix
-    latest_order = StockOrder.query.filter(
-        StockOrder.order_number.like(f'{prefix}%')
-    ).order_by(StockOrder.id.desc()).first()
-
-    if latest_order:
-        # Extract number from order_number (e.g., "SO/PROXY/00001" -> 1)
+    if last_order:
         try:
-            last_number = int(latest_order.order_number.split('/')[-1])
-            next_number = last_number + 1
+            last_num = int(last_order.order_number.split('/')[-1])
+            new_num = last_num + 1
         except ValueError:
-            next_number = 1
+            new_num = 1
     else:
-        next_number = 1
+        new_num = 1
 
-    # Format: SO/PROXY/00001 (5 digits with leading zeros)
-    return f'{prefix}{next_number:05d}'
+    return f'PRX/{new_num:05d}'
+
+
+def generate_poland_order_number():
+    """Generate unique order number in format PL/00001 (direct 3-payment orders)"""
+    last_order = PolandOrder.query.filter(
+        PolandOrder.order_number.like('PL/%'),
+        ~PolandOrder.order_number.like('PRX/PL/%')
+    ).order_by(PolandOrder.id.desc()).first()
+
+    if last_order:
+        try:
+            last_num = int(last_order.order_number.split('/')[-1])
+            new_num = last_num + 1
+        except ValueError:
+            new_num = 1
+    else:
+        new_num = 1
+
+    return f'PL/{new_num:05d}'
+
+
+def generate_proxy_to_poland_number():
+    """Generate unique order number in format PRX/PL/00001 (created from PROXY tab modal)"""
+    last_order = PolandOrder.query.filter(
+        PolandOrder.order_number.like('PRX/PL/%')
+    ).order_by(PolandOrder.id.desc()).first()
+
+    if last_order:
+        try:
+            last_num = int(last_order.order_number.split('/')[-1])
+            new_num = last_num + 1
+        except ValueError:
+            new_num = 1
+    else:
+        new_num = 1
+
+    return f'PRX/PL/{new_num:05d}'
+
+
+@products_bp.route('/api/get-proxy-orders-details', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def get_proxy_orders_details():
+    """Get proxy order details for Poland order modal"""
+    try:
+        data = request.get_json()
+        order_ids = data.get('proxy_order_ids', [])
+
+        proxy_orders = ProxyOrder.query.filter(ProxyOrder.id.in_(order_ids)).all()
+
+        orders_data = []
+        for order in proxy_orders:
+            items_data = []
+            for item in order.items:
+                primary_image = item.product.primary_image
+                image_url = url_for('static', filename=f'uploads/products/compressed/{primary_image.filename}') if primary_image else url_for('static', filename='img/product-placeholder.svg')
+
+                items_data.append({
+                    'id': item.id,
+                    'product': {
+                        'id': item.product.id,
+                        'name': item.product.name,
+                        'image_url': image_url
+                    },
+                    'quantity': item.quantity,
+                    'unit_price': float(item.unit_price) if item.unit_price else 0,
+                    'total_price': float(item.total_price) if item.total_price else 0
+                })
+
+            orders_data.append({
+                'id': order.id,
+                'order_number': order.order_number,
+                'items': items_data
+            })
+
+        return jsonify({
+            'success': True,
+            'orders': orders_data
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/api/create-poland-order', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def create_poland_order():
+    """Create a Poland order from proxy orders with shipping costs"""
+    from decimal import Decimal
+    try:
+        data = request.get_json()
+        proxy_order_ids = data.get('proxy_order_ids', [])
+        shipping_cost_total = Decimal(str(data.get('shipping_cost_total', 0)))
+        tracking_number = data.get('tracking_number', '').strip()
+        items_data = data.get('items', [])
+        note = data.get('note', '').strip()
+
+        if not proxy_order_ids:
+            return jsonify({'success': False, 'error': 'Brak zamówień Proxy'}), 400
+
+        poland_number = generate_proxy_to_poland_number()
+
+        main_proxy_order = ProxyOrder.query.get(proxy_order_ids[0])
+        if not main_proxy_order:
+            return jsonify({'success': False, 'error': 'Nie znaleziono zamówienia Proxy'}), 404
+
+        poland_order = PolandOrder(
+            order_number=poland_number,
+            proxy_order_id=main_proxy_order.id,
+            status='zamowione',
+            shipping_cost=shipping_cost_total,
+            tracking_number=tracking_number if tracking_number else None,
+            notes=note if note else None,
+        )
+        db.session.add(poland_order)
+        db.session.flush()
+
+        total_amount = Decimal('0')
+        total_shipping_declared = Decimal('0')
+
+        for item_data in items_data:
+            proxy_item_id = item_data.get('proxy_order_item_id')
+            shipping_cost = Decimal(str(item_data.get('shipping_cost', 0)))
+
+            proxy_item = ProxyOrderItem.query.get(proxy_item_id)
+            if not proxy_item:
+                continue
+
+            proxy_item.shipping_cost_total = shipping_cost
+            proxy_item.shipping_cost_per_item = shipping_cost / proxy_item.quantity if proxy_item.quantity > 0 else 0
+
+            poland_item = PolandOrderItem(
+                poland_order_id=poland_order.id,
+                proxy_order_item_id=proxy_item.id,
+                product_id=proxy_item.product_id,
+                order_id=proxy_item.order_id,
+                quantity=proxy_item.quantity,
+                shipping_cost=shipping_cost
+            )
+            db.session.add(poland_item)
+
+            total_amount += proxy_item.total_price + shipping_cost
+            total_shipping_declared += shipping_cost
+
+        poland_order.total_amount = total_amount
+
+        for proxy_id in proxy_order_ids:
+            proxy_order = ProxyOrder.query.get(proxy_id)
+            if proxy_order:
+                proxy_order.shipping_cost_total = shipping_cost_total
+                proxy_order.shipping_cost_declared = total_shipping_declared
+                proxy_order.shipping_cost_difference = shipping_cost_total - total_shipping_declared
+                # NIE zmieniamy order_type — typ musi zostać oryginalny
+                # dla poprawnego rozliczania already_ordered w "Do zamówienia"
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'order_number': poland_number,
+            'order_id': poland_order.id
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating Poland order: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================================
+# Poland Orders - Cło/VAT
+# ==========================================
+@products_bp.route('/api/poland-order-customs/<int:order_id>', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def get_poland_order_customs(order_id):
+    """Pobierz dane CŁO/VAT dla zamówienia Poland"""
+    try:
+        poland_order = PolandOrder.query.get_or_404(order_id)
+        items_data = []
+        for item in poland_order.items:
+            product = item.product
+            purchase_price = float(product.purchase_price_pln or product.purchase_price or 0) if product else 0
+            primary_image = product.primary_image if product else None
+            image_url = None
+            if primary_image:
+                image_url = f'/static/uploads/products/compressed/{primary_image.filename}'
+
+            items_data.append({
+                'id': item.id,
+                'product_name': product.name if product else '-',
+                'product_image': image_url,
+                'purchase_price_pln': purchase_price,
+                'quantity': item.quantity,
+                'product_value': round(purchase_price * item.quantity, 2),
+                'customs_vat_percentage': float(item.customs_vat_percentage or 0),
+                'customs_vat_amount': float(item.customs_vat_amount or 0),
+            })
+
+        return jsonify({
+            'success': True,
+            'order_id': poland_order.id,
+            'order_number': poland_order.order_number,
+            'customs_cost': float(poland_order.customs_cost or 0),
+            'items': items_data
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/api/poland-orders-customs-bulk', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def get_poland_orders_customs_bulk():
+    """Pobierz dane CŁO/VAT dla wielu zamówień Poland (bulk)"""
+    try:
+        data = request.get_json()
+        order_ids = data.get('order_ids', [])
+        if not order_ids:
+            return jsonify({'success': False, 'error': 'Brak zamówień'}), 400
+
+        orders_data = []
+        for order_id in order_ids:
+            poland_order = PolandOrder.query.get(order_id)
+            if not poland_order:
+                continue
+
+            items_data = []
+            for item in poland_order.items:
+                product = item.product
+                purchase_price = float(product.purchase_price_pln or product.purchase_price or 0) if product else 0
+                primary_image = product.primary_image if product else None
+                image_url = None
+                if primary_image:
+                    image_url = f'/static/uploads/products/compressed/{primary_image.filename}'
+
+                items_data.append({
+                    'id': item.id,
+                    'product_name': product.name if product else '-',
+                    'product_image': image_url,
+                    'purchase_price_pln': purchase_price,
+                    'quantity': item.quantity,
+                    'product_value': round(purchase_price * item.quantity, 2),
+                    'customs_vat_percentage': float(item.customs_vat_percentage or 0),
+                    'customs_vat_amount': float(item.customs_vat_amount or 0),
+                })
+
+            orders_data.append({
+                'order_id': poland_order.id,
+                'order_number': poland_order.order_number,
+                'customs_cost': float(poland_order.customs_cost or 0),
+                'items': items_data
+            })
+
+        return jsonify({'success': True, 'orders': orders_data})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/api/update-poland-customs-vat', methods=['PUT'])
+@login_required
+@role_required('admin', 'mod')
+@csrf.exempt
+def update_poland_customs_vat():
+    """Zapisz CŁO/VAT dla produktów w zamówieniach Poland"""
+    from decimal import Decimal
+    try:
+        data = request.get_json()
+        items_data = data.get('items', [])
+
+        if not items_data:
+            return jsonify({'success': False, 'error': 'Brak danych do zapisania'}), 400
+
+        affected_order_ids = set()
+        updated_items = []
+
+        for item_data in items_data:
+            item_id = item_data.get('poland_order_item_id')
+            percentage = Decimal(str(item_data.get('customs_vat_percentage', 0)))
+
+            item = PolandOrderItem.query.get(item_id)
+            if not item:
+                continue
+
+            product = item.product
+            purchase_price = Decimal(str(product.purchase_price_pln or product.purchase_price or 0)) if product else Decimal('0')
+            product_value = purchase_price * item.quantity
+            customs_amount = (product_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
+
+            item.customs_vat_percentage = percentage
+            item.customs_vat_amount = customs_amount
+            affected_order_ids.add(item.poland_order_id)
+
+            updated_items.append({
+                'id': item.id,
+                'customs_vat_percentage': float(percentage),
+                'customs_vat_amount': float(customs_amount),
+            })
+
+        # Przelicz sumy zamówień
+        updated_orders = []
+        for order_id in affected_order_ids:
+            poland_order = PolandOrder.query.get(order_id)
+            if not poland_order:
+                continue
+
+            total_customs = Decimal('0')
+            total_product_value = Decimal('0')
+            for item in poland_order.items:
+                total_customs += item.customs_vat_amount or Decimal('0')
+                product = item.product
+                purchase_price = Decimal(str(product.purchase_price_pln or product.purchase_price or 0)) if product else Decimal('0')
+                total_product_value += purchase_price * item.quantity
+
+            poland_order.customs_cost = total_customs
+            poland_order.total_amount = total_product_value + (poland_order.shipping_cost or Decimal('0')) + total_customs
+
+            updated_orders.append({
+                'order_id': poland_order.id,
+                'customs_cost': float(total_customs),
+                'total_amount': float(poland_order.total_amount),
+                'product_value': float(total_product_value),
+            })
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'updated_items': updated_items,
+            'updated_orders': updated_orders,
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating customs/VAT: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ==========================================

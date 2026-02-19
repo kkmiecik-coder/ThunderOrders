@@ -1,0 +1,300 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Potwierdzenia płatności - Admin - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/orders-list.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/payment-confirmations.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="pc-list-page">
+    <!-- Page Header + Quick Filters -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Potwierdzenia płatności</h1>
+        </div>
+        <div class="quick-filters">
+            <a href="{{ url_for('admin.payment_confirmations_list') }}"
+               class="filter-btn {% if status_filter == 'all' %}active{% endif %}">
+                Wszystkie
+                <span class="filter-count">{{ pending_count + approved_count + rejected_count }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', status='pending') }}"
+               class="filter-btn {% if status_filter == 'pending' %}active{% endif %}">
+                Oczekujące
+                <span class="filter-count">{{ pending_count }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', status='approved') }}"
+               class="filter-btn {% if status_filter == 'approved' %}active{% endif %}">
+                Zaakceptowane
+                <span class="filter-count">{{ approved_count }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', status='rejected') }}"
+               class="filter-btn {% if status_filter == 'rejected' %}active{% endif %}">
+                Odrzucone
+                <span class="filter-count">{{ rejected_count }}</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabela potwierdzeń -->
+    <div class="table-container">
+        {% if confirmations|length > 0 %}
+        <table class="orders-table">
+            <thead>
+                <tr>
+                    <th class="col-date">Data</th>
+                    <th class="col-number">Zamówienie</th>
+                    <th class="col-customer">Klient</th>
+                    <th class="col-stage hide-mobile">Etap</th>
+                    <th class="col-amount text-right">Kwota</th>
+                    <th class="col-extra">Status</th>
+                    <th class="col-proof hide-mobile">Plik</th>
+                    <th class="col-actions">Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for conf in confirmations %}
+                <tr class="{% if conf.status == 'pending' %}row-pending{% endif %}"
+                    data-confirmation-id="{{ conf.id }}">
+                    <!-- Data -->
+                    <td class="col-date">
+                        <div class="date-cell-new">
+                            {% if conf.uploaded_at %}
+                                <span class="date-created">{{ conf.uploaded_at.strftime('%d.%m.%Y') }}</span>
+                                <span class="date-updated">{{ conf.uploaded_at.strftime('%H:%M') }}</span>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Zamówienie -->
+                    <td class="col-number">
+                        <a href="{{ url_for('orders.admin_detail', order_id=conf.order.id) }}" class="order-number-link">
+                            {{ conf.order.order_number }}
+                        </a>
+                    </td>
+
+                    <!-- Klient -->
+                    <td class="col-customer">
+                        <div class="customer-cell-new">
+                            <div class="customer-name-row">
+                                {% if conf.order.user %}
+                                    <span class="customer-name">{{ conf.order.user.full_name or conf.order.user.email }}</span>
+                                {% else %}
+                                    <span class="customer-name">{{ conf.order.customer_name or 'Gość' }}</span>
+                                    <span class="badge badge-guest-sm">Gość</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- Etap (ukryty na mobile) -->
+                    <td class="col-stage hide-mobile">
+                        <span class="pc-stage-badge">{{ conf.stage_display_name }}</span>
+                    </td>
+
+                    <!-- Kwota -->
+                    <td class="col-amount text-right">
+                        <span class="amount-cell">{{ "%.2f"|format(conf.amount) }} PLN</span>
+                    </td>
+
+                    <!-- Status -->
+                    <td class="col-extra">
+                        <div class="extra-info">
+                            <span class="badge status-badge pc-badge-{{ conf.status }}">
+                                {% if conf.status == 'pending' %}Oczekujące
+                                {% elif conf.status == 'approved' %}Zaakceptowane
+                                {% elif conf.status == 'rejected' %}Odrzucone
+                                {% endif %}
+                            </span>
+                            {% if conf.status == 'rejected' and conf.rejection_reason %}
+                                <span class="rejection-reason-hint" title="{{ conf.rejection_reason }}">
+                                    {{ conf.rejection_reason[:40] }}{% if conf.rejection_reason|length > 40 %}...{% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+
+                    <!-- Plik (ukryty na mobile) -->
+                    <td class="col-proof hide-mobile">
+                        {% if conf.proof_file %}
+                            {% set is_pdf = conf.proof_file.lower().endswith('.pdf') %}
+                            <div class="pc-thumbnail-wrapper"
+                                 onclick="openLightbox('{{ conf.proof_url }}', {{ conf.id }}, '{{ conf.order.order_number }}', '{{ "%.2f"|format(conf.amount) }}', {{ 'true' if is_pdf else 'false' }})">
+                                {% if is_pdf %}
+                                    <div class="pc-thumbnail pc-thumbnail-pdf">PDF</div>
+                                {% else %}
+                                    <img src="{{ conf.proof_url }}" alt="Dowód" class="pc-thumbnail">
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-muted">Brak</span>
+                        {% endif %}
+                    </td>
+
+                    <!-- Akcje -->
+                    <td class="col-actions">
+                        {% if conf.status == 'pending' %}
+                        <div class="pc-actions">
+                            <button type="button" class="pc-btn pc-btn-approve"
+                                    onclick="openConfirmApprove({{ conf.id }}, '{{ conf.order.order_number }}')"
+                                    aria-label="Akceptuj potwierdzenie płatności">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                </svg>
+                                Akceptuj
+                            </button>
+                            <button type="button" class="pc-btn pc-btn-reject"
+                                    onclick="openRejectModal({{ conf.id }}, '{{ conf.order.order_number }}')"
+                                    aria-label="Odrzuć potwierdzenie płatności">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                </svg>
+                                Odrzuć
+                            </button>
+                        </div>
+                        {% elif conf.status == 'approved' %}
+                            <span class="text-muted">Zatwierdzono</span>
+                        {% elif conf.status == 'rejected' %}
+                            <span class="text-muted">Odrzucono</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% else %}
+        <!-- Pusty stan -->
+        <div class="empty-state">
+            <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                {% if status_filter == 'pending' %}
+                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                {% else %}
+                <path d="M5.5 9.511c.076.954.83 1.697 2.182 1.785V12h.6v-.709c1.4-.098 2.218-.846 2.218-1.932 0-.987-.626-1.496-1.745-1.76l-.473-.112V5.57c.6.068.982.396 1.074.85h1.052c-.076-.919-.864-1.638-2.126-1.716V4h-.6v.719c-1.195.117-2.01.836-2.01 1.853 0 .9.606 1.472 1.613 1.707l.397.098v2.034c-.615-.093-1.022-.43-1.114-.9H5.5zm2.177-2.166c-.59-.137-.91-.416-.91-.836 0-.47.345-.822.915-.925v1.76h-.005zm.692 1.193c.717.166 1.048.435 1.048.91 0 .542-.412.914-1.135.982V8.518l.087.02z"/>
+                <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                {% endif %}
+            </svg>
+            <h3>
+                {% if status_filter == 'pending' %}
+                    Brak oczekujących potwierdzeń
+                {% elif status_filter == 'approved' %}
+                    Brak zaakceptowanych potwierdzeń
+                {% elif status_filter == 'rejected' %}
+                    Brak odrzuconych potwierdzeń
+                {% else %}
+                    Brak potwierdzeń płatności
+                {% endif %}
+            </h3>
+            <p>
+                {% if status_filter == 'pending' %}
+                    Wszystkie potwierdzenia zostały rozpatrzone.
+                {% else %}
+                    Klienci jeszcze nie wgrali potwierdzeń płatności.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ================================
+     LIGHTBOX
+     ================================ -->
+<div class="pc-lightbox" id="pcLightbox">
+    <button type="button" class="pc-lightbox-close" onclick="closeLightbox()" aria-label="Zamknij">&times;</button>
+    <img id="pcLightboxImage" class="pc-lightbox-image" alt="Dowód wpłaty">
+    <iframe id="pcLightboxPdf" class="pc-lightbox-pdf" style="display: none;"></iframe>
+    <div class="pc-lightbox-info" id="pcLightboxInfo"></div>
+    <div class="pc-lightbox-actions" id="pcLightboxActions">
+        <button type="button" class="pc-btn pc-btn-approve" id="pcLightboxApprove"
+                onclick="openConfirmApprove(currentConfirmationId, currentOrderNumber)">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+            </svg>
+            Akceptuj
+        </button>
+        <button type="button" class="pc-btn pc-btn-reject" id="pcLightboxReject"
+                onclick="openRejectModal(currentConfirmationId, currentOrderNumber)">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+            Odrzuć
+        </button>
+    </div>
+</div>
+
+<!-- ================================
+     CONFIRM APPROVE MODAL
+     ================================ -->
+<div class="modal-overlay" id="pcConfirmModal">
+    <div class="modal-content">
+        <div class="modal-body" style="text-align: center; padding: 2rem;">
+            <div class="pc-confirm-icon">
+                <svg width="48" height="48" fill="#4CAF50" viewBox="0 0 16 16">
+                    <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                </svg>
+            </div>
+            <h3 class="pc-confirm-title">Zaakceptować potwierdzenie?</h3>
+            <p class="pc-confirm-text">
+                Zamówienie: <strong id="pcConfirmOrderInfo"></strong>
+            </p>
+            <div class="pc-confirm-actions">
+                <button type="button" class="btn btn-ghost" onclick="closeConfirmModal()">Anuluj</button>
+                <button type="button" class="pc-btn pc-btn-approve" id="pcConfirmApproveBtn" onclick="submitApprove()">
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                    </svg>
+                    Akceptuj
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================================
+     REJECT MODAL
+     ================================ -->
+<div class="modal-overlay" id="pcRejectModal">
+    <div class="modal-content modal-medium">
+        <div class="modal-header">
+            <h2 class="pc-reject-header-title">Odrzuć potwierdzenie</h2>
+            <button class="modal-close" onclick="closeRejectModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="pcRejectReason">Powód odrzucenia <span style="color: #e53935;">*</span></label>
+                <textarea id="pcRejectReason" class="form-input pc-reject-textarea" placeholder="Opisz dlaczego potwierdzenie zostało odrzucone..." minlength="10"></textarea>
+                <small class="form-hint">Minimum 10 znaków. Klient zobaczy ten powód w emailu.</small>
+                <p class="pc-reject-error" id="pcRejectError"></p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-ghost" onclick="closeRejectModal()">Anuluj</button>
+            <button type="button" class="pc-btn pc-btn-reject" id="pcRejectSubmitBtn" onclick="submitReject()">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+                Odrzuć
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Global state for lightbox inline onclick handlers (must be before JS file)
+var currentConfirmationId = null;
+var currentOrderNumber = null;
+</script>
+<script src="{{ url_for('static', filename='js/pages/admin/payment-confirmations.js') }}"></script>
+{% endblock %}

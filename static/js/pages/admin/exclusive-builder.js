@@ -55,6 +55,9 @@ function initExclusiveBuilder(config) {
 
     // Initialize auto-increase form
     initializeAutoIncreaseForm();
+
+    // Setup payment stages toggle
+    setupPaymentStagesToggle();
 }
 
 /**
@@ -62,6 +65,40 @@ function initExclusiveBuilder(config) {
  */
 function markDirty() {
     isDirty = true;
+}
+
+/**
+ * Setup payment stages toggle (Proxy left / Polska right)
+ * Proxy = 4 platnosci (unchecked/left), Polska = 3 platnosci (checked/right)
+ */
+function setupPaymentStagesToggle() {
+    const toggle = document.getElementById('paymentStagesToggle');
+    const hiddenInput = document.getElementById('paymentStages');
+    const labelProxy = document.getElementById('labelProxy');
+    const labelPolska = document.getElementById('labelPolska');
+
+    if (!toggle || !hiddenInput) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            // Polska (right) = 3
+            if (labelProxy) labelProxy.classList.remove('active');
+            if (labelPolska) labelPolska.classList.add('active');
+        } else {
+            // Proxy (left) = 4
+            if (labelProxy) labelProxy.classList.add('active');
+            if (labelPolska) labelPolska.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
+        hiddenInput.value = this.checked ? 3 : 4;
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
 }
 
 /**
@@ -645,11 +682,13 @@ function removeSetItem(btn) {
  * Collect page data for saving
  */
 function collectPageData() {
+    const paymentStagesInput = document.getElementById('paymentStages');
     const data = {
         name: document.getElementById('pageName').value,
         description: document.getElementById('pageDescription').value,
         starts_at: document.getElementById('startsAt').value || null,
         ends_at: document.getElementById('endsAt').value || null,
+        payment_stages: paymentStagesInput ? parseInt(paymentStagesInput.value) || 4 : 4,
         sections: []
     };
 

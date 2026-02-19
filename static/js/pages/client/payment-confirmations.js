@@ -56,13 +56,35 @@ window.toggleOrderItems = function(orderId, totalItems) {
     var paymentMethodsLoaded = false;
     var paymentMethodsData = [];
 
-    // Definicja etapów
-    var STAGES = [
-        { id: 'product', name: 'Produkty', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>', enabled: true },
-        { id: 'korean_shipping', name: 'Wysyłka KR', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>', enabled: false },
-        { id: 'customs_vat', name: 'Cło i VAT', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>', enabled: false },
-        { id: 'domestic_shipping', name: 'Wysyłka PL', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>', enabled: false }
-    ];
+    // Definicja etapów — ikony SVG
+    var STAGE_ICONS = {
+        product: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+        korean_shipping: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>',
+        customs_vat: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>',
+        domestic_shipping: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>'
+    };
+
+    /**
+     * Zwraca listę etapów dla danego zamówienia (zależy od payment_stages).
+     * payment_stages == 4 (Proxy): product → korean_shipping → customs_vat → domestic_shipping
+     * payment_stages == 3 (Polska): product → customs_vat → domestic_shipping
+     */
+    function getStagesForOrder(paymentStages) {
+        if (paymentStages === 4) {
+            return [
+                { id: 'product', name: 'Produkty' },
+                { id: 'korean_shipping', name: 'Wysyłka KR' },
+                { id: 'customs_vat', name: 'Cło i VAT' },
+                { id: 'domestic_shipping', name: 'Wysyłka PL' }
+            ];
+        }
+        // Domyślnie 3 etapy
+        return [
+            { id: 'product', name: 'Produkty' },
+            { id: 'customs_vat', name: 'Cło i VAT' },
+            { id: 'domestic_shipping', name: 'Wysyłka PL' }
+        ];
+    }
 
     // === DOM REFERENCES ===
     var selectAllCb = document.getElementById('select-all');
@@ -218,23 +240,23 @@ window.toggleOrderItems = function(orderId, totalItems) {
         var html = '';
 
         selectedOrders.forEach(function (data, orderId) {
+            var stages = getStagesForOrder(data.paymentStages);
+
             html += '<div class="pc-order-stage-row">';
             html += '<div class="pc-order-stage-header">';
             html += '<span class="pc-order-stage-number">' + escapeHtml(data.orderNumber) + '</span>';
             html += '</div>';
 
             html += '<div class="pc-stage-tiles">';
-            STAGES.forEach(function (stage) {
+            stages.forEach(function (stage) {
                 var status = getStageStatus(orderId, stage.id, data);
+                var canUpload = canUploadStage(stage.id, data);
                 var tileClass = 'pc-stage-tile';
                 var badge = '';
                 var clickable = false;
                 var isSelected = selectedStages.has(orderId) && selectedStages.get(orderId).has(stage.id);
 
-                if (!stage.enabled) {
-                    tileClass += ' disabled';
-                    badge = '<span class="pc-stage-badge pc-stage-badge-soon">Wkrótce</span>';
-                } else if (status === 'approved') {
+                if (status === 'approved') {
                     tileClass += ' paid';
                     badge = '<span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>';
                 } else if (status === 'pending') {
@@ -244,21 +266,24 @@ window.toggleOrderItems = function(orderId, totalItems) {
                     tileClass += ' rejected';
                     clickable = true;
                     badge = '<span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>';
-                } else {
+                } else if (canUpload) {
                     clickable = true;
+                } else {
+                    tileClass += ' disabled';
+                    badge = '<span class="pc-stage-badge pc-stage-badge-soon">Zablokowane</span>';
                 }
 
                 if (isSelected) {
                     tileClass += ' selected';
                 }
 
-                // Kwota per etap (na razie tylko product ma kwotę)
-                var amountText = stage.enabled ? data.amount.toFixed(2) + ' zł' : '—';
+                var amountText = data.amount.toFixed(2) + ' zł';
+                var icon = STAGE_ICONS[stage.id] || '';
 
                 html += '<div class="' + tileClass + '"' +
                     (clickable ? ' data-order-id="' + orderId + '" data-stage="' + stage.id + '"' : '') +
                     '>';
-                html += '<div class="pc-stage-tile-icon">' + stage.icon + '</div>';
+                html += '<div class="pc-stage-tile-icon">' + icon + '</div>';
                 html += '<span class="pc-stage-tile-name">' + escapeHtml(stage.name) + '</span>';
                 html += '<span class="pc-stage-tile-amount">' + amountText + '</span>';
                 if (badge) html += badge;
@@ -303,8 +328,39 @@ window.toggleOrderItems = function(orderId, totalItems) {
         if (stageId === 'product') {
             return orderData.productStatus || 'none';
         }
-        // Inne etapy — na razie brak danych, zwracamy 'none'
+        // E2 (korean_shipping) → stage2Status (tylko 4-płatnościowe)
+        if (stageId === 'korean_shipping') {
+            return orderData.stage2Status || 'none';
+        }
+        // E3 (customs_vat) → stage3Status (zawsze)
+        if (stageId === 'customs_vat') {
+            return orderData.stage3Status || 'none';
+        }
+        // E4 (domestic_shipping) → stage4Status (zawsze)
+        if (stageId === 'domestic_shipping') {
+            return orderData.stage4Status || 'none';
+        }
         return 'none';
+    }
+
+    function canUploadStage(stageId, orderData) {
+        if (stageId === 'product') {
+            var st = orderData.productStatus;
+            return st !== 'approved' && st !== 'pending';
+        }
+        // E2 (korean_shipping) → canUploadStage2 (tylko 4-płatnościowe)
+        if (stageId === 'korean_shipping') {
+            return orderData.canUploadStage2;
+        }
+        // E3 (customs_vat) → canUploadStage3 (zawsze)
+        if (stageId === 'customs_vat') {
+            return orderData.canUploadStage3;
+        }
+        // E4 (domestic_shipping) → canUploadStage4 (zawsze)
+        if (stageId === 'domestic_shipping') {
+            return orderData.canUploadStage4;
+        }
+        return false;
     }
 
     function updateWizardTotal() {
@@ -314,11 +370,9 @@ window.toggleOrderItems = function(orderId, totalItems) {
             var orderData = selectedOrders.get(orderId);
             if (!orderData) return;
 
-            stages.forEach(function (stageId) {
-                if (stageId === 'product') {
-                    total += orderData.amount;
-                }
-                // Inne etapy — na razie brak kwot
+            // Każdy wybrany etap dodaje kwotę zamówienia
+            stages.forEach(function () {
+                total += orderData.amount;
             });
         });
 
@@ -333,10 +387,8 @@ window.toggleOrderItems = function(orderId, totalItems) {
             if (stages.size === 0) return;
             var orderData = selectedOrders.get(orderId);
             if (!orderData) return;
-            stages.forEach(function (stageId) {
-                if (stageId === 'product') {
-                    total += orderData.amount;
-                }
+            stages.forEach(function () {
+                total += orderData.amount;
             });
         });
 
@@ -429,10 +481,19 @@ window.toggleOrderItems = function(orderId, totalItems) {
         selectedOrders.clear();
 
         document.querySelectorAll('.order-checkbox:checked').forEach(function (cb) {
-            selectedOrders.set(parseInt(cb.dataset.orderId), {
+            var orderId = parseInt(cb.dataset.orderId);
+            var row = cb.closest('tr');
+            selectedOrders.set(orderId, {
                 orderNumber: cb.dataset.orderNumber,
                 amount: parseFloat(cb.dataset.amount),
-                productStatus: cb.dataset.productStatus || 'none'
+                productStatus: cb.dataset.productStatus || 'none',
+                paymentStages: parseInt(cb.dataset.paymentStages) || 3,
+                stage2Status: row ? (row.dataset.stage2Status || 'none') : 'none',
+                stage3Status: row ? (row.dataset.stage3Status || 'none') : 'none',
+                stage4Status: row ? (row.dataset.stage4Status || '') : '',
+                canUploadStage2: row ? (row.dataset.canUploadStage2 === 'true') : false,
+                canUploadStage3: row ? (row.dataset.canUploadStage3 === 'true') : false,
+                canUploadStage4: row ? (row.dataset.canUploadStage4 === 'true') : false
             });
         });
 
@@ -468,10 +529,19 @@ window.toggleOrderItems = function(orderId, totalItems) {
         selectedStages.clear();
         currentStep = 1;
 
-        // Auto-select etap "product" dla zamówień z status none/rejected
+        // Auto-select pierwszy dostępny etap (none/rejected + can upload)
         selectedOrders.forEach(function (data, orderId) {
-            if (data.productStatus === 'none' || data.productStatus === 'rejected') {
-                selectedStages.set(orderId, new Set(['product']));
+            var autoStages = new Set();
+            var stages = getStagesForOrder(data.paymentStages);
+            stages.forEach(function (stage) {
+                var status = getStageStatus(orderId, stage.id, data);
+                var canDo = canUploadStage(stage.id, data);
+                if ((status === 'none' || status === 'rejected') && canDo) {
+                    autoStages.add(stage.id);
+                }
+            });
+            if (autoStages.size > 0) {
+                selectedStages.set(orderId, autoStages);
             }
         });
 

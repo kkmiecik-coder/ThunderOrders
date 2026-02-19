@@ -1,0 +1,17 @@
+Płatność odrzucona - ThunderOrders
+
+Cześć {{ user_name }}!
+
+Twoje potwierdzenie płatności za produkt w zamówieniu {{ order_number }} zostało odrzucone.
+
+Kwota: {{ "%.2f"|format(amount) }} PLN
+
+Powód odrzucenia:
+{{ rejection_reason }}
+
+Wgraj ponownie poprawne potwierdzenie płatności:
+{{ upload_url }}
+
+Pozdrawiamy,
+ThunderOrders
+https://thunderorders.cloud

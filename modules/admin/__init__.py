@@ -13,3 +13,4 @@ from modules.admin import clients
 from modules.admin import tasks
 from modules.admin import exclusive
 from modules.admin import models  # Admin tasks models
+from modules.admin import payment_confirmations  # Payment confirmations admin
