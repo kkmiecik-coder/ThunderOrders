@@ -2141,7 +2141,7 @@ def get_products_to_order():
 @role_required('admin', 'mod')
 def stock_orders():
     """Stock orders page with tabs for DO ZAMÓWIENIA, PROXY and Polska"""
-    from modules.products.models import ProxyOrder, PolandOrder, ProductSeries, Manufacturer
+    from modules.products.models import ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, ProductSeries, Manufacturer
 
     # Get active tab from query parameter (default: do_zamowienia)
     active_tab = request.args.get('tab', 'do_zamowienia')
@@ -2158,10 +2158,19 @@ def stock_orders():
     # Always get counts for all tabs (for badges)
     all_products_to_order = get_products_to_order()
     to_order_count = len(all_products_to_order)
-    # Proxy tab: order_type='proxy' BEZ powiązanego PolandOrder
+
+    # Subquery: proxy order IDs that have at least one item linked to a Poland order
+    # This correctly handles consolidated orders (multiple proxy orders → one Poland order)
+    consumed_proxy_ids = db.session.query(
+        ProxyOrderItem.proxy_order_id
+    ).join(
+        PolandOrderItem, PolandOrderItem.proxy_order_item_id == ProxyOrderItem.id
+    ).distinct()
+
+    # Proxy tab: order_type='proxy' AND no items linked to Poland orders
     proxy_count = ProxyOrder.query.filter(
         ProxyOrder.order_type == 'proxy',
-        ~ProxyOrder.poland_orders.any()
+        ~ProxyOrder.id.in_(consumed_proxy_ids)
     ).count()
     polska_count = PolandOrder.query.count()
 
@@ -2171,7 +2180,7 @@ def stock_orders():
     elif active_tab == 'proxy':
         proxy_orders_list = ProxyOrder.query.filter(
             ProxyOrder.order_type == 'proxy',
-            ~ProxyOrder.poland_orders.any()
+            ~ProxyOrder.id.in_(consumed_proxy_ids)
         ).order_by(ProxyOrder.created_at.desc()).all()
     else:  # polska
         poland_orders_list = PolandOrder.query.order_by(PolandOrder.created_at.desc()).all()
@@ -2524,33 +2533,46 @@ def create_group_proxy_order():
 
 def _update_client_orders_on_polska_ordered():
     """
-    Gdy tworzymy zamówienie typu 'polska', zmień status zamówień klientów na 'w_drodze_polska'.
-    Sprawdza czy WSZYSTKIE produkty w zamówieniu klienta (payment_stages=3)
-    są pokryte przez proxy orders typu 'polska' (nie anulowane).
+    Gdy produkty trafiają do zakładki Polska (PolandOrder), zmień status zamówień klientów na 'w_drodze_polska'.
+    Sprawdza czy WSZYSTKIE produkty w zamówieniu klienta są pokryte przez produkty
+    w zamówieniach do Polski (nie anulowane).
+    Obsługuje oba typy:
+    - payment_stages=3 (polska): statusy 'nowe'/'oczekujace' → 'w_drodze_polska'
+    - payment_stages=4 (proxy→polska): status 'dostarczone_proxy' → 'w_drodze_polska'
     """
     from modules.orders.models import Order, OrderItem
-    from modules.products.models import ProxyOrder, ProxyOrderItem
-    from sqlalchemy import func
+    from modules.products.models import ProxyOrderItem, PolandOrder, PolandOrderItem
+    from sqlalchemy import func, or_, and_
 
-    # Ile zamówiono per produkt (proxy orders typu 'polska', nie anulowane)
+    # Ile produktów jest w zamówieniach do Polski (nie anulowanych)
+    # Liczy przez PolandOrderItem → ProxyOrderItem, więc pokrywa oba scenariusze:
+    # 1) order_type='polska' (create_group_proxy_order)
+    # 2) konsolidacja proxy→polska (create_poland_order)
     ordered = dict(
         db.session.query(
             ProxyOrderItem.product_id,
             func.sum(ProxyOrderItem.quantity)
-        ).join(ProxyOrder).filter(
-            ProxyOrder.order_type == 'polska',
-            ProxyOrder.status != 'anulowane'
+        ).join(
+            PolandOrderItem, PolandOrderItem.proxy_order_item_id == ProxyOrderItem.id
+        ).join(
+            PolandOrder, PolandOrder.id == PolandOrderItem.poland_order_id
+        ).filter(
+            PolandOrder.status != 'anulowane'
         ).group_by(ProxyOrderItem.product_id).all()
     )
 
     if not ordered:
         return
 
-    # Zamówienia klientów: payment_stages=3 (polska), status 'nowe', exclusive
+    # Zamówienia klientów exclusive, które kwalifikują się do zmiany na 'w_drodze_polska':
+    # - payment_stages=3 (polska): status 'nowe' lub 'oczekujace'
+    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy'
     client_orders = Order.query.filter(
-        Order.payment_stages == 3,
-        Order.status == 'nowe',
-        Order.is_exclusive == True
+        Order.is_exclusive == True,
+        or_(
+            and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace'])),
+            and_(Order.payment_stages == 4, Order.status == 'dostarczone_proxy')
+        )
     ).all()
 
     remaining = dict(ordered)
@@ -2658,12 +2680,12 @@ def _update_client_orders_on_customs(poland_order):
         return
 
     # Zamówienia klientów:
-    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace' → 'urzad_celny'
-    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy' → 'urzad_celny'
+    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace'/'w_drodze_polska' → 'urzad_celny'
+    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy'/'w_drodze_polska' → 'urzad_celny'
     client_orders = Order.query.filter(
         or_(
-            and_(Order.payment_stages == 3, Order.status == 'oczekujace'),
-            and_(Order.payment_stages == 4, Order.status == 'dostarczone_proxy'),
+            and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska'])),
+            and_(Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska'])),
         ),
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
@@ -2713,13 +2735,13 @@ def _update_client_orders_on_gom_delivery():
         return
 
     # Zamówienia klientów:
-    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace' lub 'urzad_celny' → 'dostarczone_gom'
-    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy' lub 'urzad_celny' → 'dostarczone_gom'
+    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace'/'w_drodze_polska'/'urzad_celny' → 'dostarczone_gom'
+    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy'/'w_drodze_polska'/'urzad_celny' → 'dostarczone_gom'
     from sqlalchemy import or_, and_
     client_orders = Order.query.filter(
         or_(
-            and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'urzad_celny'])),
-            and_(Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'urzad_celny'])),
+            and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska', 'urzad_celny'])),
+            and_(Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
         ),
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
@@ -3106,6 +3128,9 @@ def create_poland_order():
                 proxy_order.shipping_cost_difference = shipping_cost_total - total_shipping_declared
                 # NIE zmieniamy order_type — typ musi zostać oryginalny
                 # dla poprawnego rozliczania already_ordered w "Do zamówienia"
+
+        # Automatyczna zmiana statusu zamówień klientów na 'w_drodze_polska'
+        _update_client_orders_on_polska_ordered()
 
         db.session.commit()
 

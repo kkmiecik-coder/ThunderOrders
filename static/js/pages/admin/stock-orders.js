@@ -2053,14 +2053,39 @@ function togglePolandStatusDropdown(orderId) {
     const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
     if (!dropdown) return;
 
-    if (dropdown.style.display === 'none') {
-        const button = dropdown.previousElementSibling || dropdown.closest('.status-dropdown-wrapper').querySelector('.status-badge-button');
+    const button = document.querySelector(`[onclick="togglePolandStatusDropdown(${orderId})"]`);
+    if (!button) return;
+
+    if (dropdown.style.display === 'none' || !dropdown.style.display) {
+        // Move to body once to escape backdrop-filter stacking context
+        if (dropdown.parentElement !== document.body) {
+            document.body.appendChild(dropdown);
+        }
+
         const rect = button.getBoundingClientRect();
+        const dropdownHeight = 280;
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        // Check if dropdown fits below button, otherwise show above
+        let top;
+        if (rect.bottom + dropdownHeight > viewportHeight) {
+            top = rect.top - dropdownHeight - 4;
+        } else {
+            top = rect.bottom + 4;
+        }
+
+        // Check if dropdown fits horizontally
+        let left = rect.left;
+        const dropdownWidth = 180;
+        if (left + dropdownWidth > viewportWidth) {
+            left = viewportWidth - dropdownWidth - 16;
+        }
+
         dropdown.style.position = 'fixed';
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.left = rect.left + 'px';
+        dropdown.style.top = `${top}px`;
+        dropdown.style.left = `${left}px`;
         dropdown.style.display = 'block';
-        document.body.appendChild(dropdown);
     } else {
         dropdown.style.display = 'none';
     }
