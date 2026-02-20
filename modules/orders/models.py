@@ -229,6 +229,7 @@ class Order(db.Model):
     refunds = db.relationship('OrderRefund', back_populates='order', cascade='all, delete-orphan')
     shipments = db.relationship('OrderShipment', back_populates='order', cascade='all, delete-orphan', order_by='OrderShipment.created_at.desc()')
     payment_confirmations = db.relationship('PaymentConfirmation', back_populates='order', lazy='dynamic', cascade='all, delete-orphan')
+    shipping_request_orders = db.relationship('ShippingRequestOrder', back_populates='order', cascade='all, delete-orphan')
 
     def __repr__(self):
         return f'<Order {self.order_number}>'
@@ -1282,7 +1283,7 @@ class ShippingRequestOrder(db.Model):
 
     # Relationships
     shipping_request = db.relationship('ShippingRequest', back_populates='request_orders')
-    order = db.relationship('Order', backref='shipping_request_orders')
+    order = db.relationship('Order', back_populates='shipping_request_orders')
 
     def __repr__(self):
         return f'<ShippingRequestOrder SR:{self.shipping_request_id} O:{self.order_id}>'
