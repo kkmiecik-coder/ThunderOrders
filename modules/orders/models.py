@@ -573,6 +573,26 @@ class Order(db.Model):
         shipping = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
         return self.effective_total + shipping
 
+    @property
+    def proxy_shipping_total(self):
+        """Sum of proxy shipping costs from ProxyOrderItems linked to this order."""
+        from modules.products.models import ProxyOrderItem
+        from decimal import Decimal
+        result = db.session.query(
+            db.func.coalesce(db.func.sum(ProxyOrderItem.shipping_cost_total), 0)
+        ).filter(ProxyOrderItem.order_id == self.id).scalar()
+        return Decimal(str(result)) if result else Decimal('0.00')
+
+    @property
+    def customs_vat_total(self):
+        """Sum of customs/VAT amounts from PolandOrderItems linked to this order."""
+        from modules.products.models import PolandOrderItem
+        from decimal import Decimal
+        result = db.session.query(
+            db.func.coalesce(db.func.sum(PolandOrderItem.customs_vat_amount), 0)
+        ).filter(PolandOrderItem.order_id == self.id).scalar()
+        return Decimal(str(result)) if result else Decimal('0.00')
+
     def recalculate_total_amount(self):
         """
         Przelicza total_amount na podstawie aktualnych order_items.

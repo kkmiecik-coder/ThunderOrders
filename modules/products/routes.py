@@ -2504,6 +2504,9 @@ def create_group_proxy_order():
             result_order_number = poland_order_number
             result_tab = 'polska'
 
+            # Automatyczna zmiana statusu zamówień klientów na 'w_drodze_polska'
+            _update_client_orders_on_polska_ordered()
+
         db.session.commit()
 
         return jsonify({
@@ -2517,6 +2520,58 @@ def create_group_proxy_order():
         db.session.rollback()
         current_app.logger.error(f"Error creating group proxy order: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _update_client_orders_on_polska_ordered():
+    """
+    Gdy tworzymy zamówienie typu 'polska', zmień status zamówień klientów na 'w_drodze_polska'.
+    Sprawdza czy WSZYSTKIE produkty w zamówieniu klienta (payment_stages=3)
+    są pokryte przez proxy orders typu 'polska' (nie anulowane).
+    """
+    from modules.orders.models import Order, OrderItem
+    from modules.products.models import ProxyOrder, ProxyOrderItem
+    from sqlalchemy import func
+
+    # Ile zamówiono per produkt (proxy orders typu 'polska', nie anulowane)
+    ordered = dict(
+        db.session.query(
+            ProxyOrderItem.product_id,
+            func.sum(ProxyOrderItem.quantity)
+        ).join(ProxyOrder).filter(
+            ProxyOrder.order_type == 'polska',
+            ProxyOrder.status != 'anulowane'
+        ).group_by(ProxyOrderItem.product_id).all()
+    )
+
+    if not ordered:
+        return
+
+    # Zamówienia klientów: payment_stages=3 (polska), status 'nowe', exclusive
+    client_orders = Order.query.filter(
+        Order.payment_stages == 3,
+        Order.status == 'nowe',
+        Order.is_exclusive == True
+    ).all()
+
+    remaining = dict(ordered)
+
+    for order in client_orders:
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        all_covered = True
+
+        for item in items:
+            if item.quantity <= 0:
+                continue
+            available = remaining.get(item.product_id, 0)
+            if available < item.quantity:
+                all_covered = False
+                break
+
+        if all_covered:
+            for item in items:
+                if item.quantity > 0:
+                    remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
+            order.status = 'w_drodze_polska'
 
 
 def _update_client_orders_if_fully_delivered(proxy_order_type):

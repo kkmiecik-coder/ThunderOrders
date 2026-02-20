@@ -88,6 +88,66 @@
                     <!-- Order Summary Box -->
                     <div class="order-summary-box">
                         <div class="order-summary-inner">
+                            {% if order.is_exclusive %}
+                            {# --- EXCLUSIVE ORDER SUMMARY --- #}
+                            <div class="summary-row">
+                                <span class="summary-label">Produkty:</span>
+                                <span class="summary-value">{{ "%.2f"|format(order.effective_total) }} PLN</span>
+                            </div>
+                            {% if order.payment_stages == 4 %}
+                            <div class="summary-row">
+                                <span class="summary-label">Dostawa Proxy:</span>
+                                <span class="summary-value">
+                                    {% if order.proxy_shipping_total > 0 %}
+                                        {{ "%.2f"|format(order.proxy_shipping_total) }} PLN
+                                    {% else %}
+                                        <span class="shipping-pending">Wkrótce</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% endif %}
+                            <div class="summary-row">
+                                <span class="summary-label">Dostawa PL:</span>
+                                <span class="summary-value">
+                                    {% if order.shipping_cost and order.shipping_cost > 0 %}
+                                        {{ "%.2f"|format(order.shipping_cost) }} PLN
+                                    {% else %}
+                                        <span class="shipping-pending">Wkrótce</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="summary-label">CŁO/VAT:</span>
+                                <span class="summary-value">
+                                    {% if order.customs_vat_total > 0 %}
+                                        {{ "%.2f"|format(order.customs_vat_total) }} PLN
+                                    {% else %}
+                                        <span class="shipping-pending">Wkrótce</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="summary-row summary-total">
+                                <span class="summary-label">Suma:</span>
+                                <span class="summary-value">
+                                    {% set known_sum = order.effective_total + (order.proxy_shipping_total if order.payment_stages == 4 else 0) + (order.shipping_cost if order.shipping_cost else 0) + order.customs_vat_total %}
+                                    {{ "%.2f"|format(known_sum) }} PLN
+                                    {% set missing = [] %}
+                                    {% if order.payment_stages == 4 and (not order.proxy_shipping_total or order.proxy_shipping_total <= 0) %}
+                                        {% set _ = missing.append('Dostawa Proxy') %}
+                                    {% endif %}
+                                    {% if not order.shipping_cost or order.shipping_cost <= 0 %}
+                                        {% set _ = missing.append('Dostawa PL') %}
+                                    {% endif %}
+                                    {% if not order.customs_vat_total or order.customs_vat_total <= 0 %}
+                                        {% set _ = missing.append('CŁO/VAT') %}
+                                    {% endif %}
+                                    {% if missing %}
+                                        <span class="plus-shipping">+ {{ missing|join(' + ') }}</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% else %}
+                            {# --- REGULAR ORDER SUMMARY --- #}
                             <div class="summary-row">
                                 <span class="summary-label">Produkty:</span>
                                 <span class="summary-value">{{ "%.2f"|format(order.total_amount) }} PLN</span>
@@ -111,6 +171,7 @@
                                     {% endif %}
                                 </span>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
