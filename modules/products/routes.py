@@ -2942,6 +2942,106 @@ def get_proxy_orders_details():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
+    """
+    Rozdziela koszty dostawy proxy do zamówień klientów (exclusive).
+    product_shipping_costs: dict {product_id: Decimal shipping_cost_total}
+    Proporcjonalnie wg ilości zamówionych przez klienta.
+    """
+    from modules.orders.models import Order, OrderItem
+    from decimal import Decimal
+    from sqlalchemy import func
+
+    if not product_shipping_costs:
+        return
+
+    product_ids = list(product_shipping_costs.keys())
+
+    # Znajdź exclusive zamówienia klientów z pasującymi produktami (nie anulowane)
+    client_orders = Order.query.filter(
+        Order.is_exclusive == True,
+        Order.status != 'anulowane'
+    ).all()
+
+    # Zbierz order_id → {product_id: quantity} z OrderItems
+    order_product_qty = {}
+    for order in client_orders:
+        for item in order.items:
+            if item.product_id in product_ids:
+                if order.id not in order_product_qty:
+                    order_product_qty[order.id] = {}
+                qty = item.quantity
+                if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                    qty = item.fulfilled_quantity
+                if item.is_set_fulfilled is False:
+                    qty = 0
+                order_product_qty[order.id][item.product_id] = qty
+
+    # Oblicz total demand per product
+    product_total_demand = {}
+    for order_id, products in order_product_qty.items():
+        for pid, qty in products.items():
+            product_total_demand[pid] = product_total_demand.get(pid, 0) + qty
+
+    # Rozdziel koszty proporcjonalnie
+    order_shipping_totals = {}
+    for order_id, products in order_product_qty.items():
+        total = Decimal('0')
+        for pid, qty in products.items():
+            if qty > 0 and product_total_demand.get(pid, 0) > 0:
+                share = (Decimal(str(qty)) / Decimal(str(product_total_demand[pid]))) * product_shipping_costs[pid]
+                total += share.quantize(Decimal('0.01'))
+        if total > 0:
+            order_shipping_totals[order_id] = total
+
+    # Zapisz na zamówieniach
+    for order_id, shipping_cost in order_shipping_totals.items():
+        order = Order.query.get(order_id)
+        if order:
+            order.proxy_shipping_cost = shipping_cost
+
+
+def _distribute_customs_vat_to_client_orders(product_customs_percentages):
+    """
+    Oblicza CŁO/VAT od ceny SPRZEDAŻY i zapisuje na zamówieniach klientów.
+    product_customs_percentages: dict {product_id: Decimal percentage}
+    """
+    from modules.orders.models import Order, OrderItem
+    from decimal import Decimal
+
+    if not product_customs_percentages:
+        return
+
+    product_ids = list(product_customs_percentages.keys())
+
+    # Znajdź exclusive zamówienia klientów (nie anulowane)
+    client_orders = Order.query.filter(
+        Order.is_exclusive == True,
+        Order.status != 'anulowane'
+    ).all()
+
+    for order in client_orders:
+        customs_total = Decimal('0')
+        has_match = False
+        for item in order.items:
+            if item.product_id in product_ids:
+                percentage = product_customs_percentages[item.product_id]
+                if percentage > 0 and item.price:
+                    qty = item.quantity
+                    if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                        qty = item.fulfilled_quantity
+                    if item.is_set_fulfilled is False:
+                        qty = 0
+                    if qty > 0:
+                        sale_value = Decimal(str(item.price)) * qty
+                        customs = (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
+                        customs_total += customs
+                        has_match = True
+
+        if has_match:
+            order.customs_vat_sale_cost = customs_total
+
+
 @products_bp.route('/api/create-poland-order', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
@@ -2979,6 +3079,7 @@ def create_poland_order():
 
         total_amount = Decimal('0')
         total_shipping_declared = Decimal('0')
+        product_shipping_costs = {}  # {product_id: shipping_cost_total}
 
         for item_data in items_data:
             proxy_item_id = item_data.get('proxy_order_item_id')
@@ -2990,6 +3091,11 @@ def create_poland_order():
 
             proxy_item.shipping_cost_total = shipping_cost
             proxy_item.shipping_cost_per_item = shipping_cost / proxy_item.quantity if proxy_item.quantity > 0 else 0
+
+            # Zbierz koszty wysyłki per produkt do dystrybucji
+            if shipping_cost > 0:
+                pid = proxy_item.product_id
+                product_shipping_costs[pid] = product_shipping_costs.get(pid, Decimal('0')) + shipping_cost
 
             poland_item = PolandOrderItem(
                 poland_order_id=poland_order.id,
@@ -3014,6 +3120,9 @@ def create_poland_order():
                 proxy_order.shipping_cost_difference = shipping_cost_total - total_shipping_declared
                 # NIE zmieniamy order_type — typ musi zostać oryginalny
                 # dla poprawnego rozliczania already_ordered w "Do zamówienia"
+
+        # Auto-fill proxy shipping costs na zamówieniach klientów
+        _distribute_proxy_shipping_to_client_orders(product_shipping_costs)
 
         # Automatyczna zmiana statusu zamówień klientów na 'w_drodze_polska'
         _update_client_orders_on_polska_ordered()
@@ -3139,6 +3248,7 @@ def update_poland_customs_vat():
 
         affected_order_ids = set()
         updated_items = []
+        product_customs_percentages = {}  # {product_id: percentage}
 
         for item_data in items_data:
             item_id = item_data.get('poland_order_item_id')
@@ -3157,13 +3267,17 @@ def update_poland_customs_vat():
             item.customs_vat_amount = customs_amount
             affected_order_ids.add(item.poland_order_id)
 
+            # Zbierz procent cła per produkt do dystrybucji na zamówienia klientów
+            if percentage > 0 and item.product_id:
+                product_customs_percentages[item.product_id] = percentage
+
             updated_items.append({
                 'id': item.id,
                 'customs_vat_percentage': float(percentage),
                 'customs_vat_amount': float(customs_amount),
             })
 
-        # Przelicz sumy zamówień
+        # Przelicz sumy zamówień Poland
         updated_orders = []
         for order_id in affected_order_ids:
             poland_order = PolandOrder.query.get(order_id)
@@ -3187,6 +3301,9 @@ def update_poland_customs_vat():
                 'total_amount': float(poland_order.total_amount),
                 'product_value': float(total_product_value),
             })
+
+        # Auto-fill CŁO/VAT od ceny SPRZEDAŻY na zamówieniach klientów
+        _distribute_customs_vat_to_client_orders(product_customs_percentages)
 
         db.session.commit()
 

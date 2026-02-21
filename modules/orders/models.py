@@ -173,6 +173,8 @@ class Order(db.Model):
     total_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)
     paid_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)  # Amount paid by customer
     shipping_cost = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)  # Koszt wysyłki
+    proxy_shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)  # Koszt dostawy proxy (z Korei)
+    customs_vat_sale_cost = db.Column(db.Numeric(10, 2), default=0.00)  # CŁO/VAT od ceny sprzedaży
 
     # Delivery and payment
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
@@ -576,23 +578,15 @@ class Order(db.Model):
 
     @property
     def proxy_shipping_total(self):
-        """Sum of proxy shipping costs from ProxyOrderItems linked to this order."""
-        from modules.products.models import ProxyOrderItem
+        """Koszt dostawy proxy (z Korei) - odczyt z kolumny Order."""
         from decimal import Decimal
-        result = db.session.query(
-            db.func.coalesce(db.func.sum(ProxyOrderItem.shipping_cost_total), 0)
-        ).filter(ProxyOrderItem.order_id == self.id).scalar()
-        return Decimal(str(result)) if result else Decimal('0.00')
+        return Decimal(str(self.proxy_shipping_cost)) if self.proxy_shipping_cost else Decimal('0.00')
 
     @property
     def customs_vat_total(self):
-        """Sum of customs/VAT amounts from PolandOrderItems linked to this order."""
-        from modules.products.models import PolandOrderItem
+        """CŁO/VAT od ceny sprzedaży - odczyt z kolumny Order."""
         from decimal import Decimal
-        result = db.session.query(
-            db.func.coalesce(db.func.sum(PolandOrderItem.customs_vat_amount), 0)
-        ).filter(PolandOrderItem.order_id == self.id).scalar()
-        return Decimal(str(result)) if result else Decimal('0.00')
+        return Decimal(str(self.customs_vat_sale_cost)) if self.customs_vat_sale_cost else Decimal('0.00')
 
     def recalculate_total_amount(self):
         """

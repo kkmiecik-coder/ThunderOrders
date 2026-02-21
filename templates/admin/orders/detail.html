@@ -491,42 +491,93 @@
                     <span class="summary-value">{{ "%.2f"|format(order.effective_total) }} PLN</span>
                 </div>
                 {% if order.payment_stages == 4 %}
-                <div class="summary-row">
+                <div class="summary-row editable-summary-row">
                     <span class="summary-label">Dostawa Proxy:</span>
                     <span class="summary-value">
-                        {% if order.proxy_shipping_total > 0 %}
-                            {{ "%.2f"|format(order.proxy_shipping_total) }} PLN
-                        {% else %}
-                            <span class="shipping-pending">Wkrótce</span>
-                        {% endif %}
+                        <span class="editable-summary-display" id="proxyShippingDisplay">
+                            {% if order.proxy_shipping_total > 0 %}
+                                <span class="editable-summary-value" id="proxyShippingValue">{{ "%.2f"|format(order.proxy_shipping_total) }} PLN</span>
+                            {% else %}
+                                <span class="shipping-pending" id="proxyShippingValue">Wkrótce</span>
+                            {% endif %}
+                            <button type="button" class="btn-edit-summary" onclick="toggleSummaryEditor('proxyShipping')" title="Edytuj">
+                                <svg width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                </svg>
+                            </button>
+                        </span>
+                        <span class="editable-summary-editor" id="proxyShippingEditor" style="display: none;">
+                            <input type="number" class="form-input-sm summary-cost-input" id="proxyShippingInput" step="0.01" min="0" value="{{ "%.2f"|format(order.proxy_shipping_total) }}" data-original="{{ "%.2f"|format(order.proxy_shipping_total) }}">
+                            <span class="input-suffix">PLN</span>
+                            <button type="button" class="btn-inline-save" onclick="saveSummaryCost('proxyShipping')" title="Zapisz">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+                            </button>
+                            <button type="button" class="btn-inline-cancel" onclick="cancelSummaryEditor('proxyShipping')" title="Anuluj">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                            </button>
+                        </span>
                     </span>
                 </div>
                 {% endif %}
-                <div class="summary-row">
+                <div class="summary-row editable-summary-row">
                     <span class="summary-label">Dostawa PL:</span>
                     <span class="summary-value">
-                        {% if order.shipping_cost and order.shipping_cost > 0 %}
-                            {{ "%.2f"|format(order.shipping_cost) }} PLN
-                        {% else %}
-                            <span class="shipping-pending">Wkrótce</span>
-                        {% endif %}
+                        <span class="editable-summary-display" id="shippingCostSummaryDisplay">
+                            {% if order.shipping_cost and order.shipping_cost > 0 %}
+                                <span class="editable-summary-value" id="shippingCostSummaryValue">{{ "%.2f"|format(order.shipping_cost) }} PLN</span>
+                            {% else %}
+                                <span class="shipping-pending" id="shippingCostSummaryValue">Wkrótce</span>
+                            {% endif %}
+                            <button type="button" class="btn-edit-summary" onclick="toggleSummaryEditor('shippingCostSummary')" title="Edytuj">
+                                <svg width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                </svg>
+                            </button>
+                        </span>
+                        <span class="editable-summary-editor" id="shippingCostSummaryEditor" style="display: none;">
+                            <input type="number" class="form-input-sm summary-cost-input" id="shippingCostSummaryInput" step="0.01" min="0" value="{{ "%.2f"|format(order.shipping_cost) }}" data-original="{{ "%.2f"|format(order.shipping_cost) }}">
+                            <span class="input-suffix">PLN</span>
+                            <button type="button" class="btn-inline-save" onclick="saveSummaryCost('shippingCostSummary')" title="Zapisz">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+                            </button>
+                            <button type="button" class="btn-inline-cancel" onclick="cancelSummaryEditor('shippingCostSummary')" title="Anuluj">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                            </button>
+                        </span>
                     </span>
                 </div>
-                <div class="summary-row">
+                <div class="summary-row editable-summary-row">
                     <span class="summary-label">CŁO/VAT:</span>
                     <span class="summary-value">
-                        {% if order.customs_vat_total > 0 %}
-                            {{ "%.2f"|format(order.customs_vat_total) }} PLN
-                        {% else %}
-                            <span class="shipping-pending">Wkrótce</span>
-                        {% endif %}
+                        <span class="editable-summary-display" id="customsVatDisplay">
+                            {% if order.customs_vat_total > 0 %}
+                                <span class="editable-summary-value" id="customsVatValue">{{ "%.2f"|format(order.customs_vat_total) }} PLN</span>
+                            {% else %}
+                                <span class="shipping-pending" id="customsVatValue">Wkrótce</span>
+                            {% endif %}
+                            <button type="button" class="btn-edit-summary" onclick="toggleSummaryEditor('customsVat')" title="Edytuj">
+                                <svg width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                                </svg>
+                            </button>
+                        </span>
+                        <span class="editable-summary-editor" id="customsVatEditor" style="display: none;">
+                            <input type="number" class="form-input-sm summary-cost-input" id="customsVatInput" step="0.01" min="0" value="{{ "%.2f"|format(order.customs_vat_total) }}" data-original="{{ "%.2f"|format(order.customs_vat_total) }}">
+                            <span class="input-suffix">PLN</span>
+                            <button type="button" class="btn-inline-save" onclick="saveSummaryCost('customsVat')" title="Zapisz">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+                            </button>
+                            <button type="button" class="btn-inline-cancel" onclick="cancelSummaryEditor('customsVat')" title="Anuluj">
+                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                            </button>
+                        </span>
                     </span>
                 </div>
                 <div class="summary-row summary-total">
                     <span class="summary-label">Suma:</span>
                     <span class="summary-value total-amount">
                         {% set known_sum = order.effective_total + (order.proxy_shipping_total if order.payment_stages == 4 else 0) + (order.shipping_cost if order.shipping_cost else 0) + order.customs_vat_total %}
-                        {{ "%.2f"|format(known_sum) }} PLN
+                        <span id="knownSumValue">{{ "%.2f"|format(known_sum) }} PLN</span>
                         {% set missing = [] %}
                         {% if order.payment_stages == 4 and (not order.proxy_shipping_total or order.proxy_shipping_total <= 0) %}
                             {% set _ = missing.append('Dostawa Proxy') %}
@@ -537,9 +588,7 @@
                         {% if not order.customs_vat_total or order.customs_vat_total <= 0 %}
                             {% set _ = missing.append('CŁO/VAT') %}
                         {% endif %}
-                        {% if missing %}
-                            <span class="plus-shipping">+ {{ missing|join(' + ') }}</span>
-                        {% endif %}
+                        <span id="knownSumMissing" class="plus-shipping">{% if missing %}+ {{ missing|join(' + ') }}{% endif %}</span>
                     </span>
                 </div>
                 {% else %}
@@ -2449,6 +2498,147 @@ document.getElementById('deliveryMethodSelect').addEventListener('keydown', func
         e.preventDefault();
         cancelInlineEditor('deliveryMethod');
     }
+});
+
+// ==========================================
+// Summary inline editors (Dostawa Proxy, Dostawa PL, CŁO/VAT)
+// ==========================================
+const summaryFieldMap = {
+    'proxyShipping': 'proxy_shipping_cost',
+    'shippingCostSummary': 'shipping_cost',
+    'customsVat': 'customs_vat_sale_cost'
+};
+
+function toggleSummaryEditor(fieldName) {
+    const display = document.getElementById(fieldName + 'Display');
+    const editor = document.getElementById(fieldName + 'Editor');
+    if (!display || !editor) return;
+
+    display.style.display = 'none';
+    editor.style.display = 'inline-flex';
+
+    const input = document.getElementById(fieldName + 'Input');
+    if (input) {
+        input.focus();
+        input.select();
+    }
+}
+
+function cancelSummaryEditor(fieldName) {
+    const display = document.getElementById(fieldName + 'Display');
+    const editor = document.getElementById(fieldName + 'Editor');
+    const input = document.getElementById(fieldName + 'Input');
+    if (!display || !editor) return;
+
+    if (input) input.value = input.dataset.original;
+    editor.style.display = 'none';
+    display.style.display = 'inline-flex';
+}
+
+async function saveSummaryCost(fieldName) {
+    const input = document.getElementById(fieldName + 'Input');
+    const apiField = summaryFieldMap[fieldName];
+    if (!input || !apiField) return;
+
+    const value = parseFloat(input.value) || 0;
+    if (value < 0) {
+        if (window.Toast) window.Toast.show('Kwota nie może być ujemna', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/orders/{{ order.id }}/update-field`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({ field: apiField, value: value })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            const valueSpan = document.getElementById(fieldName + 'Value');
+            if (valueSpan) {
+                if (value > 0) {
+                    valueSpan.textContent = value.toFixed(2) + ' PLN';
+                    valueSpan.className = 'editable-summary-value';
+                } else {
+                    valueSpan.textContent = 'Wkrótce';
+                    valueSpan.className = 'shipping-pending';
+                }
+            }
+
+            input.dataset.original = value.toFixed(2);
+            cancelSummaryEditor(fieldName);
+
+            // Update known_sum display
+            updateKnownSum();
+
+            // Sync the separate shippingCost editor if we changed shipping_cost from summary
+            if (fieldName === 'shippingCostSummary') {
+                const mainInput = document.getElementById('shippingCostInput');
+                const mainValue = document.getElementById('shippingCostValue');
+                if (mainInput) {
+                    mainInput.value = value.toFixed(2);
+                    mainInput.dataset.original = value.toFixed(2);
+                }
+                if (mainValue) mainValue.textContent = value.toFixed(2) + ' PLN';
+                if (data.grand_total !== undefined) {
+                    updateGrandTotalDisplays(data.grand_total, data.paid_amount);
+                }
+            }
+
+            if (window.Toast) window.Toast.show('Zaktualizowano pomyślnie', 'success');
+        } else {
+            if (window.Toast) window.Toast.show(data.message || 'Błąd zapisu', 'error');
+        }
+    } catch (err) {
+        if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+    }
+}
+
+function updateKnownSum() {
+    const productsTotal = {{ order.effective_total|float }};
+    const proxyInput = document.getElementById('proxyShippingInput');
+    const shippingInput = document.getElementById('shippingCostSummaryInput');
+    const customsInput = document.getElementById('customsVatInput');
+
+    const proxyVal = proxyInput ? (parseFloat(proxyInput.dataset.original) || 0) : 0;
+    const shippingVal = shippingInput ? (parseFloat(shippingInput.dataset.original) || 0) : 0;
+    const customsVal = customsInput ? (parseFloat(customsInput.dataset.original) || 0) : 0;
+
+    const knownSum = productsTotal + proxyVal + shippingVal + customsVal;
+
+    const sumEl = document.getElementById('knownSumValue');
+    if (sumEl) sumEl.textContent = knownSum.toFixed(2) + ' PLN';
+
+    // Update missing items
+    const missing = [];
+    {% if order.payment_stages == 4 %}
+    if (proxyVal <= 0) missing.push('Dostawa Proxy');
+    {% endif %}
+    if (shippingVal <= 0) missing.push('Dostawa PL');
+    if (customsVal <= 0) missing.push('CŁO/VAT');
+
+    const missingEl = document.getElementById('knownSumMissing');
+    if (missingEl) {
+        missingEl.textContent = missing.length > 0 ? '+ ' + missing.join(' + ') : '';
+    }
+}
+
+// Keyboard shortcuts for summary editors
+document.querySelectorAll('.summary-cost-input').forEach(function(input) {
+    input.addEventListener('keydown', function(e) {
+        const fieldName = this.id.replace('Input', '');
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveSummaryCost(fieldName);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelSummaryEditor(fieldName);
+        }
+    });
 });
 
 </script>

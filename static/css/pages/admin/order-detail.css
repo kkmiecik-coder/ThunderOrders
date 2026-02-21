@@ -2299,6 +2299,83 @@ code {
     color: rgba(255, 255, 255, 0.5);
 }
 
+/* Editable summary row (inline cost editors in order summary) */
+.editable-summary-row .summary-value {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.editable-summary-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.editable-summary-value {
+    font-weight: 600;
+}
+
+.btn-edit-summary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: none;
+    color: #9E9E9E;
+    cursor: pointer;
+    padding: 0;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+.editable-summary-row:hover .btn-edit-summary {
+    opacity: 1;
+}
+
+.btn-edit-summary:hover {
+    color: #7B2D8E;
+    background: rgba(123, 45, 142, 0.08);
+}
+
+[data-theme="dark"] .btn-edit-summary:hover {
+    color: #f093fb;
+    background: rgba(240, 147, 251, 0.1);
+}
+
+.editable-summary-editor {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.editable-summary-editor .summary-cost-input {
+    width: 90px;
+    padding: 2px 6px;
+    font-size: 0.85rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: right;
+}
+
+[data-theme="dark"] .editable-summary-editor .summary-cost-input {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+    color: #fff;
+}
+
+.editable-summary-editor .input-suffix {
+    font-size: 0.8rem;
+    color: #757575;
+}
+
+[data-theme="dark"] .editable-summary-editor .input-suffix {
+    color: rgba(255, 255, 255, 0.6);
+}
+
 /* Total row - emphasized */
 .summary-total {
     margin-top: 0.75rem !important;

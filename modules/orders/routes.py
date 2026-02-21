@@ -834,7 +834,7 @@ def admin_update_order_field(order_id):
             }), 400
 
         # Allowed fields that can be updated
-        allowed_fields = ['delivery_method', 'shipping_cost', 'payment_method', 'admin_notes']
+        allowed_fields = ['delivery_method', 'shipping_cost', 'proxy_shipping_cost', 'customs_vat_sale_cost', 'payment_method', 'admin_notes']
 
         if field not in allowed_fields:
             return jsonify({
@@ -846,7 +846,7 @@ def admin_update_order_field(order_id):
         old_value = getattr(order, field)
 
         # Update the field
-        if field == 'shipping_cost':
+        if field in ('shipping_cost', 'proxy_shipping_cost', 'customs_vat_sale_cost'):
             from decimal import Decimal
             try:
                 value = Decimal(str(value)) if value else Decimal('0.00')
@@ -859,10 +859,10 @@ def admin_update_order_field(order_id):
             if value < 0:
                 return jsonify({
                     'success': False,
-                    'message': 'Koszt wysyłki nie może być ujemny'
+                    'message': 'Kwota nie może być ujemna'
                 }), 400
 
-            order.shipping_cost = value
+            setattr(order, field, value)
         elif field == 'delivery_method':
             order.delivery_method = value if value else None
         elif field == 'payment_method':
@@ -891,9 +891,11 @@ def admin_update_order_field(order_id):
             'value': str(value) if value else None
         }
 
-        # For shipping_cost, also return grand_total and payment status
-        if field == 'shipping_cost':
+        # For cost fields, also return totals and payment status
+        if field in ('shipping_cost', 'proxy_shipping_cost', 'customs_vat_sale_cost'):
             response_data['grand_total'] = float(order.grand_total)
+            response_data['proxy_shipping_total'] = float(order.proxy_shipping_total)
+            response_data['customs_vat_total'] = float(order.customs_vat_total)
             response_data['paid_amount'] = float(order.paid_amount) if order.paid_amount else 0
             response_data['is_fully_paid'] = order.is_fully_paid
             response_data['is_partially_paid'] = order.is_partially_paid
