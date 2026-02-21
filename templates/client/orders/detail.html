@@ -341,49 +341,6 @@
                 </section>
             </div>
 
-            <!-- ===== MESSAGES (CHAT) ===== -->
-            <section class="od-section od-chat">
-                <h2>Wiadomości</h2>
-                {% set comment_count = timeline|selectattr('type', 'equalto', 'comment')|list|length %}
-
-                <div class="od-chat__body" id="timeline">
-                    {% if comment_count > 0 %}
-                        {% for event in timeline %}
-                            {% if event.type == 'comment' %}
-                            <div class="od-msg {% if event.is_from_admin %}od-msg--in{% else %}od-msg--out{% endif %}">
-                                <div class="od-msg__avatar">{{ event.user.first_name[0] }}{{ event.user.last_name[0] }}</div>
-                                <div class="od-msg__bubble">
-                                    <div class="od-msg__head">
-                                        <strong>{% if event.is_from_admin %}{{ event.user.full_name }}{% else %}Ty{% endif %}</strong>
-                                        <time>{{ event.created_at|format_datetime }}</time>
-                                    </div>
-                                    <p>{{ event.comment }}</p>
-                                </div>
-                            </div>
-                            {% endif %}
-                        {% endfor %}
-                    {% else %}
-                    <div class="od-chat__empty">
-                        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                        <p>Brak wiadomości</p>
-                        <small>Napisz do nas - odpowiemy jak najszybciej</small>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <form hx-post="{{ url_for('orders.client_add_comment', order_id=order.id) }}"
-                      hx-target="#timeline"
-                      hx-swap="afterbegin"
-                      class="od-chat__form">
-                    {{ comment_form.hidden_tag() }}
-                    <div class="od-chat__input-row">
-                        {{ comment_form.comment(class="od-chat__input", placeholder="Napisz wiadomość...", rows=1) }}
-                        <button type="submit" class="od-chat__send" title="Wyślij">
-                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                        </button>
-                    </div>
-                </form>
-            </section>
         </div>
 
         <!-- RIGHT SIDEBAR -->

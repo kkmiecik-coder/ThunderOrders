@@ -72,35 +72,6 @@
     };
 
     // ====================
-    // TIMELINE AUTO-SCROLL
-    // ====================
-
-    /**
-     * Auto-scroll timeline after adding comment
-     */
-    document.body.addEventListener('htmx:afterSwap', function(evt) {
-        if (evt.detail.target.id === 'timeline') {
-            // Scroll to top of timeline (newest comment)
-            const timeline = document.getElementById('timeline');
-            if (timeline) {
-                timeline.scrollTo({
-                    top: 0,
-                    behavior: 'smooth'
-                });
-            }
-
-            // Clear comment form
-            const commentForm = document.querySelector('.comment-form textarea');
-            if (commentForm) {
-                commentForm.value = '';
-            }
-
-            // Show success message
-            showToast('Komentarz dodany', 'success');
-        }
-    });
-
-    // ====================
     // DELETE ORDER CONFIRMATION
     // ====================
 
@@ -231,21 +202,6 @@
     // ====================
     // FORM VALIDATION
     // ====================
-
-    /**
-     * Validate comment form before submit
-     */
-    const commentForms = document.querySelectorAll('.comment-form');
-    commentForms.forEach(form => {
-        form.addEventListener('submit', function(e) {
-            const textarea = this.querySelector('textarea[name="comment"]');
-            if (textarea && textarea.value.trim() === '') {
-                e.preventDefault();
-                showToast('Wpisz treść komentarza', 'error');
-                textarea.focus();
-            }
-        });
-    });
 
     /**
      * Validate refund form

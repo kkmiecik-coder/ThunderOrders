@@ -969,7 +969,7 @@
         </div>
     </div>
 
-    <!-- ROW 3+4: Potwierdzenie płatności, Zlecenie wysyłki, Wiadomości, Info dodatkowe -->
+    <!-- ROW 3+4: Potwierdzenie płatności, Zlecenie wysyłki, Info dodatkowe -->
     <div class="bottom-sections-grid">
         <!-- Karta: Potwierdzenie płatności za produkt -->
         {% set pc = order.product_payment_confirmation %}
@@ -1216,52 +1216,6 @@
                 <p class="text-muted">To zamówienie nie jest jeszcze przypisane do żadnego zlecenia wysyłki.</p>
             </div>
             {% endif %}
-        </div>
-
-        <!-- Wymiana wiadomości -->
-        <div class="card messages-card">
-            <h3>Wymiana wiadomości</h3>
-            <div class="messages-container" id="messagesContainer">
-                {% for event in timeline %}
-                    {% if event.type == 'comment' %}
-                        <div class="message {% if event.is_internal %}internal{% endif %} {% if event.is_from_admin %}from-admin{% else %}from-client{% endif %}">
-                            <div class="message-avatar">
-                                {{ event.user.first_name[0] }}{{ event.user.last_name[0] }}
-                            </div>
-                            <div class="message-content">
-                                <div class="message-header">
-                                    <strong>{{ event.user.full_name }}</strong>
-                                    {% if event.is_internal %}
-                                        <span class="badge badge-internal">Wewnętrzna</span>
-                                    {% endif %}
-                                    <span class="message-date">{{ event.created_at|format_datetime }}</span>
-                                </div>
-                                <p>{{ event.comment }}</p>
-                            </div>
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-            <!-- Add Comment Form -->
-            <form hx-post="{{ url_for('orders.admin_add_comment', order_id=order.id) }}"
-                  hx-target="#messagesContainer"
-                  hx-swap="beforeend"
-                  hx-on::after-request="if(event.detail.successful) { this.reset(); document.getElementById('messagesContainer').scrollTop = document.getElementById('messagesContainer').scrollHeight; }"
-                  class="message-form">
-                {{ comment_form.hidden_tag() }}
-                <div class="form-group">
-                    {{ comment_form.comment(class="form-textarea", placeholder="Napisz wiadomość...", rows=3) }}
-                </div>
-                <div class="form-actions">
-                    {% if current_user.role in ['admin', 'mod'] %}
-                    <label class="checkbox-label">
-                        {{ comment_form.is_internal(class="form-checkbox") }}
-                        <span>Notatka wewnętrzna</span>
-                    </label>
-                    {% endif %}
-                    <button type="submit" class="btn btn-primary">Wyślij</button>
-                </div>
-            </form>
         </div>
 
         <!-- Informacje dodatkowe -->
@@ -1549,13 +1503,6 @@ function toggleSection(button) {
     section.classList.toggle('open');
 }
 
-// Scroll messages to bottom on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const messagesContainer = document.getElementById('messagesContainer');
-    if (messagesContainer) {
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-});
 
 // ========================================
 // PAYMENT CONFIRMATION WIDGET ACTIONS

@@ -17,13 +17,13 @@ from decimal import Decimal
 from werkzeug.utils import secure_filename
 from modules.orders import orders_bp
 from modules.orders.models import (
-    Order, OrderItem, OrderComment, OrderRefund,
+    Order, OrderItem, OrderRefund,
     OrderStatus, OrderType, WmsStatus,
     ShippingRequestStatus, ShippingRequest, ShippingRequestOrder
 )
 from modules.products.models import Product
 from modules.orders.forms import (
-    OrderFilterForm, OrderStatusForm, OrderCommentForm,
+    OrderFilterForm, OrderStatusForm,
     OrderTrackingForm, RefundForm, BulkActionForm,
     ShippingAddressForm, PickupPointForm
 )
@@ -333,7 +333,7 @@ def admin_create_order():
 def admin_detail(order_id):
     """
     Admin order detail page.
-    Shows full order information, timeline, comments, products, etc.
+    Shows full order information, timeline, products, etc.
     """
     order = Order.query.get_or_404(order_id)
 
@@ -346,12 +346,10 @@ def admin_detail(order_id):
             item.id
         )
     )
-    comments = OrderComment.query.filter_by(order_id=order_id).order_by(OrderComment.created_at.desc()).all()
     refunds = OrderRefund.query.filter_by(order_id=order_id).order_by(OrderRefund.created_at.desc()).all()
 
     # Forms
     status_form = OrderStatusForm()
-    comment_form = OrderCommentForm()
     tracking_form = OrderTrackingForm(obj=order)
     refund_form = RefundForm()
     shipping_address_form = ShippingAddressForm(obj=order)
@@ -381,17 +379,6 @@ def admin_detail(order_id):
         'icon': '📦',
         'message': 'Zamówienie utworzone'
     })
-
-    # Add comments
-    for comment in comments:
-        timeline.append({
-            'type': 'comment',
-            'created_at': comment.created_at,
-            'user': comment.user,
-            'comment': comment.comment,
-            'is_internal': comment.is_internal,
-            'is_from_admin': comment.is_from_admin
-        })
 
     # Add refunds
     for refund in refunds:
@@ -456,7 +443,6 @@ def admin_detail(order_id):
         timeline=timeline,
         status_form=status_form,
         statuses_with_colors=statuses_with_colors,
-        comment_form=comment_form,
         tracking_form=tracking_form,
         refund_form=refund_form,
         shipping_address_form=shipping_address_form,
@@ -515,6 +501,20 @@ def admin_update_status(order_id):
             new_value={'status': new_status}
         )
 
+        # Send email notification to customer
+        try:
+            if order.customer_email:
+                from utils.email_sender import send_order_status_change_email
+                send_order_status_change_email(
+                    user_email=order.customer_email,
+                    user_name=order.customer_name,
+                    order_number=order.order_number,
+                    old_status=old_status_name,
+                    new_status=order.status_display_name
+                )
+        except Exception as e:
+            current_app.logger.error(f"Failed to send status change email for {order.order_number}: {e}")
+
         # Return updated badge HTML with HX-Trigger for toast
         badge_html = f'<span class="badge" style="background-color: {order.status_badge_color}; color: #fff;" id="statusBadge">{order.status_display_name}</span>'
         response = make_response(badge_html)
@@ -528,56 +528,6 @@ def admin_update_status(order_id):
 
     # No change - return current badge
     return f'<span class="badge" style="background-color: {order.status_badge_color}; color: #fff;" id="statusBadge">{order.status_display_name}</span>'
-
-
-@orders_bp.route('/admin/orders/<int:order_id>/comment', methods=['POST'])
-@login_required
-@role_required('admin', 'mod')
-def admin_add_comment(order_id):
-    """
-    HTMX endpoint for adding comment to order.
-    Returns new comment HTML to prepend to timeline.
-    """
-    order = Order.query.get_or_404(order_id)
-    form = OrderCommentForm()
-
-    if form.validate_on_submit():
-        comment = OrderComment(
-            order_id=order.id,
-            user_id=current_user.id,
-            comment=form.comment.data,
-            is_internal=form.is_internal.data if current_user.role in ['admin', 'mod'] else False
-        )
-        db.session.add(comment)
-        db.session.commit()
-
-        # Activity log
-        # log_activity(
-        #     user=current_user,
-        #     action='order_comment_added',
-        #     entity_type='order',
-        #     entity_id=order.id,
-        #     new_value={'comment_id': comment.id, 'is_internal': comment.is_internal}
-        # )
-
-        # Email notification (if not internal)
-        # if not comment.is_internal:
-        #     send_email(
-        #         to=order.customer_email,
-        #         template_type='order_comment',
-        #         context={
-        #             'order': get_order_summary(order),
-        #             'comment': comment.comment,
-        #             'author': comment.author_name
-        #         }
-        #     )
-
-        flash('Komentarz dodany', 'success')
-
-        # Return new comment HTML
-        return render_template('admin/orders/_comment_item.html', comment=comment)
-
-    return '<div class="alert alert-error">Błąd podczas dodawania komentarza</div>', 400
 
 
 @orders_bp.route('/admin/orders/<int:order_id>/shipping-address', methods=['POST'])
@@ -1115,10 +1065,12 @@ def bulk_status_change():
 
         # Update orders
         updated_count = 0
+        email_queue = []
         for order_id in order_ids:
             order = Order.query.get(order_id)
             if order:
                 old_status = order.status
+                old_status_name = order.status_display_name
                 if old_status != new_status:
                     order.status = new_status
                     order.updated_at = datetime.now()
@@ -1134,7 +1086,31 @@ def bulk_status_change():
                         new_value={'status': new_status}
                     )
 
+                    # Queue email notification
+                    if order.customer_email:
+                        email_queue.append({
+                            'email': order.customer_email,
+                            'name': order.customer_name,
+                            'order_number': order.order_number,
+                            'old_status': old_status_name,
+                            'new_status': order.status_display_name
+                        })
+
         db.session.commit()
+
+        # Send email notifications after successful commit
+        for email_data in email_queue:
+            try:
+                from utils.email_sender import send_order_status_change_email
+                send_order_status_change_email(
+                    user_email=email_data['email'],
+                    user_name=email_data['name'],
+                    order_number=email_data['order_number'],
+                    old_status=email_data['old_status'],
+                    new_status=email_data['new_status']
+                )
+            except Exception as e:
+                current_app.logger.error(f"Failed to send status change email for {email_data['order_number']}: {e}")
 
         return jsonify({
             'success': True,
@@ -1532,34 +1508,6 @@ def client_detail(order_id):
 
     # Load relationships
     order_items = OrderItem.query.filter_by(order_id=order_id).all()
-    comments = OrderComment.query.filter_by(
-        order_id=order_id,
-        is_internal=False  # Hide internal comments from client
-    ).order_by(OrderComment.created_at.desc()).all()
-
-    # Comment form
-    comment_form = OrderCommentForm()
-
-    # Build timeline (only non-internal items)
-    timeline = []
-
-    timeline.append({
-        'type': 'created',
-        'created_at': order.created_at,
-        'icon': '📦',
-        'message': 'Zamówienie utworzone'
-    })
-
-    for comment in comments:
-        timeline.append({
-            'type': 'comment',
-            'created_at': comment.created_at,
-            'user': comment.user,
-            'comment': comment.comment,
-            'is_from_admin': comment.is_from_admin
-        })
-
-    timeline.sort(key=lambda x: x['created_at'], reverse=True)
 
     # Order history - WSZYSTKIE activity logs dla zamówienia
     from modules.admin.models import ActivityLog
@@ -1626,54 +1574,10 @@ def client_detail(order_id):
         'client/orders/detail.html',
         order=order,
         order_items=order_items,
-        timeline=timeline,
-        order_history=order_history,  # Zmieniono z status_history na order_history
-        comment_form=comment_form,
+        order_history=order_history,
         page_title=f'Zamówienie {order.order_number}'
     )
 
-
-@orders_bp.route('/client/orders/<int:order_id>/comment', methods=['POST'])
-@login_required
-def client_add_comment(order_id):
-    """
-    HTMX endpoint for client to add comment to their order.
-    """
-    order = Order.query.get_or_404(order_id)
-
-    # Security check
-    if order.user_id != current_user.id:
-        abort(403)
-
-    form = OrderCommentForm()
-
-    if form.validate_on_submit():
-        comment = OrderComment(
-            order_id=order.id,
-            user_id=current_user.id,
-            comment=form.comment.data,
-            is_internal=False  # Client comments are never internal
-        )
-        db.session.add(comment)
-        db.session.commit()
-
-        # Email to admin
-        # send_email(
-        #     to='karolinaburza@gmail.com',  # From settings
-        #     template_type='order_comment',
-        #     context={
-        #         'order': get_order_summary(order),
-        #         'comment': comment.comment,
-        #         'author': comment.author_name
-        #     }
-        # )
-
-        flash('Komentarz dodany', 'success')
-
-        # Return new comment HTML
-        return render_template('client/orders/_comment_item.html', comment=comment)
-
-    return '<div class="alert alert-error">Błąd podczas dodawania komentarza</div>', 400
 
 
 # ====================
