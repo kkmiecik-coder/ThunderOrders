@@ -122,6 +122,28 @@
   --badge-xs-font-size: 9px;
   --badge-xs-radius: 8px;
 
+  /* Status Badge Colors */
+  --badge-nowe-bg: #3b82f6;
+  --badge-nowe-color: #ffffff;
+  --badge-zamowiono-bg: #f59e0b;
+  --badge-zamowiono-color: #ffffff;
+  --badge-zamowione-bg: #f59e0b;
+  --badge-zamowione-color: #ffffff;
+  --badge-oczekujace-bg: #f59e0b;
+  --badge-oczekujace-color: #ffffff;
+  --badge-dostarczone-proxy-bg: #10b981;
+  --badge-dostarczone-proxy-color: #ffffff;
+  --badge-dostarczone-do-proxy-bg: #8b5cf6;
+  --badge-dostarczone-do-proxy-color: #ffffff;
+  --badge-w-drodze-polska-bg: #f97316;
+  --badge-w-drodze-polska-color: #ffffff;
+  --badge-urzad-celny-bg: #8b5cf6;
+  --badge-urzad-celny-color: #ffffff;
+  --badge-dostarczone-gom-bg: #059669;
+  --badge-dostarczone-gom-color: #ffffff;
+  --badge-anulowane-bg: #dc2626;
+  --badge-anulowane-color: #ffffff;
+
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -193,6 +215,28 @@
   --kpop-purple: #8338EC;
   --kpop-cyan: #00F5FF;
   --kpop-light: rgba(255, 255, 255, 0.05);
+
+  /* Status Badge Colors - Dark Mode */
+  --badge-nowe-bg: rgba(59, 130, 246, 0.3);
+  --badge-nowe-color: #60a5fa;
+  --badge-zamowiono-bg: rgba(245, 158, 11, 0.3);
+  --badge-zamowiono-color: #fbbf24;
+  --badge-zamowione-bg: rgba(245, 158, 11, 0.3);
+  --badge-zamowione-color: #fbbf24;
+  --badge-oczekujace-bg: rgba(245, 158, 11, 0.3);
+  --badge-oczekujace-color: #fbbf24;
+  --badge-dostarczone-proxy-bg: rgba(16, 185, 129, 0.3);
+  --badge-dostarczone-proxy-color: #34d399;
+  --badge-dostarczone-do-proxy-bg: rgba(139, 92, 246, 0.3);
+  --badge-dostarczone-do-proxy-color: #a78bfa;
+  --badge-w-drodze-polska-bg: rgba(249, 115, 22, 0.3);
+  --badge-w-drodze-polska-color: #fb923c;
+  --badge-urzad-celny-bg: rgba(139, 92, 246, 0.3);
+  --badge-urzad-celny-color: #a78bfa;
+  --badge-dostarczone-gom-bg: rgba(5, 150, 105, 0.3);
+  --badge-dostarczone-gom-color: #10b981;
+  --badge-anulowane-bg: rgba(220, 38, 38, 0.3);
+  --badge-anulowane-color: #f87171;
 
   /* Dark mode shadows with subtle glow */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);

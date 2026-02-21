@@ -320,10 +320,6 @@ class ProxyOrder(db.Model):
         return f'<ProxyOrder {self.order_number}>'
 
 
-# Backward compatibility alias
-StockOrder = ProxyOrder
-
-
 class ProxyOrderItem(db.Model):
     """Proxy Order Item - produkty w zamówieniu proxy"""
     __tablename__ = 'proxy_order_items'
@@ -352,10 +348,6 @@ class ProxyOrderItem(db.Model):
 
     def __repr__(self):
         return f'<ProxyOrderItem {self.id} - Product {self.product_id}>'
-
-
-# Backward compatibility alias
-StockOrderItem = ProxyOrderItem
 
 
 class PolandOrder(db.Model):

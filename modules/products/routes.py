@@ -14,7 +14,7 @@ from uuid import uuid4
 from modules.products import products_bp
 from modules.products.models import (
     Product, Category, Tag, Supplier, ProductImage, product_tags,
-    ProxyOrder, ProxyOrderItem, StockOrder, StockOrderItem,
+    ProxyOrder, ProxyOrderItem,
     PolandOrder, PolandOrderItem,
     Manufacturer, ProductSeries, VariantGroup
 )
@@ -2531,6 +2531,35 @@ def create_group_proxy_order():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _apply_coverage_status_update(product_quantities, client_orders, new_status):
+    """Check coverage and update status for client orders whose products are fully covered.
+
+    Iterates through client_orders, checking if every item can be satisfied by
+    product_quantities (dict {product_id: available_qty}). Orders that are fully
+    covered get their status set to new_status, and available quantities are consumed.
+    """
+    from modules.orders.models import OrderItem
+
+    if not product_quantities:
+        return
+
+    remaining = dict(product_quantities)
+    for order in client_orders:
+        items = OrderItem.query.filter_by(order_id=order.id).all()
+        all_covered = True
+        for item in items:
+            if item.quantity <= 0:
+                continue
+            if remaining.get(item.product_id, 0) < item.quantity:
+                all_covered = False
+                break
+        if all_covered:
+            for item in items:
+                if item.quantity > 0:
+                    remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
+            order.status = new_status
+
+
 def _update_client_orders_on_polska_ordered():
     """
     Gdy produkty trafiają do zakładki Polska (PolandOrder), zmień status zamówień klientów na 'w_drodze_polska'.
@@ -2540,14 +2569,10 @@ def _update_client_orders_on_polska_ordered():
     - payment_stages=3 (polska): statusy 'nowe'/'oczekujace' → 'w_drodze_polska'
     - payment_stages=4 (proxy→polska): status 'dostarczone_proxy' → 'w_drodze_polska'
     """
-    from modules.orders.models import Order, OrderItem
+    from modules.orders.models import Order
     from modules.products.models import ProxyOrderItem, PolandOrder, PolandOrderItem
     from sqlalchemy import func, or_, and_
 
-    # Ile produktów jest w zamówieniach do Polski (nie anulowanych)
-    # Liczy przez PolandOrderItem → ProxyOrderItem, więc pokrywa oba scenariusze:
-    # 1) order_type='polska' (create_group_proxy_order)
-    # 2) konsolidacja proxy→polska (create_poland_order)
     ordered = dict(
         db.session.query(
             ProxyOrderItem.product_id,
@@ -2561,12 +2586,6 @@ def _update_client_orders_on_polska_ordered():
         ).group_by(ProxyOrderItem.product_id).all()
     )
 
-    if not ordered:
-        return
-
-    # Zamówienia klientów exclusive, które kwalifikują się do zmiany na 'w_drodze_polska':
-    # - payment_stages=3 (polska): status 'nowe' lub 'oczekujace'
-    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy'
     client_orders = Order.query.filter(
         Order.is_exclusive == True,
         or_(
@@ -2575,25 +2594,7 @@ def _update_client_orders_on_polska_ordered():
         )
     ).all()
 
-    remaining = dict(ordered)
-
-    for order in client_orders:
-        items = OrderItem.query.filter_by(order_id=order.id).all()
-        all_covered = True
-
-        for item in items:
-            if item.quantity <= 0:
-                continue
-            available = remaining.get(item.product_id, 0)
-            if available < item.quantity:
-                all_covered = False
-                break
-
-        if all_covered:
-            for item in items:
-                if item.quantity > 0:
-                    remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
-            order.status = 'w_drodze_polska'
+    _apply_coverage_status_update(ordered, client_orders, 'w_drodze_polska')
 
 
 def _update_client_orders_if_fully_delivered(proxy_order_type):
@@ -2602,7 +2603,7 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
     Mapowanie: proxy order type 'polska' → payment_stages=3, 'proxy' → payment_stages=4.
     Jeśli suma dostarczonych >= suma zamówionych per produkt → zmień status klienta.
     """
-    from modules.orders.models import Order, OrderItem, PaymentConfirmation
+    from modules.orders.models import Order
     from modules.products.models import ProxyOrder, ProxyOrderItem
     from sqlalchemy import func
 
@@ -2611,7 +2612,6 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
     if not target_stages:
         return
 
-    # Ile dostarczono per produkt (proxy orders ze statusem 'dostarczone_do_proxy' i odpowiednim typem)
     delivered = dict(
         db.session.query(
             ProxyOrderItem.product_id,
@@ -2622,51 +2622,25 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
         ).group_by(ProxyOrderItem.product_id).all()
     )
 
-    if not delivered:
-        return
-
-    # Pobierz zamówienia klientów z odpowiednim payment_stages i statusem 'oczekujace'
     client_orders = Order.query.filter(
         Order.payment_stages == target_stages,
         Order.status == 'oczekujace',
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
-    # Dla każdego sprawdź czy wszystkie produkty są pokryte
-    # Liczymy kumulatywnie — "zużywamy" dostarczone ilości od zamówień
-    remaining_delivered = dict(delivered)
-
-    for order in client_orders:
-        items = OrderItem.query.filter_by(order_id=order.id).all()
-        all_covered = True
-
-        for item in items:
-            if item.quantity <= 0:
-                continue
-            available = remaining_delivered.get(item.product_id, 0)
-            if available < item.quantity:
-                all_covered = False
-                break
-
-        if all_covered:
-            # "Zużyj" dostarczone ilości
-            for item in items:
-                if item.quantity > 0:
-                    remaining_delivered[item.product_id] = remaining_delivered.get(item.product_id, 0) - item.quantity
-            order.status = 'dostarczone_proxy'
+    _apply_coverage_status_update(delivered, client_orders, 'dostarczone_proxy')
 
 
-def _update_client_orders_on_customs(poland_order):
+def _update_client_orders_on_customs():
     """
     Gdy zamówienie Poland przechodzi na 'urzad_celny', zmień status zamówień klientów
     których produkty są w tej paczce na 'urzad_celny'.
     Analogicznie do _update_client_orders_on_gom_delivery.
     """
-    from modules.orders.models import Order, OrderItem
+    from modules.orders.models import Order
     from modules.products.models import PolandOrder, PolandOrderItem
     from sqlalchemy import func, or_, and_
 
-    # Ile jest w urzędzie celnym per produkt (poland orders ze statusem 'urzad_celny')
     at_customs = dict(
         db.session.query(
             PolandOrderItem.product_id,
@@ -2676,12 +2650,6 @@ def _update_client_orders_on_customs(poland_order):
         ).group_by(PolandOrderItem.product_id).all()
     )
 
-    if not at_customs:
-        return
-
-    # Zamówienia klientów:
-    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace'/'w_drodze_polska' → 'urzad_celny'
-    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy'/'w_drodze_polska' → 'urzad_celny'
     client_orders = Order.query.filter(
         or_(
             and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska'])),
@@ -2690,25 +2658,7 @@ def _update_client_orders_on_customs(poland_order):
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
-    remaining = dict(at_customs)
-
-    for order in client_orders:
-        items = OrderItem.query.filter_by(order_id=order.id).all()
-        all_covered = True
-
-        for item in items:
-            if item.quantity <= 0:
-                continue
-            available = remaining.get(item.product_id, 0)
-            if available < item.quantity:
-                all_covered = False
-                break
-
-        if all_covered:
-            for item in items:
-                if item.quantity > 0:
-                    remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
-            order.status = 'urzad_celny'
+    _apply_coverage_status_update(at_customs, client_orders, 'urzad_celny')
 
 
 def _update_client_orders_on_gom_delivery():
@@ -2717,11 +2667,10 @@ def _update_client_orders_on_gom_delivery():
     Dotyczy zamówień klientów z payment_stages=3 (polska) i statusem 'dostarczone_proxy'.
     Jeśli suma dostarczonych do GOM >= suma zamówionych per produkt → zmień status na 'dostarczone_gom'.
     """
-    from modules.orders.models import Order, OrderItem
+    from modules.orders.models import Order
     from modules.products.models import PolandOrder, PolandOrderItem
-    from sqlalchemy import func
+    from sqlalchemy import func, or_, and_
 
-    # Ile dostarczono do GOM per produkt (poland orders ze statusem 'dostarczone_gom')
     delivered = dict(
         db.session.query(
             PolandOrderItem.product_id,
@@ -2731,13 +2680,6 @@ def _update_client_orders_on_gom_delivery():
         ).group_by(PolandOrderItem.product_id).all()
     )
 
-    if not delivered:
-        return
-
-    # Zamówienia klientów:
-    # - payment_stages=3 (polska bezpośrednia): status 'oczekujace'/'w_drodze_polska'/'urzad_celny' → 'dostarczone_gom'
-    # - payment_stages=4 (proxy→polska): status 'dostarczone_proxy'/'w_drodze_polska'/'urzad_celny' → 'dostarczone_gom'
-    from sqlalchemy import or_, and_
     client_orders = Order.query.filter(
         or_(
             and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska', 'urzad_celny'])),
@@ -2746,25 +2688,7 @@ def _update_client_orders_on_gom_delivery():
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
-    remaining_delivered = dict(delivered)
-
-    for order in client_orders:
-        items = OrderItem.query.filter_by(order_id=order.id).all()
-        all_covered = True
-
-        for item in items:
-            if item.quantity <= 0:
-                continue
-            available = remaining_delivered.get(item.product_id, 0)
-            if available < item.quantity:
-                all_covered = False
-                break
-
-        if all_covered:
-            for item in items:
-                if item.quantity > 0:
-                    remaining_delivered[item.product_id] = remaining_delivered.get(item.product_id, 0) - item.quantity
-            order.status = 'dostarczone_gom'
+    _apply_coverage_status_update(delivered, client_orders, 'dostarczone_gom')
 
 
 @products_bp.route('/proxy-orders/<int:order_id>/status', methods=['PUT'])
@@ -2803,17 +2727,8 @@ def update_proxy_order_status(order_id):
         print(f"Error updating proxy order status: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Keep old endpoint for backward compatibility
-@products_bp.route('/stock-orders/<int:id>/status', methods=['PUT'])
-@login_required
-@role_required('admin', 'mod')
-@csrf.exempt
-def update_stock_order_status(id):
-    """Backward compatible - redirects to proxy order status update"""
-    return update_proxy_order_status(id)
 
-
-@products_bp.route('/stock-orders/<int:id>/delete', methods=['DELETE'])
+@products_bp.route('/proxy-orders/<int:id>/delete', methods=['DELETE'])
 @login_required
 @role_required('admin')
 @csrf.exempt
@@ -2857,7 +2772,7 @@ def update_poland_order_status(order_id):
 
         # Gdy status zmienia się na 'urzad_celny', zaktualizuj zamówienia klientów
         if new_status == 'urzad_celny' and old_status != 'urzad_celny':
-            _update_client_orders_on_customs(poland_order)
+            _update_client_orders_on_customs()
 
         # Gdy status zmienia się na 'dostarczone_gom', sprawdź zamówienia klientów
         if new_status == 'dostarczone_gom' and old_status != 'dostarczone_gom':
@@ -2917,7 +2832,7 @@ def delete_poland_order(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@products_bp.route('/stock-orders/<int:id>/move', methods=['PUT'])
+@products_bp.route('/proxy-orders/<int:id>/move', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
 @csrf.exempt
@@ -2954,60 +2869,31 @@ def move_stock_order(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def generate_proxy_order_number():
-    """Generate unique order number in format PRX/00001"""
-    last_order = ProxyOrder.query.filter(
-        ProxyOrder.order_number.like('PRX/%'),
-        ~ProxyOrder.order_number.like('PRX/PL/%')
-    ).order_by(ProxyOrder.id.desc()).first()
-
+def _generate_order_number(model, prefix, exclude_prefix=None):
+    """Generate unique order number: prefix + 5-digit sequential number."""
+    query = model.query.filter(model.order_number.like(f'{prefix}%'))
+    if exclude_prefix:
+        query = query.filter(~model.order_number.like(f'{exclude_prefix}%'))
+    last_order = query.order_by(model.id.desc()).first()
     if last_order:
         try:
             last_num = int(last_order.order_number.split('/')[-1])
-            new_num = last_num + 1
+            return f'{prefix}{last_num + 1:05d}'
         except ValueError:
-            new_num = 1
-    else:
-        new_num = 1
+            pass
+    return f'{prefix}{1:05d}'
 
-    return f'PRX/{new_num:05d}'
+
+def generate_proxy_order_number():
+    return _generate_order_number(ProxyOrder, 'PRX/', exclude_prefix='PRX/PL/')
 
 
 def generate_poland_order_number():
-    """Generate unique order number in format PL/00001 (direct 3-payment orders)"""
-    last_order = PolandOrder.query.filter(
-        PolandOrder.order_number.like('PL/%'),
-        ~PolandOrder.order_number.like('PRX/PL/%')
-    ).order_by(PolandOrder.id.desc()).first()
-
-    if last_order:
-        try:
-            last_num = int(last_order.order_number.split('/')[-1])
-            new_num = last_num + 1
-        except ValueError:
-            new_num = 1
-    else:
-        new_num = 1
-
-    return f'PL/{new_num:05d}'
+    return _generate_order_number(PolandOrder, 'PL/', exclude_prefix='PRX/PL/')
 
 
 def generate_proxy_to_poland_number():
-    """Generate unique order number in format PRX/PL/00001 (created from PROXY tab modal)"""
-    last_order = PolandOrder.query.filter(
-        PolandOrder.order_number.like('PRX/PL/%')
-    ).order_by(PolandOrder.id.desc()).first()
-
-    if last_order:
-        try:
-            last_num = int(last_order.order_number.split('/')[-1])
-            new_num = last_num + 1
-        except ValueError:
-            new_num = 1
-    else:
-        new_num = 1
-
-    return f'PRX/PL/{new_num:05d}'
+    return _generate_order_number(PolandOrder, 'PRX/PL/')
 
 
 @products_bp.route('/api/get-proxy-orders-details', methods=['POST'])

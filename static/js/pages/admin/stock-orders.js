@@ -1052,184 +1052,516 @@ function saveCustomsVat() {
 }
 
 // ============================================
-// Inline Functions (moved from stock_orders.html)
+// Fetch helper with CSRF token and JSON handling
 // ============================================
-
-// ============================================
-// Filter Functions
-// ============================================
-
-let selectedStatuses = [];
 
 /**
- * Toggle status multi-select dropdown
+ * Fetch helper with CSRF token and JSON handling
  */
-function toggleStatusMultiSelect() {
-    const dropdown = document.getElementById('statusMultiSelect');
-    if (dropdown.style.display === 'none') {
+async function apiFetch(url, { method = 'GET', body = null } = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+    const options = { method, headers };
+    if (body) options.body = JSON.stringify(body);
+    const response = await fetch(url, options);
+    return response.json();
+}
+
+// ============================================
+// TAB_CONFIG — shared configuration for Proxy & Polska tabs
+// ============================================
+
+const TAB_CONFIG = {
+    proxy: {
+        tableId: 'proxyOrdersTable',
+        checkboxClass: 'order-checkbox',
+        selectAllId: 'selectAllOrders',
+        statusDropdownId: 'statusMultiSelect',
+        statusTextId: 'statusSelectText',
+        filterIds: {
+            orderNumber: 'filterOrderNumber',
+            dateFrom: 'filterDateFrom',
+            dateTo: 'filterDateTo',
+            tracking: null
+        },
+        rowIdPrefix: 'order-row',
+        statusEndpoint: id => `/admin/products/proxy-orders/${id}/status`,
+        deleteEndpoint: id => `/admin/products/proxy-orders/${id}/delete`,
+        statusLabels: {
+            zamowiono: 'Zamówiono',
+            dostarczone_do_proxy: 'Dostarczone do Proxy',
+            anulowane: 'Anulowane'
+        },
+        statusDropdownPrefix: 'status-dropdown',
+        dateUpdateSelector: null,
+        dateUpdateCellIndex: 4
+    },
+    polska: {
+        tableId: 'polandOrdersTable',
+        checkboxClass: 'poland-checkbox',
+        selectAllId: 'selectAllPolandOrders',
+        statusDropdownId: 'statusMultiSelectPoland',
+        statusTextId: 'statusSelectTextPoland',
+        filterIds: {
+            orderNumber: 'filterOrderNumberPoland',
+            dateFrom: 'filterDateFromPoland',
+            dateTo: 'filterDateToPoland',
+            tracking: 'filterTrackingPoland'
+        },
+        rowIdPrefix: 'poland-order-row',
+        statusEndpoint: id => `/admin/products/poland-orders/${id}/status`,
+        deleteEndpoint: id => `/admin/products/poland-orders/${id}/delete`,
+        statusLabels: {
+            zamowione: 'Zamówione',
+            urzad_celny: 'Urząd celny',
+            dostarczone_gom: 'Dostarczone GOM',
+            anulowane: 'Anulowane'
+        },
+        statusDropdownPrefix: 'poland-status-dropdown',
+        dateUpdateSelector: '.poland-date-secondary',
+        dateUpdateCellIndex: null
+    }
+};
+
+// ============================================
+// Unified Filter Functions
+// ============================================
+
+let selectedStatusesByTab = { proxy: [], polska: [] };
+
+function _toggleStatusMultiSelect(tab) {
+    const config = TAB_CONFIG[tab];
+    const dropdown = document.getElementById(config.statusDropdownId);
+    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleStatusMultiSelect() { _toggleStatusMultiSelect('proxy'); }
+function toggleStatusMultiSelectPoland() { _toggleStatusMultiSelect('polska'); }
+
+function _updateStatusFilter(tab) {
+    const config = TAB_CONFIG[tab];
+    const checkboxes = document.querySelectorAll(`#${config.statusDropdownId} input[type="checkbox"]:checked`);
+    selectedStatusesByTab[tab] = Array.from(checkboxes).map(cb => cb.value);
+
+    const statusText = document.getElementById(config.statusTextId);
+    const count = selectedStatusesByTab[tab].length;
+    statusText.textContent = count === 0 ? 'Wszystkie statusy' : count === 1 ? '1 status' : `${count} statusy`;
+
+    _applyFilters(tab);
+}
+
+function updateStatusFilter() { _updateStatusFilter('proxy'); }
+function updateStatusFilterPoland() { _updateStatusFilter('polska'); }
+
+function _applyFilters(tab) {
+    const config = TAB_CONFIG[tab];
+    const f = config.filterIds;
+    const orderNumberFilter = document.getElementById(f.orderNumber).value.toLowerCase().trim();
+    const dateFrom = document.getElementById(f.dateFrom).value;
+    const dateTo = document.getElementById(f.dateTo).value;
+    const trackingFilter = f.tracking ? document.getElementById(f.tracking).value.toLowerCase().trim() : '';
+
+    const table = document.getElementById(config.tableId);
+    if (!table) return;
+    const rows = table.querySelectorAll('tbody tr');
+
+    rows.forEach(row => {
+        let show = true;
+
+        if (orderNumberFilter) {
+            const num = (row.dataset.orderNumber || '').toLowerCase();
+            if (!num.includes(orderNumberFilter)) show = false;
+        }
+
+        if (trackingFilter && f.tracking) {
+            const tracking = (row.dataset.tracking || '').toLowerCase();
+            if (!tracking.includes(trackingFilter)) show = false;
+        }
+
+        if (dateFrom || dateTo) {
+            if (tab === 'proxy') {
+                const rowDate = row.dataset.dateFormatted;
+                if (rowDate) {
+                    if (dateFrom && rowDate < dateFrom) show = false;
+                    if (dateTo && rowDate > dateTo) show = false;
+                }
+            } else {
+                const ts = parseFloat(row.dataset.date) || 0;
+                const rowDateStr = new Date(ts * 1000).toISOString().split('T')[0];
+                if (dateFrom && rowDateStr < dateFrom) show = false;
+                if (dateTo && rowDateStr > dateTo) show = false;
+            }
+        }
+
+        if (selectedStatusesByTab[tab].length > 0) {
+            if (!selectedStatusesByTab[tab].includes(row.dataset.status)) show = false;
+        }
+
+        row.style.display = show ? '' : 'none';
+    });
+
+    _updateSelectAllState(tab);
+}
+
+function applyFilters() { _applyFilters('proxy'); }
+function applyFiltersPoland() { _applyFilters('polska'); }
+
+function _clearAllFilters(tab) {
+    const config = TAB_CONFIG[tab];
+    const f = config.filterIds;
+
+    document.getElementById(f.orderNumber).value = '';
+    document.getElementById(f.dateFrom).value = '';
+    document.getElementById(f.dateTo).value = '';
+    if (f.tracking) document.getElementById(f.tracking).value = '';
+
+    document.querySelectorAll(`#${config.statusDropdownId} input[type="checkbox"]`).forEach(cb => { cb.checked = false; });
+    selectedStatusesByTab[tab] = [];
+    document.getElementById(config.statusTextId).textContent = 'Wszystkie statusy';
+
+    const table = document.getElementById(config.tableId);
+    if (table) {
+        table.querySelectorAll('tbody tr').forEach(row => { row.style.display = ''; });
+    }
+
+    _updateSelectAllState(tab);
+}
+
+function clearAllFilters() { _clearAllFilters('proxy'); }
+function clearAllFiltersPoland() { _clearAllFilters('polska'); }
+
+// ============================================
+// Unified Checkbox & Select All Functions
+// ============================================
+
+function _toggleSelectAll(tab, selectAllCheckbox) {
+    const config = TAB_CONFIG[tab];
+    const table = document.getElementById(config.tableId);
+    if (!table) return;
+    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+
+    visibleRows.forEach(row => {
+        const cb = row.querySelector(`.${config.checkboxClass}`);
+        if (cb) {
+            cb.checked = selectAllCheckbox.checked;
+            row.classList.toggle('selected', selectAllCheckbox.checked);
+        }
+    });
+
+    updateBulkActionsModal();
+}
+
+function toggleSelectAll(selectAllCheckbox) { _toggleSelectAll('proxy', selectAllCheckbox); }
+function toggleSelectAllPoland(selectAllCheckbox) { _toggleSelectAll('polska', selectAllCheckbox); }
+
+function _handleCheckboxChange(tab) {
+    const checkbox = event.target;
+    const row = checkbox.closest('tr');
+    row.classList.toggle('selected', checkbox.checked);
+
+    _updateSelectAllState(tab);
+    updateBulkActionsModal();
+}
+
+function handleCheckboxChange() { _handleCheckboxChange('proxy'); }
+function handleCheckboxChangePoland() { _handleCheckboxChange('polska'); }
+
+function _updateSelectAllState(tab) {
+    const config = TAB_CONFIG[tab];
+    const selectAll = document.getElementById(config.selectAllId);
+    if (!selectAll) return;
+
+    const table = document.getElementById(config.tableId);
+    if (!table) return;
+    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
+    const checkboxes = Array.from(visibleRows).map(row => row.querySelector(`.${config.checkboxClass}`)).filter(cb => cb);
+
+    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+    const someChecked = checkboxes.some(cb => cb.checked);
+
+    selectAll.checked = allChecked;
+    selectAll.indeterminate = someChecked && !allChecked;
+}
+
+function updateSelectAllState() { _updateSelectAllState('proxy'); }
+function updateSelectAllStatePoland() { _updateSelectAllState('polska'); }
+
+// ============================================
+// Unified Status Dropdown Functions
+// ============================================
+
+function _toggleStatusDropdown(tab, orderId) {
+    const config = TAB_CONFIG[tab];
+    const prefix = config.statusDropdownPrefix;
+    const dropdownId = `${prefix}-${orderId}`;
+
+    const allDropdowns = document.querySelectorAll(`[id^="${prefix}-"]`);
+    allDropdowns.forEach(d => {
+        if (d.id !== dropdownId) d.style.display = 'none';
+    });
+
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) return;
+
+    const fnName = tab === 'proxy' ? 'toggleStatusDropdown' : 'togglePolandStatusDropdown';
+    const button = document.querySelector(`[onclick="${fnName}(${orderId})"]`);
+    if (!button) return;
+
+    if (dropdown.style.display === 'none' || !dropdown.style.display) {
+        if (dropdown.parentElement !== document.body) {
+            document.body.appendChild(dropdown);
+        }
+
+        const rect = button.getBoundingClientRect();
+        const dropdownHeight = 280;
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        let top = (rect.bottom + dropdownHeight > viewportHeight) ? rect.top - dropdownHeight - 4 : rect.bottom + 4;
+        let left = rect.left;
+        if (left + 180 > viewportWidth) left = viewportWidth - 180 - 16;
+
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = `${top}px`;
+        dropdown.style.left = `${left}px`;
         dropdown.style.display = 'block';
     } else {
         dropdown.style.display = 'none';
     }
 }
 
-/**
- * Update status filter when checkboxes change
- */
-function updateStatusFilter() {
-    const checkboxes = document.querySelectorAll('#statusMultiSelect input[type="checkbox"]:checked');
-    selectedStatuses = Array.from(checkboxes).map(cb => cb.value);
+function toggleStatusDropdown(orderId) { _toggleStatusDropdown('proxy', orderId); }
+function togglePolandStatusDropdown(orderId) { _toggleStatusDropdown('polska', orderId); }
 
-    // Update trigger button text
-    const statusText = document.getElementById('statusSelectText');
-    if (selectedStatuses.length === 0) {
-        statusText.textContent = 'Wszystkie statusy';
-    } else if (selectedStatuses.length === 1) {
-        statusText.textContent = `1 status`;
-    } else {
-        statusText.textContent = `${selectedStatuses.length} statusy`;
-    }
+// ============================================
+// Unified Status Change Function
+// ============================================
 
-    applyFilters();
+function _changeOrderStatus(tab, orderId, newStatus) {
+    const config = TAB_CONFIG[tab];
+
+    const dropdown = document.getElementById(`${config.statusDropdownPrefix}-${orderId}`);
+    if (dropdown) dropdown.style.display = 'none';
+
+    fetch(config.statusEndpoint(orderId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const row = document.getElementById(`${config.rowIdPrefix}-${orderId}`);
+            if (row) {
+                const button = row.querySelector('.status-badge-button');
+                if (button) {
+                    button.className = `status-badge-button badge-${newStatus}`;
+                    button.childNodes[0].textContent = (config.statusLabels[newStatus] || newStatus) + ' ';
+                }
+                row.dataset.status = newStatus;
+
+                // Update date display
+                const now = new Date();
+                const formattedDate = `${String(now.getDate()).padStart(2,'0')}.${String(now.getMonth()+1).padStart(2,'0')}.${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+                if (config.dateUpdateSelector) {
+                    const dateEl = row.querySelector(config.dateUpdateSelector);
+                    if (dateEl) {
+                        dateEl.textContent = formattedDate;
+                        dateEl.style.transition = 'background-color 0.3s';
+                        dateEl.style.backgroundColor = 'rgba(249, 115, 22, 0.15)';
+                        setTimeout(() => { dateEl.style.backgroundColor = ''; }, 1000);
+                    }
+                } else if (config.dateUpdateCellIndex !== null) {
+                    const cells = row.querySelectorAll('td');
+                    const cell = cells[config.dateUpdateCellIndex];
+                    if (cell) {
+                        cell.textContent = formattedDate;
+                        cell.className = 'text-muted';
+                        cell.style.transition = 'background-color 0.3s';
+                        cell.style.backgroundColor = 'rgba(90, 24, 154, 0.15)';
+                        setTimeout(() => { cell.style.backgroundColor = ''; }, 1000);
+                    }
+                }
+
+                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
+            }
+
+            if (window.Toast) {
+                window.Toast.show(data.message || 'Status zamówienia zmieniony', 'success');
+            }
+        } else {
+            if (window.Toast) window.Toast.show('Błąd: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Status change error:', error);
+        if (window.Toast) window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
+    });
 }
 
-/**
- * Apply all filters (date + status)
- */
-function applyFilters() {
-    const orderNumberFilter = document.getElementById('filterOrderNumber').value.toLowerCase().trim();
-    const dateFrom = document.getElementById('filterDateFrom').value;
-    const dateTo = document.getElementById('filterDateTo').value;
+function changeOrderStatus(orderId, newStatus) { _changeOrderStatus('proxy', orderId, newStatus); }
+function changePolandOrderStatus(orderId, newStatus) { _changeOrderStatus('polska', orderId, newStatus); }
 
-    const rows = document.querySelectorAll('#proxyOrdersTable tbody tr');
+// ============================================
+// Unified Delete Functions
+// ============================================
 
-    rows.forEach(row => {
-        let showRow = true;
+function _deleteOrder(tab, orderId) {
+    const config = TAB_CONFIG[tab];
+    const label = tab === 'polska' ? 'POLSKA' : '';
+    if (!confirm(`Czy na pewno chcesz usunąć to zamówienie${label ? ' ' + label : ''}?\n\nTa operacja jest nieodwracalna.`)) return;
 
-        // Order number filter
-        if (orderNumberFilter) {
-            const rowOrderNumber = (row.dataset.orderNumber || '').toLowerCase();
-            if (!rowOrderNumber.includes(orderNumberFilter)) {
-                showRow = false;
-            }
+    fetch(config.deleteEndpoint(orderId), {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (window.Toast) window.Toast.show(`Zamówienie${label ? ' ' + label : ''} zostało usunięte`, 'success');
+            setTimeout(() => { window.location.reload(); }, 500);
+        } else {
+            if (window.Toast) window.Toast.show('Błąd: ' + data.error, 'error');
         }
-
-        // Date filter
-        const rowDate = row.dataset.dateFormatted;
-        if (rowDate) {
-            if (dateFrom && rowDate < dateFrom) {
-                showRow = false;
-            }
-            if (dateTo && rowDate > dateTo) {
-                showRow = false;
-            }
-        }
-
-        // Status filter
-        if (selectedStatuses.length > 0) {
-            const rowStatus = row.dataset.status;
-            if (!selectedStatuses.includes(rowStatus)) {
-                showRow = false;
-            }
-        }
-
-        row.style.display = showRow ? '' : 'none';
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        if (window.Toast) window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
     });
-
-    // Update select all checkbox state
-    updateSelectAllState();
 }
 
-/**
- * Clear all filters
- */
-function clearAllFilters() {
-    document.getElementById('filterOrderNumber').value = '';
-    document.getElementById('filterDateFrom').value = '';
-    document.getElementById('filterDateTo').value = '';
+function deleteOrder(orderId) { _deleteOrder('proxy', orderId); }
+function deletePolandOrder(orderId) { _deleteOrder('polska', orderId); }
 
-    // Uncheck all status checkboxes
-    document.querySelectorAll('#statusMultiSelect input[type="checkbox"]').forEach(cb => {
-        cb.checked = false;
+function _bulkDeleteOrders(tab) {
+    const config = TAB_CONFIG[tab];
+    const label = tab === 'polska' ? ' POLSKA' : '';
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień${label}?\n\nTa operacja jest nieodwracalna.`)) return;
+
+    let completed = 0, errors = 0;
+
+    orderIds.forEach(orderId => {
+        fetch(config.deleteEndpoint(orderId), {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+            if (!data.success) errors++;
+            if (completed === orderIds.length) {
+                if (errors === 0) {
+                    if (window.Toast) window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
+                } else {
+                    if (window.Toast) window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                }
+                setTimeout(() => { window.location.reload(); }, 500);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk delete error:', error);
+            errors++; completed++;
+            if (completed === orderIds.length) setTimeout(() => { window.location.reload(); }, 500);
+        });
     });
-    selectedStatuses = [];
-    document.getElementById('statusSelectText').textContent = 'Wszystkie statusy';
-
-    // Show all rows
-    document.querySelectorAll('.data-table tbody tr').forEach(row => {
-        row.style.display = '';
-    });
-
-    updateSelectAllState();
 }
 
-// Close multi-select when clicking outside
+function bulkDeleteOrders() { _bulkDeleteOrders('proxy'); }
+function bulkDeletePolandOrders() { _bulkDeleteOrders('polska'); }
+
+// ============================================
+// Unified Bulk Move Function
+// ============================================
+
+function _bulkMove(targetTab) {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) return;
+
+    const targetLabel = targetTab.toUpperCase();
+    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki ${targetLabel}?`)) return;
+
+    let completed = 0, errors = 0;
+    const successfulMoves = [];
+    const direction = targetTab === 'polska' ? '50px' : '-50px';
+
+    orderIds.forEach(orderId => {
+        fetch(`/admin/products/proxy-orders/${orderId}/move`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_type: targetTab })
+        })
+        .then(response => response.json())
+        .then(data => {
+            completed++;
+            if (data.success) {
+                successfulMoves.push(orderId);
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'opacity 0.3s, transform 0.3s';
+                    row.style.opacity = '0';
+                    row.style.transform = `translateX(${direction})`;
+                }
+            } else {
+                errors++;
+            }
+
+            if (completed === orderIds.length) {
+                const modal = document.getElementById('bulkActionsModal');
+                if (modal) modal.classList.remove('visible');
+
+                const fromTab = targetTab === 'polska' ? 'proxy' : 'polska';
+                updateTabBadges(fromTab, targetTab, successfulMoves.length);
+                updateSelectAllState();
+
+                if (errors === 0) {
+                    if (window.Toast) window.Toast.show(`Przeniesiono ${successfulMoves.length} zamówień do zakładki ${targetLabel}`, 'success');
+                } else {
+                    if (window.Toast) window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                }
+
+                setTimeout(() => {
+                    successfulMoves.forEach(id => {
+                        const row = document.getElementById(`order-row-${id}`);
+                        if (row) row.remove();
+                    });
+                    const tbody = document.querySelector('.data-table tbody');
+                    if (tbody && tbody.children.length === 0) showEmptyState();
+                }, 350);
+            }
+        })
+        .catch(error => {
+            console.error('Bulk move error:', error);
+            errors++; completed++;
+        });
+    });
+}
+
+function bulkMoveToPolska() { _bulkMove('polska'); }
+function bulkMoveToProxy() { _bulkMove('proxy'); }
+
+// Close multi-select and status dropdowns when clicking outside
 document.addEventListener('click', function(event) {
     if (!event.target.closest('.multi-select-wrapper')) {
-        const dropdown = document.getElementById('statusMultiSelect');
-        if (dropdown) dropdown.style.display = 'none';
+        ['statusMultiSelect', 'statusMultiSelectPoland'].forEach(id => {
+            const d = document.getElementById(id);
+            if (d) d.style.display = 'none';
+        });
+    }
+    if (!event.target.closest('.status-dropdown-wrapper') && !event.target.closest('.status-dropdown')) {
+        document.querySelectorAll('.status-dropdown, [id^="poland-status-dropdown-"]').forEach(d => {
+            d.style.display = 'none';
+        });
     }
 });
 
 // ============================================
 // Checkbox & Bulk Actions Functions
 // ============================================
-
-/**
- * Toggle select all checkboxes
- */
-function toggleSelectAll(selectAllCheckbox) {
-    const visibleRows = document.querySelectorAll('.data-table tbody tr:not([style*="display: none"])');
-    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.order-checkbox'));
-
-    checkboxes.forEach(checkbox => {
-        if (checkbox) {
-            checkbox.checked = selectAllCheckbox.checked;
-            const row = checkbox.closest('tr');
-            if (selectAllCheckbox.checked) {
-                row.classList.add('selected');
-            } else {
-                row.classList.remove('selected');
-            }
-        }
-    });
-
-    updateBulkActionsModal();
-}
-
-/**
- * Handle individual checkbox change
- */
-function handleCheckboxChange() {
-    const checkbox = event.target;
-    const row = checkbox.closest('tr');
-
-    if (checkbox.checked) {
-        row.classList.add('selected');
-    } else {
-        row.classList.remove('selected');
-    }
-
-    updateSelectAllState();
-    updateBulkActionsModal();
-}
-
-/**
- * Update select all checkbox state based on individual checkboxes
- */
-function updateSelectAllState() {
-    const selectAllCheckbox = document.getElementById('selectAllOrders');
-    if (!selectAllCheckbox) return;
-
-    const visibleRows = document.querySelectorAll('.data-table tbody tr:not([style*="display: none"])');
-    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.order-checkbox')).filter(cb => cb);
-
-    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
-    const someChecked = checkboxes.some(cb => cb.checked);
-
-    selectAllCheckbox.checked = allChecked;
-    selectAllCheckbox.indeterminate = someChecked && !allChecked;
-}
 
 /**
  * Update bulk actions modal visibility
@@ -1361,234 +1693,6 @@ function applyBulkStatus(newStatus) {
 }
 
 /**
- * Bulk delete orders
- */
-function bulkDeleteOrders() {
-    const orderIds = getSelectedOrderIds();
-    if (orderIds.length === 0) return;
-
-    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień?\n\nTa operacja jest nieodwracalna.`)) {
-        return;
-    }
-
-    let completed = 0;
-    let errors = 0;
-
-    orderIds.forEach(orderId => {
-        fetch(`/admin/products/stock-orders/${orderId}/delete`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            completed++;
-
-            if (!data.success) {
-                errors++;
-            }
-
-            // Gdy wszystkie requesty się zakończą — przeładuj stronę
-            if (completed === orderIds.length) {
-                if (errors === 0) {
-                    if (window.Toast) {
-                        window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
-                    }
-                } else {
-                    if (window.Toast) {
-                        window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
-                    }
-                }
-
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            }
-        })
-        .catch(error => {
-            console.error('Bulk delete error:', error);
-            errors++;
-            completed++;
-
-            if (completed === orderIds.length) {
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            }
-        });
-    });
-}
-
-/**
- * Bulk move orders to POLSKA tab
- */
-function bulkMoveToPolska() {
-    const orderIds = getSelectedOrderIds();
-    if (orderIds.length === 0) return;
-
-    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki POLSKA?`)) {
-        return;
-    }
-
-    let completed = 0;
-    let errors = 0;
-    const movedCount = orderIds.length;
-    const successfulMoves = [];
-
-    orderIds.forEach(orderId => {
-        fetch(`/admin/products/stock-orders/${orderId}/move`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ order_type: 'polska' })
-        })
-        .then(response => response.json())
-        .then(data => {
-            completed++;
-
-            if (data.success) {
-                successfulMoves.push(orderId);
-                const row = document.getElementById(`order-row-${orderId}`);
-                if (row) {
-                    row.style.transition = 'opacity 0.3s, transform 0.3s';
-                    row.style.opacity = '0';
-                    row.style.transform = 'translateX(50px)';
-                }
-            } else {
-                errors++;
-            }
-
-            // When all requests complete
-            if (completed === orderIds.length) {
-                // Hide bulk actions modal
-                const modal = document.getElementById('bulkActionsModal');
-                if (modal) modal.classList.remove('visible');
-
-                // Update tab badges
-                updateTabBadges('proxy', 'polska', movedCount - errors);
-
-                updateSelectAllState();
-
-                if (errors === 0) {
-                    if (window.Toast) {
-                        window.Toast.show(`Przeniesiono ${movedCount} zamówień do zakładki POLSKA`, 'success');
-                    }
-                } else {
-                    if (window.Toast) {
-                        window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
-                    }
-                }
-
-                // Wait for animation to complete, then remove rows and check if empty
-                setTimeout(() => {
-                    successfulMoves.forEach(id => {
-                        const row = document.getElementById(`order-row-${id}`);
-                        if (row) row.remove();
-                    });
-
-                    // Check if table is empty after removing rows
-                    const tbody = document.querySelector('.data-table tbody');
-                    if (tbody && tbody.children.length === 0) {
-                        showEmptyState();
-                    }
-                }, 350);
-            }
-        })
-        .catch(error => {
-            console.error('Bulk move error:', error);
-            errors++;
-            completed++;
-        });
-    });
-}
-
-/**
- * Bulk move orders to PROXY tab
- */
-function bulkMoveToProxy() {
-    const orderIds = getSelectedOrderIds();
-    if (orderIds.length === 0) return;
-
-    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do zakładki PROXY?`)) {
-        return;
-    }
-
-    let completed = 0;
-    let errors = 0;
-    const movedCount = orderIds.length;
-    const successfulMoves = [];
-
-    orderIds.forEach(orderId => {
-        fetch(`/admin/products/stock-orders/${orderId}/move`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ order_type: 'proxy' })
-        })
-        .then(response => response.json())
-        .then(data => {
-            completed++;
-
-            if (data.success) {
-                successfulMoves.push(orderId);
-                const row = document.getElementById(`order-row-${orderId}`);
-                if (row) {
-                    row.style.transition = 'opacity 0.3s, transform 0.3s';
-                    row.style.opacity = '0';
-                    row.style.transform = 'translateX(-50px)';
-                }
-            } else {
-                errors++;
-            }
-
-            // When all requests complete
-            if (completed === orderIds.length) {
-                // Hide bulk actions modal
-                const modal = document.getElementById('bulkActionsModal');
-                if (modal) modal.classList.remove('visible');
-
-                // Update tab badges
-                updateTabBadges('polska', 'proxy', movedCount - errors);
-
-                updateSelectAllState();
-
-                if (errors === 0) {
-                    if (window.Toast) {
-                        window.Toast.show(`Przeniesiono ${movedCount} zamówień do zakładki PROXY`, 'success');
-                    }
-                } else {
-                    if (window.Toast) {
-                        window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
-                    }
-                }
-
-                // Wait for animation to complete, then remove rows and check if empty
-                setTimeout(() => {
-                    successfulMoves.forEach(id => {
-                        const row = document.getElementById(`order-row-${id}`);
-                        if (row) row.remove();
-                    });
-
-                    // Check if table is empty after removing rows
-                    const tbody = document.querySelector('.data-table tbody');
-                    if (tbody && tbody.children.length === 0) {
-                        showEmptyState();
-                    }
-                }, 350);
-            }
-        })
-        .catch(error => {
-            console.error('Bulk move error:', error);
-            errors++;
-            completed++;
-        });
-    });
-}
-
-/**
  * Update tab badges after moving orders
  */
 function updateTabBadges(fromTab, toTab, count) {
@@ -1631,76 +1735,6 @@ document.addEventListener('click', function(event) {
     }
 });
 
-// ============================================
-// Existing Functions
-// ============================================
-
-/**
- * Toggle status dropdown
- * Note: In dark mode, .tab-pane has backdrop-filter which creates a new containing block.
- * We move dropdown to body to ensure position:fixed works relative to viewport.
- */
-function toggleStatusDropdown(orderId) {
-    const dropdown = document.getElementById(`status-dropdown-${orderId}`);
-    const button = document.querySelector(`[onclick="toggleStatusDropdown(${orderId})"]`);
-    const allDropdowns = document.querySelectorAll('.status-dropdown');
-
-    // Close all other dropdowns
-    allDropdowns.forEach(d => {
-        if (d.id !== `status-dropdown-${orderId}`) {
-            d.style.display = 'none';
-        }
-    });
-
-    // Toggle current dropdown
-    if (dropdown.style.display === 'none' || !dropdown.style.display) {
-        // Move dropdown to body to escape backdrop-filter containing block
-        if (dropdown.parentElement !== document.body) {
-            document.body.appendChild(dropdown);
-        }
-
-        // Position dropdown relative to button
-        const rect = button.getBoundingClientRect();
-        const dropdownHeight = 280; // Approximate height of dropdown
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-
-        // Check if dropdown fits below button, otherwise show above
-        let top;
-        if (rect.bottom + dropdownHeight > viewportHeight) {
-            // Not enough space below - show above
-            top = rect.top - dropdownHeight - 4;
-        } else {
-            // Show below
-            top = rect.bottom + 4;
-        }
-
-        // Check if dropdown fits horizontally, adjust if needed
-        let left = rect.left;
-        const dropdownWidth = 180; // min-width from CSS
-        if (left + dropdownWidth > viewportWidth) {
-            left = viewportWidth - dropdownWidth - 16;
-        }
-
-        dropdown.style.top = `${top}px`;
-        dropdown.style.left = `${left}px`;
-        dropdown.style.display = 'block';
-    } else {
-        dropdown.style.display = 'none';
-    }
-}
-
-/**
- * Close dropdowns when clicking outside
- */
-document.addEventListener('click', function(event) {
-    if (!event.target.closest('.status-dropdown-wrapper')) {
-        document.querySelectorAll('.status-dropdown').forEach(d => {
-            d.style.display = 'none';
-        });
-    }
-});
-
 /**
  * Re-position dropdowns on scroll (for fixed position)
  */
@@ -1708,128 +1742,10 @@ const tableResponsive = document.querySelector('.table-responsive');
 if (tableResponsive) {
     tableResponsive.addEventListener('scroll', function() {
         // Close all dropdowns on scroll
-        document.querySelectorAll('.status-dropdown').forEach(d => {
+        document.querySelectorAll('.status-dropdown, [id^="poland-status-dropdown-"]').forEach(d => {
             d.style.display = 'none';
         });
     });
-}
-
-/**
- * Change order status
- */
-function changeOrderStatus(orderId, newStatus) {
-    fetch(`/admin/products/proxy-orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Close dropdown first
-            const dropdown = document.getElementById(`status-dropdown-${orderId}`);
-            if (dropdown) {
-                dropdown.style.display = 'none';
-            }
-
-            const statusLabels = {
-                'zamowiono': 'Zamówiono',
-                'dostarczone_do_proxy': 'Dostarczone do Proxy',
-                'anulowane': 'Anulowane'
-            };
-
-            // Update the badge and status changed cell
-            const row = document.getElementById(`order-row-${orderId}`);
-            if (row) {
-                const statusButton = row.querySelector('.status-badge-button');
-                if (statusButton) {
-                    const label = statusLabels[newStatus] || newStatus;
-                    statusButton.className = `status-badge-button badge-${newStatus}`;
-                    statusButton.innerHTML = `${label} <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M6 8L2 4h8L6 8z"/></svg>`;
-                }
-
-                row.dataset.status = newStatus;
-
-                // Update "Ostatnia zmiana" column
-                const now = new Date();
-                const day = String(now.getDate()).padStart(2, '0');
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const year = now.getFullYear();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
-
-                // Columns: checkbox(0), order_number(1), products(2), status(3), ostatnia_zmiana(4), date(5), amount(6), actions(7)
-                const cells = row.querySelectorAll('td');
-                const statusChangedCell = cells[4]; // 5th column (0-indexed)
-                if (statusChangedCell) {
-                    statusChangedCell.textContent = formattedDate;
-                    statusChangedCell.className = 'text-muted';
-
-                    statusChangedCell.style.transition = 'background-color 0.3s';
-                    statusChangedCell.style.backgroundColor = 'rgba(90, 24, 154, 0.15)';
-                    setTimeout(() => {
-                        statusChangedCell.style.backgroundColor = '';
-                    }, 1000);
-                }
-
-                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
-            }
-
-            if (window.Toast) {
-                window.Toast.show('Status zamowienia zostal zmieniony', 'success');
-            }
-        } else {
-            if (window.Toast) {
-                window.Toast.show('Blad: ' + data.error, 'error');
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Status change error:', error);
-        if (window.Toast) {
-            window.Toast.show('Wystapil blad podczas zmiany statusu', 'error');
-        }
-    });
-}
-
-
-/**
- * Delete order
- */
-function deleteOrder(orderId) {
-    if (confirm('Czy na pewno chcesz usunąć to zamówienie?\n\nTa operacja jest nieodwracalna.')) {
-        fetch(`/admin/products/stock-orders/${orderId}/delete`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                if (window.Toast) {
-                    window.Toast.show('Zamówienie zostało usunięte', 'success');
-                }
-                // Przeładuj tę samą zakładkę — countery i listy się odświeżą
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            } else {
-                if (window.Toast) {
-                    window.Toast.show('Błąd: ' + data.error, 'error');
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Delete error:', error);
-            if (window.Toast) {
-                window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
-            }
-        });
-    }
 }
 
 /**
@@ -1852,368 +1768,6 @@ function togglePolandProducts(toggleEl) {
         toggleEl.dataset.expanded = 'true';
     }
 }
-
-/**
- * Delete Poland order
- */
-function deletePolandOrder(orderId) {
-    if (confirm('Czy na pewno chcesz usunąć to zamówienie POLSKA?\n\nTa operacja jest nieodwracalna.')) {
-        fetch(`/admin/products/poland-orders/${orderId}/delete`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                if (window.Toast) {
-                    window.Toast.show('Zamówienie POLSKA zostało usunięte', 'success');
-                }
-                // Przeładuj tę samą zakładkę — countery i listy się odświeżą
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            } else {
-                if (window.Toast) {
-                    window.Toast.show('Błąd: ' + data.error, 'error');
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Delete error:', error);
-            if (window.Toast) {
-                window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
-            }
-        });
-    }
-}
-
-// ============================================
-// POLSKA Tab Functions
-// ============================================
-
-let selectedStatusesPoland = [];
-
-function toggleStatusMultiSelectPoland() {
-    const dropdown = document.getElementById('statusMultiSelectPoland');
-    if (dropdown.style.display === 'none') {
-        dropdown.style.display = 'block';
-    } else {
-        dropdown.style.display = 'none';
-    }
-}
-
-function updateStatusFilterPoland() {
-    const checkboxes = document.querySelectorAll('#statusMultiSelectPoland input[type="checkbox"]:checked');
-    selectedStatusesPoland = Array.from(checkboxes).map(cb => cb.value);
-
-    const statusText = document.getElementById('statusSelectTextPoland');
-    if (selectedStatusesPoland.length === 0) {
-        statusText.textContent = 'Wszystkie statusy';
-    } else if (selectedStatusesPoland.length === 1) {
-        statusText.textContent = '1 status';
-    } else {
-        statusText.textContent = `${selectedStatusesPoland.length} statusy`;
-    }
-
-    applyFiltersPoland();
-}
-
-function applyFiltersPoland() {
-    const orderNumberFilter = document.getElementById('filterOrderNumberPoland').value.toLowerCase().trim();
-    const trackingFilter = document.getElementById('filterTrackingPoland').value.toLowerCase().trim();
-    const dateFrom = document.getElementById('filterDateFromPoland').value;
-    const dateTo = document.getElementById('filterDateToPoland').value;
-
-    const table = document.getElementById('polandOrdersTable');
-    if (!table) return;
-    const rows = table.querySelectorAll('tbody tr');
-
-    rows.forEach(row => {
-        let showRow = true;
-
-        // Order number filter
-        if (orderNumberFilter) {
-            const rowOrderNumber = (row.dataset.orderNumber || '').toLowerCase();
-            if (!rowOrderNumber.includes(orderNumberFilter)) {
-                showRow = false;
-            }
-        }
-
-        // Tracking number (Kfriday RS) filter
-        if (trackingFilter) {
-            const rowTracking = (row.dataset.tracking || '').toLowerCase();
-            if (!rowTracking.includes(trackingFilter)) {
-                showRow = false;
-            }
-        }
-
-        // Date filter (using timestamp)
-        if (dateFrom || dateTo) {
-            const rowTimestamp = parseFloat(row.dataset.date) || 0;
-            const rowDateStr = new Date(rowTimestamp * 1000).toISOString().split('T')[0];
-            if (dateFrom && rowDateStr < dateFrom) showRow = false;
-            if (dateTo && rowDateStr > dateTo) showRow = false;
-        }
-
-        // Status filter
-        if (selectedStatusesPoland.length > 0) {
-            if (!selectedStatusesPoland.includes(row.dataset.status)) {
-                showRow = false;
-            }
-        }
-
-        row.style.display = showRow ? '' : 'none';
-    });
-
-    updateSelectAllStatePoland();
-}
-
-function clearAllFiltersPoland() {
-    document.getElementById('filterOrderNumberPoland').value = '';
-    document.getElementById('filterTrackingPoland').value = '';
-    document.getElementById('filterDateFromPoland').value = '';
-    document.getElementById('filterDateToPoland').value = '';
-
-    document.querySelectorAll('#statusMultiSelectPoland input[type="checkbox"]').forEach(cb => {
-        cb.checked = false;
-    });
-    selectedStatusesPoland = [];
-    document.getElementById('statusSelectTextPoland').textContent = 'Wszystkie statusy';
-
-    const table = document.getElementById('polandOrdersTable');
-    if (table) {
-        table.querySelectorAll('tbody tr').forEach(row => {
-            row.style.display = '';
-        });
-    }
-
-    updateSelectAllStatePoland();
-}
-
-function toggleSelectAllPoland(selectAllCheckbox) {
-    const table = document.getElementById('polandOrdersTable');
-    if (!table) return;
-    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
-
-    visibleRows.forEach(row => {
-        const checkbox = row.querySelector('.poland-checkbox');
-        if (checkbox) {
-            checkbox.checked = selectAllCheckbox.checked;
-            if (selectAllCheckbox.checked) {
-                row.classList.add('selected');
-            } else {
-                row.classList.remove('selected');
-            }
-        }
-    });
-
-    updateBulkActionsModal();
-}
-
-function handleCheckboxChangePoland() {
-    const checkbox = event.target;
-    const row = checkbox.closest('tr');
-
-    if (checkbox.checked) {
-        row.classList.add('selected');
-    } else {
-        row.classList.remove('selected');
-    }
-
-    updateSelectAllStatePoland();
-    updateBulkActionsModal();
-}
-
-function updateSelectAllStatePoland() {
-    const selectAllCheckbox = document.getElementById('selectAllPolandOrders');
-    if (!selectAllCheckbox) return;
-
-    const table = document.getElementById('polandOrdersTable');
-    if (!table) return;
-    const visibleRows = table.querySelectorAll('tbody tr:not([style*="display: none"])');
-    const checkboxes = Array.from(visibleRows).map(row => row.querySelector('.poland-checkbox')).filter(cb => cb);
-
-    const allChecked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
-    const someChecked = checkboxes.some(cb => cb.checked);
-
-    selectAllCheckbox.checked = allChecked;
-    selectAllCheckbox.indeterminate = someChecked && !allChecked;
-}
-
-function togglePolandStatusDropdown(orderId) {
-    const allDropdowns = document.querySelectorAll('[id^="poland-status-dropdown-"]');
-    allDropdowns.forEach(d => {
-        if (d.id !== `poland-status-dropdown-${orderId}`) {
-            d.style.display = 'none';
-        }
-    });
-
-    const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
-    if (!dropdown) return;
-
-    const button = document.querySelector(`[onclick="togglePolandStatusDropdown(${orderId})"]`);
-    if (!button) return;
-
-    if (dropdown.style.display === 'none' || !dropdown.style.display) {
-        // Move to body once to escape backdrop-filter stacking context
-        if (dropdown.parentElement !== document.body) {
-            document.body.appendChild(dropdown);
-        }
-
-        const rect = button.getBoundingClientRect();
-        const dropdownHeight = 280;
-        const viewportHeight = window.innerHeight;
-        const viewportWidth = window.innerWidth;
-
-        // Check if dropdown fits below button, otherwise show above
-        let top;
-        if (rect.bottom + dropdownHeight > viewportHeight) {
-            top = rect.top - dropdownHeight - 4;
-        } else {
-            top = rect.bottom + 4;
-        }
-
-        // Check if dropdown fits horizontally
-        let left = rect.left;
-        const dropdownWidth = 180;
-        if (left + dropdownWidth > viewportWidth) {
-            left = viewportWidth - dropdownWidth - 16;
-        }
-
-        dropdown.style.position = 'fixed';
-        dropdown.style.top = `${top}px`;
-        dropdown.style.left = `${left}px`;
-        dropdown.style.display = 'block';
-    } else {
-        dropdown.style.display = 'none';
-    }
-}
-
-function changePolandOrderStatus(orderId, newStatus) {
-    const dropdown = document.getElementById(`poland-status-dropdown-${orderId}`);
-    if (dropdown) dropdown.style.display = 'none';
-
-    fetch(`/admin/products/poland-orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const row = document.getElementById(`poland-order-row-${orderId}`);
-            if (row) {
-                const button = row.querySelector('.status-badge-button');
-                if (button) {
-                    const statusLabels = {
-                        'zamowione': 'Zamówione',
-                        'urzad_celny': 'Urząd celny',
-                        'dostarczone_gom': 'Dostarczone GOM',
-                        'anulowane': 'Anulowane'
-                    };
-                    button.className = `status-badge-button badge-${newStatus}`;
-                    button.childNodes[0].textContent = (statusLabels[newStatus] || newStatus) + ' ';
-                }
-                row.dataset.status = newStatus;
-
-                // Update date in merged "Data" column
-                const now = new Date();
-                const day = String(now.getDate()).padStart(2, '0');
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const year = now.getFullYear();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const formattedDate = `${day}.${month}.${year} ${hours}:${minutes}`;
-
-                const dateSecondary = row.querySelector('.poland-date-secondary');
-                if (dateSecondary) {
-                    dateSecondary.textContent = formattedDate;
-                    dateSecondary.style.transition = 'background-color 0.3s';
-                    dateSecondary.style.backgroundColor = 'rgba(249, 115, 22, 0.15)';
-                    setTimeout(() => {
-                        dateSecondary.style.backgroundColor = '';
-                    }, 1000);
-                }
-                row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
-            }
-
-            if (window.Toast) {
-                window.Toast.show(data.message || 'Status zmieniony', 'success');
-            }
-        } else {
-            if (window.Toast) {
-                window.Toast.show('Błąd: ' + data.error, 'error');
-            }
-        }
-    })
-    .catch(error => {
-        console.error('Poland status change error:', error);
-        if (window.Toast) {
-            window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
-        }
-    });
-}
-
-function bulkDeletePolandOrders() {
-    const orderIds = getSelectedOrderIds();
-    if (orderIds.length === 0) return;
-
-    if (!confirm(`Czy na pewno chcesz usunąć ${orderIds.length} zamówień POLSKA?\n\nTa operacja jest nieodwracalna.`)) {
-        return;
-    }
-
-    let completed = 0;
-    let errors = 0;
-
-    orderIds.forEach(orderId => {
-        fetch(`/admin/products/poland-orders/${orderId}/delete`, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(response => response.json())
-        .then(data => {
-            completed++;
-            if (!data.success) errors++;
-
-            if (completed === orderIds.length) {
-                if (errors === 0) {
-                    if (window.Toast) {
-                        window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
-                    }
-                } else {
-                    if (window.Toast) {
-                        window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
-                    }
-                }
-                setTimeout(() => { window.location.reload(); }, 500);
-            }
-        })
-        .catch(error => {
-            console.error('Bulk delete Poland error:', error);
-            errors++;
-            completed++;
-            if (completed === orderIds.length) {
-                setTimeout(() => { window.location.reload(); }, 500);
-            }
-        });
-    });
-}
-
-// Close Poland multi-select when clicking outside
-document.addEventListener('click', function(event) {
-    if (!event.target.closest('.multi-select-wrapper')) {
-        const dropdown = document.getElementById('statusMultiSelectPoland');
-        if (dropdown) dropdown.style.display = 'none';
-    }
-    // Close Poland status dropdowns when clicking outside
-    if (!event.target.closest('.status-dropdown-wrapper') && !event.target.closest('.status-dropdown')) {
-        document.querySelectorAll('[id^="poland-status-dropdown-"]').forEach(d => {
-            d.style.display = 'none';
-        });
-    }
-});
 
 /**
  * Show empty state when table becomes empty

@@ -1,4 +1,5 @@
 {% extends "admin/base_admin.html" %}
+{% from "admin/warehouse/macros/stock_orders_macros.html" import order_filters, status_dropdown, product_thumbnail_compact %}
 
 {% block title %}Zamówienia produktów - ThunderOrders{% endblock %}
 
@@ -188,56 +189,7 @@
             </div>
 
             <!-- Filters Section -->
-            <div class="orders-filters">
-                <div class="filter-group">
-                    <label>Nr zamówienia</label>
-                    <input type="text" id="filterOrderNumber" class="filter-input" placeholder="Szukaj..." oninput="applyFilters()">
-                </div>
-                <div class="filter-group">
-                    <label>Data od</label>
-                    <input type="date" id="filterDateFrom" class="filter-input" onchange="applyFilters()">
-                </div>
-                <div class="filter-group">
-                    <label>Data do</label>
-                    <input type="date" id="filterDateTo" class="filter-input" onchange="applyFilters()">
-                </div>
-                <div class="filter-group filter-group-status">
-                    <label>Status</label>
-                    <div class="multi-select-wrapper">
-                        <button type="button" class="multi-select-trigger" onclick="toggleStatusMultiSelect()">
-                            <span id="statusSelectText">Wszystkie statusy</span>
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                <path d="M6 8L2 4h8L6 8z"/>
-                            </svg>
-                        </button>
-                        <div id="statusMultiSelect" class="multi-select-dropdown" style="display: none;">
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="zamowiono" onchange="updateStatusFilter()">
-                                    <span class="badge badge-zamowiono">Zamówiono</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="dostarczone_do_proxy" onchange="updateStatusFilter()">
-                                    <span class="badge badge-dostarczone_do_proxy">Dostarczone do Proxy</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="anulowane" onchange="updateStatusFilter()">
-                                    <span class="badge badge-anulowane">Anulowane</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="filter-actions-inline">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFilters()">
-                        Wyczysc filtry
-                    </button>
-                </div>
-            </div>
+            {{ order_filters('proxy', [('zamowiono', 'Zamówiono'), ('dostarczone_do_proxy', 'Dostarczone do Proxy'), ('anulowane', 'Anulowane')]) }}
 
             <!-- Proxy Orders List -->
             <div class="orders-list">
@@ -278,17 +230,7 @@
                                             {% set product = item.product %}
                                             {% set primary_image = product.primary_image if product else None %}
                                             <div class="product-item-compact">
-                                                {% if primary_image %}
-                                                <img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
-                                                     alt="{{ product.name }}" class="product-thumb-compact">
-                                                {% else %}
-                                                <div class="product-thumb-compact product-thumb-placeholder">
-                                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                                        <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
-                                                        <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"></path>
-                                                    </svg>
-                                                </div>
-                                                {% endif %}
+                                                {{ product_thumbnail_compact(product) }}
                                                 <div class="product-item-info">
                                                     <span class="product-item-name">{{ product.name if product else '-' }}</span>
                                                     <span class="product-item-qty">({{ item.quantity }} szt)</span>
@@ -298,29 +240,7 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <div class="status-dropdown-wrapper">
-                                            <button class="status-badge-button badge-{{ order.status }}" onclick="toggleStatusDropdown({{ order.id }})">
-                                                {% if order.status == 'zamowiono' %}Zamówiono
-                                                {% elif order.status == 'dostarczone_do_proxy' %}Dostarczone do Proxy
-                                                {% elif order.status == 'anulowane' %}Anulowane
-                                                {% else %}{{ order.status|replace('_', ' ')|title }}
-                                                {% endif %}
-                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                                    <path d="M6 8L2 4h8L6 8z"/>
-                                                </svg>
-                                            </button>
-                                            <div id="status-dropdown-{{ order.id }}" class="status-dropdown" style="display: none;">
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'zamowiono')">
-                                                    <span class="badge badge-zamowiono">Zamówiono</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'dostarczone_do_proxy')">
-                                                    <span class="badge badge-dostarczone_do_proxy">Dostarczone do Proxy</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changeOrderStatus({{ order.id }}, 'anulowane')">
-                                                    <span class="badge badge-anulowane">Anulowane</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        {{ status_dropdown(order, [('zamowiono', 'Zamówiono'), ('dostarczone_do_proxy', 'Dostarczone do Proxy'), ('anulowane', 'Anulowane')], 'toggleStatusDropdown', 'changeOrderStatus', 'status-dropdown') }}
                                     </td>
                                     <td class="text-muted">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</td>
                                     <td>{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</td>
@@ -370,60 +290,7 @@
             </div>
 
             <!-- Filters Section -->
-            <div class="orders-filters">
-                <div class="filter-group">
-                    <label>Nr zamówienia</label>
-                    <input type="text" id="filterOrderNumberPoland" class="filter-input" placeholder="Szukaj..." oninput="applyFiltersPoland()">
-                </div>
-                <div class="filter-group">
-                    <label>Numer Kfriday RS</label>
-                    <input type="text" id="filterTrackingPoland" class="filter-input" placeholder="Szukaj..." oninput="applyFiltersPoland()">
-                </div>
-                <div class="filter-group">
-                    <label>Data od</label>
-                    <input type="date" id="filterDateFromPoland" class="filter-input" onchange="applyFiltersPoland()">
-                </div>
-                <div class="filter-group">
-                    <label>Data do</label>
-                    <input type="date" id="filterDateToPoland" class="filter-input" onchange="applyFiltersPoland()">
-                </div>
-                <div class="filter-group filter-group-status">
-                    <label>Status</label>
-                    <div class="multi-select-wrapper">
-                        <button type="button" class="multi-select-trigger" onclick="toggleStatusMultiSelectPoland()">
-                            <span id="statusSelectTextPoland">Wszystkie statusy</span>
-                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                <path d="M6 8L2 4h8L6 8z"/>
-                            </svg>
-                        </button>
-                        <div id="statusMultiSelectPoland" class="multi-select-dropdown" style="display: none;">
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="zamowione" onchange="updateStatusFilterPoland()">
-                                    <span class="badge badge-zamowione">Zamówione</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="dostarczone_gom" onchange="updateStatusFilterPoland()">
-                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
-                                </label>
-                            </div>
-                            <div class="multi-select-option">
-                                <label>
-                                    <input type="checkbox" value="anulowane" onchange="updateStatusFilterPoland()">
-                                    <span class="badge badge-anulowane">Anulowane</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="filter-actions-inline">
-                    <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFiltersPoland()">
-                        Wyczyść filtry
-                    </button>
-                </div>
-            </div>
+            {{ order_filters('polska', [('zamowione', 'Zamówione'), ('dostarczone_gom', 'Dostarczone GOM'), ('anulowane', 'Anulowane')], has_tracking=true) }}
 
             <!-- Poland Orders List -->
             <div class="orders-list">
@@ -475,17 +342,7 @@
                                                 <tr class="{% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
                                                     <td class="poland-inner-product-name">
                                                         <div class="product-item-compact">
-                                                            {% if primary_image %}
-                                                            <img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
-                                                                 alt="{{ product.name }}" class="product-thumb-compact">
-                                                            {% else %}
-                                                            <div class="product-thumb-compact product-thumb-placeholder">
-                                                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                                                    <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
-                                                                    <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"></path>
-                                                                </svg>
-                                                            </div>
-                                                            {% endif %}
+                                                            {{ product_thumbnail_compact(product) }}
                                                             <div class="product-item-info">
                                                                 <span class="product-item-name">{{ product.name if product else '-' }}</span>
                                                                 <span class="product-item-qty">({{ item.quantity }} szt)</span>
@@ -510,32 +367,7 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <div class="status-dropdown-wrapper">
-                                            <button class="status-badge-button badge-{{ order.status }}" onclick="togglePolandStatusDropdown({{ order.id }})">
-                                                {% if order.status == 'zamowione' %}Zamówione
-                                                {% elif order.status == 'urzad_celny' %}Urząd celny
-                                                {% elif order.status == 'dostarczone_gom' %}Dostarczone GOM
-                                                {% elif order.status == 'anulowane' %}Anulowane
-                                                {% endif %}
-                                                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                                    <path d="M6 8L2 4h8L6 8z"/>
-                                                </svg>
-                                            </button>
-                                            <div id="poland-status-dropdown-{{ order.id }}" class="status-dropdown" style="display: none;">
-                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'zamowione')">
-                                                    <span class="badge badge-zamowione">Zamówione</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'urzad_celny')">
-                                                    <span class="badge badge-urzad_celny">Urząd celny</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'dostarczone_gom')">
-                                                    <span class="badge badge-dostarczone_gom">Dostarczone GOM</span>
-                                                </div>
-                                                <div class="status-dropdown-option" onclick="changePolandOrderStatus({{ order.id }}, 'anulowane')">
-                                                    <span class="badge badge-anulowane">Anulowane</span>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        {{ status_dropdown(order, [('zamowione', 'Zamówione'), ('urzad_celny', 'Urząd celny'), ('dostarczone_gom', 'Dostarczone GOM'), ('anulowane', 'Anulowane')], 'togglePolandStatusDropdown', 'changePolandOrderStatus', 'poland-status-dropdown') }}
                                     </td>
                                     <td>{{ order.tracking_number or '-' }}</td>
                                     <td class="poland-costs-cell" data-order-id="{{ order.id }}">

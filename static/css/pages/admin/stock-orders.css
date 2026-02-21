@@ -641,57 +641,6 @@
     letter-spacing: 0.5px;
 }
 
-.badge-nowe {
-    background-color: #dbeafe;
-    color: #1e40af;
-}
-
-.badge-zamowiono {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-
-.badge-dostarczone_do_proxy {
-    background-color: #ddd6fe;
-    color: #5b21b6;
-}
-
-.badge-w_drodze {
-    background-color: #fce7f3;
-    color: #9f1239;
-}
-
-.badge-w_urzedzie_celnym {
-    background-color: #e0e7ff;
-    color: #3730a3;
-}
-
-.badge-zamowione {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-
-.badge-dostarczone_gom {
-    background-color: #d1fae5;
-    color: #065f46;
-}
-
-.badge-anulowane {
-    background-color: #f3f4f6;
-    color: #6b7280;
-}
-
-/* Legacy badge aliases */
-.badge-oczekujace {
-    background-color: #fef3c7;
-    color: #92400e;
-}
-
-.badge-dostarczone_proxy {
-    background-color: #ddd6fe;
-    color: #5b21b6;
-}
-
 /* Actions Group */
 .actions-group {
     display: flex;
@@ -815,10 +764,6 @@
     text-align: center !important;
 }
 
-.font-semibold {
-    font-weight: 600;
-}
-
 /* Product cell in orders table */
 .product-cell {
     display: flex;
@@ -855,8 +800,8 @@
 
 /* Colored status badges */
 .badge-nowe {
-    background: #3b82f6;
-    color: white;
+    background: var(--badge-nowe-bg);
+    color: var(--badge-nowe-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -864,8 +809,8 @@
 }
 
 .badge-oczekujace {
-    background: #f59e0b;
-    color: white;
+    background: var(--badge-oczekujace-bg);
+    color: var(--badge-oczekujace-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -873,8 +818,8 @@
 }
 
 .badge-dostarczone_proxy {
-    background: #10b981;
-    color: white;
+    background: var(--badge-dostarczone-proxy-bg);
+    color: var(--badge-dostarczone-proxy-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -882,8 +827,8 @@
 }
 
 .badge-w_drodze_polska {
-    background: #f97316;
-    color: white;
+    background: var(--badge-w-drodze-polska-bg);
+    color: var(--badge-w-drodze-polska-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -891,8 +836,8 @@
 }
 
 .badge-urzad_celny {
-    background: #8b5cf6;
-    color: white;
+    background: var(--badge-urzad-celny-bg);
+    color: var(--badge-urzad-celny-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -900,8 +845,8 @@
 }
 
 .badge-dostarczone_gom {
-    background: #059669;
-    color: white;
+    background: var(--badge-dostarczone-gom-bg);
+    color: var(--badge-dostarczone-gom-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -909,8 +854,35 @@
 }
 
 .badge-anulowane {
-    background: #dc2626;
-    color: white;
+    background: var(--badge-anulowane-bg);
+    color: var(--badge-anulowane-color);
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-zamowiono {
+    background: var(--badge-zamowiono-bg);
+    color: var(--badge-zamowiono-color);
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-zamowione {
+    background: var(--badge-zamowione-bg);
+    color: var(--badge-zamowione-color);
+    padding: 6px 14px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.badge-dostarczone_do_proxy {
+    background: var(--badge-dostarczone-do-proxy-bg);
+    color: var(--badge-dostarczone-do-proxy-color);
     padding: 6px 14px;
     border-radius: 14px;
     font-size: 12px;
@@ -959,54 +931,53 @@
 
 /* Status colors - applied to button */
 .status-badge-button.badge-zamowiono {
-    background: #f59e0b;
-    color: white;
+    background: var(--badge-zamowiono-bg);
+    color: var(--badge-zamowiono-color);
 }
 
 .status-badge-button.badge-dostarczone_do_proxy {
-    background: #8b5cf6;
-    color: white;
+    background: var(--badge-dostarczone-do-proxy-bg);
+    color: var(--badge-dostarczone-do-proxy-color);
 }
 
 .status-badge-button.badge-anulowane {
-    background: #dc2626;
-    color: white;
+    background: var(--badge-anulowane-bg);
+    color: var(--badge-anulowane-color);
 }
 
 .status-badge-button.badge-zamowione {
-    background: #f59e0b;
-    color: white;
+    background: var(--badge-zamowione-bg);
+    color: var(--badge-zamowione-color);
 }
 
-/* Legacy status colors (backward compat) */
 .status-badge-button.badge-nowe {
-    background: #3b82f6;
-    color: white;
+    background: var(--badge-nowe-bg);
+    color: var(--badge-nowe-color);
 }
 
 .status-badge-button.badge-oczekujace {
-    background: #f59e0b;
-    color: white;
+    background: var(--badge-oczekujace-bg);
+    color: var(--badge-oczekujace-color);
 }
 
 .status-badge-button.badge-dostarczone_proxy {
-    background: #10b981;
-    color: white;
+    background: var(--badge-dostarczone-proxy-bg);
+    color: var(--badge-dostarczone-proxy-color);
 }
 
 .status-badge-button.badge-w_drodze_polska {
-    background: #f97316;
-    color: white;
+    background: var(--badge-w-drodze-polska-bg);
+    color: var(--badge-w-drodze-polska-color);
 }
 
 .status-badge-button.badge-urzad_celny {
-    background: #8b5cf6;
-    color: white;
+    background: var(--badge-urzad-celny-bg);
+    color: var(--badge-urzad-celny-color);
 }
 
 .status-badge-button.badge-dostarczone_gom {
-    background: #059669;
-    color: white;
+    background: var(--badge-dostarczone-gom-bg);
+    color: var(--badge-dostarczone-gom-color);
 }
 
 .status-dropdown {
@@ -1206,99 +1177,6 @@
     color: #f0f0f0;
 }
 
-/* Status Badges - Dark Mode */
-[data-theme="dark"] .badge-nowe {
-    background: rgba(59, 130, 246, 0.3);
-    color: #60a5fa;
-}
-
-[data-theme="dark"] .badge-oczekujace {
-    background: rgba(245, 158, 11, 0.3);
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .badge-dostarczone_proxy {
-    background: rgba(16, 185, 129, 0.3);
-    color: #34d399;
-}
-
-[data-theme="dark"] .badge-w_drodze_polska {
-    background: rgba(249, 115, 22, 0.3);
-    color: #fb923c;
-}
-
-[data-theme="dark"] .badge-urzad_celny {
-    background: rgba(139, 92, 246, 0.3);
-    color: #a78bfa;
-}
-
-[data-theme="dark"] .badge-dostarczone_gom {
-    background: rgba(5, 150, 105, 0.3);
-    color: #10b981;
-}
-
-[data-theme="dark"] .badge-zamowione {
-    background: rgba(245, 158, 11, 0.3);
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .badge-anulowane {
-    background: rgba(220, 38, 38, 0.3);
-    color: #f87171;
-}
-
-/* Status Badge Button - Dark Mode */
-[data-theme="dark"] .status-badge-button.badge-zamowione {
-    background: rgba(245, 158, 11, 0.3);
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .status-badge-button.badge-zamowiono {
-    background: rgba(245, 158, 11, 0.3);
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .status-badge-button.badge-dostarczone_do_proxy {
-    background: rgba(139, 92, 246, 0.3);
-    color: #a78bfa;
-}
-
-[data-theme="dark"] .status-badge-button.badge-anulowane {
-    background: rgba(220, 38, 38, 0.3);
-    color: #f87171;
-}
-
-/* Legacy dark mode (backward compat) */
-[data-theme="dark"] .status-badge-button.badge-nowe {
-    background: rgba(59, 130, 246, 0.3);
-    color: #60a5fa;
-}
-
-[data-theme="dark"] .status-badge-button.badge-oczekujace {
-    background: rgba(245, 158, 11, 0.3);
-    color: #fbbf24;
-}
-
-[data-theme="dark"] .status-badge-button.badge-dostarczone_proxy {
-    background: rgba(16, 185, 129, 0.3);
-    color: #34d399;
-}
-
-[data-theme="dark"] .status-badge-button.badge-w_drodze_polska {
-    background: rgba(249, 115, 22, 0.3);
-    color: #fb923c;
-}
-
-[data-theme="dark"] .status-badge-button.badge-urzad_celny {
-    background: rgba(139, 92, 246, 0.3);
-    color: #a78bfa;
-}
-
-[data-theme="dark"] .status-badge-button.badge-dostarczone_gom {
-    background: rgba(5, 150, 105, 0.3);
-    color: #10b981;
-}
-
 /* Status Dropdown - Dark Mode */
 [data-theme="dark"] .status-dropdown {
     background: rgba(15, 12, 41, 0.98);
@@ -1369,41 +1247,6 @@
     color: rgba(255, 255, 255, 0.5);
 }
 
-/* Modal Overlay - Dark Mode */
-[data-theme="dark"] .modal-overlay {
-    background: rgba(15, 12, 41, 0.8);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-}
-
-[data-theme="dark"] .modal {
-    background: rgba(15, 12, 41, 0.98);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(240, 147, 251, 0.2);
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px rgba(240, 147, 251, 0.1);
-}
-
-[data-theme="dark"] .modal-header {
-    border-bottom-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .modal-title {
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] .modal-close {
-    color: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .modal-close:hover {
-    color: #f0f0f0;
-}
-
-[data-theme="dark"] .modal-footer {
-    border-top-color: rgba(240, 147, 251, 0.15);
-}
-
 /* Filters - Dark Mode */
 [data-theme="dark"] .filter-group label {
     color: #f093fb;
@@ -1461,12 +1304,6 @@
 .empty-state svg,
 .empty-state h3,
 .empty-state p,
-.modal-overlay,
-.modal,
-.modal-header,
-.modal-title,
-.modal-close,
-.modal-footer,
 .filter-select,
 .text-muted {
     transition: all 0.5s ease;
@@ -1698,30 +1535,6 @@
     border-top: 2px solid #e5e7eb;
 }
 
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: #6b7280;
-}
-
-.empty-state svg {
-    color: #d1d5db;
-    margin-bottom: 16px;
-}
-
-.empty-state h3 {
-    font-size: 18px;
-    font-weight: 600;
-    color: #374151;
-    margin: 0 0 8px;
-}
-
-.empty-state p {
-    font-size: 14px;
-    margin: 0;
-}
-
 /* ============================================
    Dark Mode Styles for DO ZAMÓWIENIA
    ============================================ */
@@ -1822,18 +1635,6 @@
 
 [data-theme="dark"] .order-products-table .total-row td {
     border-top-color: rgba(240, 147, 251, 0.2);
-}
-
-[data-theme="dark"] .empty-state {
-    color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="dark"] .empty-state svg {
-    color: rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="dark"] .empty-state h3 {
-    color: rgba(255, 255, 255, 0.9);
 }
 
 /* === PROXY ORDERS - Products Column === */

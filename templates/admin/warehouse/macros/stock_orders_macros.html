@@ -1,0 +1,91 @@
+{#
+  Macros for stock_orders.html - DRY helpers for repeated patterns.
+  Usage: {% from "admin/warehouse/macros/stock_orders_macros.html" import order_filters, status_dropdown, product_thumbnail_compact %}
+#}
+
+{% macro product_thumbnail_compact(product) %}
+{% set primary_image = product.primary_image if product else None %}
+{% if primary_image %}
+<img src="{{ url_for('static', filename='uploads/products/compressed/' + primary_image.filename) }}"
+     alt="{{ product.name }}" class="product-thumb-compact">
+{% else %}
+<div class="product-thumb-compact product-thumb-placeholder">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"></path>
+        <path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"></path>
+    </svg>
+</div>
+{% endif %}
+{% endmacro %}
+
+
+{% macro order_filters(tab, statuses, has_tracking=false) %}
+{% set suffix = 'Poland' if tab == 'polska' else '' %}
+<div class="orders-filters">
+    <div class="filter-group">
+        <label>Nr zamówienia</label>
+        <input type="text" id="filterOrderNumber{{ suffix }}" class="filter-input" placeholder="Szukaj..." oninput="applyFilters{{ suffix }}()">
+    </div>
+    {% if has_tracking %}
+    <div class="filter-group">
+        <label>Numer Kfriday RS</label>
+        <input type="text" id="filterTracking{{ suffix }}" class="filter-input" placeholder="Szukaj..." oninput="applyFilters{{ suffix }}()">
+    </div>
+    {% endif %}
+    <div class="filter-group">
+        <label>Data od</label>
+        <input type="date" id="filterDateFrom{{ suffix }}" class="filter-input" onchange="applyFilters{{ suffix }}()">
+    </div>
+    <div class="filter-group">
+        <label>Data do</label>
+        <input type="date" id="filterDateTo{{ suffix }}" class="filter-input" onchange="applyFilters{{ suffix }}()">
+    </div>
+    <div class="filter-group filter-group-status">
+        <label>Status</label>
+        <div class="multi-select-wrapper">
+            <button type="button" class="multi-select-trigger" onclick="toggleStatusMultiSelect{{ suffix }}()">
+                <span id="statusSelectText{{ suffix }}">Wszystkie statusy</span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                    <path d="M6 8L2 4h8L6 8z"/>
+                </svg>
+            </button>
+            <div id="statusMultiSelect{{ suffix }}" class="multi-select-dropdown" style="display: none;">
+                {% for value, label in statuses %}
+                <div class="multi-select-option">
+                    <label>
+                        <input type="checkbox" value="{{ value }}" onchange="updateStatusFilter{{ suffix }}()">
+                        <span class="badge badge-{{ value }}">{{ label }}</span>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="filter-actions-inline">
+        <button type="button" class="btn btn-sm btn-secondary" onclick="clearAllFilters{{ suffix }}()">
+            Wyczyść filtry
+        </button>
+    </div>
+</div>
+{% endmacro %}
+
+
+{% macro status_dropdown(order, statuses, toggle_fn, change_fn, dropdown_prefix) %}
+{% set ns = namespace(matched=false) %}
+<div class="status-dropdown-wrapper">
+    <button class="status-badge-button badge-{{ order.status }}" onclick="{{ toggle_fn }}({{ order.id }})">
+        {% for value, label in statuses %}{% if order.status == value %}{{ label }}{% set ns.matched = true %}{% endif %}{% endfor %}
+        {% if not ns.matched %}{{ order.status|replace('_', ' ')|title }}{% endif %}
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+            <path d="M6 8L2 4h8L6 8z"/>
+        </svg>
+    </button>
+    <div id="{{ dropdown_prefix }}-{{ order.id }}" class="status-dropdown" style="display: none;">
+        {% for value, label in statuses %}
+        <div class="status-dropdown-option" onclick="{{ change_fn }}({{ order.id }}, '{{ value }}')">
+            <span class="badge badge-{{ value }}">{{ label }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endmacro %}
