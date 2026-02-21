@@ -277,7 +277,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
                     tileClass += ' selected';
                 }
 
-                var amountText = data.amount.toFixed(2) + ' zł';
+                var amountText = getStageAmount(stage.id, data).toFixed(2) + ' zł';
                 var icon = STAGE_ICONS[stage.id] || '';
 
                 html += '<div class="' + tileClass + '"' +
@@ -370,9 +370,8 @@ window.toggleOrderItems = function(orderId, totalItems) {
             var orderData = selectedOrders.get(orderId);
             if (!orderData) return;
 
-            // Każdy wybrany etap dodaje kwotę zamówienia
-            stages.forEach(function () {
-                total += orderData.amount;
+            stages.forEach(function (stageId) {
+                total += getStageAmount(stageId, orderData);
             });
         });
 
@@ -387,8 +386,8 @@ window.toggleOrderItems = function(orderId, totalItems) {
             if (stages.size === 0) return;
             var orderData = selectedOrders.get(orderId);
             if (!orderData) return;
-            stages.forEach(function () {
-                total += orderData.amount;
+            stages.forEach(function (stageId) {
+                total += getStageAmount(stageId, orderData);
             });
         });
 
@@ -493,11 +492,24 @@ window.toggleOrderItems = function(orderId, totalItems) {
                 stage4Status: row ? (row.dataset.stage4Status || '') : '',
                 canUploadStage2: row ? (row.dataset.canUploadStage2 === 'true') : false,
                 canUploadStage3: row ? (row.dataset.canUploadStage3 === 'true') : false,
-                canUploadStage4: row ? (row.dataset.canUploadStage4 === 'true') : false
+                canUploadStage4: row ? (row.dataset.canUploadStage4 === 'true') : false,
+                proxyShippingAmount: row ? parseFloat(row.dataset.proxyShippingAmount || 0) : 0,
+                customsVatAmount: row ? parseFloat(row.dataset.customsVatAmount || 0) : 0,
+                shippingCostAmount: row ? parseFloat(row.dataset.shippingCostAmount || 0) : 0
             });
         });
 
         updateUI();
+    }
+
+    function getStageAmount(stageId, orderData) {
+        switch (stageId) {
+            case 'product': return orderData.amount;
+            case 'korean_shipping': return orderData.proxyShippingAmount;
+            case 'customs_vat': return orderData.customsVatAmount;
+            case 'domestic_shipping': return orderData.shippingCostAmount;
+            default: return 0;
+        }
     }
 
     function updateUI() {

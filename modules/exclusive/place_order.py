@@ -195,7 +195,7 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
         is_exclusive=True,
         exclusive_page_id=page.id,
         exclusive_page_name=page.name,  # Preserve page name for history
-        payment_stages=page.payment_stages,  # Dziedziczenie z ExclusivePage (2 lub 3)
+        payment_stages=page.payment_stages,  # Dziedziczenie z ExclusivePage (3 lub 4)
         is_guest_order=is_guest,
         guest_name=guest_data.get('name') if is_guest else None,
         guest_email=guest_data.get('email') if is_guest else None,

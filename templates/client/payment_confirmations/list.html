@@ -72,6 +72,9 @@
                     data-can-upload-stage2="{{ 'true' if order.can_upload_stage_2 else 'false' }}"
                     data-can-upload-stage3="{{ 'true' if order.can_upload_stage_3 else 'false' }}"
                     data-can-upload-stage4="{{ 'true' if order.can_upload_stage_4 else 'false' }}"
+                    data-proxy-shipping-amount="{{ order.proxy_shipping_total }}"
+                    data-customs-vat-amount="{{ order.customs_vat_total }}"
+                    data-shipping-cost-amount="{{ order.shipping_cost or 0 }}"
                 >
                     <td class="pc-col-checkbox" data-label="">
                         <input
@@ -82,7 +85,7 @@
                             data-amount="{{ order.effective_total }}"
                             data-product-status="{{ order.product_payment_status }}"
                             data-payment-stages="{{ order.payment_stages or 3 }}"
-                            {% if not order.can_upload_product_payment %}disabled{% endif %}
+                            {% if not (order.can_upload_product_payment or order.can_upload_stage_2 or order.can_upload_stage_3 or order.can_upload_stage_4) %}disabled{% endif %}
                         >
                     </td>
 
@@ -182,7 +185,7 @@
                             {% elif e2_status == 'rejected' %}
                                 <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
                             {% elif order.can_upload_stage_2 %}
-                                <span class="pc-stage-badge pc-stage-badge-ready">Gotowe</span>
+                                <span class="pc-stage-badge pc-stage-badge-ready">Do zapłaty</span>
                             {% else %}
                                 <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                             {% endif %}
@@ -202,7 +205,7 @@
                         {% elif e3_status == 'rejected' %}
                             <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
                         {% elif order.can_upload_stage_3 %}
-                            <span class="pc-stage-badge pc-stage-badge-ready">Gotowe</span>
+                            <span class="pc-stage-badge pc-stage-badge-ready">Do zapłaty</span>
                         {% else %}
                             <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
@@ -218,7 +221,7 @@
                         {% elif e4_status == 'rejected' %}
                             <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
                         {% elif order.can_upload_stage_4 %}
-                            <span class="pc-stage-badge pc-stage-badge-ready">Gotowe</span>
+                            <span class="pc-stage-badge pc-stage-badge-ready">Do zapłaty</span>
                         {% else %}
                             <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}

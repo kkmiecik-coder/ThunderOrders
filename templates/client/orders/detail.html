@@ -7,504 +7,468 @@
 {% endblock %}
 
 {% block content %}
-<div class="order-detail-page client-view">
-    <!-- Header -->
-    <div class="order-header">
-        <div class="order-header-main">
-            <a href="{{ url_for('orders.client_list') }}" class="back-link">
-                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
-                </svg>
-                Powrót do listy
+<div class="od">
+    <!-- ========== HERO BANNER ========== -->
+    <div class="od-hero">
+        <div class="od-hero__back">
+            <a href="{{ url_for('orders.client_list') }}" class="od-back">
+                <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             </a>
-            <h1>{{ order.order_number }}</h1>
-            <span class="badge" style="background-color: {{ order.type_badge_color }}; color: #fff;">{{ order.type_display_name }}</span>
-            <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
         </div>
-        <div class="order-header-right">
-            <span class="order-total">{{ "%.2f"|format(order.effective_total) }} PLN</span>
+        <div class="od-hero__body">
+            <h1 class="od-hero__number">{{ order.order_number }}</h1>
+            {% if order.is_exclusive and order.exclusive_page %}
+            <span class="od-hero__page">{{ order.exclusive_page.name }}</span>
+            {% endif %}
         </div>
     </div>
 
-    <div class="content-layout">
-        <!-- Left Column: Main Content -->
-        <div class="content-main">
-            <!-- Products Card -->
-            <div class="card products-card">
-                <div class="card-header">
-                    <h2>Zamówione produkty</h2>
-                    <span class="items-count">{{ order_items|length }} {% if order_items|length == 1 %}pozycja{% elif order_items|length < 5 %}pozycje{% else %}pozycji{% endif %}</span>
-                </div>
-                <div class="table-wrapper">
-                    <table class="products-table">
-                        <thead>
-                            <tr>
-                                <th class="col-image"></th>
-                                <th class="col-name">Nazwa</th>
-                                <th class="col-qty text-center">Ilość</th>
-                                <th class="col-price text-right">Cena</th>
-                                <th class="col-total text-right">Wartość</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in order_items %}
-                            <tr>
-                                <td class="col-image" data-label="">
-                                    <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="product-thumb">
-                                </td>
-                                <td class="col-name" data-label="Nazwa">
-                                    <div class="product-name-cell">
-                                        <span class="product-name">{{ item.product_name }}</span>
-                                        <div class="product-codes">
-                                            {% if item.product_sku %}
-                                            <span>SKU: {{ item.product_sku }}</span>
-                                            {% endif %}
-                                            {% if item.product_ean %}
-                                            <span>EAN: {{ item.product_ean }}</span>
-                                            {% endif %}
-                                        </div>
-                                        <!-- Mobile values row -->
-                                        <div class="mobile-values-row">
-                                            <span class="mobile-value"><span class="label">Ilość:</span> {{ item.quantity }}</span>
-                                            <span class="mobile-value"><span class="label">Cena:</span> {{ "%.2f"|format(item.price) }} PLN</span>
-                                            <span class="mobile-value total"><span class="label">Wartość:</span> {{ "%.2f"|format(item.total) }} PLN</span>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="col-qty text-center" data-label="Ilość">
-                                    <span class="quantity-badge">{{ item.quantity }}</span>
-                                </td>
-                                <td class="col-price text-right" data-label="Cena">
-                                    {{ "%.2f"|format(item.price) }} PLN
-                                </td>
-                                <td class="col-total text-right" data-label="Wartość">
-                                    <strong>{{ "%.2f"|format(item.total) }} PLN</strong>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+    <!-- ========== TWO-COL LAYOUT ========== -->
+    <div class="od-grid">
+        <!-- LEFT -->
+        <div class="od-main">
 
-                    <!-- Order Summary Box -->
-                    <div class="order-summary-box">
-                        <div class="order-summary-inner">
-                            {% if order.is_exclusive %}
-                            {# --- EXCLUSIVE ORDER SUMMARY --- #}
-                            <div class="summary-row">
-                                <span class="summary-label">Produkty:</span>
-                                <span class="summary-value">{{ "%.2f"|format(order.effective_total) }} PLN</span>
-                            </div>
-                            {% if order.payment_stages == 4 %}
-                            <div class="summary-row">
-                                <span class="summary-label">Dostawa Proxy:</span>
-                                <span class="summary-value">
-                                    {% if order.proxy_shipping_total > 0 %}
-                                        {{ "%.2f"|format(order.proxy_shipping_total) }} PLN
-                                    {% else %}
-                                        <span class="shipping-pending">Wkrótce</span>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            {% endif %}
-                            <div class="summary-row">
-                                <span class="summary-label">Dostawa PL:</span>
-                                <span class="summary-value">
-                                    {% if order.shipping_cost and order.shipping_cost > 0 %}
-                                        {{ "%.2f"|format(order.shipping_cost) }} PLN
-                                    {% else %}
-                                        <span class="shipping-pending">Wkrótce</span>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">CŁO/VAT:</span>
-                                <span class="summary-value">
-                                    {% if order.customs_vat_total > 0 %}
-                                        {{ "%.2f"|format(order.customs_vat_total) }} PLN
-                                    {% else %}
-                                        <span class="shipping-pending">Wkrótce</span>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            <div class="summary-row summary-total">
-                                <span class="summary-label">Suma:</span>
-                                <span class="summary-value">
-                                    {% set known_sum = order.effective_total + (order.proxy_shipping_total if order.payment_stages == 4 else 0) + (order.shipping_cost if order.shipping_cost else 0) + order.customs_vat_total %}
-                                    {{ "%.2f"|format(known_sum) }} PLN
-                                    {% set missing = [] %}
-                                    {% if order.payment_stages == 4 and (not order.proxy_shipping_total or order.proxy_shipping_total <= 0) %}
-                                        {% set _ = missing.append('Dostawa Proxy') %}
-                                    {% endif %}
-                                    {% if not order.shipping_cost or order.shipping_cost <= 0 %}
-                                        {% set _ = missing.append('Dostawa PL') %}
-                                    {% endif %}
-                                    {% if not order.customs_vat_total or order.customs_vat_total <= 0 %}
-                                        {% set _ = missing.append('CŁO/VAT') %}
-                                    {% endif %}
-                                    {% if missing %}
-                                        <span class="plus-shipping">+ {{ missing|join(' + ') }}</span>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            {% else %}
-                            {# --- REGULAR ORDER SUMMARY --- #}
-                            <div class="summary-row">
-                                <span class="summary-label">Produkty:</span>
-                                <span class="summary-value">{{ "%.2f"|format(order.total_amount) }} PLN</span>
-                            </div>
-                            <div class="summary-row">
-                                <span class="summary-label">Dostawa:</span>
-                                <span class="summary-value">
-                                    {% if order.shipping_cost and order.shipping_cost > 0 %}
-                                        {{ "%.2f"|format(order.shipping_cost) }} PLN
-                                    {% else %}
-                                        <span class="shipping-pending">Wkrótce</span>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            <div class="summary-row summary-total">
-                                <span class="summary-label">Suma:</span>
-                                <span class="summary-value">
-                                    {{ "%.2f"|format(order.effective_total) }} PLN
-                                    {% if not order.shipping_cost or order.shipping_cost <= 0 %}
-                                        <span class="plus-shipping">+ dostawa</span>
-                                    {% endif %}
-                                </span>
-                            </div>
+            <!-- ===== PRODUCTS ===== -->
+            <section class="od-section od-products">
+                <div class="od-section__head">
+                    <h2>Produkty</h2>
+                    <span class="od-pill">{{ order_items|length }}</span>
+                </div>
+                <div class="od-products__list">
+                    {% for item in order_items %}
+                    <div class="od-product-row">
+                        <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="od-product-row__img" loading="lazy">
+                        <div class="od-product-row__info">
+                            <span class="od-product-row__name">{{ item.product_name }}</span>
+                            {% if item.product_sku or item.product_ean %}
+                            <span class="od-product-row__codes">
+                                {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
+                                {% if item.product_sku and item.product_ean %} · {% endif %}
+                                {% if item.product_ean %}EAN: {{ item.product_ean }}{% endif %}
+                            </span>
                             {% endif %}
                         </div>
+                        <span class="od-product-row__qty">×{{ item.quantity }}</span>
+                        <span class="od-product-row__price">{{ "%.2f"|format(item.price) }}&nbsp;PLN</span>
+                        <span class="od-product-row__total">{{ "%.2f"|format(item.total) }}&nbsp;PLN</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Shipping Grid -->
-            <div class="payments-shipping-grid">
-                    <!-- Shipping Card -->
-                    <div class="card shipping-card">
-                        <div class="card-header">
-                            <h2>Wysyłka</h2>
-                        </div>
-                        <div class="shipping-content">
-                            {% if order.shipping_request %}
-                                {% set sr = order.shipping_request %}
-                                <!-- Zamówienie jest w zleceniu wysyłki -->
-                                <div class="shipping-request-info">
-                                    <!-- Numer zlecenia (link do listy zleceń) + Status -->
-                                    <div class="shipping-request-header">
-                                        <a href="{{ url_for('client.shipping_requests_list') }}" class="shipping-request-number-link">{{ sr.request_number }}</a>
-                                        <span class="badge status-badge" style="background-color: {{ sr.status_badge_color }}; color: #fff;">
-                                            {{ sr.status_display_name }}
-                                        </span>
-                                    </div>
-
-                                    <!-- Inne zamówienia w tym zleceniu -->
-                                    {% set other_orders = order.shipping_request_other_orders %}
-                                    {% if other_orders %}
-                                    <div class="shipping-other-orders">
-                                        <span class="label">Razem z:</span>
-                                        <div class="other-orders-list">
-                                            {% for other in other_orders[:3] %}
-                                            <a href="{{ url_for('orders.client_detail', order_id=other.id) }}" class="other-order-badge">{{ other.order_number }}</a>
-                                            {% endfor %}
-                                            {% if other_orders|length > 3 %}
-                                            <span class="other-orders-more">+{{ other_orders|length - 3 }}</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endif %}
-
-                                    <!-- Numer przesyłki (zawsze wyświetlany) -->
-                                    <div class="shipping-info-row">
-                                        <span class="label">Nr przesyłki:</span>
-                                        {% if sr.tracking_number %}
-                                            {% if sr.tracking_url %}
-                                            <a href="{{ sr.tracking_url }}" target="_blank" class="tracking-link">{{ sr.tracking_number }}</a>
-                                            {% else %}
-                                            <span class="value tracking-number">{{ sr.tracking_number }}</span>
-                                            {% endif %}
-                                        {% else %}
-                                        <span class="value text-muted">Wkrótce</span>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            {% else %}
-                                <!-- Brak zlecenia wysyłki -->
-                                <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16" class="shipping-icon">
-                                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
-                                </svg>
-                                <p class="text-muted">To zamówienie nie jest jeszcze przypisane do zlecenia wysyłki</p>
-                                <a href="{{ url_for('client.shipping_requests_list') }}" class="btn btn-primary">
-                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                                    </svg>
-                                    Stwórz zlecenie
-                                </a>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    {# Widget płatności #}
-                    {% set pc_status = order.product_payment_status %}
-                    <div class="card pc-widget-card">
-                        <div class="card-header">
-                            <h2>Płatności</h2>
-                        </div>
-                        <div class="pc-widget-body">
-                            {# Tabela płatności (div-based) #}
-                            <div class="pc-payments-table">
-                                <div class="pc-payments-header">
-                                    <div class="pc-payments-col pc-col-type">Rodzaj</div>
-                                    <div class="pc-payments-col pc-col-status">Status</div>
-                                    <div class="pc-payments-col pc-col-amount">Kwota</div>
-                                </div>
-
-                                {# Wiersz: Produkty #}
-                                <div class="pc-payments-row">
-                                    <div class="pc-payments-col pc-col-type" data-label="Rodzaj">Produkty</div>
-                                    <div class="pc-payments-col pc-col-status" data-label="Status">
-                                        {% if pc_status == 'none' %}
-                                            <span class="badge badge-secondary">Brak potwierdzenia</span>
-                                        {% elif pc_status == 'pending' %}
-                                            <span class="badge badge-warning">Oczekuje</span>
-                                        {% elif pc_status == 'approved' %}
-                                            <span class="badge badge-success">Zatwierdzona</span>
-                                        {% elif pc_status == 'rejected' %}
-                                            <span class="badge badge-error">Odrzucona</span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="pc-payments-col pc-col-amount" data-label="Kwota">{{ "%.2f"|format(order.effective_total) }} PLN</div>
-                                </div>
-
-                                {# Tutaj w przyszłości dodamy kolejne wiersze (np. Wysyłka) #}
-                            </div>
-
-                            {# Suma do zapłaty #}
-                            <div class="pc-widget-amount">
-                                <span class="pc-widget-amount-label">Kwota do zapłaty:</span>
-                                <span class="pc-widget-amount-value">{{ "%.2f"|format(order.effective_total) }} PLN</span>
-                            </div>
-
-                            {# Info o odrzuceniu (jeśli dotyczy) #}
-                            {% if pc_status == 'rejected' and order.product_payment_confirmation and order.product_payment_confirmation.rejection_reason %}
-                            <div class="pc-widget-rejection">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <path d="M12 8v4"/>
-                                    <path d="M12 16h.01"/>
-                                </svg>
-                                <div>
-                                    <strong>Powód odrzucenia:</strong>
-                                    <p>{{ order.product_payment_confirmation.rejection_reason }}</p>
-                                </div>
-                            </div>
-                            {% endif %}
-
-                            {# Przycisk akcji #}
-                            {% if order.can_upload_product_payment %}
-                            <a href="{{ url_for('client.payment_confirmations') }}?preselect={{ order.id }}" class="btn btn-primary pc-widget-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                    <polyline points="17 8 12 3 7 8"/>
-                                    <line x1="12" y1="3" x2="12" y2="15"/>
-                                </svg>
-                                {% if order.has_product_payment_confirmation %}
-                                    Wgraj ponownie
-                                {% else %}
-                                    Wgraj potwierdzenie płatności
-                                {% endif %}
-                            </a>
-                            {% elif pc_status == 'approved' %}
-                            <div class="pc-widget-status-info pc-widget-status-approved">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                    <polyline points="22 4 12 14.01 9 11.01"/>
-                                </svg>
-                                Płatność zatwierdzona
-                            </div>
-                            {% else %}
-                            <div class="pc-widget-status-info pc-widget-status-disabled">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"/>
-                                    <path d="M12 16v-4"/>
-                                    <path d="M12 8h.01"/>
-                                </svg>
-                                Upload niedostępny na obecnym etapie zamówienia
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-
-            <!-- Timeline / Comments Card -->
-            <div class="card timeline-card">
-                <div class="card-header">
-                    <h2>Wiadomości</h2>
-                </div>
-
-                {% set comment_count = timeline|selectattr('type', 'equalto', 'comment')|list|length %}
-                {% if comment_count > 0 %}
-                <div class="timeline" id="timeline">
-                    {% for event in timeline %}
-                        {% if event.type == 'comment' %}
-                            <div class="timeline-item comment {% if event.is_from_admin %}from-admin{% else %}from-client{% endif %}">
-                                <div class="timeline-avatar">
-                                    {{ event.user.first_name[0] }}{{ event.user.last_name[0] }}
-                                </div>
-                                <div class="timeline-content">
-                                    <div class="timeline-header">
-                                        <strong>{{ event.user.full_name }}</strong>
-                                        <span class="timeline-role">{% if event.is_from_admin %}(Sprzedawca){% else %}(Ty){% endif %}</span>
-                                        <span class="timeline-date">{{ event.created_at|format_datetime }}</span>
-                                    </div>
-                                    <p class="timeline-message">{{ event.comment }}</p>
-                                </div>
-                            </div>
-                        {% endif %}
                     {% endfor %}
                 </div>
-                {% else %}
-                <div class="timeline-empty-state">
-                    <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
-                        <path d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894zm-.493 3.905a21.682 21.682 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a9.68 9.68 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105z"/>
-                    </svg>
-                    <h3>Brak wiadomości</h3>
-                    <p>Rozpocznij rozmowę z naszym zespołem. Twoje wiadomości pojawią się tutaj.</p>
-                </div>
-                {% endif %}
 
-                <!-- Add Comment Form -->
+                <!-- Summary -->
+                <div class="od-summary">
+                    <div class="od-summary__inner">
+                    {% if order.is_exclusive %}
+                    <div class="od-summary__row">
+                        <span>Produkty</span>
+                        <span>{{ "%.2f"|format(order.effective_total) }} PLN</span>
+                    </div>
+                    {% if order.payment_stages == 4 %}
+                    <div class="od-summary__row">
+                        <span>Dostawa Proxy</span>
+                        <span>
+                            {% if order.proxy_shipping_total > 0 %}
+                                {{ "%.2f"|format(order.proxy_shipping_total) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    <div class="od-summary__row">
+                        <span>CŁO/VAT</span>
+                        <span>
+                            {% if order.customs_vat_total > 0 %}
+                                {{ "%.2f"|format(order.customs_vat_total) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="od-summary__row">
+                        <span>Dostawa PL</span>
+                        <span>
+                            {% if order.shipping_cost and order.shipping_cost > 0 %}
+                                {{ "%.2f"|format(order.shipping_cost) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="od-summary__row od-summary__row--total">
+                        <span>Razem</span>
+                        <span>
+                            {% set known_sum = order.effective_total + (order.proxy_shipping_total if order.payment_stages == 4 else 0) + (order.shipping_cost if order.shipping_cost else 0) + order.customs_vat_total %}
+                            {{ "%.2f"|format(known_sum) }} PLN
+                            {% set missing = [] %}
+                            {% if order.payment_stages == 4 and (not order.proxy_shipping_total or order.proxy_shipping_total <= 0) %}
+                                {% set _ = missing.append('Proxy') %}
+                            {% endif %}
+                            {% if not order.shipping_cost or order.shipping_cost <= 0 %}
+                                {% set _ = missing.append('Dostawa PL') %}
+                            {% endif %}
+                            {% if not order.customs_vat_total or order.customs_vat_total <= 0 %}
+                                {% set _ = missing.append('CŁO/VAT') %}
+                            {% endif %}
+                            {% if missing %}
+                                <small class="od-tbd">+ {{ missing|join(', ') }}</small>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% else %}
+                    <div class="od-summary__row">
+                        <span>Produkty</span>
+                        <span>{{ "%.2f"|format(order.total_amount) }} PLN</span>
+                    </div>
+                    <div class="od-summary__row">
+                        <span>Dostawa</span>
+                        <span>
+                            {% if order.shipping_cost and order.shipping_cost > 0 %}
+                                {{ "%.2f"|format(order.shipping_cost) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="od-summary__row od-summary__row--total">
+                        <span>Razem</span>
+                        <span>
+                            {{ "%.2f"|format(order.effective_total) }} PLN
+                            {% if not order.shipping_cost or order.shipping_cost <= 0 %}
+                                <small class="od-tbd">+ dostawa</small>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <!-- ===== PAYMENT + SHIPPING (side by side) ===== -->
+            <div class="od-duo">
+                <!-- PAYMENT -->
+                {% set pc_status = order.product_payment_status %}
+                {% set confirm_url = url_for('client.payment_confirmations') ~ '?preselect=' ~ order.id %}
+                {% set has_uploadable = order.can_upload_product_payment
+                    or (order.is_exclusive and order.payment_stages == 4 and order.can_upload_stage_2)
+                    or (order.is_exclusive and order.can_upload_stage_3)
+                    or (order.is_exclusive and order.can_upload_stage_4) %}
+                <section class="od-section od-pay">
+                    <div class="od-section__head">
+                        <h2>Płatności</h2>
+                        {% if has_uploadable %}
+                        <a href="{{ confirm_url }}" class="od-pay__upload-btn">
+                            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Wgraj
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    {# --- Row: Produkty (always) --- #}
+                    <div class="od-pay__row">
+                        <span>Produkty</span>
+                        <span class="od-pay__badge od-pay__badge--{{ pc_status }}">
+                            {% if pc_status == 'none' %}Brak{% elif pc_status == 'pending' %}Weryfikacja{% elif pc_status == 'approved' %}Zatwierdzona{% elif pc_status == 'rejected' %}Odrzucona{% endif %}
+                        </span>
+                        <span class="od-pay__amount">{{ "%.2f"|format(order.effective_total) }} PLN</span>
+                    </div>
+
+                    {% if order.is_exclusive %}
+                    {# --- Row: Dostawa Proxy (only 4-stage) --- #}
+                    {% if order.payment_stages == 4 %}
+                    {% set s2_status = order.stage_2_status %}
+                    <div class="od-pay__row">
+                        <span>Dostawa Proxy</span>
+                        {% if s2_status %}
+                        <span class="od-pay__badge od-pay__badge--{{ s2_status }}">
+                            {% if s2_status == 'none' %}Brak{% elif s2_status == 'pending' %}Weryfikacja{% elif s2_status == 'approved' %}Zatwierdzona{% elif s2_status == 'rejected' %}Odrzucona{% endif %}
+                        </span>
+                        {% endif %}
+                        <span class="od-pay__amount">
+                            {% if order.proxy_shipping_total > 0 %}
+                                {{ "%.2f"|format(order.proxy_shipping_total) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+
+                    {# --- Row: CŁO/VAT --- #}
+                    {% set s3_status = order.stage_3_status %}
+                    <div class="od-pay__row">
+                        <span>CŁO/VAT</span>
+                        {% if s3_status %}
+                        <span class="od-pay__badge od-pay__badge--{{ s3_status }}">
+                            {% if s3_status == 'none' %}Brak{% elif s3_status == 'pending' %}Weryfikacja{% elif s3_status == 'approved' %}Zatwierdzona{% elif s3_status == 'rejected' %}Odrzucona{% endif %}
+                        </span>
+                        {% endif %}
+                        <span class="od-pay__amount">
+                            {% if order.customs_vat_total > 0 %}
+                                {{ "%.2f"|format(order.customs_vat_total) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {# --- Row: Dostawa PL --- #}
+                    {% set s4_status = order.stage_4_status %}
+                    <div class="od-pay__row">
+                        <span>Dostawa PL</span>
+                        {% if s4_status %}
+                        <span class="od-pay__badge od-pay__badge--{{ s4_status }}">
+                            {% if s4_status == 'none' %}Brak{% elif s4_status == 'pending' %}Weryfikacja{% elif s4_status == 'approved' %}Zatwierdzona{% elif s4_status == 'rejected' %}Odrzucona{% endif %}
+                        </span>
+                        {% endif %}
+                        <span class="od-pay__amount">
+                            {% if order.shipping_cost and order.shipping_cost > 0 %}
+                                {{ "%.2f"|format(order.shipping_cost) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {# --- Total (exclusive) --- #}
+                    {% set remaining =
+                        (order.effective_total if order.product_payment_status != 'approved' else 0)
+                        + (order.proxy_shipping_total if (order.payment_stages == 4 and order.stage_2_status != 'approved' and order.proxy_shipping_total > 0) else 0)
+                        + (order.customs_vat_total if (order.stage_3_status != 'approved' and order.customs_vat_total > 0) else 0)
+                        + ((order.shipping_cost) if (order.stage_4_status != 'approved' and order.shipping_cost and order.shipping_cost > 0) else 0)
+                    %}
+                    <div class="od-pay__total">
+                        <span>Do zapłaty</span>
+                        <strong>{{ "%.2f"|format(remaining) }} PLN</strong>
+                    </div>
+
+                    {% else %}
+                    {# --- Non-exclusive: Dostawa row --- #}
+                    <div class="od-pay__row">
+                        <span>Dostawa</span>
+                        <span class="od-pay__amount">
+                            {% if order.shipping_cost and order.shipping_cost > 0 %}
+                                {{ "%.2f"|format(order.shipping_cost) }} PLN
+                            {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {# --- Total (non-exclusive) --- #}
+                    {% set remaining_ne =
+                        (order.effective_total if order.product_payment_status != 'approved' else 0)
+                        + ((order.shipping_cost) if (order.shipping_cost and order.shipping_cost > 0) else 0)
+                    %}
+                    <div class="od-pay__total">
+                        <span>Do zapłaty</span>
+                        <strong>{{ "%.2f"|format(remaining_ne) }} PLN</strong>
+                    </div>
+                    {% endif %}
+
+                    {# --- Rejection alert (product payment) --- #}
+                    {% if pc_status == 'rejected' and order.product_payment_confirmation and order.product_payment_confirmation.rejection_reason %}
+                    <div class="od-alert od-alert--error">
+                        <strong>Produkty — odrzucono:</strong> {{ order.product_payment_confirmation.rejection_reason }}
+                    </div>
+                    {% endif %}
+
+                    {# --- Rejection alert E2 (Dostawa Proxy) --- #}
+                    {% if order.is_exclusive and order.payment_stages == 4 and s2_status == 'rejected' and order.stage_2_confirmation and order.stage_2_confirmation.rejection_reason %}
+                    <div class="od-alert od-alert--error">
+                        <strong>Dostawa Proxy — odrzucono:</strong> {{ order.stage_2_confirmation.rejection_reason }}
+                    </div>
+                    {% endif %}
+
+                    {# --- Rejection alert E3 (CŁO/VAT) --- #}
+                    {% if order.is_exclusive and s3_status == 'rejected' and order.stage_3_confirmation and order.stage_3_confirmation.rejection_reason %}
+                    <div class="od-alert od-alert--error">
+                        <strong>CŁO/VAT — odrzucono:</strong> {{ order.stage_3_confirmation.rejection_reason }}
+                    </div>
+                    {% endif %}
+
+                    {# --- Rejection alert E4 (Dostawa PL) --- #}
+                    {% if order.is_exclusive and s4_status == 'rejected' and order.stage_4_confirmation and order.stage_4_confirmation.rejection_reason %}
+                    <div class="od-alert od-alert--error">
+                        <strong>Dostawa PL — odrzucono:</strong> {{ order.stage_4_confirmation.rejection_reason }}
+                    </div>
+                    {% endif %}
+                </section>
+
+                <!-- SHIPPING -->
+                <section class="od-section od-ship">
+                    <h2>Dostawa PL</h2>
+                    {% if order.shipping_request %}
+                        {% set sr = order.shipping_request %}
+                        <div class="od-ship__active">
+                            <div class="od-ship__head">
+                                <a href="{{ url_for('client.shipping_requests_list') }}" class="od-ship__num">{{ sr.request_number }}</a>
+                                <span class="od-dot" style="--dot-color: {{ sr.status_badge_color }};"></span>
+                                <span class="od-ship__status">{{ sr.status_display_name }}</span>
+                            </div>
+                            {% set other_orders = order.shipping_request_other_orders %}
+                            {% if other_orders %}
+                            <div class="od-ship__others">
+                                <span class="od-ship__others-label">Razem z:</span>
+                                {% for other in other_orders[:3] %}
+                                <a href="{{ url_for('orders.client_detail', order_id=other.id) }}" class="od-chip">{{ other.order_number }}</a>
+                                {% endfor %}
+                                {% if other_orders|length > 3 %}
+                                <span class="od-chip od-chip--muted">+{{ other_orders|length - 3 }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            <div class="od-ship__tracking">
+                                <span class="od-label">Nr przesyłki</span>
+                                {% if sr.tracking_number %}
+                                    {% if sr.tracking_url %}
+                                    <a href="{{ sr.tracking_url }}" target="_blank" class="od-mono-link">{{ sr.tracking_number }}</a>
+                                    {% else %}
+                                    <span class="od-mono">{{ sr.tracking_number }}</span>
+                                    {% endif %}
+                                {% else %}
+                                <em class="od-tbd">Wkrótce</em>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="od-ship__empty">
+                            <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                            <p>Brak zlecenia wysyłki</p>
+                            <a href="{{ url_for('client.shipping_requests_list') }}" class="od-btn od-btn--sm">Stwórz zlecenie</a>
+                        </div>
+                    {% endif %}
+                </section>
+            </div>
+
+            <!-- ===== MESSAGES (CHAT) ===== -->
+            <section class="od-section od-chat">
+                <h2>Wiadomości</h2>
+                {% set comment_count = timeline|selectattr('type', 'equalto', 'comment')|list|length %}
+
+                <div class="od-chat__body" id="timeline">
+                    {% if comment_count > 0 %}
+                        {% for event in timeline %}
+                            {% if event.type == 'comment' %}
+                            <div class="od-msg {% if event.is_from_admin %}od-msg--in{% else %}od-msg--out{% endif %}">
+                                <div class="od-msg__avatar">{{ event.user.first_name[0] }}{{ event.user.last_name[0] }}</div>
+                                <div class="od-msg__bubble">
+                                    <div class="od-msg__head">
+                                        <strong>{% if event.is_from_admin %}{{ event.user.full_name }}{% else %}Ty{% endif %}</strong>
+                                        <time>{{ event.created_at|format_datetime }}</time>
+                                    </div>
+                                    <p>{{ event.comment }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                    <div class="od-chat__empty">
+                        <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        <p>Brak wiadomości</p>
+                        <small>Napisz do nas - odpowiemy jak najszybciej</small>
+                    </div>
+                    {% endif %}
+                </div>
+
                 <form hx-post="{{ url_for('orders.client_add_comment', order_id=order.id) }}"
                       hx-target="#timeline"
                       hx-swap="afterbegin"
-                      class="comment-form">
+                      class="od-chat__form">
                     {{ comment_form.hidden_tag() }}
-                    <div class="form-group">
-                        <label for="comment">Napisz wiadomość do sprzedawcy</label>
-                        {{ comment_form.comment(class="form-textarea", placeholder="Twoja wiadomość...", rows=4) }}
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
-                            </svg>
-                            Wyślij wiadomość
+                    <div class="od-chat__input-row">
+                        {{ comment_form.comment(class="od-chat__input", placeholder="Napisz wiadomość...", rows=1) }}
+                        <button type="submit" class="od-chat__send" title="Wyślij">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                         </button>
                     </div>
                 </form>
-            </div>
+            </section>
         </div>
 
-        <!-- Right Column: Sidebar -->
-        <div class="content-sidebar">
-            <!-- Order Info Card -->
-            <div class="card info-card">
-                <h3>Informacje o zamówieniu</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Numer zamówienia</label>
-                        <span class="value-highlight">{{ order.order_number }}</span>
+        <!-- RIGHT SIDEBAR -->
+        <aside class="od-side">
+            <!-- Info card -->
+            <div class="od-card">
+                <h3>Szczegóły</h3>
+                <dl class="od-dl">
+                    <div class="od-dl__item">
+                        <dt>Numer</dt>
+                        <dd class="od-mono">{{ order.order_number }}</dd>
                     </div>
-                    <div class="info-item">
-                        <label>Status</label>
-                        <span class="badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">{{ order.status_display_name }}</span>
+                    <div class="od-dl__item">
+                        <dt>Status</dt>
+                        <dd><span class="od-status-tag" style="background-color: {{ order.status_badge_color }};">{{ order.status_display_name }}</span></dd>
                     </div>
-                </div>
+                    <div class="od-dl__item">
+                        <dt>Utworzono</dt>
+                        <dd>{{ order.created_at|format_datetime('%Y-%m-%d %H:%M') }}</dd>
+                    </div>
+                    <div class="od-dl__item">
+                        <dt>Aktualizacja</dt>
+                        <dd>{{ order.updated_at|format_datetime('%Y-%m-%d %H:%M') }}</dd>
+                    </div>
+                </dl>
 
-                <!-- Additional Info Section with Dropdown -->
-                <div class="additional-info-section">
-                    <h4>Dodatkowe informacje</h4>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <label>Data utworzenia</label>
-                            <span>{{ order.created_at|format_datetime('%Y-%m-%d %H:%M') }}</span>
-                        </div>
-                        <div class="info-item">
-                            <label>Ostatnia aktualizacja</label>
-                            <span>{{ order.updated_at|format_datetime('%Y-%m-%d %H:%M') }}</span>
-                        </div>
-                    </div>
-
-                    <!-- Order History Dropdown (ALL activity logs) -->
-                    {% if order_history and order_history|length > 0 %}
-                    <div class="collapsible-section">
-                        <button class="collapsible-trigger" onclick="toggleSection(this)">
-                            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="chevron">
-                                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                            </svg>
-                            Historia zamówienia
-                        </button>
-                        <div class="collapsible-content">
-                            <div class="history-list">
-                                {% for history_item in order_history %}
-                                <div class="history-item">
-                                    <span class="history-icon">{{ history_item.action_icon }}</span>
-                                    {% if history_item.is_status_change %}
-                                        {# Zmiana statusu - kolorowy badge #}
-                                        <span class="history-text">
-                                            Zmiana statusu:
-                                            <span class="badge" style="background-color: {{ history_item.status_color }}; color: #fff; font-size: 0.7rem; padding: 0.15rem 0.4rem; border-radius: 4px; margin-left: 0.25rem;">
-                                                {{ history_item.status_name }}
-                                            </span>
-                                            {% if history_item.user_name != 'System' %}
-                                            <span class="history-user">przez {{ history_item.user_name }}</span>
-                                            {% endif %}
-                                        </span>
-                                    {% else %}
-                                        {# Inne akcje - zwykły tekst #}
-                                        <span class="history-text">
-                                            {{ history_item.action_label }}
-                                            {% if history_item.user_name != 'System' %}
-                                            <span class="history-user">przez {{ history_item.user_name }}</span>
-                                            {% endif %}
-                                        </span>
-                                    {% endif %}
-                                    <span class="history-date">{{ history_item.created_at|format_datetime('%Y-%m-%d %H:%M') }}</span>
-                                </div>
-                                {% endfor %}
+                {% if order_history and order_history|length > 0 %}
+                <div class="od-collapse">
+                    <button class="od-collapse__trigger" data-action="toggle-section">
+                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16" class="od-collapse__chevron"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                        Historia ({{ order_history|length }})
+                    </button>
+                    <div class="od-collapse__body">
+                        {% for h in order_history %}
+                        <div class="od-hist">
+                            <span class="od-hist__dot {% if h.is_status_change %}od-hist__dot--accent{% endif %}"></span>
+                            <div class="od-hist__text">
+                                {% if h.is_status_change %}
+                                    Zmiana statusu → <span class="od-hist__tag" style="background:{{ h.status_color }};">{{ h.status_name }}</span>
+                                {% else %}
+                                    {{ h.action_label }}
+                                {% endif %}
                             </div>
+                            <time class="od-hist__time">{{ h.created_at|format_datetime('%m-%d %H:%M') }}</time>
+                            {% if h.user_name != 'System' %}<span class="od-hist__user">{{ h.user_name }}</span>{% endif %}
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endif %}
                 </div>
+                {% endif %}
             </div>
 
-            <!-- Tracking Card -->
+            <!-- Tracking card -->
             {% if order.tracking_number %}
-            <div class="card tracking-card">
-                <h3>Śledzenie przesyłki</h3>
-                <div class="tracking-info">
-                    <div class="tracking-item">
-                        <label>Kurier</label>
-                        <span class="value-bold">{{ order.courier or '—' }}</span>
+            <div class="od-card">
+                <h3>Przesyłka</h3>
+                <dl class="od-dl">
+                    <div class="od-dl__item">
+                        <dt>Kurier</dt>
+                        <dd>{{ order.courier or '—' }}</dd>
                     </div>
-                    <div class="tracking-item">
-                        <label>Numer przesyłki</label>
-                        <span class="value-mono">{{ order.tracking_number }}</span>
+                    <div class="od-dl__item">
+                        <dt>Numer</dt>
+                        <dd class="od-mono">{{ order.tracking_number }}</dd>
                     </div>
-                    {% if order.tracking_url %}
-                    <a href="{{ order.tracking_url }}" target="_blank" class="btn btn-secondary btn-block">
-                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
-                            <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
-                        </svg>
-                        Śledź przesyłkę
-                    </a>
-                    {% endif %}
-                </div>
+                </dl>
+                {% if order.tracking_url %}
+                <a href="{{ order.tracking_url }}" target="_blank" class="od-btn od-btn--full od-btn--secondary">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Śledź przesyłkę
+                </a>
+                {% endif %}
             </div>
             {% endif %}
 
-            <!-- Notes Card (if present) -->
+            <!-- Notes -->
             {% if order.notes %}
-            <div class="card notes-card">
-                <h3>Twoje notatki</h3>
-                <p class="notes-text">{{ order.notes }}</p>
+            <div class="od-card od-card--accent">
+                <h3>Notatki</h3>
+                <p class="od-note">{{ order.notes }}</p>
             </div>
             {% endif %}
-        </div>
+        </aside>
     </div>
 </div>
-
 {% endblock %}
 
 {% block extra_js %}

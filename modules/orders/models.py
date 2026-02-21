@@ -757,29 +757,32 @@ class Order(db.Model):
 
     @property
     def can_upload_stage_2(self):
-        """Można wgrać E2? (tylko 4-płatnościowe, po E1 approved)"""
+        """Można wgrać E2? (tylko 4-płatnościowe, kwota > 0, nie approved/pending)"""
         if self.payment_stages != 4:
             return False
         if self.stage_2_status in ['approved', 'pending']:
             return False
-        return self.product_payment_status == 'approved'
+        if not self.proxy_shipping_cost or self.proxy_shipping_cost <= 0:
+            return False
+        return True
 
     @property
     def can_upload_stage_3(self):
-        """Można wgrać E3? (po E2 approved dla 4-płat, po E1 approved dla 3-płat)"""
+        """Można wgrać E3? (kwota > 0, nie approved/pending)"""
         if self.stage_3_status in ['approved', 'pending']:
             return False
-        if self.payment_stages == 4:
-            return self.stage_2_status == 'approved'
-        else:
-            return self.product_payment_status == 'approved'
+        if not self.customs_vat_sale_cost or self.customs_vat_sale_cost <= 0:
+            return False
+        return True
 
     @property
     def can_upload_stage_4(self):
-        """Można wgrać E4? (po E3 approved, dla obu typów)"""
+        """Można wgrać E4? (kwota > 0, nie approved/pending)"""
         if self.stage_4_status in ['approved', 'pending']:
             return False
-        return self.stage_3_status == 'approved'
+        if not self.shipping_cost or self.shipping_cost <= 0:
+            return False
+        return True
 
     def recalculate_total(self):
         """Recalculates order total from items"""

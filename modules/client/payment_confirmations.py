@@ -11,6 +11,7 @@ from flask import render_template, request, jsonify, flash, redirect, url_for, c
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
+from decimal import Decimal
 from extensions import db
 from modules.client import client_bp
 from modules.orders.models import Order, PaymentConfirmation
@@ -233,6 +234,15 @@ def payment_confirmations_upload():
                 continue
 
             for stage in entry['stages']:
+                # Kwota zależna od etapu
+                stage_amounts = {
+                    'product': order.effective_total,
+                    'korean_shipping': order.proxy_shipping_total,
+                    'customs_vat': order.customs_vat_total,
+                    'domestic_shipping': Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00'),
+                }
+                amount = stage_amounts.get(stage, order.effective_total)
+
                 # Pobierz istniejące potwierdzenie dla tego etapu
                 existing = PaymentConfirmation.query.filter_by(
                     order_id=order.id,
@@ -248,6 +258,7 @@ def payment_confirmations_upload():
                     existing.uploaded_at = now
                     existing.status = 'pending'
                     existing.rejection_reason = None
+                    existing.amount = amount
 
                     log_activity(
                         user=current_user,
@@ -258,7 +269,7 @@ def payment_confirmations_upload():
                             'order_number': order.order_number,
                             'payment_stage': stage,
                             'filename': saved_filename,
-                            'amount': float(order.effective_total)
+                            'amount': float(amount)
                         }
                     )
                 else:
@@ -266,7 +277,7 @@ def payment_confirmations_upload():
                     confirmation = PaymentConfirmation(
                         order_id=order.id,
                         payment_stage=stage,
-                        amount=order.effective_total,
+                        amount=amount,
                         proof_file=saved_filename,
                         uploaded_at=now,
                         status='pending'
@@ -282,7 +293,7 @@ def payment_confirmations_upload():
                             'order_number': order.order_number,
                             'payment_stage': stage,
                             'filename': saved_filename,
-                            'amount': float(order.effective_total)
+                            'amount': float(amount)
                         }
                     )
 

@@ -612,47 +612,48 @@
 /* Badge statusu */
 .pc-stage-badge {
     display: inline-block;
-    padding: 1px 6px;
-    border-radius: 10px;
-    font-size: 0.6rem;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
     font-weight: var(--font-semibold);
-    line-height: 1.4;
+    line-height: 1.5;
     white-space: nowrap;
+    letter-spacing: 0.01em;
 }
 
 .pc-stage-badge-soon {
-    background: rgba(158, 158, 158, 0.12);
-    color: #9E9E9E;
+    background: rgba(158, 158, 158, 0.15);
+    color: #757575;
 }
 
 .pc-stage-badge-paid {
-    background: rgba(76, 175, 80, 0.12);
-    color: #2E7D32;
+    background: rgba(76, 175, 80, 0.15);
+    color: #1B5E20;
 }
 
 .pc-stage-badge-pending {
-    background: rgba(255, 152, 0, 0.12);
-    color: #E65100;
+    background: rgba(255, 152, 0, 0.15);
+    color: #BF360C;
 }
 
 .pc-stage-badge-rejected {
-    background: rgba(244, 67, 54, 0.12);
-    color: #C62828;
+    background: rgba(244, 67, 54, 0.15);
+    color: #B71C1C;
 }
 
 .pc-stage-badge-ready {
-    background: rgba(33, 150, 243, 0.12);
-    color: #1565C0;
+    background: rgba(255, 193, 7, 0.18);
+    color: #F57F17;
 }
 
 .pc-stage-badge-locked {
-    background: rgba(158, 158, 158, 0.12);
-    color: #9E9E9E;
+    background: rgba(158, 158, 158, 0.15);
+    color: #757575;
 }
 
 .pc-stage-badge-na {
-    background: rgba(158, 158, 158, 0.08);
-    color: #BDBDBD;
+    background: rgba(158, 158, 158, 0.1);
+    color: #9E9E9E;
     font-style: italic;
 }
 
@@ -1386,38 +1387,38 @@
 
 /* Badges - dark mode */
 [data-theme="dark"] .pc-stage-badge-soon {
-    background: rgba(156, 163, 175, 0.2);
-    color: rgba(255, 255, 255, 0.5);
+    background: rgba(156, 163, 175, 0.25);
+    color: rgba(255, 255, 255, 0.65);
 }
 
 [data-theme="dark"] .pc-stage-badge-paid {
-    background: rgba(52, 211, 153, 0.2);
+    background: rgba(52, 211, 153, 0.25);
     color: #6ee7b7;
 }
 
 [data-theme="dark"] .pc-stage-badge-pending {
-    background: rgba(251, 191, 36, 0.2);
+    background: rgba(251, 191, 36, 0.25);
     color: #fde68a;
 }
 
 [data-theme="dark"] .pc-stage-badge-rejected {
-    background: rgba(248, 113, 113, 0.2);
+    background: rgba(248, 113, 113, 0.25);
     color: #fca5a5;
 }
 
 [data-theme="dark"] .pc-stage-badge-ready {
-    background: rgba(96, 165, 250, 0.2);
-    color: #93c5fd;
+    background: rgba(251, 191, 36, 0.25);
+    color: #fde68a;
 }
 
 [data-theme="dark"] .pc-stage-badge-locked {
-    background: rgba(156, 163, 175, 0.2);
-    color: rgba(255, 255, 255, 0.4);
+    background: rgba(156, 163, 175, 0.25);
+    color: rgba(255, 255, 255, 0.55);
 }
 
 [data-theme="dark"] .pc-stage-badge-na {
-    background: rgba(156, 163, 175, 0.1);
-    color: rgba(255, 255, 255, 0.3);
+    background: rgba(156, 163, 175, 0.15);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 /* Summary box - dark mode */

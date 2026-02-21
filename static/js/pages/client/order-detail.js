@@ -1,92 +1,61 @@
 /**
- * Client Order Detail - Enhanced Interactions
+ * Client Order Detail
  */
+document.addEventListener('DOMContentLoaded', function () {
+    var timeline = document.getElementById('timeline');
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Auto-scroll timeline to bottom (newest messages first, but scroll to see form)
-    const timeline = document.getElementById('timeline');
-    if (timeline && timeline.children.length > 0) {
-        // Timeline is already in reverse order (newest first), no need to scroll
-    }
-
-    // Handle comment form submission
-    const commentForm = document.querySelector('.comment-form');
-    if (commentForm) {
-        commentForm.addEventListener('htmx:afterRequest', function(event) {
-            if (event.detail.successful) {
-                // Clear the textarea after successful submission
-                const textarea = commentForm.querySelector('textarea');
-                if (textarea) {
-                    textarea.value = '';
+    /* ---- HTMX comment form ---- */
+    var form = document.querySelector('.od-chat__form');
+    if (form) {
+        form.addEventListener('htmx:afterRequest', function (e) {
+            if (e.detail.successful) {
+                var ta = form.querySelector('textarea');
+                if (ta) ta.value = '';
+                if (window.Toast && typeof window.Toast.show === 'function') {
+                    window.Toast.show('Wiadomość wysłana', 'success');
                 }
-
-                // Show success message
-                showToast('Wiadomość została wysłana', 'success');
             } else {
-                showToast('Wystąpił błąd podczas wysyłania wiadomości', 'error');
-            }
-        });
-    }
-
-    // Add smooth scroll to timeline when new message is added
-    if (timeline) {
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                if (mutation.addedNodes.length > 0) {
-                    // Scroll to top to see new message (since it's prepended)
-                    timeline.scrollTo({ top: 0, behavior: 'smooth' });
+                if (window.Toast && typeof window.Toast.show === 'function') {
+                    window.Toast.show('Błąd wysyłania', 'error');
                 }
-            });
+            }
         });
-
-        observer.observe(timeline, { childList: true });
     }
 
-    // Enhance back link with keyboard shortcut
-    document.addEventListener('keydown', function(e) {
-        // Alt + Left Arrow = Go back
-        if (e.altKey && e.key === 'ArrowLeft') {
-            const backLink = document.querySelector('.back-link');
-            if (backLink) {
-                window.location.href = backLink.href;
+    /* ---- Auto-scroll on new message ---- */
+    if (timeline) {
+        new MutationObserver(function (muts) {
+            for (var i = 0; i < muts.length; i++) {
+                if (muts[i].addedNodes.length) {
+                    timeline.scrollTo({ top: 0, behavior: 'smooth' });
+                    break;
+                }
             }
+        }).observe(timeline, { childList: true });
+    }
+
+    /* ---- Keyboard: Alt+Left = back ---- */
+    document.addEventListener('keydown', function (e) {
+        if (e.altKey && e.key === 'ArrowLeft') {
+            var back = document.querySelector('.od-back');
+            if (back) window.location.href = back.href;
         }
     });
 
-    // Add loading state to tracking button
-    const trackingBtn = document.querySelector('.tracking-info .btn-primary');
-    if (trackingBtn) {
-        trackingBtn.addEventListener('click', function() {
-            this.style.opacity = '0.6';
+    /* ---- Collapsible sections (event delegation) ---- */
+    document.addEventListener('click', function (e) {
+        var trigger = e.target.closest('[data-action="toggle-section"]');
+        if (!trigger) return;
+        var section = trigger.closest('.od-collapse');
+        if (section) section.classList.toggle('open');
+    });
+
+    /* ---- Auto-resize textarea ---- */
+    var ta = document.querySelector('.od-chat__input');
+    if (ta) {
+        ta.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
         });
     }
 });
-
-/**
- * Show toast notification
- */
-function showToast(message, type = 'info') {
-    // Check if toast system exists
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-    } else {
-        // Fallback to console
-        console.log(`[${type.toUpperCase()}] ${message}`);
-    }
-}
-
-// ============================================
-// COLLAPSIBLE SECTIONS (Historia zamówienia)
-// ============================================
-
-/**
- * Toggle collapsible section (like in admin panel)
- */
-function toggleSection(button) {
-    const section = button.closest('.collapsible-section');
-    if (section) {
-        section.classList.toggle('open');
-    }
-}
-
-
