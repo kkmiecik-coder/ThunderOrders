@@ -630,10 +630,14 @@ async function saveVariantGroups() {
         console.log('[VARIANT GROUPS] Sending data:', groupsData);
         console.log('[VARIANT GROUPS] URL:', `/admin/products/${currentProductId}/save-variant-groups`);
 
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
+                           document.querySelector('input[name="csrf_token"]')?.value || '';
+
         const response = await fetch(`/admin/products/${currentProductId}/save-variant-groups`, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({ groups: groupsData })
         });
