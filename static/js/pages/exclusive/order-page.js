@@ -139,6 +139,48 @@ function initExpandableImages() {
 document.addEventListener('DOMContentLoaded', initExpandableImages);
 
 // ============================================
+// Mobile Cart FAB
+// ============================================
+
+// Move cart sidebar to body level on mobile so z-index works correctly
+// (inside .page-content it's trapped in its stacking context)
+(function() {
+    function setupMobileCart() {
+        const sidebar = document.querySelector('.cart-sidebar');
+        const overlay = document.getElementById('cartMobileOverlay');
+        if (!sidebar || !overlay) return;
+
+        if (window.innerWidth <= 1024) {
+            // Move cart sidebar right before the overlay element (both at body level)
+            if (sidebar.parentElement !== overlay.parentElement || sidebar.nextElementSibling !== overlay) {
+                overlay.parentNode.insertBefore(sidebar, overlay);
+            }
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupMobileCart);
+    } else {
+        setupMobileCart();
+    }
+})();
+
+function toggleMobileCart() {
+    const sidebar = document.querySelector('.cart-sidebar');
+    const overlay = document.getElementById('cartMobileOverlay');
+    if (!sidebar || !overlay) return;
+
+    const isOpen = sidebar.classList.contains('mobile-open');
+    if (isOpen) {
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('active');
+    } else {
+        sidebar.classList.add('mobile-open');
+        overlay.classList.add('active');
+    }
+}
+
+// ============================================
 // Cart state
 // ============================================
 let cart = [];
@@ -236,6 +278,13 @@ function updateCart() {
     cartCount.textContent = totalItems;
     cartTotal.textContent = totalPrice.toFixed(2) + ' PLN';
     submitBtn.disabled = totalItems === 0;
+
+    // Update mobile FAB badge
+    const fabBadge = document.getElementById('cartFabBadge');
+    if (fabBadge) {
+        fabBadge.textContent = totalItems;
+        fabBadge.setAttribute('data-count', totalItems);
+    }
 
     // Update cart items list (full sets first for visual priority)
     const fullSetItems = cart.filter(item => item.isFullSet);

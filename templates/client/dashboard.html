@@ -253,7 +253,7 @@
     <div class="dashboard-grid">
         <!-- Wykres zamówień -->
         <div class="dashboard-section">
-            <div class="widget">
+            <div class="widget widget-chart">
                 <div class="widget-header">
                     <h2 class="widget-title">Moje zamówienia</h2>
                     <select id="chartPeriod" class="chart-period-select">
@@ -282,7 +282,8 @@
                 </div>
                 <div class="widget-body widget-body-table">
                     {% if recent_orders.visible|length > 0 %}
-                        <table class="recent-orders-table">
+                        <!-- Desktop: Table view -->
+                        <table class="recent-orders-table recent-orders-desktop">
                             <thead>
                                 <tr>
                                     <th>Numer</th>
@@ -332,6 +333,41 @@
                                 {% endfor %}
                             </tbody>
                         </table>
+
+                        <!-- Mobile: Cards view -->
+                        <div class="recent-orders-cards recent-orders-mobile" id="recentOrdersCardsBody">
+                            {# Visible orders #}
+                            {% for order in recent_orders.visible %}
+                            <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="recent-order-card">
+                                <div class="recent-order-card-top">
+                                    <span class="order-number-link">{{ order.order_number }}</span>
+                                    <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                        {{ order.status_display_name }}
+                                    </span>
+                                </div>
+                                <div class="recent-order-card-bottom">
+                                    <span class="order-client">{{ order.customer_name }}</span>
+                                    <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                </div>
+                            </a>
+                            {% endfor %}
+                            {# Buffer orders (hidden) #}
+                            {% for order in recent_orders.buffer %}
+                            <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="recent-order-card orders-buffered" style="display: none;">
+                                <div class="recent-order-card-top">
+                                    <span class="order-number-link">{{ order.order_number }}</span>
+                                    <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                        {{ order.status_display_name }}
+                                    </span>
+                                </div>
+                                <div class="recent-order-card-bottom">
+                                    <span class="order-client">{{ order.customer_name }}</span>
+                                    <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
+
                         {% if recent_orders.remaining > 0 %}
                             <div class="orders-show-more" id="ordersShowMore">
                                 <button type="button" class="show-more-btn" id="ordersLoadMoreBtn"
@@ -367,6 +403,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Orders Chart
     const ordersCtx = document.getElementById('ordersChart');
     if (ordersCtx) {
+        const isMobile = window.innerWidth <= 768;
+
         const ordersChart = new Chart(ordersCtx.getContext('2d'), {
             type: 'line',
             data: {
@@ -376,13 +414,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     data: {{ chart_data['values'] | tojson }},
                     backgroundColor: 'rgba(255, 133, 0, 0.2)',
                     borderColor: '#FF8500',
-                    borderWidth: 2,
+                    borderWidth: isMobile ? 1.5 : 2,
                     fill: true,
                     tension: 0.4,
                     pointBackgroundColor: '#FF8500',
                     pointBorderColor: '#fff',
-                    pointHoverRadius: 6,
-                    pointRadius: 4
+                    pointHoverRadius: isMobile ? 4 : 6,
+                    pointRadius: isMobile ? 2 : 4
                 }]
             },
             options: {
@@ -396,7 +434,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         bodyColor: textColor,
                         borderColor: gridColor,
                         borderWidth: 1,
-                        padding: 12,
+                        padding: isMobile ? 8 : 12,
+                        titleFont: { size: isMobile ? 11 : 13 },
+                        bodyFont: { size: isMobile ? 11 : 13 },
                         displayColors: false,
                         callbacks: {
                             label: function(context) {
@@ -411,15 +451,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         ticks: {
                             color: textColor,
                             stepSize: 1,
-                            precision: 0
+                            precision: 0,
+                            font: { size: isMobile ? 10 : 12 }
                         },
                         grid: { color: gridColor }
                     },
                     x: {
                         ticks: {
                             color: textColor,
-                            maxRotation: 45,
-                            minRotation: 0
+                            maxRotation: isMobile ? 60 : 45,
+                            minRotation: isMobile ? 30 : 0,
+                            font: { size: isMobile ? 9 : 12 },
+                            maxTicksLimit: isMobile ? 8 : undefined
                         },
                         grid: { color: gridColor }
                     }
@@ -722,6 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
     (function() {
         const loadMoreBtn = document.getElementById('ordersLoadMoreBtn');
         const tableBody = document.getElementById('recentOrdersTableBody');
+        const cardsBody = document.getElementById('recentOrdersCardsBody');
         const showMoreContainer = document.getElementById('ordersShowMore');
 
         if (!loadMoreBtn || !tableBody) return;
@@ -729,7 +773,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
         let isLoading = false;
 
-        // Create row HTML from order data
+        // Create table row HTML from order data
         function createRowHTML(order) {
             return `
                 <tr onclick="window.location.href='${order.detail_url}'" style="cursor: pointer;">
@@ -748,6 +792,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         <span class="order-amount">${order.effective_grand_total.toFixed(2)} PLN</span>
                     </td>
                 </tr>
+            `;
+        }
+
+        // Create mobile card HTML from order data
+        function createCardHTML(order) {
+            return `
+                <a href="${order.detail_url}" class="recent-order-card">
+                    <div class="recent-order-card-top">
+                        <span class="order-number-link">${order.order_number}</span>
+                        <span class="order-status" style="background-color: ${order.status_badge_color}; color: white;">
+                            ${order.status_display_name}
+                        </span>
+                    </div>
+                    <div class="recent-order-card-bottom">
+                        <span class="order-client">${order.customer_name}</span>
+                        <span class="order-amount">${order.effective_grand_total.toFixed(2)} PLN</span>
+                    </div>
+                </a>
             `;
         }
 
@@ -779,8 +841,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (isLoading) return;
 
-            // 1. Show buffered rows first
+            // 1. Show buffered items first (both table rows and cards)
             const bufferedRows = tableBody.querySelectorAll('.orders-buffered');
+            const bufferedCards = cardsBody ? cardsBody.querySelectorAll('.orders-buffered') : [];
             let shownFromBuffer = 0;
 
             bufferedRows.forEach((row, index) => {
@@ -788,6 +851,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     row.style.display = '';
                     row.classList.remove('orders-buffered');
                     shownFromBuffer++;
+                }
+            });
+
+            bufferedCards.forEach((card, index) => {
+                if (index < 5 && card.style.display === 'none') {
+                    card.style.display = '';
+                    card.classList.remove('orders-buffered');
                 }
             });
 
@@ -804,6 +874,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data && data.success && data.orders.length > 0) {
                     // Add new rows as buffered (hidden)
                     data.orders.forEach(order => {
+                        // Table row
                         const rowHTML = createRowHTML(order);
                         const tempTable = document.createElement('table');
                         tempTable.innerHTML = `<tbody>${rowHTML}</tbody>`;
@@ -811,6 +882,17 @@ document.addEventListener('DOMContentLoaded', function() {
                         newRow.classList.add('orders-buffered');
                         newRow.style.display = 'none';
                         tableBody.appendChild(newRow);
+
+                        // Mobile card
+                        if (cardsBody) {
+                            const cardHTML = createCardHTML(order);
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = cardHTML;
+                            const newCard = tempDiv.firstElementChild;
+                            newCard.classList.add('orders-buffered');
+                            newCard.style.display = 'none';
+                            cardsBody.appendChild(newCard);
+                        }
                     });
 
                     currentOffset += data.orders.length;

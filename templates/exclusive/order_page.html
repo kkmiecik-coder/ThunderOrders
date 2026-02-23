@@ -527,12 +527,6 @@
 
                 <!-- Footer -->
                 <div class="exclusive-modal-footer">
-                    <button type="button" class="exclusive-btn-cancel" onclick="backToGuestChoice()">
-                        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
-                            <path fill-rule="evenodd" d="M12 8a.5.5 0 0 1-.5.5H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H11.5a.5.5 0 0 1 .5.5z"/>
-                        </svg>
-                        <span>Wróć</span>
-                    </button>
                     <button type="submit" class="exclusive-btn-submit" id="loginSubmitBtn">
                         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                             <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
@@ -540,6 +534,7 @@
                         </svg>
                         <span>Zaloguj się</span>
                     </button>
+                    <button type="button" class="exclusive-btn-cancel-text" onclick="backToGuestChoice()">Wróć</button>
                 </div>
             </form>
         </div>
@@ -599,7 +594,7 @@
                     </svg>
                     <span>Notatka do zamówienia <span class="exclusive-opt">(opcjonalnie)</span></span>
                 </label>
-                <textarea id="orderNote" class="exclusive-form-textarea" rows="3" placeholder="Dodatkowe informacje, uwagi, preferencje..."></textarea>
+                <textarea id="orderNote" class="exclusive-form-textarea" rows="2" placeholder="Dodatkowe informacje, uwagi, preferencje..."></textarea>
             </div>
             {% else %}
             <!-- Guest checkout -->
@@ -634,7 +629,7 @@
                         </svg>
                         <span>Notatka <span class="exclusive-opt">(opcjonalnie)</span></span>
                     </label>
-                    <textarea id="orderNote" class="exclusive-form-textarea" rows="3" placeholder="Dodatkowe informacje, uwagi, preferencje..."></textarea>
+                    <textarea id="orderNote" class="exclusive-form-textarea" rows="2" placeholder="Dodatkowe informacje, uwagi, preferencje..."></textarea>
                 </div>
             </form>
             {% endif %}
@@ -642,18 +637,13 @@
 
         <!-- Footer -->
         <div class="exclusive-modal-footer">
-            <button type="button" class="exclusive-btn-cancel" onclick="closeOrderModal()">
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
-                </svg>
-                <span>Anuluj</span>
-            </button>
             <button type="button" class="exclusive-btn-submit" onclick="submitOrder()">
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
                 </svg>
                 <span>Potwierdź zamówienie</span>
             </button>
+            <button type="button" class="exclusive-btn-cancel-text" onclick="closeOrderModal()">Anuluj</button>
         </div>
     </div>
 </div>
@@ -744,10 +734,7 @@
         </div>
 
         <!-- Footer -->
-        <div class="exclusive-modal-footer exclusive-modal-footer-split">
-            <button type="button" class="exclusive-btn-secondary" onclick="closeEmailExistsModal()">
-                Anuluj
-            </button>
+        <div class="exclusive-modal-footer">
             <button type="button" class="exclusive-btn-submit" onclick="redirectToLogin()">
                 <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                     <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
@@ -755,6 +742,7 @@
                 </svg>
                 <span>Zaloguj się</span>
             </button>
+            <button type="button" class="exclusive-btn-cancel-text" onclick="closeEmailExistsModal()">Anuluj</button>
         </div>
     </div>
 </div>
@@ -771,6 +759,17 @@
         <img id="lightboxImage" class="image-lightbox-img" src="" alt="">
     </div>
 </div>
+
+<!-- Mobile Cart FAB (Floating Action Button) -->
+<button type="button" class="cart-fab" id="cartFab" onclick="toggleMobileCart()">
+    <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+    </svg>
+    <span class="cart-fab-badge" id="cartFabBadge">0</span>
+</button>
+
+<!-- Mobile Cart Overlay -->
+<div class="cart-mobile-overlay" id="cartMobileOverlay" onclick="toggleMobileCart()"></div>
 
 <!-- Deadline Alert Popup -->
 <div id="deadlineAlertPopup" class="deadline-alert-overlay hidden">

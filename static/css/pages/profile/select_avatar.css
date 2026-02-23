@@ -139,7 +139,7 @@
 
 /* Carousel */
 .avatar-carousel {
-    overflow-x: visible;
+    overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
     padding: var(--space-6) var(--space-2);
@@ -311,50 +311,154 @@
     margin: 0 0 var(--space-6);
 }
 
-/* Responsive */
+/* Responsive - Tablet */
 @media (max-width: 768px) {
+    /* Allow vertical scroll instead of centering */
+    .avatar-select-page {
+        align-items: flex-start;
+    }
+
+    .avatar-select-container {
+        padding: var(--space-6) var(--space-4);
+    }
+
+    .avatar-select-header {
+        margin-bottom: var(--space-6);
+    }
+
     .avatar-select-header h1 {
         font-size: 28px;
     }
 
-    .avatar-option {
-        width: 100px;
-    }
-
-    .avatar-image-wrapper {
-        width: 100px;
-        height: 100px;
+    .avatar-select-header .logo {
+        height: 40px;
+        margin-bottom: var(--space-4);
     }
 
     .series-title {
         font-size: 18px;
+        padding-left: 0;
     }
 
-    /* Hide navigation buttons on mobile - swipe is natural */
+    .avatar-series-row {
+        margin-bottom: var(--space-6);
+    }
+
+    /* Hide carousel nav buttons */
     .carousel-nav {
         display: none;
     }
-}
 
-@media (max-width: 480px) {
+    /* Switch from horizontal carousel to wrapping grid */
+    .avatar-carousel {
+        overflow-x: visible;
+        padding: var(--space-3) 0;
+    }
+
+    .avatar-carousel-track {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: var(--space-3);
+        padding: 0;
+        justify-items: center;
+    }
+
     .avatar-option {
-        width: 80px;
+        width: 100%;
+        max-width: 110px;
     }
 
     .avatar-image-wrapper {
-        width: 80px;
-        height: 80px;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1;
+    }
+
+    /* Tap-friendly: disable hover scale on touch */
+    .avatar-option:hover {
+        transform: none;
+    }
+
+    .avatar-option:hover .avatar-image-wrapper {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .avatar-option:hover img {
+        transform: none;
+    }
+
+    .avatar-option:hover .avatar-glow {
+        opacity: 0;
+    }
+
+    /* Tap feedback via active state */
+    .avatar-option:active {
+        transform: scale(0.95);
+    }
+
+    /* Selected state stays visible */
+    .avatar-option.selected .avatar-glow {
+        opacity: 1;
+    }
+
+    .avatar-select-actions {
+        margin-top: var(--space-6);
+        padding-bottom: var(--space-6);
+    }
+
+    .btn-lg {
+        padding: 14px 32px;
+        font-size: 16px;
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Responsive - Small mobile */
+@media (max-width: 480px) {
+    .avatar-select-container {
+        padding: var(--space-4) var(--space-3);
+    }
+
+    .avatar-select-header h1 {
+        font-size: 24px;
+    }
+
+    .avatar-select-header p {
+        font-size: 14px;
+    }
+
+    .avatar-select-header .logo {
+        height: 36px;
+    }
+
+    .series-title {
+        font-size: 16px;
+    }
+
+    .avatar-carousel-track {
+        grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+        gap: var(--space-2);
+    }
+
+    .avatar-option {
+        max-width: 90px;
     }
 
     .avatar-check {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         top: 4px;
         right: 4px;
     }
 
     .avatar-check svg {
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
+    }
+
+    .btn-lg {
+        padding: 12px 24px;
+        font-size: 15px;
     }
 }

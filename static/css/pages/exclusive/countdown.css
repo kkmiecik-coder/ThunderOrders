@@ -7,14 +7,14 @@
    Base Layout
    ========================================== */
 html:has(.exclusive-page-body) {
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     background-color: #302b63;
 }
 
 .exclusive-page-body {
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%) fixed;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     min-height: 100vh;
     min-height: 100dvh;
-    min-height: -webkit-fill-available;
     margin: 0;
     padding: 0;
 }
@@ -551,40 +551,82 @@ html:has(.exclusive-page-body) {
    Responsive
    ========================================== */
 @media (max-width: 600px) {
+    /* === iOS Safari: html handles gradient in safe areas === */
+    html:has(.exclusive-page-body) {
+        height: 100%;
+    }
+
+    .exclusive-page-body {
+        background: none;
+        min-height: 100%;
+        min-height: 100dvh;
+        overscroll-behavior: none;
+    }
+
+    /* === Main container: exact viewport, no scroll === */
     .countdown-page {
-        padding: var(--space-4);
-        padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
-        padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
-        padding-left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
-        padding-right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
+        height: 100vh;
+        height: 100dvh;
+        height: -webkit-fill-available;
+        min-height: 0;
+        overscroll-behavior: none;
+        padding: var(--space-3);
+        padding-top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+        padding-left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+        padding-right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
     }
 
+    /* === Animated bg: extend into safe areas, no clipping === */
+    .animated-bg {
+        top: calc(-1 * env(safe-area-inset-top, 0px));
+        right: calc(-1 * env(safe-area-inset-right, 0px));
+        bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+        left: calc(-1 * env(safe-area-inset-left, 0px));
+        overflow: visible;
+    }
+
+    /* === Glass container: compact === */
     .countdown-container {
-        padding: var(--space-6) var(--space-4);
+        padding: var(--space-5) var(--space-4);
         border-radius: 24px;
+        max-width: 100%;
     }
 
-    /* Logo - smaller on mobile */
+    /* === Logo: smaller === */
+    .countdown-logo {
+        margin-bottom: var(--space-4);
+    }
+
     .countdown-logo img {
-        height: 28px;
+        height: auto;
+        width: 100%;
     }
 
+    /* === Header: tighter === */
     .countdown-header {
-        margin-bottom: var(--space-6);
+        margin-bottom: var(--space-5);
+    }
+
+    .countdown-badge {
+        font-size: 10px;
+        padding: 5px 10px;
+        margin-bottom: var(--space-3);
     }
 
     .countdown-title {
-        font-size: clamp(22px, 5vw, 28px);
+        font-size: clamp(20px, 5vw, 26px);
     }
 
     .countdown-subtitle {
-        font-size: var(--text-base);
+        font-size: var(--text-sm);
     }
 
-    /* Timer - all 4 units in one row */
+    /* === Timer: compact single row === */
     .countdown-timer {
         flex-wrap: nowrap;
         gap: var(--space-2);
+        margin-bottom: var(--space-5);
     }
 
     .countdown-unit {
@@ -594,41 +636,55 @@ html:has(.exclusive-page-body) {
 
     .countdown-value-wrapper {
         min-width: unset;
-        padding: var(--space-4) var(--space-4);
-        border-radius: 16px;
+        padding: var(--space-3);
+        border-radius: 12px;
     }
 
     .countdown-value {
-        font-size: clamp(36px, 10vw, 48px);
+        font-size: clamp(28px, 9vw, 40px);
     }
 
     .countdown-label {
-        font-size: 11px;
-        letter-spacing: 1.5px;
+        font-size: 9px;
+        letter-spacing: 1px;
     }
 
     .countdown-separator {
         display: none;
     }
 
-    .countdown-badge {
-        font-size: 10px;
-        padding: 6px 12px;
+    /* === Info & CTA: compact === */
+    .countdown-info {
+        margin-bottom: var(--space-4);
     }
 
     .start-date-card {
-        padding: var(--space-3) var(--space-4);
+        padding: var(--space-2) var(--space-3);
+        border-radius: 12px;
     }
 
+    .start-date-label {
+        font-size: 10px;
+    }
+
+    .start-date-value {
+        font-size: var(--text-sm);
+    }
+
+    .countdown-cta p {
+        font-size: var(--text-xs);
+    }
+
+    /* === Orbs: smaller, not clipped === */
     .orb {
         filter: blur(40px);
     }
 
-    .orb-1 { width: 250px; height: 250px; }
-    .orb-2 { width: 200px; height: 200px; }
-    .orb-3 { width: 150px; height: 150px; }
-    .orb-4 { width: 120px; height: 120px; }
-    .orb-5 { width: 200px; height: 200px; }
+    .orb-1 { width: 200px; height: 200px; }
+    .orb-2 { width: 180px; height: 180px; }
+    .orb-3 { width: 140px; height: 140px; }
+    .orb-4 { width: 100px; height: 100px; }
+    .orb-5 { width: 160px; height: 160px; }
 }
 
 /* ==========================================
@@ -694,15 +750,15 @@ html:has(.exclusive-page-body) {
 /* Mobile adjustment */
 @media (max-width: 600px) {
     .mute-btn {
-        bottom: 16px;
-        right: 16px;
-        width: 42px;
-        height: 42px;
+        bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        right: calc(12px + env(safe-area-inset-right, 0px));
+        width: 40px;
+        height: 40px;
     }
 
     .mute-btn svg {
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
     }
 }
 

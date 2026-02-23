@@ -496,6 +496,85 @@ a.metric-card-clickable.metric-card-info:hover {
 }
 
 /* ================================================
+   Recent Orders - Mobile Cards
+   ================================================ */
+
+/* Desktop table visible by default, mobile cards hidden */
+.recent-orders-desktop {
+    display: table;
+}
+
+.recent-orders-mobile {
+    display: none;
+}
+
+/* Mobile Cards Container */
+.recent-orders-cards.recent-orders-mobile {
+    display: none;
+    padding: var(--space-3);
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Single Order Card */
+.recent-order-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--gray-100);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.2s ease;
+}
+
+.recent-order-card:last-of-type {
+    border-bottom: none;
+}
+
+.recent-order-card:active {
+    background: var(--kpop-light);
+}
+
+.recent-order-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.recent-order-card-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.recent-order-card-bottom .order-client {
+    font-size: 0.8rem;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recent-order-card-bottom .order-amount {
+    font-size: 0.875rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Dark Mode - Recent Order Cards */
+[data-theme="dark"] .recent-order-card {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .recent-order-card:active {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+/* ================================================
    Responsive Breakpoints
    ================================================ */
 
@@ -518,14 +597,29 @@ a.metric-card-clickable.metric-card-info:hover {
 
 /* Mobile (max-width: 768px) */
 @media (max-width: 768px) {
-    /* Note: .main-content handles mobile padding, no need to override here */
-
     .dashboard-title {
         font-size: 2rem;
     }
 
+    /* Chart widget header - stack on mobile */
+    .widget-chart .widget-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+        padding: var(--space-4) var(--space-4) 0 var(--space-4);
+    }
+
+    .widget-chart .chart-period-select {
+        width: 100%;
+    }
+
+    /* Recent orders widget header - tighter padding on mobile */
+    .widget-orders .widget-header {
+        padding: var(--space-4) var(--space-4) 0 var(--space-4);
+    }
+
     .chart-container {
-        height: 200px;
+        height: 220px;
     }
 
     .order-item {
@@ -550,10 +644,23 @@ a.metric-card-clickable.metric-card-info:hover {
         align-items: flex-start;
         gap: var(--space-2);
     }
+
+    /* Switch table to cards for Recent Orders */
+    .recent-orders-desktop {
+        display: none !important;
+    }
+
+    .recent-orders-cards.recent-orders-mobile {
+        display: flex;
+    }
 }
 
 /* Mobile Small (max-width: 480px) */
 @media (max-width: 480px) {
+    .dashboard-title {
+        font-size: 1.6rem;
+    }
+
     .metric-value {
         font-size: var(--text-2xl);
     }
@@ -565,6 +672,18 @@ a.metric-card-clickable.metric-card-info:hover {
     .order-status {
         font-size: 0.65rem;
         padding: 2px 8px;
+    }
+
+    .chart-container {
+        height: 200px;
+    }
+
+    .widget-title {
+        font-size: var(--text-base);
+    }
+
+    .recent-order-card-top .order-number-link {
+        font-size: 0.8rem;
     }
 }
 
