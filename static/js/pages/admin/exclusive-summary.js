@@ -434,16 +434,6 @@ function renderOrderCards() {
     }
     grid.innerHTML = html;
 
-    // Attach expand/collapse
-    var headers = grid.querySelectorAll('.order-card-header');
-    for (var j = 0; j < headers.length; j++) {
-        headers[j].addEventListener('click', function (e) {
-            if (e.target.closest('a')) return;
-            var card = this.closest('.order-card');
-            card.classList.toggle('expanded');
-        });
-    }
-
     renderPagination(totalPages, paginationContainer);
 }
 
@@ -510,11 +500,6 @@ function buildOrderCardHTML(order) {
         amountHTML +
         '</div>' +
         '</div>' +
-        '<button class="order-card-expand" title="Rozwi\u0144">' +
-        '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">' +
-        '<path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>' +
-        '</svg>' +
-        '</button>' +
         '</div>' +
         '<div class="order-card-body">' +
         '<div class="order-card-items">' + itemsHTML + '</div>' +
