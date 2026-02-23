@@ -2078,7 +2078,8 @@ function confirmGroupOrder() {
     fetch('/admin/products/api/create-group-proxy-order', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({
             products: products,
