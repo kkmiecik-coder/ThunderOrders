@@ -412,6 +412,13 @@ function renderOrderCards() {
     var paginationContainer = document.getElementById('ordersPagination');
     if (!grid) return;
 
+    // Ensure filteredOrders is populated (handles case when tab is restored before initializeOrdersTab runs)
+    if (filteredOrders.length === 0 && (window.SUMMARY_ORDERS || []).length > 0) {
+        filteredOrders = (window.SUMMARY_ORDERS || []).slice();
+        var countEl = document.getElementById('ordersDisplayCount');
+        if (countEl) countEl.textContent = filteredOrders.length;
+    }
+
     if (filteredOrders.length === 0) {
         grid.innerHTML = '';
         if (emptyState) emptyState.style.display = 'block';
