@@ -1371,7 +1371,7 @@ function _changeOrderStatus(tab, orderId, newStatus) {
 
     fetch(config.statusEndpoint(orderId), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
         body: JSON.stringify({ status: newStatus })
     })
     .then(response => response.json())
@@ -1440,7 +1440,7 @@ function _deleteOrder(tab, orderId) {
 
     fetch(config.deleteEndpoint(orderId), {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }
     })
     .then(response => response.json())
     .then(data => {
@@ -1473,7 +1473,7 @@ function _bulkDeleteOrders(tab) {
     orderIds.forEach(orderId => {
         fetch(config.deleteEndpoint(orderId), {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }
         })
         .then(response => response.json())
         .then(data => {
@@ -1517,7 +1517,7 @@ function _bulkMove(targetTab) {
     orderIds.forEach(orderId => {
         fetch(`/admin/products/proxy-orders/${orderId}/move`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify({ order_type: targetTab })
         })
         .then(response => response.json())
@@ -1671,7 +1671,7 @@ function applyBulkStatus(newStatus) {
 
         fetch(endpoint, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify({ status: newStatus })
         })
         .then(response => response.json())
