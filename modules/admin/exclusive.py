@@ -457,13 +457,8 @@ def exclusive_change_status(page_id):
 
         # Wyślij powiadomienie do klientów jeśli toggle włączony
         if page.notify_clients_on_publish:
-            from modules.auth.models import User
-            from utils.email_manager import EmailManager
-            clients = User.query.filter_by(role='client', is_active=True).all()
-            if clients:
-                sent = EmailManager.notify_new_exclusive_page(page, clients)
-                message += f' Wysłano powiadomienie do {sent} klientów.'
-            page.notify_clients_on_publish = False  # Reset toggle po wysłaniu
+            page._send_publish_notifications()
+            message += ' Wysłano powiadomienie do klientów.'
 
     elif action == 'schedule':
         # Zaplanuj na datę startu

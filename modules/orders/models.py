@@ -1103,8 +1103,8 @@ class ShippingRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     request_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: WYS/000001
 
-    # User relationship
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # User relationship (nullable - user can be deleted, request history preserved)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     user = db.relationship('User', backref='shipping_requests')
 
     # Status (foreign key to shipping_request_statuses)

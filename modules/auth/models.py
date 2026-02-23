@@ -124,7 +124,7 @@ class User(UserMixin, db.Model):
     avatar = db.relationship('Avatar', backref='users', foreign_keys=[avatar_id])
     orders = db.relationship('Order', back_populates='user', lazy='dynamic')
     order_comments = db.relationship('OrderComment', back_populates='user', lazy='dynamic')
-    shipping_addresses = db.relationship('ShippingAddress', back_populates='user', lazy='dynamic')
+    shipping_addresses = db.relationship('ShippingAddress', back_populates='user', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True)
     # activity_logs = db.relationship('ActivityLog', backref='user', lazy='dynamic')
 
     def __repr__(self):

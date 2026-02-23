@@ -257,6 +257,11 @@ class ExclusivePage(db.Model):
         # Jeśli scheduled i minęła data startu -> active
         if self.status == 'scheduled' and self.starts_at and now >= self.starts_at:
             self.status = 'active'
+
+            # Wyślij powiadomienie do klientów jeśli flaga jest włączona
+            if self.notify_clients_on_publish:
+                self._send_publish_notifications()
+
             db.session.commit()
             return True
 
@@ -280,6 +285,26 @@ class ExclusivePage(db.Model):
                 return True
 
         return False
+
+    def _send_publish_notifications(self):
+        """Wysyła jednorazowe powiadomienie email do klientów o nowej stronie exclusive."""
+        try:
+            from flask import current_app
+            from modules.auth.models import User
+            from utils.email_manager import EmailManager
+
+            clients = User.query.filter_by(role='client', is_active=True).all()
+            if clients:
+                sent = EmailManager.notify_new_exclusive_page(self, clients)
+                current_app.logger.info(
+                    f"Exclusive page '{self.name}' activated: sent notification to {sent} clients"
+                )
+            self.notify_clients_on_publish = False  # Reset toggle po wysłaniu
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                f"Failed to send publish notifications for page {self.id}: {e}"
+            )
 
     # ============================================
     # Sections Management

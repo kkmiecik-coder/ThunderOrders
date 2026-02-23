@@ -8,6 +8,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from modules.admin import admin_bp
 from modules.auth.models import User
+from modules.orders.models import ShippingRequest
 from extensions import db
 from utils.decorators import role_required
 
@@ -288,6 +289,10 @@ def client_delete(id):
 
     try:
         client_name = client.full_name
+
+        # Nullify user_id on shipping requests to preserve history
+        ShippingRequest.query.filter_by(user_id=client.id).update({'user_id': None})
+
         db.session.delete(client)
         db.session.commit()
 
