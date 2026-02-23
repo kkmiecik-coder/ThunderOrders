@@ -370,6 +370,8 @@ class PolandOrder(db.Model):
     shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)
     customs_cost = db.Column(db.Numeric(10, 2), default=0.00)
 
+    is_archived = db.Column(db.Boolean, default=False, nullable=False)
+
     notes = db.Column(db.Text, nullable=True)
     admin_notes = db.Column(db.Text, nullable=True)
     tracking_number = db.Column(db.String(100), nullable=True)

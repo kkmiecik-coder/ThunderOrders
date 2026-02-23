@@ -8,7 +8,7 @@ Includes HTMX endpoints for partial updates.
 
 import json
 import os
-from flask import render_template, request, redirect, url_for, flash, jsonify, abort, make_response, current_app
+from flask import render_template, request, redirect, url_for, flash, jsonify, abort, make_response, current_app, send_from_directory
 from flask_login import login_required, current_user
 from sqlalchemy import or_, and_, func
 from datetime import datetime
@@ -19,7 +19,8 @@ from modules.orders import orders_bp
 from modules.orders.models import (
     Order, OrderItem, OrderRefund,
     OrderStatus, OrderType, WmsStatus,
-    ShippingRequestStatus, ShippingRequest, ShippingRequestOrder
+    ShippingRequestStatus, ShippingRequest, ShippingRequestOrder,
+    PaymentConfirmation
 )
 from modules.products.models import Product
 from modules.orders.forms import (
@@ -502,18 +503,8 @@ def admin_update_status(order_id):
         )
 
         # Send email notification to customer
-        try:
-            if order.customer_email:
-                from utils.email_sender import send_order_status_change_email
-                send_order_status_change_email(
-                    user_email=order.customer_email,
-                    user_name=order.customer_name,
-                    order_number=order.order_number,
-                    old_status=old_status_name,
-                    new_status=order.status_display_name
-                )
-        except Exception as e:
-            current_app.logger.error(f"Failed to send status change email for {order.order_number}: {e}")
+        from utils.email_manager import EmailManager
+        EmailManager.notify_status_change(order, old_status_name, order.status_display_name)
 
         # Return updated badge HTML with HX-Trigger for toast
         badge_html = f'<span class="badge" style="background-color: {order.status_badge_color}; color: #fff;" id="statusBadge">{order.status_display_name}</span>'
@@ -595,22 +586,24 @@ def admin_update_tracking(order_id):
     form = OrderTrackingForm()
 
     if form.validate_on_submit():
+        old_tracking = order.tracking_number
         order.tracking_number = form.tracking_number.data
         order.courier = form.courier.data
         order.updated_at = datetime.now()
         db.session.commit()
 
-        # Activity log
-        # log_activity(
-        #     user=current_user,
-        #     action='order_tracking_updated',
-        #     entity_type='order',
-        #     entity_id=order.id,
-        #     new_value={
-        #         'tracking_number': order.tracking_number,
-        #         'courier': order.courier
-        #     }
-        # )
+        # Send tracking email if tracking number was added (not just updated)
+        if order.tracking_number and not old_tracking:
+            from utils.email_manager import EmailManager
+            courier_names = {'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
+                           'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
+                           'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'}
+            EmailManager.notify_tracking_added(
+                order,
+                tracking_number=order.tracking_number,
+                courier=order.courier,
+                courier_name=courier_names.get(order.courier, order.courier or 'Kurier')
+            )
 
         flash('Informacje o śledzeniu zaktualizowane', 'success')
 
@@ -850,6 +843,17 @@ def admin_update_order_field(order_id):
             response_data['is_fully_paid'] = order.is_fully_paid
             response_data['is_partially_paid'] = order.is_partially_paid
 
+        # Email notification for cost fields
+        if field in ('proxy_shipping_cost', 'customs_vat_sale_cost', 'shipping_cost') and value and float(value) > 0:
+            from utils.email_manager import EmailManager
+            cost_type_map = {
+                'proxy_shipping_cost': 'proxy_shipping',
+                'customs_vat_sale_cost': 'customs_vat',
+                'shipping_cost': 'domestic_shipping'
+            }
+            cost_type = cost_type_map[field]
+            EmailManager.notify_cost_added(order, cost_type, float(value))
+
         return jsonify(response_data)
 
     except Exception as e:
@@ -926,6 +930,16 @@ def admin_add_shipment(order_id):
                 'courier': courier,
                 'order_number': order.order_number
             }
+        )
+
+        # Send tracking email to customer
+        from utils.email_manager import EmailManager
+        EmailManager.notify_tracking_added(
+            order,
+            tracking_number=shipment.tracking_number,
+            courier=shipment.courier,
+            courier_name=shipment.courier_display_name,
+            tracking_url=shipment.tracking_url
         )
 
         return jsonify({
@@ -1089,9 +1103,7 @@ def bulk_status_change():
                     # Queue email notification
                     if order.customer_email:
                         email_queue.append({
-                            'email': order.customer_email,
-                            'name': order.customer_name,
-                            'order_number': order.order_number,
+                            'order': order,
                             'old_status': old_status_name,
                             'new_status': order.status_display_name
                         })
@@ -1099,18 +1111,13 @@ def bulk_status_change():
         db.session.commit()
 
         # Send email notifications after successful commit
+        from utils.email_manager import EmailManager
         for email_data in email_queue:
-            try:
-                from utils.email_sender import send_order_status_change_email
-                send_order_status_change_email(
-                    user_email=email_data['email'],
-                    user_name=email_data['name'],
-                    order_number=email_data['order_number'],
-                    old_status=email_data['old_status'],
-                    new_status=email_data['new_status']
-                )
-            except Exception as e:
-                current_app.logger.error(f"Failed to send status change email for {email_data['order_number']}: {e}")
+            EmailManager.notify_status_change(
+                email_data['order'],
+                email_data['old_status'],
+                email_data['new_status']
+            )
 
         return jsonify({
             'success': True,
@@ -2943,13 +2950,312 @@ def guest_track(token):
     """
     Publiczny podgląd zamówienia dla gościa (bez logowania).
     Token jest unikalny i nigdy nie wygasa.
+    Rozbudowany panel z płatnościami, wysyłką i podsumowaniem finansowym.
     """
     order = Order.get_by_guest_token(token)
 
     if not order:
         abort(404)
 
-    return render_template('orders/guest_track.html', order=order)
+    from modules.payments.models import PaymentMethod
+    payment_methods = PaymentMethod.get_active()
+
+    # Sprawdź czy są dozwolone statusy do wysyłki
+    from modules.auth.models import Settings
+    setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
+    allowed_shipping_statuses = []
+    if setting and setting.value:
+        try:
+            import json as json_mod
+            allowed_shipping_statuses = json_mod.loads(setting.value)
+        except (ValueError, TypeError):
+            allowed_shipping_statuses = ['dostarczone_gom']
+    else:
+        allowed_shipping_statuses = ['dostarczone_gom']
+
+    can_create_shipping = (
+        order.status in allowed_shipping_statuses
+        and not order.is_in_shipping_request
+    )
+
+    return render_template(
+        'orders/guest_track.html',
+        order=order,
+        payment_methods=payment_methods,
+        can_create_shipping=can_create_shipping
+    )
+
+
+@orders_bp.route('/order/track/<token>/payment-methods')
+def guest_payment_methods(token):
+    """Zwraca aktywne metody płatności (JSON) dla gościa."""
+    order = Order.get_by_guest_token(token)
+    if not order:
+        abort(404)
+
+    from modules.payments.models import PaymentMethod
+    methods = PaymentMethod.get_active()
+    return jsonify({
+        'success': True,
+        'methods': [m.to_dict() for m in methods]
+    })
+
+
+@orders_bp.route('/order/track/<token>/upload-payment', methods=['POST'])
+def guest_upload_payment(token):
+    """
+    Upload potwierdzenia płatności dla gościa (bez logowania).
+    Zabezpieczony tokenem guest_view_token.
+    """
+    order = Order.get_by_guest_token(token)
+    if not order:
+        return jsonify({'success': False, 'error': 'Zamówienie nie znalezione'}), 404
+
+    from modules.client.payment_confirmations import (
+        allowed_proof_file, save_payment_proof_file, MAX_PROOF_FILE_SIZE
+    )
+    from modules.orders.models import PaymentConfirmation
+    from decimal import Decimal
+    from modules.orders.models import get_local_now
+    import json as json_mod
+
+    VALID_STAGES = {'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'}
+
+    try:
+        # Parsowanie etapów
+        stages_raw = request.form.get('stages', '[]')
+        try:
+            stages = [s for s in json_mod.loads(stages_raw) if s in VALID_STAGES]
+        except (ValueError, json_mod.JSONDecodeError):
+            stages = []
+
+        if not stages:
+            return jsonify({'success': False, 'error': 'Nie wybrano etapów płatności'}), 400
+
+        # Walidacja pliku
+        if 'proof_file' not in request.files:
+            return jsonify({'success': False, 'error': 'Nie przesłano pliku'}), 400
+
+        file = request.files['proof_file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Nie wybrano pliku'}), 400
+
+        if not allowed_proof_file(file.filename):
+            return jsonify({'success': False, 'error': 'Nieprawidłowy format. Dozwolone: JPG, PNG, PDF'}), 400
+
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        if file_size > MAX_PROOF_FILE_SIZE:
+            return jsonify({'success': False, 'error': 'Plik za duży. Max 5MB'}), 400
+
+        # Walidacja uprawnień per etap
+        for stage in stages:
+            can_upload = False
+            if stage == 'product':
+                can_upload = order.can_upload_product_payment
+            elif stage == 'korean_shipping':
+                can_upload = order.can_upload_stage_2
+            elif stage == 'customs_vat':
+                can_upload = order.can_upload_stage_3
+            elif stage == 'domestic_shipping':
+                can_upload = order.can_upload_stage_4
+            if not can_upload:
+                return jsonify({
+                    'success': False,
+                    'error': f'Nie można wgrać potwierdzenia dla tego etapu'
+                }), 400
+
+        # Zapisz plik
+        saved_filename = save_payment_proof_file(file)
+        if not saved_filename:
+            return jsonify({'success': False, 'error': 'Błąd zapisu pliku'}), 500
+
+        # Twórz/aktualizuj PaymentConfirmation per etap
+        now = get_local_now()
+        created_count = 0
+
+        stage_amounts = {
+            'product': order.effective_total,
+            'korean_shipping': order.proxy_shipping_total,
+            'customs_vat': order.customs_vat_total,
+            'domestic_shipping': Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00'),
+        }
+
+        for stage in stages:
+            amount = stage_amounts.get(stage, order.effective_total)
+
+            existing = PaymentConfirmation.query.filter_by(
+                order_id=order.id,
+                payment_stage=stage
+            ).first()
+
+            if existing:
+                if existing.is_approved:
+                    continue
+                existing.proof_file = saved_filename
+                existing.uploaded_at = now
+                existing.status = 'pending'
+                existing.rejection_reason = None
+                existing.amount = amount
+            else:
+                confirmation = PaymentConfirmation(
+                    order_id=order.id,
+                    payment_stage=stage,
+                    amount=amount,
+                    proof_file=saved_filename,
+                    uploaded_at=now,
+                    status='pending'
+                )
+                db.session.add(confirmation)
+
+            created_count += 1
+
+        db.session.commit()
+
+        # Powiadom adminów o nowym potwierdzeniu płatności
+        stage_display_names = {
+            'product': 'Płatność za produkt',
+            'korean_shipping': 'Wysyłka z Korei',
+            'customs_vat': 'Cło i VAT',
+            'domestic_shipping': 'Wysyłka krajowa'
+        }
+        stage_names = ', '.join(stage_display_names.get(s, s) for s in stages)
+        try:
+            from utils.email_manager import EmailManager
+            EmailManager.notify_admin_payment_uploaded(order, stage_names)
+        except Exception as e:
+            current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
+
+        return jsonify({
+            'success': True,
+            'message': f'Potwierdzenie przesłane ({created_count} etapów)'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Guest payment upload error: {e}')
+        return jsonify({'success': False, 'error': 'Wystąpił błąd serwera'}), 500
+
+
+@orders_bp.route('/order/track/<token>/shipping-request', methods=['POST'])
+def guest_create_shipping_request(token):
+    """
+    Tworzenie zlecenia wysyłki dla gościa z adresem jednorazowym.
+    Nie wymaga logowania - zabezpieczone tokenem.
+    """
+    order = Order.get_by_guest_token(token)
+    if not order:
+        return jsonify({'success': False, 'error': 'Zamówienie nie znalezione'}), 404
+
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder, ShippingRequestStatus
+    from modules.auth.models import Settings
+    import json as json_mod
+
+    try:
+        data = request.get_json()
+
+        # Sprawdź czy zamówienie może mieć zlecenie wysyłki
+        setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
+        allowed_statuses = []
+        if setting and setting.value:
+            try:
+                allowed_statuses = json_mod.loads(setting.value)
+            except (ValueError, json_mod.JSONDecodeError):
+                allowed_statuses = ['dostarczone_gom']
+        else:
+            allowed_statuses = ['dostarczone_gom']
+
+        if order.status not in allowed_statuses:
+            return jsonify({'success': False, 'error': 'Zamówienie nie kwalifikuje się do wysyłki'}), 400
+
+        if order.is_in_shipping_request:
+            return jsonify({'success': False, 'error': 'Zamówienie ma już zlecenie wysyłki'}), 400
+
+        # Walidacja adresu
+        address_type = data.get('address_type')
+        if address_type not in ['home', 'pickup_point']:
+            return jsonify({'success': False, 'error': 'Nieprawidłowy typ adresu'}), 400
+
+        if address_type == 'home':
+            required = ['shipping_name', 'shipping_address', 'shipping_postal_code', 'shipping_city']
+            for field in required:
+                if not data.get(field):
+                    return jsonify({'success': False, 'error': f'Pole {field} jest wymagane'}), 400
+        else:
+            required = ['pickup_courier', 'pickup_point_id', 'pickup_address', 'pickup_postal_code', 'pickup_city']
+            for field in required:
+                if not data.get(field):
+                    return jsonify({'success': False, 'error': f'Pole {field} jest wymagane'}), 400
+
+        # Status początkowy
+        default_status_setting = Settings.query.filter_by(key='shipping_request_default_status').first()
+        initial_status = None
+        if default_status_setting and default_status_setting.value:
+            initial_status = ShippingRequestStatus.query.filter_by(
+                slug=default_status_setting.value, is_active=True
+            ).first()
+        if not initial_status:
+            initial_status = ShippingRequestStatus.query.filter_by(is_initial=True, is_active=True).first()
+        if not initial_status:
+            initial_status = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).first()
+        status_slug = initial_status.slug if initial_status else 'nowe'
+
+        # Tworzenie ShippingRequest
+        shipping_request = ShippingRequest(
+            request_number=ShippingRequest.generate_request_number(),
+            user_id=order.user_id,
+            status=status_slug,
+            address_type=address_type,
+            shipping_name=data.get('shipping_name'),
+            shipping_address=data.get('shipping_address'),
+            shipping_postal_code=data.get('shipping_postal_code'),
+            shipping_city=data.get('shipping_city'),
+            shipping_voivodeship=data.get('shipping_voivodeship'),
+            shipping_country=data.get('shipping_country', 'Polska'),
+            pickup_courier=data.get('pickup_courier'),
+            pickup_point_id=data.get('pickup_point_id'),
+            pickup_address=data.get('pickup_address'),
+            pickup_postal_code=data.get('pickup_postal_code'),
+            pickup_city=data.get('pickup_city')
+        )
+        db.session.add(shipping_request)
+        db.session.flush()
+
+        # Delivery method
+        delivery_method = None
+        if address_type == 'home':
+            delivery_method = 'kurier'
+        elif data.get('pickup_courier'):
+            courier_lower = data['pickup_courier'].lower()
+            if 'inpost' in courier_lower or 'paczkomat' in courier_lower:
+                delivery_method = 'paczkomat'
+            elif 'orlen' in courier_lower:
+                delivery_method = 'orlen_paczka'
+            elif 'dpd' in courier_lower:
+                delivery_method = 'dpd_pickup'
+
+        request_order = ShippingRequestOrder(
+            shipping_request_id=shipping_request.id,
+            order_id=order.id
+        )
+        db.session.add(request_order)
+
+        if delivery_method and not order.delivery_method:
+            order.delivery_method = delivery_method
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Zlecenie wysyłki zostało utworzone',
+            'request_number': shipping_request.request_number
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'Guest shipping request error: {e}')
+        return jsonify({'success': False, 'error': 'Wystąpił błąd serwera'}), 500
 
 
 # ============================================
@@ -3248,6 +3554,9 @@ def admin_update_shipping_request(shipping_request_id):
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
     data = request.get_json() or {}
 
+    old_tracking = sr.tracking_number
+    old_status = sr.status
+
     # Update basic fields
     if 'status' in data:
         sr.status = data['status']
@@ -3261,6 +3570,7 @@ def admin_update_shipping_request(shipping_request_id):
         sr.admin_notes = data['admin_notes'] or None
 
     # Update order shipping costs
+    orders_with_new_cost = []
     if 'order_costs' in data:
         for cost_data in data['order_costs']:
             order_id = cost_data.get('order_id')
@@ -3269,9 +3579,21 @@ def admin_update_shipping_request(shipping_request_id):
             # Find the order and update its shipping cost
             order = Order.query.get(order_id)
             if order:
+                old_cost = float(order.shipping_cost or 0)
                 order.shipping_cost = shipping_cost if shipping_cost > 0 else None
+                if shipping_cost and float(shipping_cost) > 0 and float(shipping_cost) != old_cost:
+                    orders_with_new_cost.append((order, float(shipping_cost)))
 
     db.session.commit()
+
+    # Email notification for new domestic shipping costs
+    if orders_with_new_cost:
+        from utils.email_manager import EmailManager
+        for order, cost in orders_with_new_cost:
+            try:
+                EmailManager.notify_cost_added(order, 'domestic_shipping', cost)
+            except Exception as e:
+                current_app.logger.error(f'Błąd powiadomienia o koszcie wysyłki krajowej: {e}')
 
     # Activity log
     import json
@@ -3286,6 +3608,30 @@ def admin_update_shipping_request(shipping_request_id):
             'tracking_number': sr.tracking_number
         })
     )
+
+    # Send tracking email if tracking number was just added
+    tracking_just_added = sr.tracking_number and not old_tracking
+    if tracking_just_added:
+        from utils.email_manager import EmailManager
+        courier_names = {'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
+                       'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
+                       'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'}
+        for order in sr.orders:
+            EmailManager.notify_tracking_added(
+                order,
+                tracking_number=sr.tracking_number,
+                courier=sr.courier,
+                courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier'),
+                tracking_url=sr.tracking_url
+            )
+
+    # Send status change email (skip if tracking was just added - that email already covers it)
+    if 'status' in data and data['status'] != old_status and not tracking_just_added:
+        from utils.email_manager import EmailManager
+        try:
+            EmailManager.notify_shipping_status_change(sr, old_status)
+        except Exception as e:
+            current_app.logger.error(f'Błąd powiadomienia o zmianie statusu zlecenia wysyłki: {e}')
 
     return jsonify({
         'success': True,
@@ -3454,13 +3800,26 @@ def admin_bulk_status_shipping_requests():
         return jsonify({'error': 'Nieprawidłowy status'}), 400
 
     updated_count = 0
+    changed_requests = []  # (ShippingRequest, old_status) for email notifications
     for sr_id in ids:
         sr = ShippingRequest.query.get(sr_id)
         if sr:
+            old_status = sr.status
+            if old_status != new_status:
+                changed_requests.append((sr, old_status))
             sr.status = new_status
             updated_count += 1
 
     db.session.commit()
+
+    # Send status change emails
+    if changed_requests:
+        from utils.email_manager import EmailManager
+        for sr, old_status in changed_requests:
+            try:
+                EmailManager.notify_shipping_status_change(sr, old_status)
+            except Exception as e:
+                current_app.logger.error(f'Błąd powiadomienia o zmianie statusu zlecenia {sr.request_number}: {e}')
 
     # Activity log
     log_activity(
@@ -3555,3 +3914,37 @@ def admin_shipping_requests_list():
         search=search,
         page_title='Zlecenia wysyłki'
     )
+
+
+# ============================================
+# PAYMENT PROOF FILE SERVING (zabezpieczony)
+# ============================================
+
+@orders_bp.route('/payment-proof/<filename>')
+@login_required
+def serve_payment_proof(filename):
+    """
+    Serwuje pliki dowodów płatności z autoryzacją.
+    - Admin/Mod: dostęp do wszystkich plików
+    - Client: dostęp tylko do plików powiązanych z własnymi zamówieniami
+    """
+    from flask import send_from_directory
+
+    # Znajdź potwierdzenie po nazwie pliku
+    confirmation = PaymentConfirmation.query.filter_by(proof_file=filename).first()
+    if not confirmation:
+        abort(404)
+
+    # Sprawdź uprawnienia
+    if current_user.role in ('admin', 'mod'):
+        pass  # Admin/mod widzi wszystko
+    elif current_user.role == 'client':
+        # Klient widzi tylko pliki powiązane z jego zamówieniami
+        order = confirmation.order
+        if not order or order.user_id != current_user.id:
+            abort(403)
+    else:
+        abort(403)
+
+    upload_folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')
+    return send_from_directory(upload_folder, filename)

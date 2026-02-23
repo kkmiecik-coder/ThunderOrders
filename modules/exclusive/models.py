@@ -86,6 +86,9 @@ class ExclusivePage(db.Model):
     # 4 = Zamówienie przez proxy (4 płatności: Produkt + Wysyłka KR + Cło/VAT + Wysyłka PL)
     payment_stages = db.Column(db.Integer, default=4, nullable=False)
 
+    # Powiadomienie klientów przy publikacji
+    notify_clients_on_publish = db.Column(db.Boolean, default=False)
+
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)
     closed_at = db.Column(db.DateTime, nullable=True)

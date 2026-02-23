@@ -1,182 +1,136 @@
 <!DOCTYPE html>
-<html>
+<html lang="pl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 40px auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        .header {
-            background: linear-gradient(135deg, #240046 0%, #5A189A 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: 600;
-        }
-        .content {
-            padding: 30px;
-        }
-        .alert-box {
-            background-color: #FFF3E0;
-            border-left: 4px solid #F44336;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-        .alert-box h3 {
-            margin: 0 0 10px 0;
-            color: #F44336;
-            font-size: 18px;
-        }
-        .alert-box p {
-            margin: 0;
-            color: #666;
-            line-height: 1.6;
-        }
-        .product-list {
-            margin: 20px 0;
-        }
-        .product-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            background-color: #f9f9f9;
-        }
-        .product-item img {
-            width: 60px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 4px;
-            margin-right: 15px;
-            opacity: 0.6;
-        }
-        .product-info {
-            flex: 1;
-        }
-        .product-info h4 {
-            margin: 0 0 5px 0;
-            font-size: 16px;
-            color: #999;
-            text-decoration: line-through;
-        }
-        .product-info p {
-            margin: 0;
-            color: #999;
-            font-size: 14px;
-        }
-        .info-box {
-            background-color: #E3F2FD;
-            padding: 15px;
-            border-radius: 6px;
-            margin: 20px 0;
-        }
-        .info-box p {
-            margin: 0;
-            color: #1976D2;
-            line-height: 1.6;
-        }
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #FF6D00 0%, #FF9E00 100%);
-            color: white;
-            text-decoration: none;
-            padding: 12px 30px;
-            border-radius: 6px;
-            margin: 20px 0;
-            font-weight: 600;
-        }
-        .footer {
-            background-color: #f4f4f4;
-            padding: 20px;
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-        }
-    </style>
+    <title>Zamówienie anulowane - ThunderOrders</title>
 </head>
-<body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>❌ Zamówienie anulowane</h1>
-        </div>
-
-        <!-- Content -->
-        <div class="content">
-            <p>Witaj {{ customer_name }},</p>
-
-            <div class="alert-box">
-                <h3>Twoje zamówienie zostało anulowane</h3>
-                <p><strong>Numer zamówienia:</strong> {{ order_number }}</p>
-                <p><strong>Strona Exclusive:</strong> {{ page_name }}</p>
-                {% if reason %}
-                <p><strong>Powód:</strong> {{ reason }}</p>
-                {% endif %}
-            </div>
-
-            <p>Niestety, żaden z produktów w Twoim zamówieniu nie załapał się do sprzedaży setu. Oznacza to, że nie będziesz obciążony żadną płatnością za to zamówienie.</p>
-
-            <!-- Cancelled Products List -->
-            {% if cancelled_items %}
-            <div class="product-list">
-                <h3>Anulowane produkty:</h3>
-                {% for item in cancelled_items %}
-                <div class="product-item">
-                    {% if item.image_url %}
-                    <img src="{{ item.image_url }}" alt="{{ item.name }}">
-                    {% endif %}
-                    <div class="product-info">
-                        <h4>{{ item.name }}</h4>
-                        <p>Ilość: {{ item.quantity }} szt.</p>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <!-- Info Box -->
-            <div class="info-box">
-                <p><strong>ℹ️ Co to oznacza?</strong></p>
-                <p>Sprzedaż typu "set" oznacza, że produkty są dostępne tylko w kompletach. Niestety, nie udało się zebrać wystarczającej liczby zamówień, aby utworzyć komplet dla Twoich produktów.</p>
-            </div>
-
-            <p><strong>Brak obciążenia finansowego:</strong> Nie zostaniesz obciążony żadną kwotą. Jeśli dokonałeś przedpłaty, zostanie ona automatycznie zwrócona.</p>
-
-            <!-- CTA Button -->
-            <center>
-                <a href="mailto:kontakt@thunderorders.pl" class="cta-button">Skontaktuj się z nami</a>
-            </center>
-
-            <p style="margin-top: 30px;">Przepraszamy za niedogodności i dziękujemy za zrozumienie.</p>
-
-            <p>Pozdrawiamy,<br>
-            <strong>Zespół ThunderOrders</strong></p>
-        </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>ThunderOrders - Import z Azji</p>
-            <p>Ten email został wygenerowany automatycznie. Prosimy nie odpowiadać.</p>
-        </div>
-    </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Zamówienie anulowane
+                            </h1>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ customer_name }}</strong>!
+                            </p>
+                            <!-- Alert box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #FFF3E0; padding: 20px; border-radius: 8px; border-left: 4px solid #F44336;">
+                                        <p style="margin: 0 0 8px 0; font-size: 18px; font-weight: 700; color: #F44336;">
+                                            Twoje zamówienie zostało anulowane
+                                        </p>
+                                        <p style="margin: 0 0 4px 0; font-size: 15px; color: #212121;">
+                                            <strong>Numer zamówienia:</strong> {{ order_number }}
+                                        </p>
+                                        <p style="margin: 0 0 4px 0; font-size: 15px; color: #212121;">
+                                            <strong>Strona Exclusive:</strong> {{ page_name }}
+                                        </p>
+                                        {% if reason %}
+                                        <p style="margin: 0; font-size: 15px; color: #212121;">
+                                            <strong>Powód:</strong> {{ reason }}
+                                        </p>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                Niestety, żaden z produktów w Twoim zamówieniu nie załapał się do sprzedaży setu. Oznacza to, że nie będziesz obciążony żadną płatnością za to zamówienie.
+                            </p>
+                            <!-- Cancelled Products List -->
+                            {% if cancelled_items %}
+                            <p style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #240046;">
+                                Anulowane produkty:
+                            </p>
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 20px 0;">
+                                {% for item in cancelled_items %}
+                                <tr>
+                                    <td style="padding: 12px 15px; border: 1px solid #e0e0e0; border-radius: 6px; margin-bottom: 8px; background-color: #f9f9f9;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                {% if item.image_url %}
+                                                <td width="60" style="vertical-align: middle; padding-right: 15px;">
+                                                    <img src="{{ item.image_url }}" alt="{{ item.name }}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px; opacity: 0.6;" />
+                                                </td>
+                                                {% endif %}
+                                                <td style="vertical-align: middle;">
+                                                    <p style="margin: 0 0 4px 0; font-size: 16px; color: #999; text-decoration: line-through;">
+                                                        {{ item.name }}
+                                                    </p>
+                                                    <p style="margin: 0; font-size: 14px; color: #999;">
+                                                        Ilość: {{ item.quantity }} szt.
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                                {% if not loop.last %}
+                                <tr><td style="height: 8px;"></td></tr>
+                                {% endif %}
+                                {% endfor %}
+                            </table>
+                            {% endif %}
+                            <!-- Info box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #E3F2FD; padding: 20px; border-radius: 8px;">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #1976D2;">
+                                            Co to oznacza?
+                                        </p>
+                                        <p style="margin: 0; font-size: 15px; color: #1976D2; line-height: 1.6;">
+                                            Sprzedaż typu "set" oznacza, że produkty są dostępne tylko w kompletach. Niestety, nie udało się zebrać wystarczającej liczby zamówień, aby utworzyć komplet dla Twoich produktów.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                <strong>Brak obciążenia finansowego:</strong> Nie zostaniesz obciążony żadną kwotą. Jeśli dokonałeś przedpłaty, zostanie ona automatycznie zwrócona.
+                            </p>
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="mailto:kontakt@thunderorders.pl" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Skontaktuj się z nami
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Przepraszamy za niedogodności i dziękujemy za zrozumienie.
+                            </p>
+                            <p style="margin: 0; font-size: 16px; color: #212121;">
+                                Pozdrawiamy,<br>
+                                <strong>Zespół ThunderOrders</strong>
+                            </p>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>

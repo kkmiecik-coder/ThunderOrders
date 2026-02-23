@@ -56,65 +56,7 @@ def record_login_attempt(email, ip_address, success):
     pass
 
 
-def send_verification_email(user):
-    """
-    Wysyła email weryfikacyjny (legacy - stary system z linkami)
-
-    Args:
-        user (User): Użytkownik
-    """
-    from utils.email_sender import send_verification_email as send_email
-
-    try:
-        send_email(
-            user_email=user.email,
-            verification_token=user.email_verification_token,
-            user_name=user.first_name
-        )
-        current_app.logger.info(f"Verification email sent to {user.email}")
-    except Exception as e:
-        current_app.logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
-
-
-def send_verification_code(user, code):
-    """
-    Wysyła email z 6-cyfrowym kodem weryfikacyjnym
-
-    Args:
-        user (User): Użytkownik
-        code (str): 6-cyfrowy kod weryfikacyjny
-    """
-    from utils.email_sender import send_verification_code_email
-
-    try:
-        send_verification_code_email(
-            user_email=user.email,
-            verification_code=code,
-            user_name=user.first_name
-        )
-        current_app.logger.info(f"Verification code sent to {user.email}")
-    except Exception as e:
-        current_app.logger.error(f"Failed to send verification code to {user.email}: {str(e)}")
-
-
-def send_password_reset_email(user):
-    """
-    Wysyła email z linkiem do resetu hasła
-
-    Args:
-        user (User): Użytkownik
-    """
-    from utils.email_sender import send_password_reset_email as send_email
-
-    try:
-        send_email(
-            user_email=user.email,
-            reset_token=user.password_reset_token,
-            user_name=user.first_name
-        )
-        current_app.logger.info(f"Password reset email sent to {user.email}")
-    except Exception as e:
-        current_app.logger.error(f"Failed to send password reset email to {user.email}: {str(e)}")
+from utils.email_manager import EmailManager
 
 
 # =============================================
@@ -204,7 +146,7 @@ def login():
                 code, session_token = user.generate_verification_code()
                 db.session.commit()
                 # Wyślij nowy kod
-                send_verification_code(user, code)
+                EmailManager.send_verification_code(user, code)
             else:
                 session_token = user.verification_session_token
 
@@ -265,7 +207,7 @@ def login():
                 code, session_token = user.generate_verification_code()
                 db.session.commit()
                 # Wyślij nowy kod
-                send_verification_code(user, code)
+                EmailManager.send_verification_code(user, code)
             else:
                 session_token = user.verification_session_token
 
@@ -348,7 +290,7 @@ def register():
             db.session.commit()
 
             # Wyślij email z kodem weryfikacyjnym
-            send_verification_code(user, code)
+            EmailManager.send_verification_code(user, code)
 
             # Przekieruj na stronę weryfikacji kodem
             return redirect(url_for('auth.verify_email_code', token=session_token))
@@ -392,6 +334,10 @@ def verify_email(token):
     user.verify_email()
     db.session.commit()
 
+    # Wyślij email powitalny
+    from utils.email_manager import EmailManager
+    EmailManager.send_welcome(user)
+
     flash('Email został zweryfikowany! Możesz się teraz zalogować.', 'success')
     return redirect(url_for('auth.login'))
 
@@ -418,7 +364,7 @@ def forgot_password():
             db.session.commit()
 
             # Wyślij email
-            send_password_reset_email(user)
+            EmailManager.send_password_reset(user)
 
         # Zawsze przekieruj na stronę potwierdzenia (security by obscurity)
         return redirect(url_for('auth.forgot_password_confirmation'))
@@ -514,6 +460,10 @@ def verify_email_code(token):
         db.session.commit()
 
         if success:
+            # Wyślij email powitalny
+            from utils.email_manager import EmailManager
+            EmailManager.send_welcome(user)
+
             # Przekieruj na stronę sukcesu
             return redirect(url_for('auth.verification_success'))
         else:
@@ -575,7 +525,7 @@ def resend_verification_code(token):
 
     if new_code:
         # Wyślij email z nowym kodem
-        send_verification_code(user, new_code)
+        EmailManager.send_verification_code(user, new_code)
 
         return jsonify({
             'success': True,

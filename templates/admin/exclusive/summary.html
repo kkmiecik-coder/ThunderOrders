@@ -55,178 +55,373 @@
         </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="stats-cards">
-        <div class="stat-card">
-            <div class="stat-icon stat-icon-orders">
-                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
-                </svg>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ summary.total_orders }}</span>
-                <span class="stat-label">Zamówień</span>
-            </div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon stat-icon-customers">
-                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816zM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275zM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0zm3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
-                </svg>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ summary.unique_customers }}</span>
-                <span class="stat-label">Klientów</span>
-            </div>
-        </div>
-
-        {% if include_financials %}
-        <div class="stat-card stat-card-highlight">
-            <div class="stat-icon stat-icon-revenue">
-                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M4 10.781c.148 1.667 1.513 2.85 3.591 3.003V15h1.043v-1.216c2.27-.179 3.678-1.438 3.678-3.3 0-1.59-.947-2.51-2.956-3.028l-.722-.187V3.467c1.122.11 1.879.714 2.07 1.616h1.47c-.166-1.6-1.54-2.748-3.54-2.875V1H7.591v1.233c-1.939.23-3.27 1.472-3.27 3.156 0 1.454.966 2.483 2.661 2.917l.61.162v4.031c-1.149-.17-1.94-.8-2.131-1.718H4zm3.391-3.836c-1.043-.263-1.6-.825-1.6-1.616 0-.944.704-1.641 1.8-1.828v3.495l-.2-.05zm1.591 1.872c1.287.323 1.852.859 1.852 1.769 0 1.097-.826 1.828-2.2 1.939V8.73l.348.086z"/>
-                </svg>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ "%.2f"|format(summary.total_revenue) }} PLN</span>
-                <span class="stat-label">Przychód</span>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-
-    <!-- Sets Breakdown -->
-    {% if summary.sets %}
-    <div class="section">
-        <h2 class="section-title">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+    <!-- Tab Navigation -->
+    <div class="summary-tabs-navigation">
+        <button class="summary-tab-button summary-tab-active" data-tab="tab-overview">
+            <svg class="tab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+            </svg>
+            <span>Przegląd</span>
+        </button>
+        <button class="summary-tab-button" data-tab="tab-products">
+            <svg class="tab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
             </svg>
-            Podsumowanie setów
-        </h2>
+            <span>Produkty</span>
+            <span class="tab-count">{{ summary.products_aggregated|length }}</span>
+        </button>
+        <button class="summary-tab-button" data-tab="tab-orders">
+            <svg class="tab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
+            </svg>
+            <span>Zamówienia</span>
+            <span class="tab-count">{{ summary.total_orders }}</span>
+        </button>
+    </div>
 
-        <div class="sets-grid">
-            {% for set in summary.sets %}
-            <div class="set-card">
-                <div class="set-header">
-                    {% if set.set_image %}
-                    <img src="{{ url_for('static', filename=set.set_image) }}" alt="{{ set.set_name }}" class="set-image">
-                    {% endif %}
-                    <div class="set-info">
-                        <h3 class="set-name">{{ set.set_name }}</h3>
-                        <span class="set-count">{{ set.complete_sets }} kompletnych setów</span>
+    <!-- Tab Panels -->
+    <div class="summary-tabs-content">
+
+        <!-- ====== TAB 1: OVERVIEW ====== -->
+        <div class="summary-tab-panel summary-tab-active" id="tab-overview">
+
+            <!-- Stats Cards -->
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-orders">
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ summary.total_orders }}</span>
+                        <span class="stat-label">Zamówień</span>
                     </div>
                 </div>
-                <div class="set-products">
-                    <table class="mini-table">
-                        <thead>
-                            <tr>
-                                <th>Produkt</th>
-                                <th class="text-center">Szt./set</th>
-                                <th class="text-center">Zamówiono</th>
-                                <th class="text-center">Zrealizowano</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for product in set.products %}
-                            <tr>
-                                <td>{{ product.product_name[:40] }}{% if product.product_name|length > 40 %}...{% endif %}</td>
-                                <td class="text-center">{{ product.quantity_per_set }}</td>
-                                <td class="text-center">{{ product.total_ordered }}</td>
-                                <td class="text-center">
-                                    <span class="fulfilled-count">{{ product.fulfilled }}</span>
-                                    {% if product.unfulfilled > 0 %}
-                                    <span class="unfulfilled-count">({{ product.unfulfilled }} poza)</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-customers">
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1h8zm-7.978-1A.261.261 0 0 1 7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002a.274.274 0 0 1-.014.002H7.022zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4zm3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM6.936 9.28a5.88 5.88 0 0 0-1.23-.247A7.35 7.35 0 0 0 5 9c-4 0-5 3-5 4 0 .667.333 1 1 1h4.216A2.238 2.238 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816zM4.92 10A5.493 5.493 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275zM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0zm3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ summary.unique_customers }}</span>
+                        <span class="stat-label">Klientów</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-items">
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ summary.total_items }}</span>
+                        <span class="stat-label">Produktów sprzedanych</span>
+                    </div>
+                </div>
+
+                {% if include_financials %}
+                <div class="stat-card stat-card-highlight">
+                    <div class="stat-icon stat-icon-revenue">
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 10.781c.148 1.667 1.513 2.85 3.591 3.003V15h1.043v-1.216c2.27-.179 3.678-1.438 3.678-3.3 0-1.59-.947-2.51-2.956-3.028l-.722-.187V3.467c1.122.11 1.879.714 2.07 1.616h1.47c-.166-1.6-1.54-2.748-3.54-2.875V1H7.591v1.233c-1.939.23-3.27 1.472-3.27 3.156 0 1.454.966 2.483 2.661 2.917l.61.162v4.031c-1.149-.17-1.94-.8-2.131-1.718H4zm3.391-3.836c-1.043-.263-1.6-.825-1.6-1.616 0-.944.704-1.641 1.8-1.828v3.495l-.2-.05zm1.591 1.872c1.287.323 1.852.859 1.852 1.769 0 1.097-.826 1.828-2.2 1.939V8.73l.348.086z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ "%.2f"|format(summary.total_revenue) }} PLN</span>
+                        <span class="stat-label">Przychód</span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-avg">
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3zm1 0v3h12V3H2zm0 5a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V8zm1 0v3h12V8H2z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ "%.2f"|format(summary.avg_order_value) }} PLN</span>
+                        <span class="stat-label">Średnia wartość</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="stat-card">
+                    <div class="stat-icon stat-icon-fulfillment">
+                        <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                    </div>
+                    <div class="stat-content">
+                        <span class="stat-value">{{ summary.fulfillment_pct }}%</span>
+                        <span class="stat-label">Realizacja setów</span>
+                    </div>
                 </div>
             </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
 
-    <!-- Orders List -->
-    <div class="section">
-        <h2 class="section-title">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
-                <path d="M4.5 12.5A.5.5 0 0 1 5 12h3a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm0-2A.5.5 0 0 1 5 10h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm0-2A.5.5 0 0 1 5 8h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5zm0-2A.5.5 0 0 1 5 6h6a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5z"/>
-            </svg>
-            Lista zamówień ({{ summary.orders|length }})
-        </h2>
-
-        <div class="orders-table-container">
-            <table class="orders-table">
-                <thead>
-                    <tr>
-                        <th>Nr zamówienia</th>
-                        <th>Klient</th>
-                        <th>Data</th>
-                        <th>Produkty</th>
+            <!-- Top Products -->
+            {% if summary.top_products %}
+            <div class="section">
+                <h2 class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
+                    </svg>
+                    Top produkty
+                </h2>
+                <div class="top-products-list">
+                    {% for product in summary.top_products %}
+                    <div class="top-product-item">
+                        <span class="top-product-rank">#{{ loop.index }}</span>
+                        <span class="top-product-name">
+                            {% if product.is_full_set %}
+                            <span class="item-badge item-badge-set">SET</span>
+                            {% elif product.is_custom %}
+                            <span class="item-badge item-badge-custom">RĘCZNY</span>
+                            {% endif %}
+                            {{ product.product_name }}
+                        </span>
+                        <span class="top-product-qty">{{ product.total_quantity }} szt.</span>
                         {% if include_financials %}
-                        <th class="text-right">Wartość</th>
+                        <span class="top-product-revenue">{{ "%.2f"|format(product.revenue) }} PLN</span>
                         {% endif %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for order in summary.orders %}
-                    <tr>
-                        <td>
-                            <a href="{{ url_for('orders.admin_detail', order_id=order.order_id) }}" class="order-link">
-                                {{ order.order_number }}
-                            </a>
-                        </td>
-                        <td>
-                            <div class="customer-info">
-                                <span class="customer-name">{{ order.customer_name or 'Gość' }}</span>
-                                <span class="customer-email">{{ order.customer_email or '-' }}</span>
-                            </div>
-                        </td>
-                        <td>
-                            <span class="order-date">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
-                        </td>
-                        <td>
-                            <div class="order-items">
-                                {% for item in order.order_items %}
-                                <div class="order-item {% if item.is_full_set %}item-full-set{% elif item.is_custom %}item-custom{% elif item.is_set_fulfilled == false %}item-unfulfilled{% elif item.is_set_fulfilled == true %}item-fulfilled{% endif %}">
-                                    {% if item.is_full_set %}
-                                    <span class="item-icon item-icon-set" title="Pełny Set">✨</span>
-                                    {% elif item.is_custom %}
-                                    <span class="item-icon item-icon-custom" title="Produkt ręczny">📦</span>
-                                    {% endif %}
-                                    <span class="item-name">{{ item.product_name[:30] }}{% if item.product_name|length > 30 %}...{% endif %}</span>
-                                    <span class="item-qty">x{{ item.quantity }}</span>
-                                    {% if item.is_full_set %}
-                                    <span class="item-badge item-badge-set">SET</span>
-                                    {% elif item.is_custom %}
-                                    <span class="item-badge item-badge-custom">RĘCZNY</span>
-                                    {% elif item.is_set_fulfilled is not none %}
-                                        {% if item.is_set_fulfilled %}
-                                        <span class="item-status item-status-ok" title="Złapany">&#10003;</span>
-                                        {% else %}
-                                        <span class="item-status item-status-fail" title="Poza setem">&#10007;</span>
-                                        {% endif %}
-                                    {% endif %}
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </td>
-                        {% if include_financials %}
-                        <td class="text-right">
-                            <span class="order-total">{{ "%.2f"|format(order.total_amount) }} PLN</span>
-                        </td>
-                        {% endif %}
-                    </tr>
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Orders Chart (Chart.js) -->
+            {% if summary.order_timestamps %}
+            <div class="section">
+                <h2 class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                    </svg>
+                    Zamówienia w czasie
+                </h2>
+                <div class="orders-chart-container">
+                    <canvas id="ordersTimelineChart"></canvas>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Sets Breakdown -->
+            {% if summary.sets %}
+            <div class="section">
+                <h2 class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                    </svg>
+                    Podsumowanie setów
+                </h2>
+                <div class="sets-grid">
+                    {% for set in summary.sets %}
+                    <div class="set-card">
+                        <div class="set-header">
+                            {% if set.set_image %}
+                            <img src="{{ url_for('static', filename=set.set_image) }}" alt="{{ set.set_name }}" class="set-image">
+                            {% endif %}
+                            <div class="set-info">
+                                <h3 class="set-name">{{ set.set_name }}</h3>
+                                <span class="set-count">{{ set.complete_sets }} kompletnych setów</span>
+                            </div>
+                            <div class="set-fulfillment-badge {% if set.fulfillment_pct >= 80 %}badge-success{% elif set.fulfillment_pct >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
+                                <span class="fulfillment-value">{{ set.fulfillment_pct }}%</span>
+                            </div>
+                        </div>
+                        <div class="set-progress-bar-container">
+                            <div class="set-progress-bar {% if set.fulfillment_pct >= 80 %}bar-success{% elif set.fulfillment_pct >= 50 %}bar-warning{% else %}bar-danger{% endif %}" style="width: {{ set.fulfillment_pct }}%"></div>
+                        </div>
+                        <div class="set-products">
+                            <table class="mini-table">
+                                <thead>
+                                    <tr>
+                                        <th>Produkt</th>
+                                        <th class="text-center">Szt./set</th>
+                                        <th class="text-center">Zamówiono</th>
+                                        <th class="text-center">Zrealizowano</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for product in set.products %}
+                                    <tr>
+                                        <td>{{ product.product_name[:40] }}{% if product.product_name|length > 40 %}...{% endif %}</td>
+                                        <td class="text-center">{{ product.quantity_per_set }}</td>
+                                        <td class="text-center">{{ product.total_ordered }}</td>
+                                        <td class="text-center">
+                                            <span class="fulfilled-count">{{ product.fulfilled }}</span>
+                                            {% if product.unfulfilled > 0 %}
+                                            <span class="unfulfilled-count">({{ product.unfulfilled }} poza)</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
+
+        <!-- ====== TAB 2: PRODUCTS ====== -->
+        <div class="summary-tab-panel" id="tab-products">
+            <div class="products-toolbar">
+                <h2 class="section-title">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                    </svg>
+                    Zagregowane dane sprzedaży
+                </h2>
+                <div class="products-sort-group">
+                    <label for="productsSortSelect">Sortuj:</label>
+                    <select id="productsSortSelect" class="products-sort-select">
+                        <option value="quantity-desc">Ilość (malejąco)</option>
+                        <option value="quantity-asc">Ilość (rosnąco)</option>
+                        <option value="name-asc">Nazwa (A-Z)</option>
+                        <option value="name-desc">Nazwa (Z-A)</option>
+                        {% if include_financials %}
+                        <option value="revenue-desc">Przychód (malejąco)</option>
+                        <option value="revenue-asc">Przychód (rosnąco)</option>
+                        {% endif %}
+                        <option value="fulfillment-desc">Realizacja % (malejąco)</option>
+                        <option value="fulfillment-asc">Realizacja % (rosnąco)</option>
+                    </select>
+                </div>
+            </div>
+
+            {% if summary.products_aggregated %}
+            <div class="products-table-container">
+                <table class="products-agg-table" id="productsAggTable">
+                    <thead>
+                        <tr>
+                            <th>Produkt</th>
+                            <th class="text-center">Zamówień</th>
+                            <th class="text-center">Ilość</th>
+                            <th class="text-center">Zrealizowano</th>
+                            <th class="text-center">Nie zrealizowano</th>
+                            <th class="text-center">Realizacja</th>
+                            {% if include_financials %}
+                            <th class="text-right">Przychód</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in summary.products_aggregated %}
+                        <tr data-product-name="{{ product.product_name }}"
+                            data-quantity="{{ product.total_quantity }}"
+                            data-revenue="{{ product.revenue if include_financials else 0 }}"
+                            data-fulfillment="{{ product.fulfillment_pct if product.fulfillment_pct is not none else -1 }}"
+                            data-orders="{{ product.order_count }}">
+                            <td>
+                                <div class="product-name-cell">
+                                    {% if product.is_full_set %}
+                                    <span class="item-badge item-badge-set">SET</span>
+                                    {% elif product.is_custom %}
+                                    <span class="item-badge item-badge-custom">RĘCZNY</span>
+                                    {% endif %}
+                                    <span>{{ product.product_name }}</span>
+                                </div>
+                            </td>
+                            <td class="text-center">{{ product.order_count }}</td>
+                            <td class="text-center"><strong>{{ product.total_quantity }}</strong></td>
+                            <td class="text-center">
+                                {% if product.fulfilled_quantity > 0 %}
+                                <span class="fulfilled-count">{{ product.fulfilled_quantity }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if product.unfulfilled_quantity > 0 %}
+                                <span class="unfulfilled-count">{{ product.unfulfilled_quantity }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if product.fulfillment_pct is not none %}
+                                <div class="mini-progress-wrapper">
+                                    <div class="mini-progress-container">
+                                        <div class="mini-progress-bar" style="width: {{ product.fulfillment_pct }}%"></div>
+                                    </div>
+                                    <span class="mini-progress-label">{{ product.fulfillment_pct }}%</span>
+                                </div>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            {% if include_financials %}
+                            <td class="text-right">
+                                <strong>{{ "%.2f"|format(product.revenue) }} PLN</strong>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" class="empty-icon-svg">
+                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6z"/>
+                </svg>
+                <p>Brak danych o produktach</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ====== TAB 3: ORDERS ====== -->
+        <div class="summary-tab-panel" id="tab-orders">
+            <div class="orders-toolbar">
+                <div class="orders-search-group">
+                    <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                    <input type="text" id="ordersSearch" class="orders-search-input" placeholder="Szukaj po numerze, nazwisku lub email...">
+                </div>
+                <div class="orders-filter-group">
+                    <select id="ordersFulfillmentFilter" class="orders-filter-select">
+                        <option value="all">Wszystkie</option>
+                        <option value="fulfilled">Zrealizowane</option>
+                        <option value="unfulfilled">Z nierealizowanymi</option>
+                    </select>
+                </div>
+                <div class="orders-count-info">
+                    <span id="ordersDisplayCount">{{ summary.total_orders }}</span> z {{ summary.total_orders }} zamówień
+                </div>
+            </div>
+
+            <div id="ordersGrid" class="orders-grid"></div>
+
+            <div id="ordersPagination" class="orders-pagination"></div>
+
+            <div id="ordersEmpty" class="orders-empty" style="display: none;">
+                <svg width="48" height="48" viewBox="0 0 16 16" fill="currentColor" class="empty-icon-svg">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <p>Brak zamówień pasujących do wyszukiwania</p>
+            </div>
+        </div>
+
     </div>
 </div>
+
+<script>
+    window.SUMMARY_ORDERS = {{ orders_json|safe }};
+    window.INCLUDE_FINANCIALS = {{ include_financials|tojson }};
+    window.ORDER_DETAIL_URL = "{{ url_for('orders.admin_detail', order_id=0) }}".replace('/0', '');
+    window.ORDER_TIMESTAMPS = {{ summary.order_timestamps|tojson }};
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/exclusive-summary.js') }}"></script>
 {% endblock %}

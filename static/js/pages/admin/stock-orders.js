@@ -1121,6 +1121,31 @@ const TAB_CONFIG = {
         statusDropdownPrefix: 'poland-status-dropdown',
         dateUpdateSelector: '.poland-date-secondary',
         dateUpdateCellIndex: null
+    },
+    archiwum: {
+        tableId: 'archiwumOrdersTable',
+        checkboxClass: 'archiwum-checkbox',
+        selectAllId: 'selectAllArchiwumOrders',
+        statusDropdownId: 'statusMultiSelectArchiwum',
+        statusTextId: 'statusSelectTextArchiwum',
+        filterIds: {
+            orderNumber: 'filterOrderNumberArchiwum',
+            dateFrom: 'filterDateFromArchiwum',
+            dateTo: 'filterDateToArchiwum',
+            tracking: 'filterTrackingArchiwum'
+        },
+        rowIdPrefix: 'archiwum-order-row',
+        statusEndpoint: null,
+        deleteEndpoint: null,
+        statusLabels: {
+            zamowione: 'Zamówione',
+            urzad_celny: 'Urząd celny',
+            dostarczone_gom: 'Dostarczone GOM',
+            anulowane: 'Anulowane'
+        },
+        statusDropdownPrefix: null,
+        dateUpdateSelector: '.poland-date-secondary',
+        dateUpdateCellIndex: null
     }
 };
 
@@ -1128,7 +1153,7 @@ const TAB_CONFIG = {
 // Unified Filter Functions
 // ============================================
 
-let selectedStatusesByTab = { proxy: [], polska: [] };
+let selectedStatusesByTab = { proxy: [], polska: [], archiwum: [] };
 
 function _toggleStatusMultiSelect(tab) {
     const config = TAB_CONFIG[tab];
@@ -1547,7 +1572,7 @@ function bulkMoveToProxy() { _bulkMove('proxy'); }
 // Close multi-select and status dropdowns when clicking outside
 document.addEventListener('click', function(event) {
     if (!event.target.closest('.multi-select-wrapper')) {
-        ['statusMultiSelect', 'statusMultiSelectPoland'].forEach(id => {
+        ['statusMultiSelect', 'statusMultiSelectPoland', 'statusMultiSelectArchiwum'].forEach(id => {
             const d = document.getElementById(id);
             if (d) d.style.display = 'none';
         });
@@ -1567,7 +1592,10 @@ document.addEventListener('click', function(event) {
  * Update bulk actions modal visibility
  */
 function updateBulkActionsModal() {
-    const checkedBoxes = document.querySelectorAll('.order-checkbox:checked');
+    const activeTab = (window.STOCK_ORDERS_CONFIG && window.STOCK_ORDERS_CONFIG.activeTab) || 'proxy';
+    const config = TAB_CONFIG[activeTab];
+    const checkboxClass = config ? config.checkboxClass : 'order-checkbox';
+    const checkedBoxes = document.querySelectorAll(`.${checkboxClass}:checked`);
     const modal = document.getElementById('bulkActionsModal');
     const countSpan = document.getElementById('selectedCount');
 
@@ -1584,7 +1612,10 @@ function updateBulkActionsModal() {
  * Get selected order IDs
  */
 function getSelectedOrderIds() {
-    return Array.from(document.querySelectorAll('.order-checkbox:checked')).map(cb => cb.value);
+    const activeTab = (window.STOCK_ORDERS_CONFIG && window.STOCK_ORDERS_CONFIG.activeTab) || 'proxy';
+    const config = TAB_CONFIG[activeTab];
+    const checkboxClass = config ? config.checkboxClass : 'order-checkbox';
+    return Array.from(document.querySelectorAll(`.${checkboxClass}:checked`)).map(cb => cb.value);
 }
 
 /**
@@ -1671,7 +1702,7 @@ function applyBulkStatus(newStatus) {
             if (completed === orderIds.length) {
                 hideBulkStatusDropdown();
                 updateBulkActionsModal();
-                updateSelectAllState();
+                _updateSelectAllState(activeTab);
 
                 if (errors === 0) {
                     if (window.Toast) {
@@ -2097,3 +2128,104 @@ function confirmGroupOrder() {
         `;
     });
 }
+
+// ============================================
+// ARCHIWUM — Archive / Unarchive Poland Orders
+// ============================================
+
+function toggleSelectAllArchiwum(selectAllCheckbox) {
+    _toggleSelectAll('archiwum', selectAllCheckbox);
+}
+
+function handleCheckboxChangeArchiwum() {
+    _updateSelectAllState('archiwum');
+    updateArchiwumBulkToolbar();
+}
+
+function updateArchiwumBulkToolbar() {
+    const checkedBoxes = document.querySelectorAll('.archiwum-checkbox:checked');
+    const toolbar = document.getElementById('archiwumBulkToolbar');
+    const countEl = document.getElementById('archiwumSelectedCount');
+    if (!toolbar) return;
+
+    if (checkedBoxes.length > 0) {
+        toolbar.classList.remove('hidden');
+        if (countEl) countEl.textContent = checkedBoxes.length;
+    } else {
+        toolbar.classList.add('hidden');
+    }
+}
+
+function getSelectedArchiwumIds() {
+    return Array.from(document.querySelectorAll('.archiwum-checkbox:checked')).map(cb => cb.value);
+}
+
+function bulkArchivePolandOrders() {
+    const orderIds = getSelectedOrderIds();
+    if (orderIds.length === 0) {
+        if (window.Toast) window.Toast.show('Zaznacz zamówienia do archiwizacji', 'warning');
+        return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz przenieść ${orderIds.length} zamówień do archiwum?`)) return;
+
+    fetch('/admin/products/poland-orders/bulk-archive', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ order_ids: orderIds.map(Number), archive: true })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (window.Toast) window.Toast.show(data.message, 'success');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            if (window.Toast) window.Toast.show(data.error || 'Błąd archiwizacji', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+    });
+}
+
+function bulkUnarchivePolandOrders() {
+    const orderIds = getSelectedArchiwumIds();
+    if (orderIds.length === 0) {
+        if (window.Toast) window.Toast.show('Zaznacz zamówienia do przywrócenia', 'warning');
+        return;
+    }
+
+    if (!confirm(`Czy na pewno chcesz przywrócić ${orderIds.length} zamówień z archiwum?`)) return;
+
+    fetch('/admin/products/poland-orders/bulk-archive', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify({ order_ids: orderIds.map(Number), archive: false })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            if (window.Toast) window.Toast.show(data.message, 'success');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            if (window.Toast) window.Toast.show(data.error || 'Błąd przywracania', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+    });
+}
+
+// Archiwum filter wrapper functions
+function toggleStatusMultiSelectArchiwum() { _toggleStatusMultiSelect('archiwum'); }
+function updateStatusFilterArchiwum() { _updateStatusFilter('archiwum'); }
+function applyFiltersArchiwum() { _applyFilters('archiwum'); }
+function clearAllFiltersArchiwum() { _clearAllFilters('archiwum'); }

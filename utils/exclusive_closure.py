@@ -356,11 +356,19 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
         # Aktualizuj status jeśli się zmienił
         if order.status != new_status:
             old_status = order.status
+            old_status_name = order.status_display_name
             order.status = new_status
             order.updated_at = datetime.now()
 
             counts[fulfillment_type] += 1
             counts['updated_order_ids'].append(order.id)
+
+            # Kolejkuj email o zmianie statusu
+            if order.customer_email:
+                counts.setdefault('_email_queue', []).append({
+                    'order': order,
+                    'old_status_name': old_status_name,
+                })
 
             # Log activity
             if admin_user_id:
@@ -375,6 +383,18 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
                         old_value={'status': old_status},
                         new_value={'status': new_status}
                     )
+
+    # Wyslij emaile o zmianie statusu (flush zeby status_display_name zwrocil nowa nazwe)
+    email_queue = counts.pop('_email_queue', [])
+    if email_queue:
+        from utils.email_manager import EmailManager
+        db.session.flush()
+        for data in email_queue:
+            EmailManager.notify_status_change(
+                data['order'],
+                data['old_status_name'],
+                data['order'].status_display_name
+            )
 
     return counts
 
@@ -544,12 +564,18 @@ def get_page_summary(page_id, include_financials=True):
         else:
             complete_sets = 0
 
+        total_set_ordered = sum(p['total_ordered'] for p in products_in_set)
+        total_set_fulfilled = sum(p['fulfilled'] for p in products_in_set)
+
         sets_info.append({
             'section_id': section.id,
             'set_name': section.set_name or 'Bez nazwy',
             'set_image': section.set_image,
             'complete_sets': complete_sets,
             'products': products_in_set,
+            'fulfillment_pct': round((total_set_fulfilled / total_set_ordered) * 100, 1) if total_set_ordered > 0 else 0,
+            'total_ordered': total_set_ordered,
+            'total_fulfilled': total_set_fulfilled,
         })
 
     # Lista zamówień z detalami
@@ -573,6 +599,8 @@ def get_page_summary(page_id, include_financials=True):
                 'total': item_total,
                 'is_set_fulfilled': item.is_set_fulfilled,
                 'set_section_id': item.set_section_id,
+                'is_full_set': item.is_full_set,
+                'is_custom': item.is_custom,
             }
             items_details.append(item_data)
 
@@ -588,6 +616,89 @@ def get_page_summary(page_id, include_financials=True):
         }
         orders_list.append(order_data)
 
+    # === Nowe metryki ===
+
+    # Total items (zrealizowane)
+    total_items = 0
+    for order in orders:
+        for item in order.items:
+            if item.is_set_fulfilled is not False:
+                total_items += item.quantity
+
+    # Fulfillment % (realizacja setów)
+    total_set_items_qty = 0
+    fulfilled_set_items_qty = 0
+    for order in orders:
+        for item in order.items:
+            if item.is_set_fulfilled is not None:
+                total_set_items_qty += item.quantity
+                if item.is_set_fulfilled:
+                    fulfilled_set_items_qty += item.quantity
+
+    fulfillment_pct = round((fulfilled_set_items_qty / total_set_items_qty) * 100, 1) if total_set_items_qty > 0 else 100.0
+
+    # Orders by date (do wykresu) - zachowujemy dla kompatybilności
+    from collections import Counter
+    orders_by_date = Counter()
+    for order in orders:
+        if order.created_at:
+            date_key = order.created_at.strftime('%Y-%m-%d')
+            orders_by_date[date_key] += 1
+
+    sorted_dates = sorted(orders_by_date.items())
+    orders_by_date_list = [{'date': d, 'count': c} for d, c in sorted_dates]
+
+    # Order timestamps (do Chart.js line chart - pełne ISO timestamps)
+    order_timestamps = []
+    for order in orders:
+        if order.created_at:
+            order_timestamps.append(order.created_at.isoformat())
+
+    # Products aggregated (do Tab Produkty)
+    products_agg = {}
+    for order in orders:
+        for item in order.items:
+            key = item.product_id if item.product_id else f"custom_{item.product_name}"
+
+            if key not in products_agg:
+                products_agg[key] = {
+                    'product_id': item.product_id,
+                    'product_name': item.product_name,
+                    'total_quantity': 0,
+                    'fulfilled_quantity': 0,
+                    'unfulfilled_quantity': 0,
+                    'non_set_quantity': 0,
+                    'revenue': 0.0,
+                    'order_count': 0,
+                    'is_custom': item.is_custom,
+                    'is_full_set': item.is_full_set,
+                }
+
+            p = products_agg[key]
+            p['total_quantity'] += item.quantity
+            p['order_count'] += 1
+
+            if item.is_set_fulfilled is True:
+                p['fulfilled_quantity'] += item.quantity
+            elif item.is_set_fulfilled is False:
+                p['unfulfilled_quantity'] += item.quantity
+            else:
+                p['non_set_quantity'] += item.quantity
+
+            if include_financials:
+                item_total = float(item.total) if item.total else 0
+                if item.is_set_fulfilled is not False:
+                    p['revenue'] += item_total
+
+    for key, p in products_agg.items():
+        set_total = p['fulfilled_quantity'] + p['unfulfilled_quantity']
+        if set_total > 0:
+            p['fulfillment_pct'] = round((p['fulfilled_quantity'] / set_total) * 100, 1)
+        else:
+            p['fulfillment_pct'] = None
+
+    products_aggregated = sorted(products_agg.values(), key=lambda x: x['total_quantity'], reverse=True)
+
     result = {
         'page_id': page_id,
         'page_name': page.name,
@@ -600,10 +711,17 @@ def get_page_summary(page_id, include_financials=True):
         'unique_customers': unique_customers,
         'sets': sets_info,
         'orders': orders_list,
+        'total_items': total_items,
+        'fulfillment_pct': fulfillment_pct,
+        'orders_by_date': orders_by_date_list,
+        'order_timestamps': order_timestamps,
+        'products_aggregated': products_aggregated,
+        'top_products': products_aggregated[:5],
     }
 
     if include_financials:
         result['total_revenue'] = total_revenue
+        result['avg_order_value'] = round(total_revenue / total_orders, 2) if total_orders > 0 else 0
 
     return result
 
@@ -616,8 +734,7 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
         page_id: ID ExclusivePage
         cancelled_order_ids: Lista ID zamówień do anulowania
     """
-    from modules.auth.models import User
-    from utils.email_sender import send_order_cancelled_email
+    from utils.email_manager import EmailManager
 
     page = ExclusivePage.query.get(page_id)
     if not page:
@@ -637,31 +754,10 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
                 'image_url': item.product_image_url
             })
 
-        # Określ email i nazwę odbiorcy
-        if order.is_guest_order:
-            recipient_email = order.guest_email
-            recipient_name = order.guest_name or 'Kliencie'
-        else:
-            user = User.query.get(order.user_id)
-            if user:
-                recipient_email = user.email
-                recipient_name = user.first_name or 'Kliencie'
-            else:
-                continue
-
-        # Wyślij email
-        try:
-            send_order_cancelled_email(
-                user_email=recipient_email,
-                user_name=recipient_name,
-                order_number=order.order_number,
-                page_name=page.name,
-                cancelled_items=cancelled_items,
-                reason='Żaden z produktów w Twoim zamówieniu nie załapał się do kompletu.'
-            )
-            current_app.logger.info(f"Cancellation email sent for order {order.order_number}")
-        except Exception as e:
-            current_app.logger.error(f"Failed to send cancellation email for order {order.order_number}: {e}")
+        EmailManager.notify_order_cancelled(
+            order, page, cancelled_items,
+            reason='Żaden z produktów w Twoim zamówieniu nie załapał się do kompletu.'
+        )
 
 
 def send_closure_emails(page_id):
@@ -672,9 +768,9 @@ def send_closure_emails(page_id):
     Args:
         page_id: ID strony Exclusive
     """
-    from utils.email_sender import send_exclusive_closure_email
+    from utils.email_manager import EmailManager
     from modules.payments.models import PaymentMethod
-    from flask import url_for
+    from decimal import Decimal
 
     page = ExclusivePage.query.get(page_id)
     if not page:
@@ -686,10 +782,7 @@ def send_closure_emails(page_id):
     payment_methods_raw = PaymentMethod.get_active()
 
     for order in orders:
-        customer_email = order.customer_email
-        customer_name = order.customer_name
-
-        if not customer_email:
+        if not order.customer_email:
             continue
 
         # Przygotuj listę produktów z ich statusem
@@ -716,7 +809,6 @@ def send_closure_emails(page_id):
             continue
 
         # Oblicz sumę TYLKO zrealizowanych produktów
-        from decimal import Decimal
         fulfilled_total = Decimal('0.00')
         for item in fulfilled_items:
             if item.fulfilled_quantity is not None:
@@ -731,7 +823,6 @@ def send_closure_emails(page_id):
         # Przygotuj metody płatności z podstawionym numerem zamówienia
         payment_methods = []
         for method in payment_methods_raw:
-            # Podstaw numer zamówienia w tytule przelewu
             title = (method.transfer_title or '').replace('[NUMER ZAMÓWIENIA]', order.order_number)
             additional = (method.additional_info or '').replace('[NUMER ZAMÓWIENIA]', order.order_number)
 
@@ -745,32 +836,11 @@ def send_closure_emails(page_id):
                 'additional_info': additional
             })
 
-        # URL do wgrania dowodu - różny dla gości i zalogowanych użytkowników
-        if order.is_guest_order and order.guest_view_token:
-            # Dla gościa: publiczny link z tokenem
-            upload_payment_url = url_for('orders.guest_track',
-                                        token=order.guest_view_token,
-                                        _external=True) + '?action=upload_payment'
-        else:
-            # Dla zalogowanego użytkownika: standardowy link
-            upload_payment_url = url_for('orders.client_detail',
-                                        order_id=order.id,
-                                        _external=True) + '?action=upload_payment'
-
-        try:
-            send_exclusive_closure_email(
-                customer_email=customer_email,
-                customer_name=customer_name,
-                page_name=page.name,
-                items=items,
-                fulfilled_items=fulfilled_items,
-                fulfilled_total=fulfilled_total,
-                shipping_cost=shipping_cost,
-                grand_total=grand_total,
-                order_number=order.order_number,
-                payment_methods=payment_methods,
-                upload_payment_url=upload_payment_url
-            )
-            current_app.logger.info(f"Email closure wysłany do {customer_email} dla zamówienia {order.order_number}")
-        except Exception as e:
-            current_app.logger.error(f"Błąd wysyłki email closure do {customer_email}: {str(e)}")
+        EmailManager.notify_exclusive_closure(
+            order, page, items,
+            fulfilled_items=fulfilled_items,
+            fulfilled_total=fulfilled_total,
+            shipping_cost=shipping_cost,
+            grand_total=grand_total,
+            payment_methods=payment_methods
+        )

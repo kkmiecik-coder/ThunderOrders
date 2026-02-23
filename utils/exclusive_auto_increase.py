@@ -32,7 +32,8 @@ def get_product_sales_count(product_id, page_id):
     """
     sold_count = db.session.query(db.func.sum(OrderItem.quantity)).join(Order).filter(
         OrderItem.product_id == product_id,
-        Order.exclusive_page_id == page_id
+        Order.exclusive_page_id == page_id,
+        Order.status != 'anulowane'
     ).scalar()
 
     return sold_count or 0

@@ -311,6 +311,398 @@
     font-size: var(--text-base);
 }
 
+/* ============================================
+   Financial Summary (Exclusive)
+   ============================================ */
+
+.gt-summary {
+    margin-top: var(--space-3);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    overflow: hidden;
+}
+
+.gt-summary__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--gray-200);
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+}
+
+.gt-summary__row:last-child {
+    border-bottom: none;
+}
+
+.gt-summary__row--total {
+    background: var(--gray-100);
+    font-weight: var(--font-bold);
+    font-size: var(--text-base);
+    color: var(--primary-color);
+}
+
+.gt-tbd {
+    color: var(--gray-400);
+    font-style: italic;
+    font-size: var(--text-xs);
+}
+
+/* ============================================
+   Payment Status Section
+   ============================================ */
+
+.gt-pay-section {
+    margin-bottom: var(--space-6);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    padding: var(--space-5);
+}
+
+.gt-pay-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+}
+
+.gt-pay-header h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin: 0;
+}
+
+.gt-pay-header h3 svg {
+    color: var(--primary-color);
+}
+
+.btn-sm {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+}
+
+.gt-pay__row {
+    display: flex;
+    align-items: center;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid var(--gray-200);
+    gap: var(--space-3);
+}
+
+.gt-pay__row:last-of-type {
+    border-bottom: none;
+}
+
+.gt-pay__label {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+}
+
+.gt-pay__badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.gt-pay__badge--none {
+    background: var(--gray-200);
+    color: var(--gray-600);
+}
+
+.gt-pay__badge--pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.gt-pay__badge--approved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.gt-pay__badge--rejected {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.gt-pay__amount {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    min-width: 100px;
+    text-align: right;
+}
+
+.gt-pay__total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4) 0;
+    margin-top: var(--space-2);
+    border-top: 2px solid var(--gray-300);
+    font-size: var(--text-base);
+    color: var(--gray-800);
+}
+
+.gt-pay__total strong {
+    color: var(--primary-color);
+    font-size: var(--text-lg);
+}
+
+.gt-alert {
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+}
+
+.gt-alert--error {
+    background: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+}
+
+.gt-payment-info {
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--gray-200);
+}
+
+.gt-payment-info h4 {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--gray-700);
+    margin-bottom: var(--space-3);
+}
+
+.gt-payment-method {
+    background: var(--white);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    line-height: 1.6;
+}
+
+.gt-payment-method strong {
+    color: var(--gray-800);
+}
+
+.gt-mono {
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+}
+
+.gt-mono-link {
+    font-family: var(--font-mono);
+    letter-spacing: 0.5px;
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.gt-method-desc {
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    margin-top: var(--space-1);
+}
+
+/* ============================================
+   Shipping Section
+   ============================================ */
+
+.gt-ship-section {
+    margin-bottom: var(--space-6);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    padding: var(--space-5);
+}
+
+.gt-ship-section h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-4);
+}
+
+.gt-ship-section h3 svg {
+    color: var(--primary-color);
+}
+
+.gt-ship__active {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    padding: var(--space-4);
+}
+
+.gt-ship__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2) 0;
+    font-size: var(--text-sm);
+}
+
+.gt-ship__row .label {
+    color: var(--gray-500);
+}
+
+.gt-ship__row .value {
+    color: var(--gray-800);
+    font-weight: var(--font-medium);
+}
+
+.gt-ship__status {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: var(--radius-full);
+    font-size: 11px;
+    font-weight: var(--font-semibold);
+    color: var(--white);
+    text-transform: uppercase;
+}
+
+.gt-ship__empty {
+    text-align: center;
+    color: var(--gray-500);
+    font-size: var(--text-sm);
+}
+
+.gt-ship__empty p {
+    margin-bottom: var(--space-3);
+}
+
+/* Shipping Form */
+.gt-ship-form {
+    text-align: left;
+    margin-top: var(--space-4);
+}
+
+.gt-form-group {
+    margin-bottom: var(--space-3);
+}
+
+.gt-form-group label {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    color: var(--gray-600);
+    margin-bottom: var(--space-1);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.gt-input {
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--gray-800);
+    background: var(--white);
+    transition: border-color var(--transition-fast);
+    box-sizing: border-box;
+}
+
+.gt-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.1);
+}
+
+.gt-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+}
+
+/* ============================================
+   Notes Section
+   ============================================ */
+
+.gt-notes-section {
+    margin-bottom: var(--space-6);
+    background: var(--gray-50);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--gray-200);
+    padding: var(--space-5);
+}
+
+.gt-notes-section h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--gray-800);
+    margin-bottom: var(--space-3);
+}
+
+.gt-notes-section h3 svg {
+    color: var(--primary-color);
+}
+
+.gt-note-text {
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    line-height: 1.6;
+}
+
+/* ============================================
+   Upload Modal extras
+   ============================================ */
+
+.gt-modal-info {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    margin-bottom: var(--space-3);
+}
+
+.gt-stage-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.gt-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    color: var(--gray-700);
+    transition: border-color var(--transition-fast);
+}
+
+.gt-checkbox:hover {
+    border-color: var(--primary-color);
+}
+
+.gt-checkbox input[type="checkbox"] {
+    accent-color: var(--primary-color);
+}
+
 /* Mobile Responsive */
 @media (max-width: 640px) {
     .guest-track-page {
@@ -489,5 +881,202 @@
 [data-theme="dark"] .btn-secondary:hover {
     background: rgba(240, 147, 251, 0.1);
     border-color: #f093fb;
+}
+
+/* Dark Mode - Financial Summary */
+[data-theme="dark"] .gt-summary {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .gt-summary__row {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .gt-summary__row--total {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .gt-tbd {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* Dark Mode - Payment Status Section */
+[data-theme="dark"] .gt-pay-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .gt-pay-header h3 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-pay-header h3 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .gt-pay__row {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .gt-pay__label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .gt-pay__badge--none {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .gt-pay__badge--pending {
+    background: rgba(255, 193, 7, 0.15);
+    color: #ffc107;
+}
+
+[data-theme="dark"] .gt-pay__badge--approved {
+    background: rgba(40, 167, 69, 0.15);
+    color: #51cf66;
+}
+
+[data-theme="dark"] .gt-pay__badge--rejected {
+    background: rgba(220, 53, 69, 0.15);
+    color: #ff6b6b;
+}
+
+[data-theme="dark"] .gt-pay__amount {
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-pay__total {
+    border-top-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .gt-pay__total strong {
+    color: #f093fb;
+}
+
+/* Dark Mode - Alerts */
+[data-theme="dark"] .gt-alert--error {
+    background: rgba(220, 53, 69, 0.1);
+    border-color: rgba(220, 53, 69, 0.25);
+    color: #ff6b6b;
+}
+
+/* Dark Mode - Payment Info */
+[data-theme="dark"] .gt-payment-info {
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .gt-payment-info h4 {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .gt-payment-method {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .gt-payment-method strong {
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-mono-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .gt-method-desc {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Dark Mode - Shipping Section */
+[data-theme="dark"] .gt-ship-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .gt-ship-section h3 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-ship-section h3 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .gt-ship__active {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .gt-ship__row .label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .gt-ship__row .value {
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-ship__empty {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Dark Mode - Shipping Form */
+[data-theme="dark"] .gt-form-group label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .gt-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .gt-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Dark Mode - Notes Section */
+[data-theme="dark"] .gt-notes-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .gt-notes-section h3 {
+    color: var(--white);
+}
+
+[data-theme="dark"] .gt-notes-section h3 svg {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .gt-note-text {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Dark Mode - Upload Modal extras */
+[data-theme="dark"] .gt-modal-info {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .gt-checkbox {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .gt-checkbox:hover {
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .gt-checkbox input[type="checkbox"] {
+    accent-color: #f093fb;
 }
 

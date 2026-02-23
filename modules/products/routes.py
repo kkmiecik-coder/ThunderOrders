@@ -22,8 +22,9 @@ from modules.products.forms import (
     ProductForm, CategoryForm, TagForm, SupplierForm,
     QuickTagForm, ProductSearchForm
 )
-from extensions import db, csrf
+from extensions import db
 from utils.decorators import role_required
+from utils.activity_logger import log_activity
 
 
 # ==========================================
@@ -704,7 +705,6 @@ def quick_add_tag():
 @products_bp.route('/bulk-activate', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def bulk_activate():
     """Bulk activate products"""
 
@@ -740,7 +740,6 @@ def bulk_activate():
 @products_bp.route('/bulk-deactivate', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def bulk_deactivate():
     """Bulk deactivate products"""
 
@@ -776,7 +775,6 @@ def bulk_deactivate():
 @products_bp.route('/bulk-delete', methods=['POST'])
 @login_required
 @role_required('admin')  # Only admin can delete
-@csrf.exempt
 def bulk_delete():
     """Bulk delete products"""
     from markupsafe import Markup
@@ -874,7 +872,6 @@ def bulk_delete():
 @products_bp.route('/bulk-duplicate', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def bulk_duplicate():
     """Bulk duplicate products (1:1 copy with new IDs)"""
 
@@ -995,7 +992,6 @@ def bulk_duplicate():
 @products_bp.route('/<int:product_id>/save-variant-groups', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def save_variant_groups(product_id):
     """Save all variant groups for a product"""
 
@@ -2147,7 +2143,7 @@ def stock_orders():
     active_tab = request.args.get('tab', 'do_zamowienia')
 
     # Ensure valid tab
-    if active_tab not in ['do_zamowienia', 'proxy', 'polska']:
+    if active_tab not in ['do_zamowienia', 'proxy', 'polska', 'archiwum']:
         active_tab = 'do_zamowienia'
 
     # Initialize variables
@@ -2172,7 +2168,8 @@ def stock_orders():
         ProxyOrder.order_type == 'proxy',
         ~ProxyOrder.id.in_(consumed_proxy_ids)
     ).count()
-    polska_count = PolandOrder.query.count()
+    polska_count = PolandOrder.query.filter(PolandOrder.is_archived == False).count()
+    archiwum_count = PolandOrder.query.filter(PolandOrder.is_archived == True).count()
 
     # Get data based on active tab
     if active_tab == 'do_zamowienia':
@@ -2182,8 +2179,14 @@ def stock_orders():
             ProxyOrder.order_type == 'proxy',
             ~ProxyOrder.id.in_(consumed_proxy_ids)
         ).order_by(ProxyOrder.created_at.desc()).all()
+    elif active_tab == 'archiwum':
+        poland_orders_list = PolandOrder.query.filter(
+            PolandOrder.is_archived == True
+        ).order_by(PolandOrder.created_at.desc()).all()
     else:  # polska
-        poland_orders_list = PolandOrder.query.order_by(PolandOrder.created_at.desc()).all()
+        poland_orders_list = PolandOrder.query.filter(
+            PolandOrder.is_archived == False
+        ).order_by(PolandOrder.created_at.desc()).all()
 
     # Get filter data for modal
     categories = Category.query.filter_by(is_active=True).order_by(Category.name).all()
@@ -2201,6 +2204,7 @@ def stock_orders():
         to_order_count=to_order_count,
         proxy_count=proxy_count,
         polska_count=polska_count,
+        archiwum_count=archiwum_count,
         categories=categories,
         manufacturers=manufacturers,
         suppliers=suppliers,
@@ -2283,7 +2287,6 @@ def search_products():
 @products_bp.route('/api/create-stock-orders', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def create_stock_orders():
     """Create multiple proxy orders (one per product)"""
     try:
@@ -2337,6 +2340,13 @@ def create_stock_orders():
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='proxy_orders_created',
+            entity_type='proxy_order',
+            new_value={'orders_created': orders_created}
+        )
+
         return jsonify({
             'success': True,
             'orders_created': orders_created,
@@ -2352,7 +2362,6 @@ def create_stock_orders():
 @products_bp.route('/api/create-stock-orders-from-aggregation', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def create_stock_orders_from_aggregation():
     """Create proxy orders from aggregated customer orders (DO ZAMÓWIENIA tab)"""
     try:
@@ -2408,6 +2417,13 @@ def create_stock_orders_from_aggregation():
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='proxy_orders_created_from_aggregation',
+            entity_type='proxy_order',
+            new_value={'orders_created': orders_created}
+        )
+
         return jsonify({
             'success': True,
             'orders_created': orders_created,
@@ -2423,7 +2439,6 @@ def create_stock_orders_from_aggregation():
 @products_bp.route('/api/create-group-proxy-order', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def create_group_proxy_order():
     """
     Tworzy grupowe zamówienie.
@@ -2518,6 +2533,14 @@ def create_group_proxy_order():
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='group_proxy_order_created',
+            entity_type='proxy_order',
+            entity_id=proxy_order.id,
+            new_value={'order_number': result_order_number, 'tab': result_tab}
+        )
+
         return jsonify({
             'success': True,
             'order_number': result_order_number,
@@ -2537,12 +2560,14 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
     Iterates through client_orders, checking if every item can be satisfied by
     product_quantities (dict {product_id: available_qty}). Orders that are fully
     covered get their status set to new_status, and available quantities are consumed.
+    Sends email notification to each client whose order status changed.
     """
     from modules.orders.models import OrderItem
 
     if not product_quantities:
         return
 
+    email_queue = []
     remaining = dict(product_quantities)
     for order in client_orders:
         items = OrderItem.query.filter_by(order_id=order.id).all()
@@ -2557,7 +2582,25 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
             for item in items:
                 if item.quantity > 0:
                     remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
+            old_status_name = order.status_display_name
             order.status = new_status
+            if order.customer_email:
+                email_queue.append({
+                    'order': order,
+                    'old_status': old_status_name,
+                })
+
+    # Emaile wysylane po uzyciu (caller robi commit, wiec status_display_name bedzie aktualny)
+    if email_queue:
+        from utils.email_manager import EmailManager
+        # Flush zeby order.status_display_name zwrocil nowa nazwe
+        db.session.flush()
+        for data in email_queue:
+            EmailManager.notify_status_change(
+                data['order'],
+                data['old_status'],
+                data['order'].status_display_name
+            )
 
 
 def _update_client_orders_on_polska_ordered():
@@ -2694,7 +2737,6 @@ def _update_client_orders_on_gom_delivery():
 @products_bp.route('/proxy-orders/<int:order_id>/status', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def update_proxy_order_status(order_id):
     """Update proxy order status"""
     from modules.orders.models import Order
@@ -2717,6 +2759,15 @@ def update_proxy_order_status(order_id):
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='proxy_order_status_change',
+            entity_type='proxy_order',
+            entity_id=proxy_order.id,
+            old_value={'status': old_status},
+            new_value={'status': new_status, 'order_number': proxy_order.order_number}
+        )
+
         return jsonify({
             'success': True,
             'new_status': new_status,
@@ -2731,18 +2782,26 @@ def update_proxy_order_status(order_id):
 @products_bp.route('/proxy-orders/<int:id>/delete', methods=['DELETE'])
 @login_required
 @role_required('admin')
-@csrf.exempt
 def delete_stock_order(id):
     """Delete proxy order (admin only)"""
     try:
         proxy_order = ProxyOrder.query.get_or_404(id)
+        order_number = proxy_order.order_number
 
         db.session.delete(proxy_order)
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='proxy_order_deleted',
+            entity_type='proxy_order',
+            entity_id=id,
+            old_value={'order_number': order_number}
+        )
+
         return jsonify({
             'success': True,
-            'message': f'Zamówienie {proxy_order.order_number} zostało usunięte'
+            'message': f'Zamówienie {order_number} zostało usunięte'
         })
     except Exception as e:
         db.session.rollback()
@@ -2753,7 +2812,6 @@ def delete_stock_order(id):
 @products_bp.route('/poland-orders/<int:order_id>/status', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def update_poland_order_status(order_id):
     """Update Poland order status"""
     from modules.orders.models import Order
@@ -2780,6 +2838,15 @@ def update_poland_order_status(order_id):
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='poland_order_status_change',
+            entity_type='poland_order',
+            entity_id=poland_order.id,
+            old_value={'status': old_status},
+            new_value={'status': new_status, 'order_number': poland_order.order_number}
+        )
+
         return jsonify({
             'success': True,
             'new_status': new_status,
@@ -2794,12 +2861,31 @@ def update_poland_order_status(order_id):
 @products_bp.route('/poland-orders/<int:id>/delete', methods=['DELETE'])
 @login_required
 @role_required('admin')
-@csrf.exempt
 def delete_poland_order(id):
     """Delete Poland order (admin only)"""
     try:
         poland_order = PolandOrder.query.get_or_404(id)
+        poland_order_number = poland_order.order_number
         proxy_order = poland_order.proxy_order
+
+        # Cofnij koszty na zamówieniach klientów (jeśli klient nie zapłacił jeszcze)
+        affected_order_ids = set()
+        for item in poland_order.items:
+            if item.order_id:
+                affected_order_ids.add(item.order_id)
+
+        if affected_order_ids:
+            from modules.orders.models import Order
+            for order_id in affected_order_ids:
+                client_order = Order.query.get(order_id)
+                if not client_order:
+                    continue
+                # Reset proxy_shipping_cost jeśli klient nie wgrał potwierdzenia (none/rejected)
+                if client_order.stage_2_status in (None, 'none', 'rejected'):
+                    client_order.proxy_shipping_cost = 0
+                # Reset customs_vat_sale_cost jeśli klient nie wgrał potwierdzenia (none/rejected)
+                if client_order.stage_3_status in ('none', 'rejected'):
+                    client_order.customs_vat_sale_cost = 0
 
         db.session.delete(poland_order)
 
@@ -2822,6 +2908,14 @@ def delete_poland_order(id):
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='poland_order_deleted',
+            entity_type='poland_order',
+            entity_id=id,
+            old_value={'order_number': poland_order_number}
+        )
+
         return jsonify({
             'success': True,
             'message': message
@@ -2832,10 +2926,46 @@ def delete_poland_order(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@products_bp.route('/poland-orders/bulk-archive', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def bulk_archive_poland_orders():
+    """Bulk archive/unarchive Poland orders"""
+    try:
+        data = request.get_json()
+        order_ids = data.get('order_ids', [])
+        archive = data.get('archive', True)
+
+        if not order_ids:
+            return jsonify({'success': False, 'error': 'Brak zamówień do przetworzenia'}), 400
+
+        updated = PolandOrder.query.filter(PolandOrder.id.in_(order_ids)).update(
+            {'is_archived': archive}, synchronize_session='fetch'
+        )
+        db.session.commit()
+
+        log_activity(
+            user=current_user,
+            action='poland_orders_archived' if archive else 'poland_orders_unarchived',
+            entity_type='poland_order',
+            new_value={'order_ids': order_ids, 'count': updated}
+        )
+
+        action = 'zarchiwizowano' if archive else 'przywrócono z archiwum'
+        return jsonify({
+            'success': True,
+            'message': f'Pomyślnie {action} {updated} zamówień',
+            'updated_count': updated
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error archiving Poland orders: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @products_bp.route('/proxy-orders/<int:id>/move', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def move_stock_order(id):
     """Move proxy order between PROXY and POLSKA tabs (change order_type)"""
     try:
@@ -2852,8 +2982,13 @@ def move_stock_order(id):
             proxy_order.order_type = new_order_type
             db.session.commit()
 
-            current_app.logger.info(
-                f"Proxy order {proxy_order.order_number} moved from {old_order_type} to {new_order_type}"
+            log_activity(
+                user=current_user,
+                action='proxy_order_moved',
+                entity_type='proxy_order',
+                entity_id=proxy_order.id,
+                old_value={'order_type': old_order_type},
+                new_value={'order_type': new_order_type, 'order_number': proxy_order.order_number}
             )
 
         return jsonify({
@@ -2899,7 +3034,6 @@ def generate_proxy_to_poland_number():
 @products_bp.route('/api/get-proxy-orders-details', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def get_proxy_orders_details():
     """Get proxy order details for Poland order modal"""
     try:
@@ -3045,7 +3179,6 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
 @products_bp.route('/api/create-poland-order', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def create_poland_order():
     """Create a Poland order from proxy orders with shipping costs"""
     from decimal import Decimal
@@ -3129,6 +3262,14 @@ def create_poland_order():
 
         db.session.commit()
 
+        log_activity(
+            user=current_user,
+            action='poland_order_created',
+            entity_type='poland_order',
+            entity_id=poland_order.id,
+            new_value={'order_number': poland_number}
+        )
+
         return jsonify({
             'success': True,
             'order_number': poland_number,
@@ -3185,7 +3326,6 @@ def get_poland_order_customs(order_id):
 @products_bp.route('/api/poland-orders-customs-bulk', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def get_poland_orders_customs_bulk():
     """Pobierz dane CŁO/VAT dla wielu zamówień Poland (bulk)"""
     try:
@@ -3235,7 +3375,6 @@ def get_poland_orders_customs_bulk():
 @products_bp.route('/api/update-poland-customs-vat', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
-@csrf.exempt
 def update_poland_customs_vat():
     """Zapisz CŁO/VAT dla produktów w zamówieniach Poland"""
     from decimal import Decimal
@@ -3306,6 +3445,13 @@ def update_poland_customs_vat():
         _distribute_customs_vat_to_client_orders(product_customs_percentages)
 
         db.session.commit()
+
+        log_activity(
+            user=current_user,
+            action='poland_customs_vat_updated',
+            entity_type='poland_order',
+            new_value={'updated_orders': len(updated_orders), 'updated_items': len(updated_items)}
+        )
 
         return jsonify({
             'success': True,

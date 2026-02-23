@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zamówienie zrealizowane - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Zamówienie zrealizowane!
+                            </h1>
+                            <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ user_name }}</strong>!
+                            </p>
+                            <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
+                                Twoje zamówienie <strong>{{ order_number }}</strong> zostało w pełni zrealizowane i dostarczone. Dziękujemy za zakupy!
+                            </p>
+                            <!-- Success box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #e8f5e9; border: 2px solid #4CAF50; border-radius: 8px; padding: 24px; text-align: center;">
+                                        <p style="margin: 0 0 8px 0; font-size: 32px;">&#10003;</p>
+                                        <p style="margin: 0; font-size: 18px; font-weight: 700; color: #2E7D32;">
+                                            Zamówienie dostarczone
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <!-- Order summary -->
+                            <h2 style="margin: 30px 0 16px 0; font-size: 18px; font-weight: 600; color: #240046;">
+                                Podsumowanie zamówienia
+                            </h2>
+                            <!-- Products table -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0; border-collapse: collapse;">
+                                <thead>
+                                    <tr>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: left; font-weight: 600; font-size: 14px; border-radius: 8px 0 0 0;">
+                                            Produkt
+                                        </th>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: center; font-weight: 600; font-size: 14px; width: 80px;">
+                                            Ilość
+                                        </th>
+                                        <th style="background-color: #240046; color: #FFFFFF; padding: 12px; text-align: right; font-weight: 600; font-size: 14px; width: 120px; border-radius: 0 8px 0 0;">
+                                            Cena
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in order_items %}
+                                    <tr>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; font-size: 14px; color: #212121;">
+                                            {{ item.product_name }}
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: center; font-size: 14px; color: #212121;">
+                                            {{ item.quantity }}
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #E0E0E0; text-align: right; font-size: 14px; color: #212121;">
+                                            {{ "%.2f"|format(item.total) }} PLN
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            <!-- Cost breakdown -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 20px; border-radius: 8px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="padding: 6px 0; font-size: 14px; color: #616161;">Produkty</td>
+                                                <td align="right" style="padding: 6px 0; font-size: 14px; color: #212121;">{{ "%.2f"|format(products_total) }} PLN</td>
+                                            </tr>
+                                            {% if proxy_shipping > 0 %}
+                                            <tr>
+                                                <td style="padding: 6px 0; font-size: 14px; color: #616161;">Wysyłka z proxy</td>
+                                                <td align="right" style="padding: 6px 0; font-size: 14px; color: #212121;">{{ "%.2f"|format(proxy_shipping) }} PLN</td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if customs_vat > 0 %}
+                                            <tr>
+                                                <td style="padding: 6px 0; font-size: 14px; color: #616161;">Cło i VAT</td>
+                                                <td align="right" style="padding: 6px 0; font-size: 14px; color: #212121;">{{ "%.2f"|format(customs_vat) }} PLN</td>
+                                            </tr>
+                                            {% endif %}
+                                            {% if shipping_cost > 0 %}
+                                            <tr>
+                                                <td style="padding: 6px 0; font-size: 14px; color: #616161;">Wysyłka krajowa</td>
+                                                <td align="right" style="padding: 6px 0; font-size: 14px; color: #212121;">{{ "%.2f"|format(shipping_cost) }} PLN</td>
+                                            </tr>
+                                            {% endif %}
+                                            <tr>
+                                                <td colspan="2" style="padding: 12px 0 8px 0;">
+                                                    <hr style="border: 0; border-top: 2px solid #E0E0E0; margin: 0;" />
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; font-size: 18px; color: #240046; font-weight: 700;">Razem</td>
+                                                <td align="right" style="padding: 8px 0; font-size: 20px; color: #7B2CBF; font-weight: 700;">{{ "%.2f"|format(grand_total) }} PLN</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <!-- Thank you box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td style="background-color: #e3f2fd; border-left: 4px solid #2196F3; padding: 16px; border-radius: 0 8px 8px 0;">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #0d47a1; font-weight: 600;">
+                                            Dziękujemy za zakupy w ThunderOrders!
+                                        </p>
+                                        <p style="margin: 0; font-size: 14px; color: #0d47a1; line-height: 1.6;">
+                                            Mamy nadzieję, że jesteś zadowolony/a z zamówienia. Jeśli masz pytania lub uwagi, skontaktuj się z nami.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ order_detail_url }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Zobacz szczegóły zamówienia
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

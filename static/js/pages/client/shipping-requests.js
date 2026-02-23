@@ -185,7 +185,7 @@ function renderOrderCards(orders) {
         <table class="orders-select-table">
             <thead>
                 <tr>
-                    <th class="col-checkbox"></th>
+                    <th class="col-checkbox"><input type="checkbox" id="selectAllShippingOrders" onchange="toggleSelectAllShippingOrders(this)" title="Zaznacz wszystkie"></th>
                     <th class="col-number">Numer</th>
                     <th class="col-items">Produkty</th>
                     <th class="col-amount">Kwota</th>
@@ -291,7 +291,35 @@ function toggleOrderSelection(orderId) {
         if (checkbox) checkbox.checked = true;
     }
 
+    updateSelectAllShippingState();
     updateNextButtonState();
+}
+
+function toggleSelectAllShippingOrders(selectAllCheckbox) {
+    const rows = document.querySelectorAll('.order-row');
+    rows.forEach(function(row) {
+        const orderId = parseInt(row.dataset.orderId);
+        const checkbox = document.getElementById(`order-${orderId}`);
+        const isSelected = selectedOrders.includes(orderId);
+
+        if (selectAllCheckbox.checked && !isSelected) {
+            selectedOrders.push(orderId);
+            row.classList.add('selected');
+            if (checkbox) checkbox.checked = true;
+        } else if (!selectAllCheckbox.checked && isSelected) {
+            selectedOrders.splice(selectedOrders.indexOf(orderId), 1);
+            row.classList.remove('selected');
+            if (checkbox) checkbox.checked = false;
+        }
+    });
+    updateNextButtonState();
+}
+
+function updateSelectAllShippingState() {
+    const selectAll = document.getElementById('selectAllShippingOrders');
+    if (!selectAll) return;
+    const totalRows = document.querySelectorAll('.order-row').length;
+    selectAll.checked = totalRows > 0 && selectedOrders.length === totalRows;
 }
 
 function updateNextButtonState() {
@@ -406,7 +434,7 @@ function submitShippingRequest() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         },
         body: JSON.stringify({
             order_ids: selectedOrders,
@@ -467,7 +495,7 @@ function cancelRequest(requestId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         }
     })
     .then(response => response.json())

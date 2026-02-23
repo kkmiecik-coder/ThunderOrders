@@ -15,37 +15,63 @@
             <h1>Potwierdzenia płatności</h1>
         </div>
         <div class="quick-filters">
-            <a href="{{ url_for('admin.payment_confirmations_list') }}"
+            <a href="{{ url_for('admin.payment_confirmations_list', stage=stage_filter if stage_filter != 'all' else none) }}"
                class="filter-btn {% if status_filter == 'all' %}active{% endif %}">
                 Wszystkie
                 <span class="filter-count">{{ pending_count + approved_count + rejected_count }}</span>
             </a>
-            <a href="{{ url_for('admin.payment_confirmations_list', status='pending') }}"
+            <a href="{{ url_for('admin.payment_confirmations_list', status='pending', stage=stage_filter if stage_filter != 'all' else none) }}"
                class="filter-btn {% if status_filter == 'pending' %}active{% endif %}">
                 Oczekujące
                 <span class="filter-count">{{ pending_count }}</span>
             </a>
-            <a href="{{ url_for('admin.payment_confirmations_list', status='approved') }}"
+            <a href="{{ url_for('admin.payment_confirmations_list', status='approved', stage=stage_filter if stage_filter != 'all' else none) }}"
                class="filter-btn {% if status_filter == 'approved' %}active{% endif %}">
                 Zaakceptowane
                 <span class="filter-count">{{ approved_count }}</span>
             </a>
-            <a href="{{ url_for('admin.payment_confirmations_list', status='rejected') }}"
+            <a href="{{ url_for('admin.payment_confirmations_list', status='rejected', stage=stage_filter if stage_filter != 'all' else none) }}"
                class="filter-btn {% if status_filter == 'rejected' %}active{% endif %}">
                 Odrzucone
                 <span class="filter-count">{{ rejected_count }}</span>
+            </a>
+        </div>
+        <div class="quick-filters pc-stage-filters">
+            <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none) }}"
+               class="filter-btn {% if stage_filter == 'all' %}active{% endif %}">
+                Wszystkie etapy
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', stage='product', status=status_filter if status_filter != 'all' else none) }}"
+               class="filter-btn {% if stage_filter == 'product' %}active{% endif %}">
+                Produkt
+                <span class="filter-count">{{ stage_counts.product }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', stage='korean_shipping', status=status_filter if status_filter != 'all' else none) }}"
+               class="filter-btn {% if stage_filter == 'korean_shipping' %}active{% endif %}">
+                Wysyłka KR
+                <span class="filter-count">{{ stage_counts.korean_shipping }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', stage='customs_vat', status=status_filter if status_filter != 'all' else none) }}"
+               class="filter-btn {% if stage_filter == 'customs_vat' %}active{% endif %}">
+                Cło/VAT
+                <span class="filter-count">{{ stage_counts.customs_vat }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', stage='domestic_shipping', status=status_filter if status_filter != 'all' else none) }}"
+               class="filter-btn {% if stage_filter == 'domestic_shipping' %}active{% endif %}">
+                Wysyłka PL
+                <span class="filter-count">{{ stage_counts.domestic_shipping }}</span>
             </a>
         </div>
     </div>
 
     <!-- Tabela potwierdzeń -->
     <div class="table-container">
-        {% if confirmations|length > 0 %}
+        {% if groups|length > 0 %}
         <table class="orders-table">
             <thead>
                 <tr>
                     <th class="col-date">Data</th>
-                    <th class="col-number">Zamówienie</th>
+                    <th class="col-number">Zamówienia</th>
                     <th class="col-customer">Klient</th>
                     <th class="col-stage hide-mobile">Etap</th>
                     <th class="col-amount text-right">Kwota</th>
@@ -55,36 +81,55 @@
                 </tr>
             </thead>
             <tbody>
-                {% for conf in confirmations %}
-                <tr class="{% if conf.status == 'pending' %}row-pending{% endif %}"
-                    data-confirmation-id="{{ conf.id }}">
+                {% for group in groups %}
+                {% set items = group['items'] %}
+                {% set first = items[0] %}
+                {% set all_ids = items|map(attribute='id')|list %}
+                {% set pending_items = items|selectattr('status', 'equalto', 'pending')|list %}
+                {% set has_pending = pending_items|length > 0 %}
+                {% set group_status = 'pending' if has_pending else first.status %}
+                {% set total_amount = items|map(attribute='amount')|sum %}
+                {% set is_pdf_row = first.proof_file and first.proof_file.lower().endswith('.pdf') %}
+                <tr class="{% if has_pending %}row-pending{% endif %}"
+                    data-confirmation-ids="{{ all_ids|join(',') }}"
+                    data-status="{{ group_status }}"
+                    data-proof-url="{{ first.proof_url or '' }}"
+                    data-order-numbers="{{ items|map(attribute='order')|map(attribute='order_number')|join(',') }}"
+                    data-total-amount="{{ '%.2f'|format(total_amount) }}"
+                    data-is-pdf="{{ 'true' if is_pdf_row else 'false' }}"
+                    data-proof-file="{{ first.proof_file or '' }}">
                     <!-- Data -->
                     <td class="col-date">
                         <div class="date-cell-new">
-                            {% if conf.uploaded_at %}
-                                <span class="date-created">{{ conf.uploaded_at.strftime('%d.%m.%Y') }}</span>
-                                <span class="date-updated">{{ conf.uploaded_at.strftime('%H:%M') }}</span>
+                            {% if first.uploaded_at %}
+                                <span class="date-created">{{ first.uploaded_at.strftime('%d.%m.%Y') }}</span>
+                                <span class="date-updated">{{ first.uploaded_at.strftime('%H:%M') }}</span>
                             {% else %}
                                 <span class="text-muted">—</span>
                             {% endif %}
                         </div>
                     </td>
 
-                    <!-- Zamówienie -->
+                    <!-- Zamówienia -->
                     <td class="col-number">
-                        <a href="{{ url_for('orders.admin_detail', order_id=conf.order.id) }}" class="order-number-link">
-                            {{ conf.order.order_number }}
-                        </a>
+                        {% for item in items %}
+                        <div class="pc-order-line">
+                            <a href="{{ url_for('orders.admin_detail', order_id=item.order.id) }}" class="order-number-link">
+                                {{ item.order.order_number }}
+                            </a>
+                            <span class="pc-order-amount">{{ "%.2f"|format(item.amount) }} PLN</span>
+                        </div>
+                        {% endfor %}
                     </td>
 
                     <!-- Klient -->
                     <td class="col-customer">
                         <div class="customer-cell-new">
                             <div class="customer-name-row">
-                                {% if conf.order.user %}
-                                    <span class="customer-name">{{ conf.order.user.full_name or conf.order.user.email }}</span>
+                                {% if first.order.user %}
+                                    <span class="customer-name">{{ first.order.user.full_name or first.order.user.email }}</span>
                                 {% else %}
-                                    <span class="customer-name">{{ conf.order.customer_name or 'Gość' }}</span>
+                                    <span class="customer-name">{{ first.order.customer_name or 'Gość' }}</span>
                                     <span class="badge badge-guest-sm">Gość</span>
                                 {% endif %}
                             </div>
@@ -93,26 +138,29 @@
 
                     <!-- Etap (ukryty na mobile) -->
                     <td class="col-stage hide-mobile">
-                        <span class="pc-stage-badge">{{ conf.stage_display_name }}</span>
+                        <span class="pc-stage-badge">{{ first.stage_display_name }}</span>
                     </td>
 
                     <!-- Kwota -->
                     <td class="col-amount text-right">
-                        <span class="amount-cell">{{ "%.2f"|format(conf.amount) }} PLN</span>
+                        <span class="amount-cell">{{ "%.2f"|format(total_amount) }} PLN</span>
+                        {% if items|length > 1 %}
+                        <span class="pc-amount-count">({{ items|length }} zam.)</span>
+                        {% endif %}
                     </td>
 
                     <!-- Status -->
                     <td class="col-extra">
                         <div class="extra-info">
-                            <span class="badge status-badge pc-badge-{{ conf.status }}">
-                                {% if conf.status == 'pending' %}Oczekujące
-                                {% elif conf.status == 'approved' %}Zaakceptowane
-                                {% elif conf.status == 'rejected' %}Odrzucone
+                            <span class="badge status-badge pc-badge-{{ group_status }}">
+                                {% if group_status == 'pending' %}Oczekujące
+                                {% elif group_status == 'approved' %}Zaakceptowane
+                                {% elif group_status == 'rejected' %}Odrzucone
                                 {% endif %}
                             </span>
-                            {% if conf.status == 'rejected' and conf.rejection_reason %}
-                                <span class="rejection-reason-hint" title="{{ conf.rejection_reason }}">
-                                    {{ conf.rejection_reason[:40] }}{% if conf.rejection_reason|length > 40 %}...{% endif %}
+                            {% if group_status == 'rejected' and first.rejection_reason %}
+                                <span class="rejection-reason-hint" title="{{ first.rejection_reason }}">
+                                    {{ first.rejection_reason[:40] }}{% if first.rejection_reason|length > 40 %}...{% endif %}
                                 </span>
                             {% endif %}
                         </div>
@@ -120,14 +168,12 @@
 
                     <!-- Plik (ukryty na mobile) -->
                     <td class="col-proof hide-mobile">
-                        {% if conf.proof_file %}
-                            {% set is_pdf = conf.proof_file.lower().endswith('.pdf') %}
-                            <div class="pc-thumbnail-wrapper"
-                                 onclick="openLightbox('{{ conf.proof_url }}', {{ conf.id }}, '{{ conf.order.order_number }}', '{{ "%.2f"|format(conf.amount) }}', {{ 'true' if is_pdf else 'false' }})">
-                                {% if is_pdf %}
+                        {% if first.proof_file %}
+                            <div class="pc-thumbnail-wrapper" onclick="openLightboxFromRow(this)">
+                                {% if is_pdf_row %}
                                     <div class="pc-thumbnail pc-thumbnail-pdf">PDF</div>
                                 {% else %}
-                                    <img src="{{ conf.proof_url }}" alt="Dowód" class="pc-thumbnail">
+                                    <img src="{{ first.proof_url }}" alt="Dowód" class="pc-thumbnail">
                                 {% endif %}
                             </div>
                         {% else %}
@@ -137,10 +183,10 @@
 
                     <!-- Akcje -->
                     <td class="col-actions">
-                        {% if conf.status == 'pending' %}
+                        {% if has_pending %}
                         <div class="pc-actions">
                             <button type="button" class="pc-btn pc-btn-approve"
-                                    onclick="openConfirmApprove({{ conf.id }}, '{{ conf.order.order_number }}')"
+                                    onclick="openConfirmApproveFromRow(this)"
                                     aria-label="Akceptuj potwierdzenie płatności">
                                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                                     <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
@@ -148,7 +194,7 @@
                                 Akceptuj
                             </button>
                             <button type="button" class="pc-btn pc-btn-reject"
-                                    onclick="openRejectModal({{ conf.id }}, '{{ conf.order.order_number }}')"
+                                    onclick="openRejectFromRow(this)"
                                     aria-label="Odrzuć potwierdzenie płatności">
                                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                                     <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
@@ -156,9 +202,9 @@
                                 Odrzuć
                             </button>
                         </div>
-                        {% elif conf.status == 'approved' %}
+                        {% elif group_status == 'approved' %}
                             <span class="text-muted">Zatwierdzono</span>
-                        {% elif conf.status == 'rejected' %}
+                        {% elif group_status == 'rejected' %}
                             <span class="text-muted">Odrzucono</span>
                         {% endif %}
                     </td>
@@ -166,6 +212,40 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if pagination.pages > 1 %}
+        <div class="pagination">
+            <div class="pagination-info">
+                Strona {{ pagination.page }} z {{ pagination.pages }} ({{ pagination.total }} potwierdzeń)
+            </div>
+            <div class="pagination-controls">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.prev_num, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                   class="pagination-btn">
+                    &laquo; Poprzednia
+                </a>
+                {% endif %}
+
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <a href="{{ url_for('admin.payment_confirmations_list', page=page_num, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                           class="pagination-btn {% if page_num == pagination.page %}active{% endif %}">
+                            {{ page_num }}
+                        </a>
+                    {% else %}
+                        <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.next_num, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                   class="pagination-btn">
+                    Następna &raquo;
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         {% else %}
         <!-- Pusty stan -->
@@ -209,16 +289,15 @@
     <img id="pcLightboxImage" class="pc-lightbox-image" alt="Dowód wpłaty">
     <iframe id="pcLightboxPdf" class="pc-lightbox-pdf" style="display: none;"></iframe>
     <div class="pc-lightbox-info" id="pcLightboxInfo"></div>
+    <div class="pc-lightbox-counter" id="pcLightboxCounter"></div>
     <div class="pc-lightbox-actions" id="pcLightboxActions">
-        <button type="button" class="pc-btn pc-btn-approve" id="pcLightboxApprove"
-                onclick="openConfirmApprove(currentConfirmationId, currentOrderNumber)">
+        <button type="button" class="pc-btn pc-btn-approve" onclick="openConfirmApprove()">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
             </svg>
             Akceptuj
         </button>
-        <button type="button" class="pc-btn pc-btn-reject" id="pcLightboxReject"
-                onclick="openRejectModal(currentConfirmationId, currentOrderNumber)">
+        <button type="button" class="pc-btn pc-btn-reject" onclick="openRejectModal()">
             <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
             </svg>
@@ -291,10 +370,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script>
-// Global state for lightbox inline onclick handlers (must be before JS file)
-var currentConfirmationId = null;
-var currentOrderNumber = null;
-</script>
 <script src="{{ url_for('static', filename='js/pages/admin/payment-confirmations.js') }}"></script>
 {% endblock %}

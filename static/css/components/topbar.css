@@ -150,28 +150,6 @@
   filter: brightness(0) invert(1);
 }
 
-/* Notifications Badge */
-.topbar-btn-notifications {
-  position: relative;
-}
-
-.topbar-notifications-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  min-width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--error);
-  color: white;
-  font-size: 11px;
-  font-weight: var(--font-semibold);
-  border-radius: 9px;
-  padding: 0 4px;
-}
-
 /* User Dropdown */
 .topbar-user-dropdown {
   position: relative;

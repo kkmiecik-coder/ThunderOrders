@@ -285,6 +285,8 @@ def shipping_requests_available_orders():
             # Get all order items with full data
             items_data = []
             for item in order.items:
+                if item.quantity <= 0:
+                    continue
                 items_data.append({
                     'name': item.product_name,
                     'image_url': item.product_image_url,
@@ -437,6 +439,13 @@ def shipping_requests_create():
                 order.delivery_method = delivery_method
 
         db.session.commit()
+
+        # Wyślij email potwierdzający zlecenie wysyłki
+        try:
+            from utils.email_manager import EmailManager
+            EmailManager.notify_shipping_request_created(shipping_request, current_user)
+        except Exception as e:
+            current_app.logger.error(f'Failed to send shipping request email: {e}')
 
         return jsonify({
             'success': True,

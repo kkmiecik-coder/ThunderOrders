@@ -241,8 +241,8 @@
                                 Status zamówienia możesz sprawdzić w panelu klienta:
                             </p>
                             <p style="margin: 0 0 20px 0;">
-                                <a href="https://thunderorders.cloud/client/orders" style="color: #7B2CBF; text-decoration: underline; font-size: 14px;">
-                                    https://thunderorders.cloud/client/orders
+                                <a href="{{ url_for('orders.client_list', _external=True) }}" style="color: #7B2CBF; text-decoration: underline; font-size: 14px;">
+                                    Panel zamówień
                                 </a>
                             </p>
                             {% endif %}

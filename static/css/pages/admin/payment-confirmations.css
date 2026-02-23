@@ -50,6 +50,16 @@
     background: rgba(255, 255, 255, 0.3);
 }
 
+/* Stage filters - drugi rząd */
+.pc-stage-filters {
+    margin-top: -8px;
+}
+
+.pc-stage-filters .filter-btn {
+    font-size: 13px;
+    padding: 5px 12px;
+}
+
 /* Wiersze oczekujące - subtelne podświetlenie */
 .orders-table tbody tr.row-pending {
     background: #fffde7;
@@ -65,6 +75,42 @@
 
 [data-theme="dark"] .orders-table tbody tr.row-pending:hover {
     background: rgba(255, 193, 7, 0.08);
+}
+
+/* Kolumna etapu — szersza dla pełnych nazw */
+.pc-list-page .col-stage {
+    min-width: 160px;
+    white-space: nowrap;
+}
+
+/* Scalony wiersz — linia zamówienia z kwotą */
+.pc-order-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 1px 0;
+}
+
+.pc-order-line .pc-order-amount {
+    font-size: 0.8rem;
+    color: #888;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .pc-order-line .pc-order-amount {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+/* Badge ilości zamówień przy kwocie */
+.pc-amount-count {
+    display: block;
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 2px;
+}
+
+[data-theme="dark"] .pc-amount-count {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 /* Rejection reason hint pod badge */
@@ -333,6 +379,13 @@
     color: #fff;
 }
 
+.pc-lightbox-counter {
+    margin-top: 8px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+}
+
 .pc-lightbox-actions {
     display: flex;
     gap: 12px;
@@ -348,7 +401,13 @@
 /* ================================
    CONFIRM MODAL (approve)
    Używa .modal-overlay z modals.css
+   z-index wyższy niż lightbox (10000)
    ================================ */
+
+#pcConfirmModal,
+#pcRejectModal {
+    z-index: 10002;
+}
 
 .pc-confirm-icon {
     margin-bottom: 16px;

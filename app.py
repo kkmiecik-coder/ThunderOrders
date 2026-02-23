@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
-from extensions import db, migrate, login_manager, mail, csrf, executor
+from extensions import db, migrate, login_manager, mail, csrf, executor, limiter
 
 # Strefa czasowa dla Polski
 POLAND_TZ = ZoneInfo('Europe/Warsaw')
@@ -31,6 +31,7 @@ def create_app(config_name=None):
     mail.init_app(app)
     csrf.init_app(app)
     executor.init_app(app)
+    limiter.init_app(app)
 
     # Konfiguracja Flask-Login
     login_manager.login_view = 'auth.login'
@@ -58,6 +59,9 @@ def create_app(config_name=None):
 
     # Utwórz folder uploads jeśli nie istnieje
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+    # CLI commands
+    register_cli_commands(app)
 
     return app
 
@@ -152,6 +156,91 @@ def register_blueprints(app):
         Dostępna publicznie dla wszystkich użytkowników
         """
         return render_template('legal/privacy_policy.html')
+
+
+def register_cli_commands(app):
+    """Rejestruje komendy CLI (do użycia z cron)"""
+
+    import click
+
+    @app.cli.command('send-payment-reminders')
+    @click.option('--days', default=3, help='Minimalny odstęp w dniach między przypomnieniami')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl zamówienia, nie wysyłaj emaili')
+    def send_payment_reminders(days, dry_run):
+        """Wysyła przypomnienia o niezapłaconych etapach zamówień."""
+        from modules.orders.models import Order, get_local_now
+        from utils.email_manager import EmailManager
+        from datetime import timedelta
+
+        now = get_local_now()
+        cutoff = now - timedelta(days=days)
+
+        # Statusy, w których zamówienie jest aktywne i wymaga płatności
+        active_statuses = [
+            'oczekujace', 'dostarczone_proxy', 'w_drodze_polska',
+            'urzad_celny', 'dostarczone_gom', 'do_pakowania', 'spakowane'
+        ]
+
+        # Znajdź zamówienia: aktywne, przypomnienie niewyslane lub starsze niż X dni
+        orders = Order.query.filter(
+            Order.status.in_(active_statuses)
+        ).filter(
+            db.or_(
+                Order.payment_reminder_sent_at.is_(None),
+                Order.payment_reminder_sent_at < cutoff
+            )
+        ).all()
+
+        click.echo(f"Znaleziono {len(orders)} zamówień do sprawdzenia (odstęp: {days} dni)")
+
+        sent_count = 0
+        skipped_count = 0
+
+        for order in orders:
+            # Sprawdź czy są niezapłacone etapy
+            has_unpaid = False
+
+            # E1: Produkt
+            if order.product_payment_status in ('none', 'rejected'):
+                has_unpaid = True
+
+            # E2: Wysyłka KR (4-płatnościowe)
+            if (order.payment_stages == 4 and order.proxy_shipping_cost
+                    and float(order.proxy_shipping_cost) > 0
+                    and order.stage_2_status in ('none', 'rejected')):
+                has_unpaid = True
+
+            # E3: Cło/VAT
+            if (order.customs_vat_sale_cost
+                    and float(order.customs_vat_sale_cost) > 0
+                    and order.stage_3_status in ('none', 'rejected')):
+                has_unpaid = True
+
+            # E4: Wysyłka krajowa
+            if (order.shipping_cost
+                    and float(order.shipping_cost) > 0
+                    and order.stage_4_status in ('none', 'rejected')):
+                has_unpaid = True
+
+            if not has_unpaid:
+                skipped_count += 1
+                continue
+
+            if dry_run:
+                click.echo(f"  [DRY RUN] {order.order_number} → {order.customer_email}")
+                sent_count += 1
+                continue
+
+            success = EmailManager.notify_payment_reminder(order)
+            if success:
+                order.payment_reminder_sent_at = now
+                db.session.commit()
+                sent_count += 1
+                click.echo(f"  Wysłano: {order.order_number} → {order.customer_email}")
+            else:
+                skipped_count += 1
+
+        click.echo(f"\nGotowe. Wysłano: {sent_count}, Pominięto: {skipped_count}")
 
 
 def register_error_handlers(app):

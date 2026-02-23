@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nowe zamówienie Exclusive - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
+                                Nowe zamówienie Exclusive
+                            </h1>
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                Otrzymano nowe zamówienie ze strony Exclusive. Sprawdź szczegóły poniżej.
+                            </p>
+                            <!-- Order details box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #FFF8E1; border: 2px solid #FFC107; border-radius: 8px; padding: 24px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="font-size: 14px; color: #616161;">Numer zamówienia:</span>
+                                                    <strong style="font-size: 14px; color: #240046; margin-left: 8px;">{{ order_number }}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="font-size: 14px; color: #616161;">Strona Exclusive:</span>
+                                                    <strong style="font-size: 14px; color: #212121; margin-left: 8px;">{{ page_name }}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="font-size: 14px; color: #616161;">Data złożenia:</span>
+                                                    <span style="font-size: 14px; color: #212121; margin-left: 8px;">{{ created_at }}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <!-- Customer info -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #F3E5F5; border: 2px solid #CE93D8; border-radius: 8px; padding: 24px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                            <tr>
+                                                <td style="padding: 0 0 8px 0;">
+                                                    <strong style="font-size: 15px; color: #240046;">Dane klienta</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="font-size: 14px; color: #616161;">Imię i nazwisko:</span>
+                                                    <strong style="font-size: 14px; color: #212121; margin-left: 8px;">{{ customer_name }}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="font-size: 14px; color: #616161;">Email:</span>
+                                                    <span style="font-size: 14px; color: #212121; margin-left: 8px;">{{ customer_email }}</span>
+                                                </td>
+                                            </tr>
+                                            {% if is_guest %}
+                                            <tr>
+                                                <td style="padding: 6px 0;">
+                                                    <span style="display: inline-block; background-color: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600;">
+                                                        Gość
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                            {% endif %}
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <!-- Products table -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0; border-collapse: collapse;">
+                                <tr>
+                                    <th style="padding: 12px 10px; font-size: 13px; font-weight: 600; color: #FFFFFF; background-color: #240046; text-align: left; border-radius: 6px 0 0 0;">Produkt</th>
+                                    <th style="padding: 12px 10px; font-size: 13px; font-weight: 600; color: #FFFFFF; background-color: #240046; text-align: center;">Ilość</th>
+                                    <th style="padding: 12px 10px; font-size: 13px; font-weight: 600; color: #FFFFFF; background-color: #240046; text-align: right;">Cena</th>
+                                    <th style="padding: 12px 10px; font-size: 13px; font-weight: 600; color: #FFFFFF; background-color: #240046; text-align: right; border-radius: 0 6px 0 0;">Suma</th>
+                                </tr>
+                                {% for item in items %}
+                                <tr>
+                                    <td style="padding: 12px 10px; font-size: 14px; color: #212121; border-bottom: 1px solid #E0E0E0;">{{ item.product_name }}</td>
+                                    <td style="padding: 12px 10px; font-size: 14px; color: #212121; border-bottom: 1px solid #E0E0E0; text-align: center;">{{ item.quantity }}</td>
+                                    <td style="padding: 12px 10px; font-size: 14px; color: #212121; border-bottom: 1px solid #E0E0E0; text-align: right;">{{ "%.2f"|format(item.price) }} zł</td>
+                                    <td style="padding: 12px 10px; font-size: 14px; color: #212121; border-bottom: 1px solid #E0E0E0; text-align: right;">{{ "%.2f"|format(item.total) }} zł</td>
+                                </tr>
+                                {% endfor %}
+                                <!-- Total row -->
+                                <tr>
+                                    <td colspan="3" style="padding: 14px 10px; font-size: 15px; font-weight: 700; color: #240046; text-align: right; border-top: 2px solid #240046;">Razem:</td>
+                                    <td style="padding: 14px 10px; font-size: 15px; font-weight: 700; color: #240046; text-align: right; border-top: 2px solid #240046;">{{ "%.2f"|format(order_total) }} zł</td>
+                                </tr>
+                            </table>
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ order_detail_url }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Zobacz zamówienie
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

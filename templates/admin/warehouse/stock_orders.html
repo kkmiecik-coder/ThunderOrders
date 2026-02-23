@@ -32,6 +32,12 @@
             POLSKA
             <span class="tab-badge tab-badge-blue" id="polskaCountBadge" {% if polska_count == 0 %}style="display: none;"{% endif %}>{{ polska_count }}</span>
         </a>
+        <a href="{{ url_for('products.stock_orders', tab='archiwum') }}"
+           class="tab-link {% if active_tab == 'archiwum' %}active{% endif %}"
+           data-tab="archiwum">
+            ARCHIWUM
+            <span class="tab-badge tab-badge-gray" id="archiwumCountBadge" {% if archiwum_count == 0 %}style="display: none;"{% endif %}>{{ archiwum_count }}</span>
+        </a>
     </div>
 
     <!-- Tab Content -->
@@ -432,6 +438,143 @@
                     </div>
                 {% endif %}
             </div>
+
+            {% elif active_tab == 'archiwum' %}
+            <!-- ARCHIWUM Tab Content -->
+            <div class="tab-header">
+                <h2>Archiwum zamówień POLSKA</h2>
+            </div>
+
+            <!-- Filters Section -->
+            {{ order_filters('archiwum', [('zamowione', 'Zamówione'), ('dostarczone_gom', 'Dostarczone GOM'), ('anulowane', 'Anulowane')], has_tracking=true) }}
+
+            <!-- Archived Poland Orders List -->
+            <div class="orders-list">
+                {% if poland_orders %}
+                    <div class="table-responsive">
+                        <table class="data-table" id="archiwumOrdersTable">
+                            <thead>
+                                <tr>
+                                    <th class="col-checkbox">
+                                        <input type="checkbox" id="selectAllArchiwumOrders" onchange="toggleSelectAllArchiwum(this)">
+                                    </th>
+                                    <th class="sortable" data-column="order_number" onclick="sortTable('order_number')">Nr</th>
+                                    <th>Produkty</th>
+                                    <th class="sortable" data-column="status" onclick="sortTable('status')">Status</th>
+                                    <th>Kfriday RS</th>
+                                    <th class="sortable" data-column="amount" onclick="sortTable('amount')">Koszty</th>
+                                    <th class="sortable" data-column="date" onclick="sortTable('date')">Info</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in poland_orders %}
+                                <tr id="archiwum-order-row-{{ order.id }}"
+                                    data-order-id="{{ order.id }}"
+                                    data-order-number="{{ order.order_number }}"
+                                    data-tracking="{{ order.tracking_number or '' }}"
+                                    data-status="{{ order.status }}"
+                                    data-date="{{ order.created_at.timestamp() if order.created_at else 0 }}"
+                                    data-status-changed="{{ order.updated_at.timestamp() if order.updated_at else order.created_at.timestamp() if order.created_at else 0 }}"
+                                    data-amount="{{ order.total_amount }}">
+                                    <td class="col-checkbox">
+                                        <input type="checkbox" class="order-checkbox archiwum-checkbox" value="{{ order.id }}" onchange="handleCheckboxChangeArchiwum()">
+                                    </td>
+                                    <td class="font-semibold">{{ order.order_number }}</td>
+                                    <td class="products-cell poland-products-cell">
+                                        <table class="poland-products-inner-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nazwa</th>
+                                                    <th class="text-right">Koszt zakupu (szt.)</th>
+                                                    <th class="text-right">Cło/VAT (szt.)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for item in order.items %}
+                                                {% set product = item.product %}
+                                                {% set primary_image = product.primary_image if product else None %}
+                                                {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
+                                                <tr class="{% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
+                                                    <td class="poland-inner-product-name">
+                                                        <div class="product-item-compact">
+                                                            {{ product_thumbnail_compact(product) }}
+                                                            <div class="product-item-info">
+                                                                <span class="product-item-name">{{ product.name if product else '-' }}</span>
+                                                                <span class="product-item-qty">({{ item.quantity }} szt)</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-right text-nowrap">{{ '%.2f'|format(purchase_price) }} zł</td>
+                                                    <td class="text-right text-nowrap">
+                                                        <span>{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                        {% if order.items|length > 3 %}
+                                        <span class="poland-products-toggle" onclick="togglePolandProducts(this)">Pokaż więcej ({{ order.items|length - 3 }})</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-{{ order.status }}">
+                                            {{ {'zamowione': 'Zamówione', 'urzad_celny': 'Urząd celny', 'dostarczone_gom': 'Dostarczone GOM', 'anulowane': 'Anulowane'}.get(order.status, order.status) }}
+                                        </span>
+                                    </td>
+                                    <td>{{ order.tracking_number or '-' }}</td>
+                                    <td class="poland-costs-cell">
+                                        <table class="poland-costs-table">
+                                            <tbody>
+                                                <tr>
+                                                    <td class="poland-cost-label">Produkty</td>
+                                                    <td class="poland-cost-value">{{ '%.2f'|format(order.total_amount - order.shipping_cost - (order.customs_cost or 0)) }} PLN</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="poland-cost-label">Wysyłka</td>
+                                                    <td class="poland-cost-value">{{ '%.2f'|format(order.shipping_cost) }} PLN</td>
+                                                </tr>
+                                                <tr>
+                                                    <td class="poland-cost-label">Cło/VAT</td>
+                                                    <td class="poland-cost-value">{{ '%.2f'|format(order.customs_cost or 0) }} PLN</td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="poland-cost-total">
+                                                    <td class="poland-cost-label">Razem</td>
+                                                    <td class="poland-cost-value">{{ '%.2f'|format(order.total_amount) }} PLN</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </td>
+                                    <td class="poland-extra-info-cell">
+                                        <div class="poland-date-cell">
+                                            <div class="poland-date-primary">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') if order.created_at else '-' }}</div>
+                                            <div class="poland-date-secondary">{{ order.updated_at|format_datetime('%d.%m.%Y %H:%M') if order.updated_at else '-' }}</div>
+                                        </div>
+                                        <span class="poland-note-icon {% if order.notes %}has-note{% endif %}" {% if order.notes %}data-tooltip="{{ order.notes }}"{% endif %}>
+                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-2.5a2 2 0 0 0-1.6.8L8 14.333 6.1 11.8a2 2 0 0 0-1.6-.8H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2.5a1 1 0 0 1 .8.4l1.9 2.533a1 1 0 0 0 1.6 0l1.9-2.533a1 1 0 0 1 .8-.4H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                                                <path d="M3 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM3 6a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 6zm0 2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+                                            </svg>
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 8v13H3V8"></path>
+                            <path d="M1 3h22v5H1z"></path>
+                            <path d="M10 12h4"></path>
+                        </svg>
+                        <h3>Archiwum jest puste</h3>
+                        <p>Przenieś zakończone zamówienia z zakładki POLSKA do archiwum</p>
+                    </div>
+                {% endif %}
+            </div>
             {% endif %} {# End of tab content blocks #}
         </div>
     </div>
@@ -484,6 +627,14 @@
                 </svg>
                 Dodaj Cło/VAT
             </button>
+            <button type="button" class="btn-bulk" onclick="bulkArchivePolandOrders()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 8v13H3V8"></path>
+                    <path d="M1 3h22v5H1z"></path>
+                    <path d="M10 12h4"></path>
+                </svg>
+                Archiwizuj
+            </button>
             {% endif %}
             <button type="button" class="btn-bulk" onclick="openBulkStatusChange()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -504,6 +655,24 @@
         </div>
     </div>
 </div>
+
+<!-- Bulk Actions Toolbar for ARCHIWUM tab -->
+{% if active_tab == 'archiwum' %}
+<div id="archiwumBulkToolbar" class="bulk-toolbar hidden">
+    <div class="bulk-toolbar-content">
+        <span class="selected-count"><span id="archiwumSelectedCount">0</span> zaznaczonych</span>
+        <div class="bulk-actions">
+            <button type="button" class="btn-bulk" onclick="bulkUnarchivePolandOrders()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                Przywróć z archiwum
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <!-- Bulk Status Change Dropdown -->
 <div id="bulkStatusDropdown" class="bulk-status-dropdown" style="display: none;">

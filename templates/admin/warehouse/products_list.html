@@ -512,7 +512,8 @@ function activateProducts() {
     fetch('{{ url_for('products.bulk_activate') }}', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
         },
         body: JSON.stringify({ product_ids: selectedIds })
     })

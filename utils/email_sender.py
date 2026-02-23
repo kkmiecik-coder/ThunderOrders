@@ -8,6 +8,9 @@ from flask_mail import Message
 from extensions import mail
 from threading import Thread
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def send_async_email(app, msg):
@@ -83,7 +86,8 @@ def send_verification_email(user_email, verification_token, user_name):
         verification_token (str): Token weryfikacyjny
         user_name (str): Imię użytkownika
     """
-    verification_url = f"https://thunderorders.cloud/auth/verify-email/{verification_token}"
+    from flask import url_for
+    verification_url = url_for('auth.verify_email', token=verification_token, _external=True)
 
     return send_email(
         to=user_email,
@@ -91,6 +95,26 @@ def send_verification_email(user_email, verification_token, user_name):
         template='verify_email',
         user_name=user_name,
         verification_url=verification_url
+    )
+
+
+def send_welcome_email(user_email, user_name):
+    """
+    Wysyła email powitalny po pomyślnej weryfikacji konta.
+
+    Args:
+        user_email (str): Email użytkownika
+        user_name (str): Imię użytkownika
+    """
+    from flask import url_for
+    login_url = url_for('auth.login', _external=True)
+
+    return send_email(
+        to=user_email,
+        subject='Witamy w ThunderOrders!',
+        template='welcome',
+        user_name=user_name,
+        login_url=login_url
     )
 
 
@@ -124,7 +148,8 @@ def send_password_reset_email(user_email, reset_token, user_name):
         reset_token (str): Token resetu hasła
         user_name (str): Imię użytkownika
     """
-    reset_url = f"https://thunderorders.cloud/auth/reset-password/{reset_token}"
+    from flask import url_for
+    reset_url = url_for('auth.reset_password', token=reset_token, _external=True)
 
     return send_email(
         to=user_email,
@@ -135,7 +160,7 @@ def send_password_reset_email(user_email, reset_token, user_name):
     )
 
 
-def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_guest=False, guest_view_token=None):
+def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_guest=False, guest_view_token=None, is_exclusive=False, payment_stages=None):
     """
     Wysyła potwierdzenie zamówienia do klienta
 
@@ -147,6 +172,8 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_items (list): Lista produktów w zamówieniu
         is_guest (bool): Czy zamówienie złożone przez gościa
         guest_view_token (str): Token do podglądu zamówienia dla gościa
+        is_exclusive (bool): Czy zamówienie exclusive
+        payment_stages (int): Liczba etapów płatności (3 lub 4)
     """
     return send_email(
         to=user_email,
@@ -157,7 +184,9 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_total=order_total,
         order_items=order_items,
         is_guest=is_guest,
-        guest_view_token=guest_view_token
+        guest_view_token=guest_view_token,
+        is_exclusive=is_exclusive,
+        payment_stages=payment_stages
     )
 
 
@@ -266,7 +295,7 @@ def send_order_cancelled_email(user_email, user_name, order_number, page_name,
         return False
 
 
-def send_payment_approved_email(user_email, user_name, order_number, amount, order_detail_url):
+def send_payment_approved_email(user_email, user_name, order_number, amount, order_detail_url, stage_name='za produkt'):
     """
     Wysyła email o zaakceptowaniu potwierdzenia płatności
 
@@ -276,19 +305,21 @@ def send_payment_approved_email(user_email, user_name, order_number, amount, ord
         order_number (str): Numer zamówienia
         amount (float): Kwota płatności
         order_detail_url (str): URL do szczegółów zamówienia
+        stage_name (str): Nazwa etapu płatności (np. 'Płatność za produkt', 'Wysyłka z Korei')
     """
     return send_email(
         to=user_email,
-        subject=f'Płatność zatwierdzona - {order_number} - ThunderOrders',
+        subject=f'Płatność zatwierdzona ({stage_name}) - {order_number} - ThunderOrders',
         template='payment_approved',
         user_name=user_name,
         order_number=order_number,
         amount=amount,
-        order_detail_url=order_detail_url
+        order_detail_url=order_detail_url,
+        stage_name=stage_name
     )
 
 
-def send_payment_rejected_email(user_email, user_name, order_number, amount, rejection_reason, upload_url):
+def send_payment_rejected_email(user_email, user_name, order_number, amount, rejection_reason, upload_url, stage_name='za produkt'):
     """
     Wysyła email o odrzuceniu potwierdzenia płatności
 
@@ -299,16 +330,113 @@ def send_payment_rejected_email(user_email, user_name, order_number, amount, rej
         amount (float): Kwota płatności
         rejection_reason (str): Powód odrzucenia
         upload_url (str): URL do ponownego wgrania potwierdzenia
+        stage_name (str): Nazwa etapu płatności (np. 'Płatność za produkt', 'Wysyłka z Korei')
     """
     return send_email(
         to=user_email,
-        subject=f'Płatność odrzucona - {order_number} - ThunderOrders',
+        subject=f'Płatność odrzucona ({stage_name}) - {order_number} - ThunderOrders',
         template='payment_rejected',
         user_name=user_name,
         order_number=order_number,
         amount=amount,
         rejection_reason=rejection_reason,
-        upload_url=upload_url
+        upload_url=upload_url,
+        stage_name=stage_name
+    )
+
+
+def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email,
+                                      order_number, stage_names, is_guest, review_url):
+    """
+    Wysyła email do admina o nowym potwierdzeniu płatności do weryfikacji.
+
+    Args:
+        admin_email (str): Email admina
+        customer_name (str): Imię klienta
+        customer_email (str): Email klienta
+        order_number (str): Numer zamówienia
+        stage_names (str): Nazwy etapów (np. 'Płatność za produkt, Cło i VAT')
+        is_guest (bool): Czy klient jest gościem
+        review_url (str): URL do strony weryfikacji płatności
+    """
+    return send_email(
+        to=admin_email,
+        subject=f'Nowe potwierdzenie płatności - {order_number} - ThunderOrders',
+        template='admin_payment_uploaded',
+        customer_name=customer_name,
+        customer_email=customer_email,
+        order_number=order_number,
+        stage_names=stage_names,
+        is_guest=is_guest,
+        review_url=review_url
+    )
+
+
+def send_admin_new_order_email(admin_email, customer_name, customer_email,
+                               order_number, page_name, is_guest, items,
+                               order_total, order_detail_url, created_at):
+    """
+    Wysyła email do admina o nowym zamówieniu exclusive.
+
+    Args:
+        admin_email (str): Email admina
+        customer_name (str): Imię klienta
+        customer_email (str): Email klienta
+        order_number (str): Numer zamówienia
+        page_name (str): Nazwa strony Exclusive
+        is_guest (bool): Czy klient jest gościem
+        items (list): Lista dict z product_name, quantity, price, total
+        order_total (float): Suma zamówienia
+        order_detail_url (str): URL do szczegółów zamówienia (admin)
+        created_at (str): Data złożenia zamówienia (sformatowana)
+    """
+    return send_email(
+        to=admin_email,
+        subject=f'Nowe zamówienie {order_number} - {page_name}',
+        template='admin_new_order',
+        customer_name=customer_name,
+        customer_email=customer_email,
+        order_number=order_number,
+        page_name=page_name,
+        is_guest=is_guest,
+        items=items,
+        order_total=order_total,
+        order_detail_url=order_detail_url,
+        created_at=created_at
+    )
+
+
+def send_order_completed_email(user_email, user_name, order_number, order_items,
+                                products_total, proxy_shipping, customs_vat,
+                                shipping_cost, grand_total, order_detail_url):
+    """
+    Wysyła email podsumowujący zakończone zamówienie (status: dostarczone).
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        order_items (list): Lista dict z product_name, quantity, total
+        products_total (float): Suma za produkty
+        proxy_shipping (float): Koszt wysyłki proxy
+        customs_vat (float): Koszt cła/VAT
+        shipping_cost (float): Koszt wysyłki krajowej
+        grand_total (float): Suma całkowita
+        order_detail_url (str): URL do szczegółów zamówienia
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Zamówienie {order_number} zrealizowane - ThunderOrders',
+        template='order_completed',
+        user_name=user_name,
+        order_number=order_number,
+        order_items=order_items,
+        products_total=products_total,
+        proxy_shipping=proxy_shipping,
+        customs_vat=customs_vat,
+        shipping_cost=shipping_cost,
+        grand_total=grand_total,
+        order_detail_url=order_detail_url
     )
 
 
@@ -334,4 +462,165 @@ def send_back_in_stock_email(email, product_name, product_image_url, exclusive_p
         product_image_url=product_image_url,
         exclusive_page_name=exclusive_page_name,
         exclusive_page_url=exclusive_page_url
+    )
+
+
+def send_tracking_number_email(user_email, user_name, order_number, tracking_number,
+                                courier_name, tracking_url=None):
+    """
+    Wysyła email z informacją o dodaniu numeru śledzenia przesyłki.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        tracking_number (str): Numer śledzenia
+        courier_name (str): Nazwa kuriera (display name)
+        tracking_url (str): URL do śledzenia przesyłki (opcjonalny)
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Przesyłka nadana - {order_number} - ThunderOrders',
+        template='tracking_added',
+        user_name=user_name,
+        order_number=order_number,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        tracking_url=tracking_url
+    )
+
+
+def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url):
+    """
+    Wysyła email o dodaniu kosztu do zamówienia (wysyłka proxy, cło/VAT lub wysyłka krajowa).
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        cost_type (str): Typ kosztu ('proxy_shipping', 'customs_vat' lub 'domestic_shipping')
+        cost_amount (float): Kwota kosztu
+        order_detail_url (str): URL do szczegółów zamówienia
+    """
+    if cost_type == 'proxy_shipping':
+        subject = f'Koszt wysyłki z proxy - {order_number} - ThunderOrders'
+    elif cost_type == 'domestic_shipping':
+        subject = f'Koszt wysyłki krajowej - {order_number} - ThunderOrders'
+    else:
+        subject = f'Koszt cła i VAT - {order_number} - ThunderOrders'
+
+    return send_email(
+        to=user_email,
+        subject=subject,
+        template='cost_added',
+        user_name=user_name,
+        order_number=order_number,
+        cost_type=cost_type,
+        cost_amount=cost_amount,
+        order_detail_url=order_detail_url
+    )
+
+
+def send_shipping_request_created_email(user_email, user_name, request_number,
+                                         orders, delivery_method_display,
+                                         full_address, shipping_requests_url):
+    """
+    Wysyła potwierdzenie utworzenia zlecenia wysyłki.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        request_number (str): Numer zlecenia (np. WYS/000001)
+        orders (list): Lista obiektów Order
+        delivery_method_display (str): Wyświetlana nazwa metody dostawy
+        full_address (str): Pełny adres dostawy
+        shipping_requests_url (str): URL do listy zleceń wysyłki
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Zlecenie wysyłki {request_number} - ThunderOrders',
+        template='shipping_request_created',
+        user_name=user_name,
+        request_number=request_number,
+        orders=orders,
+        delivery_method_display=delivery_method_display,
+        full_address=full_address,
+        shipping_requests_url=shipping_requests_url
+    )
+
+
+def send_shipping_status_change_email(user_email, user_name, request_number,
+                                       old_status_name, new_status_name, new_status_color,
+                                       orders, tracking_number=None, courier_name=None,
+                                       shipping_requests_url=None):
+    """
+    Wysyła powiadomienie o zmianie statusu zlecenia wysyłki.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        request_number (str): Numer zlecenia (np. WYS/000001)
+        old_status_name (str): Poprzedni status (display name)
+        new_status_name (str): Nowy status (display name)
+        new_status_color (str): Kolor badge'a nowego statusu (hex)
+        orders (list): Lista obiektów Order powiązanych ze zleceniem
+        tracking_number (str): Numer śledzenia przesyłki (opcjonalny)
+        courier_name (str): Nazwa kuriera (opcjonalny)
+        shipping_requests_url (str): URL do listy zleceń wysyłki
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Zmiana statusu zlecenia {request_number} - {new_status_name}',
+        template='shipping_status_change',
+        user_name=user_name,
+        request_number=request_number,
+        old_status_name=old_status_name,
+        new_status_name=new_status_name,
+        new_status_color=new_status_color,
+        orders=orders,
+        tracking_number=tracking_number,
+        courier_name=courier_name,
+        shipping_requests_url=shipping_requests_url
+    )
+
+
+def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url):
+    """
+    Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        unpaid_stages (list): Lista dict z kluczami: name, amount, status
+        order_detail_url (str): URL do szczegółów zamówienia
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Przypomnienie o płatności - {order_number} - ThunderOrders',
+        template='payment_reminder',
+        user_name=user_name,
+        order_number=order_number,
+        unpaid_stages=unpaid_stages,
+        order_detail_url=order_detail_url
+    )
+
+
+def send_new_exclusive_page_email(user_email, user_name, page_name, page_url):
+    """
+    Wysyła email z powiadomieniem o nowej stronie Exclusive (nowy drop).
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        page_name (str): Nazwa strony Exclusive
+        page_url (str): URL do strony Exclusive
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Nowy drop: {page_name} - ThunderOrders',
+        template='new_exclusive_page',
+        user_name=user_name,
+        page_name=page_name,
+        page_url=page_url
     )

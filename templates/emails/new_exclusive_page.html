@@ -3,70 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Płatność zatwierdzona - ThunderOrders</title>
+    <title>Nowy drop - ThunderOrders</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
     <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
         <tr>
             <td align="center">
+                <!-- Main email container (max-width: 600px) -->
                 <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+
                     <!-- Header with logo -->
                     <tr>
                         <td align="center" style="padding: 40px 40px 20px 40px;">
                             <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
                         </td>
                     </tr>
+
                     <!-- Main content -->
                     <tr>
                         <td style="padding: 20px 40px;">
                             <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
-                                Płatność zatwierdzona
+                                Nowy drop jest dostepny!
                             </h1>
+
                             <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
-                                Cześć <strong>{{ user_name }}</strong>!
+                                Czesc <strong>{{ user_name }}</strong>!
                             </p>
+
                             <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
-                                Twoje potwierdzenie płatności w zamówieniu <strong>{{ order_number }}</strong> zostało zaakceptowane.
+                                Wlasnie opublikowalismy nowa strone Exclusive. Sprawdz dostepne produkty i zloz zamowienie, zanim sie wyprzeda!
                             </p>
-                            <!-- Success box -->
+
+                            <!-- Page name box -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
                                 <tr>
-                                    <td style="background-color: #e8f5e9; border: 2px solid #4CAF50; border-radius: 8px; padding: 24px; text-align: center;">
-                                        <p style="margin: 0 0 8px 0; font-size: 32px;">&#10003;</p>
-                                        <p style="margin: 0 0 12px 0; font-size: 18px; font-weight: 700; color: #2E7D32;">
-                                            Płatność zatwierdzona
-                                        </p>
-                                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #616161;">
-                                            Etap: <strong>{{ stage_name }}</strong>
-                                        </p>
-                                        <p style="margin: 0; font-size: 16px; color: #212121;">
-                                            Kwota: <strong>{{ "%.2f"|format(amount) }} PLN</strong>
-                                        </p>
+                                    <td style="background-color: #F3E5F5; border: 2px solid #7B2CBF; border-radius: 8px; padding: 24px; text-align: center;">
+                                        <p style="margin: 0; font-size: 14px; color: #616161; font-weight: 600;">Strona Exclusive:</p>
+                                        <p style="margin: 8px 0 0 0; font-size: 22px; font-weight: 700; color: #240046;">{{ page_name }}</p>
                                     </td>
                                 </tr>
                             </table>
-                            <!-- Order number box -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
-                                <tr>
-                                    <td style="background-color: #F5F5F5; padding: 20px; border-radius: 8px; text-align: center;">
-                                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: #240046;">
-                                            Zamówienie {{ order_number }}
-                                        </p>
-                                    </td>
-                                </tr>
-                            </table>
+
                             <!-- CTA Button -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
                                 <tr>
                                     <td align="center">
-                                        <a href="{{ order_detail_url }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
-                                            Zobacz szczegóły zamówienia
+                                        <a href="{{ page_url }}" style="display: inline-block; background-color: #7B2CBF; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Zobacz produkty
                                         </a>
                                     </td>
                                 </tr>
                             </table>
+
                         </td>
                     </tr>
+
                     <!-- Footer -->
                     <tr>
                         <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
@@ -77,6 +69,7 @@
                             </p>
                         </td>
                     </tr>
+
                 </table>
             </td>
         </tr>

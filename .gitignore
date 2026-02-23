@@ -3,6 +3,7 @@
 .env
 .env
 /static/uploads
+/uploads/payment_confirmations
 /docs
 CLAUDE.md
 /static/payment_proofs

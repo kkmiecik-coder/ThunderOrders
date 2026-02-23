@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zmiana statusu zamówienia - ThunderOrders</title>
+    <title>Przesyłka nadana - ThunderOrders</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
     <!-- Outer wrapper for centering -->
@@ -24,15 +24,15 @@
                     <tr>
                         <td style="padding: 20px 40px;">
                             <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: left;">
-                                Status zamówienia zaktualizowany
+                                Twoja przesylka zostala nadana!
                             </h1>
 
                             <p style="margin: 0 0 16px 0; font-size: 16px; color: #212121;">
-                                Cześć <strong>{{ user_name }}</strong>!
+                                Czesc <strong>{{ user_name }}</strong>!
                             </p>
 
                             <p style="margin: 0 0 30px 0; font-size: 16px; color: #212121;">
-                                Informujemy, że status Twojego zamówienia został zmieniony:
+                                Informujemy, ze Twoje zamowienie zostalo nadane i jest w drodze do Ciebie.
                             </p>
 
                             <!-- Order number box -->
@@ -40,26 +40,27 @@
                                 <tr>
                                     <td style="background-color: #F5F5F5; padding: 20px; border-radius: 8px; text-align: center;">
                                         <p style="margin: 0; font-size: 20px; font-weight: 700; color: #240046;">
-                                            📦 Zamówienie {{ order_number }}
+                                            Zamowienie {{ order_number }}
                                         </p>
                                     </td>
                                 </tr>
                             </table>
 
-                            <!-- Status change box -->
+                            <!-- Tracking info box -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
                                 <tr>
-                                    <td style="background-color: #e8f5e9; border: 2px solid #4CAF50; border-radius: 8px; padding: 24px; text-align: center;">
+                                    <td style="background-color: #e3f2fd; border: 2px solid #2196F3; border-radius: 8px; padding: 24px;">
                                         <table width="100%" cellpadding="0" cellspacing="0" border="0">
                                             <tr>
-                                                <td align="center">
-                                                    <span style="display: inline-block; background-color: #E0E0E0; color: #616161; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px;">
-                                                        {{ old_status }}
-                                                    </span>
-                                                    <span style="font-size: 24px; margin: 0 10px; color: #757575;">→</span>
-                                                    <span style="display: inline-block; background-color: #4CAF50; color: #FFFFFF; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px;">
-                                                        {{ new_status }}
-                                                    </span>
+                                                <td style="padding: 0 0 12px 0;">
+                                                    <p style="margin: 0; font-size: 14px; color: #616161; font-weight: 600;">Kurier:</p>
+                                                    <p style="margin: 4px 0 0 0; font-size: 18px; color: #212121; font-weight: 700;">{{ courier_name }}</p>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 12px 0 0 0; border-top: 1px solid #bbdefb;">
+                                                    <p style="margin: 0; font-size: 14px; color: #616161; font-weight: 600;">Numer sledzenia:</p>
+                                                    <p style="margin: 4px 0 0 0; font-size: 18px; color: #212121; font-weight: 700; letter-spacing: 1px;">{{ tracking_number }}</p>
                                                 </td>
                                             </tr>
                                         </table>
@@ -67,12 +68,25 @@
                                 </tr>
                             </table>
 
-                            <!-- CTA Button -->
+                            {% if tracking_url %}
+                            <!-- CTA Button - Track shipment -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
                                 <tr>
                                     <td align="center">
+                                        <a href="{{ tracking_url }}" style="display: inline-block; background-color: #2196F3; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
+                                            Sledz przesylke
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- Secondary CTA -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 10px 0 30px 0;">
+                                <tr>
+                                    <td align="center">
                                         <a href="{{ url_for('orders.client_list', _external=True) }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
-                                            Sprawdź szczegóły zamówienia
+                                            Sprawdz szczegoly zamowienia
                                         </a>
                                     </td>
                                 </tr>

@@ -144,6 +144,17 @@
                         <small class="form-hint">Puste = bez limitu czasu</small>
                     </div>
 
+                    <!-- Powiadomienie klientów przy publikacji -->
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   id="notifyClientsOnPublish"
+                                   {% if page.notify_clients_on_publish %}checked{% endif %}>
+                            <span class="checkbox-text">Wyślij email do klientów przy publikacji</span>
+                        </label>
+                        <small class="form-hint">Jednorazowe powiadomienie o nowym dropie. Toggle resetuje się po wysłaniu.</small>
+                    </div>
+
                     <!-- Typ realizacji zamówień -->
                     <div class="form-group">
                         <label>Zamówienie do:</label>

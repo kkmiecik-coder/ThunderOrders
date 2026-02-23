@@ -15,12 +15,13 @@ RESERVATION_DURATION = 600  # 10 minut w sekundach
 EXTENSION_DURATION = 120    # 2 minuty w sekundach
 
 
-def cleanup_expired_reservations(page_id):
+def cleanup_expired_reservations(page_id, auto_commit=True):
     """
     Lazy cleanup - usuwa wygasłe rezerwacje dla danej strony exclusive
 
     Args:
         page_id: ID strony exclusive
+        auto_commit: Czy commitować od razu (False gdy wywołane wewnątrz większej transakcji)
 
     Returns:
         int: Liczba usuniętych rezerwacji
@@ -30,7 +31,10 @@ def cleanup_expired_reservations(page_id):
         ExclusiveReservation.exclusive_page_id == page_id,
         ExclusiveReservation.expires_at < now
     ).delete()
-    db.session.commit()
+    if auto_commit:
+        db.session.commit()
+    else:
+        db.session.flush()
     return deleted
 
 
@@ -53,23 +57,27 @@ def get_first_reservation_time(session_id, page_id):
     return reservation.reserved_at if reservation else None
 
 
-def get_available_quantity(page_id, product_id, section_max=None):
+def get_available_quantity(page_id, product_id, section_max=None, auto_commit=True):
     """
-    Oblicza dostępną ilość produktu
+    Oblicza dostępną ilość produktu (rezerwacje + już złożone zamówienia)
 
     Args:
         page_id: ID strony exclusive
         product_id: ID produktu
         section_max: max_quantity z sekcji exclusive (może być None dla unlimited)
+        auto_commit: Czy cleanup ma commitować (False w transakcji)
 
     Returns:
         int: Dostępna ilość (może być float('inf') dla unlimited)
     """
+    from modules.orders.models import Order, OrderItem
+
     # Usuń wygasłe rezerwacje
-    cleanup_expired_reservations(page_id)
+    cleanup_expired_reservations(page_id, auto_commit=auto_commit)
+
+    now = int(time.time())
 
     # Suma zarezerwowanych (aktywnych)
-    now = int(time.time())
     reserved = db.session.query(
         func.sum(ExclusiveReservation.quantity)
     ).filter(
@@ -78,9 +86,18 @@ def get_available_quantity(page_id, product_id, section_max=None):
         ExclusiveReservation.expires_at > now
     ).scalar() or 0
 
-    # Jeśli jest limit sekcji, użyj go; w przeciwnym razie unlimited
+    # Suma już zamówionych (złożone zamówienia, bez anulowanych)
+    ordered = db.session.query(
+        func.sum(OrderItem.quantity)
+    ).join(Order).filter(
+        Order.exclusive_page_id == page_id,
+        Order.status != 'anulowane',
+        OrderItem.product_id == product_id
+    ).scalar() or 0
+
+    # Jeśli jest limit sekcji, odejmij rezerwacje I zamówienia
     if section_max is not None and section_max > 0:
-        available = section_max - reserved
+        available = section_max - reserved - ordered
     else:
         available = float('inf')  # Unlimited
 
@@ -108,7 +125,11 @@ def get_user_reservation(session_id, page_id, product_id):
 
 def reserve_product(session_id, page_id, product_id, quantity, section_max=None):
     """
-    Rezerwuje produkt (atomowo)
+    Rezerwuje produkt (atomowo z row-level locking)
+
+    Cała operacja (cleanup + check + reserve) odbywa się w jednej transakcji.
+    SELECT FOR UPDATE lockuje wiersze rezerwacji dla danego produktu,
+    zapobiegając race condition przy jednoczesnych rezerwacjach.
 
     Args:
         session_id: UUID sesji
@@ -120,40 +141,70 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
     Returns:
         tuple: (success: bool, data: dict)
     """
+    from modules.orders.models import Order, OrderItem
+
     try:
-        # Check availability
-        available = get_available_quantity(page_id, product_id, section_max)
-        user_reservation = get_user_reservation(session_id, page_id, product_id)
+        now = int(time.time())
 
-        current_user_qty = user_reservation.quantity if user_reservation else 0
-        requested_increase = quantity
+        # --- JEDNA TRANSAKCJA: cleanup + check + reserve ---
 
-        if available < requested_increase:
-            # Insufficient availability
-            # Find when earliest reservation expires
-            now = int(time.time())
-            earliest_expiry = db.session.query(
-                func.min(ExclusiveReservation.expires_at)
-            ).filter(
-                ExclusiveReservation.exclusive_page_id == page_id,
-                ExclusiveReservation.product_id == product_id,
-                ExclusiveReservation.expires_at > now
-            ).scalar()
+        # 1. Cleanup expired (bez commit - flush only)
+        cleanup_expired_reservations(page_id, auto_commit=False)
+
+        # 2. Lockuj aktywne rezerwacje dla tego produktu (SELECT FOR UPDATE)
+        #    Inne requesty czekają aż ta transakcja się zakończy
+        locked_reservations = ExclusiveReservation.query.filter(
+            ExclusiveReservation.exclusive_page_id == page_id,
+            ExclusiveReservation.product_id == product_id,
+            ExclusiveReservation.expires_at > now
+        ).with_for_update().all()
+
+        # 3. Oblicz dostępność na podstawie zlockowanych danych
+        reserved = sum(r.quantity for r in locked_reservations)
+
+        # Suma już zamówionych (złożone zamówienia, bez anulowanych)
+        ordered = db.session.query(
+            func.sum(OrderItem.quantity)
+        ).join(Order).filter(
+            Order.exclusive_page_id == page_id,
+            Order.status != 'anulowane',
+            OrderItem.product_id == product_id
+        ).scalar() or 0
+
+        if section_max is not None and section_max > 0:
+            available = max(0, section_max - reserved - ordered)
+        else:
+            available = float('inf')
+
+        # 4. Sprawdź czy jest wystarczająco
+        user_reservation = None
+        for r in locked_reservations:
+            if r.session_id == session_id:
+                user_reservation = r
+                break
+
+        if available < quantity:
+            # Niewystarczająca dostępność - rollback locka
+            db.session.rollback()
+
+            earliest_expiry = min(
+                (r.expires_at for r in locked_reservations if r.session_id != session_id),
+                default=None
+            )
 
             available_qty = int(available) if available != float('inf') else 999999
             return False, {
                 'error': 'insufficient_availability',
                 'message': 'Ten produkt został już zarezerwowany przez innych użytkowników.',
                 'available_quantity': available_qty,
-                'check_back_at': earliest_expiry if earliest_expiry else None
+                'check_back_at': earliest_expiry
             }
 
-        # Get or create first reservation time for session
+        # 5. Oblicz czas wygaśnięcia
         first_reserved_at = get_first_reservation_time(session_id, page_id)
         if not first_reserved_at:
             first_reserved_at = int(time.time())
 
-        # Check if session has been extended - if so, preserve extended time
         extended_reservation = ExclusiveReservation.query.filter_by(
             session_id=session_id,
             exclusive_page_id=page_id,
@@ -161,19 +212,15 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
         ).first()
 
         if extended_reservation:
-            # Session was extended - use the extended expiry time
             expires_at = extended_reservation.expires_at
         else:
-            # Normal reservation - 10 minutes from first reservation
             expires_at = first_reserved_at + RESERVATION_DURATION
 
-        # UPSERT reservation
+        # 6. UPSERT rezerwacji
         if user_reservation:
-            # Update existing
             user_reservation.quantity += quantity
             user_reservation.expires_at = expires_at
         else:
-            # Create new
             user_reservation = ExclusiveReservation(
                 session_id=session_id,
                 exclusive_page_id=page_id,
@@ -186,12 +233,12 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
             )
             db.session.add(user_reservation)
 
+        # 7. COMMIT - koniec transakcji, zwolnienie locków
         db.session.commit()
 
-        # Handle infinity for unlimited products
         remaining_available = available - quantity
         if remaining_available == float('inf'):
-            remaining_available = 999999  # Large number for "unlimited"
+            remaining_available = 999999
 
         return True, {
             'reservation': {

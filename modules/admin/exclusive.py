@@ -224,6 +224,9 @@ def exclusive_save(page_id):
             if payment_stages in (3, 4):
                 page.payment_stages = payment_stages
 
+        if 'notify_clients_on_publish' in data:
+            page.notify_clients_on_publish = bool(data['notify_clients_on_publish'])
+
         # Aktualizacja sekcji
         limit_changes = []
         if 'sections' in data:
@@ -451,6 +454,16 @@ def exclusive_change_status(page_id):
         # Publikuj natychmiast
         page.publish()
         message = 'Strona została opublikowana.'
+
+        # Wyślij powiadomienie do klientów jeśli toggle włączony
+        if page.notify_clients_on_publish:
+            from modules.auth.models import User
+            from utils.email_manager import EmailManager
+            clients = User.query.filter_by(role='client', is_active=True).all()
+            if clients:
+                sent = EmailManager.notify_new_exclusive_page(page, clients)
+                message += f' Wysłano powiadomienie do {sent} klientów.'
+            page.notify_clients_on_publish = False  # Reset toggle po wysłaniu
 
     elif action == 'schedule':
         # Zaplanuj na datę startu
@@ -779,6 +792,7 @@ def exclusive_duplicate(page_id):
             set_image=section.set_image,
             set_max_sets=section.set_max_sets,
             set_max_per_product=section.set_max_per_product,
+            set_product_id=section.set_product_id,
             variant_group_id=section.variant_group_id
         )
         db.session.add(new_section)
@@ -894,12 +908,30 @@ def exclusive_summary(page_id):
     include_financials = current_user.role == 'admin'
     summary = get_page_summary(page_id, include_financials=include_financials)
 
+    # Serializacja zamówień do JSON dla JS (search, pagination, expand)
+    import json
+    orders_json_list = []
+    for o in summary.get('orders', []):
+        orders_json_list.append({
+            'order_id': o['order_id'],
+            'order_number': o['order_number'],
+            'customer_name': o['customer_name'] or 'Gość',
+            'customer_email': o['customer_email'] or '',
+            'customer_phone': o.get('customer_phone') or '',
+            'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
+            'total_amount': o['total_amount'],
+            'item_count': sum(item['quantity'] for item in o['order_items']),
+            'items': o['order_items'],
+            'has_unfulfilled': any(item['is_set_fulfilled'] is False for item in o['order_items']),
+        })
+
     return render_template(
         'admin/exclusive/summary.html',
         title=f'Podsumowanie: {page.name}',
         page=page,
         summary=summary,
-        include_financials=include_financials
+        include_financials=include_financials,
+        orders_json=json.dumps(orders_json_list, default=str),
     )
 
 
@@ -1051,6 +1083,7 @@ def exclusive_export_excel(page_id):
     Tylko Admin może pobrać Excel.
     """
     from utils.excel_export import generate_exclusive_closure_excel
+    from utils.exclusive_closure import get_page_summary
 
     page = ExclusivePage.query.get_or_404(page_id)
 
@@ -1060,7 +1093,8 @@ def exclusive_export_excel(page_id):
         return redirect(url_for('admin.exclusive_list'))
 
     try:
-        excel_buffer = generate_exclusive_closure_excel(page_id)
+        summary = get_page_summary(page_id, include_financials=True)
+        excel_buffer = generate_exclusive_closure_excel(page, summary)
 
         # Generuj nazwę pliku
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()

@@ -4,11 +4,14 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/orders/guest-track.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/modals.css') }}">
 {% endblock %}
 
 {% block body_content %}
 <div class="guest-track-page">
-    <div class="track-container">
+    <div class="track-container"
+         data-token="{{ order.guest_view_token }}"
+         data-order-id="{{ order.id }}">
         <div class="track-header">
             <h1>Status zamówienia</h1>
             <p class="order-number">{{ order.order_number }}</p>
@@ -76,11 +79,323 @@
                 </div>
                 {% endfor %}
             </div>
+
+            <!-- Financial Summary -->
+            {% if order.is_exclusive %}
+            <div class="gt-summary">
+                <div class="gt-summary__row">
+                    <span>Produkty</span>
+                    <span>{{ "%.2f"|format(order.effective_total) }} PLN</span>
+                </div>
+                {% if order.payment_stages == 4 %}
+                <div class="gt-summary__row">
+                    <span>Dostawa Proxy</span>
+                    <span>
+                        {% if order.proxy_shipping_total > 0 %}
+                            {{ "%.2f"|format(order.proxy_shipping_total) }} PLN
+                        {% else %}
+                            <em class="gt-tbd">Wkrótce</em>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
+                <div class="gt-summary__row">
+                    <span>CŁO/VAT</span>
+                    <span>
+                        {% if order.customs_vat_total > 0 %}
+                            {{ "%.2f"|format(order.customs_vat_total) }} PLN
+                        {% else %}
+                            <em class="gt-tbd">Wkrótce</em>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="gt-summary__row">
+                    <span>Dostawa PL</span>
+                    <span>
+                        {% if order.shipping_cost and order.shipping_cost > 0 %}
+                            {{ "%.2f"|format(order.shipping_cost) }} PLN
+                        {% else %}
+                            <em class="gt-tbd">Wkrótce</em>
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="gt-summary__row gt-summary__row--total">
+                    <span>Razem</span>
+                    <span>
+                        {% set known_sum = order.effective_total + (order.proxy_shipping_total if order.payment_stages == 4 else 0) + (order.shipping_cost if order.shipping_cost else 0) + order.customs_vat_total %}
+                        {{ "%.2f"|format(known_sum) }} PLN
+                        {% set missing = [] %}
+                        {% if order.payment_stages == 4 and (not order.proxy_shipping_total or order.proxy_shipping_total <= 0) %}
+                            {% set _ = missing.append('Proxy') %}
+                        {% endif %}
+                        {% if not order.customs_vat_total or order.customs_vat_total <= 0 %}
+                            {% set _ = missing.append('CŁO/VAT') %}
+                        {% endif %}
+                        {% if not order.shipping_cost or order.shipping_cost <= 0 %}
+                            {% set _ = missing.append('Dostawa PL') %}
+                        {% endif %}
+                        {% if missing %}
+                            <small class="gt-tbd">+ {{ missing|join(', ') }}</small>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            {% else %}
             <div class="order-total">
                 <span class="label">Suma:</span>
                 <span class="value">{{ "%.2f"|format(order.total_amount) }} PLN</span>
             </div>
+            {% endif %}
         </div>
+
+        <!-- Payment Status -->
+        {% if order.is_exclusive %}
+        {% set pc_status = order.product_payment_status %}
+        {% set has_uploadable = order.can_upload_product_payment
+            or (order.payment_stages == 4 and order.can_upload_stage_2)
+            or order.can_upload_stage_3
+            or order.can_upload_stage_4 %}
+        <div class="gt-pay-section">
+            <div class="gt-pay-header">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4zm2-1a1 1 0 0 0-1 1v1h14V4a1 1 0 0 0-1-1H2zm13 4H1v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V7z"/>
+                        <path d="M2 10a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1z"/>
+                    </svg>
+                    Płatności
+                </h3>
+                {% if has_uploadable %}
+                <button type="button" class="btn btn-primary btn-sm" id="openUploadModal">
+                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Wgraj potwierdzenie
+                </button>
+                {% endif %}
+            </div>
+
+            {# Produkty #}
+            <div class="gt-pay__row">
+                <span class="gt-pay__label">Produkty</span>
+                <span class="gt-pay__badge gt-pay__badge--{{ pc_status }}">
+                    {% if pc_status == 'none' %}Brak{% elif pc_status == 'pending' %}Weryfikacja{% elif pc_status == 'approved' %}Zatwierdzona{% elif pc_status == 'rejected' %}Odrzucona{% endif %}
+                </span>
+                <span class="gt-pay__amount">{{ "%.2f"|format(order.effective_total) }} PLN</span>
+            </div>
+
+            {# Dostawa Proxy (4-stage) #}
+            {% if order.payment_stages == 4 %}
+            {% set s2_status = order.stage_2_status %}
+            <div class="gt-pay__row">
+                <span class="gt-pay__label">Dostawa Proxy</span>
+                {% if s2_status %}
+                <span class="gt-pay__badge gt-pay__badge--{{ s2_status }}">
+                    {% if s2_status == 'none' %}Brak{% elif s2_status == 'pending' %}Weryfikacja{% elif s2_status == 'approved' %}Zatwierdzona{% elif s2_status == 'rejected' %}Odrzucona{% endif %}
+                </span>
+                {% endif %}
+                <span class="gt-pay__amount">
+                    {% if order.proxy_shipping_total > 0 %}{{ "%.2f"|format(order.proxy_shipping_total) }} PLN{% else %}<em class="gt-tbd">Wkrótce</em>{% endif %}
+                </span>
+            </div>
+            {% endif %}
+
+            {# CŁO/VAT #}
+            {% set s3_status = order.stage_3_status %}
+            <div class="gt-pay__row">
+                <span class="gt-pay__label">CŁO/VAT</span>
+                {% if s3_status %}
+                <span class="gt-pay__badge gt-pay__badge--{{ s3_status }}">
+                    {% if s3_status == 'none' %}Brak{% elif s3_status == 'pending' %}Weryfikacja{% elif s3_status == 'approved' %}Zatwierdzona{% elif s3_status == 'rejected' %}Odrzucona{% endif %}
+                </span>
+                {% endif %}
+                <span class="gt-pay__amount">
+                    {% if order.customs_vat_total > 0 %}{{ "%.2f"|format(order.customs_vat_total) }} PLN{% else %}<em class="gt-tbd">Wkrótce</em>{% endif %}
+                </span>
+            </div>
+
+            {# Dostawa PL #}
+            {% set s4_status = order.stage_4_status %}
+            <div class="gt-pay__row">
+                <span class="gt-pay__label">Dostawa PL</span>
+                {% if s4_status %}
+                <span class="gt-pay__badge gt-pay__badge--{{ s4_status }}">
+                    {% if s4_status == 'none' %}Brak{% elif s4_status == 'pending' %}Weryfikacja{% elif s4_status == 'approved' %}Zatwierdzona{% elif s4_status == 'rejected' %}Odrzucona{% endif %}
+                </span>
+                {% endif %}
+                <span class="gt-pay__amount">
+                    {% if order.shipping_cost and order.shipping_cost > 0 %}{{ "%.2f"|format(order.shipping_cost) }} PLN{% else %}<em class="gt-tbd">Wkrótce</em>{% endif %}
+                </span>
+            </div>
+
+            {# Do zapłaty #}
+            {% set remaining =
+                (order.effective_total if pc_status != 'approved' else 0)
+                + (order.proxy_shipping_total if (order.payment_stages == 4 and order.stage_2_status != 'approved' and order.proxy_shipping_total > 0) else 0)
+                + (order.customs_vat_total if (order.stage_3_status != 'approved' and order.customs_vat_total > 0) else 0)
+                + ((order.shipping_cost) if (order.stage_4_status != 'approved' and order.shipping_cost and order.shipping_cost > 0) else 0)
+            %}
+            <div class="gt-pay__total">
+                <span>Do zapłaty</span>
+                <strong>{{ "%.2f"|format(remaining) }} PLN</strong>
+            </div>
+
+            {# Rejection alerts #}
+            {% if pc_status == 'rejected' and order.product_payment_confirmation and order.product_payment_confirmation.rejection_reason %}
+            <div class="gt-alert gt-alert--error">
+                <strong>Produkty — odrzucono:</strong> {{ order.product_payment_confirmation.rejection_reason }}
+            </div>
+            {% endif %}
+            {% if order.payment_stages == 4 and order.stage_2_status == 'rejected' and order.stage_2_confirmation and order.stage_2_confirmation.rejection_reason %}
+            <div class="gt-alert gt-alert--error">
+                <strong>Dostawa Proxy — odrzucono:</strong> {{ order.stage_2_confirmation.rejection_reason }}
+            </div>
+            {% endif %}
+            {% if order.stage_3_status == 'rejected' and order.stage_3_confirmation and order.stage_3_confirmation.rejection_reason %}
+            <div class="gt-alert gt-alert--error">
+                <strong>CŁO/VAT — odrzucono:</strong> {{ order.stage_3_confirmation.rejection_reason }}
+            </div>
+            {% endif %}
+            {% if order.stage_4_status == 'rejected' and order.stage_4_confirmation and order.stage_4_confirmation.rejection_reason %}
+            <div class="gt-alert gt-alert--error">
+                <strong>Dostawa PL — odrzucono:</strong> {{ order.stage_4_confirmation.rejection_reason }}
+            </div>
+            {% endif %}
+
+            {# Dane do przelewu #}
+            {% if payment_methods and has_uploadable %}
+            <div class="gt-payment-info">
+                <h4>Dane do przelewu</h4>
+                {% for method in payment_methods %}
+                <div class="gt-payment-method">
+                    <strong>{{ method.name }}</strong>
+                    {% if method.account_number %}<div>Nr konta: <span class="gt-mono">{{ method.account_number }}</span></div>{% endif %}
+                    {% if method.bank_name %}<div>Bank: {{ method.bank_name }}</div>{% endif %}
+                    {% if method.recipient_name %}<div>Odbiorca: {{ method.recipient_name }}</div>{% endif %}
+                    {% if method.description %}<div class="gt-method-desc">{{ method.description }}</div>{% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Shipping Section -->
+        <div class="gt-ship-section">
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7z"/>
+                </svg>
+                Dostawa PL
+            </h3>
+            {% if order.shipping_request %}
+                {% set sr = order.shipping_request %}
+                <div class="gt-ship__active">
+                    <div class="gt-ship__row">
+                        <span class="label">Numer zlecenia:</span>
+                        <span class="value">{{ sr.request_number }}</span>
+                    </div>
+                    <div class="gt-ship__row">
+                        <span class="label">Status:</span>
+                        <span class="gt-ship__status" style="background-color: {{ sr.status_badge_color }}">{{ sr.status_display_name }}</span>
+                    </div>
+                    {% if sr.tracking_number %}
+                    <div class="gt-ship__row">
+                        <span class="label">Nr przesyłki:</span>
+                        <span class="value">
+                            {% if sr.tracking_url %}
+                            <a href="{{ sr.tracking_url }}" target="_blank" class="gt-mono-link">{{ sr.tracking_number }}</a>
+                            {% else %}
+                            <span class="gt-mono">{{ sr.tracking_number }}</span>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            {% elif can_create_shipping %}
+                <div class="gt-ship__empty">
+                    <p>Brak zlecenia wysyłki. Wypełnij formularz poniżej.</p>
+                    <form id="shippingForm" class="gt-ship-form">
+                        <div class="gt-form-group">
+                            <label>Typ dostawy</label>
+                            <select id="addressType" class="gt-input" required>
+                                <option value="home">Kurier (adres domowy)</option>
+                                <option value="pickup_point">Punkt odbioru</option>
+                            </select>
+                        </div>
+
+                        <!-- Home address fields -->
+                        <div id="homeFields">
+                            <div class="gt-form-group">
+                                <label>Imię i nazwisko</label>
+                                <input type="text" id="shippingName" class="gt-input" placeholder="Jan Kowalski" required>
+                            </div>
+                            <div class="gt-form-group">
+                                <label>Ulica i numer</label>
+                                <input type="text" id="shippingAddress" class="gt-input" placeholder="ul. Przykładowa 12/3" required>
+                            </div>
+                            <div class="gt-form-row">
+                                <div class="gt-form-group">
+                                    <label>Kod pocztowy</label>
+                                    <input type="text" id="shippingPostal" class="gt-input" placeholder="00-000" required>
+                                </div>
+                                <div class="gt-form-group">
+                                    <label>Miasto</label>
+                                    <input type="text" id="shippingCity" class="gt-input" placeholder="Warszawa" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pickup point fields -->
+                        <div id="pickupFields" style="display: none;">
+                            <div class="gt-form-group">
+                                <label>Kurier</label>
+                                <select id="pickupCourier" class="gt-input">
+                                    <option value="InPost">InPost Paczkomat</option>
+                                    <option value="Orlen">Orlen Paczka</option>
+                                    <option value="DPD">DPD Pickup</option>
+                                </select>
+                            </div>
+                            <div class="gt-form-group">
+                                <label>ID punktu</label>
+                                <input type="text" id="pickupPointId" class="gt-input" placeholder="np. WAW123">
+                            </div>
+                            <div class="gt-form-group">
+                                <label>Adres punktu</label>
+                                <input type="text" id="pickupAddress" class="gt-input" placeholder="ul. Przykładowa 1">
+                            </div>
+                            <div class="gt-form-row">
+                                <div class="gt-form-group">
+                                    <label>Kod pocztowy</label>
+                                    <input type="text" id="pickupPostal" class="gt-input" placeholder="00-000">
+                                </div>
+                                <div class="gt-form-group">
+                                    <label>Miasto</label>
+                                    <input type="text" id="pickupCity" class="gt-input" placeholder="Warszawa">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="submitShipping">Zlec wysyłkę</button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="gt-ship__empty">
+                    <p>Brak zlecenia wysyłki</p>
+                    <em class="gt-tbd">Zlecenie będzie dostępne po dostarczeniu paczki do magazynu</em>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Notes -->
+        {% if order.notes %}
+        <div class="gt-notes-section">
+            <h3>
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5 0h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2 2 2 0 0 1-2 2H3a2 2 0 0 1-2-2h1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1H0a2 2 0 0 1 2-2h1V0z"/>
+                </svg>
+                Notatki
+            </h3>
+            <p class="gt-note-text">{{ order.notes }}</p>
+        </div>
+        {% endif %}
 
         <!-- Order Info -->
         <div class="order-info-section">
@@ -115,4 +430,62 @@
     </div>
 </div>
 
+<!-- Upload Payment Modal -->
+{% if order.is_exclusive %}
+{% set has_uploadable = order.can_upload_product_payment
+    or (order.payment_stages == 4 and order.can_upload_stage_2)
+    or order.can_upload_stage_3
+    or order.can_upload_stage_4 %}
+{% if has_uploadable %}
+<div id="uploadPaymentModal" class="modal-overlay">
+    <div class="modal" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>Wgraj potwierdzenie płatności</h3>
+            <button type="button" class="modal-close" id="closeUploadModal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="uploadPaymentForm" enctype="multipart/form-data">
+                <p class="gt-modal-info">Wybierz etapy, za które wgrywasz potwierdzenie:</p>
+                <div class="gt-stage-checkboxes">
+                    {% if order.can_upload_product_payment %}
+                    <label class="gt-checkbox">
+                        <input type="checkbox" name="stages" value="product" checked>
+                        <span>Produkty — {{ "%.2f"|format(order.effective_total) }} PLN</span>
+                    </label>
+                    {% endif %}
+                    {% if order.payment_stages == 4 and order.can_upload_stage_2 %}
+                    <label class="gt-checkbox">
+                        <input type="checkbox" name="stages" value="korean_shipping">
+                        <span>Dostawa Proxy — {{ "%.2f"|format(order.proxy_shipping_total) }} PLN</span>
+                    </label>
+                    {% endif %}
+                    {% if order.can_upload_stage_3 %}
+                    <label class="gt-checkbox">
+                        <input type="checkbox" name="stages" value="customs_vat">
+                        <span>CŁO/VAT — {{ "%.2f"|format(order.customs_vat_total) }} PLN</span>
+                    </label>
+                    {% endif %}
+                    {% if order.can_upload_stage_4 %}
+                    <label class="gt-checkbox">
+                        <input type="checkbox" name="stages" value="domestic_shipping">
+                        <span>Dostawa PL — {{ "%.2f"|format(order.shipping_cost) }} PLN</span>
+                    </label>
+                    {% endif %}
+                </div>
+                <div class="gt-form-group" style="margin-top: 16px;">
+                    <label>Plik potwierdzenia (JPG, PNG lub PDF, max 5MB)</label>
+                    <input type="file" id="proofFile" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required class="gt-input">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 12px;" id="submitUpload">Wyślij potwierdzenie</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/orders/guest-track.js') }}"></script>
 {% endblock %}

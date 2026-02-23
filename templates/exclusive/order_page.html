@@ -883,7 +883,7 @@ window.subscribeNotificationUrl = '/exclusive/{{ page.token }}/subscribe-notific
 window.statusCheckUrl = '/exclusive/{{ page.token }}/status';
 
 // Initial ends_at value (can be null)
-window.initialEndsAt = {{ ("'" + page.ends_at.isoformat() + "'") if page.ends_at else 'null' }};
+window.initialEndsAt = {{ page.ends_at.isoformat()|tojson if page.ends_at else 'null' }};
 
 // Dynamic URL (function to get current sessionId)
 window.getAvailabilityCheckUrl = function() {
@@ -914,7 +914,7 @@ window.redirectAfterOrderUrl = '#'; // Guest - will just close modal
 // Auto-refresh when sale ends (if applicable)
 {% if page.ends_at and not preview_mode %}
 (function() {
-    const endDate = new Date('{{ page.ends_at.isoformat() }}').getTime();
+    const endDate = new Date({{ page.ends_at.isoformat()|tojson }}).getTime();
     const orderPageUrl = '{{ url_for("exclusive.order_page", token=page.token) }}';
 
     function checkSaleEnd() {

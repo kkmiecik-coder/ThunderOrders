@@ -689,6 +689,7 @@ function collectPageData() {
         starts_at: document.getElementById('startsAt').value || null,
         ends_at: document.getElementById('endsAt').value || null,
         payment_stages: paymentStagesInput ? parseInt(paymentStagesInput.value) || 4 : 4,
+        notify_clients_on_publish: document.getElementById('notifyClientsOnPublish')?.checked || false,
         sections: []
     };
 

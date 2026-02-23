@@ -5,6 +5,7 @@ Publiczne endpointy dla stron ekskluzywnych zamówień
 
 from flask import render_template, abort, redirect, url_for, request, jsonify, session
 from flask_login import login_required, current_user
+from extensions import limiter
 from . import exclusive_bp
 from .models import ExclusivePage
 from modules.products.models import Product, VariantGroup
@@ -155,6 +156,7 @@ def check_status(token):
 # ============================================
 
 @exclusive_bp.route('/<token>/reserve', methods=['POST'])
+@limiter.limit("30 per minute")
 def reserve(token):
     """Reserve product"""
     from modules.exclusive.reservation import reserve_product
@@ -242,6 +244,7 @@ def reserve(token):
 
 
 @exclusive_bp.route('/<token>/release', methods=['POST'])
+@limiter.limit("30 per minute")
 def release(token):
     """Release product"""
     from modules.exclusive.reservation import release_product
@@ -266,6 +269,7 @@ def release(token):
 
 
 @exclusive_bp.route('/<token>/availability', methods=['GET'])
+@limiter.limit("60 per minute")
 def availability(token):
     """Get availability snapshot"""
     from modules.exclusive.reservation import get_availability_snapshot
@@ -333,6 +337,7 @@ def availability(token):
 
 
 @exclusive_bp.route('/<token>/extend', methods=['POST'])
+@limiter.limit("20 per minute")
 def extend(token):
     """Extend reservation"""
     from modules.exclusive.reservation import extend_reservation
@@ -356,6 +361,7 @@ def extend(token):
 
 
 @exclusive_bp.route('/<token>/restore', methods=['POST'])
+@limiter.limit("10 per minute")
 def restore(token):
     """Restore reservation from localStorage"""
     from modules.exclusive.reservation import cleanup_expired_reservations, get_user_reservation

@@ -6,7 +6,8 @@ Endpointy uploadu i zarządzania potwierdzeniami płatności dla zamówień Excl
 import os
 import uuid
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from modules.orders.models import get_local_now
 from flask import render_template, request, jsonify, flash, redirect, url_for, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -51,7 +52,7 @@ def save_payment_proof_file(file):
 
     upload_folder = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        'static', 'payment_confirmations'
+        'uploads', 'payment_confirmations'
     )
     os.makedirs(upload_folder, exist_ok=True)
 
@@ -226,7 +227,7 @@ def payment_confirmations_upload():
 
         # === Twórz/aktualizuj PaymentConfirmation per zamówienie × etap ===
         created_count = 0
-        now = datetime.now(timezone.utc)
+        now = get_local_now()
 
         for entry in order_stages:
             order = orders_by_id.get(entry['order_id'])
@@ -300,6 +301,24 @@ def payment_confirmations_upload():
                 created_count += 1
 
         db.session.commit()
+
+        # Powiadom adminów o nowym potwierdzeniu płatności
+        stage_display_names = {
+            'product': 'Płatność za produkt',
+            'korean_shipping': 'Wysyłka z Korei',
+            'customs_vat': 'Cło i VAT',
+            'domestic_shipping': 'Wysyłka krajowa'
+        }
+        for entry in order_stages:
+            order = orders_by_id.get(entry['order_id'])
+            if not order:
+                continue
+            stage_names = ', '.join(stage_display_names.get(s, s) for s in entry['stages'])
+            try:
+                from utils.email_manager import EmailManager
+                EmailManager.notify_admin_payment_uploaded(order, stage_names)
+            except Exception as e:
+                current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
 
         if created_count == 1:
             flash('Potwierdzenie płatności zostało przesłane.', 'success')

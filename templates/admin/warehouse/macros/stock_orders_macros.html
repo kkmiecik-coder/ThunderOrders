@@ -20,7 +20,7 @@
 
 
 {% macro order_filters(tab, statuses, has_tracking=false) %}
-{% set suffix = 'Poland' if tab == 'polska' else '' %}
+{% set suffix = 'Poland' if tab == 'polska' else ('Archiwum' if tab == 'archiwum' else '') %}
 <div class="orders-filters">
     <div class="filter-group">
         <label>Nr zamówienia</label>

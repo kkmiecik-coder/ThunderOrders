@@ -7,7 +7,7 @@ from flask import url_for, current_app
 from extensions import db
 from modules.exclusive.models import ExclusiveProductNotificationSubscription, ExclusivePage
 from modules.products.models import Product
-from utils.email_sender import send_back_in_stock_email
+from utils.email_manager import EmailManager
 from modules.auth.models import get_local_now
 import logging
 
@@ -56,9 +56,9 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
         if not primary_image and product.images:
             primary_image = product.images[0]
         if primary_image:
-            product_image_url = f"https://thunderorders.cloud/static/uploads/products/{primary_image.filename}"
+            product_image_url = url_for('static', filename=f'uploads/products/{primary_image.filename}', _external=True)
 
-    exclusive_page_url = f"https://thunderorders.cloud/exclusive/{page.token}"
+    exclusive_page_url = url_for('exclusive.order_page', token=page.token, _external=True)
 
     sent_count = 0
 
@@ -78,8 +78,7 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
             continue
 
         try:
-            # Wyślij email
-            success = send_back_in_stock_email(
+            success = EmailManager.notify_back_in_stock(
                 email=email,
                 product_name=product.name,
                 product_image_url=product_image_url,

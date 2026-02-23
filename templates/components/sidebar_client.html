@@ -21,15 +21,6 @@
             </li>
 
             <li class="sidebar-item">
-                <a href="#"
-                   class="sidebar-link {% if request.endpoint and 'new' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Nowe zamówienie">
-                    <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="Nowe zamówienie" class="sidebar-icon">
-                    <span class="sidebar-text">Nowe zamówienie</span>
-                </a>
-            </li>
-
-            <li class="sidebar-item">
                 <a href="{{ url_for('orders.client_list') }}"
                    class="sidebar-link {% if request.endpoint == 'orders.client_list' or request.endpoint == 'orders.client_detail' %}active{% endif %}"
                    data-tooltip="Moje zamówienia">

@@ -465,7 +465,7 @@ class WarehouseSettingsForm(FlaskForm):
         ('exchangerate', 'ExchangeRate-API')
     ])
     currency_update_frequency = IntegerField('Częstotliwość aktualizacji (h)', validators=[Optional(), NumberRange(min=1, max=168)])
-    currency_krw_rate = DecimalField('Kurs KRW → PLN', validators=[Optional()], places=4)
+    currency_krw_rate = DecimalField('Kurs KRW → PLN', validators=[Optional()], places=6)
     currency_usd_rate = DecimalField('Kurs USD → PLN', validators=[Optional()], places=2)
     default_margin = IntegerField('Domyślna marża (%)', validators=[Optional(), NumberRange(min=0, max=500)])
     price_rounding = SelectField('Zaokrąglanie cen', choices=[
