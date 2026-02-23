@@ -51,9 +51,9 @@
   /* ============================ */
   /* Light Mode (Default)         */
   /* ============================ */
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F5F5F5;
-  --bg-tertiary: #E0E0E0;
+  --bg-primary: #F5F6FA;
+  --bg-secondary: #ECEEF3;
+  --bg-tertiary: #DFE2E8;
 
   --text-primary: #212121;
   --text-secondary: #616161;
@@ -72,7 +72,7 @@
   --topbar-border: #E0E0E0;
 
   --card-bg: #FFFFFF;
-  --card-border: #E0E0E0;
+  --card-border: #E0E4EB;
 
   /* Font Family */
   --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

@@ -62,7 +62,7 @@
     bottom: 100%;
     left: 0;
     margin-bottom: 8px;
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     padding: 8px;
@@ -171,7 +171,7 @@
 .sr-card {
     flex: 1 1 380px;
     max-width: 500px;
-    background: #ffffff;
+    background: var(--card-bg);
     border-radius: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid #e8e8e8;

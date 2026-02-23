@@ -3544,6 +3544,41 @@ def admin_get_shipping_request(shipping_request_id):
     })
 
 
+def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_slug):
+    """
+    Synchronizuje statusy zamówień klienta na podstawie zmiany statusu zlecenia wysyłki.
+    Mapowanie: SR 'wyslane' → Order 'wyslane', SR 'dostarczone' → Order 'dostarczone'.
+    """
+    from utils.email_manager import EmailManager
+
+    SR_TO_ORDER_STATUS_MAP = {
+        'wyslane': 'wyslane',
+        'dostarczone': 'dostarczone',
+    }
+
+    target_order_status = SR_TO_ORDER_STATUS_MAP.get(new_sr_status_slug)
+    if not target_order_status:
+        return
+
+    order_status_obj = OrderStatus.query.filter_by(slug=target_order_status, is_active=True).first()
+    if not order_status_obj:
+        current_app.logger.warning(f"Order status '{target_order_status}' not found or inactive")
+        return
+
+    for ro in shipping_request.request_orders:
+        order = ro.order
+        if not order or order.status == target_order_status:
+            continue
+
+        old_status_name = order.status_display_name
+        order.status = target_order_status
+
+        try:
+            EmailManager.notify_status_change(order, old_status_name, order_status_obj.name)
+        except Exception as e:
+            current_app.logger.error(f'Status sync email error for {order.order_number}: {e}')
+
+
 @orders_bp.route('/admin/orders/shipping-requests/<int:shipping_request_id>', methods=['PUT'])
 @login_required
 @role_required('admin', 'mod')
@@ -3586,6 +3621,11 @@ def admin_update_shipping_request(shipping_request_id):
 
     db.session.commit()
 
+    # Sync order statuses based on SR status change
+    if 'status' in data and data['status'] != old_status:
+        _sync_order_statuses_from_shipping_request(sr, data['status'])
+        db.session.commit()
+
     # Email notification for new domestic shipping costs
     if orders_with_new_cost:
         from utils.email_manager import EmailManager
@@ -3609,10 +3649,11 @@ def admin_update_shipping_request(shipping_request_id):
         })
     )
 
-    # Send tracking email if tracking number was just added
+    # Send tracking email and auto-create OrderShipment if tracking number was just added
     tracking_just_added = sr.tracking_number and not old_tracking
     if tracking_just_added:
         from utils.email_manager import EmailManager
+        from modules.orders.models import OrderShipment
         courier_names = {'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
                        'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
                        'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'}
@@ -3624,6 +3665,22 @@ def admin_update_shipping_request(shipping_request_id):
                 courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier'),
                 tracking_url=sr.tracking_url
             )
+
+            # Auto-create OrderShipment record
+            existing = OrderShipment.query.filter_by(
+                order_id=order.id,
+                tracking_number=sr.tracking_number
+            ).first()
+            if not existing:
+                shipment = OrderShipment(
+                    order_id=order.id,
+                    tracking_number=sr.tracking_number,
+                    courier=sr.courier,
+                    notes=f'Z zlecenia {sr.request_number}',
+                    created_by=current_user.id
+                )
+                db.session.add(shipment)
+        db.session.commit()
 
     # Send status change email (skip if tracking was just added - that email already covers it)
     if 'status' in data and data['status'] != old_status and not tracking_just_added:
@@ -3811,6 +3868,12 @@ def admin_bulk_status_shipping_requests():
             updated_count += 1
 
     db.session.commit()
+
+    # Sync order statuses for changed shipping requests
+    if changed_requests:
+        for sr, _old_sr_status in changed_requests:
+            _sync_order_statuses_from_shipping_request(sr, new_status)
+        db.session.commit()
 
     # Send status change emails
     if changed_requests:

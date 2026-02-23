@@ -154,7 +154,7 @@
 /* Settings Cards       */
 /* ==================== */
 .settings-card {
-    background: white;
+    background: var(--card-bg);
     border-radius: var(--radius-md);
     padding: var(--space-6);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -272,7 +272,7 @@
 .form-preview {
     margin-top: var(--space-4);
     padding: var(--space-4);
-    background: white;
+    background: var(--card-bg);
     border: 1px dashed var(--border-primary);
     border-radius: var(--radius-md);
     font-size: var(--text-sm);
@@ -406,7 +406,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-3);
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
 }
@@ -457,7 +457,7 @@
     gap: var(--space-4);
     align-items: center;
     padding: var(--space-3) var(--space-4);
-    background: white;
+    background: var(--card-bg);
     border-bottom: 1px solid var(--border-primary);
     transition: all var(--transition-fast);
 }
@@ -497,7 +497,7 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--space-3);
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
@@ -554,7 +554,7 @@
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    background: white;
+    background: var(--card-bg);
 }
 
 .data-table thead {
@@ -1175,7 +1175,7 @@
     align-items: center;
     gap: var(--space-3);
     padding: var(--space-3);
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
     cursor: pointer;

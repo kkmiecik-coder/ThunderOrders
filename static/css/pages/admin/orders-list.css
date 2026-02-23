@@ -187,7 +187,7 @@
     padding: 0.375rem 0.75rem;
     border: 1.5px solid #9D4EDD; /* Purple-500 */
     border-radius: 5px;
-    background: white;
+    background: var(--card-bg);
     color: #5A189A; /* Purple-300 */
     font-weight: 600;
     font-size: 0.9rem;
@@ -212,7 +212,7 @@
    ==================== */
 
 .filters-panel {
-    background: white;
+    background: var(--card-bg);
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(36, 0, 70, 0.08);
     margin-bottom: 1.5rem;
@@ -343,7 +343,7 @@
     border: 2px solid #E0E0E0;
     border-radius: 8px;
     font-size: 0.875rem;
-    background: white;
+    background: var(--card-bg);
     transition: all 0.2s ease;
     color: #424242;
 }
@@ -369,7 +369,7 @@
     border: 2px solid #E0E0E0;
     border-radius: 8px;
     font-size: 0.875rem;
-    background: white;
+    background: var(--card-bg);
     height: 120px;
     transition: all 0.2s ease;
 }
@@ -581,7 +581,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.375rem 0.625rem 0.375rem 0.875rem;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #E0E0E0;
     border-radius: 20px;
     font-size: 0.8125rem;
@@ -684,7 +684,7 @@
     padding: 0.375rem 2rem 0.375rem 0.75rem;
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    background: white;
+    background: var(--card-bg);
     font-size: 0.8125rem;
     color: #424242;
     cursor: pointer;
@@ -787,7 +787,7 @@
    ==================== */
 
 .table-container {
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     overflow-x: auto;
@@ -1047,7 +1047,7 @@
 .pagination-btn {
     padding: 0.5rem 0.75rem;
     border: 1px solid #BDBDBD;
-    background: white;
+    background: var(--card-bg);
     color: #424242;
     text-decoration: none;
     border-radius: 4px;
@@ -1328,7 +1328,7 @@
 }
 
 .modal-content {
-    background: white;
+    background: var(--card-bg);
     border-radius: 16px;
     box-shadow: 0 25px 50px -12px rgba(36, 0, 70, 0.4);
     max-height: 90vh;
@@ -2647,7 +2647,7 @@
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: #fff;
+    background: var(--card-bg);
     border: 1px solid #E0E0E0;
     border-radius: 8px;
     max-height: 320px;
@@ -2945,7 +2945,7 @@
     bottom: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%);
-    background: #fff;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);

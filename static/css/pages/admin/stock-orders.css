@@ -12,7 +12,7 @@
     display: flex;
     gap: 8px;
     border-bottom: 2px solid #e5e7eb;
-    background: white;
+    background: var(--card-bg);
 }
 
 .tab-link {
@@ -48,7 +48,7 @@
 }
 
 .tab-pane {
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     padding: 24px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -83,7 +83,7 @@
     font-size: 13px;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    background: #ffffff;
+    background: var(--card-bg);
     color: #374151;
     outline: none;
     transition: border-color 0.2s;
@@ -156,7 +156,7 @@
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     font-size: 14px;
-    background: white;
+    background: var(--card-bg);
     min-width: 150px;
 }
 
@@ -183,7 +183,7 @@
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     font-size: 14px;
-    background: white;
+    background: var(--card-bg);
     cursor: pointer;
     min-width: 180px;
     text-align: left;
@@ -197,7 +197,7 @@
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -253,7 +253,7 @@
     bottom: calc(2rem + 60px);
     left: 50%;
     transform: translateX(-50%);
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -739,7 +739,7 @@
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     font-size: 14px;
-    background: white;
+    background: var(--card-bg);
 }
 
 .filter-select:focus {
@@ -982,7 +982,7 @@
 
 .status-dropdown {
     position: fixed;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);

@@ -125,7 +125,7 @@
 }
 
 .btn-kpop-secondary {
-    background: white;
+    background: var(--card-bg);
     color: var(--kpop-purple);
     border: 2px solid var(--kpop-purple);
     transition: background 0.5s ease,
@@ -242,11 +242,11 @@
    WIDGETS
    ==================================== */
 .widget {
-    background: white;
+    background: var(--card-bg);
     border-radius: 16px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    border: 1px solid transparent;
+    border: 1px solid var(--card-border);
     transition: background 0.5s ease,
                 box-shadow 0.5s ease,
                 border-color 0.5s ease,
@@ -295,7 +295,7 @@
     padding: 8px 12px;
     border: 2px solid var(--gray-200);
     border-radius: 8px;
-    background: white;
+    background: var(--card-bg);
     color: var(--gray-800);
     font-size: 0.875rem;
     font-weight: 600;

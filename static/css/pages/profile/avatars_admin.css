@@ -22,7 +22,7 @@
 
 /* Series Card */
 .avatar-series-card {
-    background: white;
+    background: var(--card-bg);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     margin-bottom: var(--space-6);
@@ -131,7 +131,7 @@
 .empty-state {
     text-align: center;
     padding: var(--space-16) var(--space-6);
-    background: white;
+    background: var(--card-bg);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }

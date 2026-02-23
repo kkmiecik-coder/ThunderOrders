@@ -73,7 +73,7 @@
    ==================== */
 
 .card {
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     padding: 1.25rem;
@@ -1069,7 +1069,7 @@ code {
 }
 
 .btn-secondary {
-    background: white;
+    background: var(--card-bg);
     color: #5A189A;
     border: 1px solid #5A189A;
 }
@@ -1323,7 +1323,7 @@ code {
         padding: 0.75rem;
         border: 1px solid #E0E0E0;
         border-radius: 8px;
-        background: #fff;
+        background: var(--card-bg);
         position: relative;
     }
 
@@ -1381,7 +1381,7 @@ code {
     }
 
     .products-table tbody tr:hover {
-        background: #fff;
+        background: var(--card-bg);
     }
 
     [data-theme="dark"] .products-table tbody tr:hover {
@@ -1847,7 +1847,7 @@ code {
     font-weight: 600;
     color: #240046;
     border-bottom: 1px solid #E0E0E0;
-    background: white;
+    background: var(--card-bg);
 }
 
 .selected-products-list {
@@ -1872,7 +1872,7 @@ code {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem;
-    background: white;
+    background: var(--card-bg);
     border-radius: 6px;
     margin-bottom: 0.5rem;
     border: 1px solid #E0E0E0;
@@ -1917,7 +1917,7 @@ code {
     width: 24px;
     height: 24px;
     border: 1px solid #BDBDBD;
-    background: white;
+    background: var(--card-bg);
     border-radius: 4px;
     font-weight: 600;
     color: #424242;
@@ -1962,7 +1962,7 @@ code {
     display: flex;
     justify-content: space-between;
     padding: 0.75rem;
-    background: white;
+    background: var(--card-bg);
     border-radius: 6px;
     border: 1px solid #E0E0E0;
     margin-top: 0.5rem;
@@ -1983,7 +1983,7 @@ code {
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem 1.25rem;
-    background: white;
+    background: var(--card-bg);
     border-top: 1px solid #E0E0E0;
     flex-shrink: 0;
 }
@@ -2295,7 +2295,7 @@ code {
     position: absolute;
     top: 100%;
     right: 0;
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     min-width: 160px;
@@ -2552,7 +2552,7 @@ code {
     height: 32px;
     padding: 0;
     border: 1px solid #E0E0E0;
-    background: white;
+    background: var(--card-bg);
     color: #5A189A;
     border-radius: 6px;
     cursor: pointer;
@@ -2574,7 +2574,7 @@ code {
     height: 32px;
     padding: 0 0.625rem;
     border: 2px solid #4CAF50;
-    background: white;
+    background: var(--card-bg);
     color: #4CAF50;
     border-radius: 6px;
     font-size: 0.8125rem;
@@ -2597,7 +2597,7 @@ code {
     height: 32px;
     padding: 0 0.625rem;
     border: 2px solid #F44336;
-    background: white;
+    background: var(--card-bg);
     color: #F44336;
     border-radius: 6px;
     font-size: 0.8125rem;
@@ -2620,7 +2620,7 @@ code {
     height: 32px;
     padding: 0;
     border: 1px solid #E0E0E0;
-    background: white;
+    background: var(--card-bg);
     color: #9E9E9E;
     border-radius: 6px;
     cursor: pointer;
@@ -2721,7 +2721,7 @@ code {
     font-size: 0.875rem;
     text-align: right;
     color: #424242;
-    background: white;
+    background: var(--card-bg);
     transition: all 0.2s ease;
 }
 
@@ -2729,12 +2729,12 @@ code {
     outline: none;
     border-color: #9D4EDD;
     box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.15);
-    background: white;
+    background: var(--card-bg);
 }
 
 /* Select in editable mode */
 .editable-editor .form-select-sm {
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #E0E0E0;
     min-width: 150px;
 }
@@ -2770,7 +2770,7 @@ code {
     height: 28px;
     padding: 0;
     border: 1px solid #E0E0E0;
-    background: white;
+    background: var(--card-bg);
     color: #5A189A;
     border-radius: 6px;
     cursor: pointer;
@@ -2792,7 +2792,7 @@ code {
     height: 28px;
     padding: 0;
     border: 1px solid #E0E0E0;
-    background: white;
+    background: var(--card-bg);
     color: #9E9E9E;
     border-radius: 6px;
     cursor: pointer;
@@ -2995,7 +2995,7 @@ code {
     gap: 0.5rem;
     width: 100%;
     padding: 0.5rem 0.75rem;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #E0E0E0;
     border-radius: 6px;
     cursor: pointer;
@@ -3048,7 +3048,7 @@ code {
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #E0E0E0;
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
@@ -4163,7 +4163,7 @@ code {
     top: 100%;
     left: 0;
     min-width: 240px;
-    background: #ffffff;
+    background: var(--card-bg);
     border: 1px solid #E0E0E0;
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -4262,7 +4262,7 @@ code {
     padding: 0;
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    background: #fff;
+    background: var(--card-bg);
     color: #616161;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -4302,7 +4302,7 @@ code {
     font-size: 0.875rem;
     border: 1px solid #E0E0E0;
     border-radius: 6px;
-    background: #ffffff;
+    background: var(--card-bg);
     color: #212121;
     transition: all 0.2s ease;
 }

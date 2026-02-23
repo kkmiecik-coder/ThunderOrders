@@ -2342,7 +2342,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: #ffffff;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     font-size: 13px;
@@ -2388,7 +2388,7 @@
 /* Set Product Preview Card */
 .set-product-preview-card {
     margin-top: 16px;
-    background: #ffffff;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
@@ -2485,7 +2485,7 @@
 }
 
 .variant-product-card {
-    background: #ffffff;
+    background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;

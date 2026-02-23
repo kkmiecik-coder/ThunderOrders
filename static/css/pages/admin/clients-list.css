@@ -14,7 +14,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: white;
+  background: var(--card-bg);
   border-bottom: 1px solid #e0e0e0;
   padding: 12px 20px;
   gap: 20px;
@@ -38,7 +38,7 @@
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
-  background: white;
+  background: var(--card-bg);
   color: #333;
 }
 
@@ -133,7 +133,7 @@
   padding: 8px 32px 8px 12px;
   border: 1px solid #ddd;
   border-radius: 6px;
-  background: white;
+  background: var(--card-bg);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -165,7 +165,7 @@
 
 .toolbar-select option {
   padding: 8px;
-  background: white;
+  background: var(--card-bg);
   color: #333;
   font-weight: 500;
 }
@@ -197,7 +197,7 @@
   height: 28px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  background: white;
+  background: var(--card-bg);
   color: #555;
   text-decoration: none;
   font-size: 18px;
@@ -230,7 +230,7 @@
    Table
    ========================================== */
 .table-container {
-  background: white;
+  background: var(--card-bg);
   overflow-x: auto;
 }
 
@@ -499,7 +499,7 @@
 .empty-state {
   padding: 60px 20px;
   text-align: center;
-  background: white;
+  background: var(--card-bg);
 }
 
 .empty-icon {
@@ -632,7 +632,7 @@
   font-size: 14px;
   font-family: inherit;
   resize: vertical;
-  background: white;
+  background: var(--card-bg);
   color: #333;
   min-height: 80px;
 }
@@ -674,7 +674,7 @@
 }
 
 .btn-secondary {
-  background: white;
+  background: var(--card-bg);
   color: #555;
   border: 1px solid #ddd;
 }

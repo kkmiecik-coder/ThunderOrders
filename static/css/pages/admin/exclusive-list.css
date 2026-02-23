@@ -422,7 +422,7 @@
 }
 
 .exclusive-page .btn-secondary {
-    background: white;
+    background: var(--card-bg);
     color: #8338EC;
     border: 2px solid #8338EC;
     box-shadow: none;
@@ -466,7 +466,7 @@
 }
 
 .modal-overlay .btn-secondary {
-    background: white;
+    background: var(--card-bg);
     color: #8338EC;
     border: 2px solid #8338EC;
     box-shadow: none;
@@ -1182,7 +1182,7 @@
 .settings-tabs {
     flex-shrink: 0;
     width: 240px;
-    background: white;
+    background: var(--card-bg);
     border-radius: var(--radius-lg);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     padding: var(--space-4);
@@ -1243,7 +1243,7 @@
 }
 
 .settings-card {
-    background: white;
+    background: var(--card-bg);
     border-radius: 8px;
     padding: var(--space-6);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1309,7 +1309,7 @@
 
 .closure-setting-row:hover {
     border-color: #D1D5DB;
-    background: white;
+    background: var(--card-bg);
 }
 
 .closure-setting-row:has(.custom-select-dropdown.active) {
@@ -1374,7 +1374,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 12px;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #D1D5DB;
     border-radius: 6px;
     cursor: pointer;
@@ -1411,7 +1411,7 @@
     top: calc(100% + 6px);
     left: 0;
     right: 0;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid #D1D5DB;
     border-radius: 6px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);

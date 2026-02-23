@@ -272,7 +272,7 @@ body.exclusive-page-body {
 }
 
 .section {
-    background: white;
+    background: var(--card-bg);
     border-radius: 20px;
     border: 1px solid rgba(0, 0, 0, 0.06);
     overflow: hidden;
@@ -669,7 +669,7 @@ body.exclusive-page-body {
     text-align: center;
     font-size: var(--text-lg);
     font-weight: var(--font-bold);
-    background: white;
+    background: var(--card-bg);
     color: var(--gray-800);
     -moz-appearance: textfield;
 }
@@ -1000,7 +1000,7 @@ body.exclusive-page-body {
 }
 
 .variant-product:hover {
-    background: white;
+    background: var(--card-bg);
     border-color: #e91e63;
     box-shadow: 0 8px 30px rgba(233, 30, 99, 0.15);
     transform: translateY(-4px);
@@ -1011,7 +1011,7 @@ body.exclusive-page-body {
     aspect-ratio: 1;
     border-radius: 12px;
     overflow: hidden;
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--gray-200);
     margin-bottom: var(--space-3);
 }
@@ -1078,7 +1078,7 @@ body.exclusive-page-body {
 .cart-sidebar {
     width: 340px;
     flex-shrink: 0;
-    background: white;
+    background: var(--card-bg);
     border-radius: 24px;
     border: 1px solid rgba(0, 0, 0, 0.06);
     display: flex;
@@ -1293,7 +1293,7 @@ body.exclusive-page-body {
 }
 
 .exclusive-order-page .btn-secondary {
-    background: white !important;
+    background: var(--card-bg) !important;
     color: var(--gray-700) !important;
     border: 1px solid var(--gray-300) !important;
 }
@@ -1317,7 +1317,7 @@ body.exclusive-page-body {
 }
 
 .exclusive-order-page .modal-content {
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--gray-200);
     border-radius: 24px;
     box-shadow:
@@ -1445,7 +1445,7 @@ body.exclusive-page-body {
 }
 
 .exclusive-order-page .form-control {
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--gray-300);
     color: var(--gray-800);
     border-radius: 12px;
@@ -1759,7 +1759,7 @@ body.exclusive-page-body {
         min-width: 22px;
         height: 22px;
         padding: 0 6px;
-        background: white;
+        background: var(--card-bg);
         color: #e91e63;
         border-radius: 11px;
         font-size: 12px;
@@ -1880,7 +1880,7 @@ body.exclusive-page-body {
 
 /* Modal Box */
 .exclusive-modal-box {
-    background: white;
+    background: var(--card-bg);
     border-radius: 28px;
     width: 100%;
     max-width: 520px;
@@ -2182,7 +2182,7 @@ body.exclusive-page-body {
     border-radius: 16px;
     font-size: var(--text-base);
     color: var(--gray-800);
-    background: white;
+    background: var(--card-bg);
     transition: all 0.3s ease;
     font-family: inherit;
 }
@@ -2247,7 +2247,7 @@ body.exclusive-page-body {
 }
 
 .exclusive-btn-cancel {
-    background: white;
+    background: var(--card-bg);
     color: var(--gray-700);
     border: 2px solid var(--gray-300);
 }
@@ -2517,7 +2517,7 @@ body.exclusive-page-body {
 }
 
 .btn-extend:hover:not(:disabled) {
-    background: white;
+    background: var(--card-bg);
     color: #7B2CBF;
     border-color: white;
 }
@@ -3668,7 +3668,7 @@ body.exclusive-page-body {
 }
 
 .deadline-alert-modal {
-    background: white;
+    background: var(--card-bg);
     border-radius: 24px;
     padding: var(--space-10);
     max-width: 500px;
@@ -3769,7 +3769,7 @@ body.exclusive-page-body {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    background: white;
+    background: var(--card-bg);
     padding: var(--space-3) var(--space-4);
     border-radius: 12px;
     border: 2px solid #f5576c;

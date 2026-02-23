@@ -191,11 +191,12 @@ body {
 
 /* Cards */
 .card {
-  background: var(--white);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   padding: var(--space-6);
-  transition: box-shadow var(--transition-slow);
+  transition: box-shadow var(--transition-slow), background var(--transition-theme), border-color var(--transition-theme);
 }
 
 .card:hover {

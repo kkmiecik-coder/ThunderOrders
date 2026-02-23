@@ -44,7 +44,7 @@
 .request-card {
     flex: 1 1 340px;
     max-width: 500px;
-    background: #fff;
+    background: var(--card-bg);
     border-radius: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid #e5e7eb;
@@ -332,7 +332,7 @@
     text-align: center;
     padding: 64px 24px;
     color: #6b7280;
-    background: #fff;
+    background: var(--card-bg);
     border-radius: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid #e5e7eb;
@@ -390,7 +390,7 @@
 
 .pagination-btn {
     padding: 8px 12px;
-    background: #fff;
+    background: var(--card-bg);
     border: 1px solid #d1d5db;
     border-radius: 6px;
     font-size: 0.875rem;
@@ -494,7 +494,7 @@
 .orders-select-table thead {
     position: sticky;
     top: 0;
-    background: #ffffff;
+    background: var(--card-bg);
     z-index: 1;
 }
 
