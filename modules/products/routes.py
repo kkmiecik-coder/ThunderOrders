@@ -2565,7 +2565,7 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
     from modules.orders.models import OrderItem
 
     if not product_quantities:
-        return
+        return 0
 
     email_queue = []
     remaining = dict(product_quantities)
@@ -2591,16 +2591,23 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
                 })
 
     # Emaile wysylane po uzyciu (caller robi commit, wiec status_display_name bedzie aktualny)
+    emails_sent = 0
     if email_queue:
         from utils.email_manager import EmailManager
         # Flush zeby order.status_display_name zwrocil nowa nazwe
         db.session.flush()
         for data in email_queue:
-            EmailManager.notify_status_change(
-                data['order'],
-                data['old_status'],
-                data['order'].status_display_name
-            )
+            try:
+                EmailManager.notify_status_change(
+                    data['order'],
+                    data['old_status'],
+                    data['order'].status_display_name
+                )
+                emails_sent += 1
+            except Exception as e:
+                current_app.logger.error(f"Failed to send status email for order {data['order'].id}: {e}")
+
+    return emails_sent
 
 
 def _update_client_orders_on_polska_ordered():
@@ -2637,7 +2644,7 @@ def _update_client_orders_on_polska_ordered():
         )
     ).all()
 
-    _apply_coverage_status_update(ordered, client_orders, 'w_drodze_polska')
+    return _apply_coverage_status_update(ordered, client_orders, 'w_drodze_polska')
 
 
 def _update_client_orders_if_fully_delivered(proxy_order_type):
@@ -2653,7 +2660,7 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
     ORDER_TYPE_TO_STAGES = {'polska': 3, 'proxy': 4}
     target_stages = ORDER_TYPE_TO_STAGES.get(proxy_order_type)
     if not target_stages:
-        return
+        return 0
 
     delivered = dict(
         db.session.query(
@@ -2671,7 +2678,7 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
-    _apply_coverage_status_update(delivered, client_orders, 'dostarczone_proxy')
+    return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_proxy')
 
 
 def _update_client_orders_on_customs():
@@ -2701,7 +2708,7 @@ def _update_client_orders_on_customs():
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
-    _apply_coverage_status_update(at_customs, client_orders, 'urzad_celny')
+    return _apply_coverage_status_update(at_customs, client_orders, 'urzad_celny')
 
 
 def _update_client_orders_on_gom_delivery():
@@ -2731,7 +2738,7 @@ def _update_client_orders_on_gom_delivery():
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
-    _apply_coverage_status_update(delivered, client_orders, 'dostarczone_gom')
+    return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_gom')
 
 
 @products_bp.route('/proxy-orders/<int:order_id>/status', methods=['PUT'])
@@ -2754,8 +2761,9 @@ def update_proxy_order_status(order_id):
         proxy_order.status = new_status
 
         # Gdy status zmienia się na 'dostarczone_do_proxy', sprawdź zamówienia klientów
+        emails_sent = 0
         if new_status == 'dostarczone_do_proxy' and old_status != 'dostarczone_do_proxy':
-            _update_client_orders_if_fully_delivered(proxy_order.order_type)
+            emails_sent = _update_client_orders_if_fully_delivered(proxy_order.order_type) or 0
 
         db.session.commit()
 
@@ -2771,7 +2779,8 @@ def update_proxy_order_status(order_id):
         return jsonify({
             'success': True,
             'new_status': new_status,
-            'message': f'Status zamówienia {proxy_order.order_number} zmieniony z {old_status} na {new_status}'
+            'message': f'Status zamówienia {proxy_order.order_number} zmieniony z {old_status} na {new_status}',
+            'emails_sent': emails_sent
         })
     except Exception as e:
         db.session.rollback()
@@ -2829,12 +2838,13 @@ def update_poland_order_status(order_id):
         poland_order.status = new_status
 
         # Gdy status zmienia się na 'urzad_celny', zaktualizuj zamówienia klientów
+        emails_sent = 0
         if new_status == 'urzad_celny' and old_status != 'urzad_celny':
-            _update_client_orders_on_customs()
+            emails_sent = _update_client_orders_on_customs() or 0
 
         # Gdy status zmienia się na 'dostarczone_gom', sprawdź zamówienia klientów
         if new_status == 'dostarczone_gom' and old_status != 'dostarczone_gom':
-            _update_client_orders_on_gom_delivery()
+            emails_sent = _update_client_orders_on_gom_delivery() or 0
 
         db.session.commit()
 
@@ -2850,7 +2860,8 @@ def update_poland_order_status(order_id):
         return jsonify({
             'success': True,
             'new_status': new_status,
-            'message': f'Status zamówienia {poland_order.order_number} zmieniony z {old_status} na {new_status}'
+            'message': f'Status zamówienia {poland_order.order_number} zmieniony z {old_status} na {new_status}',
+            'emails_sent': emails_sent
         })
     except Exception as e:
         db.session.rollback()

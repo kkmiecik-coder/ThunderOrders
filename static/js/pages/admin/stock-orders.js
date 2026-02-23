@@ -119,8 +119,8 @@ let polandOrderData = {
 function openPolandOrderModal() {
     const checkedBoxes = document.querySelectorAll('.proxy-checkbox:checked');
     if (checkedBoxes.length === 0) {
-        if (window.Toast) {
-            window.Toast.show('Zaznacz zamówienia Proxy do wysłania do Polski', 'warning');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Zaznacz zamówienia Proxy do wysłania do Polski', 'warning');
         }
         return;
     }
@@ -599,8 +599,8 @@ function confirmPolandOrder() {
     }
 
     if (errors.length > 0) {
-        if (window.Toast) {
-            window.Toast.show(errors[0], 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast(errors[0], 'error');
         }
         return;
     }
@@ -640,16 +640,16 @@ function confirmPolandOrder() {
     .then(data => {
         if (data.success) {
             closePolandModal();
-            if (window.Toast) {
-                window.Toast.show(`Zamówienie do Polski utworzone! Numer: ${data.order_number}`, 'success');
+            if (typeof window.showToast === 'function') {
+                window.showToast(`Zamówienie do Polski utworzone! Numer: ${data.order_number}`, 'success');
             }
             // Redirect to POLSKA tab
             setTimeout(() => {
                 window.location.href = '/admin/products/stock-orders?tab=polska';
             }, 1000);
         } else {
-            if (window.Toast) {
-                window.Toast.show('Błąd: ' + (data.error || 'Nieznany błąd'), 'error');
+            if (typeof window.showToast === 'function') {
+                window.showToast('Błąd: ' + (data.error || 'Nieznany błąd'), 'error');
             }
             btn.disabled = false;
             btn.textContent = 'Potwierdz zamowienie';
@@ -657,8 +657,8 @@ function confirmPolandOrder() {
     })
     .catch(error => {
         console.error('Error creating Poland order:', error);
-        if (window.Toast) {
-            window.Toast.show('Wystąpił błąd podczas tworzenia zamówienia', 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Wystąpił błąd podczas tworzenia zamówienia', 'error');
         }
         btn.disabled = false;
         btn.textContent = 'Potwierdz zamowienie';
@@ -801,7 +801,7 @@ function openCustomsVatModalForItem(orderId, itemId) {
 function openBulkCustomsVatModal() {
     const checkedBoxes = document.querySelectorAll('.poland-checkbox:checked');
     if (checkedBoxes.length === 0) {
-        if (window.Toast) window.Toast.show('Zaznacz zamówienia Polska', 'warning');
+        if (typeof window.showToast === 'function') window.showToast('Zaznacz zamówienia Polska', 'warning');
         return;
     }
 
@@ -970,7 +970,7 @@ function updateCustomsVatTotal() {
 function applyGlobalCustomsPercentage() {
     const globalPercent = parseFloat(document.getElementById('customsVatGlobalPercent').value);
     if (isNaN(globalPercent) || globalPercent < 0) {
-        if (window.Toast) window.Toast.show('Wpisz poprawny procent', 'warning');
+        if (typeof window.showToast === 'function') window.showToast('Wpisz poprawny procent', 'warning');
         return;
     }
 
@@ -997,7 +997,7 @@ function saveCustomsVat() {
     });
 
     if (items.length === 0) {
-        if (window.Toast) window.Toast.show('Brak danych do zapisania', 'warning');
+        if (typeof window.showToast === 'function') window.showToast('Brak danych do zapisania', 'warning');
         return;
     }
 
@@ -1040,14 +1040,14 @@ function saveCustomsVat() {
                 }
 
                 closeCustomsVatModal();
-                if (window.Toast) window.Toast.show('Cło/VAT zapisane pomyślnie', 'success');
+                if (typeof window.showToast === 'function') window.showToast('Cło/VAT zapisane pomyślnie', 'success');
             } else {
-                if (window.Toast) window.Toast.show('Błąd: ' + data.error, 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd: ' + data.error, 'error');
             }
         })
         .catch(err => {
             console.error('Error saving customs/VAT:', err);
-            if (window.Toast) window.Toast.show('Błąd połączenia z serwerem', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Błąd połączenia z serwerem', 'error');
         });
 }
 
@@ -1413,16 +1413,24 @@ function _changeOrderStatus(tab, orderId, newStatus) {
                 row.dataset.statusChanged = Math.floor(now.getTime() / 1000);
             }
 
-            if (window.Toast) {
-                window.Toast.show(data.message || 'Status zamówienia zmieniony', 'success');
+            if (typeof window.showToast === 'function') {
+                window.showToast(data.message || 'Status zamówienia zmieniony', 'success');
+            }
+
+            // Powiadomienie o wysłanych emailach do klientów
+            if (data.emails_sent > 0 && typeof window.showToast === 'function') {
+                const emailMsg = data.emails_sent === 1
+                    ? 'Wysłano email do klienta o zmianie statusu zamówienia'
+                    : `Wysłano email do ${data.emails_sent} klientów o zmianie statusu zamówienia`;
+                window.showToast(emailMsg, 'info');
             }
         } else {
-            if (window.Toast) window.Toast.show('Błąd: ' + data.error, 'error');
+            if (typeof window.showToast === 'function') window.showToast('Błąd: ' + data.error, 'error');
         }
     })
     .catch(error => {
         console.error('Status change error:', error);
-        if (window.Toast) window.Toast.show('Wystąpił błąd podczas zmiany statusu', 'error');
+        if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd podczas zmiany statusu', 'error');
     });
 }
 
@@ -1445,15 +1453,15 @@ function _deleteOrder(tab, orderId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            if (window.Toast) window.Toast.show(`Zamówienie${label ? ' ' + label : ''} zostało usunięte`, 'success');
+            if (typeof window.showToast === 'function') window.showToast(`Zamówienie${label ? ' ' + label : ''} zostało usunięte`, 'success');
             setTimeout(() => { window.location.reload(); }, 500);
         } else {
-            if (window.Toast) window.Toast.show('Błąd: ' + data.error, 'error');
+            if (typeof window.showToast === 'function') window.showToast('Błąd: ' + data.error, 'error');
         }
     })
     .catch(error => {
         console.error('Delete error:', error);
-        if (window.Toast) window.Toast.show('Wystąpił błąd podczas usuwania zamówienia', 'error');
+        if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd podczas usuwania zamówienia', 'error');
     });
 }
 
@@ -1481,9 +1489,9 @@ function _bulkDeleteOrders(tab) {
             if (!data.success) errors++;
             if (completed === orderIds.length) {
                 if (errors === 0) {
-                    if (window.Toast) window.Toast.show(`Usunięto ${orderIds.length} zamówień`, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(`Usunięto ${orderIds.length} zamówień`, 'success');
                 } else {
-                    if (window.Toast) window.Toast.show(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    if (typeof window.showToast === 'function') window.showToast(`Usunięto ${completed - errors} zamówień, ${errors} błędów`, 'warning');
                 }
                 setTimeout(() => { window.location.reload(); }, 500);
             }
@@ -1544,9 +1552,9 @@ function _bulkMove(targetTab) {
                 updateSelectAllState();
 
                 if (errors === 0) {
-                    if (window.Toast) window.Toast.show(`Przeniesiono ${successfulMoves.length} zamówień do zakładki ${targetLabel}`, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(`Przeniesiono ${successfulMoves.length} zamówień do zakładki ${targetLabel}`, 'success');
                 } else {
-                    if (window.Toast) window.Toast.show(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    if (typeof window.showToast === 'function') window.showToast(`Przeniesiono ${completed - errors} zamówień, ${errors} błędów`, 'warning');
                 }
 
                 setTimeout(() => {
@@ -1663,6 +1671,7 @@ function applyBulkStatus(newStatus) {
 
     let completed = 0;
     let errors = 0;
+    let totalEmailsSent = 0;
 
     orderIds.forEach(orderId => {
         const endpoint = activeTab === 'polska'
@@ -1679,6 +1688,8 @@ function applyBulkStatus(newStatus) {
             completed++;
 
             if (data.success) {
+                totalEmailsSent += (data.emails_sent || 0);
+
                 const row = document.getElementById(`${rowPrefix}-${orderId}`);
 
                 if (row) {
@@ -1705,13 +1716,21 @@ function applyBulkStatus(newStatus) {
                 _updateSelectAllState(activeTab);
 
                 if (errors === 0) {
-                    if (window.Toast) {
-                        window.Toast.show(`Status ${orderIds.length} zamówień został zmieniony`, 'success');
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(`Status ${orderIds.length} zamówień został zmieniony`, 'success');
                     }
                 } else {
-                    if (window.Toast) {
-                        window.Toast.show(`Zmieniono status ${completed - errors} zamówień, ${errors} błędów`, 'warning');
+                    if (typeof window.showToast === 'function') {
+                        window.showToast(`Zmieniono status ${completed - errors} zamówień, ${errors} błędów`, 'warning');
                     }
+                }
+
+                // Powiadomienie o wysłanych emailach do klientów
+                if (totalEmailsSent > 0 && typeof window.showToast === 'function') {
+                    const emailMsg = totalEmailsSent === 1
+                        ? 'Wysłano email do klienta o zmianie statusu zamówienia'
+                        : `Wysłano email do ${totalEmailsSent} klientów o zmianie statusu zamówienia`;
+                    window.showToast(emailMsg, 'info');
                 }
             }
         })
@@ -1972,8 +1991,8 @@ document.querySelectorAll('.to-order-checkbox').forEach(box => {
 function openOrderProductsModal() {
     const checkboxes = document.querySelectorAll('.to-order-checkbox:checked');
     if (checkboxes.length === 0) {
-        if (window.Toast) {
-            window.Toast.show('Zaznacz produkty do zamówienia', 'warning');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Zaznacz produkty do zamówienia', 'warning');
         }
         return;
     }
@@ -1986,8 +2005,8 @@ function openOrderProductsModal() {
 
     // WALIDACJA: NIE można mieszać Proxy + Polska
     if (paymentTypes.size > 1) {
-        if (window.Toast) {
-            window.Toast.show('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.', 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.', 'error');
         } else {
             alert('Nie można złożyć zamówienia grupowego łączącego produkty Proxy i Polska. Zaznacz produkty tylko jednego typu.');
         }
@@ -2091,16 +2110,16 @@ function confirmGroupOrder() {
     .then(data => {
         if (data.success) {
             closeGroupOrderModal();
-            if (window.Toast) {
-                window.Toast.show(`Zamówienie grupowe utworzone! Numer: ${data.order_number}`, 'success');
+            if (typeof window.showToast === 'function') {
+                window.showToast(`Zamówienie grupowe utworzone! Numer: ${data.order_number}`, 'success');
             }
             // Przekieruj do odpowiedniej zakładki
             setTimeout(() => {
                 window.location.href = `/admin/products/stock-orders?tab=${orderType}`;
             }, 1000);
         } else {
-            if (window.Toast) {
-                window.Toast.show('Błąd: ' + (data.error || 'Nieznany błąd'), 'error');
+            if (typeof window.showToast === 'function') {
+                window.showToast('Błąd: ' + (data.error || 'Nieznany błąd'), 'error');
             }
             btn.disabled = false;
             btn.innerHTML = `
@@ -2115,8 +2134,8 @@ function confirmGroupOrder() {
     })
     .catch(error => {
         console.error('Error:', error);
-        if (window.Toast) {
-            window.Toast.show('Wystąpił błąd podczas tworzenia zamówienia', 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast('Wystąpił błąd podczas tworzenia zamówienia', 'error');
         }
         btn.disabled = false;
         btn.innerHTML = `
@@ -2164,7 +2183,7 @@ function getSelectedArchiwumIds() {
 function bulkArchivePolandOrders() {
     const orderIds = getSelectedOrderIds();
     if (orderIds.length === 0) {
-        if (window.Toast) window.Toast.show('Zaznacz zamówienia do archiwizacji', 'warning');
+        if (typeof window.showToast === 'function') window.showToast('Zaznacz zamówienia do archiwizacji', 'warning');
         return;
     }
 
@@ -2181,22 +2200,22 @@ function bulkArchivePolandOrders() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            if (window.Toast) window.Toast.show(data.message, 'success');
+            if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
             setTimeout(() => location.reload(), 500);
         } else {
-            if (window.Toast) window.Toast.show(data.error || 'Błąd archiwizacji', 'error');
+            if (typeof window.showToast === 'function') window.showToast(data.error || 'Błąd archiwizacji', 'error');
         }
     })
     .catch(err => {
         console.error('Error:', err);
-        if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+        if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
     });
 }
 
 function bulkUnarchivePolandOrders() {
     const orderIds = getSelectedArchiwumIds();
     if (orderIds.length === 0) {
-        if (window.Toast) window.Toast.show('Zaznacz zamówienia do przywrócenia', 'warning');
+        if (typeof window.showToast === 'function') window.showToast('Zaznacz zamówienia do przywrócenia', 'warning');
         return;
     }
 
@@ -2213,15 +2232,15 @@ function bulkUnarchivePolandOrders() {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            if (window.Toast) window.Toast.show(data.message, 'success');
+            if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
             setTimeout(() => location.reload(), 500);
         } else {
-            if (window.Toast) window.Toast.show(data.error || 'Błąd przywracania', 'error');
+            if (typeof window.showToast === 'function') window.showToast(data.error || 'Błąd przywracania', 'error');
         }
     })
     .catch(err => {
         console.error('Error:', err);
-        if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+        if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
     });
 }
 

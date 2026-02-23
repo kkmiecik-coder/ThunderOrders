@@ -6,25 +6,44 @@
 /* ==========================================
    Base Layout
    ========================================== */
+html:has(.exclusive-page-body) {
+    background-color: #302b63;
+}
+
+.exclusive-page-body {
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%) fixed;
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    margin: 0;
+    padding: 0;
+}
+
 .countdown-page {
     min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     padding: var(--space-6);
+    padding-top: calc(var(--space-6) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+    padding-left: calc(var(--space-6) + env(safe-area-inset-left, 0px));
+    padding-right: calc(var(--space-6) + env(safe-area-inset-right, 0px));
     position: relative;
-    overflow: hidden;
+    z-index: 1;
 }
 
 /* ==========================================
    Animated Background
    ========================================== */
 .animated-bg {
-    position: absolute;
+    position: fixed;
     inset: 0;
-    overflow: hidden;
     pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
 }
 
 /* Floating Orbs */
@@ -534,6 +553,10 @@
 @media (max-width: 600px) {
     .countdown-page {
         padding: var(--space-4);
+        padding-top: calc(var(--space-4) + env(safe-area-inset-top, 0px));
+        padding-bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+        padding-left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
+        padding-right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
     }
 
     .countdown-container {
@@ -543,7 +566,7 @@
 
     /* Logo - smaller on mobile */
     .countdown-logo img {
-        height: 40px;
+        height: 28px;
     }
 
     .countdown-header {
