@@ -1207,3 +1207,242 @@
 [data-theme="dark"] .sr-address-preview .pickup-id {
     color: #f093fb;
 }
+
+/* ==========================================
+   Popup Announcement Modal (klient)
+   Globalny popup wyświetlany po zalogowaniu
+   ========================================== */
+
+/* Overlay */
+.popup-announcement-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(180, 80, 200, 0.5), rgba(200, 50, 90, 0.45), rgba(120, 40, 100, 0.6));
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10500;
+    padding: 20px;
+    opacity: 0;
+    animation: overlay-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Modal */
+.popup-announcement-modal {
+    background: var(--white, #ffffff);
+    border-radius: var(--radius-lg, 12px);
+    box-shadow: var(--shadow-xl, 0 8px 32px rgba(0, 0, 0, 0.2));
+    overflow: hidden;
+    animation: modal-slide-glow 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Rozmiary */
+.popup-announcement-modal.popup-sm { width: 90%; max-width: 400px; }
+.popup-announcement-modal.popup-md { width: 90%; max-width: 560px; }
+.popup-announcement-modal.popup-lg { width: 90%; max-width: 720px; }
+
+/* Nagłówek */
+.popup-announcement-header {
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #5A189A;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+.popup-announcement-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.popup-announcement-close {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.popup-announcement-close:hover {
+    color: #ffffff;
+}
+
+/* Przycisk zamknięcia pływający (zawsze widoczny w rogu) */
+.popup-announcement-close-float {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: inherit;
+    opacity: 0.6;
+    background: rgba(0, 0, 0, 0.1);
+    font-size: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.popup-announcement-close-float:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* Modal potrzebuje position:relative dla float close */
+.popup-announcement-modal {
+    position: relative;
+}
+
+/* Treść */
+.popup-announcement-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--text-primary, #333);
+}
+
+.popup-announcement-body p { margin: 0 0 12px 0; }
+.popup-announcement-body p:last-child { margin-bottom: 0; }
+.popup-announcement-body img { max-width: 100%; height: auto; border-radius: 8px; }
+.popup-announcement-body a { color: #5A189A; text-decoration: underline; }
+.popup-announcement-body ul, .popup-announcement-body ol { padding-left: 20px; margin: 8px 0; }
+.popup-announcement-body h1, .popup-announcement-body h2, .popup-announcement-body h3 { margin: 16px 0 8px 0; }
+
+/* Stopka z CTA */
+.popup-announcement-footer {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    border-top: 1px solid var(--gray-200, #e0e0e0);
+    flex-shrink: 0;
+}
+
+.popup-announcement-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 28px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #ffffff;
+    background: #f093fb;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.popup-announcement-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.4);
+}
+
+/* Animacja zamykania */
+.popup-announcement-overlay.closing {
+    animation: overlay-fade-out 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.popup-announcement-overlay.closing .popup-announcement-modal {
+    animation: modal-close-blur 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+    .popup-announcement-overlay {
+        padding: 16px;
+        align-items: flex-start;
+        padding-top: 40px;
+    }
+
+    .popup-announcement-modal.popup-sm,
+    .popup-announcement-modal.popup-md,
+    .popup-announcement-modal.popup-lg {
+        width: 100%;
+        max-width: none;
+    }
+}
+
+/* ==========================================
+   Popup Announcement - DARK MODE
+   ========================================== */
+[data-theme="dark"] .popup-announcement-overlay {
+    background: linear-gradient(135deg, rgba(15, 12, 41, 0.85), rgba(48, 16, 48, 0.8), rgba(15, 12, 41, 0.9));
+}
+
+[data-theme="dark"] .popup-announcement-modal {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(240, 147, 251, 0.1);
+    animation: modal-slide-glow-dark 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"] .popup-announcement-header {
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .popup-announcement-close {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .popup-announcement-close:hover {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .popup-announcement-close-float {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .popup-announcement-close-float:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .popup-announcement-body {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .popup-announcement-body a {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .popup-announcement-footer {
+    border-top-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .popup-announcement-cta {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .popup-announcement-cta:hover {
+    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+    box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
+}

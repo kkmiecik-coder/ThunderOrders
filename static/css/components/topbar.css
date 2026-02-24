@@ -86,14 +86,17 @@
   color: var(--text-tertiary);
 }
 
-.topbar-search-text kbd {
+.topbar-search-kbd {
   display: inline-block;
   padding: 2px 6px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-primary);
   border-radius: 4px;
   font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
   margin-left: auto;
+  line-height: 1.4;
 }
 
 /* Topbar Right */
@@ -132,22 +135,117 @@
   opacity: 1;
 }
 
-/* Dark Mode Toggle */
-#darkModeToggle .icon-light {
+/* Dark Mode Toggle (in dropdown) */
+.topbar-dropdown-theme {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+
+.topbar-dropdown-theme .icon-light {
   display: block;
 }
 
-#darkModeToggle .icon-dark {
+.topbar-dropdown-theme .icon-dark {
   display: none;
 }
 
-[data-theme="dark"] #darkModeToggle .icon-light {
+[data-theme="dark"] .topbar-dropdown-theme .icon-light {
   display: none;
 }
 
-[data-theme="dark"] #darkModeToggle .icon-dark {
+[data-theme="dark"] .topbar-dropdown-theme .icon-dark {
   display: block;
-  filter: brightness(0) invert(1);
+}
+
+.topbar-dropdown-theme-text .text-light {
+  display: inline;
+}
+
+.topbar-dropdown-theme-text .text-dark {
+  display: none;
+}
+
+[data-theme="dark"] .topbar-dropdown-theme-text .text-light {
+  display: none;
+}
+
+[data-theme="dark"] .topbar-dropdown-theme-text .text-dark {
+  display: inline;
+}
+
+/* Facebook Group Button */
+.topbar-fb-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(24, 119, 242, 0.08);
+  border: 1px solid rgba(24, 119, 242, 0.15);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.topbar-fb-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(24, 119, 242, 0.08), transparent);
+  transition: left 0.5s ease;
+}
+
+.topbar-fb-btn:hover::before {
+  left: 100%;
+}
+
+.topbar-fb-btn:hover {
+  background: rgba(24, 119, 242, 0.14);
+  border-color: rgba(24, 119, 242, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(24, 119, 242, 0.15);
+}
+
+.topbar-fb-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.topbar-fb-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1877f2;
+  white-space: nowrap;
+}
+
+/* Dark mode - Facebook button */
+[data-theme="dark"] .topbar-fb-btn {
+  background: rgba(24, 119, 242, 0.1);
+  border-color: rgba(24, 119, 242, 0.2);
+}
+
+[data-theme="dark"] .topbar-fb-btn::before {
+  background: linear-gradient(90deg, transparent, rgba(24, 119, 242, 0.12), transparent);
+}
+
+[data-theme="dark"] .topbar-fb-btn:hover {
+  background: rgba(24, 119, 242, 0.18);
+  border-color: rgba(24, 119, 242, 0.35);
+  box-shadow: 0 2px 12px rgba(24, 119, 242, 0.2);
+}
+
+[data-theme="dark"] .topbar-fb-text {
+  color: #4a9eff;
 }
 
 /* User Dropdown */
@@ -574,6 +672,47 @@
   display: inline;
 }
 
+/* Mobile Facebook Group Button */
+.mobile-menu-fb-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(24, 119, 242, 0.12);
+  color: #4a9eff;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
+  transition: background var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-menu-fb-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(24, 119, 242, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.mobile-menu-fb-btn:hover::before {
+  left: 100%;
+}
+
+.mobile-menu-fb-btn:hover {
+  background: rgba(24, 119, 242, 0.2);
+}
+
+.mobile-menu-fb-icon {
+  width: 16px;
+  height: 16px;
+}
+
 .mobile-menu-logout {
   display: flex;
   align-items: center;
@@ -595,6 +734,16 @@
 /* ==================== */
 /* Responsive           */
 /* ==================== */
+@media (max-width: 1024px) {
+  .topbar-fb-text {
+    display: none;
+  }
+
+  .topbar-fb-btn {
+    padding: 6px 8px;
+  }
+}
+
 @media (max-width: 768px) {
   .topbar {
     display: none;

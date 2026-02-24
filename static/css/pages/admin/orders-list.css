@@ -18,8 +18,8 @@
    ==================== */
 
 .status-sidebar {
-    width: 220px;
-    min-width: 220px;
+    width: 270px;
+    min-width: 270px;
     background: linear-gradient(180deg, #f8f5ff 0%, #fff 100%);
     border-right: 1px solid rgba(157, 78, 221, 0.15);
     padding: 1.5rem 0;
@@ -36,7 +36,7 @@
 
 /* Adjust main content to account for fixed status sidebar */
 .orders-list-page {
-    margin-left: 220px;
+    margin-left: 270px;
     flex: 1;
 }
 
@@ -881,6 +881,12 @@
     width: 40px;
 }
 
+.orders-table-new input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
 .actions-col {
     width: 100px;
     text-align: right;
@@ -1509,7 +1515,7 @@
 }
 
 .orders-table-new th {
-    font-size: 0.7rem;
+    font-size: 0.9rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1743,7 +1749,7 @@
 
 .status-icon-warning {
     background: #FFC107;
-    color: #fff;
+    color: #333;
 }
 
 .status-icon-danger {
@@ -1758,6 +1764,11 @@
 
 .status-icon-info {
     background: #2196F3;
+    color: #fff;
+}
+
+.status-icon-pending {
+    background: #42A5F5;
     color: #fff;
 }
 
@@ -1793,6 +1804,19 @@
 .date-updated {
     font-size: 0.75rem;
     color: #2196F3;
+}
+
+/* Podtytuł w nagłówku kolumny */
+.th-subtitle {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #2196F3;
+    margin-top: 2px;
+}
+
+[data-theme="dark"] .th-subtitle {
+    color: #64B5F6;
 }
 
 /* Hide on mobile */
@@ -2400,6 +2424,10 @@
    NEW TABLE - DARK MODE
    ==================================== */
 
+[data-theme="dark"] .orders-table-new input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
 [data-theme="dark"] .orders-table-new th {
     color: rgba(255, 255, 255, 0.6);
     border-bottom-color: rgba(240, 147, 251, 0.15);
@@ -2483,6 +2511,10 @@
     background: #EF5350;
 }
 
+[data-theme="dark"] .status-icon-pending {
+    background: #64B5F6;
+}
+
 [data-theme="dark"] .status-icon-link:hover {
     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.5);
 }
@@ -2537,10 +2569,10 @@
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 500;
-    white-space: normal;
+    white-space: pre-line;
     width: max-content;
     max-width: 280px;
-    text-align: center;
+    text-align: left;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 

@@ -632,6 +632,112 @@ class Order(db.Model):
             return []
         return [ro.order for ro in sr.request_orders if ro.order and ro.order.id != self.id]
 
+    # === WŁAŚCIWOŚCI IKON (lista zamówień admin) ===
+
+    @property
+    def payment_icon_state(self):
+        """Zwraca dict z css_class i tooltip dla ikony statusu płatności."""
+        from decimal import Decimal
+
+        paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
+        grand = self.grand_total
+
+        # Zamówienia exclusive z etapami płatności
+        if self.is_exclusive and self.payment_stages:
+            stages_info = []
+            statuses = []
+
+            # Mapa ikon statusów etapów
+            default_icon = '\u2b55'
+            status_icons = {'approved': '\u2705', 'pending': '\u23f3', 'rejected': '\u274c', 'none': default_icon}
+
+            # Kwoty do zapłaty z pól zamówienia
+            e1_due = Decimal(str(self.total_amount)) if self.total_amount else Decimal('0.00')
+            e3_due = Decimal(str(self.customs_vat_sale_cost)) if self.customs_vat_sale_cost else Decimal('0.00')
+            e4_due = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
+
+            # E1: Produkt
+            e1_status = self.product_payment_status
+            e1_conf = self.product_payment_confirmation
+            e1_paid = e1_conf.amount if e1_conf and e1_conf.is_approved else Decimal('0.00')
+            e1_icon = status_icons.get(e1_status, default_icon)
+            stages_info.append(f"E1 Produkt: {e1_icon} {e1_paid} / {e1_due} z\u0142")
+            statuses.append(e1_status)
+
+            # E2: Wysyłka KR (tylko dla 4-etapowych)
+            if self.payment_stages == 4:
+                e2_due = Decimal(str(self.proxy_shipping_cost)) if self.proxy_shipping_cost else Decimal('0.00')
+                e2_status = self.stage_2_status or 'none'
+                e2_conf = self.stage_2_confirmation
+                e2_paid = e2_conf.amount if e2_conf and e2_conf.is_approved else Decimal('0.00')
+                e2_icon = status_icons.get(e2_status, default_icon)
+                stages_info.append(f"E2 Wysy\u0142ka KR: {e2_icon} {e2_paid} / {e2_due} z\u0142")
+                statuses.append(e2_status)
+
+            # E3: Cło/VAT
+            e3_status = self.stage_3_status
+            e3_conf = self.stage_3_confirmation
+            e3_paid = e3_conf.amount if e3_conf and e3_conf.is_approved else Decimal('0.00')
+            e3_icon = status_icons.get(e3_status, default_icon)
+            stages_info.append(f"E3 C\u0142o/VAT: {e3_icon} {e3_paid} / {e3_due} z\u0142")
+            statuses.append(e3_status)
+
+            # E4: Wysyłka PL
+            e4_status = self.stage_4_status
+            e4_conf = self.stage_4_confirmation
+            e4_paid = e4_conf.amount if e4_conf and e4_conf.is_approved else Decimal('0.00')
+            e4_icon = status_icons.get(e4_status, default_icon)
+            stages_info.append(f"E4 Wysy\u0142ka PL: {e4_icon} {e4_paid} / {e4_due} z\u0142")
+            statuses.append(e4_status)
+
+            tooltip = '\n'.join(stages_info)
+
+            # Ustal klasę CSS na podstawie statusów etapów
+            if all(s == 'approved' for s in statuses):
+                return {'css_class': 'active', 'tooltip': tooltip}
+            if 'rejected' in statuses:
+                return {'css_class': 'danger', 'tooltip': tooltip}
+            if 'pending' in statuses:
+                return {'css_class': 'pending', 'tooltip': tooltip}
+            if 'approved' in statuses:
+                return {'css_class': 'warning', 'tooltip': tooltip}
+            return {'css_class': 'inactive', 'tooltip': tooltip}
+
+        # Zamówienia standardowe (nie-exclusive)
+        payment_method = self.payment_method_display
+        shipping = self.shipping_cost or Decimal('0.00')
+        tooltip = f"Op\u0142acone: {paid}/{grand} z\u0142 ({int(paid / grand * 100) if grand > 0 else 0}%) | Metoda: {payment_method} | Wysy\u0142ka: {shipping} z\u0142"
+
+        if grand == Decimal('0.00'):
+            return {'css_class': 'inactive', 'tooltip': tooltip}
+        if self.is_fully_paid or self.is_overpaid:
+            return {'css_class': 'active', 'tooltip': tooltip}
+        if self.is_partially_paid:
+            return {'css_class': 'warning', 'tooltip': tooltip}
+        return {'css_class': 'danger', 'tooltip': tooltip}
+
+    @property
+    def shipping_icon_state(self):
+        """Zwraca dict z css_class i tooltip dla ikony statusu wysyłki/kuriera."""
+        if self.has_tracking:
+            shipment = self.first_shipment
+            courier_name = shipment.courier_display_name if shipment else 'Nieznany'
+            tracking = shipment.tracking_number if shipment else '-'
+            return {
+                'css_class': 'active',
+                'tooltip': f"Wys\u0142ane\nTracking: {tracking}\nKurier: {courier_name}"
+            }
+        if self.is_in_shipping_request:
+            sr = self.shipping_request
+            return {
+                'css_class': 'warning',
+                'tooltip': f"Zlecenie {sr.request_number}\nStatus: {sr.status_display_name}"
+            }
+        return {
+            'css_class': 'inactive',
+            'tooltip': 'Brak zlecenia wysy\u0142ki'
+        }
+
     # === PAYMENT CONFIRMATIONS PROPERTIES ===
 
     @property

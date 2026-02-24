@@ -123,7 +123,7 @@
             </li>
 
             <li class="sidebar-item">
-                <a href="#"
+                <a href="{{ url_for('admin.statistics') }}"
                    class="sidebar-link {% if request.endpoint and 'statistics' in request.endpoint %}active{% endif %}"
                    data-tooltip="Statystyki">
                     <img src="{{ url_for('static', filename='img/icons/dashboard.svg') }}" alt="Statystyki" class="sidebar-icon">
@@ -146,6 +146,15 @@
                    data-tooltip="Feedback">
                     <img src="{{ url_for('static', filename='img/icons/feedback.svg') }}" alt="Feedback" class="sidebar-icon">
                     <span class="sidebar-text">Feedback</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="{{ url_for('admin.popups_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'popup' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Popupy">
+                    <img src="{{ url_for('static', filename='img/icons/popups.svg') }}" alt="Popupy" class="sidebar-icon">
+                    <span class="sidebar-text">Popupy</span>
                 </a>
             </li>
         </ul>

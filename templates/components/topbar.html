@@ -9,19 +9,32 @@
 
     <!-- Center: Search -->
     <div class="topbar-center">
+        <!-- Search Dropdown (shown when active) -->
+        <div class="global-search-wrapper" id="globalSearchWrapper">
+            <div class="global-search-input-wrapper">
+                <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search" class="global-search-icon">
+                <input type="text" id="globalSearchInput" class="global-search-input"
+                       placeholder="Szukaj..."
+                       autocomplete="off" spellcheck="false">
+                <kbd class="global-search-kbd">ESC</kbd>
+            </div>
+            <div class="global-search-dropdown" id="globalSearchDropdown"></div>
+        </div>
+        <!-- Search Button (hidden when dropdown active) -->
         <button class="topbar-search-btn" id="globalSearchBtn">
             <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search">
-            <span class="topbar-search-text">Szukaj... <kbd>⌘K</kbd></span>
+            <span class="topbar-search-text">Szukaj...</span>
+            <kbd class="topbar-search-kbd">⌘K</kbd>
         </button>
     </div>
 
     <!-- Right: Actions -->
     <div class="topbar-right">
-        <!-- Dark Mode Toggle -->
-        <button class="topbar-btn" id="darkModeToggle" aria-label="Toggle dark mode">
-            <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="Light mode" class="icon-light">
-            <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="Dark mode" class="icon-dark">
-        </button>
+        <!-- Facebook Group -->
+        <a href="https://www.facebook.com/groups/2598228800416411" target="_blank" rel="noopener noreferrer" class="topbar-fb-btn" aria-label="Grupa Facebook">
+            <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders" class="topbar-fb-icon">
+            <span class="topbar-fb-text">Grupa FB</span>
+        </a>
 
         <!-- User Dropdown -->
         <div class="topbar-user-dropdown">
@@ -46,6 +59,15 @@
                     <span>Mój Profil</span>
                 </a>
                 <div class="topbar-dropdown-divider"></div>
+                <button class="topbar-dropdown-item topbar-dropdown-theme" id="darkModeToggle" aria-label="Toggle dark mode">
+                    <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="Light mode" class="icon-light">
+                    <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="Dark mode" class="icon-dark">
+                    <span class="topbar-dropdown-theme-text">
+                        <span class="text-light">Tryb ciemny</span>
+                        <span class="text-dark">Tryb jasny</span>
+                    </span>
+                </button>
+                <div class="topbar-dropdown-divider"></div>
                 <a href="{{ url_for('auth.logout') }}" class="topbar-dropdown-item topbar-dropdown-item-danger">
                     <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
                     <span>Wyloguj</span>
@@ -69,6 +91,23 @@
         <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search">
     </button>
 </header>
+
+<!-- Global Search Backdrop (desktop) -->
+<div class="global-search-backdrop" id="globalSearchBackdrop"></div>
+
+<!-- Global Search Mobile Overlay -->
+<div class="global-search-mobile-overlay" id="globalSearchMobileOverlay">
+    <div class="global-search-mobile-header">
+        <button class="global-search-mobile-back" id="globalSearchMobileBack" aria-label="Zamknij wyszukiwanie">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M10 3L5 8l5 5"/>
+            </svg>
+        </button>
+        <input type="text" id="globalSearchMobileInput" class="global-search-mobile-input"
+               placeholder="Szukaj..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="global-search-mobile-results" id="globalSearchMobileResults"></div>
+</div>
 
 <!-- Mobile Menu Overlay -->
 <div class="mobile-menu-overlay" id="mobileMenuOverlay">
@@ -109,6 +148,11 @@
                     <span class="text-dark">Tryb ciemny</span>
                 </span>
             </button>
+
+            <a href="https://www.facebook.com/groups/2598228800416411" target="_blank" rel="noopener noreferrer" class="mobile-menu-fb-btn">
+                <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders" class="mobile-menu-fb-icon">
+                <span>Grupa Facebook</span>
+            </a>
 
             <a href="{{ url_for('auth.logout') }}" class="mobile-menu-logout">
                 <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">

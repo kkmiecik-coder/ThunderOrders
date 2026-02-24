@@ -10,35 +10,42 @@
    Page Header
    ================================================ */
 
-.page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--space-8);
-    gap: var(--space-4);
+.shipping-addresses-page .page-header {
+    margin-bottom: var(--space-6);
 }
 
-.page-header .header-content {
-    flex: 1;
-}
-
-.page-title {
-    font-size: var(--text-3xl);
-    font-weight: var(--font-bold);
+.shipping-addresses-page .page-header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
     color: var(--text-primary);
-    margin-bottom: var(--space-2);
+    margin: 0;
 }
 
-.page-subtitle {
-    font-size: var(--text-base);
+.shipping-addresses-page .page-description {
     color: var(--text-secondary);
+    margin-top: var(--space-2);
+    font-size: var(--text-base);
+    line-height: 1.5;
 }
 
-.page-header .btn-primary {
+[data-theme="dark"] .shipping-addresses-page .page-header h1 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .shipping-addresses-page .page-description {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Actions Bar */
+.addresses-actions-bar {
+    display: flex;
+    margin-bottom: var(--space-6);
+}
+
+.addresses-actions-bar .btn-primary {
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    white-space: nowrap;
 }
 
 /* ================================================
@@ -784,7 +791,7 @@
 }
 
 /* Buttons with icons */
-.page-header .btn,
+.addresses-actions-bar .btn,
 .empty-state .btn,
 .address-card__actions .btn,
 .modal-footer .btn {
@@ -895,23 +902,28 @@
    Responsive Styles
    ================================================ */
 
+@media (max-width: 1024px) {
+    .shipping-addresses-page {
+        padding: var(--space-4) var(--space-6);
+    }
+
+    .shipping-addresses-page .page-header h1 {
+        font-size: 2rem;
+    }
+}
+
 @media (max-width: 768px) {
     .shipping-addresses-page {
         padding: var(--space-4);
     }
 
-    .page-header {
-        flex-direction: column;
-        align-items: stretch;
+    .shipping-addresses-page .page-header h1 {
+        font-size: 1.75rem;
     }
 
-    .page-header .btn-primary {
+    .addresses-actions-bar .btn-primary {
         width: 100%;
         justify-content: center;
-    }
-
-    .page-title {
-        font-size: var(--text-2xl);
     }
 
     .addresses-grid {
@@ -962,6 +974,10 @@
 }
 
 @media (max-width: 480px) {
+    .shipping-addresses-page .page-header h1 {
+        font-size: 1.5rem;
+    }
+
     .address-card {
         padding: var(--space-4);
     }

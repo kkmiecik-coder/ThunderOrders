@@ -349,8 +349,9 @@ function init() {
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
       e.preventDefault();
-      // TODO: Open global search modal
-      console.log('Global search triggered');
+      if (window.GlobalSearch) {
+        window.GlobalSearch.open();
+      }
     }
   });
 

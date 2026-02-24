@@ -1,0 +1,196 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Popupy - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/popups.css') }}?v=2">
+{% endblock %}
+
+{% block content %}
+<div class="popups-page">
+    <!-- Nagłówek -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 class="page-title">Popupy / Ogłoszenia</h1>
+            <p class="page-subtitle">Zarządzaj wyskakującymi ogłoszeniami dla użytkowników</p>
+        </div>
+        <a href="{{ url_for('admin.popup_create') }}" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Nowy popup
+        </a>
+    </div>
+
+    <!-- Filtry statusu -->
+    <div class="popups-tabs">
+        <a href="{{ url_for('admin.popups_list', status='all') }}"
+           class="popups-tab {% if status_filter == 'all' %}active{% endif %}">
+            Wszystkie
+        </a>
+        <a href="{{ url_for('admin.popups_list', status='draft') }}"
+           class="popups-tab {% if status_filter == 'draft' %}active{% endif %}">
+            Draft
+        </a>
+        <a href="{{ url_for('admin.popups_list', status='active') }}"
+           class="popups-tab {% if status_filter == 'active' %}active{% endif %}">
+            Aktywne
+        </a>
+        <a href="{{ url_for('admin.popups_list', status='archived') }}"
+           class="popups-tab {% if status_filter == 'archived' %}active{% endif %}">
+            Zarchiwizowane
+        </a>
+    </div>
+
+    <!-- Lista popupów -->
+    {% if popups %}
+    <div class="popups-table-wrapper">
+        <table class="popups-table">
+            <thead>
+                <tr>
+                    <th>Tytuł</th>
+                    <th>Status</th>
+                    <th>Tryb</th>
+                    <th>Target</th>
+                    <th>Rozmiar</th>
+                    <th>Priorytet</th>
+                    <th>Statystyki</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for popup in popups %}
+                <tr data-popup-id="{{ popup.id }}">
+                    <td>
+                        <a href="{{ url_for('admin.popup_edit', popup_id=popup.id) }}" class="popup-title-link">
+                            {{ popup.title }}
+                        </a>
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ popup.status }}">
+                            {{ popup.status }}
+                        </span>
+                    </td>
+                    <td class="text-sm text-secondary">
+                        {% if popup.display_mode == 'once' %}Jednorazowo
+                        {% elif popup.display_mode == 'every_login' %}Każde logowanie
+                        {% elif popup.display_mode == 'first_login' %}Pierwsze logowanie
+                        {% endif %}
+                    </td>
+                    <td class="text-sm text-secondary">
+                        {% set roles = popup.get_target_roles() %}
+                        {% if roles %}
+                            {{ roles | join(', ') }}
+                        {% else %}
+                            Wszyscy
+                        {% endif %}
+                    </td>
+                    <td class="text-sm text-secondary">{{ popup.modal_size | upper }}</td>
+                    <td class="text-sm text-secondary">{{ popup.priority }}</td>
+                    <td>
+                        <div class="popup-stats" data-popup-id="{{ popup.id }}">
+                            <span class="stat-item" title="Unikalni użytkownicy">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+                                <span class="stat-unique">--</span>
+                            </span>
+                            <span class="stat-item" title="Wyświetlenia">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <span class="stat-views">--</span>
+                            </span>
+                            <span class="stat-item" title="Zamknięcia">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <span class="stat-dismissed">--</span>
+                            </span>
+                            <span class="stat-item" title="Kliknięcia CTA">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                                <span class="stat-cta">--</span>
+                            </span>
+                            <span class="stat-item" title="Średni czas wyświetlania">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span class="stat-avg-time">--</span>
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="popup-actions">
+                            <a href="{{ url_for('admin.popup_edit', popup_id=popup.id) }}" class="btn-icon" title="Edytuj">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </a>
+                            <button class="btn-icon btn-toggle-status"
+                                    data-popup-id="{{ popup.id }}"
+                                    title="{% if popup.status == 'active' %}Archiwizuj{% else %}Aktywuj{% endif %}">
+                                {% if popup.status == 'active' %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                {% else %}
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                {% endif %}
+                            </button>
+                            <button class="btn-icon btn-reset-popup"
+                                    data-popup-id="{{ popup.id }}"
+                                    title="Resetuj statystyki">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+                            </button>
+                            <button class="btn-icon btn-danger-icon btn-delete-popup"
+                                    data-popup-id="{{ popup.id }}"
+                                    title="Usuń">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <h3>Brak popupów</h3>
+        <p>Utwórz pierwszy popup, aby wyświetlić ogłoszenie użytkownikom.</p>
+        <a href="{{ url_for('admin.popup_create') }}" class="btn btn-primary">Utwórz popup</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal potwierdzenia usunięcia -->
+<div id="deletePopupModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Usunąć popup?</h2>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Czy na pewno chcesz usunąć ten popup? Ta akcja jest nieodwracalna.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Anuluj</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn">Usuń</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal potwierdzenia resetu -->
+<div id="resetPopupModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Resetować popup?</h2>
+            <button class="modal-close" onclick="closeResetModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Zostaną usunięte wszystkie statystyki (wyświetlenia, kliknięcia CTA, zamknięcia) i historia wyświetleń.</p>
+            <p>Popup będzie traktowany jak nowy - użytkownicy zobaczą go ponownie.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeResetModal()">Anuluj</button>
+            <button class="btn btn-primary" id="confirmResetBtn">Resetuj</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/popups.js') }}?v=4"></script>
+{% endblock %}

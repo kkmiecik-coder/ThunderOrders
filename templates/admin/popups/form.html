@@ -1,0 +1,235 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}{{ 'Edytuj popup' if popup else 'Nowy popup' }} - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/popups.css') }}?v=2">
+{% endblock %}
+
+{% block content %}
+<div class="popups-page">
+    <!-- Nagłówek -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <a href="{{ url_for('admin.popups_list') }}" class="btn-back" title="Powrót do listy">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                </svg>
+            </a>
+            <h1 class="page-title">{{ 'Edytuj popup' if popup else 'Nowy popup' }}</h1>
+        </div>
+    </div>
+
+    <!-- Formularz + podgląd -->
+    <form method="POST" class="popup-form-layout" id="popupForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- Lewa kolumna: formularz -->
+        <div class="popup-form-column">
+            <!-- Tytuł -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label class="form-label">Tytuł <small class="input-hint" style="display:inline; margin:0;">(opcjonalny - bez tytułu nagłówek nie będzie wyświetlany)</small></label>
+                    <input type="text" name="title" class="form-control" id="popupTitle"
+                           value="{{ popup.title if popup and popup.title else '' }}"
+                           placeholder="np. Nowa promocja!">
+                </div>
+            </div>
+
+            <!-- Treść (TinyMCE) -->
+            <div class="form-section">
+                <div class="form-group">
+                    <label class="form-label">Treść <span class="required">*</span></label>
+                    <textarea name="content" id="popupContent" class="form-control">{{ popup.content if popup else '' }}</textarea>
+                </div>
+            </div>
+
+            <!-- Ustawienia -->
+            <div class="form-section">
+                <h3 class="form-section-title">Ustawienia wyświetlania</h3>
+
+                <div class="form-row">
+                    <!-- Tryb wyświetlania -->
+                    <div class="form-group">
+                        <label class="form-label">Tryb wyświetlania</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="display_mode" value="once"
+                                       {{ 'checked' if not popup or popup.display_mode == 'once' }}>
+                                <span>Jednorazowo</span>
+                                <small class="radio-hint">Użytkownik zobaczy raz</small>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="display_mode" value="every_login"
+                                       {{ 'checked' if popup and popup.display_mode == 'every_login' }}>
+                                <span>Każde logowanie</span>
+                                <small class="radio-hint">Przy każdym logowaniu</small>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="display_mode" value="first_login"
+                                       {{ 'checked' if popup and popup.display_mode == 'first_login' }}>
+                                <span>Pierwsze logowanie</span>
+                                <small class="radio-hint">Tylko nowi użytkownicy</small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Rozmiar modala -->
+                    <div class="form-group">
+                        <label class="form-label">Rozmiar modala</label>
+                        <div class="radio-group size-radio-group">
+                            <label class="radio-label size-option">
+                                <input type="radio" name="modal_size" value="sm"
+                                       {{ 'checked' if popup and popup.modal_size == 'sm' }}>
+                                <div class="size-option-info">
+                                    <span class="size-option-name">Mały</span>
+                                    <span class="size-option-dim">400px szerokości</span>
+                                </div>
+                            </label>
+                            <label class="radio-label size-option">
+                                <input type="radio" name="modal_size" value="md"
+                                       {{ 'checked' if not popup or popup.modal_size == 'md' }}>
+                                <div class="size-option-info">
+                                    <span class="size-option-name">Średni</span>
+                                    <span class="size-option-dim">560px szerokości</span>
+                                </div>
+                            </label>
+                            <label class="radio-label size-option">
+                                <input type="radio" name="modal_size" value="lg"
+                                       {{ 'checked' if popup and popup.modal_size == 'lg' }}>
+                                <div class="size-option-info">
+                                    <span class="size-option-name">Duży</span>
+                                    <span class="size-option-dim">720px szerokości</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <!-- Target roles -->
+                    <div class="form-group">
+                        <label class="form-label">Grupy docelowe</label>
+                        <div class="checkbox-group">
+                            {% set target_roles = popup.get_target_roles() if popup else None %}
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="target_roles" value="client"
+                                       {{ 'checked' if target_roles and 'client' in target_roles }}>
+                                <span>Klienci</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="target_roles" value="mod"
+                                       {{ 'checked' if target_roles and 'mod' in target_roles }}>
+                                <span>Moderatorzy</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="target_roles" value="admin"
+                                       {{ 'checked' if target_roles and 'admin' in target_roles }}>
+                                <span>Admini</span>
+                            </label>
+                        </div>
+                        <small class="input-hint">Brak zaznaczenia = wszyscy użytkownicy</small>
+                    </div>
+
+                    <!-- Priorytet -->
+                    <div class="form-group">
+                        <label class="form-label">Priorytet</label>
+                        <input type="number" name="priority" class="form-control form-control-sm"
+                               value="{{ popup.priority if popup else 0 }}" min="0" max="999"
+                               id="popupPriority">
+                        <small class="input-hint">Niższy numer = wyższy priorytet (0 = najważniejszy)</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA -->
+            <div class="form-section">
+                <h3 class="form-section-title">Przycisk CTA (opcjonalny)</h3>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Tekst przycisku</label>
+                        <input type="text" name="cta_text" class="form-control" id="popupCtaText"
+                               value="{{ popup.cta_text if popup and popup.cta_text else '' }}"
+                               placeholder="np. Sprawdź ofertę">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">URL przycisku</label>
+                        <input type="url" name="cta_url" class="form-control" id="popupCtaUrl"
+                               value="{{ popup.cta_url if popup and popup.cta_url else '' }}"
+                               placeholder="https://...">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Kolor CTA</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" name="cta_color" class="color-picker" id="popupCtaColor"
+                                   value="{{ popup.cta_color if popup and popup.cta_color else '#f093fb' }}">
+                            <input type="text" class="form-control form-control-sm color-hex"
+                                   id="popupCtaColorHex"
+                                   value="{{ popup.cta_color if popup and popup.cta_color else '#f093fb' }}">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Kolor tła popupa</label>
+                        <div class="color-picker-wrapper">
+                            <input type="color" name="bg_color" class="color-picker" id="popupBgColor"
+                                   value="{{ popup.bg_color if popup and popup.bg_color else '#5A189A' }}">
+                            <input type="text" class="form-control form-control-sm color-hex"
+                                   id="popupBgColorHex"
+                                   value="{{ popup.bg_color if popup and popup.bg_color else '#5A189A' }}">
+                        </div>
+                        <small class="input-hint">Nagłówek automatycznie ciemniejszy</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Przyciski -->
+            <div class="form-actions">
+                <a href="{{ url_for('admin.popups_list') }}" class="btn btn-secondary">Anuluj</a>
+                <button type="submit" class="btn btn-primary">
+                    {{ 'Zapisz zmiany' if popup else 'Utwórz popup' }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Prawa kolumna: podgląd 1:1 -->
+        <div class="popup-preview-column">
+            <div class="preview-sticky">
+                {% set current_size = popup.modal_size if popup and popup.modal_size else 'md' %}
+                {% set size_map = {'sm': '400px', 'md': '560px', 'lg': '720px'} %}
+                <div class="preview-header-row">
+                    <h3 class="preview-title">Podgląd 1:1</h3>
+                    <span class="preview-size-label" id="previewSizeLabel">{{ size_map[current_size] }}</span>
+                </div>
+                <div class="preview-container" id="previewContainer">
+                    <div class="popup-announcement-modal popup-{{ current_size }}" id="previewPopup">
+                        <button class="popup-announcement-close popup-announcement-close-float">&times;</button>
+                        <div class="popup-announcement-header" id="previewHeader">
+                            <h3 id="previewTitle">{{ popup.title if popup and popup.title else 'Tytuł popupa' }}</h3>
+                        </div>
+                        <div class="popup-announcement-body" id="previewBody">
+                            {% if popup and popup.content %}
+                                {{ popup.content|safe }}
+                            {% else %}
+                                <p>Treść popupa pojawi się tutaj...</p>
+                            {% endif %}
+                        </div>
+                        <div class="popup-announcement-footer" id="previewFooter" style="{% if popup and popup.cta_text %}{% else %}display: none;{% endif %}">
+                            <a class="popup-announcement-cta" id="previewCta">{% if popup and popup.cta_text %}{{ popup.cta_text }}{% else %}Przycisk CTA{% endif %}</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/popups.js') }}?v=3"></script>
+{% endblock %}

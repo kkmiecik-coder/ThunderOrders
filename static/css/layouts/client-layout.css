@@ -36,12 +36,6 @@ body {
 /* Dark Mode - Glassmorphism Background */
 /* ==================== */
 [data-theme="dark"] .main-content {
-    background: linear-gradient(
-        135deg,
-        #0a0819 0%,
-        #1e1a42 50%,
-        #181830 100%
-    );
     background-attachment: fixed;
 }
 

@@ -97,6 +97,7 @@ class User(UserMixin, db.Model):
 
     # Timestamps
     last_login = db.Column(db.DateTime)
+    login_count = db.Column(db.Integer, default=0, nullable=False)
 
     # User Preferences
     dark_mode_enabled = db.Column(db.Boolean, default=False)
@@ -403,8 +404,9 @@ class User(UserMixin, db.Model):
         return True
 
     def update_last_login(self):
-        """Aktualizuje timestamp ostatniego logowania"""
+        """Aktualizuje timestamp ostatniego logowania i inkrementuje licznik"""
         self.last_login = get_local_now()
+        self.login_count = (self.login_count or 0) + 1
         db.session.commit()
 
     def deactivate(self, reason, deactivated_by_user_id):

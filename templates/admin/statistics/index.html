@@ -1,0 +1,132 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Statystyki - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/statistics.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="statistics-page">
+    <!-- Nagłówek strony -->
+    <div class="page-header">
+        <h1 class="page-title">Statystyki</h1>
+    </div>
+
+    <!-- Zakładki nawigacyjne -->
+    <div class="statistics-tabs">
+        <button class="statistics-tab active" data-tab="przychody">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+            </svg>
+            <span class="tab-label">Przychody</span>
+        </button>
+        <button class="statistics-tab" data-tab="zamowienia">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            <span class="tab-label">Zamowienia</span>
+        </button>
+        <button class="statistics-tab" data-tab="produkty">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            <span class="tab-label">Produkty</span>
+        </button>
+        <button class="statistics-tab" data-tab="klienci">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+            <span class="tab-label">Klienci</span>
+        </button>
+        <button class="statistics-tab" data-tab="exclusive">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+            </svg>
+            <span class="tab-label">Exclusive</span>
+        </button>
+        <button class="statistics-tab" data-tab="wysylka">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="1" y="3" width="15" height="13"/>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                <circle cx="5.5" cy="18.5" r="2.5"/>
+                <circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+            <span class="tab-label">Wysylka</span>
+        </button>
+        <button class="statistics-tab" data-tab="proxy">
+            <svg class="tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/>
+            </svg>
+            <span class="tab-label">Proxy/Korea</span>
+        </button>
+    </div>
+
+    <!-- Zawartość zakładek -->
+    <div class="statistics-content">
+
+        <!-- Tab: Przychody -->
+        <div class="tab-panel active" id="tab-przychody">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+        <!-- Tab: Zamówienia -->
+        <div class="tab-panel" id="tab-zamowienia">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+        <!-- Tab: Produkty -->
+        <div class="tab-panel" id="tab-produkty">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+        <!-- Tab: Klienci -->
+        <div class="tab-panel" id="tab-klienci">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+        <!-- Tab: Exclusive -->
+        <div class="tab-panel" id="tab-exclusive">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+        <!-- Tab: Wysyłka -->
+        <div class="tab-panel" id="tab-wysylka">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+        <!-- Tab: Proxy/Korea -->
+        <div class="tab-panel" id="tab-proxy">
+            <div class="tab-loading">
+                <div class="spinner"></div>
+                <span>Ladowanie danych...</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/statistics.js') }}"></script>
+{% endblock %}

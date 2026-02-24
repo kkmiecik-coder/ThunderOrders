@@ -81,35 +81,40 @@ def change_password():
     """
     Zmiana hasła
     POST /profile/change-password
+    Returns JSON for AJAX requests, redirect for regular form submissions
     """
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     current_password = request.form.get('current_password', '')
     new_password = request.form.get('new_password', '')
     confirm_password = request.form.get('confirm_password', '')
 
-    # Walidacja
-    errors = []
+    # Walidacja - zbieramy błędy per pole
+    field_errors = {}
 
     if not current_password:
-        errors.append('Obecne hasło jest wymagane.')
+        field_errors['current_password'] = 'Obecne hasło jest wymagane.'
     elif not current_user.check_password(current_password):
-        errors.append('Obecne hasło jest nieprawidłowe.')
+        field_errors['current_password'] = 'Obecne hasło jest nieprawidłowe.'
 
     if not new_password:
-        errors.append('Nowe hasło jest wymagane.')
+        field_errors['new_password'] = 'Nowe hasło jest wymagane.'
     elif len(new_password) < 8:
-        errors.append('Nowe hasło musi mieć co najmniej 8 znaków.')
+        field_errors['new_password'] = 'Nowe hasło musi mieć co najmniej 8 znaków.'
     elif not re.search(r'[A-Z]', new_password):
-        errors.append('Nowe hasło musi zawierać co najmniej jedną dużą literę.')
+        field_errors['new_password'] = 'Nowe hasło musi zawierać co najmniej jedną dużą literę.'
     elif not re.search(r'[a-z]', new_password):
-        errors.append('Nowe hasło musi zawierać co najmniej jedną małą literę.')
+        field_errors['new_password'] = 'Nowe hasło musi zawierać co najmniej jedną małą literę.'
     elif not re.search(r'\d', new_password):
-        errors.append('Nowe hasło musi zawierać co najmniej jedną cyfrę.')
+        field_errors['new_password'] = 'Nowe hasło musi zawierać co najmniej jedną cyfrę.'
 
-    if new_password != confirm_password:
-        errors.append('Hasła nie są identyczne.')
+    if new_password and new_password != confirm_password:
+        field_errors['confirm_password'] = 'Hasła nie są identyczne.'
 
-    if errors:
-        for error in errors:
+    if field_errors:
+        if is_ajax:
+            return jsonify({'success': False, 'field_errors': field_errors}), 400
+        for error in field_errors.values():
             flash(error, 'error')
         return redirect(url_for('profile.index'))
 
@@ -117,10 +122,16 @@ def change_password():
     try:
         current_user.set_password(new_password)
         db.session.commit()
+
+        if is_ajax:
+            return jsonify({'success': True, 'message': 'Hasło zostało zmienione.'})
+
         flash('Hasło zostało zmienione.', 'success')
 
     except Exception as e:
         db.session.rollback()
+        if is_ajax:
+            return jsonify({'success': False, 'message': f'Wystąpił błąd: {str(e)}'}), 500
         flash(f'Wystąpił błąd podczas zmiany hasła: {str(e)}', 'error')
 
     return redirect(url_for('profile.index'))

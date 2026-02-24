@@ -1,0 +1,477 @@
+/* ====================================
+   STATISTICS PAGE
+   ==================================== */
+
+.statistics-page {
+    padding: var(--space-8);
+}
+
+.statistics-page .page-header {
+    margin-bottom: var(--space-8);
+}
+
+.statistics-page .page-title {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2);
+}
+
+.statistics-page .page-description {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* ====================================
+   TABS NAVIGATION
+   ==================================== */
+
+.statistics-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border-primary);
+    margin-bottom: var(--space-5);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0;
+}
+
+.statistics-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.statistics-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    margin-bottom: -2px;
+    border-radius: 6px 6px 0 0;
+}
+
+.statistics-tab:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.statistics-tab.active {
+    color: #8338EC;
+    border-bottom-color: #8338EC;
+    font-weight: 600;
+}
+
+.statistics-tab .tab-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.statistics-tab .tab-label {
+    pointer-events: none;
+}
+
+/* ====================================
+   TAB PANELS
+   ==================================== */
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+    animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Loader */
+.tab-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.tab-loading .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--border-primary);
+    border-top-color: #8338EC;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ====================================
+   KPI STAT CARDS (gradient, 3 kolumny)
+   ==================================== */
+
+.stats-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+}
+
+.stat-kpi-card {
+    position: relative;
+    padding: var(--space-4);
+    border-radius: 12px;
+    color: white;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid transparent;
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.stat-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stat-kpi-card.gradient-purple {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-kpi-card.gradient-pink {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-kpi-card.gradient-cyan {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-kpi-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.9;
+    margin-bottom: 4px;
+}
+
+.stat-kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+/* ====================================
+   WIDGETS (wykresy, tabele)
+   ==================================== */
+
+.stats-widget {
+    background: var(--card-bg);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+    box-shadow: var(--shadow-md);
+}
+
+.stats-widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+}
+
+.stats-widget-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.stats-range-dropdown {
+    padding: 6px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.stats-range-dropdown:focus {
+    border-color: #8338EC;
+}
+
+/* Kontener wykresu */
+.stats-chart-container {
+    position: relative;
+    width: 100%;
+    height: 300px;
+}
+
+/* Dwa wykresy obok siebie */
+.stats-charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.stats-charts-row .stats-widget {
+    margin-bottom: 0;
+}
+
+.stats-chart-container-small {
+    position: relative;
+    width: 100%;
+    height: 260px;
+}
+
+/* ====================================
+   TABELE STATYSTYK
+   ==================================== */
+
+.stats-table-container {
+    overflow-x: auto;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.stats-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-primary);
+    white-space: nowrap;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.stats-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-primary);
+    color: var(--text-primary);
+}
+
+.stats-table tbody tr:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.stats-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ====================================
+   DODATKOWE METRYKI (2 kolumny)
+   ==================================== */
+
+.stats-metrics-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.stats-metric-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: var(--space-4);
+    text-align: center;
+    box-shadow: var(--shadow-md);
+}
+
+.stats-metric-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.stats-metric-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* ====================================
+   TAB EMPTY STATE
+   ==================================== */
+
+.tab-empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.tab-error {
+    text-align: center;
+    padding: 40px;
+    color: #e53e3e;
+}
+
+/* ====================================
+   DARK MODE
+   ==================================== */
+
+[data-theme="dark"] .statistics-tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .statistics-tab.active {
+    color: #f093fb;
+    border-bottom-color: #f093fb;
+}
+
+[data-theme="dark"] .statistics-tab {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .tab-loading .spinner {
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: #f093fb;
+}
+
+[data-theme="dark"] .tab-loading {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .stats-widget {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .stats-range-dropdown {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .stats-range-dropdown:focus {
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .stats-table th {
+    color: rgba(255, 255, 255, 0.5);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .stats-table td {
+    color: #f0f0f0;
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .stats-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .stats-metric-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .stats-metric-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .stats-metric-value {
+    color: #f0f0f0;
+}
+
+/* ====================================
+   RESPONSYWNOŚĆ
+   ==================================== */
+
+@media (max-width: 768px) {
+    .statistics-page {
+        padding: var(--space-4);
+    }
+
+    .statistics-page .page-header {
+        margin-bottom: var(--space-4);
+    }
+
+    .statistics-page .page-title {
+        font-size: 1.5rem;
+    }
+
+    .statistics-tabs {
+        gap: 2px;
+    }
+
+    .statistics-tab {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+
+    .statistics-tab .tab-icon {
+        width: 16px;
+        height: 16px;
+    }
+
+    .statistics-tab .tab-label {
+        display: none;
+    }
+
+    .stats-kpi-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-3);
+    }
+
+    .stats-charts-row {
+        grid-template-columns: 1fr;
+    }
+
+    .stats-metrics-row {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-kpi-value {
+        font-size: 1.25rem;
+    }
+
+    .stats-chart-container {
+        height: 220px;
+    }
+
+    .stats-chart-container-small {
+        height: 200px;
+    }
+}
+
+@media (max-width: 480px) {
+    .statistics-page {
+        padding: var(--space-3);
+    }
+
+    .statistics-tab {
+        padding: 8px 10px;
+    }
+}

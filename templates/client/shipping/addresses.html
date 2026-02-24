@@ -7,13 +7,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="shipping-addresses-page">
-    <!-- Header -->
+<div class="shipping-addresses-page client-view">
+    <!-- Page Header -->
     <div class="page-header">
-        <div class="header-content">
-            <h1 class="page-title">Adresy dostaw</h1>
-            <p class="page-subtitle">Zarządzaj swoimi zapisanymi adresami dostawy</p>
-        </div>
+        <h1>Adresy dostaw</h1>
+        <p class="page-description">
+            Zarządzaj swoimi zapisanymi adresami dostawy
+        </p>
+    </div>
+
+    <!-- Actions -->
+    <div class="addresses-actions-bar">
         <button class="btn btn-primary" onclick="openAddAddressModal()">
             <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>

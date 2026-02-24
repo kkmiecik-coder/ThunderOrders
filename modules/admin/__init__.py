@@ -14,3 +14,6 @@ from modules.admin import tasks
 from modules.admin import exclusive
 from modules.admin import models  # Admin tasks models
 from modules.admin import payment_confirmations  # Payment confirmations admin
+from modules.admin import statistics  # Statistics page
+from modules.admin import popups_models  # Popup models
+from modules.admin import popups  # Popup admin routes

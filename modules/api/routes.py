@@ -418,3 +418,406 @@ def create_client():
             'success': False,
             'error': f'Błąd podczas tworzenia klienta: {str(e)}'
         }), 500
+
+
+@api_bp.route('/search', methods=['GET'])
+@login_required
+def global_search():
+    """
+    Global search endpoint with role-based results.
+    Admin/Mod: orders, products, clients, exclusive, proxy/poland orders, shipping requests, navigation.
+    Client: own orders, own shipping requests, navigation.
+
+    Query params:
+        q: Search query (min 1 char)
+
+    Returns:
+        JSON with categorized results
+    """
+    from flask import url_for
+    from modules.orders.models import Order, ShippingRequest
+    from modules.products.models import Product, ProxyOrder, PolandOrder
+    from modules.exclusive.models import ExclusivePage
+    from modules.auth.models import User
+
+    query = request.args.get('q', '').strip()
+
+    if len(query) < 1:
+        return jsonify({'success': False, 'message': 'Wpisz co najmniej 1 znak'}), 400
+
+    results = {}
+    is_admin = current_user.role in ('admin', 'mod')
+    limit_per_category = 5
+
+    # --- Navigation (always available, min 1 char) ---
+    nav_items = _get_navigation_items(is_admin)
+    matched_nav = []
+    q_lower = query.lower()
+    for item in nav_items:
+        if q_lower in item['title'].lower() or any(q_lower in kw for kw in item.get('keywords', [])):
+            matched_nav.append({
+                'title': item['title'],
+                'subtitle': item.get('subtitle', ''),
+                'url': item['url']
+            })
+    if matched_nav:
+        results['navigation'] = matched_nav[:limit_per_category]
+
+    # For DB searches, require min 2 chars
+    if len(query) >= 2:
+
+        # --- Orders ---
+        if is_admin:
+            orders = Order.query.filter(
+                db.or_(
+                    Order.order_number.ilike(f'%{query}%'),
+                    Order.guest_name.ilike(f'%{query}%'),
+                    Order.tracking_number.ilike(f'%{query}%'),
+                    Order.shipping_name.ilike(f'%{query}%')
+                )
+            ).order_by(Order.created_at.desc()).limit(limit_per_category).all()
+        else:
+            # Client: only own orders
+            orders = Order.query.filter(
+                Order.user_id == current_user.id,
+                db.or_(
+                    Order.order_number.ilike(f'%{query}%'),
+                    Order.tracking_number.ilike(f'%{query}%')
+                )
+            ).order_by(Order.created_at.desc()).limit(limit_per_category).all()
+
+        if orders:
+            order_results = []
+            for o in orders:
+                if is_admin:
+                    url = url_for('orders.admin_detail', order_id=o.id)
+                    subtitle = o.customer_name or ''
+                else:
+                    url = url_for('orders.client_detail', order_id=o.id)
+                    subtitle = o.type_display_name or ''
+
+                badge_info = _get_order_badge(o.status)
+                order_results.append({
+                    'title': o.order_number,
+                    'subtitle': subtitle,
+                    'url': url,
+                    'badge': badge_info.get('label', ''),
+                    'badge_bg': badge_info.get('bg', ''),
+                    'badge_color': badge_info.get('color', '')
+                })
+            results['orders'] = order_results
+
+        # --- Shipping Requests ---
+        if is_admin:
+            ship_requests = ShippingRequest.query.filter(
+                db.or_(
+                    ShippingRequest.request_number.ilike(f'%{query}%'),
+                    ShippingRequest.shipping_name.ilike(f'%{query}%'),
+                    ShippingRequest.tracking_number.ilike(f'%{query}%')
+                )
+            ).order_by(ShippingRequest.created_at.desc()).limit(limit_per_category).all()
+        else:
+            ship_requests = ShippingRequest.query.filter(
+                ShippingRequest.user_id == current_user.id,
+                db.or_(
+                    ShippingRequest.request_number.ilike(f'%{query}%'),
+                    ShippingRequest.tracking_number.ilike(f'%{query}%')
+                )
+            ).order_by(ShippingRequest.created_at.desc()).limit(limit_per_category).all()
+
+        if ship_requests:
+            ship_results = []
+            for sr in ship_requests:
+                if is_admin:
+                    url = url_for('orders.admin_shipping_requests_list')
+                else:
+                    url = url_for('client.shipping_requests_list')
+
+                ship_results.append({
+                    'title': sr.request_number,
+                    'subtitle': sr.shipping_name or '',
+                    'url': url
+                })
+            results['shipping_requests'] = ship_results
+
+        # --- Admin-only categories ---
+        if is_admin:
+            # Products
+            products = Product.query.filter(
+                Product.is_active == True,
+                db.or_(
+                    Product.name.ilike(f'%{query}%'),
+                    Product.sku.ilike(f'%{query}%'),
+                    Product.ean.ilike(f'%{query}%')
+                )
+            ).limit(limit_per_category).all()
+
+            if products:
+                prod_results = []
+                for p in products:
+                    subtitle_parts = []
+                    if p.sku:
+                        subtitle_parts.append(f'SKU: {p.sku}')
+                    if p.ean:
+                        subtitle_parts.append(f'EAN: {p.ean}')
+
+                    prod_results.append({
+                        'title': p.name,
+                        'subtitle': ' | '.join(subtitle_parts),
+                        'url': url_for('products.edit_product', product_id=p.id)
+                    })
+                results['products'] = prod_results
+
+            # Clients
+            clients = User.query.filter(
+                User.role == 'client',
+                User.is_active == True,
+                db.or_(
+                    User.first_name.ilike(f'%{query}%'),
+                    User.last_name.ilike(f'%{query}%'),
+                    User.email.ilike(f'%{query}%'),
+                    db.func.concat(User.first_name, ' ', User.last_name).ilike(f'%{query}%')
+                )
+            ).limit(limit_per_category).all()
+
+            if clients:
+                client_results = []
+                for c in clients:
+                    client_results.append({
+                        'title': c.full_name,
+                        'subtitle': c.email,
+                        'url': url_for('admin.client_detail', id=c.id)
+                    })
+                results['clients'] = client_results
+
+            # Exclusive Pages
+            exclusives = ExclusivePage.query.filter(
+                db.or_(
+                    ExclusivePage.name.ilike(f'%{query}%'),
+                    ExclusivePage.token.ilike(f'%{query}%')
+                )
+            ).order_by(ExclusivePage.created_at.desc()).limit(limit_per_category).all()
+
+            if exclusives:
+                exc_results = []
+                for ep in exclusives:
+                    badge_info = _get_exclusive_badge(ep.status)
+                    exc_results.append({
+                        'title': ep.name,
+                        'subtitle': f'Token: {ep.token}',
+                        'url': url_for('admin.exclusive_edit', page_id=ep.id),
+                        'badge': badge_info.get('label', ''),
+                        'badge_bg': badge_info.get('bg', ''),
+                        'badge_color': badge_info.get('color', '')
+                    })
+                results['exclusive'] = exc_results
+
+            # Proxy Orders
+            proxy_orders = ProxyOrder.query.filter(
+                db.or_(
+                    ProxyOrder.order_number.ilike(f'%{query}%'),
+                    ProxyOrder.tracking_number.ilike(f'%{query}%')
+                )
+            ).order_by(ProxyOrder.created_at.desc()).limit(limit_per_category).all()
+
+            if proxy_orders:
+                proxy_results = []
+                for po in proxy_orders:
+                    proxy_results.append({
+                        'title': po.order_number,
+                        'subtitle': po.status or '',
+                        'url': url_for('products.stock_orders')
+                    })
+                results['proxy_orders'] = proxy_results
+
+            # Poland Orders
+            poland_orders = PolandOrder.query.filter(
+                db.or_(
+                    PolandOrder.order_number.ilike(f'%{query}%'),
+                    PolandOrder.tracking_number.ilike(f'%{query}%')
+                )
+            ).order_by(PolandOrder.created_at.desc()).limit(limit_per_category).all()
+
+            if poland_orders:
+                pl_results = []
+                for plo in poland_orders:
+                    pl_results.append({
+                        'title': plo.order_number,
+                        'subtitle': plo.status or '',
+                        'url': url_for('products.stock_orders')
+                    })
+                results['poland_orders'] = pl_results
+
+    return jsonify({
+        'success': True,
+        'results': results
+    }), 200
+
+
+def _get_navigation_items(is_admin):
+    """Returns static navigation items based on user role."""
+    from flask import url_for
+
+    if is_admin:
+        return [
+            {'title': 'Dashboard', 'url': url_for('admin.dashboard'), 'keywords': ['panel', 'start', 'home']},
+            {'title': 'Lista zamówień', 'subtitle': 'Zamówienia', 'url': url_for('orders.admin_list'), 'keywords': ['zamówienia', 'orders', 'zamowienia']},
+            {'title': 'Zlecenia wysyłki', 'subtitle': 'Zamówienia', 'url': url_for('orders.admin_shipping_requests_list'), 'keywords': ['wysyłka', 'shipping', 'zlecenia', 'wyslane']},
+            {'title': 'Potwierdzenia płatności', 'subtitle': 'Zamówienia', 'url': url_for('admin.payment_confirmations_list'), 'keywords': ['platnosci', 'płatności', 'payment']},
+            {'title': 'Exclusive', 'subtitle': 'Zamówienia', 'url': url_for('admin.exclusive_list'), 'keywords': ['exclusive', 'ekskluzywne']},
+            {'title': 'Ustawienia zamówień', 'subtitle': 'Zamówienia', 'url': url_for('orders.settings'), 'keywords': ['ustawienia', 'settings']},
+            {'title': 'Lista produktów', 'subtitle': 'Magazyn', 'url': url_for('products.list_products'), 'keywords': ['produkty', 'products', 'magazyn', 'warehouse']},
+            {'title': 'Zamówienia produktów', 'subtitle': 'Magazyn', 'url': url_for('products.stock_orders'), 'keywords': ['proxy', 'stock', 'zamówienia produktów', 'korea']},
+            {'title': 'Ustawienia magazynu', 'subtitle': 'Magazyn', 'url': url_for('products.warehouse_settings'), 'keywords': ['ustawienia', 'magazyn', 'waluta']},
+            {'title': 'Użytkownicy', 'url': url_for('admin.clients_list'), 'keywords': ['klienci', 'clients', 'users', 'użytkownicy']},
+            {'title': 'Moje zadania', 'url': url_for('admin.tasks_list'), 'keywords': ['zadania', 'tasks', 'todo']},
+            {'title': 'Feedback', 'url': url_for('feedback.admin_list'), 'keywords': ['ankiety', 'feedback', 'opinie']},
+            {'title': 'Popupy', 'url': url_for('admin.popups_list'), 'keywords': ['popupy', 'popup', 'ogłoszenia', 'ogloszenia', 'announcement']},
+        ]
+    else:
+        return [
+            {'title': 'Dashboard', 'url': url_for('client.dashboard'), 'keywords': ['panel', 'start', 'home']},
+            {'title': 'Moje zamówienia', 'url': url_for('orders.client_list'), 'keywords': ['zamówienia', 'orders', 'zamowienia']},
+            {'title': 'Potwierdzenia', 'url': url_for('client.payment_confirmations'), 'keywords': ['platnosci', 'płatności', 'payment']},
+            {'title': 'Zlecenia wysyłki', 'subtitle': 'Wysyłka', 'url': url_for('client.shipping_requests_list'), 'keywords': ['wysyłka', 'shipping', 'zlecenia']},
+            {'title': 'Adresy dostaw', 'subtitle': 'Wysyłka', 'url': url_for('client.shipping_addresses'), 'keywords': ['adresy', 'addresses', 'adres']},
+        ]
+
+
+def _get_order_badge(status):
+    """Returns badge info for order status."""
+    badges = {
+        'nowe': {'label': 'Nowe', 'bg': 'var(--badge-nowe-bg)', 'color': 'var(--badge-nowe-color)'},
+        'oczekujace': {'label': 'Oczekujące', 'bg': 'var(--badge-oczekujace-bg)', 'color': 'var(--badge-oczekujace-color)'},
+        'w_realizacji': {'label': 'W realizacji', 'bg': '#8b5cf6', 'color': '#fff'},
+        'spakowane': {'label': 'Spakowane', 'bg': '#6366f1', 'color': '#fff'},
+        'wyslane': {'label': 'Wysłane', 'bg': '#3b82f6', 'color': '#fff'},
+        'dostarczone': {'label': 'Dostarczone', 'bg': '#10b981', 'color': '#fff'},
+        'anulowane': {'label': 'Anulowane', 'bg': 'var(--badge-anulowane-bg)', 'color': 'var(--badge-anulowane-color)'},
+    }
+    return badges.get(status, {'label': status or '', 'bg': 'var(--bg-tertiary)', 'color': 'var(--text-secondary)'})
+
+
+@api_bp.route('/popups/active', methods=['GET'])
+@login_required
+def get_active_popups():
+    """
+    Zwraca aktywne popupy dla zalogowanego użytkownika.
+    Filtruje wg target_roles, display_mode i historii wyświetleń.
+    """
+    try:
+        from modules.admin.popups_models import Popup, PopupView
+
+        # Pobierz aktywne popupy posortowane wg priorytetu
+        popups = Popup.query.filter_by(status='active').order_by(
+            Popup.priority.asc()
+        ).all()
+
+        results = []
+        for popup in popups:
+            # Sprawdź targetowanie
+            if not popup.is_targeted_at(current_user):
+                continue
+
+            # Sprawdź tryb wyświetlania
+            if popup.display_mode == 'once':
+                # Pomiń jeśli user już widział
+                already_seen = PopupView.query.filter_by(
+                    popup_id=popup.id,
+                    user_id=current_user.id
+                ).first()
+                if already_seen:
+                    continue
+
+            elif popup.display_mode == 'first_login':
+                # Pokaż tylko jeśli login_count <= 1 i nie widział jeszcze
+                login_count = getattr(current_user, 'login_count', 1) or 1
+                if login_count > 1:
+                    continue
+                already_seen = PopupView.query.filter_by(
+                    popup_id=popup.id,
+                    user_id=current_user.id
+                ).first()
+                if already_seen:
+                    continue
+
+            # every_login: zawsze pokaż (deduplikacja sesyjna na froncie)
+
+            results.append({
+                'id': popup.id,
+                'title': popup.title,
+                'content': popup.content,
+                'display_mode': popup.display_mode,
+                'cta_text': popup.cta_text,
+                'cta_url': popup.cta_url,
+                'cta_color': popup.cta_color,
+                'bg_color': popup.bg_color,
+                'modal_size': popup.modal_size
+            })
+
+        return jsonify({
+            'success': True,
+            'user_id': current_user.id,
+            'popups': results
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Błąd pobierania popupów: {str(e)}'
+        }), 500
+
+
+@api_bp.route('/popups/<int:popup_id>/action', methods=['POST'])
+@login_required
+def popup_action(popup_id):
+    """
+    Rejestruje akcję użytkownika na popupie.
+    Body JSON: { "action": "viewed" | "dismissed" | "cta_clicked" }
+    """
+    try:
+        from modules.admin.popups_models import Popup, PopupView
+
+        popup = Popup.query.get(popup_id)
+        if not popup:
+            return jsonify({'success': False, 'message': 'Popup nie znaleziony'}), 404
+
+        data = request.get_json()
+        action = data.get('action', '')
+
+        if action not in ('viewed', 'dismissed', 'cta_clicked'):
+            return jsonify({'success': False, 'message': 'Nieprawidłowa akcja'}), 400
+
+        duration_ms = data.get('duration_ms')
+        if duration_ms is not None:
+            duration_ms = max(0, min(int(duration_ms), 600000))
+
+        view = PopupView(
+            popup_id=popup_id,
+            user_id=current_user.id,
+            action=action,
+            duration_ms=duration_ms
+        )
+        db.session.add(view)
+        db.session.commit()
+
+        return jsonify({'success': True}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Błąd: {str(e)}'
+        }), 500
+
+
+def _get_exclusive_badge(status):
+    """Returns badge info for exclusive page status."""
+    badges = {
+        'draft': {'label': 'Draft', 'bg': '#6b7280', 'color': '#fff'},
+        'scheduled': {'label': 'Scheduled', 'bg': '#3b82f6', 'color': '#fff'},
+        'active': {'label': 'Active', 'bg': '#10b981', 'color': '#fff'},
+        'paused': {'label': 'Paused', 'bg': '#f59e0b', 'color': '#fff'},
+        'ended': {'label': 'Ended', 'bg': '#6b7280', 'color': '#fff'},
+    }
+    return badges.get(status, {'label': status or '', 'bg': 'var(--bg-tertiary)', 'color': 'var(--text-secondary)'})
