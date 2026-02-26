@@ -23,6 +23,7 @@ from modules.orders.models import (
     PaymentConfirmation
 )
 from modules.products.models import Product
+from modules.auth.models import User
 from modules.orders.forms import (
     OrderFilterForm, OrderStatusForm,
     OrderTrackingForm, RefundForm, BulkActionForm,
@@ -83,8 +84,8 @@ def admin_list():
                 Order.order_number.like(search_term),
                 Order.guest_name.like(search_term),
                 Order.guest_email.like(search_term),
-                db.func.concat(db.text("users.first_name"), ' ', db.text("users.last_name")).like(search_term),
-                db.text("users.email").like(search_term)
+                db.func.concat(User.first_name, ' ', User.last_name).like(search_term),
+                User.email.like(search_term)
             )
         )
 
