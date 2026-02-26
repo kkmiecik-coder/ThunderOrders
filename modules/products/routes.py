@@ -937,11 +937,12 @@ def bulk_duplicate():
                     new_path_original = os.path.join(original_dir, new_filename)
                     new_path_compressed = os.path.join(compressed_dir, new_filename)
 
-                    # Get full physical paths
-                    original_full_path = os.path.join(current_app.root_path, img.path_original)
-                    compressed_full_path = os.path.join(current_app.root_path, img.path_compressed)
-                    new_original_full_path = os.path.join(current_app.root_path, new_path_original)
-                    new_compressed_full_path = os.path.join(current_app.root_path, new_path_compressed)
+                    # Pełne ścieżki fizyczne (path_original/compressed są relatywne od static/)
+                    static_folder = os.path.join(current_app.root_path, 'static')
+                    original_full_path = os.path.join(static_folder, img.path_original)
+                    compressed_full_path = os.path.join(static_folder, img.path_compressed)
+                    new_original_full_path = os.path.join(static_folder, new_path_original)
+                    new_compressed_full_path = os.path.join(static_folder, new_path_compressed)
 
                     # Copy physical files
                     if os.path.exists(original_full_path):
