@@ -1,0 +1,430 @@
+/**
+ * ThunderOrders - Carousel Component
+ * Reużywalny komponent karuzeli 3D z efektem perspektywy
+ *
+ * Klasy:
+ *   .carousel-container   - wrapper karuzeli
+ *   .carousel-track        - kontener slajdów (3D transforms)
+ *   .carousel-slide        - pojedynczy slajd
+ *   .carousel-slide-content - zawartość slajdu (obraz, tekst, cena)
+ *   .carousel-prev / .carousel-next - przyciski nawigacji
+ *
+ * Stany slajdów:
+ *   .active    - centralny (widoczny w pełni)
+ *   .prev      - poprzedni (po lewej)
+ *   .next      - następny (po prawej)
+ *   .far-prev  - daleko po lewej (ukryty)
+ *   .far-next  - daleko po prawej (ukryty)
+ */
+
+/* ==========================================
+   Kontener karuzeli
+   ========================================== */
+.carousel-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    padding: 40px 60px;
+    perspective: 1000px;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ==========================================
+   Track - kontener slajdów z perspektywą 3D
+   ========================================== */
+.carousel-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 300px;
+    transform-style: preserve-3d;
+}
+
+/* ==========================================
+   Slajd - pojedyncza karta w karuzeli
+   ========================================== */
+.carousel-slide {
+    position: absolute;
+    width: 260px;
+    max-width: 70%;
+    transition: all 0.5s ease;
+    opacity: 0;
+    transform: scale(0.7) translateX(0);
+    z-index: 0;
+    pointer-events: none;
+    cursor: pointer;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e8e8e8;
+}
+
+/* Centralny slajd (aktywny) */
+.carousel-slide.active {
+    opacity: 1;
+    transform: scale(1) translateX(0);
+    z-index: 3;
+    pointer-events: auto;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+}
+
+/* Poprzedni slajd (po lewej) */
+.carousel-slide.prev {
+    opacity: 0.7;
+    transform: scale(0.85) translateX(-120%);
+    z-index: 2;
+    pointer-events: auto;
+}
+
+/* Następny slajd (po prawej) */
+.carousel-slide.next {
+    opacity: 0.7;
+    transform: scale(0.85) translateX(120%);
+    z-index: 2;
+    pointer-events: auto;
+}
+
+/* Daleko po lewej (ukryty) */
+.carousel-slide.far-prev {
+    opacity: 0;
+    transform: scale(0.7) translateX(-220%);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* Daleko po prawej (ukryty) */
+.carousel-slide.far-next {
+    opacity: 0;
+    transform: scale(0.7) translateX(220%);
+    z-index: 1;
+    pointer-events: none;
+}
+
+/* ==========================================
+   Zawartość slajdu - obraz, nazwa, cena
+   ========================================== */
+.carousel-slide-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    text-align: center;
+}
+
+/* Obraz produktu (proporcje 3:4) */
+.carousel-slide-content img {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #f5f5f5;
+    margin-bottom: 12px;
+}
+
+/* Alternatywne proporcje 1:1 (kwadrat) */
+.carousel-slide-content img.square {
+    aspect-ratio: 1 / 1;
+}
+
+/* Nazwa produktu */
+.carousel-slide-content .carousel-slide-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333333;
+    margin-bottom: 4px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+/* Cena (opcjonalna) */
+.carousel-slide-content .carousel-slide-price {
+    font-size: 13px;
+    font-weight: 500;
+    color: #888888;
+    margin-top: 2px;
+}
+
+/* ==========================================
+   Przyciski nawigacji (strzalki)
+   ========================================== */
+.carousel-prev,
+.carousel-next {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid #e0e0e0;
+    background: #ffffff;
+    color: #333333;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 0;
+    line-height: 1;
+}
+
+.carousel-prev {
+    left: 8px;
+}
+
+.carousel-next {
+    right: 8px;
+}
+
+.carousel-prev:hover,
+.carousel-next:hover {
+    background: #f5f5f5;
+    border-color: #cccccc;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateY(-50%) scale(1.05);
+}
+
+.carousel-prev:active,
+.carousel-next:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Ikona strzalki SVG wewnatrz przycisku */
+.carousel-prev svg,
+.carousel-next svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* ==========================================
+   Wsparcie dla dotyku (touch/swipe)
+   ========================================== */
+.carousel-container {
+    touch-action: pan-y;
+    -webkit-touch-callout: none;
+}
+
+.carousel-track {
+    will-change: transform;
+}
+
+.carousel-slide {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* ==========================================
+   Dark Mode
+   ========================================== */
+
+/* Kontener */
+[data-theme="dark"] .carousel-container {
+    /* Perspektywa bez zmian, tlo dziedziczone z rodzica */
+}
+
+/* Slajd - karta */
+[data-theme="dark"] .carousel-slide {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .carousel-slide.active {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4),
+                0 0 20px rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .carousel-slide.prev,
+[data-theme="dark"] .carousel-slide.next {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+/* Obraz w dark mode */
+[data-theme="dark"] .carousel-slide-content img {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Nazwa produktu w dark mode */
+[data-theme="dark"] .carousel-slide-content .carousel-slide-name {
+    color: #ffffff;
+}
+
+/* Cena w dark mode */
+[data-theme="dark"] .carousel-slide-content .carousel-slide-price {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Strzalki nawigacji w dark mode */
+[data-theme="dark"] .carousel-prev,
+[data-theme="dark"] .carousel-next {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .carousel-prev:hover,
+[data-theme="dark"] .carousel-next:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(240, 147, 251, 0.4);
+    box-shadow: 0 4px 16px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .carousel-prev:active,
+[data-theme="dark"] .carousel-next:active {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* ==========================================
+   Responsywnosc - Tablet
+   ========================================== */
+@media (max-width: 768px) {
+    .carousel-container {
+        padding: 30px 48px;
+    }
+
+    .carousel-track {
+        min-height: 260px;
+    }
+
+    .carousel-slide {
+        width: 220px;
+        max-width: 65%;
+    }
+
+    .carousel-slide.prev {
+        transform: scale(0.8) translateX(-110%);
+    }
+
+    .carousel-slide.next {
+        transform: scale(0.8) translateX(110%);
+    }
+
+    .carousel-slide.far-prev {
+        transform: scale(0.65) translateX(-200%);
+    }
+
+    .carousel-slide.far-next {
+        transform: scale(0.65) translateX(200%);
+    }
+
+    .carousel-prev,
+    .carousel-next {
+        width: 36px;
+        height: 36px;
+        font-size: 16px;
+    }
+
+    .carousel-prev svg,
+    .carousel-next svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .carousel-slide-content {
+        padding: 12px;
+    }
+
+    .carousel-slide-content .carousel-slide-name {
+        font-size: 13px;
+    }
+
+    .carousel-slide-content .carousel-slide-price {
+        font-size: 12px;
+    }
+}
+
+/* ==========================================
+   Responsywnosc - Telefon
+   ========================================== */
+@media (max-width: 480px) {
+    .carousel-container {
+        padding: 20px 40px;
+    }
+
+    .carousel-track {
+        min-height: 220px;
+    }
+
+    .carousel-slide {
+        width: 180px;
+        max-width: 60%;
+    }
+
+    .carousel-slide.prev {
+        transform: scale(0.75) translateX(-100%);
+        opacity: 0.5;
+    }
+
+    .carousel-slide.next {
+        transform: scale(0.75) translateX(100%);
+        opacity: 0.5;
+    }
+
+    /* Na malym ekranie ukrywamy dalekie slajdy calkowicie */
+    .carousel-slide.far-prev,
+    .carousel-slide.far-next {
+        opacity: 0;
+        transform: scale(0.6) translateX(-180%);
+    }
+
+    .carousel-slide.far-next {
+        transform: scale(0.6) translateX(180%);
+    }
+
+    .carousel-prev,
+    .carousel-next {
+        width: 32px;
+        height: 32px;
+        font-size: 14px;
+    }
+
+    .carousel-prev {
+        left: 4px;
+    }
+
+    .carousel-next {
+        right: 4px;
+    }
+
+    .carousel-prev svg,
+    .carousel-next svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .carousel-slide-content {
+        padding: 10px;
+    }
+
+    .carousel-slide-content img {
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+
+    .carousel-slide-content .carousel-slide-name {
+        font-size: 12px;
+    }
+
+    .carousel-slide-content .carousel-slide-price {
+        font-size: 11px;
+    }
+}

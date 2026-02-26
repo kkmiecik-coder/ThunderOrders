@@ -74,7 +74,11 @@ class RegisterForm(FlaskForm):
     phone_prefix = StringField(
         'Prefix',
         validators=[
-            DataRequired(message='Prefix jest wymagany')
+            DataRequired(message='Prefix jest wymagany'),
+            Regexp(
+                r'^\+\d{1,4}$',
+                message='Prefix musi zaczynać się od + i zawierać 1-4 cyfry'
+            )
         ],
         render_kw={'readonly': True}
     )

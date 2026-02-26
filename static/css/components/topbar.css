@@ -370,6 +370,10 @@
   margin: var(--space-2) 0;
 }
 
+.topbar-dropdown-switch:hover {
+  background: rgba(240, 147, 251, 0.1);
+}
+
 .topbar-dropdown-item-danger {
   color: var(--error);
 }
@@ -711,6 +715,28 @@
 .mobile-menu-fb-icon {
   width: 16px;
   height: 16px;
+}
+
+.mobile-menu-switch-view {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--sidebar-bg-hover);
+  color: var(--sidebar-text);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.mobile-menu-switch-view img {
+  width: 16px;
+  height: 16px;
+  filter: brightness(0) invert(1);
+}
+
+.mobile-menu-switch-view:hover {
+  background: rgba(240, 147, 251, 0.15);
 }
 
 .mobile-menu-logout {

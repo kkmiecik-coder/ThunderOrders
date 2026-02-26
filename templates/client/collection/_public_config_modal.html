@@ -1,0 +1,70 @@
+<!-- Modal konfiguracji publicznej strony kolekcji -->
+<div id="publicConfigModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Publiczna strona kolekcji</h3>
+            <button class="modal-close" onclick="closePublicConfigModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- URL publicznej strony -->
+            <div class="public-config-url-section" id="publicUrlSection" style="display: none;">
+                <label class="form-label">Adres strony</label>
+                <div class="public-url-row">
+                    <input type="text" class="form-input public-url-input" id="publicUrlInput" readonly>
+                    <button type="button" class="btn btn-secondary btn-sm btn-copy-url" onclick="copyPublicUrl()" title="Kopiuj link">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                        </svg>
+                        <span>Kopiuj</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ustawienia -->
+            <div class="public-config-settings" id="publicConfigSettings" style="display: none;">
+                <div class="form-group">
+                    <label class="config-toggle-label">
+                        <input type="checkbox" id="configShowPrices" onchange="updatePublicConfig()">
+                        <span>Pokaż ceny rynkowe</span>
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label class="config-toggle-label">
+                        <input type="checkbox" id="configIsActive" onchange="updatePublicConfig()">
+                        <span>Strona aktywna</span>
+                    </label>
+                    <span class="input-hint" id="configActiveHint">Gdy wyłączone, strona zwraca błąd 404</span>
+                </div>
+
+                <!-- Lista przedmiotów z checkboxami is_public -->
+                <div class="form-group">
+                    <div class="config-items-header">
+                        <label class="form-label">Widoczność przedmiotów</label>
+                        <label class="config-toggle-label config-select-all">
+                            <input type="checkbox" id="configSelectAll" onchange="toggleAllPublicItems(this.checked)">
+                            <span>Zaznacz wszystkie</span>
+                        </label>
+                    </div>
+                    <div class="config-items-list" id="configItemsList">
+                        <!-- Wypełnione przez JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stan tworzenia (gdy brak config) -->
+            <div class="public-config-create" id="publicConfigCreate" style="display: none;">
+                <div class="create-info">
+                    <svg width="40" height="40" viewBox="0 0 16 16" fill="currentColor" opacity="0.3">
+                        <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
+                        <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+                    </svg>
+                    <p>Udostępnij swoją kolekcję publicznie! Każdy z linkiem będzie mógł przeglądać Twoje przedmioty.</p>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="createPublicConfig()">
+                    Utwórz publiczną stronę
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,450 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Upload - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+{# Minimalne style dla strony uploadu - mobilna strona, inline OK per instrukcja #}
+<style>
+    /* ==============================
+       Upload Page - Mobile Layout
+       ============================== */
+    .upload-page {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .upload-card {
+        background: #ffffff;
+        border-radius: 20px;
+        padding: 40px 28px;
+        max-width: 420px;
+        width: 100%;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        text-align: center;
+    }
+
+    /* Ikona statusu */
+    .upload-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 24px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .upload-icon svg {
+        width: 40px;
+        height: 40px;
+    }
+
+    .upload-icon--expired {
+        background: rgba(244, 67, 54, 0.1);
+    }
+
+    .upload-icon--expired svg {
+        color: #F44336;
+    }
+
+    .upload-icon--success {
+        background: rgba(76, 175, 80, 0.1);
+    }
+
+    .upload-icon--success svg {
+        color: #4CAF50;
+    }
+
+    .upload-icon--upload {
+        background: rgba(90, 24, 154, 0.1);
+    }
+
+    .upload-icon--upload svg {
+        color: #5A189A;
+    }
+
+    /* Naglowek */
+    .upload-title {
+        font-size: 22px;
+        font-weight: 700;
+        color: #212121;
+        margin-bottom: 8px;
+    }
+
+    .upload-subtitle {
+        font-size: 14px;
+        color: #757575;
+        margin-bottom: 32px;
+        line-height: 1.5;
+    }
+
+    /* Strefa uploadu - drop zone / file input */
+    .upload-zone {
+        border: 2px dashed #E0E0E0;
+        border-radius: 16px;
+        padding: 32px 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 24px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+        border-color: #5A189A;
+        background: rgba(90, 24, 154, 0.03);
+    }
+
+    .upload-zone__input {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .upload-zone__icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 12px;
+        color: #9E9E9E;
+    }
+
+    .upload-zone__text {
+        font-size: 15px;
+        color: #424242;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .upload-zone__hint {
+        font-size: 12px;
+        color: #9E9E9E;
+    }
+
+    /* Podglad zdjecia */
+    .upload-preview {
+        display: none;
+        margin-bottom: 24px;
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+        background: #f5f5f5;
+    }
+
+    .upload-preview.visible {
+        display: block;
+    }
+
+    .upload-preview__img {
+        width: 100%;
+        max-height: 300px;
+        object-fit: contain;
+        display: block;
+    }
+
+    .upload-preview__remove {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.5);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        transition: background 0.2s;
+    }
+
+    .upload-preview__remove:hover {
+        background: rgba(244, 67, 54, 0.8);
+    }
+
+    /* Przycisk wysylania */
+    .upload-submit {
+        width: 100%;
+        padding: 14px 24px;
+        background: linear-gradient(135deg, #5A189A, #7B2CBF);
+        color: #ffffff;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .upload-submit:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(90, 24, 154, 0.3);
+    }
+
+    .upload-submit:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Pasek postepu */
+    .upload-progress {
+        display: none;
+        margin-top: 20px;
+    }
+
+    .upload-progress.visible {
+        display: block;
+    }
+
+    .upload-progress__bar-wrapper {
+        width: 100%;
+        height: 6px;
+        background: #E0E0E0;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 8px;
+    }
+
+    .upload-progress__bar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #5A189A, #9D4EDD);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    }
+
+    .upload-progress__text {
+        font-size: 12px;
+        color: #757575;
+    }
+
+    /* Logo / branding */
+    .upload-branding {
+        margin-top: 32px;
+        font-size: 12px;
+        color: #BDBDBD;
+    }
+
+    .upload-branding a {
+        color: #9E9E9E;
+        text-decoration: none;
+    }
+
+    /* ==============================
+       Dark Mode
+       ============================== */
+    [data-theme="dark"] .upload-page {
+        background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%);
+    }
+
+    [data-theme="dark"] .upload-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(240, 147, 251, 0.15);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(20px);
+    }
+
+    [data-theme="dark"] .upload-title {
+        color: #ffffff;
+    }
+
+    [data-theme="dark"] .upload-subtitle {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    [data-theme="dark"] .upload-zone {
+        border-color: rgba(240, 147, 251, 0.2);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    [data-theme="dark"] .upload-zone:hover,
+    [data-theme="dark"] .upload-zone.drag-over {
+        border-color: #f093fb;
+        background: rgba(240, 147, 251, 0.05);
+    }
+
+    [data-theme="dark"] .upload-zone__icon {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    [data-theme="dark"] .upload-zone__text {
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    [data-theme="dark"] .upload-zone__hint {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    [data-theme="dark"] .upload-preview {
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    [data-theme="dark"] .upload-submit {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+    }
+
+    [data-theme="dark"] .upload-progress__bar-wrapper {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    [data-theme="dark"] .upload-progress__bar {
+        background: linear-gradient(90deg, #f093fb, #f5576c);
+    }
+
+    [data-theme="dark"] .upload-progress__text {
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    [data-theme="dark"] .upload-branding {
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    [data-theme="dark"] .upload-branding a {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    [data-theme="dark"] .upload-icon--expired {
+        background: rgba(244, 67, 54, 0.15);
+    }
+
+    [data-theme="dark"] .upload-icon--success {
+        background: rgba(76, 175, 80, 0.15);
+    }
+
+    [data-theme="dark"] .upload-icon--upload {
+        background: rgba(240, 147, 251, 0.15);
+    }
+
+    [data-theme="dark"] .upload-icon--upload svg {
+        color: #f093fb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="upload-page">
+    <div class="upload-card">
+
+        {% if expired %}
+        {# ==============================
+           Stan: Sesja wygasla
+           ============================== #}
+        <div class="upload-icon upload-icon--expired">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        </div>
+        <h1 class="upload-title">Sesja wygasla</h1>
+        <p class="upload-subtitle">
+            Link do uploadu jest niewazny.<br>
+            Wygeneruj nowy QR code w aplikacji.
+        </p>
+
+        {% elif already_uploaded %}
+        {# ==============================
+           Stan: Zdjecie juz przeslane
+           ============================== #}
+        <div class="upload-icon upload-icon--success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+        </div>
+        <h1 class="upload-title">Zdjecie przeslane!</h1>
+        <p class="upload-subtitle">
+            Mozesz zamknac te strone.
+        </p>
+
+        {% else %}
+        {# ==============================
+           Stan: Formularz uploadu
+           ============================== #}
+        <div class="upload-icon upload-icon--upload">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+        </div>
+        <h1 class="upload-title">Dodaj zdjecie do kolekcji</h1>
+        <p class="upload-subtitle">
+            Zrob zdjecie lub wybierz z galerii
+        </p>
+
+        {# Strefa wyboru pliku #}
+        <div class="upload-zone" id="upload-zone">
+            <input type="file"
+                   id="upload-input"
+                   class="upload-zone__input"
+                   accept="image/*"
+                   capture="environment">
+            <svg class="upload-zone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p class="upload-zone__text">Dotknij, aby wybrac zdjecie</p>
+            <p class="upload-zone__hint">JPG, PNG, WebP (max 10MB)</p>
+        </div>
+
+        {# Podglad wybranego zdjecia #}
+        <div class="upload-preview" id="upload-preview">
+            <img class="upload-preview__img" id="preview-img" src="" alt="Podglad">
+            <button type="button" class="upload-preview__remove" id="preview-remove" title="Usun zdjecie">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        {# Przycisk wysylania #}
+        <button type="button" class="upload-submit" id="upload-submit" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Wyslij zdjecie
+        </button>
+
+        {# Pasek postepu uploadu #}
+        <div class="upload-progress" id="upload-progress">
+            <div class="upload-progress__bar-wrapper">
+                <div class="upload-progress__bar" id="progress-bar"></div>
+            </div>
+            <p class="upload-progress__text" id="progress-text">Wysylanie...</p>
+        </div>
+
+        {# Token sesji - potrzebny dla JS #}
+        <input type="hidden" id="session-token" value="{{ session.session_token }}">
+        {% endif %}
+
+        {# Branding #}
+        <div class="upload-branding">
+            <a href="/">ThunderOrders</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if not expired and not already_uploaded %}
+<script src="{{ url_for('static', filename='js/pages/public/upload.js') }}"></script>
+{% endif %}
+{% endblock %}

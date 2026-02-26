@@ -51,8 +51,11 @@ def update_profile():
     elif len(last_name) > 100:
         errors.append('Nazwisko może mieć maksymalnie 100 znaków.')
 
-    if phone and len(phone) > 20:
-        errors.append('Numer telefonu może mieć maksymalnie 20 znaków.')
+    if phone:
+        if len(phone) > 16:
+            errors.append('Numer telefonu może mieć maksymalnie 16 znaków.')
+        elif not re.match(r'^\+\d{1,4}\d{6,15}$', phone):
+            errors.append('Numer telefonu musi mieć format: +[prefix][numer], np. +48123456789.')
 
     if errors:
         for error in errors:

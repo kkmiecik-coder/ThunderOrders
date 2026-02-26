@@ -67,7 +67,17 @@
                         <span class="text-dark">Tryb jasny</span>
                     </span>
                 </button>
+                {% if current_user.role in ['admin', 'mod'] %}
+                <a href="{{ url_for('switch_view') }}" class="topbar-dropdown-item topbar-dropdown-switch">
+                    <img src="{{ url_for('static', filename='img/icons/switch-view.svg') }}" alt="Switch view">
+                    {% if request.path.startswith('/client') %}
+                    <span>Widok admina</span>
+                    {% else %}
+                    <span>Widok klienta</span>
+                    {% endif %}
+                </a>
                 <div class="topbar-dropdown-divider"></div>
+                {% endif %}
                 <a href="{{ url_for('auth.logout') }}" class="topbar-dropdown-item topbar-dropdown-item-danger">
                     <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
                     <span>Wyloguj</span>
@@ -153,6 +163,17 @@
                 <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders" class="mobile-menu-fb-icon">
                 <span>Grupa Facebook</span>
             </a>
+
+            {% if current_user.role in ['admin', 'mod'] %}
+            <a href="{{ url_for('switch_view') }}" class="mobile-menu-switch-view">
+                <img src="{{ url_for('static', filename='img/icons/switch-view.svg') }}" alt="Switch view">
+                {% if request.path.startswith('/client') %}
+                <span>Widok admina</span>
+                {% else %}
+                <span>Widok klienta</span>
+                {% endif %}
+            </a>
+            {% endif %}
 
             <a href="{{ url_for('auth.logout') }}" class="mobile-menu-logout">
                 <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">

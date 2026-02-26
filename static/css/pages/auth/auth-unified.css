@@ -5,6 +5,58 @@
  */
 
 /* ============================================
+   HTML & BODY - Dark background (same as login)
+   ============================================ */
+
+html.auth-html {
+    min-height: 100%;
+    background: #302b63;
+}
+
+html.auth-html body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 1rem;
+    background: #302b63;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Floating Orbs - pseudo elements (same as login) */
+html.auth-html body::before,
+html.auth-html body::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 0;
+    animation: float 20s ease-in-out infinite;
+}
+
+html.auth-html body::before {
+    width: 400px;
+    height: 400px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    top: 120px;
+    left: -100px;
+}
+
+html.auth-html body::after {
+    width: 350px;
+    height: 350px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    bottom: 100px;
+    right: -50px;
+    animation-delay: -7s;
+}
+
+/* ============================================
    BASE STYLES
    ============================================ */
 
@@ -15,8 +67,7 @@
     align-items: center;
     justify-content: center;
     position: relative;
-    padding: 1rem;
-    overflow-x: hidden;
+    z-index: 1;
 }
 
 /* ============================================
@@ -174,7 +225,7 @@
     -webkit-backdrop-filter: blur(20px);
     border-radius: 24px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 2.5rem;
+    padding: 2rem 2.5rem;
     box-shadow:
         0 25px 50px -12px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(255, 255, 255, 0.05) inset;
@@ -206,7 +257,7 @@
 
 .auth-logo {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .auth-logo a {
@@ -303,7 +354,7 @@
 
 .auth-header {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .auth-badge {
@@ -352,7 +403,7 @@
 .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 /* Name Grid (First + Last) */
@@ -373,7 +424,7 @@
 
 .auth-input {
     width: 100%;
-    padding: 1rem 1.25rem;
+    padding: 0.75rem 1.25rem;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -1171,10 +1222,10 @@
 .phone-prefix-btn {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0 1rem;
+    gap: 0.4rem;
+    padding: 0 0.75rem;
     height: 100%;
-    min-height: 52px;
+    min-height: auto;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -1322,7 +1373,7 @@
 
 .phone-number-input {
     width: 100%;
-    padding: 1rem 1.25rem !important;
+    padding: 0.75rem 1.25rem !important;
 }
 
 /* Floating label for phone input */

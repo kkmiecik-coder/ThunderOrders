@@ -9,3 +9,5 @@ CLAUDE.md
 /static/payment_proofs
 implementacja_nowego_systemu_przesylek_i_platnosci.md
 .gitignore
+tests/SECURITY_FIXES_TODO.md
+tests/security_report.md

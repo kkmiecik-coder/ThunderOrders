@@ -1,0 +1,20 @@
+<!-- Delete Confirmation Modal -->
+<div id="deleteCollectionModal" class="modal-overlay">
+    <div class="modal modal-sm">
+        <div class="modal-header">
+            <h3 class="modal-title">Potwierdź usunięcie</h3>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="delete-message">
+                Czy na pewno chcesz usunąć <strong id="deleteItemName"></strong> z kolekcji?
+            </p>
+            <p class="delete-warning">Ta operacja jest nieodwracalna.</p>
+        </div>
+        <div class="modal-footer">
+            <input type="hidden" id="deleteItemId" value="">
+            <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="confirmDelete()" id="deleteConfirmBtn">Usuń</button>
+        </div>
+    </div>
+</div>

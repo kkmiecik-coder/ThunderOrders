@@ -1446,3 +1446,315 @@
     background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
     box-shadow: 0 6px 20px rgba(240, 147, 251, 0.4);
 }
+
+/* ==========================================
+   Public Config Modal - Kolekcja
+   ========================================== */
+
+/* URL strony publicznej */
+.public-config-url-section {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.public-url-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.public-url-input {
+    flex: 1;
+    font-size: 0.8125rem;
+    font-family: monospace;
+    background: #f5f5f5 !important;
+    cursor: text;
+}
+
+.btn-copy-url {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+}
+
+/* Toggle checkboxy */
+.config-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.9375rem;
+    color: var(--text-primary, #333);
+    padding: 4px 0;
+}
+
+.config-toggle-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--orange-300, #ff8500);
+    flex-shrink: 0;
+}
+
+/* Nagłówek listy itemów z "Zaznacz wszystkie" */
+.config-items-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.config-items-header .form-label {
+    margin-bottom: 0;
+}
+
+.config-select-all {
+    font-size: 0.8125rem;
+    color: var(--text-secondary, #666);
+}
+
+/* Lista przedmiotów */
+.config-items-list {
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.config-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: background 0.15s;
+    cursor: pointer;
+}
+
+.config-item-row:hover {
+    background: rgba(255, 133, 0, 0.05);
+}
+
+.config-item-row input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--orange-300, #ff8500);
+    flex-shrink: 0;
+}
+
+.config-item-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: #f3f4f6;
+    flex-shrink: 0;
+}
+
+.config-item-name {
+    flex: 1;
+    font-size: 0.8125rem;
+    color: var(--text-primary, #333);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Stan tworzenia (brak config) */
+.public-config-create {
+    text-align: center;
+    padding: 16px 0;
+}
+
+.create-info {
+    margin-bottom: 16px;
+}
+
+.create-info svg {
+    display: block;
+    margin: 0 auto 12px;
+}
+
+.create-info p {
+    font-size: 0.9375rem;
+    color: var(--text-secondary, #666);
+    margin: 0;
+    line-height: 1.5;
+}
+
+/* Dark mode - Public Config Modal */
+[data-theme="dark"] .public-config-url-section {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .public-url-input {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff;
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .config-toggle-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .config-toggle-label input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
+[data-theme="dark"] .config-select-all {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .config-items-list {
+    border-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+[data-theme="dark"] .config-item-row:hover {
+    background: rgba(240, 147, 251, 0.05);
+}
+
+[data-theme="dark"] .config-item-row input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
+[data-theme="dark"] .config-item-thumb {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .config-item-name {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .create-info p {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .create-info svg {
+    opacity: 0.5;
+    filter: invert(1);
+}
+
+/* ==========================================
+   QR Upload sekcja w modalu kolekcji
+   ========================================== */
+
+/* Przycisk "Dodaj zdjęcie z telefonu" */
+.qr-upload-section {
+    margin-top: 12px;
+}
+
+.btn-qr-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+}
+
+/* Wyświetlanie QR code */
+.qr-code-display {
+    text-align: center;
+    padding: 16px;
+    margin-top: 12px;
+    border: 1px dashed #e0e0e0;
+    border-radius: 8px;
+    background: #fafafa;
+}
+
+.qr-image {
+    width: 180px;
+    height: 180px;
+    display: block;
+    margin: 0 auto 8px;
+    border-radius: 8px;
+}
+
+.qr-hint {
+    font-size: 0.8125rem;
+    color: var(--text-secondary, #666);
+    margin: 0 0 8px 0;
+}
+
+.qr-status {
+    font-size: 0.75rem;
+    color: var(--text-tertiary, #999);
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.04);
+    display: inline-block;
+}
+
+.qr-status.uploaded {
+    color: #16a34a;
+    background: rgba(22, 163, 74, 0.1);
+}
+
+.qr-status.expired {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.1);
+}
+
+/* Podgląd uploadowanego zdjęcia z QR */
+.qr-uploaded-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 10px;
+    border: 1px solid #d1fae5;
+    border-radius: 8px;
+    background: #f0fdf4;
+}
+
+.qr-uploaded-img {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.qr-uploaded-text {
+    font-size: 0.8125rem;
+    color: #16a34a;
+    font-weight: 500;
+}
+
+/* Dark mode - QR Upload */
+[data-theme="dark"] .qr-code-display {
+    border-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .qr-hint {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .qr-status {
+    color: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .qr-status.uploaded {
+    color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+}
+
+[data-theme="dark"] .qr-status.expired {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+}
+
+[data-theme="dark"] .qr-uploaded-preview {
+    border-color: rgba(52, 211, 153, 0.2);
+    background: rgba(52, 211, 153, 0.05);
+}
+
+[data-theme="dark"] .qr-uploaded-text {
+    color: #34d399;
+}

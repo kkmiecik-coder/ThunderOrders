@@ -1,0 +1,208 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Moja Kolekcja - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/collection.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/carousel.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="collection-page client-view">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>Moja Kolekcja</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary btn-public-page" onclick="openPublicConfigModal()" title="Publiczna strona">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
+                    <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
+                </svg>
+                <span>{% if public_config %}Publiczna strona{% else %}Udostępnij{% endif %}</span>
+            </button>
+            <button class="btn btn-primary btn-add-item" onclick="openAddModal()">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                </svg>
+                <span>Dodaj przedmiot</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="collection-metrics">
+        <div class="metric-card metric-card-primary">
+            <div class="metric-icon">🎴</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Przedmioty</h3>
+                <p class="metric-value">{{ total_items }}</p>
+                <p class="metric-subtitle">W kolekcji</p>
+            </div>
+        </div>
+        {% if total_value > 0 %}
+        <div class="metric-card metric-card-progress">
+            <div class="metric-icon">💰</div>
+            <div class="metric-content">
+                <h3 class="metric-title">Łączna wartość</h3>
+                <p class="metric-value">{{ "%.2f"|format(total_value) }} zł</p>
+                <p class="metric-subtitle">Cena rynkowa</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Toolbar -->
+    <div class="collection-toolbar">
+        <div class="toolbar-left">
+            <div class="search-wrapper">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85a1.007 1.007 0 00-.115-.1zM12 6.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/>
+                </svg>
+                <input type="text" class="search-input" id="collectionSearch"
+                       placeholder="Szukaj w kolekcji..."
+                       value="{{ search }}"
+                       autocomplete="off">
+                {% if search %}
+                <button class="search-clear" onclick="clearSearch()" title="Wyczyść">&times;</button>
+                {% endif %}
+            </div>
+            <select class="sort-select" id="collectionSort" onchange="applySort()">
+                <option value="newest" {{ 'selected' if sort == 'newest' }}>Najnowsze</option>
+                <option value="oldest" {{ 'selected' if sort == 'oldest' }}>Najstarsze</option>
+                <option value="name_asc" {{ 'selected' if sort == 'name_asc' }}>Nazwa A-Z</option>
+                <option value="price_desc" {{ 'selected' if sort == 'price_desc' }}>Cena malejąco</option>
+            </select>
+        </div>
+        <div class="toolbar-right">
+            <div class="view-toggle">
+                <button class="view-btn {{ 'active' if view == 'grid' }}" onclick="setView('grid')" title="Widok siatki">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 13.5v-3z"/>
+                    </svg>
+                </button>
+                <button class="view-btn {{ 'active' if view == 'list' }}" onclick="setView('list')" title="Widok listy">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M2.5 12a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5z"/>
+                    </svg>
+                </button>
+                <button class="view-btn {{ 'active' if view == 'carousel' }}" onclick="setView('carousel')" title="Widok karuzeli">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M1 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4zm4-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H5zm7 0a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Content -->
+    {% if items %}
+        <!-- Grid View -->
+        <div class="collection-grid {% if view != 'grid' %}hidden{% endif %}" id="collectionGrid">
+            {% for item in items %}
+                {% include 'client/collection/_item_card.html' %}
+            {% endfor %}
+        </div>
+
+        <!-- List View -->
+        <div class="collection-list {% if view != 'list' %}hidden{% endif %}" id="collectionList">
+            <div class="list-header">
+                <span class="list-col col-image"></span>
+                <span class="list-col col-name">Nazwa</span>
+                <span class="list-col col-source">Źródło</span>
+                <span class="list-col col-price">Cena rynkowa</span>
+                <span class="list-col col-date">Data dodania</span>
+                <span class="list-col col-actions">Akcje</span>
+            </div>
+            {% for item in items %}
+                {% include 'client/collection/_item_row.html' %}
+            {% endfor %}
+        </div>
+
+        <!-- Carousel View -->
+        <div class="carousel-container {% if view != 'carousel' %}hidden{% endif %}" id="collectionCarousel">
+            <div class="carousel-track">
+                {% for item in items %}
+                <div class="carousel-slide" data-item-id="{{ item.id }}" onclick="openEditModal({{ item.id }})">
+                    <div class="carousel-slide-content">
+                        {% if item.primary_image %}
+                        <img src="{{ url_for('static', filename=item.primary_image.path_compressed) }}" alt="{{ item.name }}">
+                        {% else %}
+                        <img src="{{ url_for('static', filename='img/placeholders/collection-item.svg') }}" alt="{{ item.name }}" class="square">
+                        {% endif %}
+                        <span class="carousel-slide-name">{{ item.name }}</span>
+                        {% if item.market_price %}
+                        <span class="carousel-slide-price">{{ "%.2f"|format(item.market_price) }} zł</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button class="carousel-prev" id="carouselPrev" type="button">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button class="carousel-next" id="carouselNext" type="button">
+                <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"></polyline></svg>
+            </button>
+        </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <div class="collection-pagination">
+            <div class="pagination">
+                {% if pagination.has_prev %}
+                <a href="?page={{ pagination.prev_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}" class="page-link">&laquo; Poprzednia</a>
+                {% endif %}
+
+                {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                    {% if page_num %}
+                        <a href="?page={{ page_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}"
+                           class="page-link {{ 'active' if page_num == pagination.page }}">{{ page_num }}</a>
+                    {% else %}
+                        <span class="page-ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if pagination.has_next %}
+                <a href="?page={{ pagination.next_num }}&view={{ view }}&sort={{ sort }}&search={{ search }}" class="page-link">Następna &raquo;</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+    {% else %}
+        <!-- Empty State -->
+        <div class="collection-empty">
+            <div class="empty-icon">
+                <img src="{{ url_for('static', filename='img/placeholders/collection-item.svg') }}" alt="Pusta kolekcja">
+            </div>
+            <h3 class="empty-title">
+                {% if search %}
+                    Brak wyników dla "{{ search }}"
+                {% else %}
+                    Twoja kolekcja jest pusta
+                {% endif %}
+            </h3>
+            <p class="empty-text">
+                {% if search %}
+                    Spróbuj zmienić frazę wyszukiwania
+                {% else %}
+                    Dodaj swój pierwszy przedmiot K-pop lub poczekaj na dostarczenie zamówienia
+                {% endif %}
+            </p>
+            {% if not search %}
+            <button class="btn btn-primary" onclick="openAddModal()">Dodaj pierwszy przedmiot</button>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modals -->
+{% include 'client/collection/_add_modal.html' %}
+{% include 'client/collection/_edit_modal.html' %}
+{% include 'client/collection/_delete_confirm.html' %}
+{% include 'client/collection/_public_config_modal.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/collection.js') }}"></script>
+{% endblock %}

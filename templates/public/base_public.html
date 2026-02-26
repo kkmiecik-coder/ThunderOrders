@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}ThunderOrders{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=12">
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    {% block body_content %}
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    {% endblock %}
+
+    {% block scripts %}
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/core/app.js') }}?v=8"></script>
+    <script src="{{ url_for('static', filename='js/components/toast.js') }}?v=8"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=8"></script>
+
+    {% block extra_js %}{% endblock %}
+
+    <!-- Flash messages as toasts -->
+    <script>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    window.showToast({{ message|tojson }}, {{ category|tojson }});
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </script>
+    {% endblock %}
+</body>
+</html>

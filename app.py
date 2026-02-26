@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template, redirect, url_for
+from flask import Flask, render_template, redirect, url_for, request, abort
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
 from extensions import db, migrate, login_manager, mail, csrf, executor, limiter
@@ -125,6 +125,11 @@ def register_blueprints(app):
     csrf.exempt(imports_bp)
     app.register_blueprint(imports_bp)
 
+    # Public module (strony publiczne bez logowania - kolekcja, QR upload)
+    from modules.public import public_bp
+    csrf.exempt(public_bp)
+    app.register_blueprint(public_bp)
+
     # Profile module (wspólny dla wszystkich ról)
     from modules.profile import profile_bp
     app.register_blueprint(profile_bp, url_prefix='/profile')
@@ -165,6 +170,50 @@ def register_blueprints(app):
         Dostępna publicznie dla wszystkich użytkowników
         """
         return render_template('legal/privacy_policy.html')
+
+    # Przełączanie widoku admin ↔ klient
+    @app.route('/switch-view')
+    def switch_view():
+        """
+        Przełącza admin/mod między widokiem admina a widokiem klienta.
+        Zamienia prefix /admin/ ↔ /client/ w bieżącym URL.
+        Jeśli docelowa strona nie istnieje, przekierowuje na dashboard.
+        """
+        from flask_login import current_user
+        from werkzeug.exceptions import NotFound
+        from urllib.parse import urlparse
+
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login'))
+
+        if current_user.role not in ('admin', 'mod'):
+            abort(403)
+
+        referrer = request.args.get('next') or request.referrer or '/'
+        parsed = urlparse(referrer)
+        path = parsed.path
+
+        if path.startswith('/admin'):
+            # Przełącz na widok klienta
+            new_path = '/client' + path[len('/admin'):]
+            fallback = url_for('client.dashboard')
+        elif path.startswith('/client'):
+            # Przełącz na widok admina
+            new_path = '/admin' + path[len('/client'):]
+            fallback = url_for('admin.dashboard')
+        else:
+            # Strona bez prefixu - przejdź na dashboard przeciwnego widoku
+            return redirect(url_for('client.dashboard'))
+
+        # Sprawdź czy docelowa ścieżka istnieje
+        adapter = app.url_map.bind('')
+        try:
+            adapter.match(new_path)
+            return redirect(new_path)
+        except NotFound:
+            return redirect(fallback)
+        except Exception:
+            return redirect(new_path)
 
 
 def register_cli_commands(app):

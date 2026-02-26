@@ -13,23 +13,6 @@
 
 {% block body_content %}
 <div class="auth-page">
-    <!-- Animated Background -->
-    <div class="animated-bg">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-        <div class="orb orb-4"></div>
-        <div class="orb orb-5"></div>
-        <div class="sparkle sparkle-1"></div>
-        <div class="sparkle sparkle-2"></div>
-        <div class="sparkle sparkle-3"></div>
-        <div class="sparkle sparkle-4"></div>
-        <div class="sparkle sparkle-5"></div>
-        <div class="sparkle sparkle-6"></div>
-        <!-- Dynamic pulse rings container -->
-        <div class="pulse-rings-container" id="pulseRingsContainer"></div>
-    </div>
-
     <!-- Glass Container -->
     <div class="auth-container {% if mode == 'success' %}success-mode{% endif %}">
         <!-- Logo -->
@@ -39,32 +22,6 @@
             </a>
         </div>
 
-        <!-- Progress indicator (only for multi-step flows) -->
-        {% if mode in ['register', 'verify'] %}
-        <div class="auth-progress">
-            <div class="progress-step {% if mode == 'register' %}active{% else %}completed{% endif %}" data-step="1">
-                <div class="step-dot">
-                    {% if mode != 'register' %}
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    {% else %}1{% endif %}
-                </div>
-                <span class="step-label">Dane</span>
-            </div>
-            <div class="progress-line {% if mode != 'register' %}completed{% endif %}"></div>
-            <div class="progress-step {% if mode == 'verify' %}active{% elif mode == 'success' %}completed{% endif %}" data-step="2">
-                <div class="step-dot">
-                    {% if mode == 'success' %}
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    {% else %}2{% endif %}
-                </div>
-                <span class="step-label">Weryfikacja</span>
-            </div>
-        </div>
-        {% endif %}
 
         <!-- Step container -->
         <div class="auth-steps-container">
@@ -587,52 +544,6 @@
 <script src="{{ url_for('static', filename='js/pages/auth/auth-unified.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Dynamic Pulse Rings (tylko na desktop - oszczędność baterii na mobile)
-    const container = document.getElementById('pulseRingsContainer');
-    const isMobile = window.innerWidth <= 520;
-
-    if (container && !isMobile) {
-        const colors = [
-            'rgba(240, 147, 251, 0.4)',
-            'rgba(102, 126, 234, 0.4)',
-            'rgba(79, 172, 254, 0.35)',
-            'rgba(245, 87, 108, 0.35)',
-            'rgba(255, 133, 0, 0.4)'
-        ];
-
-        function createPulseRing() {
-            const ring = document.createElement('div');
-            ring.className = 'dynamic-pulse-ring';
-
-            const x = Math.random() * 100;
-            const y = Math.random() * 100;
-            const size = 100 + Math.random() * 200;
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const duration = 2 + Math.random() * 2;
-
-            ring.style.cssText = `
-                left: ${x}%;
-                top: ${y}%;
-                width: ${size}px;
-                height: ${size}px;
-                border-color: ${color};
-                animation-duration: ${duration}s;
-            `;
-
-            container.appendChild(ring);
-
-            setTimeout(() => ring.remove(), duration * 1000);
-        }
-
-        // Create initial rings
-        for (let i = 0; i < 3; i++) {
-            setTimeout(() => createPulseRing(), i * 600);
-        }
-
-        // Create new rings periodically
-        setInterval(createPulseRing, 1200);
-    }
-
     // Floating label handling
     document.querySelectorAll('.auth-input').forEach(input => {
         if (input.value) {

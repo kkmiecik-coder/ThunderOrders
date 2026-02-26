@@ -493,6 +493,15 @@ def admin_update_status(order_id):
         order.updated_at = datetime.now()
         db.session.commit()
 
+        # Auto-add to collection when delivered
+        if new_status == 'dostarczone' and old_status != 'dostarczone':
+            from modules.client.collection_utils import auto_add_order_to_collection
+            try:
+                auto_add_order_to_collection(order)
+                db.session.commit()
+            except Exception as e:
+                current_app.logger.error(f'Collection auto-add error: {e}')
+
         # Activity log
         log_activity(
             user=current_user,
@@ -1110,6 +1119,18 @@ def bulk_status_change():
                         })
 
         db.session.commit()
+
+        # Auto-add to collection when delivered (bulk)
+        if new_status == 'dostarczone':
+            from modules.client.collection_utils import auto_add_order_to_collection
+            for oid in order_ids:
+                o = Order.query.get(oid)
+                if o:
+                    try:
+                        auto_add_order_to_collection(o)
+                    except Exception as e:
+                        current_app.logger.error(f'Collection auto-add error for order {oid}: {e}')
+            db.session.commit()
 
         # Send email notifications after successful commit
         from utils.email_manager import EmailManager

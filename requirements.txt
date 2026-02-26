@@ -19,6 +19,9 @@ email-validator==2.3.0
 # Image Processing
 Pillow==10.1.0
 
+# QR Code Generation
+qrcode[pil]==7.4.2
+
 # Environment & Configuration
 python-dotenv==1.0.0
 

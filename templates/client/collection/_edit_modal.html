@@ -1,0 +1,64 @@
+<!-- Edit Collection Item Modal -->
+<div id="editCollectionModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Edytuj przedmiot</h3>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form id="editCollectionForm" onsubmit="submitEditForm(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="editItemId" name="item_id" value="">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editName" class="form-label">Nazwa <span class="required">*</span></label>
+                    <input type="text" id="editName" name="name" class="form-input" required maxlength="255">
+                </div>
+                <div class="form-group">
+                    <label for="editPrice" class="form-label">Cena rynkowa (zł)</label>
+                    <input type="number" id="editPrice" name="market_price" class="form-input"
+                           step="0.01" min="0" placeholder="opcjonalnie">
+                </div>
+                <div class="form-group">
+                    <label for="editNotes" class="form-label">Notatki</label>
+                    <textarea id="editNotes" name="notes" class="form-input form-textarea"
+                              rows="3" placeholder="opcjonalnie" maxlength="1000"></textarea>
+                </div>
+
+                <!-- Existing images -->
+                <div class="form-group">
+                    <label class="form-label">Zdjęcia</label>
+                    <div class="existing-images" id="editExistingImages">
+                        <!-- Filled by JS -->
+                    </div>
+                    <div class="add-image-wrapper" id="editAddImageWrapper" style="display: none;">
+                        <input type="file" id="editImageInput"
+                               accept="image/jpeg,image/png,image/webp,image/gif"
+                               class="image-input-hidden"
+                               onchange="uploadEditImage(this)">
+                        <button type="button" class="btn btn-secondary btn-sm"
+                                onclick="document.getElementById('editImageInput').click()">
+                            Dodaj zdjęcie
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm btn-qr-upload" onclick="startQrSession('edit')">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M0 .5A.5.5 0 0 1 .5 0h3a.5.5 0 0 1 0 1H1v2.5a.5.5 0 0 1-1 0v-3zm12 0a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V1h-2.5a.5.5 0 0 1-.5-.5zM.5 12a.5.5 0 0 1 .5.5V15h2.5a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H15v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M2 2h4v4H2V2zm1 1v2h2V3H3zm7-1h4v4h-4V2zm1 1v2h2V3h-2zM2 10h4v4H2v-4zm1 1v2h2v-2H3z"/>
+                            </svg>
+                            Z telefonu
+                        </button>
+                    </div>
+                    <!-- QR Upload z telefonu (edit modal) -->
+                    <div class="qr-code-display" id="editQrDisplay" style="display: none;">
+                        <img id="editQrImage" alt="QR Code" class="qr-image">
+                        <p class="qr-hint">Zeskanuj kod telefonem</p>
+                        <div class="qr-status" id="editQrStatus">Oczekiwanie na upload...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="editSubmitBtn">Zapisz zmiany</button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -38,6 +38,15 @@
                 </a>
             </li>
 
+            <li class="sidebar-item">
+                <a href="{{ url_for('client.collection_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'collection' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Moja Kolekcja">
+                    <img src="{{ url_for('static', filename='img/icons/collection.svg') }}" alt="Moja Kolekcja" class="sidebar-icon">
+                    <span class="sidebar-text">Moja Kolekcja</span>
+                </a>
+            </li>
+
             <li class="sidebar-item sidebar-category {% if request.endpoint and 'shipping' in request.endpoint %}expanded{% endif %}">
                 <div class="sidebar-category-header" onclick="toggleSidebarCategory(this)">
                     <div class="sidebar-category-main">

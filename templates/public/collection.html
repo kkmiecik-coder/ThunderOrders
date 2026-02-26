@@ -1,0 +1,119 @@
+{% extends "public/base_public.html" %}
+
+{% block title %}Kolekcja {{ user.first_name }} {{ user.last_name }} - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/public/collection.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/carousel.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="public-collection-page">
+
+    {# --- Sekcja nagłówka z avatarem i informacjami o użytkowniku --- #}
+    <div class="public-collection-header">
+        <div class="header-user">
+            {% if user.avatar %}
+                <img class="user-avatar" src="{{ user.avatar.image_url }}" alt="{{ user.first_name }}">
+            {% else %}
+                <div class="user-avatar user-avatar-fallback">
+                    {{ user.first_name[0]|upper }}
+                </div>
+            {% endif %}
+            <div class="header-info">
+                <h1 class="header-title">Kolekcja użytkownika {{ user.first_name }} {{ user.last_name }}</h1>
+                <p class="header-count">{{ items|length }} przedmiotów</p>
+            </div>
+        </div>
+    </div>
+
+    {% if items %}
+        {# --- Przełącznik widoku (siatka / karuzela) --- #}
+        <div class="view-toggle-bar">
+            <button class="view-toggle-btn {{ 'active' if view == 'grid' }}"
+                    data-view="grid"
+                    title="Widok siatki">
+                {# Ikona siatki #}
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 13.5v-3z"/>
+                </svg>
+                <span>Siatka</span>
+            </button>
+            <button class="view-toggle-btn {{ 'active' if view == 'carousel' }}"
+                    data-view="carousel"
+                    title="Widok karuzeli">
+                {# Ikona karuzeli #}
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M0 2a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H2a2 2 0 01-2-2V2zm2-1a1 1 0 00-1 1v8a1 1 0 001 1h12a1 1 0 001-1V2a1 1 0 00-1-1H2z"/>
+                    <path d="M4 14.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5z"/>
+                </svg>
+                <span>Karuzela</span>
+            </button>
+        </div>
+
+        {# --- Widok siatki --- #}
+        <div class="public-grid {{ 'hidden' if view != 'grid' }}" id="publicGrid">
+            {% for item in items %}
+            <div class="public-card">
+                <div class="public-card-image">
+                    <img src="{{ item.image_url }}"
+                         alt="{{ item.name }}"
+                         loading="lazy">
+                </div>
+                <div class="public-card-body">
+                    <h3 class="public-card-name" title="{{ item.name }}">{{ item.name }}</h3>
+                    {% if show_prices and item.market_price %}
+                    <span class="public-card-price">{{ "%.2f"|format(item.market_price) }} zł</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {# --- Widok karuzeli 3D --- #}
+        <div class="carousel-container {{ 'hidden' if view != 'carousel' }}" id="publicCarousel">
+            <div class="carousel-track">
+                {% for item in items %}
+                <div class="carousel-slide">
+                    <div class="carousel-slide-content">
+                        <img src="{{ item.image_url }}"
+                             alt="{{ item.name }}"
+                             loading="lazy">
+                        <span class="carousel-slide-name">{{ item.name }}</span>
+                        {% if show_prices and item.market_price %}
+                        <span class="carousel-slide-price">{{ "%.2f"|format(item.market_price) }} zł</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button class="carousel-prev" id="carouselPrev" type="button" title="Poprzedni">
+                <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button class="carousel-next" id="carouselNext" type="button" title="Następny">
+                <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"></polyline></svg>
+            </button>
+        </div>
+
+    {% else %}
+        {# --- Stan pusty (brak przedmiotów) --- #}
+        <div class="public-empty-state">
+            <div class="empty-icon">
+                <img src="{{ url_for('static', filename='img/placeholders/collection-item.svg') }}" alt="Pusta kolekcja">
+            </div>
+            <h3 class="empty-title">Ta kolekcja jest pusta</h3>
+            <p class="empty-text">Użytkownik nie dodał jeszcze żadnych przedmiotów do swojej kolekcji.</p>
+        </div>
+    {% endif %}
+
+    {# --- Stopka z linkiem do ThunderOrders --- #}
+    <footer class="public-footer">
+        <a href="/" class="footer-link">Powered by <strong>ThunderOrders</strong></a>
+    </footer>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/public/collection.js') }}"></script>
+{% endblock %}

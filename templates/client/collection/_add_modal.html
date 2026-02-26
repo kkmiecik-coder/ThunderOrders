@@ -1,0 +1,69 @@
+<!-- Add Collection Item Modal -->
+<div id="addCollectionModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Dodaj do kolekcji</h3>
+            <button class="modal-close" onclick="closeAddModal()">&times;</button>
+        </div>
+        <form id="addCollectionForm" onsubmit="submitAddForm(event)">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="addName" class="form-label">Nazwa <span class="required">*</span></label>
+                    <input type="text" id="addName" name="name" class="form-input" required
+                           placeholder="np. BTS - Jimin Photocard" maxlength="255">
+                </div>
+                <div class="form-group">
+                    <label for="addPrice" class="form-label">Cena rynkowa (zł)</label>
+                    <input type="number" id="addPrice" name="market_price" class="form-input"
+                           step="0.01" min="0" placeholder="opcjonalnie">
+                </div>
+                <div class="form-group">
+                    <label for="addNotes" class="form-label">Notatki</label>
+                    <textarea id="addNotes" name="notes" class="form-input form-textarea"
+                              rows="3" placeholder="opcjonalnie" maxlength="1000"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Zdjęcia (max 3)</label>
+                    <div class="image-upload-zone" id="addImageUploadZone">
+                        <input type="file" id="addImageInput" name="images" multiple
+                               accept="image/jpeg,image/png,image/webp,image/gif"
+                               class="image-input-hidden"
+                               onchange="handleImagePreview(this, 'addImagePreview')">
+                        <div class="upload-placeholder" onclick="document.getElementById('addImageInput').click()">
+                            <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor" opacity="0.5">
+                                <path d="M.002 3a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2h-12a2 2 0 01-2-2V3zm1 9v1a1 1 0 001 1h12a1 1 0 001-1V9.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12zm5-6.5a1.5 1.5 0 10-3 0 1.5 1.5 0 003 0z"/>
+                            </svg>
+                            <span>Kliknij lub przeciągnij zdjęcia</span>
+                        </div>
+                    </div>
+                    <div class="image-preview-grid" id="addImagePreview"></div>
+                    <!-- QR Upload z telefonu -->
+                    <div class="qr-upload-section" id="addQrSection">
+                        <button type="button" class="btn btn-secondary btn-sm btn-qr-upload" onclick="startQrSession('add')">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M0 .5A.5.5 0 0 1 .5 0h3a.5.5 0 0 1 0 1H1v2.5a.5.5 0 0 1-1 0v-3zm12 0a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V1h-2.5a.5.5 0 0 1-.5-.5zM.5 12a.5.5 0 0 1 .5.5V15h2.5a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H15v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                <path d="M2 2h4v4H2V2zm1 1v2h2V3H3zm7-1h4v4h-4V2zm1 1v2h2V3h-2zM2 10h4v4H2v-4zm1 1v2h2v-2H3z"/>
+                            </svg>
+                            Dodaj zdjęcie z telefonu
+                        </button>
+                        <div class="qr-code-display" id="addQrDisplay" style="display: none;">
+                            <img id="addQrImage" alt="QR Code" class="qr-image">
+                            <p class="qr-hint">Zeskanuj kod telefonem</p>
+                            <div class="qr-status" id="addQrStatus">Oczekiwanie na upload...</div>
+                            <input type="hidden" id="addQrSessionToken" name="qr_session_token" value="">
+                        </div>
+                        <div class="qr-uploaded-preview" id="addQrUploaded" style="display: none;">
+                            <img id="addQrUploadedImage" alt="Uploaded" class="qr-uploaded-img">
+                            <span class="qr-uploaded-text">Zdjęcie dodane z telefonu</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="addSubmitBtn">Dodaj do kolekcji</button>
+            </div>
+        </form>
+    </div>
+</div>

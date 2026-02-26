@@ -360,6 +360,99 @@ def delete_avatar_series_folder(series_slug):
         return False
 
 
+def process_collection_upload(file, user_id):
+    """
+    Process uploaded collection image: validate, save original, create compressed version.
+
+    Args:
+        file: FileStorage object from form
+        user_id (int): User ID for folder structure
+
+    Returns:
+        dict: {
+            'filename': str,
+            'path_original': str (relative to static/),
+            'path_compressed': str (relative to static/)
+        }
+
+    Raises:
+        ValueError: If file is invalid or processing fails
+    """
+    if not file or file.filename == '':
+        raise ValueError('No file provided')
+
+    if not allowed_file(file.filename):
+        settings = get_image_settings()
+        allowed_formats = settings['allowed_formats'].replace(',', ', ')
+        raise ValueError(f'Niedozwolony format pliku. Dozwolone: {allowed_formats}')
+
+    unique_filename = generate_unique_filename(file.filename)
+
+    static_folder = os.path.join(current_app.root_path, 'static')
+    base_folder = os.path.join(static_folder, 'uploads', 'collections', str(user_id))
+    original_folder = os.path.join(base_folder, 'original')
+    compressed_folder = os.path.join(base_folder, 'compressed')
+
+    os.makedirs(original_folder, exist_ok=True)
+    os.makedirs(compressed_folder, exist_ok=True)
+
+    original_path = os.path.join(original_folder, unique_filename)
+    compressed_path = os.path.join(compressed_folder, unique_filename)
+
+    try:
+        file.save(original_path)
+
+        img = Image.open(original_path)
+        img.save(compressed_path)
+
+        compress_image(compressed_path, max_size=800, dpi=72, quality=75)
+
+        rel_original = os.path.join('uploads', 'collections', str(user_id), 'original', unique_filename)
+        rel_compressed = os.path.join('uploads', 'collections', str(user_id), 'compressed', unique_filename)
+
+        return {
+            'filename': unique_filename,
+            'path_original': rel_original,
+            'path_compressed': rel_compressed
+        }
+
+    except Exception as e:
+        if os.path.exists(original_path):
+            os.remove(original_path)
+        if os.path.exists(compressed_path):
+            os.remove(compressed_path)
+
+        current_app.logger.error(f"Error processing collection upload: {str(e)}")
+        raise ValueError(f'Błąd przetwarzania obrazu: {str(e)}')
+
+
+def delete_collection_image_files(path_original, path_compressed):
+    """
+    Delete collection image files (original and compressed).
+
+    Args:
+        path_original (str): Relative path from static/ to original image
+        path_compressed (str): Relative path from static/ to compressed image
+
+    Returns:
+        bool: True if deleted successfully
+    """
+    try:
+        static_folder = os.path.join(current_app.root_path, 'static')
+        original_abs = os.path.join(static_folder, path_original)
+        compressed_abs = os.path.join(static_folder, path_compressed)
+
+        if os.path.exists(original_abs):
+            os.remove(original_abs)
+        if os.path.exists(compressed_abs):
+            os.remove(compressed_abs)
+
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Error deleting collection image files: {str(e)}")
+        return False
+
+
 def delete_image_files(path_original, path_compressed):
     """
     Delete image files (original and compressed)
