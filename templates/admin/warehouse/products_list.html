@@ -25,7 +25,7 @@
                        name="search"
                        class="search-input"
                        placeholder="Szukaj produktu (nazwa, SKU, EAN)..."
-                       value="{{ request.args.get('search', '') }}">
+                       value="{{ request.args.get('search', '') | e }}">
             </form>
         </div>
 

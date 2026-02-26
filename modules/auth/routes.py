@@ -8,7 +8,7 @@ from flask_login import login_user, logout_user, current_user, login_required
 from datetime import datetime
 
 # Import db z extensions.py (unika circular import)
-from extensions import db, csrf
+from extensions import db, csrf, limiter
 from modules.auth import auth_bp
 from modules.auth.models import User
 from modules.auth.forms import (
@@ -65,6 +65,7 @@ from utils.email_manager import EmailManager
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @csrf.exempt
+@limiter.limit("5 per minute", methods=["POST"])
 def login():
     """
     Strona logowania

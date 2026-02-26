@@ -237,7 +237,7 @@
                     {% if request.args.get('order_type') == 'pre_order' %}Pre-order
                     {% elif request.args.get('order_type') == 'on_hand' %}On-hand
                     {% elif request.args.get('order_type') == 'exclusive' %}Exclusive
-                    {% else %}{{ request.args.get('order_type') }}{% endif %}
+                    {% else %}{{ request.args.get('order_type') | e }}{% endif %}
                 </span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
@@ -246,7 +246,7 @@
             {% endif %}
             {% if request.args.get('date_from') %}
             <a href="{{ url_for('orders.admin_list', **request.args|reject_key('date_from')) }}" class="filter-tag">
-                <span>Od: {{ request.args.get('date_from') }}</span>
+                <span>Od: {{ request.args.get('date_from') | e }}</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
@@ -254,7 +254,7 @@
             {% endif %}
             {% if request.args.get('date_to') %}
             <a href="{{ url_for('orders.admin_list', **request.args|reject_key('date_to')) }}" class="filter-tag">
-                <span>Do: {{ request.args.get('date_to') }}</span>
+                <span>Do: {{ request.args.get('date_to') | e }}</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
@@ -262,7 +262,7 @@
             {% endif %}
             {% if request.args.get('search') %}
             <a href="{{ url_for('orders.admin_list', **request.args|reject_key('search')) }}" class="filter-tag">
-                <span>Szukaj: "{{ request.args.get('search') }}"</span>
+                <span>Szukaj: "{{ request.args.get('search') | e }}"</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M18 6L6 18M6 6l12 12"/>
                 </svg>
