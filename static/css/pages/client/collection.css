@@ -6,6 +6,7 @@
 .collection-page {
     padding: var(--space-6) var(--space-8);
     transition: all 0.3s ease;
+    overflow-x: hidden;
 }
 
 /* ---- Page Header ---- */
@@ -117,22 +118,86 @@
     flex-wrap: wrap;
 }
 
-/* Add button */
-.btn-add-item {
+/* ---- Przyciski nagłówka ---- */
+.header-action-btn {
     display: inline-flex;
     align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-5);
-    font-size: var(--text-base);
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid var(--card-border, #e0e0e0);
+    background: var(--card-bg, #ffffff);
+    color: var(--text-secondary, #757575);
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+    font-size: 0.875rem;
+    font-weight: 500;
+    gap: 6px;
+    white-space: nowrap;
 }
 
-/* Przycisk publicznej strony */
-.btn-public-page {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-4);
-    font-size: var(--text-sm);
+/* Przycisk z tekstem - szerszy */
+.header-action-btn.has-label {
+    width: auto;
+    padding: 0 14px;
+    height: 38px;
+}
+
+/* Dodaj przedmiot - zielony akcent */
+.action-add:hover {
+    color: #16a34a;
+    border-color: #16a34a;
+    background: rgba(22, 163, 74, 0.07);
+    box-shadow: 0 2px 8px rgba(22, 163, 74, 0.12);
+}
+
+/* Publiczna strona - niebieski akcent */
+.action-public:hover {
+    color: #2563eb;
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.07);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+/* Ustawienia - pomarańczowy akcent */
+.action-settings:hover {
+    color: var(--orange-300, #ff8500);
+    border-color: var(--orange-300, #ff8500);
+    background: rgba(255, 133, 0, 0.07);
+    box-shadow: 0 2px 8px rgba(255, 133, 0, 0.12);
+}
+
+/* Dark mode - bazowy styl */
+[data-theme="dark"] .header-action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* Dark mode - Dodaj (zielony) */
+[data-theme="dark"] .action-add:hover {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.45);
+    background: rgba(52, 211, 153, 0.1);
+    box-shadow: 0 2px 10px rgba(52, 211, 153, 0.15);
+}
+
+/* Dark mode - Publiczna strona (niebieski) */
+[data-theme="dark"] .action-public:hover {
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.45);
+    background: rgba(96, 165, 250, 0.1);
+    box-shadow: 0 2px 10px rgba(96, 165, 250, 0.15);
+}
+
+/* Dark mode - Ustawienia (różowy) */
+[data-theme="dark"] .action-settings:hover {
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.45);
+    background: rgba(240, 147, 251, 0.1);
+    box-shadow: 0 2px 10px rgba(240, 147, 251, 0.15);
 }
 
 /* ---- Toolbar ---- */
@@ -805,10 +870,7 @@
 }
 
 /* Image upload */
-.image-upload-zone {
-    position: relative;
-}
-
+/* ---- Sekcja zdjęć w modalu (dodawanie/edycja) ---- */
 .image-input-hidden {
     position: absolute;
     opacity: 0;
@@ -816,43 +878,31 @@
     height: 0;
 }
 
-.upload-placeholder {
+/* Podpowiedź inline przy labelu */
+.input-hint-inline {
+    font-weight: 400;
+    font-size: 0.8125rem;
+    color: var(--text-secondary, #888);
+}
+
+/* Podgląd wybranych zdjęć */
+.photo-preview-row {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-5);
-    border: 2px dashed var(--card-border);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    text-align: center;
-}
-
-.upload-placeholder span {
-    font-size: var(--text-sm);
-    color: var(--text-tertiary);
-}
-
-.upload-placeholder:hover {
-    border-color: var(--orange-300);
-    background: var(--hover-bg, #f9fafb);
-}
-
-.image-preview-grid {
-    display: flex;
-    gap: var(--space-2);
-    margin-top: var(--space-2);
+    gap: 8px;
     flex-wrap: wrap;
+}
+
+.photo-preview-row:not(:empty) {
+    margin-bottom: 10px;
 }
 
 .preview-item {
     position: relative;
-    width: 72px;
-    height: 72px;
-    border-radius: 6px;
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
     overflow: hidden;
-    border: 1px solid var(--card-border);
+    border: 1px solid var(--card-border, #e0e0e0);
 }
 
 .preview-item img {
@@ -863,32 +913,56 @@
 
 .preview-remove {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    width: 18px;
-    height: 18px;
+    top: 4px;
+    right: 4px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(0, 0, 0, 0.55);
     color: #fff;
     border: none;
     cursor: pointer;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
+    transition: background 0.15s;
 }
 
-[data-theme="dark"] .upload-placeholder {
-    border-color: rgba(240, 147, 251, 0.15);
+.preview-remove:hover {
+    background: rgba(220, 38, 38, 0.8);
 }
 
-[data-theme="dark"] .upload-placeholder:hover {
-    border-color: rgba(240, 147, 251, 0.3);
-    background: rgba(255, 255, 255, 0.03);
+/* Wiersz przycisków: Wybierz plik / Z telefonu */
+.photo-actions {
+    display: flex;
+    gap: 8px;
 }
 
-[data-theme="dark"] .upload-placeholder span {
+.photo-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border: 1px dashed var(--card-border, #ddd);
+    border-radius: 8px;
+    background: none;
+    color: var(--text-secondary, #666);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.photo-action-btn:hover {
+    border-color: var(--orange-300, #ff8500);
+    color: var(--orange-300, #ff8500);
+    background: rgba(255, 133, 0, 0.04);
+}
+
+/* Dark mode - zdjęcia */
+[data-theme="dark"] .input-hint-inline {
     color: rgba(255, 255, 255, 0.4);
 }
 
@@ -896,29 +970,35 @@
     border-color: rgba(240, 147, 251, 0.15);
 }
 
-/* Wrapper do przycisków dodawania zdjęć w modalu edycji */
-.add-image-wrapper {
-    display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
-    align-items: center;
-    margin-top: var(--space-2);
+[data-theme="dark"] .photo-action-btn {
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.5);
 }
 
-/* Existing images in edit modal */
+[data-theme="dark"] .photo-action-btn:hover {
+    border-color: rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+    background: rgba(240, 147, 251, 0.06);
+}
+
+/* Istniejące zdjęcia w modalu edycji */
 .existing-images {
     display: flex;
-    gap: var(--space-2);
+    gap: 8px;
     flex-wrap: wrap;
+}
+
+.existing-images:not(:empty) {
+    margin-bottom: 10px;
 }
 
 .existing-image-item {
     position: relative;
     width: 80px;
     height: 80px;
-    border-radius: 6px;
+    border-radius: 8px;
     overflow: hidden;
-    border: 2px solid var(--card-border);
+    border: 2px solid var(--card-border, #e0e0e0);
     cursor: pointer;
     transition: border-color 0.15s;
 }
@@ -1049,9 +1129,19 @@
         font-size: 1.75rem;
     }
 
-    .btn-add-item {
-        width: 100%;
-        justify-content: center;
+    .header-action-btn.has-label span {
+        display: none;
+    }
+
+    .header-action-btn.has-label {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+    }
+
+    .header-action-btn {
+        width: 36px;
+        height: 36px;
     }
 
     .collection-metrics .metric-card {

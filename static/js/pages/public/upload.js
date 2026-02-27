@@ -179,8 +179,8 @@
 
     // ---- Wyswietlenie komunikatu bledu ----
     function showError(message) {
-        if (window.Toast) {
-            window.Toast.show(message, 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, 'error');
         } else {
             alert(message);
         }

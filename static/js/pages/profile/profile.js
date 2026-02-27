@@ -142,9 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 updateRequirement(requirements.lowercase, false);
                 updateRequirement(requirements.number, false);
 
-                if (window.Toast) {
-                    window.Toast.show(result.data.message, 'success');
-                } else if (window.showToast) {
+                if (typeof window.showToast === 'function') {
                     window.showToast(result.data.message, 'success');
                 }
             } else if (result.data.field_errors) {
@@ -153,17 +151,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     showFieldError(field, result.data.field_errors[field]);
                 });
             } else if (result.data.message) {
-                if (window.Toast) {
-                    window.Toast.show(result.data.message, 'error');
-                } else if (window.showToast) {
+                if (typeof window.showToast === 'function') {
                     window.showToast(result.data.message, 'error');
                 }
             }
         })
         .catch(function() {
-            if (window.Toast) {
-                window.Toast.show('Wystąpił błąd połączenia.', 'error');
-            } else if (window.showToast) {
+            if (typeof window.showToast === 'function') {
                 window.showToast('Wystąpił błąd połączenia.', 'error');
             }
         })

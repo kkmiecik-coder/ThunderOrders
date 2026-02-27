@@ -1044,8 +1044,8 @@ function copyToClipboard(value, label) {
 // Simple Toast Function
 function showToast(message, type = 'info') {
     // Check if there's a global toast function available
-    if (window.toast && typeof window.toast === 'function') {
-        window.toast(message, type);
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
         return;
     }
 

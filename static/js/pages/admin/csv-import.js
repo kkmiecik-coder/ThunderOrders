@@ -775,16 +775,15 @@ function formatDate(isoString) {
 // =============================================
 
 /**
- * Show Toast Notification
+ * Show Toast Notification - delegates to global showToast from toast.js
  */
 function showToast(message, type = 'info') {
-    // Check if there's a global toast function
-    if (window.showToast && typeof window.showToast === 'function') {
-        // Prevent recursive call
+    if (typeof window.showToast === 'function' && window.showToast !== showToast) {
+        window.showToast(message, type);
         return;
     }
 
-    // Create toast element
+    // Fallback: create toast element if global not available
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = message;

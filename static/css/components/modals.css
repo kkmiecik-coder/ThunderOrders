@@ -1452,81 +1452,183 @@
    ========================================== */
 
 /* URL strony publicznej */
-.public-config-url-section {
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #e0e0e0;
+/* ==========================================
+   Modal udostępniania kolekcji
+   ========================================== */
+
+/* -- Stan tworzenia (hero) -- */
+.share-create-hero {
+    text-align: center;
+    padding: 24px 16px 8px;
 }
 
-.public-url-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
-.public-url-input {
-    flex: 1;
-    font-size: 0.8125rem;
-    font-family: monospace;
-    background: #f5f5f5 !important;
-    cursor: text;
-}
-
-.btn-copy-url {
+.share-create-icon {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-    padding: 6px 12px;
-    font-size: 0.8125rem;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255, 133, 0, 0.1), rgba(255, 133, 0, 0.05));
+    color: var(--orange-300, #ff8500);
+    margin-bottom: 16px;
 }
 
-/* Toggle checkboxy */
-.config-toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    font-size: 0.9375rem;
+.share-create-title {
+    font-size: 1.25rem;
+    font-weight: 700;
     color: var(--text-primary, #333);
-    padding: 4px 0;
+    margin: 0 0 8px;
 }
 
-.config-toggle-label input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    accent-color: var(--orange-300, #ff8500);
-    flex-shrink: 0;
+.share-create-desc {
+    font-size: 0.875rem;
+    color: var(--text-secondary, #666);
+    line-height: 1.5;
+    margin: 0 0 24px;
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
-/* Nagłówek listy itemów z "Zaznacz wszystkie" */
-.config-items-header {
+.share-create-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    font-size: 0.9375rem;
+}
+
+/* -- Karta URL -- */
+.share-url-card {
+    background: #f7f8fa;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 20px;
+}
+
+.share-url-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary, #888);
+    margin-bottom: 8px;
+}
+
+.share-url-row {
     display: flex;
-    justify-content: space-between;
+    gap: 6px;
     align-items: center;
     margin-bottom: 8px;
 }
 
-.config-items-header .form-label {
-    margin-bottom: 0;
-}
-
-.config-select-all {
+.share-url-input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
     font-size: 0.8125rem;
-    color: var(--text-secondary, #666);
+    font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+    background: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    color: var(--text-primary, #333);
+    cursor: text;
 }
 
-/* Lista przedmiotów */
-.config-items-list {
-    max-height: 240px;
+.share-url-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #ffffff;
+    color: var(--text-secondary, #757575);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.share-url-copy:hover {
+    color: var(--orange-300, #ff8500);
+    border-color: var(--orange-300, #ff8500);
+    background: rgba(255, 133, 0, 0.06);
+}
+
+.share-url-copy.copied {
+    color: #16a34a;
+    border-color: #16a34a;
+    background: rgba(22, 163, 74, 0.06);
+}
+
+.share-open-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--orange-300, #ff8500);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: opacity 0.15s;
+}
+
+.share-open-link:hover {
+    opacity: 0.75;
+}
+
+/* -- Nagłówek listy przedmiotów -- */
+.share-items-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.share-items-header .settings-section-title {
+    margin: 0;
+}
+
+.share-select-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8125rem;
+    color: var(--text-secondary, #888);
+    cursor: pointer;
+}
+
+.share-select-all input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--orange-300, #ff8500);
+}
+
+/* -- Lista przedmiotów -- */
+.share-items-list {
+    max-height: 220px;
     overflow-y: auto;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #e8e8e8;
     border-radius: 8px;
     padding: 4px;
 }
 
-.config-item-row {
+.share-items-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-secondary, #888);
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+.share-item-row {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -1536,11 +1638,11 @@
     cursor: pointer;
 }
 
-.config-item-row:hover {
+.share-item-row:hover {
     background: rgba(255, 133, 0, 0.05);
 }
 
-.config-item-row input[type="checkbox"] {
+.share-item-row input[type="checkbox"] {
     width: 16px;
     height: 16px;
     cursor: pointer;
@@ -1548,16 +1650,16 @@
     flex-shrink: 0;
 }
 
-.config-item-thumb {
+.share-item-thumb {
     width: 32px;
     height: 32px;
-    border-radius: 4px;
+    border-radius: 6px;
     object-fit: cover;
     background: #f3f4f6;
     flex-shrink: 0;
 }
 
-.config-item-name {
+.share-item-name {
     flex: 1;
     font-size: 0.8125rem;
     color: var(--text-primary, #333);
@@ -1566,113 +1668,129 @@
     white-space: nowrap;
 }
 
-/* Stan tworzenia (brak config) */
-.public-config-create {
-    text-align: center;
-    padding: 16px 0;
-}
-
-.create-info {
-    margin-bottom: 16px;
-}
-
-.create-info svg {
+/* -- Podpowiedź pod labelem ustawienia -- */
+.settings-row-hint {
     display: block;
-    margin: 0 auto 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary, #888);
+    margin-top: 1px;
+    line-height: 1.3;
 }
 
-.create-info p {
-    font-size: 0.9375rem;
-    color: var(--text-secondary, #666);
-    margin: 0;
-    line-height: 1.5;
+/* ==========================================
+   Dark mode - Modal udostępniania
+   ========================================== */
+[data-theme="dark"] .share-create-icon {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.15), rgba(240, 147, 251, 0.06));
+    color: #f093fb;
 }
 
-/* Dark mode - Public Config Modal */
-[data-theme="dark"] .public-config-url-section {
-    border-bottom-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .public-url-input {
-    background: rgba(255, 255, 255, 0.05) !important;
+[data-theme="dark"] .share-create-title {
     color: #ffffff;
+}
+
+[data-theme="dark"] .share-create-desc {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="dark"] .share-url-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .share-url-label {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .share-url-input {
+    background: rgba(255, 255, 255, 0.05);
     border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
 }
 
-[data-theme="dark"] .config-toggle-label {
-    color: rgba(255, 255, 255, 0.9);
+[data-theme="dark"] .share-url-copy {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.55);
 }
 
-[data-theme="dark"] .config-toggle-label input[type="checkbox"] {
+[data-theme="dark"] .share-url-copy:hover {
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.4);
+    background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .share-url-copy.copied {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(52, 211, 153, 0.1);
+}
+
+[data-theme="dark"] .share-open-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .share-select-all {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .share-select-all input[type="checkbox"] {
     accent-color: #f093fb;
 }
 
-[data-theme="dark"] .config-select-all {
-    color: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .config-items-list {
-    border-color: rgba(240, 147, 251, 0.15);
+[data-theme="dark"] .share-items-list {
+    border-color: rgba(240, 147, 251, 0.12);
     background: rgba(255, 255, 255, 0.02);
 }
 
-[data-theme="dark"] .config-item-row:hover {
-    background: rgba(240, 147, 251, 0.05);
+[data-theme="dark"] .share-items-empty {
+    color: rgba(255, 255, 255, 0.4);
 }
 
-[data-theme="dark"] .config-item-row input[type="checkbox"] {
+[data-theme="dark"] .share-item-row:hover {
+    background: rgba(240, 147, 251, 0.06);
+}
+
+[data-theme="dark"] .share-item-row input[type="checkbox"] {
     accent-color: #f093fb;
 }
 
-[data-theme="dark"] .config-item-thumb {
+[data-theme="dark"] .share-item-thumb {
     background: rgba(255, 255, 255, 0.05);
 }
 
-[data-theme="dark"] .config-item-name {
-    color: rgba(255, 255, 255, 0.9);
+[data-theme="dark"] .share-item-name {
+    color: rgba(255, 255, 255, 0.85);
 }
 
-[data-theme="dark"] .create-info p {
-    color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="dark"] .create-info svg {
-    opacity: 0.5;
-    filter: invert(1);
+[data-theme="dark"] .settings-row-hint {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 /* ==========================================
    QR Upload sekcja w modalu kolekcji
    ========================================== */
-
-/* Przycisk "Dodaj zdjęcie z telefonu" */
 .qr-upload-section {
-    margin-top: 12px;
-}
-
-.btn-qr-upload {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.8125rem;
+    margin-top: 10px;
 }
 
 /* Wyświetlanie QR code */
 .qr-code-display {
     text-align: center;
-    padding: 16px;
-    margin-top: 12px;
-    border: 1px dashed #e0e0e0;
-    border-radius: 8px;
-    background: #fafafa;
+    padding: 20px 16px;
+    margin-top: 0;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    background: #f9fafb;
 }
 
 .qr-image {
-    width: 180px;
-    height: 180px;
+    width: 160px;
+    height: 160px;
     display: block;
-    margin: 0 auto 8px;
-    border-radius: 8px;
+    margin: 0 auto 10px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .qr-hint {
@@ -1705,8 +1823,8 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-top: 12px;
-    padding: 10px;
+    margin-top: 10px;
+    padding: 10px 12px;
     border: 1px solid #d1fae5;
     border-radius: 8px;
     background: #f0fdf4;
@@ -1757,4 +1875,172 @@
 
 [data-theme="dark"] .qr-uploaded-text {
     color: #34d399;
+}
+
+/* ==========================================
+   Modal ustawień - sekcje, wiersze, toggle switch, select
+   ========================================== */
+
+/* Sekcja ustawień */
+.settings-section {
+    margin-bottom: 24px;
+}
+
+.settings-section:last-child {
+    margin-bottom: 0;
+}
+
+.settings-section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary, #333);
+    margin: 0 0 4px 0;
+}
+
+.settings-section-desc {
+    font-size: 13px;
+    color: var(--text-secondary, #757575);
+    margin: 0 0 14px 0;
+    line-height: 1.4;
+}
+
+/* Wiersz ustawienia - label + kontrolka */
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gray-100, #f0f0f0);
+    gap: 12px;
+}
+
+.settings-row:last-child {
+    border-bottom: none;
+}
+
+.settings-row-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-row-icon {
+    font-size: 16px;
+    line-height: 1;
+}
+
+.settings-row-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary, #424242);
+}
+
+/* Toggle switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+    cursor: pointer;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    content: '';
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #ffffff;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: var(--orange-300, #ff8500);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px);
+}
+
+.toggle-switch input:focus + .toggle-slider {
+    box-shadow: 0 0 0 2px rgba(255, 133, 0, 0.2);
+}
+
+/* Select w ustawieniach */
+.settings-select {
+    padding: 6px 10px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    font-size: 13px;
+    background: var(--bg-primary, #ffffff);
+    color: var(--text-primary, #212121);
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.settings-select:focus {
+    outline: none;
+    border-color: var(--orange-300, #ff8500);
+}
+
+/* ---- Dark mode: ustawienia ---- */
+[data-theme="dark"] .settings-section-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .settings-section-desc {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .settings-row {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .settings-row-label {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .toggle-slider {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .toggle-switch input:checked + .toggle-slider {
+    background-color: #f093fb;
+}
+
+[data-theme="dark"] .settings-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .settings-select:focus {
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .settings-select option {
+    background: rgba(15, 12, 41, 0.98);
+    color: #ffffff;
 }

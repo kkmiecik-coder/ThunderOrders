@@ -8,6 +8,7 @@ from flask_mail import Message
 from extensions import mail
 from threading import Thread
 import os
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,8 +16,19 @@ logger = logging.getLogger(__name__)
 
 def send_async_email(app, msg):
     """Wysyła email asynchronicznie w osobnym wątku"""
-    with app.app_context():
-        mail.send(msg)
+    recipient = msg.recipients[0] if msg.recipients else 'unknown'
+    subject = msg.subject or 'no subject'
+    logger.info(f"[EMAIL-THREAD] Starting SMTP send to={recipient}, subject='{subject}'")
+    start_time = time.time()
+
+    try:
+        with app.app_context():
+            mail.send(msg)
+        elapsed = time.time() - start_time
+        logger.info(f"[EMAIL-THREAD] SUCCESS to={recipient}, subject='{subject}', took={elapsed:.2f}s")
+    except Exception as e:
+        elapsed = time.time() - start_time
+        logger.error(f"[EMAIL-THREAD] FAILED to={recipient}, subject='{subject}', took={elapsed:.2f}s, error={type(e).__name__}: {e}")
 
 
 def send_email(to, subject, template, **kwargs):
@@ -65,15 +77,18 @@ def send_email(to, subject, template, **kwargs):
                 )
 
         # Wysyłka asynchroniczna (nie blokuje aplikacji)
+        logger.info(f"[EMAIL] Queuing email to={to}, subject='{subject}', smtp={app.config.get('MAIL_SERVER')}:{app.config.get('MAIL_PORT')}")
         Thread(
             target=send_async_email,
-            args=(app, msg)
+            args=(app, msg),
+            name=f"email-{to}"
         ).start()
+        logger.info(f"[EMAIL] Thread started for to={to}")
 
         return True
 
     except Exception as e:
-        current_app.logger.error(f"Email sending failed: {str(e)}")
+        logger.error(f"[EMAIL] Preparation FAILED to={to}, subject='{subject}', error={type(e).__name__}: {e}")
         return False
 
 

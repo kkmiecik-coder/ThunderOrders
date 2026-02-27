@@ -1,70 +1,108 @@
-<!-- Modal konfiguracji publicznej strony kolekcji -->
-<div id="publicConfigModal" class="modal-overlay">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Publiczna strona kolekcji</h3>
-            <button class="modal-close" onclick="closePublicConfigModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-            <!-- URL publicznej strony -->
-            <div class="public-config-url-section" id="publicUrlSection" style="display: none;">
-                <label class="form-label">Adres strony</label>
-                <div class="public-url-row">
-                    <input type="text" class="form-input public-url-input" id="publicUrlInput" readonly>
-                    <button type="button" class="btn btn-secondary btn-sm btn-copy-url" onclick="copyPublicUrl()" title="Kopiuj link">
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-                            <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+<!-- Modal udostępniania kolekcji -->
+<div id="publicConfigModal" class="modal-overlay" onclick="if(event.target===this) closePublicConfigModal()">
+    <div class="modal-content modal-sm">
+
+        <!-- ===== Stan tworzenia (brak konfiguracji) ===== -->
+        <div id="publicConfigCreate" style="display: none;">
+            <div class="modal-body">
+                <div class="share-create-hero">
+                    <div class="share-create-icon">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+                            <polyline points="16 6 12 2 8 6"/>
+                            <line x1="12" y1="2" x2="12" y2="15"/>
                         </svg>
-                        <span>Kopiuj</span>
+                    </div>
+                    <h2 class="share-create-title">Udostępnij kolekcję</h2>
+                    <p class="share-create-desc">Stwórz publiczną stronę swojej kolekcji. Każdy kto otrzyma link, będzie mógł przeglądać Twoje przedmioty.</p>
+                    <button type="button" class="btn btn-primary share-create-btn" onclick="createPublicConfig()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+                            <polyline points="16 6 12 2 8 6"/>
+                            <line x1="12" y1="2" x2="12" y2="15"/>
+                        </svg>
+                        Utwórz publiczną stronę
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Ustawienia -->
-            <div class="public-config-settings" id="publicConfigSettings" style="display: none;">
-                <div class="form-group">
-                    <label class="config-toggle-label">
-                        <input type="checkbox" id="configShowPrices" onchange="updatePublicConfig()">
-                        <span>Pokaż ceny rynkowe</span>
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label class="config-toggle-label">
-                        <input type="checkbox" id="configIsActive" onchange="updatePublicConfig()">
-                        <span>Strona aktywna</span>
-                    </label>
-                    <span class="input-hint" id="configActiveHint">Gdy wyłączone, strona zwraca błąd 404</span>
+        <!-- ===== Stan konfiguracji (strona już istnieje) ===== -->
+        <div id="publicConfigExists" style="display: none;">
+            <div class="modal-header">
+                <h2>Udostępnianie</h2>
+                <button type="button" class="modal-close" onclick="closePublicConfigModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Sekcja URL -->
+                <div class="share-url-card" id="publicUrlSection">
+                    <label class="share-url-label">Link do kolekcji</label>
+                    <div class="share-url-row">
+                        <input type="text" class="share-url-input" id="publicUrlInput" readonly>
+                        <button type="button" class="share-url-copy" id="btnCopyUrl" onclick="copyPublicUrl()" title="Kopiuj link">
+                            <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                            </svg>
+                            <svg class="check-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+                                <polyline points="20 6 9 17 4 12"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <button type="button" class="share-open-link" onclick="window.open(document.getElementById('publicUrlInput').value, '_blank')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        Otwórz stronę
+                    </button>
                 </div>
 
-                <!-- Lista przedmiotów z checkboxami is_public -->
-                <div class="form-group">
-                    <div class="config-items-header">
-                        <label class="form-label">Widoczność przedmiotów</label>
-                        <label class="config-toggle-label config-select-all">
-                            <input type="checkbox" id="configSelectAll" onchange="toggleAllPublicItems(this.checked)">
-                            <span>Zaznacz wszystkie</span>
+                <!-- Ustawienia -->
+                <div class="settings-section" id="publicConfigSettings">
+                    <h3 class="settings-section-title">Ustawienia</h3>
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <span class="settings-row-label">Strona aktywna</span>
+                            <span class="settings-row-hint" id="configActiveHint">Wyłączona strona zwraca błąd 404</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="configIsActive" onchange="updatePublicConfig()">
+                            <span class="toggle-slider"></span>
                         </label>
                     </div>
-                    <div class="config-items-list" id="configItemsList">
+
+                    <div class="settings-row">
+                        <div class="settings-row-info">
+                            <span class="settings-row-label">Pokaż ceny</span>
+                            <span class="settings-row-hint">Ceny rynkowe widoczne na publicznej stronie</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="configShowPrices" onchange="updatePublicConfig()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Widoczność przedmiotów -->
+                <div class="settings-section">
+                    <div class="share-items-header">
+                        <h3 class="settings-section-title">Widoczność przedmiotów</h3>
+                        <label class="share-select-all">
+                            <input type="checkbox" id="configSelectAll" onchange="toggleAllPublicItems(this.checked)">
+                            <span>Wszystkie</span>
+                        </label>
+                    </div>
+                    <div class="share-items-list" id="configItemsList">
                         <!-- Wypełnione przez JS -->
                     </div>
                 </div>
-            </div>
 
-            <!-- Stan tworzenia (gdy brak config) -->
-            <div class="public-config-create" id="publicConfigCreate" style="display: none;">
-                <div class="create-info">
-                    <svg width="40" height="40" viewBox="0 0 16 16" fill="currentColor" opacity="0.3">
-                        <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
-                        <path d="M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243L6.586 4.672z"/>
-                    </svg>
-                    <p>Udostępnij swoją kolekcję publicznie! Każdy z linkiem będzie mógł przeglądać Twoje przedmioty.</p>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="createPublicConfig()">
-                    Utwórz publiczną stronę
-                </button>
             </div>
         </div>
+
     </div>
 </div>

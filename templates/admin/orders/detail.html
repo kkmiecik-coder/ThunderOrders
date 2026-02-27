@@ -2489,7 +2489,7 @@ async function saveSummaryCost(fieldName) {
 
     const value = parseFloat(input.value) || 0;
     if (value < 0) {
-        if (window.Toast) window.Toast.show('Kwota nie może być ujemna', 'error');
+        if (typeof window.showToast === 'function') window.showToast('Kwota nie może być ujemna', 'error');
         return;
     }
 
@@ -2536,12 +2536,12 @@ async function saveSummaryCost(fieldName) {
                 }
             }
 
-            if (window.Toast) window.Toast.show('Zaktualizowano pomyślnie', 'success');
+            if (typeof window.showToast === 'function') window.showToast('Zaktualizowano pomyślnie', 'success');
         } else {
-            if (window.Toast) window.Toast.show(data.message || 'Błąd zapisu', 'error');
+            if (typeof window.showToast === 'function') window.showToast(data.message || 'Błąd zapisu', 'error');
         }
     } catch (err) {
-        if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+        if (typeof window.showToast === 'function') window.showToast('Błąd połączenia', 'error');
     }
 }
 

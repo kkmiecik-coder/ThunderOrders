@@ -1,59 +1,79 @@
-<!-- Edit Collection Item Modal -->
-<div id="editCollectionModal" class="modal-overlay">
-    <div class="modal">
+<!-- Modal edycji przedmiotu -->
+<div id="editCollectionModal" class="modal-overlay" onclick="if(event.target===this) closeEditModal()">
+    <div class="modal-content modal-sm">
         <div class="modal-header">
-            <h3 class="modal-title">Edytuj przedmiot</h3>
-            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            <h2>Edytuj przedmiot</h2>
+            <button type="button" class="modal-close" onclick="closeEditModal()">&times;</button>
         </div>
         <form id="editCollectionForm" onsubmit="submitEditForm(event)">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" id="editItemId" name="item_id" value="">
             <div class="modal-body">
+
+                <!-- Nazwa -->
                 <div class="form-group">
                     <label for="editName" class="form-label">Nazwa <span class="required">*</span></label>
-                    <input type="text" id="editName" name="name" class="form-input" required maxlength="255">
-                </div>
-                <div class="form-group">
-                    <label for="editPrice" class="form-label">Cena rynkowa (zł)</label>
-                    <input type="number" id="editPrice" name="market_price" class="form-input"
-                           step="0.01" min="0" placeholder="opcjonalnie">
-                </div>
-                <div class="form-group">
-                    <label for="editNotes" class="form-label">Notatki</label>
-                    <textarea id="editNotes" name="notes" class="form-input form-textarea"
-                              rows="3" placeholder="opcjonalnie" maxlength="1000"></textarea>
+                    <input type="text" id="editName" name="name" class="form-control" required maxlength="255">
                 </div>
 
-                <!-- Existing images -->
+                <!-- Cena -->
+                <div class="form-group">
+                    <label for="editPrice" class="form-label">Cena rynkowa (zł)</label>
+                    <input type="number" id="editPrice" name="market_price" class="form-control"
+                           step="0.01" min="0" placeholder="opcjonalnie">
+                </div>
+
+                <!-- Notatki -->
+                <div class="form-group">
+                    <label for="editNotes" class="form-label">Notatki</label>
+                    <textarea id="editNotes" name="notes" class="form-control"
+                              rows="2" placeholder="opcjonalnie" maxlength="1000"></textarea>
+                </div>
+
+                <!-- Zdjęcia -->
                 <div class="form-group">
                     <label class="form-label">Zdjęcia</label>
-                    <div class="existing-images" id="editExistingImages">
-                        <!-- Filled by JS -->
-                    </div>
-                    <div class="add-image-wrapper" id="editAddImageWrapper" style="display: none;">
+
+                    <!-- Istniejące zdjęcia (wypełniane przez JS) -->
+                    <div class="existing-images" id="editExistingImages"></div>
+
+                    <!-- Przyciski dodawania -->
+                    <div class="photo-actions" id="editAddImageWrapper" style="display: none;">
                         <input type="file" id="editImageInput"
                                accept="image/jpeg,image/png,image/webp,image/gif"
                                class="image-input-hidden"
                                onchange="uploadEditImage(this)">
-                        <button type="button" class="btn btn-secondary btn-sm"
-                                onclick="document.getElementById('editImageInput').click()">
-                            Dodaj zdjęcie
-                        </button>
-                        <button type="button" class="btn btn-secondary btn-sm btn-qr-upload" onclick="startQrSession('edit')">
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M0 .5A.5.5 0 0 1 .5 0h3a.5.5 0 0 1 0 1H1v2.5a.5.5 0 0 1-1 0v-3zm12 0a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-1 0V1h-2.5a.5.5 0 0 1-.5-.5zM.5 12a.5.5 0 0 1 .5.5V15h2.5a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5v-3a.5.5 0 0 1 .5-.5zm15 0a.5.5 0 0 1 .5.5v3a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H15v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                <path d="M2 2h4v4H2V2zm1 1v2h2V3H3zm7-1h4v4h-4V2zm1 1v2h2V3h-2zM2 10h4v4H2v-4zm1 1v2h2v-2H3z"/>
+                        <button type="button" class="photo-action-btn" onclick="document.getElementById('editImageInput').click()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                <circle cx="8.5" cy="8.5" r="1.5"/>
+                                <polyline points="21 15 16 10 5 21"/>
                             </svg>
-                            Z telefonu
+                            <span>Dodaj zdjęcie</span>
+                        </button>
+                        <button type="button" class="photo-action-btn" onclick="startQrSession('edit')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="2" width="8" height="8" rx="1"/>
+                                <rect x="14" y="2" width="8" height="8" rx="1"/>
+                                <rect x="2" y="14" width="8" height="8" rx="1"/>
+                                <rect x="14" y="14" width="4" height="4"/>
+                                <line x1="22" y1="18" x2="22" y2="22"/>
+                                <line x1="18" y1="22" x2="22" y2="22"/>
+                            </svg>
+                            <span>Z telefonu</span>
                         </button>
                     </div>
-                    <!-- QR Upload z telefonu (edit modal) -->
-                    <div class="qr-code-display" id="editQrDisplay" style="display: none;">
-                        <img id="editQrImage" alt="QR Code" class="qr-image">
-                        <p class="qr-hint">Zeskanuj kod telefonem</p>
-                        <div class="qr-status" id="editQrStatus">Oczekiwanie na upload...</div>
+
+                    <!-- QR Upload (edit modal) -->
+                    <div class="qr-upload-section">
+                        <div class="qr-code-display" id="editQrDisplay" style="display: none;">
+                            <img id="editQrImage" alt="QR Code" class="qr-image">
+                            <p class="qr-hint">Zeskanuj kod aparatem telefonu</p>
+                            <div class="qr-status" id="editQrStatus">Oczekiwanie na upload...</div>
+                        </div>
                     </div>
                 </div>
+
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Anuluj</button>

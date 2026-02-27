@@ -1,5 +1,5 @@
 /**
- * Publiczna kolekcja - karuzela i przełączanie widoków
+ * Publiczna kolekcja - karuzela z dynamicznym rozmiarem i przełączanie widoków
  */
 (function () {
     'use strict';
@@ -8,14 +8,13 @@
     // Przełączanie widoków (grid / carousel)
     // ==========================================
 
-    const publicGrid = document.getElementById('publicGrid');
-    const publicCarousel = document.getElementById('publicCarousel');
-    const viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
+    var publicGrid = document.getElementById('publicGrid');
+    var publicCarousel = document.getElementById('publicCarousel');
+    var viewToggleBtns = document.querySelectorAll('.view-toggle-btn');
 
     /**
      * Ustawia aktywny widok (grid lub carousel)
      * Aktualizuje URL bez przeładowania strony
-     * @param {string} view - 'grid' lub 'carousel'
      */
     window.setPublicView = function (view) {
         if (!publicGrid || !publicCarousel) return;
@@ -26,6 +25,7 @@
         } else {
             publicGrid.classList.add('hidden');
             publicCarousel.classList.remove('hidden');
+            computeCarouselLayout();
             updateCarousel();
         }
 
@@ -55,6 +55,62 @@
     });
 
     // ==========================================
+    // Dynamiczny rozmiar karuzeli
+    // ==========================================
+
+    var resizeTimer = null;
+
+    /**
+     * Oblicza dynamiczny layout karuzeli na podstawie dostępnego miejsca.
+     * Ustawia CSS custom properties na .carousel-track.
+     */
+    function computeCarouselLayout() {
+        var track = document.querySelector('.carousel-track');
+        var container = publicCarousel;
+        if (!track || !container) return;
+
+        var containerWidth = container.clientWidth;
+        var gap = 12;
+
+        // Szerokość karty na podstawie dostępnej szerokości (5 kart widocznych)
+        var widthBased = (containerWidth - 4 * gap) / 4.1;
+
+        // Rzeczywista pozycja karuzeli na stronie
+        var containerTop = container.getBoundingClientRect().top + window.scrollY;
+        var availableHeight = window.innerHeight - containerTop + window.scrollY - 16;
+        var usableHeight = availableHeight - 90; // padding karuzeli: 20px góra + 70px dół
+        var heightBased = (usableHeight - 55) * 0.75; // karta: 4:3 + 55px tekst
+
+        // Wybierz mniejszą z dwóch wartości, ogranicz zakresem 160-380px
+        var cardWidth = Math.max(160, Math.min(380, Math.round(Math.min(widthBased, heightBased))));
+
+        // Oblicz offsety pozycji
+        var prevOffset = Math.round(cardWidth * 0.925 + gap);
+        var farOffset = Math.round(prevOffset + cardWidth * 0.775 + gap);
+
+        // Wysokość tracka: proporcja 4:3 karty + padding na tekst i przyciski
+        var trackHeight = Math.round(cardWidth * (4 / 3) + 55);
+
+        // Ustaw CSS custom properties
+        track.style.setProperty('--slide-width', cardWidth + 'px');
+        track.style.setProperty('--prev-offset', prevOffset + 'px');
+        track.style.setProperty('--prev-offset-neg', '-' + prevOffset + 'px');
+        track.style.setProperty('--far-offset', farOffset + 'px');
+        track.style.setProperty('--far-offset-neg', '-' + farOffset + 'px');
+        track.style.setProperty('--track-height', trackHeight + 'px');
+    }
+
+    // Przelicz layout przy zmianie rozmiaru okna (debounce)
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+            if (publicCarousel && !publicCarousel.classList.contains('hidden')) {
+                computeCarouselLayout();
+            }
+        }, 150);
+    });
+
+    // ==========================================
     // Logika karuzeli
     // ==========================================
 
@@ -62,12 +118,26 @@
     var currentIndex = 0;
 
     // Klasy pozycji slajdów
-    var positionClasses = ['active', 'prev', 'next', 'far-prev', 'far-next', 'hidden'];
+    var posClasses = ['active', 'prev', 'next', 'far-prev', 'far-next'];
+    var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next' };
 
     /**
-     * Aktualizuje pozycje slajdów w karuzeli
-     * Środkowy slajd dostaje klasę .active,
-     * sąsiednie slajdy dostają odpowiednie klasy pozycji
+     * Pomocnicza - ustawia klasę pozycji na slajdzie
+     */
+    function applyPos(slide, cls) {
+        posClasses.forEach(function (c) {
+            slide.classList.remove(c);
+        });
+        if (cls) slide.classList.add(cls);
+    }
+
+    /**
+     * Aktualizuje pozycje slajdów z logiką fade dla skrajnych kart.
+     * 4 przypadki:
+     *   1) Pojawienie (ukryty → widoczny): teleport bez animacji, potem fade in
+     *   2) Znikanie (widoczny → ukryty): fade out 0.4s, potem ukryj
+     *   3) Przesunięcie (widoczny → widoczny): normalna tranzycja CSS
+     *   4) Ukryty → ukryty: natychmiast, bez animacji
      */
     function updateCarousel() {
         if (slides.length === 0) return;
@@ -75,34 +145,55 @@
         var totalSlides = slides.length;
 
         slides.forEach(function (slide, index) {
-            // Usunięcie wszystkich klas pozycji
-            positionClasses.forEach(function (cls) {
-                slide.classList.remove(cls);
-            });
-
-            // Obliczenie względnej pozycji slajdu
-            var diff = index - currentIndex;
-
-            // Obsługa zawijania (wrap around)
-            if (diff > totalSlides / 2) {
-                diff -= totalSlides;
-            } else if (diff < -totalSlides / 2) {
-                diff += totalSlides;
+            // Anuluj wcześniejszy timer fade jeśli istnieje
+            if (slide._fadeTimer) {
+                clearTimeout(slide._fadeTimer);
+                slide._fadeTimer = null;
             }
 
-            // Przypisanie odpowiedniej klasy pozycji
-            if (diff === 0) {
-                slide.classList.add('active');
-            } else if (diff === -1) {
-                slide.classList.add('prev');
-            } else if (diff === 1) {
-                slide.classList.add('next');
-            } else if (diff === -2) {
-                slide.classList.add('far-prev');
-            } else if (diff === 2) {
-                slide.classList.add('far-next');
+            // Sprawdź czy slajd był widoczny przed aktualizacją
+            var wasVisible = posClasses.some(function (cls) { return slide.classList.contains(cls); });
+
+            // Obliczenie względnej pozycji slajdu z obsługą zawijania
+            var diff = index - currentIndex;
+            if (diff > totalSlides / 2) diff -= totalSlides;
+            if (diff < -totalSlides / 2) diff += totalSlides;
+
+            var willBeVisible = (diff >= -2 && diff <= 2);
+            var targetCls = posMap[diff] || null;
+
+            if (!wasVisible && willBeVisible) {
+                // --- Pojawienie: teleport na pozycję + fade in ---
+                slide.classList.add('no-transition');
+                applyPos(slide, targetCls);
+                slide.style.opacity = '0';
+                void slide.offsetHeight; // wymuszenie reflow
+                slide.classList.remove('no-transition');
+                slide.style.opacity = '';
+
+            } else if (wasVisible && !willBeVisible) {
+                // --- Znikanie: fade out 0.4s, potem ukryj ---
+                slide.style.opacity = '0';
+                slide._fadeTimer = setTimeout(function () {
+                    slide.classList.add('no-transition');
+                    applyPos(slide, null);
+                    void slide.offsetHeight;
+                    slide.classList.remove('no-transition');
+                    slide._fadeTimer = null;
+                }, 400);
+
+            } else if (wasVisible && willBeVisible) {
+                // --- Przesunięcie: normalna tranzycja CSS ---
+                applyPos(slide, targetCls);
+                slide.style.opacity = '';
+
             } else {
-                slide.classList.add('hidden');
+                // --- Ukryty → ukryty: natychmiast ---
+                slide.classList.add('no-transition');
+                applyPos(slide, null);
+                slide.style.opacity = '0';
+                void slide.offsetHeight;
+                slide.classList.remove('no-transition');
             }
         });
     }
@@ -151,10 +242,8 @@
             // Minimalny próg przesunięcia: 50px
             if (Math.abs(deltaX) > 50) {
                 if (deltaX < 0) {
-                    // Przesunięcie w lewo → następny slajd
                     currentIndex = (currentIndex + 1) % slides.length;
                 } else {
-                    // Przesunięcie w prawo → poprzedni slajd
                     currentIndex = (currentIndex - 1 + slides.length) % slides.length;
                 }
                 updateCarousel();
@@ -166,6 +255,6 @@
     // Inicjalizacja
     // ==========================================
 
-    // Ustawienie karuzeli przy załadowaniu strony
+    computeCarouselLayout();
     updateCarousel();
 })();

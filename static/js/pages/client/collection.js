@@ -92,12 +92,57 @@
     }
 
     // ================================================================
-    // KARUZELA 3D
+    // KARUZELA - dynamiczny rozmiar + fade
     // ================================================================
 
     var carouselSlides = [];
     var carouselIndex = 0;
     var carouselInitialized = false;
+    var carouselResizeTimer = null;
+
+    /**
+     * Oblicza dynamiczny layout karuzeli na podstawie dostępnego miejsca.
+     * Ustawia CSS custom properties na .carousel-track.
+     */
+    function computeCarouselLayout() {
+        var track = document.querySelector('#collectionCarousel .carousel-track');
+        var container = document.getElementById('collectionCarousel');
+        if (!track || !container) return;
+
+        var containerWidth = container.clientWidth;
+        var gap = 12;
+
+        // Szerokość karty na podstawie dostępnej szerokości (5 kart widocznych)
+        var widthBased = (containerWidth - 4 * gap) / 4.1;
+
+        // Rzeczywista pozycja karuzeli na stronie (pod nagłówkiem, statystykami, toolbarem)
+        var containerTop = container.getBoundingClientRect().top + window.scrollY;
+        // Dostępna wysokość = viewport - pozycja karuzeli - margines dolny (np. padding strony)
+        var availableHeight = window.innerHeight - containerTop + window.scrollY - 16;
+        // Karuzela ma padding: 20px góra + 70px dół (przyciski), odejmij to
+        var usableHeight = availableHeight - 90;
+        // Karta ma proporcję 4:3 + ~55px na tekst pod obrazkiem
+        // cardHeight = cardWidth * (4/3) + 55, więc cardWidth = (usableHeight - 55) * 0.75
+        var heightBased = (usableHeight - 55) * 0.75;
+
+        // Wybierz mniejszą z dwóch wartości, ogranicz zakresem 160-380px
+        var cardWidth = Math.max(160, Math.min(380, Math.round(Math.min(widthBased, heightBased))));
+
+        // Oblicz offsety pozycji
+        var prevOffset = Math.round(cardWidth * 0.925 + gap);
+        var farOffset = Math.round(prevOffset + cardWidth * 0.775 + gap);
+
+        // Wysokość tracka: karta (proporcja 4:3 + tekst)
+        var trackHeight = Math.round(cardWidth * (4 / 3) + 55);
+
+        // Ustaw CSS custom properties
+        track.style.setProperty('--slide-width', cardWidth + 'px');
+        track.style.setProperty('--prev-offset', prevOffset + 'px');
+        track.style.setProperty('--prev-offset-neg', '-' + prevOffset + 'px');
+        track.style.setProperty('--far-offset', farOffset + 'px');
+        track.style.setProperty('--far-offset-neg', '-' + farOffset + 'px');
+        track.style.setProperty('--track-height', trackHeight + 'px');
+    }
 
     function initCarousel() {
         if (carouselInitialized) return;
@@ -106,6 +151,8 @@
 
         carouselInitialized = true;
         carouselIndex = 0;
+
+        computeCarouselLayout();
         updateCarouselPositions();
 
         // Strzałki nawigacji
@@ -145,26 +192,91 @@
                 }
             }, { passive: true });
         }
+
+        // Przelicz layout przy zmianie rozmiaru okna (debounce)
+        window.addEventListener('resize', function () {
+            clearTimeout(carouselResizeTimer);
+            carouselResizeTimer = setTimeout(function () {
+                computeCarouselLayout();
+            }, 150);
+        });
     }
 
+    /**
+     * Pomocnicza - ustawia klasę pozycji na slajdzie
+     */
+    function applyPos(slide, cls) {
+        ['active', 'prev', 'next', 'far-prev', 'far-next'].forEach(function (c) {
+            slide.classList.remove(c);
+        });
+        if (cls) slide.classList.add(cls);
+    }
+
+    /**
+     * Aktualizuje pozycje slajdów z logiką fade dla far slides.
+     * 4 przypadki:
+     *   1) Appearing  (hidden → visible): teleport bez animacji, potem fade in
+     *   2) Disappearing (visible → hidden): fade out 0.4s, potem ukryj
+     *   3) Moving (visible → visible): normalna tranzycja CSS
+     *   4) Hidden → hidden: natychmiast, bez animacji
+     */
     function updateCarouselPositions() {
         var total = carouselSlides.length;
-        var positions = ['active', 'prev', 'next', 'far-prev', 'far-next'];
+        if (total === 0) return;
+
+        var posClasses = ['active', 'prev', 'next', 'far-prev', 'far-next'];
+        var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next' };
 
         carouselSlides.forEach(function (slide, index) {
-            positions.forEach(function (cls) { slide.classList.remove(cls); });
-            slide.style.opacity = '';
+            // Anuluj wcześniejszy timer fade jeśli istnieje
+            if (slide._fadeTimer) {
+                clearTimeout(slide._fadeTimer);
+                slide._fadeTimer = null;
+            }
+
+            var wasVisible = posClasses.some(function (cls) { return slide.classList.contains(cls); });
 
             var diff = index - carouselIndex;
             if (diff > total / 2) diff -= total;
             if (diff < -total / 2) diff += total;
 
-            if (diff === 0) slide.classList.add('active');
-            else if (diff === -1) slide.classList.add('prev');
-            else if (diff === 1) slide.classList.add('next');
-            else if (diff === -2) slide.classList.add('far-prev');
-            else if (diff === 2) slide.classList.add('far-next');
-            else slide.style.opacity = '0';
+            var willBeVisible = (diff >= -2 && diff <= 2);
+            var targetCls = posMap[diff] || null;
+
+            if (!wasVisible && willBeVisible) {
+                // --- CASE 1: Appearing → teleport + fade in ---
+                slide.classList.add('no-transition');
+                applyPos(slide, targetCls);
+                slide.style.opacity = '0';
+                void slide.offsetHeight; // force reflow
+                slide.classList.remove('no-transition');
+                // Uruchom fade in
+                slide.style.opacity = '';
+
+            } else if (wasVisible && !willBeVisible) {
+                // --- CASE 2: Disappearing → fade out, potem ukryj ---
+                slide.style.opacity = '0';
+                slide._fadeTimer = setTimeout(function () {
+                    slide.classList.add('no-transition');
+                    applyPos(slide, null);
+                    void slide.offsetHeight;
+                    slide.classList.remove('no-transition');
+                    slide._fadeTimer = null;
+                }, 400);
+
+            } else if (wasVisible && willBeVisible) {
+                // --- CASE 3: Moving → normalna tranzycja CSS ---
+                applyPos(slide, targetCls);
+                slide.style.opacity = '';
+
+            } else {
+                // --- CASE 4: Hidden → hidden → natychmiast ---
+                slide.classList.add('no-transition');
+                applyPos(slide, null);
+                slide.style.opacity = '0';
+                void slide.offsetHeight;
+                slide.classList.remove('no-transition');
+            }
         });
     }
 
@@ -173,6 +285,177 @@
     if (urlParams.get('view') === 'carousel') {
         initCarousel();
     }
+
+    // ================================================================
+    // USTAWIENIA KOLEKCJI (localStorage)
+    // ================================================================
+
+    var SETTINGS_KEY = 'collection_settings';
+
+    /** Domyślne ustawienia */
+    var defaultSettings = {
+        stats: { items_count: true, total_value: true },
+        list_columns: { image: true, source: true, price: true, date: true },
+        grid_columns: 0 // 0 = auto (responsive CSS)
+    };
+
+    /** Odczytaj ustawienia z localStorage */
+    function loadSettings() {
+        try {
+            var raw = localStorage.getItem(SETTINGS_KEY);
+            if (raw) {
+                var parsed = JSON.parse(raw);
+                // Scal z domyślnymi na wypadek brakujących kluczy
+                return {
+                    stats: Object.assign({}, defaultSettings.stats, parsed.stats),
+                    list_columns: Object.assign({}, defaultSettings.list_columns, parsed.list_columns),
+                    grid_columns: parsed.grid_columns !== undefined ? parsed.grid_columns : 0
+                };
+            }
+        } catch (e) { /* ignoruj błędy parsowania */ }
+        return JSON.parse(JSON.stringify(defaultSettings));
+    }
+
+    /** Zapisz ustawienia do localStorage */
+    function saveSettings(settings) {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    }
+
+    /** Zastosuj ustawienia na stronie */
+    function applySettings(settings) {
+        // --- Statystyki ---
+        var statItems = document.querySelector('[data-stat="items_count"]');
+        var statValue = document.querySelector('[data-stat="total_value"]');
+        if (statItems) statItems.style.display = settings.stats.items_count ? '' : 'none';
+        if (statValue) statValue.style.display = settings.stats.total_value ? '' : 'none';
+
+        // Ukryj cały kontener metryk jeśli obie wyłączone
+        var metricsContainer = document.querySelector('.collection-metrics');
+        if (metricsContainer) {
+            var anyStatVisible = settings.stats.items_count || settings.stats.total_value;
+            metricsContainer.style.display = anyStatVisible ? '' : 'none';
+        }
+
+        // --- Kolumny listy ---
+        var colMap = {
+            image: '.col-image',
+            source: '.col-source',
+            price: '.col-price',
+            date: '.col-date'
+        };
+        Object.keys(colMap).forEach(function (key) {
+            var selector = colMap[key];
+            var visible = settings.list_columns[key];
+            document.querySelectorAll(selector).forEach(function (el) {
+                el.style.display = visible ? '' : 'none';
+            });
+        });
+
+        // Przelicz grid-template-columns listy
+        rebuildListGrid(settings.list_columns);
+
+        // --- Kolumny siatki ---
+        var grid = document.getElementById('collectionGrid');
+        if (grid) {
+            if (settings.grid_columns > 0) {
+                grid.style.gridTemplateColumns = 'repeat(' + settings.grid_columns + ', 1fr)';
+            } else {
+                grid.style.gridTemplateColumns = '';
+            }
+        }
+    }
+
+    /** Przelicza grid-template-columns dla list-header i collection-row */
+    function rebuildListGrid(cols) {
+        // Bazowa konfiguracja: image(48px) name(1fr) source(100px) price(100px) date(100px) actions(80px)
+        var parts = [];
+        if (cols.image) parts.push('48px');
+        parts.push('minmax(120px, 1fr)'); // nazwa - zawsze
+        if (cols.source) parts.push('100px');
+        if (cols.price) parts.push('100px');
+        if (cols.date) parts.push('100px');
+        parts.push('80px'); // akcje - zawsze
+
+        var tpl = parts.join(' ');
+
+        document.querySelectorAll('.list-header, .collection-row').forEach(function (el) {
+            el.style.gridTemplateColumns = tpl;
+        });
+    }
+
+    /** Zsynchronizuj ustawienia → kontrolki modala */
+    function settingsToModal(settings) {
+        var el;
+        el = document.getElementById('settingStatItems');
+        if (el) el.checked = settings.stats.items_count;
+        el = document.getElementById('settingStatValue');
+        if (el) el.checked = settings.stats.total_value;
+
+        el = document.getElementById('settingColImage');
+        if (el) el.checked = settings.list_columns.image;
+        el = document.getElementById('settingColSource');
+        if (el) el.checked = settings.list_columns.source;
+        el = document.getElementById('settingColPrice');
+        if (el) el.checked = settings.list_columns.price;
+        el = document.getElementById('settingColDate');
+        if (el) el.checked = settings.list_columns.date;
+
+        el = document.getElementById('settingGridCols');
+        if (el) el.value = String(settings.grid_columns);
+    }
+
+    /** Odczytaj stan kontrolek modala → obiekt ustawień */
+    function modalToSettings() {
+        return {
+            stats: {
+                items_count: !!document.getElementById('settingStatItems').checked,
+                total_value: !!document.getElementById('settingStatValue').checked
+            },
+            list_columns: {
+                image: !!document.getElementById('settingColImage').checked,
+                source: !!document.getElementById('settingColSource').checked,
+                price: !!document.getElementById('settingColPrice').checked,
+                date: !!document.getElementById('settingColDate').checked
+            },
+            grid_columns: parseInt(document.getElementById('settingGridCols').value, 10) || 0
+        };
+    }
+
+    /** Otwórz modal ustawień */
+    window.openSettingsModal = function () {
+        var modal = document.getElementById('collectionSettingsModal');
+        if (!modal) return;
+        settingsToModal(loadSettings());
+        modal.classList.add('active');
+    };
+
+    /** Zamknij modal ustawień */
+    window.closeSettingsModal = function () {
+        var modal = document.getElementById('collectionSettingsModal');
+        if (!modal) return;
+        modal.classList.remove('active');
+    };
+
+    // Nasłuchuj zmian w kontrolkach modala → natychmiastowy zapis i zastosowanie
+    (function () {
+        var ids = [
+            'settingStatItems', 'settingStatValue',
+            'settingColImage', 'settingColSource', 'settingColPrice', 'settingColDate',
+            'settingGridCols'
+        ];
+        ids.forEach(function (id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', function () {
+                var settings = modalToSettings();
+                saveSettings(settings);
+                applySettings(settings);
+            });
+        });
+    })();
+
+    // Zastosuj ustawienia przy załadowaniu strony
+    applySettings(loadSettings());
 
     // ================================================================
     // ADD MODAL
@@ -215,15 +498,15 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     closeAddModal();
                     window.location.reload();
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             })
             .finally(function () {
                 btn.disabled = false;
@@ -239,7 +522,7 @@
         var files = Array.from(input.files).slice(0, 3);
 
         if (input.files.length > 3) {
-            if (window.Toast) window.Toast.show('Maksymalnie 3 zdjęcia', 'warning');
+            if (typeof window.showToast === 'function') window.showToast('Maksymalnie 3 zdjęcia', 'warning');
             var dt = new DataTransfer();
             for (var i = 0; i < 3; i++) {
                 dt.items.add(input.files[i]);
@@ -291,7 +574,7 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (!data.success) {
-                    if (window.Toast) window.Toast.show(data.message || 'Błąd', 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message || 'Błąd', 'error');
                     return;
                 }
 
@@ -306,7 +589,7 @@
                 modal.classList.add('active');
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Błąd ładowania danych', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd ładowania danych', 'error');
             });
     };
 
@@ -361,15 +644,15 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     closeEditModal();
                     window.location.reload();
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             })
             .finally(function () {
                 btn.disabled = false;
@@ -395,14 +678,14 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     openEditModal(itemId);
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Błąd uploadu', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd uploadu', 'error');
             });
 
         input.value = '';
@@ -420,14 +703,14 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     openEditModal(itemId);
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd', 'error');
             });
     };
 
@@ -443,14 +726,14 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     openEditModal(itemId);
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd', 'error');
             });
     };
 
@@ -489,7 +772,7 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     closeDeleteModal();
                     var elements = document.querySelectorAll('[data-item-id="' + itemId + '"]');
                     elements.forEach(function (el) { el.remove(); });
@@ -498,11 +781,11 @@
                         window.location.reload();
                     }
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             })
             .finally(function () {
                 btn.disabled = false;
@@ -533,19 +816,16 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 var createSection = document.getElementById('publicConfigCreate');
-                var settingsSection = document.getElementById('publicConfigSettings');
-                var urlSection = document.getElementById('publicUrlSection');
+                var existsSection = document.getElementById('publicConfigExists');
 
                 if (!data.exists) {
                     // Brak konfiguracji - pokaż przycisk tworzenia
                     createSection.style.display = '';
-                    settingsSection.style.display = 'none';
-                    urlSection.style.display = 'none';
+                    existsSection.style.display = 'none';
                 } else {
                     // Konfiguracja istnieje - pokaż ustawienia
                     createSection.style.display = 'none';
-                    settingsSection.style.display = '';
-                    urlSection.style.display = '';
+                    existsSection.style.display = '';
 
                     // URL
                     var fullUrl = window.location.origin + data.config.url;
@@ -560,7 +840,7 @@
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Błąd ładowania konfiguracji', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd ładowania konfiguracji', 'error');
             });
     }
 
@@ -570,7 +850,7 @@
         list.innerHTML = '';
 
         if (!items || items.length === 0) {
-            list.innerHTML = '<p style="padding: 12px; text-align: center; color: var(--text-tertiary);">Brak przedmiotów w kolekcji</p>';
+            list.innerHTML = '<p class="share-items-empty">Brak przedmiotów w kolekcji</p>';
             return;
         }
 
@@ -579,14 +859,14 @@
             if (!item.is_public) allPublic = false;
 
             var row = document.createElement('label');
-            row.className = 'config-item-row';
+            row.className = 'share-item-row';
             row.innerHTML =
                 '<input type="checkbox" ' + (item.is_public ? 'checked' : '') +
                 ' onchange="toggleItemPublic(' + item.id + ', this.checked)">' +
                 (item.image_url
-                    ? '<img src="' + item.image_url + '" class="config-item-thumb" alt="">'
-                    : '<div class="config-item-thumb"></div>') +
-                '<span class="config-item-name">' + escapeHtml(item.name) + '</span>';
+                    ? '<img src="' + item.image_url + '" class="share-item-thumb" alt="">'
+                    : '<div class="share-item-thumb"></div>') +
+                '<span class="share-item-name">' + escapeHtml(item.name) + '</span>';
             list.appendChild(row);
         });
 
@@ -604,14 +884,14 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     loadPublicConfig();
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             });
     };
 
@@ -633,13 +913,13 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             });
     };
 
@@ -654,13 +934,13 @@
             .then(function (resp) { return resp.json(); })
             .then(function (data) {
                 if (!data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
                 // Aktualizuj "Zaznacz wszystkie"
                 updateSelectAllState();
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             });
     };
 
@@ -679,13 +959,13 @@
                     // Zaznacz/odznacz wszystkie checkboxy
                     var checkboxes = document.querySelectorAll('#configItemsList input[type="checkbox"]');
                     checkboxes.forEach(function (cb) { cb.checked = isPublic; });
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Wystąpił błąd', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Wystąpił błąd', 'error');
             });
     };
 
@@ -705,13 +985,29 @@
         var input = document.getElementById('publicUrlInput');
         if (!input) return;
 
+        var btn = document.getElementById('btnCopyUrl');
+        var copyIcon = btn ? btn.querySelector('.copy-icon') : null;
+        var checkIcon = btn ? btn.querySelector('.check-icon') : null;
+
+        function showCheck() {
+            if (copyIcon) copyIcon.style.display = 'none';
+            if (checkIcon) checkIcon.style.display = '';
+            if (btn) btn.classList.add('copied');
+            setTimeout(function () {
+                if (copyIcon) copyIcon.style.display = '';
+                if (checkIcon) checkIcon.style.display = 'none';
+                if (btn) btn.classList.remove('copied');
+            }, 1500);
+        }
+
         navigator.clipboard.writeText(input.value).then(function () {
-            if (window.Toast) window.Toast.show('Link skopiowany', 'success');
+            showCheck();
+            if (typeof window.showToast === 'function') window.showToast('Link skopiowany', 'success');
         }).catch(function () {
-            // Fallback
             input.select();
             document.execCommand('copy');
-            if (window.Toast) window.Toast.show('Link skopiowany', 'success');
+            showCheck();
+            if (typeof window.showToast === 'function') window.showToast('Link skopiowany', 'success');
         });
     };
 
@@ -740,7 +1036,7 @@
             .then(function (resp) { return resp.json(); })
             .then(function (result) {
                 if (!result.success) {
-                    if (window.Toast) window.Toast.show(result.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(result.message, 'error');
                     return;
                 }
 
@@ -761,7 +1057,7 @@
                 startQrPolling(context, result.session_token);
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Błąd tworzenia sesji QR', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd tworzenia sesji QR', 'error');
             });
     };
 
@@ -797,7 +1093,7 @@
                                 statusEl.textContent = 'Zdjęcie dodane!';
                                 statusEl.className = 'qr-status uploaded';
                             }
-                            if (window.Toast) window.Toast.show('Zdjęcie dodane z telefonu', 'success');
+                            if (typeof window.showToast === 'function') window.showToast('Zdjęcie dodane z telefonu', 'success');
                             // Odśwież dane edycji po 1s
                             setTimeout(function () {
                                 if (currentEditItem) openEditModal(currentEditItem.id);

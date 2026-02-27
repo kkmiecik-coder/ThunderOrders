@@ -17,27 +17,45 @@
     // ==========================================
 
     function init() {
+        // Nasłuchuj na kliknięcia logout - czyść sessionStorage popupów
+        setupLogoutCleanup();
+
         // Popupy wyświetlamy tylko na dashboardzie
         if (!window.location.pathname.endsWith('/dashboard')) return;
 
         fetchActivePopups();
     }
 
-    /** Czyści klucze popup_seen_ gdy zmienił się user (wylogowanie/przelogowanie) */
+    /** Czyści klucze popup_seen_ z sessionStorage */
+    function clearPopupKeys() {
+        var keysToRemove = [];
+        for (var i = 0; i < sessionStorage.length; i++) {
+            var key = sessionStorage.key(i);
+            if (key && key.startsWith('popup_seen_')) {
+                keysToRemove.push(key);
+            }
+        }
+        for (var j = 0; j < keysToRemove.length; j++) {
+            sessionStorage.removeItem(keysToRemove[j]);
+        }
+        sessionStorage.removeItem('popup_user_id');
+    }
+
+    /** Nasłuchuje kliknięcia linku logout i czyści popup keys */
+    function setupLogoutCleanup() {
+        document.addEventListener('click', function(e) {
+            var link = e.target.closest('a[href*="/auth/logout"]');
+            if (link) {
+                clearPopupKeys();
+            }
+        });
+    }
+
+    /** Czyści klucze popup_seen_ gdy zmienił się user (przelogowanie na inne konto) */
     function handleUserChange(userId) {
         var lastUser = sessionStorage.getItem('popup_user_id');
         if (lastUser && lastUser !== String(userId)) {
-            // Inny user - wyczyść stare klucze popupów
-            var keysToRemove = [];
-            for (var i = 0; i < sessionStorage.length; i++) {
-                var key = sessionStorage.key(i);
-                if (key && key.startsWith('popup_seen_')) {
-                    keysToRemove.push(key);
-                }
-            }
-            for (var j = 0; j < keysToRemove.length; j++) {
-                sessionStorage.removeItem(keysToRemove[j]);
-            }
+            clearPopupKeys();
         }
         sessionStorage.setItem('popup_user_id', String(userId));
     }

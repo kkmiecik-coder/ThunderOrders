@@ -117,15 +117,15 @@
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                if (window.Toast) window.Toast.show(data.message, 'success');
+                if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                 // Przeładuj stronę, żeby odświeżyć badge i ikony
                 setTimeout(() => location.reload(), 500);
             } else {
-                if (window.Toast) window.Toast.show(data.message, 'error');
+                if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
             }
         })
         .catch(() => {
-            if (window.Toast) window.Toast.show('Błąd komunikacji z serwerem', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Błąd komunikacji z serwerem', 'error');
         });
     }
 
@@ -164,17 +164,17 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     // Usuń wiersz z tabeli
                     const row = document.querySelector(`tr[data-popup-id="${deletePopupId}"]`);
                     if (row) row.remove();
                     closeDeleteModal();
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(() => {
-                if (window.Toast) window.Toast.show('Błąd komunikacji z serwerem', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd komunikacji z serwerem', 'error');
             });
         });
     }
@@ -214,7 +214,7 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show(data.message, 'success');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'success');
                     // Wyzeruj statystyki w wierszu
                     const row = document.querySelector(`tr[data-popup-id="${resetPopupId}"]`);
                     if (row) {
@@ -229,11 +229,11 @@
                     }
                     closeResetModal();
                 } else {
-                    if (window.Toast) window.Toast.show(data.message, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.message, 'error');
                 }
             })
             .catch(() => {
-                if (window.Toast) window.Toast.show('Błąd komunikacji z serwerem', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd komunikacji z serwerem', 'error');
             });
         });
     }
@@ -304,11 +304,11 @@
                             if (data.location) {
                                 callback(data.location, { alt: file.name });
                             } else {
-                                if (window.Toast) window.Toast.show(data.error || 'Błąd uploadu', 'error');
+                                if (typeof window.showToast === 'function') window.showToast(data.error || 'Błąd uploadu', 'error');
                             }
                         })
                         .catch(function() {
-                            if (window.Toast) window.Toast.show('Błąd komunikacji z serwerem', 'error');
+                            if (typeof window.showToast === 'function') window.showToast('Błąd komunikacji z serwerem', 'error');
                         });
                     });
                     input.click();

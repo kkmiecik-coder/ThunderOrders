@@ -1,4 +1,5 @@
 import os
+import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for, request, abort
@@ -16,6 +17,13 @@ def create_app(config_name=None):
     Tworzy i konfiguruje instancję aplikacji Flask
     """
     app = Flask(__name__)
+
+    # Konfiguracja logowania - upewnij się że logi INFO trafiają do stdout (Gunicorn/journalctl)
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
     # Załaduj konfigurację
     if config_name is None:

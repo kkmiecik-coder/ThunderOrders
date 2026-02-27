@@ -1,0 +1,96 @@
+<!-- Modal ustawień kolekcji -->
+<div id="collectionSettingsModal" class="modal-overlay" onclick="if(event.target===this) closeSettingsModal()">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Ustawienia kolekcji</h2>
+            <button type="button" class="modal-close" onclick="closeSettingsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+
+            <!-- Sekcja: Statystyki -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">Statystyki</h3>
+                <p class="settings-section-desc">Wybierz które statystyki mają być widoczne na stronie.</p>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <span class="settings-row-icon">🎴</span>
+                        <span class="settings-row-label">Liczba przedmiotów</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settingStatItems" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row">
+                    <div class="settings-row-info">
+                        <span class="settings-row-icon">💰</span>
+                        <span class="settings-row-label">Łączna wartość</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settingStatValue" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Sekcja: Widok listy (kolumny) -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">Widok listy</h3>
+                <p class="settings-section-desc">Wybierz widoczne kolumny w widoku listy.</p>
+
+                <div class="settings-row">
+                    <span class="settings-row-label">Zdjęcie</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settingColImage" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row">
+                    <span class="settings-row-label">Źródło</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settingColSource" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row">
+                    <span class="settings-row-label">Cena rynkowa</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settingColPrice" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="settings-row">
+                    <span class="settings-row-label">Data dodania</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="settingColDate" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Sekcja: Widok siatki -->
+            <div class="settings-section">
+                <h3 class="settings-section-title">Widok siatki</h3>
+                <p class="settings-section-desc">Dostosuj liczbę kolumn w widoku siatki.</p>
+
+                <div class="settings-row">
+                    <span class="settings-row-label">Kolumny (desktop)</span>
+                    <select id="settingGridCols" class="settings-select">
+                        <option value="0">Automatycznie</option>
+                        <option value="2">2 kolumny</option>
+                        <option value="3">3 kolumny</option>
+                        <option value="4">4 kolumny</option>
+                        <option value="5">5 kolumny</option>
+                        <option value="6">6 kolumn</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
