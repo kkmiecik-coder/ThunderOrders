@@ -77,10 +77,15 @@ class CollectionItem(db.Model):
 
     @property
     def image_url(self):
-        """Returns URL for display (compressed primary image or placeholder)."""
+        """Returns URL for display (compressed primary image, product image fallback, or placeholder)."""
         img = self.primary_image
         if img:
             return f'/static/{img.path_compressed}'
+        # Fallback: use linked product's image if imported from order
+        if self.product_id and self.product:
+            product_img = self.product.primary_image
+            if product_img:
+                return f'/static/{product_img.path_compressed}'
         return '/static/img/placeholders/collection-item.svg'
 
     @property

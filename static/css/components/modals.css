@@ -2050,12 +2050,33 @@
     text-transform: uppercase;
 }
 
+.product-image-label {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    padding: 1px 4px;
+    background: #6c757d;
+    color: #fff;
+    font-size: 0.55rem;
+    font-weight: 700;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.existing-image-item.product-source {
+    opacity: 0.85;
+}
+
 [data-theme="dark"] .existing-image-item {
     border-color: rgba(240, 147, 251, 0.15);
 }
 
 [data-theme="dark"] .existing-image-item.primary {
     border-color: #f093fb;
+}
+
+[data-theme="dark"] .product-image-label {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* ==========================================

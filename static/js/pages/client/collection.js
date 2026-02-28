@@ -638,14 +638,20 @@
 
         if (hasImages) {
             images.forEach(function (img) {
+                var isProductImage = img.source === 'product';
                 var div = document.createElement('div');
-                div.className = 'existing-image-item' + (img.is_primary ? ' primary' : '');
+                div.className = 'existing-image-item' + (img.is_primary ? ' primary' : '') + (isProductImage ? ' product-source' : '');
+                var actionsHtml = '';
+                if (!isProductImage) {
+                    actionsHtml = '<div class="image-actions">' +
+                        (!img.is_primary ? '<button type="button" class="btn-set-primary" onclick="setEditPrimary(' + itemId + ',' + img.id + ')" title="Ustaw jako główne">&#9733;</button>' : '') +
+                        '<button type="button" class="btn-remove-image" onclick="deleteEditImage(' + itemId + ',' + img.id + ')" title="Usuń">&times;</button>' +
+                        '</div>';
+                }
                 div.innerHTML = '<img src="' + img.url + '" alt="Image">' +
-                    (img.is_primary ? '<span class="primary-indicator">Główne</span>' : '') +
-                    '<div class="image-actions">' +
-                    (!img.is_primary ? '<button type="button" class="btn-set-primary" onclick="setEditPrimary(' + itemId + ',' + img.id + ')" title="Ustaw jako główne">&#9733;</button>' : '') +
-                    '<button type="button" class="btn-remove-image" onclick="deleteEditImage(' + itemId + ',' + img.id + ')" title="Usuń">&times;</button>' +
-                    '</div>';
+                    (img.is_primary && !isProductImage ? '<span class="primary-indicator">Główne</span>' : '') +
+                    (isProductImage ? '<span class="product-image-label">Z produktu</span>' : '') +
+                    actionsHtml;
                 photosArea.appendChild(div);
             });
         }

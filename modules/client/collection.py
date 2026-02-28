@@ -176,8 +176,18 @@ def collection_edit(item_id):
             images.append({
                 'id': img.id,
                 'url': f'/static/{img.path_compressed}',
-                'is_primary': img.is_primary
+                'is_primary': img.is_primary,
+                'source': 'collection'
             })
+        # Fallback: include product images if no collection images and product is linked
+        if not images and item.product_id and item.product:
+            for img in item.product.images:
+                images.append({
+                    'id': img.id,
+                    'url': f'/static/{img.path_compressed}',
+                    'is_primary': img.is_primary,
+                    'source': 'product'
+                })
         return jsonify({
             'success': True,
             'item': {
