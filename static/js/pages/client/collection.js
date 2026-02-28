@@ -367,16 +367,23 @@
 
     /** Przelicza grid-template-columns dla list-header i collection-row */
     function rebuildListGrid(cols) {
-        // Bazowa konfiguracja: image(48px) name(1fr) source(100px) price(100px) date(100px) actions(80px)
-        var parts = [];
-        if (cols.image) parts.push('48px');
-        parts.push('minmax(120px, 1fr)'); // nazwa - zawsze
-        if (cols.source) parts.push('100px');
-        if (cols.price) parts.push('100px');
-        if (cols.date) parts.push('100px');
-        parts.push('80px'); // akcje - zawsze
+        var isMobile = window.innerWidth <= 768;
+        var tpl;
 
-        var tpl = parts.join(' ');
+        if (isMobile) {
+            // Mobile: image + name + actions only
+            tpl = (cols.image ? '48px ' : '') + '1fr auto';
+        } else {
+            // Desktop: full columns
+            var parts = [];
+            if (cols.image) parts.push('48px');
+            parts.push('minmax(120px, 1fr)'); // nazwa - zawsze
+            if (cols.source) parts.push('100px');
+            if (cols.price) parts.push('100px');
+            if (cols.date) parts.push('100px');
+            parts.push('80px'); // akcje - zawsze
+            tpl = parts.join(' ');
+        }
 
         document.querySelectorAll('.list-header, .collection-row').forEach(function (el) {
             el.style.gridTemplateColumns = tpl;
@@ -456,6 +463,16 @@
 
     // Zastosuj ustawienia przy załadowaniu strony
     applySettings(loadSettings());
+
+    // Przebuduj grid listy przy zmianie rozmiaru okna
+    var listResizeTimer;
+    window.addEventListener('resize', function () {
+        clearTimeout(listResizeTimer);
+        listResizeTimer = setTimeout(function () {
+            var settings = loadSettings();
+            rebuildListGrid(settings.list_columns);
+        }, 150);
+    });
 
     // ================================================================
     // ADD MODAL

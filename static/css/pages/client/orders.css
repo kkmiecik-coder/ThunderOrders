@@ -955,9 +955,24 @@
     color: #fff;
 }
 
+.status-icon-info {
+    background: #2196F3;
+    color: #fff;
+}
+
+.status-icon-pending {
+    background: #42A5F5;
+    color: #fff;
+}
+
 .status-icon-inactive {
     background: #E0E0E0;
     color: #9E9E9E;
+}
+
+.delivery-method {
+    font-size: 0.75rem;
+    color: #757575;
 }
 
 .status-icon-link {
@@ -990,8 +1005,16 @@
     background: #EF5350;
 }
 
+[data-theme="dark"] .status-icon-pending {
+    background: #64B5F6;
+}
+
 [data-theme="dark"] .status-icon-link:hover {
     box-shadow: 0 2px 8px rgba(76, 175, 80, 0.5);
+}
+
+[data-theme="dark"] .delivery-method {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 /* Date cell new */
@@ -1051,7 +1074,10 @@
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 500;
-    white-space: nowrap;
+    white-space: pre-line;
+    width: max-content;
+    max-width: 280px;
+    text-align: left;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 

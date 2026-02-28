@@ -932,17 +932,18 @@
         font-size: 1.75rem;
     }
 
-    .header-action-btn.has-label span {
-        display: none;
-    }
-
     .header-action-btn.has-label {
-        width: 36px;
         height: 36px;
-        padding: 0;
+        padding: 0 12px;
+        font-size: var(--text-xs);
     }
 
-    .header-action-btn {
+    .header-action-btn.has-label svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .header-action-btn:not(.has-label) {
         width: 36px;
         height: 36px;
     }
