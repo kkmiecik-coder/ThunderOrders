@@ -1,0 +1,317 @@
+/* ========================================
+   Kolekcja Niedostępna - Dark Glassmorphism
+   ======================================== */
+
+/* ---- Page background (full bleed) ---- */
+.inactive-page {
+    min-height: 100vh;
+    padding: 40px 24px 0;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    position: relative;
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Force dark body background */
+html[data-theme="dark"] body:has(.inactive-page) {
+    background: #0a0a1a;
+}
+
+/* ---- Particle canvas ---- */
+#particleCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* ---- Animated gradient orbs ---- */
+.collection-bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    animation: inactiveFloat 20s ease-in-out infinite;
+}
+
+.collection-bg-orb-1 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(240, 147, 251, 0.15), transparent 70%);
+    top: -100px;
+    left: -150px;
+}
+
+.collection-bg-orb-2 {
+    width: 450px;
+    height: 450px;
+    background: radial-gradient(circle, rgba(93, 78, 221, 0.12), transparent 70%);
+    bottom: 100px;
+    right: -120px;
+    animation-delay: -10s;
+}
+
+@keyframes inactiveFloat {
+    0%, 100% { transform: translate(0, 0); }
+    25% { transform: translate(30px, -20px); }
+    50% { transform: translate(-15px, 25px); }
+    75% { transform: translate(20px, -10px); }
+}
+
+/* ---- Content z-index (above particles + orbs) ---- */
+.inactive-header,
+.inactive-content,
+.inactive-cta,
+.inactive-footer {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+}
+
+/* ---- Logo ---- */
+.inactive-header {
+    text-align: center;
+    margin-bottom: 60px;
+}
+
+.inactive-logo {
+    display: inline-flex;
+    align-items: center;
+    transition: opacity 0.2s ease;
+}
+
+.inactive-logo img {
+    height: 36px;
+    width: auto;
+}
+
+.inactive-logo:hover {
+    opacity: 1;
+}
+
+/* ---- Sekcja informacyjna (ikona po lewej, teksty po prawej) ---- */
+.inactive-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 48px;
+}
+
+.inactive-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    color: rgba(240, 147, 251, 0.6);
+    flex-shrink: 0;
+}
+
+.inactive-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.inactive-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.inactive-text {
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* ---- Sekcja CTA (zachęta do rejestracji) ---- */
+.inactive-cta {
+    text-align: center;
+    padding: 36px 32px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(240, 147, 251, 0.12);
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.inactive-cta-title {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 4px;
+}
+
+.inactive-cta-subtitle {
+    font-size: 0.9375rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin: 0 0 28px;
+}
+
+/* ---- Features lista ---- */
+.inactive-features {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+    text-align: left;
+}
+
+.inactive-feature {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.inactive-feature-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: rgba(240, 147, 251, 0.1);
+    color: #f093fb;
+    flex-shrink: 0;
+}
+
+.inactive-feature-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 2px;
+}
+
+.inactive-feature-text strong {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.inactive-feature-text span {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.4;
+}
+
+.inactive-cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 32px;
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: #ffffff;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+.inactive-cta-button:hover {
+    transform: scale(1.04);
+    box-shadow: 0 6px 25px rgba(240, 147, 251, 0.45);
+}
+
+/* ---- Stopka ---- */
+.inactive-footer {
+    text-align: center;
+    padding: 32px 0 24px;
+    margin-top: auto;
+}
+
+.inactive-footer .footer-link {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.35);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.inactive-footer .footer-link strong {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+}
+
+.inactive-footer .footer-link:hover {
+    color: #f093fb;
+}
+
+.inactive-footer .footer-link:hover strong {
+    color: #f093fb;
+}
+
+/* ========================================
+   Responsywność
+   ======================================== */
+
+@media (min-width: 640px) {
+    .inactive-page {
+        padding: 56px 32px 0;
+    }
+
+    .inactive-logo img {
+        height: 40px;
+    }
+
+    .inactive-header {
+        margin-bottom: 80px;
+    }
+}
+
+@media (max-width: 320px) {
+    .inactive-page {
+        padding: 24px 12px 0;
+    }
+
+    .inactive-title {
+        font-size: 1.4rem;
+    }
+
+    .inactive-icon {
+        width: 72px;
+        height: 72px;
+    }
+
+    .inactive-icon svg {
+        width: 48px;
+        height: 48px;
+    }
+
+    .inactive-cta {
+        padding: 24px 16px;
+    }
+
+    .inactive-logo img {
+        height: 28px;
+    }
+}
+
+/* ========================================
+   Reduced motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .collection-bg-orb {
+        animation: none;
+    }
+}

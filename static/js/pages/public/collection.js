@@ -1,5 +1,5 @@
 /**
- * Publiczna kolekcja - karuzela z dynamicznym rozmiarem i przełączanie widoków
+ * Publiczna kolekcja - karuzela, particle effect, staggered animations, CTA bar
  */
 (function () {
     'use strict';
@@ -72,26 +72,20 @@
         var containerWidth = container.clientWidth;
         var gap = 12;
 
-        // Szerokość karty na podstawie dostępnej szerokości (5 kart widocznych)
         var widthBased = (containerWidth - 4 * gap) / 4.1;
 
-        // Rzeczywista pozycja karuzeli na stronie
         var containerTop = container.getBoundingClientRect().top + window.scrollY;
         var availableHeight = window.innerHeight - containerTop + window.scrollY - 16;
-        var usableHeight = availableHeight - 90; // padding karuzeli: 20px góra + 70px dół
-        var heightBased = (usableHeight - 55) * 0.75; // karta: 4:3 + 55px tekst
+        var usableHeight = availableHeight - 90;
+        var heightBased = (usableHeight - 55) * 0.75;
 
-        // Wybierz mniejszą z dwóch wartości, ogranicz zakresem 160-380px
         var cardWidth = Math.max(160, Math.min(380, Math.round(Math.min(widthBased, heightBased))));
 
-        // Oblicz offsety pozycji
         var prevOffset = Math.round(cardWidth * 0.925 + gap);
         var farOffset = Math.round(prevOffset + cardWidth * 0.775 + gap);
 
-        // Wysokość tracka: proporcja 4:3 karty + padding na tekst i przyciski
         var trackHeight = Math.round(cardWidth * (4 / 3) + 55);
 
-        // Ustaw CSS custom properties
         track.style.setProperty('--slide-width', cardWidth + 'px');
         track.style.setProperty('--prev-offset', prevOffset + 'px');
         track.style.setProperty('--prev-offset-neg', '-' + prevOffset + 'px');
@@ -100,7 +94,6 @@
         track.style.setProperty('--track-height', trackHeight + 'px');
     }
 
-    // Przelicz layout przy zmianie rozmiaru okna (debounce)
     window.addEventListener('resize', function () {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(function () {
@@ -117,13 +110,9 @@
     var slides = document.querySelectorAll('.carousel-slide');
     var currentIndex = 0;
 
-    // Klasy pozycji slajdów
     var posClasses = ['active', 'prev', 'next', 'far-prev', 'far-next'];
     var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next' };
 
-    /**
-     * Pomocnicza - ustawia klasę pozycji na slajdzie
-     */
     function applyPos(slide, cls) {
         posClasses.forEach(function (c) {
             slide.classList.remove(c);
@@ -131,30 +120,19 @@
         if (cls) slide.classList.add(cls);
     }
 
-    /**
-     * Aktualizuje pozycje slajdów z logiką fade dla skrajnych kart.
-     * 4 przypadki:
-     *   1) Pojawienie (ukryty → widoczny): teleport bez animacji, potem fade in
-     *   2) Znikanie (widoczny → ukryty): fade out 0.4s, potem ukryj
-     *   3) Przesunięcie (widoczny → widoczny): normalna tranzycja CSS
-     *   4) Ukryty → ukryty: natychmiast, bez animacji
-     */
     function updateCarousel() {
         if (slides.length === 0) return;
 
         var totalSlides = slides.length;
 
         slides.forEach(function (slide, index) {
-            // Anuluj wcześniejszy timer fade jeśli istnieje
             if (slide._fadeTimer) {
                 clearTimeout(slide._fadeTimer);
                 slide._fadeTimer = null;
             }
 
-            // Sprawdź czy slajd był widoczny przed aktualizacją
             var wasVisible = posClasses.some(function (cls) { return slide.classList.contains(cls); });
 
-            // Obliczenie względnej pozycji slajdu z obsługą zawijania
             var diff = index - currentIndex;
             if (diff > totalSlides / 2) diff -= totalSlides;
             if (diff < -totalSlides / 2) diff += totalSlides;
@@ -163,16 +141,14 @@
             var targetCls = posMap[diff] || null;
 
             if (!wasVisible && willBeVisible) {
-                // --- Pojawienie: teleport na pozycję + fade in ---
                 slide.classList.add('no-transition');
                 applyPos(slide, targetCls);
                 slide.style.opacity = '0';
-                void slide.offsetHeight; // wymuszenie reflow
+                void slide.offsetHeight;
                 slide.classList.remove('no-transition');
                 slide.style.opacity = '';
 
             } else if (wasVisible && !willBeVisible) {
-                // --- Znikanie: fade out 0.4s, potem ukryj ---
                 slide.style.opacity = '0';
                 slide._fadeTimer = setTimeout(function () {
                     slide.classList.add('no-transition');
@@ -183,12 +159,10 @@
                 }, 400);
 
             } else if (wasVisible && willBeVisible) {
-                // --- Przesunięcie: normalna tranzycja CSS ---
                 applyPos(slide, targetCls);
                 slide.style.opacity = '';
 
             } else {
-                // --- Ukryty → ukryty: natychmiast ---
                 slide.classList.add('no-transition');
                 applyPos(slide, null);
                 slide.style.opacity = '0';
@@ -239,7 +213,6 @@
             var touchEndX = e.changedTouches[0].clientX;
             var deltaX = touchEndX - touchStartX;
 
-            // Minimalny próg przesunięcia: 50px
             if (Math.abs(deltaX) > 50) {
                 if (deltaX < 0) {
                     currentIndex = (currentIndex + 1) % slides.length;
@@ -252,9 +225,175 @@
     }
 
     // ==========================================
+    // Particle System
+    // ==========================================
+
+    function initParticles() {
+        // Respect prefers-reduced-motion
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        var canvas = document.getElementById('particleCanvas');
+        if (!canvas) return;
+
+        var ctx = canvas.getContext('2d');
+        var particles = [];
+        var particleCount = 50;
+        var rafId = null;
+
+        var colors = [
+            { r: 240, g: 147, b: 251 },  // pink #f093fb
+            { r: 157, g: 78, b: 221 },   // purple #9d4edd
+            { r: 255, g: 255, b: 255 }   // white
+        ];
+
+        function resize() {
+            var page = canvas.parentElement;
+            if (!page) return;
+            canvas.width = page.offsetWidth;
+            canvas.height = page.offsetHeight;
+        }
+
+        function createParticle() {
+            var color = colors[Math.floor(Math.random() * colors.length)];
+            var isWhite = color.r === 255 && color.g === 255 && color.b === 255;
+            return {
+                x: Math.random() * canvas.width,
+                y: canvas.height + Math.random() * 50,
+                radius: 1 + Math.random() * 1.5,
+                opacity: isWhite ? 0.1 + Math.random() * 0.2 : 0.15 + Math.random() * 0.4,
+                color: color,
+                vy: -(0.2 + Math.random() * 0.6),
+                vx: 0,
+                sineOffset: Math.random() * Math.PI * 2,
+                sineSpeed: 0.01 + Math.random() * 0.02,
+                sineAmp: 0.3 + Math.random() * 0.4
+            };
+        }
+
+        function initAllParticles() {
+            particles = [];
+            for (var i = 0; i < particleCount; i++) {
+                var p = createParticle();
+                // Distribute across full height on init
+                p.y = Math.random() * canvas.height;
+                particles.push(p);
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (var i = 0; i < particles.length; i++) {
+                var p = particles[i];
+
+                // Move upward
+                p.y += p.vy;
+                // Sine wave drift
+                p.sineOffset += p.sineSpeed;
+                p.vx = Math.sin(p.sineOffset) * p.sineAmp;
+                p.x += p.vx;
+
+                // Respawn at bottom when past top
+                if (p.y < -10) {
+                    particles[i] = createParticle();
+                    continue;
+                }
+
+                // Draw
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(' + p.color.r + ',' + p.color.g + ',' + p.color.b + ',' + p.opacity + ')';
+                ctx.fill();
+            }
+
+            rafId = requestAnimationFrame(animate);
+        }
+
+        resize();
+        initAllParticles();
+        animate();
+
+        // Handle resize
+        var resizeParticleTimer = null;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeParticleTimer);
+            resizeParticleTimer = setTimeout(function () {
+                resize();
+            }, 200);
+        });
+
+        // Cleanup on page hide
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                if (rafId) cancelAnimationFrame(rafId);
+                rafId = null;
+            } else {
+                if (!rafId) animate();
+            }
+        });
+    }
+
+    // ==========================================
+    // Staggered card fade-in (IntersectionObserver)
+    // ==========================================
+
+    function initCardAnimations() {
+        var cards = document.querySelectorAll('.public-card[data-index]');
+        if (!cards.length) return;
+
+        // Reduced motion: show all immediately
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            cards.forEach(function (card) {
+                card.classList.add('visible');
+            });
+            return;
+        }
+
+        if ('IntersectionObserver' in window) {
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        var card = entry.target;
+                        var index = parseInt(card.getAttribute('data-index'), 10) || 0;
+                        card.style.animationDelay = (index * 0.05) + 's';
+                        card.classList.add('visible');
+                        observer.unobserve(card);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            cards.forEach(function (card) {
+                observer.observe(card);
+            });
+        } else {
+            // Fallback: show all
+            cards.forEach(function (card) {
+                card.classList.add('visible');
+            });
+        }
+    }
+
+    // ==========================================
+    // Sticky CTA Bar
+    // ==========================================
+
+    function initCtaBar() {
+        var ctaBar = document.getElementById('ctaBar');
+        if (!ctaBar) return;
+
+        // Slide in after 1s delay
+        setTimeout(function () {
+            ctaBar.classList.add('visible');
+        }, 1000);
+    }
+
+    // ==========================================
     // Inicjalizacja
     // ==========================================
 
     computeCarouselLayout();
     updateCarousel();
+    initParticles();
+    initCardAnimations();
+    initCtaBar();
 })();

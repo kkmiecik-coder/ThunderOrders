@@ -34,43 +34,54 @@
                 <div class="form-group">
                     <label class="form-label">Zdjęcia</label>
 
-                    <!-- Istniejące zdjęcia (wypełniane przez JS) -->
-                    <div class="existing-images" id="editExistingImages"></div>
+                    <!-- Hidden file input -->
+                    <input type="file" id="editImageInput"
+                           accept="image/jpeg,image/png,image/webp,image/gif"
+                           class="image-input-hidden">
 
-                    <!-- Przyciski dodawania -->
-                    <div class="photo-actions" id="editAddImageWrapper" style="display: none;">
-                        <input type="file" id="editImageInput"
-                               accept="image/jpeg,image/png,image/webp,image/gif"
-                               class="image-input-hidden"
-                               onchange="uploadEditImage(this)">
-                        <button type="button" class="photo-action-btn" onclick="document.getElementById('editImageInput').click()">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                                <circle cx="8.5" cy="8.5" r="1.5"/>
-                                <polyline points="21 15 16 10 5 21"/>
-                            </svg>
-                            <span>Dodaj zdjęcie</span>
-                        </button>
-                        <button type="button" class="photo-action-btn" onclick="startQrSession('edit')">
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="2" y="2" width="8" height="8" rx="1"/>
-                                <rect x="14" y="2" width="8" height="8" rx="1"/>
-                                <rect x="2" y="14" width="8" height="8" rx="1"/>
-                                <rect x="14" y="14" width="4" height="4"/>
-                                <line x1="22" y1="18" x2="22" y2="22"/>
-                                <line x1="18" y1="22" x2="22" y2="22"/>
-                            </svg>
-                            <span>Z telefonu</span>
-                        </button>
+                    <!-- 2-kolumnowy layout: zdjęcia | przyciski -->
+                    <div class="upload-row" id="editUploadRow">
+                        <!-- Lewa kolumna: istniejące zdjęcia / empty state -->
+                        <div class="upload-row-photos" id="editUploadPhotos">
+                            <div class="upload-empty-state" id="editEmptyState">
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                <span>Brak zdjęć</span>
+                            </div>
+                        </div>
+                        <!-- Prawa kolumna: przyciski (shown when canAdd) -->
+                        <div class="upload-row-actions" id="editUploadActions" style="display: none;">
+                            <button type="button" class="upload-action-btn" id="editBtnComputer">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                                    <polyline points="21 15 16 10 5 21"/>
+                                </svg>
+                                Z komputera
+                            </button>
+                            <button type="button" class="upload-action-btn" id="editQrTrigger" onclick="showQrInline('edit')">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="2" y="2" width="8" height="8" rx="1"/>
+                                    <rect x="14" y="2" width="8" height="8" rx="1"/>
+                                    <rect x="2" y="14" width="8" height="8" rx="1"/>
+                                    <rect x="14" y="14" width="4" height="4"/>
+                                </svg>
+                                Kod QR
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- QR Upload (edit modal) -->
-                    <div class="qr-upload-section">
-                        <div class="qr-code-display" id="editQrDisplay" style="display: none;">
+                    <!-- QR pod całością (hidden by default) -->
+                    <div class="upload-qr-inline" id="editQrInline">
+                        <div class="qr-code-display" id="editQrDisplay">
                             <img id="editQrImage" alt="QR Code" class="qr-image">
-                            <p class="qr-hint">Zeskanuj kod aparatem telefonu</p>
+                            <p class="qr-hint">Zeskanuj aparatem telefonu</p>
                             <div class="qr-status" id="editQrStatus">Oczekiwanie na upload...</div>
                         </div>
+                        <button type="button" class="upload-qr-cancel" onclick="hideQrInline('edit')">Anuluj</button>
                     </div>
                 </div>
 

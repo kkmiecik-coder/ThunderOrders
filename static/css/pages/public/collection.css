@@ -1,79 +1,198 @@
 /* ========================================
-   Publiczna Kolekcja - Strona publiczna
+   Publiczna Kolekcja - Dark Glassmorphism
    ======================================== */
 
-/* ---- Kontener strony ---- */
+/* ---- Page background (full bleed) ---- */
 .public-collection-page {
     min-height: 100vh;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 40px 24px;
+    padding: 40px 24px 0;
     box-sizing: border-box;
     overflow-x: hidden;
+    position: relative;
+    background: #0a0a1a;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Inner content max-width constraint */
+.public-collection-header,
+.view-toggle-bar,
+.public-grid,
+.carousel-container,
+.public-empty-state,
+.public-footer {
+    max-width: 1200px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Force dark body background (high specificity to override main.css) */
+html[data-theme="dark"] body:has(.public-collection-page) {
+    background: #0a0a1a;
+}
+
+/* ---- Particle canvas ---- */
+#particleCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+/* ---- Animated gradient orbs ---- */
+.collection-bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    animation: collectionFloat 20s ease-in-out infinite;
+}
+
+.collection-bg-orb-1 {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(240, 147, 251, 0.15), transparent 70%);
+    top: -100px;
+    left: -150px;
+}
+
+.collection-bg-orb-2 {
+    width: 450px;
+    height: 450px;
+    background: radial-gradient(circle, rgba(93, 78, 221, 0.12), transparent 70%);
+    bottom: 100px;
+    right: -120px;
+    animation-delay: -10s;
+}
+
+@keyframes collectionFloat {
+    0%, 100% {
+        transform: translate(0, 0);
+    }
+    25% {
+        transform: translate(30px, -20px);
+    }
+    50% {
+        transform: translate(-15px, 25px);
+    }
+    75% {
+        transform: translate(20px, -10px);
+    }
+}
+
+/* ---- Content z-index (above particles + orbs) ---- */
+.public-collection-header,
+.view-toggle-bar,
+.public-grid,
+.carousel-container,
+.public-empty-state,
+.public-footer {
+    position: relative;
+    z-index: 1;
 }
 
 /* ---- Nagłówek kolekcji ---- */
 .public-collection-header {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    text-align: center;
+    justify-content: space-between;
     margin-bottom: 32px;
-    gap: 8px;
 }
 
-/* Avatar użytkownika */
-.public-collection-header .avatar {
-    width: 48px;
-    height: 48px;
+/* Logo ThunderOrders (full) */
+.header-logo {
+    display: inline-flex;
+    align-items: center;
+    transition: opacity 0.2s ease;
+}
+
+.header-logo img {
+    height: 36px;
+    width: auto;
+}
+
+.header-logo:hover {
+    opacity: 1;
+}
+
+/* Podtytuł "Kolekcja użytkownika" */
+.header-info .header-subtitle {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin: 0;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+/* Avatar + imię/nazwisko obok siebie */
+.header-user {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    margin-top: 4px;
+}
+
+/* Avatar użytkownika - na wysokość 2 linii (subtitle + name) */
+.public-collection-header .user-avatar {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #e0e0e0;
+    border: 2.5px solid transparent;
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    background-image:
+        linear-gradient(#0a0a1a, #0a0a1a),
+        linear-gradient(135deg, #f093fb, #f5576c);
+    box-shadow: 0 0 16px rgba(240, 147, 251, 0.3),
+                0 0 32px rgba(240, 147, 251, 0.1);
+    flex-shrink: 0;
 }
 
-/* Fallback z pierwszą literą (gdy brak zdjęcia) */
-.public-collection-header .avatar-fallback {
-    width: 48px;
-    height: 48px;
+/* Fallback avatar z literą */
+.public-collection-header .user-avatar-fallback {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: linear-gradient(135deg, #f093fb, #f5576c);
     color: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
     line-height: 1;
     flex-shrink: 0;
+    box-shadow: 0 0 16px rgba(240, 147, 251, 0.3),
+                0 0 32px rgba(240, 147, 251, 0.1);
 }
 
-/* Tytuł kolekcji */
-.public-collection-header .collection-title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #333333;
-    margin: 0;
+/* Subtitle + imię w jednej kolumnie */
+.header-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
 }
 
-/* Liczba przedmiotów */
-.public-collection-header .collection-count {
-    font-size: 0.875rem;
-    color: #6b7280;
-    margin: 0;
-}
-
-/* Dark mode - Nagłówek */
-[data-theme="dark"] .public-collection-header .avatar {
-    border-color: rgba(240, 147, 251, 0.3);
-}
-
-[data-theme="dark"] .public-collection-header .collection-title {
+.header-info .header-name {
+    font-size: 1.4rem;
+    font-weight: 700;
     color: #ffffff;
+    margin: 0;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 
-[data-theme="dark"] .public-collection-header .collection-count {
-    color: rgba(255, 255, 255, 0.6);
-}
 
 /* ---- Pasek przełączania widoku ---- */
 .view-toggle-bar {
@@ -85,14 +204,15 @@
 }
 
 .view-toggle-btn {
-    padding: 7px 10px;
-    border: 1px solid #e0e0e0;
-    background: #ffffff;
-    color: #6b7280;
+    padding: 7px 12px;
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 6px;
     transition: background 0.2s, color 0.2s, border-color 0.2s;
     font-size: 0.875rem;
 }
@@ -105,32 +225,20 @@
     border-radius: 0 8px 8px 0;
 }
 
-/* Aktywny przycisk - pomarańczowy akcent */
 .view-toggle-btn.active {
-    background: var(--orange-300, #ff8500);
-    border-color: var(--orange-300, #ff8500);
-    color: #ffffff;
-}
-
-.view-toggle-btn:hover:not(.active) {
-    background: #f3f4f6;
-}
-
-/* Dark mode - Pasek widoku */
-[data-theme="dark"] .view-toggle-btn {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    color: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="dark"] .view-toggle-btn.active {
-    background: rgba(240, 147, 251, 0.3);
+    background: rgba(240, 147, 251, 0.25);
     border-color: rgba(240, 147, 251, 0.5);
     color: #ffffff;
 }
 
-[data-theme="dark"] .view-toggle-btn:hover:not(.active) {
+.view-toggle-btn:hover:not(.active) {
     background: rgba(255, 255, 255, 0.08);
+}
+
+/* ---- Hidden override (must win over display: grid below) ---- */
+.public-grid.hidden,
+.carousel-container.hidden {
+    display: none;
 }
 
 /* ---- Siatka produktów ---- */
@@ -142,17 +250,41 @@
 
 /* ---- Karta produktu ---- */
 .public-card {
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(240, 147, 251, 0.12);
     border-radius: 12px;
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    /* Staggered entrance animation */
+    opacity: 0;
+    transform: translateY(24px);
+}
+
+/* Cards become visible via IntersectionObserver */
+.public-card.visible {
+    animation: fadeSlideUp 0.5s ease forwards;
+}
+
+@keyframes fadeSlideUp {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .public-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px);
+    border-color: rgba(240, 147, 251, 0.35);
+    box-shadow: 0 8px 30px rgba(240, 147, 251, 0.08),
+                0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Ensure hover doesn't conflict with entrance animation */
+.public-card.visible:hover {
+    opacity: 1;
 }
 
 /* Obrazek karty - proporcja 1:1 */
@@ -161,7 +293,7 @@
     width: 100%;
     padding-top: 100%;
     overflow: hidden;
-    background: #f3f4f6;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .public-card-image img {
@@ -175,7 +307,7 @@
 }
 
 .public-card:hover .public-card-image img {
-    transform: scale(1.03);
+    transform: scale(1.05);
 }
 
 /* Treść karty */
@@ -183,11 +315,11 @@
     padding: 12px 12px 10px;
 }
 
-/* Nazwa produktu - obcięcie po 2 liniach */
+/* Nazwa produktu */
 .public-card-name {
     font-size: 0.875rem;
     font-weight: 600;
-    color: #333333;
+    color: #ffffff;
     margin: 0 0 4px 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -197,138 +329,202 @@
     line-height: 1.3;
 }
 
-/* Cena - kolor akcentu */
+/* Cena - pink accent */
 .public-card-price {
     display: block;
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--orange-300, #ff8500);
+    color: #f093fb;
     margin: 0;
 }
 
-/* Dark mode - Karty */
-[data-theme="dark"] .public-card {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(240, 147, 251, 0.15);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .public-card:hover {
-    border-color: rgba(240, 147, 251, 0.3);
-    box-shadow: 0 6px 20px rgba(240, 147, 251, 0.1);
-}
-
-[data-theme="dark"] .public-card-image {
-    background: rgba(255, 255, 255, 0.03);
-}
-
-[data-theme="dark"] .public-card-name {
-    color: #ffffff;
-}
-
-[data-theme="dark"] .public-card-price {
-    color: #f093fb;
-}
-
-/* ---- Stan pusty (brak przedmiotów) ---- */
+/* ---- Stan pusty ---- */
 .public-empty-state {
     text-align: center;
     padding: 60px 24px;
 }
 
-.public-empty-state .empty-image {
+.public-empty-state .empty-icon img {
     width: 100px;
     height: 100px;
-    opacity: 0.4;
+    opacity: 0.2;
+    filter: invert(1);
     margin-bottom: 16px;
 }
 
 .public-empty-state .empty-title {
     font-size: 1.25rem;
     font-weight: 600;
-    color: #333333;
+    color: #ffffff;
     margin: 0 0 8px 0;
 }
 
 .public-empty-state .empty-text {
     font-size: 1rem;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.5);
     margin: 0;
 }
 
-/* Dark mode - Stan pusty */
-[data-theme="dark"] .public-empty-state .empty-image {
-    opacity: 0.25;
-    filter: invert(1);
-}
-
-[data-theme="dark"] .public-empty-state .empty-title {
-    color: #ffffff;
-}
-
-[data-theme="dark"] .public-empty-state .empty-text {
-    color: rgba(255, 255, 255, 0.5);
-}
-
-/* ---- Stopka strony ---- */
+/* ---- Stopka ---- */
 .public-footer {
     text-align: center;
-    padding: 32px 0 16px;
-    margin-top: 40px;
+    padding: 32px 0 24px;
+    margin-top: auto;
 }
 
-.public-footer .footer-text {
+.public-footer .footer-link {
     font-size: 0.8125rem;
-    color: #9ca3af;
-    margin: 0;
-}
-
-.public-footer a {
-    color: var(--orange-300, #ff8500);
+    color: rgba(255, 255, 255, 0.35);
     text-decoration: none;
-    font-weight: 500;
     transition: color 0.2s;
 }
 
-.public-footer a:hover {
-    color: #e67700;
-    text-decoration: underline;
+.public-footer .footer-link strong {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
 }
 
-/* Dark mode - Stopka */
-[data-theme="dark"] .public-footer .footer-text {
-    color: rgba(255, 255, 255, 0.4);
-}
-
-[data-theme="dark"] .public-footer a {
+.public-footer .footer-link:hover {
     color: #f093fb;
 }
 
-[data-theme="dark"] .public-footer a:hover {
-    color: #f5a3fc;
+.public-footer .footer-link:hover strong {
+    color: #f093fb;
 }
+
+/* ========================================
+   CTA Bar - Top inline banner
+   ======================================== */
+
+.public-cta-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(30, 25, 60, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(240, 147, 251, 0.15);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Animated entrance */
+    opacity: 0;
+    transform: translateY(-100%);
+    transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.public-cta-bar.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+
+.cta-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.cta-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.cta-text strong {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.cta-text span {
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.35;
+}
+
+.cta-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 22px;
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: #ffffff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+}
+
+.cta-button:hover {
+    transform: scale(1.04);
+    box-shadow: 0 6px 25px rgba(240, 147, 251, 0.45);
+}
+
 
 /* ========================================
    Responsywność
    ======================================== */
 
+/* Mobile (max-width: 639px) - układ pionowy */
+@media (max-width: 639px) {
+    .public-collection-header {
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .header-logo {
+        order: 0;
+    }
+
+    .header-logo img {
+        height: 32px;
+    }
+
+    .header-user {
+        order: 1;
+        justify-content: center;
+    }
+
+    .header-info {
+        align-items: center;
+        text-align: center;
+    }
+
+    .header-info .header-name {
+        font-size: 1.2rem;
+    }
+}
+
 /* Tablet (min-width: 640px) - 3 kolumny */
 @media (min-width: 640px) {
     .public-collection-page {
-        padding: 48px 32px;
+        padding: 48px 32px 100px;
     }
 
     .public-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 16px;
     }
+
+    .header-logo img {
+        height: 40px;
+    }
 }
 
 /* Desktop (min-width: 1024px) - 4 kolumny */
 @media (min-width: 1024px) {
     .public-collection-page {
-        padding: 56px 40px;
+        padding: 56px 40px 100px;
     }
 
     .public-grid {
@@ -337,14 +533,25 @@
     }
 }
 
-/* Mały mobile (max-width: 320px) - drobne korekty */
+/* Mały mobile (max-width: 320px) */
 @media (max-width: 320px) {
     .public-collection-page {
-        padding: 24px 12px;
+        padding: 24px 12px 100px;
     }
 
-    .public-collection-header .collection-title {
-        font-size: 1.25rem;
+    .header-info .header-name {
+        font-size: 1.1rem;
+    }
+
+    .header-logo img {
+        height: 28px;
+    }
+
+    .public-collection-header .user-avatar,
+    .public-collection-header .user-avatar-fallback {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
     }
 
     .public-card-body {
@@ -361,5 +568,59 @@
 
     .public-empty-state {
         padding: 40px 16px;
+    }
+}
+
+/* CTA bar - mobile layout */
+@media (max-width: 480px) {
+    .public-cta-bar {
+        padding: 8px 12px;
+    }
+
+    .cta-content {
+        gap: 10px;
+    }
+
+    .cta-text strong {
+        font-size: 0.8125rem;
+    }
+
+    .cta-text span {
+        font-size: 0.6875rem;
+    }
+
+    .cta-button {
+        padding: 8px 14px;
+        font-size: 0.8125rem;
+    }
+}
+
+/* ========================================
+   Reduced motion
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .collection-bg-orb {
+        animation: none;
+    }
+
+    .public-card {
+        opacity: 1;
+        transform: none;
+    }
+
+    .public-card.visible {
+        animation: none;
+    }
+
+    .public-cta-bar {
+        transition: none;
+    }
+
+    @keyframes fadeSlideUp {
+        to {
+            opacity: 1;
+            transform: none;
+        }
     }
 }

@@ -18,8 +18,12 @@ def public_collection(token):
     from modules.client.models import PublicCollectionConfig, CollectionItem
 
     config = PublicCollectionConfig.query.filter_by(token=token).first()
-    if not config or not config.is_active:
+    if not config:
         abort(404)
+
+    if not config.is_active:
+        return render_template('public/collection_inactive.html',
+                               user=config.user)
 
     # Pobierz itemy oznaczone jako publiczne
     items = CollectionItem.query.filter_by(

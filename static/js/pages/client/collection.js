@@ -465,8 +465,20 @@
         var modal = document.getElementById('addCollectionModal');
         if (modal) {
             document.getElementById('addCollectionForm').reset();
-            document.getElementById('addImagePreview').innerHTML = '';
-            // Resetuj sekcję QR
+            // Reset photos area — show empty state
+            var photosArea = document.getElementById('addUploadPhotos');
+            if (photosArea) {
+                // Remove thumbs, keep empty state
+                photosArea.querySelectorAll('.upload-thumb').forEach(function (t) { t.remove(); });
+            }
+            var emptyState = document.getElementById('addEmptyState');
+            if (emptyState) emptyState.style.display = '';
+            var counter = document.getElementById('addUploadCounter');
+            if (counter) counter.textContent = '';
+            // Show actions column
+            var actions = document.getElementById('addUploadActions');
+            if (actions) actions.style.display = '';
+            // Reset QR inline
             resetQrSection('add');
             modal.classList.add('active');
         }
@@ -514,10 +526,16 @@
             });
     };
 
-    // ---- Image preview for add modal ----
-    window.handleImagePreview = function (input, previewContainerId) {
-        var container = document.getElementById(previewContainerId);
-        container.innerHTML = '';
+    // ---- Image preview for add modal (renders into upload-row-photos) ----
+    window.handleImagePreview = function (input) {
+        var photosArea = document.getElementById('addUploadPhotos');
+        var emptyState = document.getElementById('addEmptyState');
+        var counter = document.getElementById('addUploadCounter');
+        var actionsCol = document.getElementById('addUploadActions');
+        if (!photosArea) return;
+
+        // Remove old thumbs
+        photosArea.querySelectorAll('.upload-thumb').forEach(function (t) { t.remove(); });
 
         var files = Array.from(input.files).slice(0, 3);
 
@@ -531,27 +549,40 @@
             files = Array.from(input.files);
         }
 
+        // Hide/show empty state
+        if (emptyState) emptyState.style.display = files.length > 0 ? 'none' : '';
+
         files.forEach(function (file, idx) {
             var reader = new FileReader();
             reader.onload = function (e) {
                 var div = document.createElement('div');
-                div.className = 'preview-item';
+                div.className = 'upload-thumb';
                 div.innerHTML = '<img src="' + e.target.result + '" alt="Preview">' +
-                    '<button type="button" class="preview-remove" onclick="removePreviewImage(' + idx + ', \'' + previewContainerId + '\', \'' + input.id + '\')">&times;</button>';
-                container.appendChild(div);
+                    '<button type="button" class="upload-thumb-remove" onclick="removePreviewImage(' + idx + ')">&times;</button>';
+                photosArea.appendChild(div);
             };
             reader.readAsDataURL(file);
         });
+
+        // Update counter
+        if (counter) {
+            counter.textContent = files.length > 0 ? files.length + '/3' : '';
+        }
+
+        // Hide actions column if at limit
+        if (actionsCol) {
+            actionsCol.style.display = files.length >= 3 ? 'none' : '';
+        }
     };
 
-    window.removePreviewImage = function (index, previewContainerId, inputId) {
-        var input = document.getElementById(inputId);
+    window.removePreviewImage = function (index) {
+        var input = document.getElementById('addImageInput');
         var dt = new DataTransfer();
         var files = Array.from(input.files);
         files.splice(index, 1);
         files.forEach(function (f) { dt.items.add(f); });
         input.files = dt.files;
-        handleImagePreview(input, previewContainerId);
+        handleImagePreview(input);
     };
 
     // ================================================================
@@ -594,11 +625,18 @@
     };
 
     function renderEditImages(images, itemId, canAdd) {
-        var container = document.getElementById('editExistingImages');
-        var addWrapper = document.getElementById('editAddImageWrapper');
-        container.innerHTML = '';
+        var photosArea = document.getElementById('editUploadPhotos');
+        var emptyState = document.getElementById('editEmptyState');
+        var actionsCol = document.getElementById('editUploadActions');
 
-        if (images) {
+        // Remove old image items (keep empty state element)
+        if (photosArea) {
+            photosArea.querySelectorAll('.existing-image-item').forEach(function (el) { el.remove(); });
+        }
+
+        var hasImages = images && images.length > 0;
+
+        if (hasImages) {
             images.forEach(function (img) {
                 var div = document.createElement('div');
                 div.className = 'existing-image-item' + (img.is_primary ? ' primary' : '');
@@ -608,13 +646,15 @@
                     (!img.is_primary ? '<button type="button" class="btn-set-primary" onclick="setEditPrimary(' + itemId + ',' + img.id + ')" title="Ustaw jako główne">&#9733;</button>' : '') +
                     '<button type="button" class="btn-remove-image" onclick="deleteEditImage(' + itemId + ',' + img.id + ')" title="Usuń">&times;</button>' +
                     '</div>';
-                container.appendChild(div);
+                photosArea.appendChild(div);
             });
         }
 
-        if (addWrapper) {
-            addWrapper.style.display = canAdd ? 'flex' : 'none';
-        }
+        // Empty state
+        if (emptyState) emptyState.style.display = hasImages ? 'none' : '';
+
+        // Actions column — show when can add more
+        if (actionsCol) actionsCol.style.display = canAdd ? '' : 'none';
     }
 
     window.closeEditModal = function () {
@@ -661,12 +701,12 @@
     };
 
     // ---- Edit modal: Upload additional image ----
-    window.uploadEditImage = function (input) {
-        if (!input.files.length || !currentEditItem) return;
+    function uploadEditImage(files) {
+        if (!files || !files.length || !currentEditItem) return;
 
         var itemId = currentEditItem.id;
         var formData = new FormData();
-        formData.append('image', input.files[0]);
+        formData.append('image', files[0]);
 
         fetch('/client/collection/' + itemId + '/images', {
             method: 'POST',
@@ -688,8 +728,10 @@
                 if (typeof window.showToast === 'function') window.showToast('Błąd uploadu', 'error');
             });
 
-        input.value = '';
-    };
+        // Reset input
+        var editInput = document.getElementById('editImageInput');
+        if (editInput) editInput.value = '';
+    }
 
     // ---- Edit modal: Delete image ----
     window.deleteEditImage = function (itemId, imageId) {
@@ -1040,12 +1082,13 @@
                     return;
                 }
 
-                // Pokaż QR code
-                var qrDisplay = document.getElementById(context + 'QrDisplay');
+                // Set QR image
                 var qrImage = document.getElementById(context + 'QrImage');
-
-                if (qrDisplay) qrDisplay.style.display = '';
                 if (qrImage) qrImage.src = result.qr_data_uri;
+
+                // Show QR inline section
+                var qrInline = document.getElementById(context + 'QrInline');
+                if (qrInline) qrInline.classList.add('active');
 
                 // Zapisz session token (dla add modal - do formularza)
                 if (context === 'add') {
@@ -1079,7 +1122,7 @@
                         stopQrPolling(context);
 
                         if (context === 'add') {
-                            // Schowaj QR, pokaż podgląd
+                            // Hide QR code, show uploaded preview
                             var qrDisplay = document.getElementById('addQrDisplay');
                             var uploaded = document.getElementById('addQrUploaded');
                             var uploadedImg = document.getElementById('addQrUploadedImage');
@@ -1123,8 +1166,9 @@
     function resetQrSection(context) {
         stopQrPolling(context);
 
-        var qrDisplay = document.getElementById(context + 'QrDisplay');
-        if (qrDisplay) qrDisplay.style.display = 'none';
+        // Hide the QR inline section
+        var qrInline = document.getElementById(context + 'QrInline');
+        if (qrInline) qrInline.classList.remove('active');
 
         var statusEl = document.getElementById(context + 'QrStatus');
         if (statusEl) {
@@ -1139,6 +1183,140 @@
             if (tokenInput) tokenInput.value = '';
         }
     }
+
+    // ================================================================
+    // QR INLINE SHOW / HIDE
+    // ================================================================
+
+    window.showQrInline = function (context) {
+        startQrSession(context);
+    };
+
+    window.hideQrInline = function (context) {
+        stopQrPolling(context);
+        var qrInline = document.getElementById(context + 'QrInline');
+        if (qrInline) qrInline.classList.remove('active');
+
+        // Reset QR display for next use
+        var qrDisplay = document.getElementById(context + 'QrDisplay');
+        if (qrDisplay) qrDisplay.style.display = '';
+
+        var statusEl = document.getElementById(context + 'QrStatus');
+        if (statusEl) {
+            statusEl.textContent = 'Oczekiwanie na upload...';
+            statusEl.className = 'qr-status';
+        }
+
+        if (context === 'add') {
+            var uploaded = document.getElementById('addQrUploaded');
+            if (uploaded) uploaded.style.display = 'none';
+        }
+    };
+
+    // ================================================================
+    // DRAG & DROP + UPLOAD ZONE CLICK
+    // ================================================================
+
+    function setupUploadRow(photosId, btnId, inputId, opts) {
+        var photosArea = document.getElementById(photosId);
+        var btn = document.getElementById(btnId);
+        var input = document.getElementById(inputId);
+
+        // "Z komputera" button click — open file picker
+        if (btn && input) {
+            btn.addEventListener('click', function () {
+                input.click();
+            });
+        }
+
+        // File input change
+        if (input && opts.onInputChange) {
+            input.addEventListener('change', function () {
+                opts.onInputChange(input);
+            });
+        }
+
+        // Drag & drop on photos area
+        if (photosArea) {
+            photosArea.addEventListener('dragenter', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photosArea.classList.add('drag-over');
+            });
+
+            photosArea.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photosArea.classList.add('drag-over');
+            });
+
+            photosArea.addEventListener('dragleave', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photosArea.classList.remove('drag-over');
+            });
+
+            photosArea.addEventListener('drop', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                photosArea.classList.remove('drag-over');
+
+                var droppedFiles = e.dataTransfer.files;
+                if (!droppedFiles.length) return;
+
+                var imageFiles = [];
+                for (var i = 0; i < droppedFiles.length; i++) {
+                    if (droppedFiles[i].type.match(/^image\/(jpeg|png|webp|gif)$/)) {
+                        imageFiles.push(droppedFiles[i]);
+                    }
+                }
+
+                if (imageFiles.length === 0) {
+                    if (typeof window.showToast === 'function') window.showToast('Dozwolone formaty: JPG, PNG, WebP, GIF', 'warning');
+                    return;
+                }
+
+                if (opts.onDrop) opts.onDrop(imageFiles);
+            });
+        }
+    }
+
+    // Setup Add modal
+    setupUploadRow('addUploadPhotos', 'addBtnComputer', 'addImageInput', {
+        onInputChange: function (input) {
+            var files = Array.from(input.files);
+            if (files.length > 3) {
+                if (typeof window.showToast === 'function') window.showToast('Maksymalnie 3 zdjęcia', 'warning');
+                var dt = new DataTransfer();
+                for (var i = 0; i < 3; i++) dt.items.add(files[i]);
+                input.files = dt.files;
+            }
+            handleImagePreview(input);
+        },
+        onDrop: function (droppedFiles) {
+            var input = document.getElementById('addImageInput');
+            if (!input) return;
+            var existing = Array.from(input.files);
+            var combined = existing.concat(droppedFiles).slice(0, 3);
+            if (existing.length + droppedFiles.length > 3) {
+                if (typeof window.showToast === 'function') window.showToast('Maksymalnie 3 zdjęcia', 'warning');
+            }
+            var dt = new DataTransfer();
+            combined.forEach(function (f) { dt.items.add(f); });
+            input.files = dt.files;
+            handleImagePreview(input);
+        }
+    });
+
+    // Setup Edit modal
+    setupUploadRow('editUploadPhotos', 'editBtnComputer', 'editImageInput', {
+        onInputChange: function (input) {
+            uploadEditImage(input.files);
+        },
+        onDrop: function (droppedFiles) {
+            uploadEditImage(droppedFiles);
+        }
+    });
 
     // ================================================================
     // HELPERS
