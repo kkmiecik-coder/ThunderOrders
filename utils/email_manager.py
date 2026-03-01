@@ -177,6 +177,44 @@ class EmailManager:
             current_app.logger.error(f"Failed to send order confirmation email for {order.order_number}: {e}")
 
     @staticmethod
+    def notify_packing_photo(order):
+        """
+        Wysyła email ze zdjęciem spakowanej paczki do klienta.
+
+        Args:
+            order: obiekt Order (musi mieć ustawione packing_photo)
+        """
+        from utils.email_sender import send_packing_photo_email
+
+        email = order.customer_email
+        if not email:
+            current_app.logger.warning(
+                f"Cannot send packing photo email for {order.order_number}: no email"
+            )
+            return
+
+        if not order.packing_photo:
+            current_app.logger.warning(
+                f"Cannot send packing photo email for {order.order_number}: no photo"
+            )
+            return
+
+        try:
+            send_packing_photo_email(
+                user_email=email,
+                user_name=order.customer_name,
+                order_number=order.order_number,
+                photo_path=order.packing_photo,
+            )
+            current_app.logger.info(
+                f"Packing photo email sent for {order.order_number} to {email}"
+            )
+        except Exception as e:
+            current_app.logger.error(
+                f"Failed to send packing photo email for {order.order_number}: {e}"
+            )
+
+    @staticmethod
     def notify_status_change(order, old_status, new_status):
         """
         Wysyła powiadomienie o zmianie statusu zamówienia.

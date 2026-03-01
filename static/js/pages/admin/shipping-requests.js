@@ -259,6 +259,68 @@ async function bulkMergeRequests() {
 }
 
 // ============================================
+// WMS ACTIONS
+// ============================================
+
+/**
+ * Go to WMS for a single shipping request
+ * @param {number} shippingRequestId - The shipping request ID
+ */
+async function handleGoToWMS(shippingRequestId) {
+    await createWmsSession([shippingRequestId]);
+}
+
+/**
+ * Go to WMS for all selected shipping requests (bulk action)
+ */
+async function bulkGoToWMS() {
+    const ids = getSelectedRequestIds();
+    if (ids.length === 0) return;
+
+    await createWmsSession(ids.map(id => parseInt(id)));
+}
+
+/**
+ * Create a WMS session from shipping request IDs
+ * @param {number[]} shippingRequestIds - Array of shipping request IDs
+ */
+async function createWmsSession(shippingRequestIds) {
+    try {
+        const response = await fetch('/admin/orders/wms/create-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                shipping_request_ids: shippingRequestIds
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.redirect_url) {
+            window.location.href = data.redirect_url;
+        } else {
+            const errorMsg = data.error || 'Nie udało się utworzyć sesji WMS';
+            if (window.Toast) {
+                window.Toast.show(errorMsg, 'error');
+            } else {
+                alert(errorMsg);
+            }
+        }
+    } catch (error) {
+        console.error('Error creating WMS session:', error);
+        const errorMsg = 'Błąd podczas tworzenia sesji WMS';
+        if (window.Toast) {
+            window.Toast.show(errorMsg, 'error');
+        } else {
+            alert(errorMsg);
+        }
+    }
+}
+
+// ============================================
 // PRODUCTS TOGGLE
 // ============================================
 
@@ -658,6 +720,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const mergeBtn = document.querySelector('.btn-bulk[data-action="merge"]');
     if (mergeBtn) {
         mergeBtn.addEventListener('click', bulkMergeRequests);
+    }
+
+    // WMS button
+    const wmsBtn = document.querySelector('.btn-bulk[data-action="wms"]');
+    if (wmsBtn) {
+        wmsBtn.addEventListener('click', bulkGoToWMS);
     }
 
     // Delete button

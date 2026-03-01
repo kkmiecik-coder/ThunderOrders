@@ -150,6 +150,48 @@
     border-top-color: rgba(45, 45, 55, 0.98);
 }
 
+/* WMS Button - Card Footer */
+.btn.btn-wms {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border: none;
+}
+
+.btn.btn-wms:hover {
+    background: linear-gradient(135deg, #5a6fd6 0%, #6a4293 100%);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn.btn-wms {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .btn.btn-wms:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.45) 0%, rgba(118, 75, 162, 0.45) 100%);
+    border-color: rgba(240, 147, 251, 0.35);
+}
+
+/* WMS Button - Bulk Toolbar */
+.btn-bulk-wms {
+    color: #667eea;
+}
+
+.btn-bulk-wms:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: #5a6fd6;
+}
+
+[data-theme="dark"] .btn-bulk-wms {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .btn-bulk-wms:hover {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f5a3fc;
+}
+
 /* ============================================
    CARDS WRAPPER & GRID (Flexbox Wrap)
    ============================================ */

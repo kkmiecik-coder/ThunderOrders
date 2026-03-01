@@ -639,3 +639,69 @@ def send_new_exclusive_page_email(user_email, user_name, page_name, page_url):
         page_name=page_name,
         page_url=page_url
     )
+
+
+def send_packing_photo_email(user_email, user_name, order_number, photo_path):
+    """
+    Wysyła email ze zdjęciem spakowanej paczki do klienta.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        order_number (str): Numer zamówienia
+        photo_path (str): Ścieżka do zdjęcia paczki (relatywna od static/)
+    """
+    app = current_app._get_current_object()
+
+    msg = Message(
+        subject=f'Twoja paczka jest gotowa! - {order_number} - ThunderOrders',
+        recipients=[user_email],
+        sender=app.config['MAIL_DEFAULT_SENDER']
+    )
+
+    try:
+        msg.html = render_template(
+            'emails/packing_photo.html',
+            user_name=user_name,
+            order_number=order_number,
+        )
+
+        msg.body = f"Sprawdź email w kliencie obsługującym HTML."
+
+        # Logo inline attachment (CID)
+        logo_path = os.path.join(app.root_path, 'static', 'img', 'icons', 'logo-full-black-email.png')
+        if os.path.exists(logo_path):
+            with app.open_resource(logo_path, 'rb') as fp:
+                msg.attach(
+                    filename='logo.png',
+                    content_type='image/png',
+                    data=fp.read(),
+                    disposition='inline',
+                    headers=[('Content-ID', '<logo@thunderorders>')],
+                )
+
+        # Packing photo inline attachment (CID)
+        full_photo_path = os.path.join(app.root_path, 'static', photo_path)
+        if os.path.exists(full_photo_path):
+            with open(full_photo_path, 'rb') as fp:
+                photo_data = fp.read()
+            msg.attach(
+                filename='packing_photo.jpg',
+                content_type='image/jpeg',
+                data=photo_data,
+                disposition='inline',
+                headers=[('Content-ID', '<packing_photo@thunderorders>')],
+            )
+
+        logger.info(f"[EMAIL] Queuing packing photo email to={user_email}, order={order_number}")
+        Thread(
+            target=send_async_email,
+            args=(app, msg),
+            name=f"email-packing-{user_email}"
+        ).start()
+
+        return True
+
+    except Exception as e:
+        logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}, error={type(e).__name__}: {e}")
+        return False

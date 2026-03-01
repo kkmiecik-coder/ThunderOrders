@@ -920,7 +920,7 @@
                 <div class="actions-section">
                     <label>Szybkie akcje</label>
                     <div class="actions-grid">
-                        <button class="btn btn-secondary btn-sm" onclick="alert('Funkcja WMS w budowie')">
+                        <button class="btn btn-secondary btn-sm" onclick="handleGoToWMS({{ order.id }})">
                             <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                                 <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5z"/>
                             </svg>
@@ -1249,6 +1249,83 @@
                 </button>
                 <div class="collapsible-content">
                     <p>{{ order.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Pakowanie WMS -->
+            {% if order.packed_at or wms_session_order %}
+            <div class="collapsible-section">
+                <button class="collapsible-trigger" onclick="toggleSection(this)">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="chevron">
+                        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                    Pakowanie WMS
+                </button>
+                <div class="collapsible-content">
+                    <div class="wms-history">
+                        {% if wms_session_order %}
+                        <div class="wms-history-item">
+                            <span class="wms-history-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                </svg>
+                            </span>
+                            <span class="wms-history-text">Sesja WMS #{{ wms_session_order.session.id }}</span>
+                            <span class="wms-history-date">{{ order.packed_at|format_datetime if order.packed_at else '' }}</span>
+                        </div>
+                        {% endif %}
+                        {% if order.packer %}
+                        <div class="wms-history-item">
+                            <span class="wms-history-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                            </span>
+                            <span class="wms-history-text">Spakował: <strong>{{ order.packer.full_name }}</strong></span>
+                        </div>
+                        {% endif %}
+                        {% if order.packaging_material %}
+                        <div class="wms-history-item">
+                            <span class="wms-history-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                                </svg>
+                            </span>
+                            <span class="wms-history-text">Materiał: <strong>{{ order.packaging_material.name }}</strong></span>
+                        </div>
+                        {% endif %}
+                        {% if order.total_package_weight %}
+                        <div class="wms-history-item">
+                            <span class="wms-history-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+                                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                                </svg>
+                            </span>
+                            <span class="wms-history-text">Waga: <strong>{{ "%.2f"|format(order.total_package_weight) }} kg</strong></span>
+                        </div>
+                        {% endif %}
+                        {% if order.packing_photo %}
+                        <div class="wms-history-item wms-history-photo">
+                            <span class="wms-history-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </span>
+                            <span class="wms-history-text">Zdjęcie pakowania:</span>
+                        </div>
+                        <a href="{{ url_for('static', filename=order.packing_photo) }}" target="_blank" class="wms-history-photo-link">
+                            <img src="{{ url_for('static', filename=order.packing_photo) }}"
+                                 alt="Zdjęcie paczki" class="wms-history-photo-img">
+                        </a>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             {% endif %}

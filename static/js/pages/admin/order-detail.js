@@ -72,6 +72,42 @@
     };
 
     // ====================
+    // WMS - GO TO WMS
+    // ====================
+
+    /**
+     * Create WMS session for a single order (exposed globally)
+     */
+    window.handleGoToWMS = function(orderId) {
+        showToast('Tworzę sesję WMS...', 'info');
+
+        fetch('/admin/orders/wms/create-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ order_ids: [orderId] })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                window.location.href = result.redirect_url;
+            } else {
+                let msg = result.message || 'Błąd tworzenia sesji WMS';
+                if (result.errors && result.errors.length > 0) {
+                    msg += ': ' + result.errors[0];
+                }
+                showToast(msg, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('WMS create session error:', error);
+            showToast('Wystąpił błąd podczas tworzenia sesji WMS', 'error');
+        });
+    };
+
+    // ====================
     // DELETE ORDER CONFIRMATION
     // ====================
 

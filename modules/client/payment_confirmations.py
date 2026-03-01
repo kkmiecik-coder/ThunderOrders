@@ -77,7 +77,6 @@ def payment_confirmations():
         'w_drodze_polska',
         'urzad_celny',
         'dostarczone_gom',
-        'do_pakowania',
         'spakowane',
     ]
 

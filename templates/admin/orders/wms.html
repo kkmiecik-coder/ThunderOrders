@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="{{ 'dark' if current_user.dark_mode_enabled else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>WMS — Sesja #{{ wms_session.id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms.css') }}">
+</head>
+<body>
+
+<!-- Toast container -->
+<div id="toast-container" class="toast-container"></div>
+
+<div class="wms-page" data-session-id="{{ wms_session.id }}" data-session-status="{{ wms_session.status }}">
+
+    <!-- ============================================ -->
+    <!-- SESSION HEADER                                -->
+    <!-- ============================================ -->
+    <div class="wms-header">
+        <div class="wms-header-top">
+            <div class="wms-header-left">
+                <a href="{{ url_for('orders.admin_list') }}" class="back-link">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                    </svg>
+                    Wróć do panelu
+                </a>
+                <h1>
+                    WMS — Sesja #{{ wms_session.id }}
+                    <span class="wms-session-status-badge" data-status="{{ wms_session.status }}">
+                        {{ wms_session.status }}
+                    </span>
+                </h1>
+            </div>
+            <div class="wms-header-right">
+                <div class="wms-header-meta">
+                    <span class="wms-meta-item" title="Kto utworzył">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        {{ wms_session.user.full_name if wms_session.user else 'Nieznany' }}
+                    </span>
+                    <span class="wms-meta-item" title="Data utworzenia">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        {{ wms_session.created_at.strftime('%d.%m.%Y, %H:%M') if wms_session.created_at else '-' }}
+                    </span>
+                    <span class="wms-meta-item" title="Liczba zamówień">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                        </svg>
+                        <span id="wmsOrdersCount">{{ wms_session.orders_count }}</span> zamówień
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Progress bar + mode toggle + actions -->
+        <div class="wms-header-bottom">
+            <div class="wms-progress-section">
+                <div class="wms-progress-label">
+                    <span>Postęp sesji</span>
+                    <span id="wmsProgressText">
+                        <span id="wmsPackedCount">{{ wms_session.packed_orders_count }}</span> / <span id="wmsTotalCount">{{ wms_session.orders_count }}</span> spakowanych
+                    </span>
+                </div>
+                <div class="wms-progress-bar">
+                    <div class="wms-progress-fill" id="wmsProgressFill" style="width: {{ wms_session.progress_percentage }}%;"></div>
+                </div>
+            </div>
+
+            <div class="wms-header-actions">
+                <!-- Mode toggle -->
+                <div class="wms-mode-toggle">
+                    <button class="wms-mode-btn active" data-mode="picking" id="btnModePicking" title="Tryb zbierania">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 11 12 14 22 4"></polyline>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                        </svg>
+                        Zbieranie
+                    </button>
+                    <button class="wms-mode-btn" data-mode="preview" id="btnModePreview" title="Tryb podglądu (Faza 2)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                            <circle cx="12" cy="12" r="3"></circle>
+                        </svg>
+                        Podgląd
+                    </button>
+                </div>
+
+                <!-- Phone connection indicator -->
+                <div class="wms-phone-indicator" id="wmsPhoneIndicator" style="display: none;">
+                    <span class="wms-phone-dot" id="wmsPhoneDot"></span>
+                    <span class="wms-phone-text" id="wmsPhoneText">Telefon połączony</span>
+                </div>
+
+                <!-- Session action buttons -->
+                <button class="btn btn-sm btn-success" id="btnCompleteSession" title="Zakończ sesję">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                    Zakończ sesję
+                </button>
+                <button class="btn btn-sm btn-danger" id="btnCancelSession" title="Anuluj sesję">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                    </svg>
+                    Anuluj
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- SESSION COMPLETED / CANCELLED BANNER         -->
+    <!-- ============================================ -->
+    {% if wms_session.status != 'active' %}
+    <div class="wms-banner wms-banner-{{ wms_session.status }}" id="wmsBanner">
+        {% if wms_session.status == 'completed' %}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Sesja zakończona — spakowano {{ wms_session.packed_orders_count }} z {{ wms_session.orders_count }} zamówień
+        {% elif wms_session.status == 'cancelled' %}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            Sesja anulowana
+        {% elif wms_session.status == 'paused' %}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="10" y1="15" x2="10" y2="9"></line>
+                <line x1="14" y1="15" x2="14" y2="9"></line>
+            </svg>
+            Sesja wstrzymana
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ============================================ -->
+    <!-- MAIN CONTENT: PICKING MODE                    -->
+    <!-- ============================================ -->
+    <div class="wms-main" id="wmsPickingMode">
+        <!-- LEFT PANEL: Order Queue (30%) -->
+        <div class="wms-order-queue" id="wmsOrderQueue">
+            <div class="wms-queue-header">
+                <h3>Kolejka zamówień</h3>
+                <span class="wms-queue-count" id="wmsQueueCount">0</span>
+            </div>
+            <div class="wms-queue-list" id="wmsQueueList">
+                <!-- Order cards rendered by JS -->
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Picking Area (70%) -->
+        <div class="wms-picking-area" id="wmsPickingArea">
+
+            <!-- Mode selection screen — visible on start for active sessions -->
+            <div class="wms-mode-selection" id="wmsModeSelection" style="display: none;">
+                <h2>Jak chcesz zbierać produkty?</h2>
+                <p>Wybierz sposób pracy z zamówieniami w tej sesji</p>
+                <div class="wms-mode-options">
+                    <button class="wms-mode-option" id="btnModeDesktop" type="button">
+                        <div class="wms-mode-option-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                                <line x1="8" y1="21" x2="16" y2="21"></line>
+                                <line x1="12" y1="17" x2="12" y2="21"></line>
+                            </svg>
+                        </div>
+                        <h3>Na komputerze</h3>
+                        <p>Zbieraj produkty klikając bezpośrednio na ekranie</p>
+                    </button>
+                    <button class="wms-mode-option" id="btnModePhone" type="button">
+                        <div class="wms-mode-option-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            </svg>
+                        </div>
+                        <h3>Na telefonie</h3>
+                        <p>Zeskanuj QR i zbieraj produkty chodząc po magazynie</p>
+                    </button>
+                </div>
+            </div>
+
+            <!-- QR pairing screen — visible after choosing "Na telefonie" -->
+            <div class="wms-qr-screen" id="wmsQrScreen" style="display: none;">
+                <div class="wms-qr-card">
+                    <button class="wms-qr-back" id="btnQrBack" type="button" title="Wróć do wyboru">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        Wróć
+                    </button>
+                    <div class="wms-qr-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                        </svg>
+                    </div>
+                    <h3>Połącz telefon</h3>
+                    <p>Zeskanuj kod QR aparatem telefonu</p>
+                    <div class="wms-qr-image" id="wmsQrImage">
+                        <div class="wms-qr-loading">Generowanie QR...</div>
+                    </div>
+                    <div class="wms-qr-url" id="wmsQrUrl"></div>
+                    <div class="wms-qr-status" id="wmsQrStatus">Oczekiwanie na połączenie...</div>
+                </div>
+            </div>
+
+            <!-- Current order header -->
+            <div class="wms-current-order-header" id="wmsCurrentOrderHeader">
+                <div class="wms-current-order-info">
+                    <h2 id="wmsCurrentOrderNumber">-</h2>
+                    <span class="wms-current-order-customer" id="wmsCurrentOrderCustomer">-</span>
+                    <span class="wms-current-order-sr" id="wmsCurrentOrderSR"></span>
+                </div>
+                <div class="wms-current-order-progress">
+                    <div class="wms-order-progress-label">
+                        <span id="wmsOrderProgressText">0 / 0 szt. zebranych</span>
+                    </div>
+                    <div class="wms-progress-bar wms-progress-bar-sm">
+                        <div class="wms-progress-fill" id="wmsOrderProgressFill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Items list -->
+            <div class="wms-items-list" id="wmsItemsList">
+                <!-- Items rendered by JS -->
+                <div class="wms-items-empty" id="wmsItemsEmpty">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                    </svg>
+                    <p>Wybierz zamówienie z kolejki</p>
+                </div>
+            </div>
+
+            <!-- Packing section (suggestions + weight + confirm) -->
+            <div class="wms-packing-section" id="wmsPackAction" style="display: none;">
+                <div class="wms-packing-header">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    <h3>Pakowanie</h3>
+                    <div class="wms-packing-warnings" id="wmsPackingWarnings"></div>
+                </div>
+
+                <!-- Suggestions (top 3 cards) -->
+                <div class="packing-suggestions" id="wmsPackingSuggestions">
+                    <div class="packing-suggestions-loading" id="wmsPackingSuggestionsLoading">
+                        <span>Ładowanie sugestii...</span>
+                    </div>
+                </div>
+
+                <!-- Manual material dropdown -->
+                <div class="wms-packing-manual">
+                    <label for="wmsPackingMaterialSelect">Lub wybierz ręcznie:</label>
+                    <select id="wmsPackingMaterialSelect" class="wms-packing-select">
+                        <option value="">— brak opakowania —</option>
+                    </select>
+                </div>
+
+                <!-- Weight input -->
+                <div class="wms-packing-weight">
+                    <label for="wmsPackingWeight">Waga paczki (kg):</label>
+                    <input type="number" id="wmsPackingWeight" class="wms-packing-weight-input"
+                           step="0.01" min="0" placeholder="0.00">
+                </div>
+
+                <!-- Packing photo -->
+                <div class="wms-packing-photo" id="wmsPackingPhoto" style="display: none;">
+                    <div class="wms-packing-photo-label">Zdjęcie paczki:</div>
+                    <a class="wms-packing-photo-thumb" id="wmsPackingPhotoThumb" href="#" target="_blank" rel="noopener">
+                        <img id="wmsPackingPhotoImg" src="" alt="Zdjęcie paczki">
+                    </a>
+                </div>
+
+                <!-- Send email checkbox -->
+                <label class="wms-email-checkbox" id="wmsEmailLabel">
+                    <input type="checkbox" id="wmsSendEmailCheckbox" checked>
+                    <span>Wyślij zdjęcie do klienta</span>
+                </label>
+
+                <!-- Confirm button -->
+                <button class="btn btn-lg btn-success wms-pack-btn" id="btnPackOrder" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 11 12 14 22 4"></polyline>
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                    </svg>
+                    Potwierdź pakowanie
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview mode container (hidden by default, shown via JS) -->
+    <div class="wms-preview-container" id="wmsPreviewContainer" style="display: none;">
+        <div class="wms-preview-stats" id="wmsPreviewStats">
+            <div class="wms-preview-stat">
+                <span class="wms-preview-stat-value" id="previewTotalItems">0</span>
+                <span class="wms-preview-stat-label">Pozycji</span>
+            </div>
+            <div class="wms-preview-stat">
+                <span class="wms-preview-stat-value" id="previewPickedItems">0</span>
+                <span class="wms-preview-stat-label">Zebranych</span>
+            </div>
+            <div class="wms-preview-stat">
+                <span class="wms-preview-stat-value" id="previewPackedOrders">0</span>
+                <span class="wms-preview-stat-label">Spakowanych</span>
+            </div>
+            <div class="wms-preview-stat">
+                <span class="wms-preview-stat-value" id="previewElapsedTime">00:00</span>
+                <span class="wms-preview-stat-label">Czas sesji</span>
+            </div>
+        </div>
+        <div class="wms-preview-grid" id="wmsPreviewGrid">
+            <!-- Preview cards rendered by JS -->
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- ITEM CARD TEMPLATE (used by JS)              -->
+<!-- ============================================ -->
+<template id="tplWmsItemCard">
+    <div class="wms-item-card" data-item-id="">
+        <div class="wms-item-image">
+            <img src="" alt="" loading="lazy">
+        </div>
+        <div class="wms-item-info">
+            <div class="wms-item-name"></div>
+            <div class="wms-item-sku"></div>
+        </div>
+        <div class="wms-item-status">
+            <span class="wms-item-status-badge" style=""></span>
+        </div>
+        <div class="wms-pick-counter">
+            <button class="wms-pick-btn wms-pick-decrement" type="button" title="Odejmij">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <span class="wms-pick-display">0/0</span>
+            <button class="wms-pick-btn wms-pick-increment" type="button" title="Dodaj">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button class="wms-pick-btn wms-pick-all" type="button" title="Zbierz wszystko">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </button>
+        </div>
+    </div>
+</template>
+
+<!-- ============================================ -->
+<!-- ORDER QUEUE CARD TEMPLATE (used by JS)       -->
+<!-- ============================================ -->
+<template id="tplWmsOrderCard">
+    <div class="wms-order-card" data-order-id="" data-sr-id="">
+        <div class="wms-order-card-header">
+            <span class="wms-order-card-number"></span>
+            <span class="wms-order-card-indicator"></span>
+        </div>
+        <div class="wms-order-card-body">
+            <span class="wms-order-card-customer"></span>
+            <span class="wms-order-card-items-count"></span>
+        </div>
+        <div class="wms-order-card-progress">
+            <div class="wms-progress-bar wms-progress-bar-xs">
+                <div class="wms-progress-fill" style="width: 0%;"></div>
+            </div>
+            <span class="wms-order-card-percentage">0%</span>
+        </div>
+    </div>
+</template>
+
+<!-- ============================================ -->
+<!-- SR GROUP HEADER TEMPLATE (used by JS)        -->
+<!-- ============================================ -->
+<template id="tplWmsSrGroup">
+    <div class="wms-sr-group" data-sr-id="">
+        <div class="wms-sr-group-header">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+            </svg>
+            <span class="wms-sr-group-number"></span>
+        </div>
+    </div>
+</template>
+
+<!-- Session data for JS initialization -->
+<script>
+    window.WMS_SESSION_DATA = {{ session_data | tojson }};
+    window.WMS_SESSION_ID = {{ wms_session.id }};
+</script>
+<script src="{{ url_for('static', filename='js/components/toast.js') }}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/wms.js') }}"></script>
+</body>
+</html>

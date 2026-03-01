@@ -438,6 +438,12 @@ def admin_detail(order_id):
     from modules.payments.models import PaymentMethod
     payment_methods = PaymentMethod.get_active()
 
+    # WMS session info for order detail
+    wms_session_order = None
+    if order.packed_at:
+        from modules.orders.wms_models import WmsSessionOrder
+        wms_session_order = WmsSessionOrder.query.filter_by(order_id=order.id).first()
+
     return render_template(
         'admin/orders/detail.html',
         order=order,
@@ -452,6 +458,7 @@ def admin_detail(order_id):
         categories=categories,
         product_series=product_series,
         payment_methods=payment_methods,
+        wms_session_order=wms_session_order,
         page_title=f'Zamówienie {order.order_number}'
     )
 

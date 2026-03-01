@@ -1,0 +1,281 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}WMS Pakowanie - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms-dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="wms-dashboard-page">
+
+    <!-- Stats Row -->
+    <div class="wms-stats-row">
+        <div class="wms-stat-card">
+            <div class="stat-value">{{ today_packed }}</div>
+            <div class="stat-label">Spakowano dziś</div>
+        </div>
+        <div class="wms-stat-card">
+            <div class="stat-value">{{ to_pack_count }}</div>
+            <div class="stat-label">Do spakowania</div>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs-navigation">
+        <a href="{{ url_for('orders.wms_dashboard', tab='sessions') }}"
+           class="tab-link {% if active_tab == 'sessions' %}active{% endif %}"
+           data-tab="sessions">
+            SESJE PAKOWANIA
+            {% if active_sessions_count > 0 %}
+            <span class="tab-badge tab-badge-purple">{{ active_sessions_count }}</span>
+            {% endif %}
+        </a>
+        <a href="{{ url_for('orders.wms_dashboard', tab='materials') }}"
+           class="tab-link {% if active_tab == 'materials' %}active{% endif %}"
+           data-tab="materials">
+            MATERIAŁY
+            {% if materials_count > 0 %}
+            <span class="tab-badge tab-badge-blue">{{ materials_count }}</span>
+            {% endif %}
+        </a>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content active" id="tab-{{ active_tab }}">
+        <div class="tab-pane">
+
+            {% if active_tab == 'sessions' %}
+            <!-- Sessions Tab -->
+
+            <!-- Active Sessions -->
+            {% set active_sessions = sessions | selectattr('status', 'equalto', 'active') | list %}
+            {% if active_sessions %}
+            <div class="tab-header">
+                <h2>Aktywne sesje</h2>
+            </div>
+            <div class="sessions-list">
+                {% for session in active_sessions %}
+                    <div class="session-list-item session-active">
+                        <div class="session-info">
+                            <div class="session-title">
+                                Sesja #{{ session.id }}
+                                <span class="badge badge-success">Aktywna</span>
+                            </div>
+                            <div class="session-meta">
+                                <span>{{ session.user.full_name if session.user else 'Nieznany' }}</span>
+                                <span>{{ session.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                                <span>{{ session.orders_count }} zamówień</span>
+                            </div>
+                        </div>
+                        <div class="session-progress">
+                            <div class="progress-bar-mini">
+                                <div class="progress-bar-fill" style="width: {{ session.progress_percentage }}%"></div>
+                            </div>
+                            <span class="progress-text">{{ session.packed_orders_count }}/{{ session.orders_count }}</span>
+                        </div>
+                        <a href="{{ url_for('orders.wms_session_page', session_id=session.id) }}" class="btn btn-secondary btn-sm">Wznów</a>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Session History -->
+            {% set history_sessions = sessions | rejectattr('status', 'equalto', 'active') | list %}
+            <div class="tab-header" {% if active_sessions %}style="margin-top: var(--space-6);"{% endif %}>
+                <h2>Historia sesji</h2>
+            </div>
+
+            {% if history_sessions %}
+                <div class="session-history-list">
+                    <div class="session-list-header">
+                        <div>#</div>
+                        <div>Status</div>
+                        <div>Zamówienia</div>
+                        <div>Użytkownik</div>
+                        <div>Data</div>
+                    </div>
+                    {% for session in history_sessions %}
+                        <a href="{{ url_for('orders.wms_session_page', session_id=session.id) }}" class="session-history-item">
+                            <div>#{{ session.id }}</div>
+                            <div>
+                                {% if session.status == 'completed' %}
+                                    <span class="badge badge-success">Zakończona</span>
+                                {% elif session.status == 'cancelled' %}
+                                    <span class="badge badge-error">Anulowana</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ session.status }}</span>
+                                {% endif %}
+                            </div>
+                            <div>{{ session.packed_orders_count }}/{{ session.orders_count }}</div>
+                            <div>{{ session.user.full_name if session.user else 'Nieznany' }}</div>
+                            <div>{{ session.completed_at.strftime('%d.%m.%Y %H:%M') if session.completed_at else session.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>Brak historii sesji.</p>
+                </div>
+            {% endif %}
+
+            {% elif active_tab == 'materials' %}
+            <!-- Materials Tab -->
+            <div class="tab-header">
+                <h2>Materiały pakowania</h2>
+                <button type="button" class="btn btn-secondary btn-sm" id="add-material-btn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                    </svg>
+                    Dodaj materiał
+                </button>
+            </div>
+
+            <div class="materials-list">
+                <div class="material-list-header">
+                    <div class="material-col-name">Nazwa</div>
+                    <div class="material-col-type">Typ</div>
+                    <div class="material-col-dimensions">Wymiary</div>
+                    <div class="material-col-stock">Stan</div>
+                    <div class="material-col-cost">Koszt</div>
+                    <div class="material-col-actions">Akcje</div>
+                </div>
+
+                {% if materials %}
+                    {% for material in materials %}
+                        <div class="material-list-item {% if not material.is_active %}material-inactive{% endif %}" data-material-id="{{ material.id }}" draggable="true">
+                            <div class="material-col-name">
+                                <div class="drag-handle">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"/>
+                                    </svg>
+                                </div>
+                                <span class="material-name">{{ material.name }}</span>
+                            </div>
+                            <div class="material-col-type">
+                                <span class="badge badge-type-{{ material.type }}">{{ material.type_display }}</span>
+                            </div>
+                            <div class="material-col-dimensions">
+                                {{ material.dimensions_display or '—' }}
+                            </div>
+                            <div class="material-col-stock">
+                                <span class="{% if material.is_low_stock %}stock-low{% endif %}">
+                                    {{ material.quantity_in_stock }}
+                                </span>
+                                {% if material.is_low_stock %}
+                                    <span class="stock-alert" title="Niski stan magazynowy">!</span>
+                                {% endif %}
+                            </div>
+                            <div class="material-col-cost">
+                                {% if material.cost %}
+                                    {{ '%.2f' | format(material.cost) }} zł
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </div>
+                            <div class="material-col-actions">
+                                <button type="button" class="action-link material-edit" data-material-id="{{ material.id }}">Edytuj</button>
+                                <button type="button" class="action-link material-delete" data-material-id="{{ material.id }}">Usuń</button>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>Brak materiałów pakowania. Dodaj pierwszy materiał.</p>
+                    </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- Material Modal -->
+<div id="material-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 560px;">
+        <div class="modal-header">
+            <h3 id="material-modal-title">Dodaj materiał</h3>
+            <button type="button" class="modal-close" id="material-modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="material-id" value="">
+
+            <div class="form-group">
+                <label class="form-label" for="material-name">Nazwa *</label>
+                <input type="text" class="form-input" id="material-name" placeholder="np. Karton 30x20x15" required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="material-type">Typ</label>
+                <select class="form-select" id="material-type">
+                    {% for key, label in material_types.items() %}
+                        <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Wymiary wewnętrzne (cm)</label>
+                <div class="form-row-3">
+                    <div>
+                        <input type="number" class="form-input" id="material-length" placeholder="Długość" step="0.1" min="0">
+                    </div>
+                    <div>
+                        <input type="number" class="form-input" id="material-width" placeholder="Szerokość" step="0.1" min="0">
+                    </div>
+                    <div>
+                        <input type="number" class="form-input" id="material-height" placeholder="Wysokość" step="0.1" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Waga (kg)</label>
+                <div class="form-row-2">
+                    <div>
+                        <input type="number" class="form-input" id="material-max-weight" placeholder="Maks. waga zawartości" step="0.01" min="0">
+                    </div>
+                    <div>
+                        <input type="number" class="form-input" id="material-own-weight" placeholder="Waga opakowania" step="0.01" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Stan magazynowy</label>
+                <div class="form-row-3">
+                    <div>
+                        <input type="number" class="form-input" id="material-stock" placeholder="Stan" min="0" value="0">
+                        <span class="input-hint">Ilość</span>
+                    </div>
+                    <div>
+                        <input type="number" class="form-input" id="material-threshold" placeholder="Próg alertu" min="0" value="5">
+                        <span class="input-hint">Próg alertu</span>
+                    </div>
+                    <div>
+                        <input type="number" class="form-input" id="material-cost" placeholder="Koszt" step="0.01" min="0">
+                        <span class="input-hint">Koszt (zł)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="material-active" checked>
+                    Aktywny
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" id="material-modal-cancel">Anuluj</button>
+            <button type="button" class="btn btn-primary btn-sm" id="material-modal-save">Zapisz</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/wms-dashboard.js') }}"></script>
+{% endblock %}

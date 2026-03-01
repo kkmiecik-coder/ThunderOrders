@@ -1,0 +1,2327 @@
+/* ============================================
+   WMS Desktop Page CSS
+   Picking / Packing session interface
+   Standalone fullscreen layout (no sidebar/topbar)
+   ============================================ */
+
+/* ============================================
+   PAGE CONTAINER
+   ============================================ */
+
+.wms-page {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* ============================================
+   SESSION HEADER
+   ============================================ */
+
+.wms-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 24px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.wms-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.wms-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.wms-header-left .back-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #757575;
+    text-decoration: none;
+    font-size: 13px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: #f5f5f5;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.wms-header-left .back-link:hover {
+    color: #5A189A;
+    background: #EDE7F6;
+}
+
+.wms-header-left h1 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    white-space: nowrap;
+}
+
+/* Session status badge */
+.wms-session-status-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wms-session-status-badge[data-status="active"] {
+    background: rgba(76, 175, 80, 0.12);
+    color: #2e7d32;
+}
+
+.wms-session-status-badge[data-status="completed"] {
+    background: rgba(33, 150, 243, 0.12);
+    color: #1565c0;
+}
+
+.wms-session-status-badge[data-status="cancelled"] {
+    background: rgba(244, 67, 54, 0.12);
+    color: #c62828;
+}
+
+.wms-session-status-badge[data-status="paused"] {
+    background: rgba(255, 152, 0, 0.12);
+    color: #e65100;
+}
+
+/* Header meta info */
+.wms-header-meta {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.wms-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.wms-meta-item svg {
+    flex-shrink: 0;
+    opacity: 0.6;
+}
+
+/* Header bottom: progress + actions */
+.wms-header-bottom {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+/* ============================================
+   PROGRESS BAR (shared)
+   ============================================ */
+
+.wms-progress-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.wms-progress-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 6px;
+}
+
+.wms-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+}
+
+.wms-progress-bar-sm {
+    height: 8px;
+}
+
+.wms-progress-bar-xs {
+    height: 5px;
+}
+
+.wms-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 99px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 0;
+}
+
+/* Completed state */
+.wms-progress-fill.complete {
+    background: linear-gradient(90deg, #4CAF50, #66BB6A);
+}
+
+/* ============================================
+   HEADER ACTIONS: MODE TOGGLE + BUTTONS
+   ============================================ */
+
+.wms-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* Mode toggle */
+.wms-mode-toggle {
+    display: flex;
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.wms-mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.wms-mode-btn:hover {
+    color: #374151;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.wms-mode-btn.active {
+    background: #ffffff;
+    color: #1a1a2e;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+/* Session buttons — use global .btn styles; add display:flex for icon alignment */
+.wms-header-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.btn-lg {
+    padding: 12px 28px;
+    font-size: 15px;
+}
+
+/* ============================================
+   STATUS BANNER (completed / cancelled / paused)
+   ============================================ */
+
+.wms-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.wms-banner-completed {
+    background: rgba(33, 150, 243, 0.08);
+    color: #1565c0;
+    border-bottom: 1px solid rgba(33, 150, 243, 0.15);
+}
+
+.wms-banner-cancelled {
+    background: rgba(244, 67, 54, 0.08);
+    color: #c62828;
+    border-bottom: 1px solid rgba(244, 67, 54, 0.15);
+}
+
+.wms-banner-paused {
+    background: rgba(255, 152, 0, 0.08);
+    color: #e65100;
+    border-bottom: 1px solid rgba(255, 152, 0, 0.15);
+}
+
+/* ============================================
+   MAIN CONTENT: TWO-COLUMN LAYOUT
+   Queue left (340px) | Picking right (1fr)
+   ============================================ */
+
+.wms-main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+}
+
+/* ============================================
+   LEFT PANEL: ORDER QUEUE
+   ============================================ */
+
+.wms-order-queue {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #e5e7eb;
+    background: #fafbfc;
+    overflow: hidden;
+}
+
+.wms-queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 16px 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.wms-queue-header h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0;
+}
+
+.wms-queue-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 12px;
+    background: #e5e7eb;
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+}
+
+.wms-queue-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ============================================
+   MODE SELECTION SCREEN
+   ============================================ */
+
+.wms-mode-selection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    flex: 1;
+    min-height: 300px;
+}
+
+.wms-mode-selection h2 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0 0 6px 0;
+    text-align: center;
+}
+
+.wms-mode-selection > p {
+    font-size: 14px;
+    color: #6b7280;
+    margin: 0 0 32px 0;
+    text-align: center;
+}
+
+.wms-mode-options {
+    display: flex;
+    gap: 20px;
+    max-width: 520px;
+    width: 100%;
+}
+
+.wms-mode-option {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 24px;
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.25s;
+}
+
+.wms-mode-option:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.12);
+    transform: translateY(-2px);
+}
+
+.wms-mode-option:active {
+    transform: translateY(0);
+}
+
+.wms-mode-option-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    border-radius: 18px;
+    background: rgba(102, 126, 234, 0.08);
+    color: #667eea;
+    margin-bottom: 16px;
+    transition: all 0.25s;
+}
+
+.wms-mode-option:hover .wms-mode-option-icon {
+    background: rgba(102, 126, 234, 0.14);
+    color: #5a6fd6;
+}
+
+.wms-mode-option h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0 0 6px 0;
+}
+
+.wms-mode-option p {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* ============================================
+   QR PAIRING SCREEN
+   ============================================ */
+
+.wms-qr-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    flex: 1;
+    min-height: 300px;
+}
+
+.wms-qr-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 36px 40px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    max-width: 380px;
+    width: 100%;
+}
+
+.wms-qr-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: rgba(102, 126, 234, 0.08);
+    color: #667eea;
+    margin-bottom: 16px;
+}
+
+.wms-qr-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0 0 6px 0;
+}
+
+.wms-qr-card p {
+    font-size: 13px;
+    color: #6b7280;
+    margin: 0 0 20px 0;
+    line-height: 1.4;
+    max-width: 280px;
+}
+
+.wms-qr-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    margin-bottom: 12px;
+}
+
+.wms-qr-image img {
+    max-width: 250px;
+    max-height: 250px;
+    border-radius: 8px;
+}
+
+.wms-qr-loading,
+.wms-qr-error {
+    font-size: 13px;
+    color: #9ca3af;
+}
+
+.wms-qr-error {
+    color: #ef4444;
+}
+
+.wms-qr-url {
+    font-size: 11px;
+    color: #9ca3af;
+    word-break: break-all;
+    max-width: 280px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+}
+
+.wms-qr-url:empty {
+    display: none;
+}
+
+.wms-qr-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: transparent;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #6b7280;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    align-self: flex-start;
+    margin-bottom: 16px;
+}
+
+.wms-qr-back:hover {
+    color: #374151;
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.wms-qr-status {
+    font-size: 13px;
+    color: #9ca3af;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ============================================
+   RIGHT PANEL: PICKING AREA
+   ============================================ */
+
+.wms-picking-area {
+    display: flex;
+    flex-direction: column;
+    padding: 20px 24px;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* Current order header */
+.wms-current-order-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 16px 20px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
+
+.wms-current-order-info h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin: 0 0 2px 0;
+}
+
+.wms-current-order-customer {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.wms-current-order-sr {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #667eea;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+.wms-current-order-sr:empty {
+    display: none;
+}
+
+.wms-current-order-progress {
+    min-width: 200px;
+    flex-shrink: 0;
+}
+
+.wms-order-progress-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 4px;
+    text-align: right;
+}
+
+/* ============================================
+   ITEMS LIST
+   ============================================ */
+
+.wms-items-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 8px;
+}
+
+.wms-items-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: #9ca3af;
+    min-height: 200px;
+}
+
+.wms-items-empty svg {
+    opacity: 0.4;
+}
+
+.wms-items-empty p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* ============================================
+   ITEM CARD
+   ============================================ */
+
+.wms-item-card {
+    display: grid;
+    grid-template-columns: 56px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    transition: all 0.2s;
+}
+
+.wms-item-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Picked state (fully picked) */
+.wms-item-card.picked {
+    background: rgba(76, 175, 80, 0.04);
+    border-color: rgba(76, 175, 80, 0.25);
+}
+
+/* Partial state (some picked) */
+.wms-item-card.partial {
+    background: rgba(255, 152, 0, 0.04);
+    border-color: rgba(255, 152, 0, 0.2);
+}
+
+/* Packed state (parent order packed) */
+.wms-item-card.packed {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Item image */
+.wms-item-image {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f3f4f6;
+    flex-shrink: 0;
+}
+
+.wms-item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Item info */
+.wms-item-info {
+    min-width: 0;
+}
+
+.wms-item-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a2e;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wms-item-sku {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+/* Item quantity */
+.wms-item-qty {
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.wms-item-qty-value {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 28px;
+    padding: 0 8px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
+}
+
+/* Item status badge (small indicator) */
+.wms-item-status {
+    flex-shrink: 0;
+}
+
+.wms-item-status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #ffffff;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+/* ============================================
+   PICK COUNTER PANEL  [-] [0/2] [+] [✓]
+   ============================================ */
+
+.wms-pick-counter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.wms-pick-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.wms-pick-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+.wms-pick-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+.wms-pick-btn[disabled] {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Pick All button — green accent */
+.wms-pick-btn.wms-pick-all {
+    color: #4CAF50;
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+.wms-pick-btn.wms-pick-all:hover {
+    background: rgba(76, 175, 80, 0.08);
+    border-color: rgba(76, 175, 80, 0.5);
+    color: #2e7d32;
+}
+
+/* Pick display (counter) */
+.wms-pick-display {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    height: 44px;
+    padding: 0 10px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #374151;
+    border-radius: 10px;
+    background: #f3f4f6;
+    user-select: none;
+    transition: all 0.2s;
+}
+
+/* Counter states */
+.wms-pick-counter.partial .wms-pick-display {
+    color: #e65100;
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.wms-pick-counter.complete .wms-pick-display {
+    color: #2e7d32;
+    background: rgba(76, 175, 80, 0.12);
+}
+
+/* ============================================
+   PACK ORDER ACTION
+   ============================================ */
+
+.wms-pack-action {
+    padding: 16px 0 4px 0;
+    margin-top: auto;
+}
+
+.wms-pack-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.wms-pack-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ============================================
+   PACKING PHOTO
+   ============================================ */
+
+.wms-packing-photo {
+    margin-bottom: 12px;
+}
+
+.wms-packing-photo-label {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.wms-packing-photo-thumb {
+    display: block;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #e5e7eb;
+    transition: border-color 0.2s;
+    max-width: 200px;
+}
+
+.wms-packing-photo-thumb:hover {
+    border-color: #6366f1;
+}
+
+.wms-packing-photo-thumb img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 160px;
+    object-fit: cover;
+}
+
+/* Email checkbox */
+.wms-email-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #4b5563;
+    cursor: pointer;
+}
+
+.wms-email-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #6366f1;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   ORDER CARD (in queue)
+   ============================================ */
+
+.wms-order-card {
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.wms-order-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.wms-order-card.active {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.04);
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.15);
+}
+
+.wms-order-card.packed {
+    opacity: 0.55;
+    border-color: rgba(76, 175, 80, 0.3);
+    background: rgba(76, 175, 80, 0.04);
+}
+
+.wms-order-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.wms-order-card-number {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+.wms-order-card-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e5e7eb;
+    flex-shrink: 0;
+}
+
+/* Indicator states */
+.wms-order-card-indicator.picking {
+    background: #ff9800;
+    box-shadow: 0 0 0 2px rgba(255, 152, 0, 0.2);
+}
+
+.wms-order-card-indicator.picked {
+    background: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+.wms-order-card-indicator.packed {
+    background: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+}
+
+.wms-order-card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.wms-order-card-customer {
+    font-size: 12px;
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 160px;
+}
+
+.wms-order-card-items-count {
+    font-size: 11px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.wms-order-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.wms-order-card-progress .wms-progress-bar {
+    flex: 1;
+}
+
+.wms-order-card-percentage {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    min-width: 28px;
+    text-align: right;
+}
+
+/* ============================================
+   SR GROUP HEADER (in queue)
+   ============================================ */
+
+.wms-sr-group {
+    margin-top: 4px;
+}
+
+.wms-sr-group:first-child {
+    margin-top: 0;
+}
+
+.wms-sr-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #667eea;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.wms-sr-group-header svg {
+    opacity: 0.7;
+}
+
+/* ============================================
+   PREVIEW MODE (disabled counters via CSS)
+   ============================================ */
+
+.wms-picking-area.preview-mode .wms-pick-btn,
+.wms-picking-area.preview-mode .wms-pack-btn {
+    pointer-events: none;
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.wms-picking-area.preview-mode .wms-pick-display {
+    opacity: 0.6;
+}
+
+/* ============================================
+   PREVIEW MODE — Grid + Stats
+   ============================================ */
+
+.wms-preview-container {
+    flex: 1;
+    padding: 20px 24px;
+    overflow-y: auto;
+}
+
+.wms-preview-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.wms-preview-stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.wms-preview-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1f2937;
+    line-height: 1.2;
+}
+
+.wms-preview-stat-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+.wms-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.wms-preview-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wms-preview-card:hover {
+    border-color: #d1d5db;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.wms-preview-card.packed {
+    border-color: #86efac;
+    background: #f0fdf4;
+}
+
+.wms-preview-card.picked {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.wms-preview-card.picking {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.wms-preview-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.wms-preview-card-number {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: #1f2937;
+}
+
+.wms-preview-card-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.wms-preview-card-status.pending {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.wms-preview-card-status.picking {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.wms-preview-card-status.picked {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.wms-preview-card-status.packed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.wms-preview-card-customer {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.wms-preview-card-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.wms-preview-card-progress .wms-progress-bar {
+    flex: 1;
+}
+
+.wms-preview-card-pct {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #374151;
+    min-width: 32px;
+    text-align: right;
+}
+
+.wms-preview-card-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #9ca3af;
+}
+
+.wms-preview-card-sr {
+    color: #7c3aed;
+    font-weight: 500;
+}
+
+.wms-preview-card-photo {
+    margin-top: 10px;
+}
+
+.wms-preview-card-photo img {
+    width: 100%;
+    max-height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+/* Preview — responsive */
+@media (max-width: 1024px) {
+    .wms-preview-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .wms-preview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .wms-preview-stats {
+        flex-wrap: wrap;
+    }
+
+    .wms-preview-stat {
+        flex: 1 1 calc(50% - 8px);
+    }
+}
+
+/* ============================================
+   PHONE CONNECTION INDICATOR
+   ============================================ */
+
+.wms-phone-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: rgba(76, 175, 80, 0.08);
+    color: #2e7d32;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.wms-phone-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.wms-phone-dot.connected {
+    background: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.25);
+    animation: phonePulse 2s infinite;
+}
+
+.wms-phone-dot.disconnected {
+    background: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+    animation: none;
+}
+
+.wms-phone-indicator.disconnected {
+    background: rgba(239, 68, 68, 0.08);
+    color: #dc2626;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+@keyframes phonePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ============================================
+   WEBSOCKET FLASH ANIMATION
+   ============================================ */
+
+.wms-item-card.ws-flash {
+    animation: wsFlash 0.6s ease;
+}
+
+@keyframes wsFlash {
+    0% { box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.4); }
+    100% { box-shadow: none; }
+}
+
+
+/* ============================================
+   ============================================
+   DARK MODE
+   ============================================
+   ============================================ */
+
+/* Header */
+[data-theme="dark"] .wms-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .wms-header-left .back-link {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .wms-header-left .back-link:hover {
+    background: rgba(240, 147, 251, 0.12);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-header-left h1 {
+    color: #ffffff;
+}
+
+/* Status badges — dark */
+[data-theme="dark"] .wms-session-status-badge[data-status="active"] {
+    background: rgba(76, 175, 80, 0.15);
+    color: #81c784;
+}
+
+[data-theme="dark"] .wms-session-status-badge[data-status="completed"] {
+    background: rgba(33, 150, 243, 0.15);
+    color: #64b5f6;
+}
+
+[data-theme="dark"] .wms-session-status-badge[data-status="cancelled"] {
+    background: rgba(244, 67, 54, 0.15);
+    color: #ef9a9a;
+}
+
+[data-theme="dark"] .wms-session-status-badge[data-status="paused"] {
+    background: rgba(255, 152, 0, 0.15);
+    color: #ffb74d;
+}
+
+/* Meta */
+[data-theme="dark"] .wms-meta-item {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Progress bar — dark */
+[data-theme="dark"] .wms-progress-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-progress-bar {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .wms-progress-fill {
+    background: linear-gradient(90deg, #f093fb, #f5576c);
+}
+
+[data-theme="dark"] .wms-progress-fill.complete {
+    background: linear-gradient(90deg, #66BB6A, #81C784);
+}
+
+/* Mode toggle — dark */
+[data-theme="dark"] .wms-mode-toggle {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .wms-mode-btn {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-mode-btn:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .wms-mode-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Banner — dark */
+[data-theme="dark"] .wms-banner-completed {
+    background: rgba(33, 150, 243, 0.1);
+    color: #64b5f6;
+    border-bottom-color: rgba(33, 150, 243, 0.15);
+}
+
+[data-theme="dark"] .wms-banner-cancelled {
+    background: rgba(244, 67, 54, 0.1);
+    color: #ef9a9a;
+    border-bottom-color: rgba(244, 67, 54, 0.15);
+}
+
+[data-theme="dark"] .wms-banner-paused {
+    background: rgba(255, 152, 0, 0.1);
+    color: #ffb74d;
+    border-bottom-color: rgba(255, 152, 0, 0.15);
+}
+
+/* Mode selection — dark */
+[data-theme="dark"] .wms-mode-selection h2 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-mode-selection > p {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-mode-option {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .wms-mode-option:hover {
+    border-color: #f093fb;
+    box-shadow: 0 4px 20px rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .wms-mode-option-icon {
+    background: rgba(240, 147, 251, 0.1);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-mode-option:hover .wms-mode-option-icon {
+    background: rgba(240, 147, 251, 0.18);
+    color: #f5a0fc;
+}
+
+[data-theme="dark"] .wms-mode-option h3 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-mode-option p {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* QR screen — dark */
+[data-theme="dark"] .wms-qr-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .wms-qr-icon {
+    background: rgba(240, 147, 251, 0.1);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-qr-card h3 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-qr-card p {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-qr-image img {
+    border-radius: 8px;
+    padding: 8px;
+    background: #ffffff;
+}
+
+[data-theme="dark"] .wms-qr-loading,
+[data-theme="dark"] .wms-qr-url {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .wms-qr-error {
+    color: #ef9a9a;
+}
+
+[data-theme="dark"] .wms-qr-back {
+    color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-qr-back:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .wms-qr-status {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* Picking area — dark */
+[data-theme="dark"] .wms-picking-area {
+    background: transparent;
+}
+
+[data-theme="dark"] .wms-current-order-header {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .wms-current-order-info h2 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-current-order-customer {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-current-order-sr {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-order-progress-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Items empty — dark */
+[data-theme="dark"] .wms-items-empty {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+/* Item card — dark */
+[data-theme="dark"] .wms-item-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .wms-item-card:hover {
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .wms-item-card.picked {
+    background: rgba(76, 175, 80, 0.06);
+    border-color: rgba(76, 175, 80, 0.2);
+}
+
+[data-theme="dark"] .wms-item-card.partial {
+    background: rgba(255, 152, 0, 0.06);
+    border-color: rgba(255, 152, 0, 0.15);
+}
+
+[data-theme="dark"] .wms-item-image {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .wms-item-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-item-sku {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .wms-item-qty-value {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Pick counter — dark */
+[data-theme="dark"] .wms-pick-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-pick-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.25);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .wms-pick-btn.wms-pick-all {
+    color: #81c784;
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+[data-theme="dark"] .wms-pick-btn.wms-pick-all:hover {
+    background: rgba(76, 175, 80, 0.12);
+    color: #a5d6a7;
+}
+
+[data-theme="dark"] .wms-pick-display {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .wms-pick-counter.partial .wms-pick-display {
+    color: #ffb74d;
+    background: rgba(255, 152, 0, 0.15);
+}
+
+[data-theme="dark"] .wms-pick-counter.complete .wms-pick-display {
+    color: #81c784;
+    background: rgba(76, 175, 80, 0.15);
+}
+
+/* Order queue panel — dark */
+[data-theme="dark"] .wms-order-queue {
+    background: rgba(255, 255, 255, 0.02);
+    border-right-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .wms-queue-header {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .wms-queue-header h3 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-queue-count {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Order card in queue — dark */
+[data-theme="dark"] .wms-order-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .wms-order-card:hover {
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .wms-order-card.active {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.08);
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-order-card.packed {
+    border-color: rgba(76, 175, 80, 0.2);
+    background: rgba(76, 175, 80, 0.04);
+}
+
+[data-theme="dark"] .wms-order-card-number {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-order-card-indicator {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .wms-order-card-indicator.picking {
+    background: #ffb74d;
+    box-shadow: 0 0 0 2px rgba(255, 183, 77, 0.2);
+}
+
+[data-theme="dark"] .wms-order-card-indicator.picked {
+    background: #f093fb;
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .wms-order-card-indicator.packed {
+    background: #81c784;
+    box-shadow: 0 0 0 2px rgba(129, 199, 132, 0.2);
+}
+
+[data-theme="dark"] .wms-order-card-customer {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-order-card-items-count {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .wms-order-card-percentage {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* SR group header — dark */
+[data-theme="dark"] .wms-sr-group-header {
+    color: #f093fb;
+}
+
+/* Phone indicator — dark */
+[data-theme="dark"] .wms-phone-indicator {
+    background: rgba(76, 175, 80, 0.1);
+    color: #81c784;
+    border-color: rgba(76, 175, 80, 0.2);
+}
+
+[data-theme="dark"] .wms-phone-indicator.disconnected {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef9a9a;
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* WS flash — dark */
+[data-theme="dark"] .wms-item-card.ws-flash {
+    animation: wsFlashDark 0.6s ease;
+}
+
+@keyframes wsFlashDark {
+    0% { box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.4); }
+    100% { box-shadow: none; }
+}
+
+/* ============================================
+   CONNECTION ALERT
+   ============================================ */
+
+.wms-connection-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    background: #fef2f2;
+    border-bottom: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    animation: alertPulse 2s infinite;
+}
+
+.wms-connection-alert svg {
+    flex-shrink: 0;
+    color: #dc2626;
+}
+
+@keyframes alertPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+[data-theme="dark"] .wms-connection-alert {
+    background: rgba(239, 68, 68, 0.1);
+    border-bottom-color: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .wms-connection-alert svg {
+    color: #ef4444;
+}
+
+/* ============================================
+   BUTTON SPINNER
+   ============================================ */
+
+.wms-btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: btnSpin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+@keyframes btnSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* Preview mode — dark */
+[data-theme="dark"] .wms-preview-stat {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-preview-stat-value {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-preview-stat-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-preview-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-preview-card:hover {
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .wms-preview-card.packed {
+    border-color: rgba(76, 175, 80, 0.3);
+    background: rgba(76, 175, 80, 0.08);
+}
+
+[data-theme="dark"] .wms-preview-card.picked {
+    border-color: rgba(99, 102, 241, 0.3);
+    background: rgba(99, 102, 241, 0.08);
+}
+
+[data-theme="dark"] .wms-preview-card.picking {
+    border-color: rgba(251, 191, 36, 0.3);
+    background: rgba(251, 191, 36, 0.08);
+}
+
+[data-theme="dark"] .wms-preview-card-number {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-preview-card-customer {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .wms-preview-card-pct {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .wms-preview-card-meta {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .wms-preview-card-sr {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-preview-card-status.pending {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .wms-preview-card-status.picking {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .wms-preview-card-status.picked {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+}
+
+[data-theme="dark"] .wms-preview-card-status.packed {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81c784;
+}
+
+
+/* ============================================
+   ============================================
+   RESPONSIVE
+   ============================================
+   ============================================ */
+
+@media (max-width: 1024px) {
+    .wms-main {
+        grid-template-columns: 1fr;
+    }
+
+    .wms-order-queue {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+        max-height: 280px;
+    }
+
+    [data-theme="dark"] .wms-order-queue {
+        border-bottom-color: rgba(240, 147, 251, 0.1);
+    }
+
+    .wms-queue-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .wms-order-card {
+        min-width: 200px;
+        flex: 1;
+    }
+}
+
+/* ============================================
+   PACKING SECTION
+   ============================================ */
+
+.wms-packing-section {
+    padding: 20px 24px;
+    border-top: 2px solid #e5e7eb;
+    background: #f8f9fa;
+}
+
+.wms-packing-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.wms-packing-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.wms-packing-header svg {
+    color: #6b7280;
+}
+
+.wms-packing-warnings {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.wms-packing-warning-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    background: rgba(255, 152, 0, 0.12);
+    color: #e65100;
+    border: 1px solid rgba(255, 152, 0, 0.25);
+    border-radius: 4px;
+}
+
+/* Suggestion cards row */
+.packing-suggestions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.packing-suggestions-loading {
+    color: #9ca3af;
+    font-size: 13px;
+    padding: 8px;
+}
+
+.packing-suggestion-card {
+    flex: 1;
+    min-width: 180px;
+    max-width: 280px;
+    padding: 12px 14px;
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.packing-suggestion-card:hover {
+    border-color: #6366f1;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+}
+
+.packing-suggestion-card.suggestion-selected {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.04);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.packing-suggestion-card.packing-suggestion-empty {
+    cursor: default;
+    border-style: dashed;
+    color: #9ca3af;
+    font-size: 13px;
+    text-align: center;
+}
+
+.suggestion-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.suggestion-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #1f2937;
+}
+
+.suggestion-score {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+    background: #6366f1;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.suggestion-card-details {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.suggestion-low-stock {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #e65100;
+    font-weight: 600;
+}
+
+/* Manual material select */
+.wms-packing-manual {
+    margin-bottom: 12px;
+}
+
+.wms-packing-manual label {
+    display: block;
+    font-size: 12px;
+    color: #6b7280;
+    margin-bottom: 4px;
+}
+
+.wms-packing-select {
+    width: 100%;
+    max-width: 400px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #ffffff;
+    color: #1f2937;
+}
+
+.wms-packing-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* Weight input */
+.wms-packing-weight {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.wms-packing-weight label {
+    font-size: 12px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.wms-packing-weight-input {
+    width: 120px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #ffffff;
+    color: #1f2937;
+}
+
+.wms-packing-weight-input:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+/* ============================================
+   PACKING SECTION — DARK MODE
+   ============================================ */
+
+[data-theme="dark"] .wms-packing-section {
+    background: rgba(255, 255, 255, 0.03);
+    border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-packing-header h3 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-packing-header svg {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-packing-warning-badge {
+    background: rgba(255, 152, 0, 0.15);
+    border-color: rgba(255, 152, 0, 0.3);
+    color: #ffb74d;
+}
+
+[data-theme="dark"] .packing-suggestion-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .packing-suggestion-card:hover {
+    border-color: rgba(240, 147, 251, 0.4);
+    box-shadow: 0 2px 8px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .packing-suggestion-card.suggestion-selected {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.08);
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .packing-suggestion-card.packing-suggestion-empty {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .suggestion-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .suggestion-score {
+    background: #f093fb;
+    color: #1a1a2e;
+}
+
+[data-theme="dark"] .suggestion-card-details {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .suggestion-low-stock {
+    color: #ffb74d;
+}
+
+[data-theme="dark"] .wms-packing-manual label,
+[data-theme="dark"] .wms-packing-weight label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .wms-packing-select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-packing-select:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .wms-packing-weight-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-packing-weight-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .wms-packing-photo-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .wms-packing-photo-thumb {
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .wms-packing-photo-thumb:hover {
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .wms-email-checkbox {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .wms-email-checkbox input[type="checkbox"] {
+    accent-color: #f093fb;
+}
+
+@media (max-width: 768px) {
+    .wms-mode-options {
+        flex-direction: column;
+    }
+
+    .wms-mode-selection {
+        padding: 40px 16px;
+    }
+
+    .wms-header {
+        padding: 12px 16px;
+    }
+
+    .wms-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .wms-header-bottom {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .wms-header-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .wms-header-meta {
+        gap: 10px;
+    }
+
+    .wms-picking-area {
+        padding: 12px 16px;
+    }
+
+    .wms-current-order-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    .wms-current-order-progress {
+        min-width: unset;
+    }
+
+    .wms-order-progress-label {
+        text-align: left;
+    }
+
+    /* Item card — stacked on mobile */
+    .wms-item-card {
+        grid-template-columns: 48px 1fr;
+        gap: 8px;
+        padding: 10px 12px;
+    }
+
+    .wms-item-image {
+        width: 48px;
+        height: 48px;
+        grid-row: 1 / 2;
+    }
+
+    .wms-item-info {
+        grid-column: 2 / -1;
+    }
+
+    .wms-item-qty,
+    .wms-item-status,
+    .wms-pick-counter {
+        grid-column: 1 / -1;
+    }
+
+    .wms-item-qty {
+        display: none;
+    }
+
+    .wms-pick-counter {
+        justify-content: flex-start;
+    }
+
+    .wms-mode-btn span:not(svg) {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .wms-header-left h1 {
+        font-size: 1rem;
+    }
+
+    .wms-meta-item {
+        font-size: 12px;
+    }
+
+    .wms-mode-toggle {
+        width: 100%;
+    }
+
+    .wms-mode-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .wms-header-actions {
+        width: 100%;
+    }
+
+    .wms-header-actions .btn {
+        flex: 1;
+    }
+
+    .wms-order-queue {
+        max-height: 220px;
+    }
+
+    .wms-order-card {
+        min-width: 160px;
+    }
+}

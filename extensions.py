@@ -12,6 +12,7 @@ from flask_wtf.csrf import CSRFProtect
 from flask_executor import Executor
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_socketio import SocketIO
 
 # Inicjalizacja rozszerzeń (bez app - zostanie zrobione w app.py)
 db = SQLAlchemy()
@@ -21,3 +22,4 @@ mail = Mail()
 csrf = CSRFProtect()
 executor = Executor()
 limiter = Limiter(key_func=get_remote_address, default_limits=[], storage_uri="memory://")
+socketio = SocketIO()

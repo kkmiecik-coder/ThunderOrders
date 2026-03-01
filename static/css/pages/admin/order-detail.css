@@ -949,6 +949,63 @@ code {
     margin-left: 0.25rem;
 }
 
+/* WMS History */
+.wms-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.wms-history-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #424242;
+}
+
+.wms-history-icon {
+    display: flex;
+    align-items: center;
+    color: #7B2CBF;
+    flex-shrink: 0;
+}
+
+.wms-history-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.wms-history-text {
+    flex: 1;
+}
+
+.wms-history-text strong {
+    font-weight: 600;
+}
+
+.wms-history-date {
+    color: #9E9E9E;
+    font-size: 0.75rem;
+}
+
+.wms-history-photo-link {
+    display: inline-block;
+    margin-top: 4px;
+    margin-left: 24px;
+}
+
+.wms-history-photo-img {
+    max-width: 200px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: opacity 0.2s;
+}
+
+.wms-history-photo-img:hover {
+    opacity: 0.85;
+}
+
 /* Refund items */
 .refund-item {
     padding: 0.75rem;
@@ -3456,6 +3513,23 @@ code {
 
 [data-theme="dark"] .history-user {
     color: #f093fb;
+}
+
+/* WMS History - Dark Mode */
+[data-theme="dark"] .wms-history-item {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .wms-history-icon {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-history-date {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .wms-history-photo-img {
+    border-color: rgba(240, 147, 251, 0.2);
 }
 
 /* Refund Items - Dark Mode */

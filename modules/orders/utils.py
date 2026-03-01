@@ -167,7 +167,6 @@ STATUS_BADGE_CLASSES = {
     'w_drodze_polska': 'badge-purple',
     'urzad_celny': 'badge-warning',
     'dostarczone_gom': 'badge-purple',
-    'do_pakowania': 'badge-warning',
     'spakowane': 'badge-purple',
     'wyslane': 'badge-purple',
     'dostarczone': 'badge-success',

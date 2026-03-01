@@ -47,6 +47,13 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
+                        <a href="{{ url_for('orders.wms_dashboard') }}"
+                           class="sidebar-sublink {% if request.endpoint and 'wms' in request.endpoint %}active{% endif %}"
+                           data-tooltip="WMS Pakowanie">
+                            <span class="sidebar-text">WMS Pakowanie</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
                         <a href="{{ url_for('admin.payment_confirmations_list') }}"
                            class="sidebar-sublink {% if request.endpoint == 'admin.payment_confirmations_list' %}active{% endif %}"
                            data-tooltip="Potwierdzenia płatności">

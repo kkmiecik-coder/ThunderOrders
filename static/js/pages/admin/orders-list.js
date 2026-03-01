@@ -225,10 +225,35 @@
      * Handle "Zabierz do WMS" action
      */
     function handleGoToWMS(orderIds) {
-        const idsParam = orderIds.join(',');
-        const wmsUrl = `/admin/orders/wms?order_ids=${idsParam}`;
+        showToast(`Tworzę sesję WMS dla ${orderIds.length} zamówień...`, 'info');
 
-        window.location.href = wmsUrl;
+        fetch('/admin/orders/wms/create-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ order_ids: orderIds })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                if (result.warnings && result.warnings.length > 0) {
+                    showToast(result.message + ' (pominięto: ' + result.warnings.length + ')', 'warning');
+                }
+                window.location.href = result.redirect_url;
+            } else {
+                let msg = result.message || 'Błąd tworzenia sesji WMS';
+                if (result.errors && result.errors.length > 0) {
+                    msg += ':\n' + result.errors.join('\n');
+                }
+                showToast(msg, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('WMS create session error:', error);
+            showToast('Wystąpił błąd podczas tworzenia sesji WMS', 'error');
+        });
     }
 
     /**

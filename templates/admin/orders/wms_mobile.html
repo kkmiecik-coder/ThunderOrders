@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>WMS Mobile — Sesja #{{ wms_session.id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms-mobile.css') }}">
+</head>
+<body>
+
+    <!-- ============================================ -->
+    <!-- CONNECTION INDICATOR BAR                      -->
+    <!-- ============================================ -->
+    <div class="wms-m-connection" id="wmsConnectionBar">
+        <div class="wms-m-connection-dot"></div>
+        <span class="wms-m-connection-text">Łączenie...</span>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- SESSION HEADER                                -->
+    <!-- ============================================ -->
+    <div class="wms-m-header">
+        <div class="wms-m-header-top">
+            <h1>WMS #{{ wms_session.id }}</h1>
+            <div class="wms-m-session-progress">
+                <span id="wmsMSessionProgress">0/0</span>
+                <span class="wms-m-session-label">spakowanych</span>
+            </div>
+        </div>
+        <div class="wms-m-progress-bar">
+            <div class="wms-m-progress-fill" id="wmsMSessionProgressFill" style="width: 0%;"></div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- CURRENT ORDER CARD                            -->
+    <!-- ============================================ -->
+    <div class="wms-m-order-card" id="wmsMOrderCard">
+        <div class="wms-m-order-info">
+            <span class="wms-m-order-number" id="wmsMOrderNumber">-</span>
+            <span class="wms-m-order-customer" id="wmsMOrderCustomer">-</span>
+        </div>
+        <div class="wms-m-order-progress-section">
+            <div class="wms-m-order-progress-label">
+                <span id="wmsMOrderProgressText">0 / 0 szt.</span>
+            </div>
+            <div class="wms-m-progress-bar wms-m-progress-bar-sm">
+                <div class="wms-m-progress-fill" id="wmsMOrderProgressFill" style="width: 0%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- ITEMS LIST                                    -->
+    <!-- ============================================ -->
+    <div class="wms-m-items" id="wmsMItemsList">
+        <!-- Items rendered by JS -->
+        <div class="wms-m-items-empty" id="wmsMItemsEmpty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+            </svg>
+            <p>Brak pozycji do zebrania</p>
+        </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PACKING SECTION (sticky bottom)               -->
+    <!-- ============================================ -->
+    <div class="wms-m-pack-section" id="wmsMPackSection" style="display: none;">
+        <!-- Packing warnings -->
+        <div class="wms-m-packing-warnings" id="wmsMPackingWarnings"></div>
+
+        <!-- Suggestion cards -->
+        <div class="wms-m-packing-suggestions" id="wmsMPackingSuggestions">
+            <div class="wms-m-packing-label">Sugerowane opakowanie:</div>
+        </div>
+
+        <!-- Manual select -->
+        <div class="wms-m-packing-manual">
+            <select id="wmsMPackingMaterialSelect" class="wms-m-packing-select">
+                <option value="">— brak opakowania —</option>
+            </select>
+        </div>
+
+        <!-- Weight input -->
+        <div class="wms-m-packing-weight">
+            <label for="wmsMPackingWeight">Waga (kg):</label>
+            <input type="number" id="wmsMPackingWeight" class="wms-m-packing-weight-input"
+                   step="0.01" min="0" placeholder="0.00" inputmode="decimal">
+        </div>
+
+        <!-- Photo capture -->
+        <div class="wms-m-photo-section" id="wmsMPhotoSection">
+            <input type="file" id="wmsMPhotoInput" accept="image/*" capture="environment" style="display: none;">
+            <button class="wms-m-photo-btn" id="wmsMPhotoBtn" type="button">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                </svg>
+                Zrób zdjęcie paczki
+            </button>
+            <div class="wms-m-photo-preview" id="wmsMPhotoPreview" style="display: none;">
+                <img id="wmsMPhotoPreviewImg" src="" alt="Podgląd zdjęcia">
+                <div class="wms-m-photo-preview-overlay">
+                    <span class="wms-m-photo-check">&#10003;</span>
+                </div>
+                <button class="wms-m-photo-remove" id="wmsMPhotoRemove" type="button" title="Usuń zdjęcie">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="wms-m-photo-uploading" id="wmsMPhotoUploading" style="display: none;">
+                <span>Przesyłanie zdjęcia...</span>
+            </div>
+        </div>
+
+        <!-- Send email checkbox -->
+        <label class="wms-m-email-checkbox" id="wmsMEmailLabel">
+            <input type="checkbox" id="wmsMSendEmailCheckbox" checked>
+            <span>Wyślij zdjęcie do klienta</span>
+        </label>
+
+        <!-- Pack button -->
+        <button class="wms-m-pack-btn" id="wmsMPackBtn" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+            Spakuj zamówienie
+        </button>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- BOTTOM NAVIGATION                             -->
+    <!-- ============================================ -->
+    <div class="wms-m-nav" id="wmsMNav">
+        <button class="wms-m-nav-btn" id="wmsMPrevBtn" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            Poprzednie
+        </button>
+        <span class="wms-m-nav-indicator" id="wmsMNavIndicator">1 / 1</span>
+        <button class="wms-m-nav-btn" id="wmsMNextBtn" disabled>
+            Następne
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 6 15 12 9 18"></polyline>
+            </svg>
+        </button>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- TOAST CONTAINER                               -->
+    <!-- ============================================ -->
+    <div class="wms-m-toast-container" id="wmsMToastContainer"></div>
+
+    <!-- ============================================ -->
+    <!-- SESSION DATA + SCRIPTS                        -->
+    <!-- ============================================ -->
+    <script>
+        window.WMS_SESSION_TOKEN = '{{ wms_session.session_token }}';
+        window.WMS_SESSION_DATA = {{ session_data | tojson }};
+        window.WMS_SESSION_ID = {{ wms_session.id }};
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/pages/admin/wms-mobile.js') }}"></script>
+</body>
+</html>

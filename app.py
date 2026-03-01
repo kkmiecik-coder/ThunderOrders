@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for, request, abort
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
-from extensions import db, migrate, login_manager, mail, csrf, executor, limiter
+from extensions import db, migrate, login_manager, mail, csrf, executor, limiter, socketio
 
 # Strefa czasowa dla Polski
 POLAND_TZ = ZoneInfo('Europe/Warsaw')
@@ -40,6 +40,7 @@ def create_app(config_name=None):
     csrf.init_app(app)
     executor.init_app(app)
     limiter.init_app(app)
+    socketio.init_app(app, async_mode='threading', cors_allowed_origins='*')
 
     # Konfiguracja Flask-Login
     login_manager.login_view = 'auth.login'
@@ -244,7 +245,7 @@ def register_cli_commands(app):
         # Statusy, w których zamówienie jest aktywne i wymaga płatności
         active_statuses = [
             'oczekujace', 'dostarczone_proxy', 'w_drodze_polska',
-            'urzad_celny', 'dostarczone_gom', 'do_pakowania', 'spakowane'
+            'urzad_celny', 'dostarczone_gom', 'spakowane'
         ]
 
         # Znajdź zamówienia: aktywne, przypomnienie niewyslane lub starsze niż X dni
@@ -491,4 +492,5 @@ def register_template_filters(app):
 # Uruchomienie aplikacji (tylko dla development)
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5001, debug=True,
+                 allow_unsafe_werkzeug=True)

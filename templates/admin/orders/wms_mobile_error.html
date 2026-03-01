@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WMS Mobile — Błąd</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms-mobile-error.css') }}">
+</head>
+<body>
+    <div class="error-card">
+        <div class="error-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+        </div>
+        <h1>{{ error_title }}</h1>
+        <p>{{ error_message }}</p>
+    </div>
+</body>
+</html>

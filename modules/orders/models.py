@@ -162,7 +162,7 @@ class Order(db.Model):
 
     # User relationship (NULL for guest orders)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
-    user = db.relationship('User', back_populates='orders')
+    user = db.relationship('User', back_populates='orders', foreign_keys=[user_id])
 
     # Status (foreign key to order_statuses)
     status = db.Column(db.String(50), db.ForeignKey('order_statuses.slug'), default='nowe')
@@ -222,6 +222,15 @@ class Order(db.Model):
     notes = db.Column(db.Text, nullable=True)  # Client notes
     admin_notes = db.Column(db.Text, nullable=True)  # Internal admin notes
 
+    # WMS / Packing
+    wms_locked_at = db.Column(db.DateTime, nullable=True)  # WMS lock timestamp
+    wms_session_id = db.Column(db.Integer, db.ForeignKey('wms_sessions.id'), nullable=True)  # Active WMS session
+    packed_at = db.Column(db.DateTime, nullable=True)
+    packed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    packing_photo = db.Column(db.String(500), nullable=True)  # Path to packing photo
+    total_package_weight = db.Column(db.Numeric(8, 2), nullable=True)  # Package weight in kg
+    packaging_material_id = db.Column(db.Integer, db.ForeignKey('packaging_materials.id'), nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
@@ -233,6 +242,8 @@ class Order(db.Model):
     shipments = db.relationship('OrderShipment', back_populates='order', cascade='all, delete-orphan', order_by='OrderShipment.created_at.desc()')
     payment_confirmations = db.relationship('PaymentConfirmation', back_populates='order', lazy='dynamic', cascade='all, delete-orphan')
     shipping_request_orders = db.relationship('ShippingRequestOrder', back_populates='order', cascade='all, delete-orphan')
+    packer = db.relationship('User', foreign_keys=[packed_by])
+    packaging_material = db.relationship('PackagingMaterial', foreign_keys=[packaging_material_id])
 
     def __repr__(self):
         return f'<Order {self.order_number}>'
@@ -772,7 +783,6 @@ class Order(db.Model):
             'w_drodze_polska',
             'urzad_celny',
             'dostarczone_gom',
-            'do_pakowania',
             'spakowane',
         ]
 
@@ -938,6 +948,7 @@ class OrderItem(db.Model):
     # WMS fields
     wms_status = db.Column(db.String(50), db.ForeignKey('wms_statuses.slug'), nullable=True)
     picked = db.Column(db.Boolean, default=False)  # Legacy field, kept for compatibility
+    picked_quantity = db.Column(db.Integer, default=0)  # How many units picked so far (0..quantity)
     picked_at = db.Column(db.DateTime, nullable=True)
     picked_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
