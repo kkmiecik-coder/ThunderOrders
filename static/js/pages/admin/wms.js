@@ -104,6 +104,7 @@
                 connectWebSocket();
                 toggleMode('preview');
                 updatePhoneIndicator(true);
+                updateSwitchModeButton();
             } else {
                 // Show mode selection, hide picking content
                 showModeSelection();
@@ -147,6 +148,7 @@
         if (modeEl) modeEl.style.display = 'none';
         showPickingContent();
         connectWebSocket();
+        updateSwitchModeButton();
     }
 
     function onSelectPhoneMode() {
@@ -157,6 +159,7 @@
         if (qrScreen) qrScreen.style.display = '';
         loadQrCode();
         connectWebSocket();
+        updateSwitchModeButton();
     }
 
     function onQrBack() {
@@ -164,6 +167,29 @@
         if (qrScreen) qrScreen.style.display = 'none';
         currentWorkMode = null;
         showModeSelection();
+        updateSwitchModeButton();
+    }
+
+    function onSwitchMode() {
+        // Reset to mode selection screen
+        // Hide current content
+        hidePickingContent();
+        var qrScreen = el('wmsQrScreen');
+        if (qrScreen) qrScreen.style.display = 'none';
+        var previewContainer = el('wmsPreviewContainer');
+        if (previewContainer) previewContainer.style.display = 'none';
+        var pickingMode = el('wmsPickingMode');
+        if (pickingMode) pickingMode.style.display = '';
+
+        currentWorkMode = null;
+        showModeSelection();
+        updateSwitchModeButton();
+    }
+
+    function updateSwitchModeButton() {
+        var btn = el('btnSwitchMode');
+        if (!btn || !isSessionActive) return;
+        btn.style.display = currentWorkMode ? '' : 'none';
     }
 
     // ========================================
@@ -1383,9 +1409,11 @@
         var btnDesktop = el('btnModeDesktop');
         var btnPhone = el('btnModePhone');
         var btnQrBackEl = el('btnQrBack');
+        var btnSwitch = el('btnSwitchMode');
         if (btnDesktop) btnDesktop.addEventListener('click', onSelectDesktopMode);
         if (btnPhone) btnPhone.addEventListener('click', onSelectPhoneMode);
         if (btnQrBackEl) btnQrBackEl.addEventListener('click', onQrBack);
+        if (btnSwitch) btnSwitch.addEventListener('click', onSwitchMode);
 
         // Disable action buttons for non-active sessions
         if (!isSessionActive) {

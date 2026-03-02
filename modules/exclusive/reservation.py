@@ -11,7 +11,7 @@ from modules.products.models import Product
 from extensions import db
 
 # Stałe
-RESERVATION_DURATION = 600  # 10 minut w sekundach
+RESERVATION_DURATION = 300  # 5 minut w sekundach
 EXTENSION_DURATION = 120    # 2 minuty w sekundach
 
 
