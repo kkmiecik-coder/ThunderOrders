@@ -370,19 +370,33 @@ def get_sold_counts(page_id, product_ids):
     return sold_counts
 
 
-def get_set_probabilities(page_id):
+def get_set_probabilities(order):
     """
-    Oblicza prawdopodobieństwo wypełnienia setu dla produktów na stronie exclusive.
+    Oblicza prawdopodobieństwo wypełnienia setu PER ORDER ITEM na podstawie
+    zapisanego set_number.
 
-    Formuła: (unikalne produkty z setu z ≥1 zamówieniem) / (wszystkie produkty w secie) × 100%
+    Dla każdego itemu z set_number = N:
+    - Oblicz ile produktów z tego setu ma slots >= N (tzn. ma wypełniony slot w Secie N)
+    - probability = count / total_products × 100%
+
+    Przykład: 8 produktów, item w Secie 1 (kompletnym) → 8/8 = 100%
+              item w Secie 5 (3 produkty) → 3/8 = 37.5%
+
+    Args:
+        order: Order object with items loaded
 
     Returns:
-        dict: {product_id: {'probability': float, 'set_name': str, 'section_id': int}}
+        dict: {order_item_id: {'probability': float, 'set_name': str,
+                               'set_number': int, 'section_id': int}}
     """
     from modules.exclusive.models import ExclusiveSection
     from modules.orders.models import Order, OrderItem
 
-    # 1. Pobierz wszystkie sekcje typu 'set' dla danej strony
+    if not order.exclusive_page_id:
+        return {}
+
+    page_id = order.exclusive_page_id
+
     set_sections = ExclusiveSection.query.filter_by(
         exclusive_page_id=page_id,
         section_type='set'
@@ -394,36 +408,51 @@ def get_set_probabilities(page_id):
     result = {}
 
     for section in set_sections:
-        # 2. Rozwiń set items na listę product_id (wraz z variant groups)
-        all_product_ids = set()
+        product_qty_per_set = {}
         for set_item in section.set_items:
+            qps = set_item.quantity_per_set or 1
             for product in set_item.get_products():
-                all_product_ids.add(product.id)
+                product_qty_per_set[product.id] = qps
 
-        if not all_product_ids:
+        if not product_qty_per_set:
             continue
 
-        total_unique = len(all_product_ids)
+        all_product_ids = set(product_qty_per_set.keys())
+        total_products = len(all_product_ids)
+        set_name = section.set_name or f'Set #{section.id}'
 
-        # 3. Policz unikalne product_id które mają ≥1 OrderItem w zamówieniach tej strony
-        ordered = db.session.query(OrderItem.product_id).distinct().join(Order).filter(
+        # Calculate slots per product (global across all page orders)
+        ordered_counts = db.session.query(
+            OrderItem.product_id,
+            func.sum(OrderItem.quantity)
+        ).join(Order).filter(
             Order.exclusive_page_id == page_id,
             Order.status != 'anulowane',
             OrderItem.product_id.in_(all_product_ids)
-        ).all()
+        ).group_by(OrderItem.product_id).all()
 
-        ordered_unique = len(ordered)
+        ordered_map = {pid: int(qty) for pid, qty in ordered_counts}
 
-        # 4. Oblicz prawdopodobieństwo
-        probability = (ordered_unique / total_unique) * 100 if total_unique > 0 else 0
-
-        # 5. Przypisz do każdego produktu w secie
-        set_name = section.set_name or f'Set #{section.id}'
+        slots_per_product = {}
         for pid in all_product_ids:
-            result[pid] = {
+            ordered = ordered_map.get(pid, 0)
+            qps = product_qty_per_set[pid]
+            slots_per_product[pid] = ordered // qps if qps > 0 else 0
+
+        # For each order item with set_number, calculate per-set probability
+        for item in order.items:
+            if item.set_number is None or item.set_section_id != section.id:
+                continue
+
+            N = item.set_number
+            products_in_set_N = sum(1 for s in slots_per_product.values() if s >= N)
+            probability = (products_in_set_N / total_products) * 100 if total_products > 0 else 0
+
+            result[item.id] = {
                 'probability': probability,
                 'set_name': set_name,
-                'section_id': section.id
+                'set_number': N,
+                'section_id': section.id,
             }
 
     return result

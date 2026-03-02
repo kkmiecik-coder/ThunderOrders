@@ -15,7 +15,7 @@ from flask import current_app
 from extensions import db
 from modules.exclusive.models import ExclusivePage, ExclusiveSection, ExclusiveSetItem
 from modules.orders.models import Order, OrderItem
-from modules.auth.models import Settings
+from modules.auth.models import Settings, User
 
 
 def calculate_set_fulfillment(page_id):
@@ -790,6 +790,36 @@ def get_live_summary(page_id, include_financials=True):
         max_sets = section.set_max_sets or 0
         products_matrix = []
 
+        # Collect all product IDs in this set section
+        all_set_product_ids = []
+        for item in set_items:
+            for product in item.get_products():
+                all_set_product_ids.append(product.id)
+
+        # Query customer names per product per set_number (single query for all products)
+        slot_customer_map = {}  # {product_id: {set_number: customer_name}}
+        if all_set_product_ids:
+            customer_rows = db.session.query(
+                OrderItem.product_id,
+                OrderItem.set_number,
+                User.first_name,
+                User.last_name,
+                User.email
+            ).join(Order, OrderItem.order_id == Order.id
+            ).join(User, Order.user_id == User.id
+            ).filter(
+                Order.exclusive_page_id == page_id,
+                Order.status != 'anulowane',
+                OrderItem.product_id.in_(all_set_product_ids),
+                OrderItem.set_number.isnot(None)
+            ).all()
+
+            for pid, set_num, fname, lname, email in customer_rows:
+                name = f'{fname} {lname}'.strip() if (fname or lname) else email
+                if pid not in slot_customer_map:
+                    slot_customer_map[pid] = {}
+                slot_customer_map[pid][set_num] = name
+
         for item in set_items:
             for product in item.get_products():
                 # Policz zamówione sztuki tego produktu
@@ -803,8 +833,17 @@ def get_live_summary(page_id, include_financials=True):
                 ).scalar()
                 ordered_qty = int(ordered_qty)
 
-                # Slots: chronologiczna alokacja — 1 zamówienie = Set 1, 2 = Set 2 itd.
-                slots = [i < ordered_qty for i in range(max_sets)] if max_sets > 0 else []
+                # Slots: objects with filled status + customer name
+                product_customers = slot_customer_map.get(product.id, {})
+                slots = []
+                if max_sets > 0:
+                    for i in range(max_sets):
+                        set_num = i + 1  # 1-based
+                        filled = i < ordered_qty
+                        slots.append({
+                            'filled': filled,
+                            'customer': product_customers.get(set_num) if filled else None,
+                        })
 
                 reserved_qty = active_reservations_by_product.get(product.id, 0)
 
@@ -834,11 +873,11 @@ def get_live_summary(page_id, include_financials=True):
 
             products_matrix.append({
                 'product_id': section.set_product_id,
-                'product_name': 'Set produktów',
+                'product_name': section.set_product.name,
                 'quantity_per_set': 1,
                 'total_ordered': full_set_qty,
                 'reserved': full_set_reserved,
-                'slots': [full_set_qty],  # single value for display
+                'slots': [{'filled': full_set_qty > 0, 'customer': None}],
                 'is_full_set': True,
             })
 
@@ -856,12 +895,19 @@ def get_live_summary(page_id, include_financials=True):
         else:
             ordered_sets = 0
 
+        # Łączna liczba setów sprzedanych = kompletne (ordered_sets) + pojedyncze (full_set product)
+        full_set_entries = [p for p in products_matrix if p['is_full_set']]
+        full_set_sold = full_set_entries[0]['total_ordered'] if full_set_entries else 0
+        total_sets_sold = ordered_sets + full_set_sold
+
         sets_info.append({
             'section_id': section.id,
             'set_name': section.set_name or 'Bez nazwy',
             'set_image': section.set_image,
             'set_max_sets': max_sets,
             'ordered_sets': ordered_sets,
+            'full_set_sold': full_set_sold,
+            'total_sets_sold': total_sets_sold,
             'progress_pct': round((ordered_sets / max_sets) * 100, 1) if max_sets > 0 else 0,
             'products': products_matrix,
         })

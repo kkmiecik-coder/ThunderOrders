@@ -68,9 +68,12 @@
                                 {% endif %}
                             {% elif item.is_full_set %}
                                 <span class="od-set-badge od-set-badge--prob od-set-badge--full" title="Komplet setu - gwarantowany">100%</span>
-                            {% elif set_probabilities.get(item.product_id) %}
-                                {% set prob = set_probabilities[item.product_id] %}
-                                <span class="od-set-badge od-set-badge--prob" title="{{ prob.set_name }} - {{ prob.probability }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                            {% elif set_probabilities.get(item.id) %}
+                                {% set prob = set_probabilities[item.id] %}
+                                <span class="od-set-badge od-set-badge--set-num" title="{{ prob.set_name }}">Set {{ prob.set_number }}</span>
+                                <span class="od-set-badge od-set-badge--prob" title="{{ "%.1f"|format(prob.probability) }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                            {% elif item.set_number %}
+                                <span class="od-set-badge od-set-badge--set-num" title="Set {{ item.set_number }}">Set {{ item.set_number }}</span>
                             {% else %}
                                 <span class="od-set-badge od-set-badge--na">—</span>
                             {% endif %}

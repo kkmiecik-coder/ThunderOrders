@@ -380,9 +380,12 @@
                                         {% endif %}
                                     {% elif item.is_full_set %}
                                         <span class="set-badge set-badge-prob set-badge-prob--full" title="Komplet setu - gwarantowany">100%</span>
-                                    {% elif set_probabilities.get(item.product_id) %}
-                                        {% set prob = set_probabilities[item.product_id] %}
-                                        <span class="set-badge set-badge-prob" title="{{ prob.set_name }} - {{ prob.probability }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                                    {% elif set_probabilities.get(item.id) %}
+                                        {% set prob = set_probabilities[item.id] %}
+                                        <span class="set-badge set-badge-set-num" title="{{ prob.set_name }}">Set {{ prob.set_number }}</span>
+                                        <span class="set-badge set-badge-prob" title="{{ "%.1f"|format(prob.probability) }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                                    {% elif item.set_number %}
+                                        <span class="set-badge set-badge-set-num" title="Set {{ item.set_number }}">Set {{ item.set_number }}</span>
                                     {% else %}
                                     <span class="set-badge set-badge-na" title="Nie dotyczy">—</span>
                                     {% endif %}
@@ -444,9 +447,12 @@
                             {% endif %}
                         {% elif item.is_full_set %}
                         <span class="set-badge set-badge-prob set-badge-prob--full" title="Komplet setu - gwarantowany">100%</span>
-                        {% elif set_probabilities.get(item.product_id) %}
-                            {% set prob = set_probabilities[item.product_id] %}
-                        <span class="set-badge set-badge-prob" title="{{ prob.set_name }} - {{ prob.probability }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                        {% elif set_probabilities.get(item.id) %}
+                            {% set prob = set_probabilities[item.id] %}
+                        <span class="set-badge set-badge-set-num" title="{{ prob.set_name }}">Set {{ prob.set_number }}</span>
+                        <span class="set-badge set-badge-prob" title="{{ "%.1f"|format(prob.probability) }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                        {% elif item.set_number %}
+                        <span class="set-badge set-badge-set-num" title="Set {{ item.set_number }}">Set {{ item.set_number }}</span>
                         {% else %}
                         <span class="set-badge-na" title="Nie dotyczy - produkt spoza setu">—</span>
                         {% endif %}

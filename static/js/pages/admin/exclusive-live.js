@@ -60,22 +60,35 @@ function initializeLiveTabs() {
    ========================================== */
 
 var ordersChart = null;
+var currentGranularity = 'hour';
+
+var GRANULARITY_LABELS = {
+    day: 'Zamówienia / dzień',
+    hour: 'Zamówienia / godz.',
+    minute: 'Zamówienia / min.'
+};
 
 function initializeOrdersTimelineChart() {
     var canvas = document.getElementById('ordersTimelineChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
+    buildChart(canvas);
+    initializeGranularityToggle();
+
+    // Theme change observer
+    var observer = new MutationObserver(function (mutations) {
+        for (var m = 0; m < mutations.length; m++) {
+            if (mutations[m].attributeName === 'data-theme') updateChartTheme();
+        }
+    });
+    observer.observe(document.documentElement, { attributes: true });
+}
+
+function buildChart(canvas) {
     var timestamps = window.ORDER_TIMESTAMPS || [];
-    if (timestamps.length === 0) return;
 
-    var hourCounts = {};
-    for (var i = 0; i < timestamps.length; i++) {
-        var dt = new Date(timestamps[i]);
-        var hourKey = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours()).toISOString();
-        hourCounts[hourKey] = (hourCounts[hourKey] || 0) + 1;
-    }
-
-    var sortedKeys = Object.keys(hourCounts).sort();
+    var buckets = bucketTimestamps(timestamps, currentGranularity);
+    var sortedKeys = Object.keys(buckets).sort();
     var labels = [];
     var data = [];
     var cumulativeData = [];
@@ -83,13 +96,19 @@ function initializeOrdersTimelineChart() {
 
     for (var j = 0; j < sortedKeys.length; j++) {
         labels.push(sortedKeys[j]);
-        data.push(hourCounts[sortedKeys[j]]);
-        cumulative += hourCounts[sortedKeys[j]];
+        data.push(buckets[sortedKeys[j]]);
+        cumulative += buckets[sortedKeys[j]];
         cumulativeData.push(cumulative);
     }
 
     var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     var colors = getChartColors(isDark);
+    var timeUnit = currentGranularity === 'day' ? 'day' : currentGranularity === 'minute' ? 'minute' : 'hour';
+
+    if (ordersChart) {
+        ordersChart.destroy();
+        ordersChart = null;
+    }
 
     var ctx = canvas.getContext('2d');
 
@@ -99,7 +118,7 @@ function initializeOrdersTimelineChart() {
             labels: labels,
             datasets: [
                 {
-                    label: 'Zamówienia / godz.',
+                    label: GRANULARITY_LABELS[currentGranularity],
                     data: data,
                     borderColor: colors.primary,
                     backgroundColor: colors.primaryBg,
@@ -156,13 +175,18 @@ function initializeOrdersTimelineChart() {
             scales: {
                 x: {
                     type: 'time',
-                    time: { unit: detectTimeUnit(timestamps), displayFormats: { hour: 'dd.MM HH:mm', day: 'dd.MM.yyyy' }, tooltipFormat: 'dd.MM.yyyy HH:mm' },
-                    grid: { color: colors.grid }, ticks: { color: colors.tickText, font: { size: 11 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 12 },
+                    time: {
+                        unit: timeUnit,
+                        displayFormats: { minute: 'HH:mm', hour: 'dd.MM HH:mm', day: 'dd.MM.yyyy' },
+                        tooltipFormat: 'dd.MM.yyyy HH:mm'
+                    },
+                    grid: { color: colors.grid },
+                    ticks: { color: colors.tickText, font: { size: 11 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 14 },
                     border: { color: colors.grid }
                 },
                 y: {
                     type: 'linear', display: true, position: 'left', beginAtZero: true,
-                    title: { display: true, text: 'Zamówienia / godz.', color: colors.tickText, font: { size: 11 } },
+                    title: { display: true, text: GRANULARITY_LABELS[currentGranularity], color: colors.tickText, font: { size: 11 } },
                     grid: { color: colors.grid }, ticks: { color: colors.tickText, font: { size: 11 }, stepSize: 1, precision: 0 },
                     border: { color: colors.grid }
                 },
@@ -175,14 +199,41 @@ function initializeOrdersTimelineChart() {
             }
         }
     });
+}
 
-    // Theme change observer
-    var observer = new MutationObserver(function (mutations) {
-        for (var m = 0; m < mutations.length; m++) {
-            if (mutations[m].attributeName === 'data-theme') updateChartTheme();
+function bucketTimestamps(timestamps, granularity) {
+    var buckets = {};
+    for (var i = 0; i < timestamps.length; i++) {
+        var dt = new Date(timestamps[i]);
+        var key;
+        if (granularity === 'day') {
+            key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString();
+        } else if (granularity === 'minute') {
+            key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), dt.getMinutes()).toISOString();
+        } else {
+            key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours()).toISOString();
         }
+        buckets[key] = (buckets[key] || 0) + 1;
+    }
+    return buckets;
+}
+
+function rebuildChart() {
+    var canvas = document.getElementById('ordersTimelineChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    buildChart(canvas);
+}
+
+function initializeGranularityToggle() {
+    var buttons = document.querySelectorAll('.chart-granularity-btn');
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            buttons.forEach(function (b) { b.classList.remove('chart-granularity-active'); });
+            this.classList.add('chart-granularity-active');
+            currentGranularity = this.getAttribute('data-granularity');
+            rebuildChart();
+        });
     });
-    observer.observe(document.documentElement, { attributes: true });
 }
 
 function getChartColors(isDark) {
@@ -225,14 +276,6 @@ function updateChartTheme() {
     ordersChart.options.plugins.tooltip.bodyColor = c.tooltipBody;
     ordersChart.options.plugins.tooltip.borderColor = c.tooltipBorder;
     ordersChart.update('none');
-}
-
-function detectTimeUnit(timestamps) {
-    if (timestamps.length < 2) return 'hour';
-    var first = new Date(timestamps[0]);
-    var last = new Date(timestamps[timestamps.length - 1]);
-    var diffHours = (last - first) / (1000 * 60 * 60);
-    return diffHours > 168 ? 'day' : 'hour';
 }
 
 function formatChartDate(dt) {
@@ -508,8 +551,16 @@ function renderSetsMatrix(setsData) {
 
                 for (var sl = 0; sl < set.set_max_sets; sl++) {
                     html += '<td class="matrix-slot-col text-center">';
-                    if (prod.slots && prod.slots[sl]) {
-                        html += checkSvg;
+                    var slot = prod.slots && prod.slots[sl];
+                    var isFilled = slot && (typeof slot === 'object' ? slot.filled : slot);
+                    if (isFilled) {
+                        var customerName = (slot && typeof slot === 'object' && slot.customer) ? slot.customer : '';
+                        var svgHtml = '<svg class="slot-check slot-check-new" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
+                        if (customerName) {
+                            html += '<span class="slot-check-wrap" data-tooltip="' + escapeHtml(customerName) + '">' + svgHtml + '</span>';
+                        } else {
+                            html += svgHtml;
+                        }
                     }
                     html += '</td>';
                 }
@@ -531,6 +582,14 @@ function renderSetsMatrix(setsData) {
                 }
                 html += '</div>';
             }
+            // Total sets sold summary
+            var totalSetsSold = (set.total_sets_sold !== undefined) ? set.total_sets_sold : set.ordered_sets;
+            var fullSetSold = (set.full_set_sold !== undefined) ? set.full_set_sold : 0;
+            html += '<div class="set-total-summary">';
+            html += '<span>Łącznie sprzedanych setów:</span>';
+            html += '<span class="set-total-count">' + totalSetsSold + '</span>';
+            html += '<span class="set-total-detail">(' + set.ordered_sets + ' kompletnych + ' + fullSetSold + ' pojedynczych)</span>';
+            html += '</div>';
         }
         html += '</div>';
     }
@@ -656,9 +715,15 @@ function initializeSocketIO() {
             currentPage = 1;
             applyOrdersFilters();
         }
+
+        // Update chart with new timestamp
+        if (data.created_at) {
+            window.ORDER_TIMESTAMPS.push(data.created_at);
+            rebuildChart();
+        }
     });
 
-    // Stats update (includes sets + products data)
+    // Stats update (includes sets + products + timestamps data)
     socket.on('stats_update', function (data) {
         animateStatUpdate('statOrdersValue', data.total_orders);
         animateStatUpdate('statCustomersValue', data.unique_customers);
@@ -689,6 +754,16 @@ function initializeSocketIO() {
         if (data.products_aggregated) {
             window.LIVE_PRODUCTS = data.products_aggregated;
             renderProductsTable(data.products_aggregated);
+
+            // Update products tab count badge
+            var prodTabCount = document.querySelector('.live-tab-button[data-tab="tab-products"] .tab-count');
+            if (prodTabCount) prodTabCount.textContent = data.products_aggregated.length;
+        }
+
+        // Update chart timestamps
+        if (data.order_timestamps) {
+            window.ORDER_TIMESTAMPS = data.order_timestamps;
+            rebuildChart();
         }
     });
 

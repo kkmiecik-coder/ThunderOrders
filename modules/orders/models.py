@@ -934,6 +934,7 @@ class OrderItem(db.Model):
     # False = produkt przepadł (nie zmieścił się w komplecie)
     is_set_fulfilled = db.Column(db.Boolean, nullable=True)
     set_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='SET NULL'), nullable=True)
+    set_number = db.Column(db.Integer, nullable=True)  # Which set this item belongs to (1-based, e.g. Set 1, Set 2...)
     # Ilość zrealizowana w secie (dla częściowego zrealizowania)
     # NULL = nie dotyczy setu
     # fulfilled_quantity == quantity = całość zrealizowana

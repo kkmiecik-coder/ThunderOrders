@@ -189,6 +189,11 @@
                     </svg>
                     Zamówienia w czasie
                 </h2>
+                <div class="chart-granularity-toggle">
+                    <button class="chart-granularity-btn" data-granularity="day">Dzień</button>
+                    <button class="chart-granularity-btn chart-granularity-active" data-granularity="hour">Godzina</button>
+                    <button class="chart-granularity-btn" data-granularity="minute">Minuta</button>
+                </div>
                 <div class="orders-chart-container">
                     <canvas id="ordersTimelineChart"></canvas>
                 </div>
@@ -245,12 +250,20 @@
                                             </span>
                                             {% endif %}
                                         </td>
-                                        {% for filled in product.slots %}
+                                        {% for slot in product.slots %}
                                         <td class="matrix-slot-col text-center">
-                                            {% if filled %}
+                                            {% if slot.filled %}
+                                            {% if slot.customer %}
+                                            <span class="slot-check-wrap" data-tooltip="{{ slot.customer }}">
+                                                <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                    <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                                </svg>
+                                            </span>
+                                            {% else %}
                                             <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                 <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
                                             </svg>
+                                            {% endif %}
                                             {% endif %}
                                         </td>
                                         {% endfor %}
@@ -279,6 +292,11 @@
                             {% endif %}
                         </div>
                         {% endif %}
+                        <div class="set-total-summary">
+                            <span>Łącznie sprzedanych setów:</span>
+                            <span class="set-total-count">{{ set.total_sets_sold }}</span>
+                            <span class="set-total-detail">({{ set.ordered_sets }} kompletnych + {{ set.full_set_sold }} pojedynczych)</span>
+                        </div>
                         {% endif %}
                     </div>
                     {% endfor %}

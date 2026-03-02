@@ -442,13 +442,13 @@ def admin_detail(order_id):
         from modules.orders.wms_models import WmsSessionOrder
         wms_session_order = WmsSessionOrder.query.filter_by(order_id=order.id).first()
 
-    # Set probability for live exclusive sales
+    # Set probability for live exclusive sales (per order item, using stored set_number)
     set_probabilities = {}
     if order.is_exclusive and order.exclusive_page_id:
         page_obj = order.exclusive_page
         if page_obj and not page_obj.is_fully_closed:
             from modules.exclusive.reservation import get_set_probabilities
-            set_probabilities = get_set_probabilities(order.exclusive_page_id)
+            set_probabilities = get_set_probabilities(order)
 
     return render_template(
         'admin/orders/detail.html',
@@ -1640,7 +1640,7 @@ def client_detail(order_id):
             ).first() is not None
             if not page_obj.is_fully_closed:
                 from modules.exclusive.reservation import get_set_probabilities
-                set_probabilities = get_set_probabilities(order.exclusive_page_id)
+                set_probabilities = get_set_probabilities(order)
 
     return render_template(
         'client/orders/detail.html',

@@ -151,9 +151,10 @@ def place_exclusive_order(page, session_id, order_note=None):
     # 7. Create order items (exclusive orders do NOT affect global stock)
     total_amount = Decimal('0.00')
 
-    # Build set of set_product_ids for this page to detect full set items
+    # Build set mappings for this page
     from modules.exclusive.models import ExclusiveSection
-    set_product_ids = set()
+    set_product_ids = set()  # Products that ARE the full set bundle
+    product_set_info = {}    # product_id → {section_id, quantity_per_set}
     set_sections = ExclusiveSection.query.filter_by(
         exclusive_page_id=page.id,
         section_type='set'
@@ -161,12 +162,45 @@ def place_exclusive_order(page, session_id, order_note=None):
     for sec in set_sections:
         if sec.set_product_id:
             set_product_ids.add(sec.set_product_id)
+        for set_item in sec.set_items:
+            qps = set_item.quantity_per_set or 1
+            for prod in set_item.get_products():
+                product_set_info[prod.id] = {
+                    'section_id': sec.id,
+                    'quantity_per_set': qps,
+                }
+
+    # Pre-query existing ordered quantities for set products (before this order)
+    prev_ordered_map = {}
+    if product_set_info:
+        from sqlalchemy import func as sql_func
+        prev_counts = db.session.query(
+            OrderItem.product_id,
+            sql_func.sum(OrderItem.quantity)
+        ).join(Order).filter(
+            Order.exclusive_page_id == page.id,
+            Order.status != 'anulowane',
+            OrderItem.product_id.in_(product_set_info.keys())
+        ).group_by(OrderItem.product_id).all()
+        prev_ordered_map = {pid: int(qty) for pid, qty in prev_counts}
 
     for reservation in reservations:
         product = reservation.product
         quantity = reservation.quantity
         price = product.sale_price
         item_total = price * quantity
+
+        # Calculate set_number for products that are part of a set
+        item_set_number = None
+        item_set_section_id = None
+        if product.id in product_set_info:
+            info = product_set_info[product.id]
+            item_set_section_id = info['section_id']
+            qps = info['quantity_per_set']
+            prev = prev_ordered_map.get(product.id, 0)
+            item_set_number = (prev // qps) + 1 if qps > 0 else 1
+            # Update prev_ordered_map for subsequent items in the same order
+            prev_ordered_map[product.id] = prev + quantity
 
         # Create order item
         order_item = OrderItem(
@@ -176,7 +210,9 @@ def place_exclusive_order(page, session_id, order_note=None):
             price=price,
             total=item_total,
             picked=False,
-            is_full_set=(product.id in set_product_ids)
+            is_full_set=(product.id in set_product_ids),
+            set_section_id=item_set_section_id,
+            set_number=item_set_number,
         )
 
         db.session.add(order_item)
@@ -273,6 +309,7 @@ def place_exclusive_order(page, session_id, order_note=None):
             'active_reservations': live['active_reservations'],
             'sets': live['sets'],
             'products_aggregated': live['products_aggregated'],
+            'order_timestamps': live.get('order_timestamps', []),
         })
     except Exception as e:
         # Don't fail the order if Socket.IO emit fails

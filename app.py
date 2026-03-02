@@ -309,6 +309,67 @@ def register_cli_commands(app):
 
         click.echo(f"\nGotowe. Wysłano: {sent_count}, Pominięto: {skipped_count}")
 
+    @app.cli.command('backfill-set-numbers')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl bez zapisywania')
+    def backfill_set_numbers(dry_run):
+        """Uzupełnia set_number i set_section_id dla istniejących zamówień exclusive."""
+        from modules.orders.models import Order, OrderItem
+        from modules.exclusive.models import ExclusiveSection, ExclusivePage
+        from sqlalchemy import func as sql_func
+
+        pages = ExclusivePage.query.all()
+        total_updated = 0
+
+        for page in pages:
+            set_sections = ExclusiveSection.query.filter_by(
+                exclusive_page_id=page.id, section_type='set'
+            ).all()
+            if not set_sections:
+                continue
+
+            # Build product → set info mapping
+            product_set_info = {}
+            for sec in set_sections:
+                for set_item in sec.set_items:
+                    qps = set_item.quantity_per_set or 1
+                    for prod in set_item.get_products():
+                        product_set_info[prod.id] = {'section_id': sec.id, 'quantity_per_set': qps}
+
+            if not product_set_info:
+                continue
+
+            # Get all orders for this page chronologically
+            orders = Order.query.filter_by(
+                exclusive_page_id=page.id
+            ).filter(Order.status != 'anulowane').order_by(Order.created_at.asc()).all()
+
+            # Track cumulative ordered quantities
+            cumulative = {}  # product_id → total ordered so far
+
+            for order in orders:
+                for item in order.items:
+                    if item.product_id not in product_set_info:
+                        continue
+
+                    info = product_set_info[item.product_id]
+                    qps = info['quantity_per_set']
+                    prev = cumulative.get(item.product_id, 0)
+                    set_num = (prev // qps) + 1 if qps > 0 else 1
+
+                    if item.set_number != set_num or item.set_section_id != info['section_id']:
+                        if not dry_run:
+                            item.set_number = set_num
+                            item.set_section_id = info['section_id']
+                        total_updated += 1
+                        click.echo(f"  {order.order_number} | {item.product_name} → Set {set_num}")
+
+                    cumulative[item.product_id] = prev + item.quantity
+
+            if not dry_run:
+                db.session.commit()
+
+        click.echo(f"\n{'[DRY RUN] ' if dry_run else ''}Zaktualizowano: {total_updated} pozycji")
+
 
 def register_error_handlers(app):
     """Rejestruje handlery dla błędów HTTP"""

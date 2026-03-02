@@ -372,6 +372,16 @@
     color: #fff;
 }
 
+.od-set-badge--set-num {
+    height: 24px;
+    padding: 0 6px;
+    background-color: #e3f2fd;
+    color: #1565c0;
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin-right: 3px;
+}
+
 .od-set-badge--prob {
     min-width: 36px;
     height: 24px;
@@ -403,6 +413,12 @@
     background-color: rgba(244, 67, 54, 0.25);
     color: #EF5350;
     border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+[data-theme="dark"] .od-set-badge--set-num {
+    background-color: rgba(66, 165, 245, 0.15);
+    color: #64B5F6;
+    border: 1px solid rgba(66, 165, 245, 0.25);
 }
 
 [data-theme="dark"] .od-set-badge--prob {
