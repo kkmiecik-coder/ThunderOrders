@@ -338,11 +338,7 @@
                 {# NORMALNIE #}
                 <tr data-item-id="{{ item.id }}" class="{% if item.is_full_set %}full-set-row{% elif item.is_custom %}custom-product-row{% endif %}">
                     <td class="col-image">
-                        {% if item.is_full_set %}
-                        <div class="product-thumb" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); color: white; font-size: 1.25rem;">
-                            ✨
-                        </div>
-                        {% elif item.is_custom %}
+                        {% if item.is_custom and not item.product_id %}
                         <div class="product-thumb" style="display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%); color: white; font-size: 1.25rem;">
                             📦
                         </div>
@@ -382,6 +378,11 @@
                                         {% else %}
                                         <span class="set-badge set-badge-fail" title="Poza setem">✗</span>
                                         {% endif %}
+                                    {% elif item.is_full_set %}
+                                        <span class="set-badge set-badge-prob set-badge-prob--full" title="Komplet setu - gwarantowany">100%</span>
+                                    {% elif set_probabilities.get(item.product_id) %}
+                                        {% set prob = set_probabilities[item.product_id] %}
+                                        <span class="set-badge set-badge-prob" title="{{ prob.set_name }} - {{ prob.probability }}%">{{ "%.0f"|format(prob.probability) }}%</span>
                                     {% else %}
                                     <span class="set-badge set-badge-na" title="Nie dotyczy">—</span>
                                     {% endif %}
@@ -441,6 +442,11 @@
                             {% else %}
                             <span class="set-badge set-badge-fail" title="Poza setem - nie załapał się do kompletu">✗</span>
                             {% endif %}
+                        {% elif item.is_full_set %}
+                        <span class="set-badge set-badge-prob set-badge-prob--full" title="Komplet setu - gwarantowany">100%</span>
+                        {% elif set_probabilities.get(item.product_id) %}
+                            {% set prob = set_probabilities[item.product_id] %}
+                        <span class="set-badge set-badge-prob" title="{{ prob.set_name }} - {{ prob.probability }}%">{{ "%.0f"|format(prob.probability) }}%</span>
                         {% else %}
                         <span class="set-badge-na" title="Nie dotyczy - produkt spoza setu">—</span>
                         {% endif %}
@@ -760,9 +766,7 @@
                 <!-- Klient -->
                 <div class="info-item">
                     <label>Klient:</label>
-                    {% if order.is_guest_order %}
-                        <span>{{ order.guest_name }} <span class="badge badge-guest">Gość</span></span>
-                    {% elif order.user %}
+                    {% if order.user %}
                         <a href="{{ url_for('admin.client_detail', id=order.user.id) }}" class="customer-link">{{ order.user.full_name }}</a>
                     {% else %}
                         <span class="text-muted">Nieznany</span>
@@ -770,11 +774,11 @@
                 </div>
                 <div class="info-item">
                     <label>Email:</label>
-                    <span>{{ order.guest_email if order.is_guest_order else (order.user.email if order.user else '-') }}</span>
+                    <span>{{ order.user.email if order.user else '-' }}</span>
                 </div>
                 <div class="info-item">
                     <label>Telefon:</label>
-                    <span>{{ order.guest_phone if order.is_guest_order else (order.user.phone if order.user and order.user.phone else '-') }}</span>
+                    <span>{{ order.user.phone if order.user and order.user.phone else '-' }}</span>
                 </div>
 
                 <!-- Separator 2 -->

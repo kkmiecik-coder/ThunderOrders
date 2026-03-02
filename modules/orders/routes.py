@@ -82,8 +82,6 @@ def admin_list():
         query = query.join(Order.user, isouter=True).filter(
             or_(
                 Order.order_number.like(search_term),
-                Order.guest_name.like(search_term),
-                Order.guest_email.like(search_term),
                 db.func.concat(User.first_name, ' ', User.last_name).like(search_term),
                 User.email.like(search_term)
             )
@@ -444,6 +442,14 @@ def admin_detail(order_id):
         from modules.orders.wms_models import WmsSessionOrder
         wms_session_order = WmsSessionOrder.query.filter_by(order_id=order.id).first()
 
+    # Set probability for live exclusive sales
+    set_probabilities = {}
+    if order.is_exclusive and order.exclusive_page_id:
+        page_obj = order.exclusive_page
+        if page_obj and not page_obj.is_fully_closed:
+            from modules.exclusive.reservation import get_set_probabilities
+            set_probabilities = get_set_probabilities(order.exclusive_page_id)
+
     return render_template(
         'admin/orders/detail.html',
         order=order,
@@ -459,6 +465,7 @@ def admin_detail(order_id):
         product_series=product_series,
         payment_methods=payment_methods,
         wms_session_order=wms_session_order,
+        set_probabilities=set_probabilities,
         page_title=f'Zamówienie {order.order_number}'
     )
 
@@ -1036,18 +1043,20 @@ def admin_delete_order(order_id):
     """
     order = Order.query.get_or_404(order_id)
 
-    # Activity log before deletion
-    # log_activity(
-    #     user=current_user,
-    #     action='order_deleted',
-    #     entity_type='order',
-    #     entity_id=order.id,
-    #     old_value={
-    #         'order_number': order.order_number,
-    #         'customer': order.customer_name,
-    #         'total_amount': float(order.total_amount)
-    #     }
-    # )
+    # Check if order is linked to an active WMS session
+    from modules.orders.wms_models import WmsSessionOrder, WmsSession
+    active_wms = WmsSessionOrder.query.join(WmsSession).filter(
+        WmsSessionOrder.order_id == order.id,
+        WmsSession.status.in_(['active', 'paused'])
+    ).first()
+    if active_wms:
+        return jsonify({
+            'success': False,
+            'message': f'Zamówienie {order.order_number} jest powiązane z aktywną sesją WMS i nie może zostać usunięte.'
+        }), 400
+
+    # Remove old WMS junction records (from completed/cancelled sessions)
+    WmsSessionOrder.query.filter_by(order_id=order.id).delete()
 
     db.session.delete(order)
     db.session.commit()
@@ -1180,12 +1189,23 @@ def bulk_delete():
                 'message': 'Nie wybrano żadnych zamówień'
             }), 400
 
-        # Delete orders
+        # Delete orders (skip those linked to active WMS sessions)
+        from modules.orders.wms_models import WmsSessionOrder, WmsSession
         deleted_count = 0
         deleted_numbers = []
+        skipped_numbers = []
         for order_id in order_ids:
             order = Order.query.get(order_id)
             if order:
+                active_wms = WmsSessionOrder.query.join(WmsSession).filter(
+                    WmsSessionOrder.order_id == order.id,
+                    WmsSession.status.in_(['active', 'paused'])
+                ).first()
+                if active_wms:
+                    skipped_numbers.append(order.order_number)
+                    continue
+                # Remove old WMS junction records (from completed/cancelled sessions)
+                WmsSessionOrder.query.filter_by(order_id=order.id).delete()
                 deleted_numbers.append(order.order_number)
                 db.session.delete(order)
                 deleted_count += 1
@@ -1201,10 +1221,15 @@ def bulk_delete():
             old_value={'order_numbers': deleted_numbers, 'count': deleted_count}
         )
 
+        message = f'Usunięto {deleted_count} zamówień'
+        if skipped_numbers:
+            message += f'. Pominięto {len(skipped_numbers)} zamówień powiązanych z sesją WMS ({", ".join(skipped_numbers)})'
+
         return jsonify({
             'success': True,
-            'message': f'Usunięto {deleted_count} zamówień',
-            'deleted_count': deleted_count
+            'message': message,
+            'deleted_count': deleted_count,
+            'skipped_count': len(skipped_numbers)
         })
 
     except Exception as e:
@@ -1311,11 +1336,7 @@ def export_orders():
         products_str = "\n".join(products_list)
 
         # Get customer info
-        if order.is_guest_order:
-            customer_name = order.guest_name or 'Gość'
-            customer_email = order.guest_email or ''
-            customer_phone = order.guest_phone or ''
-        elif order.user:
+        if order.user:
             customer_name = order.user.full_name
             customer_email = order.user.email
             customer_phone = order.user.phone or ''
@@ -1405,7 +1426,7 @@ def bulk_orders_info():
 
         orders_info = []
         for order in orders:
-            customer_name = order.guest_name if order.is_guest_order else (order.user.full_name if order.user else 'Nieznany')
+            customer_name = order.user.full_name if order.user else 'Nieznany'
             orders_info.append({
                 'id': order.id,
                 'order_number': order.order_number,
@@ -1606,11 +1627,28 @@ def client_detail(order_id):
 
         order_history.append(history_item)
 
+    # Set probability for live exclusive sales
+    set_probabilities = {}
+    has_set_sections = False
+    if order.is_exclusive and order.exclusive_page_id:
+        page_obj = order.exclusive_page
+        if page_obj:
+            from modules.exclusive.models import ExclusiveSection
+            has_set_sections = ExclusiveSection.query.filter_by(
+                exclusive_page_id=order.exclusive_page_id,
+                section_type='set'
+            ).first() is not None
+            if not page_obj.is_fully_closed:
+                from modules.exclusive.reservation import get_set_probabilities
+                set_probabilities = get_set_probabilities(order.exclusive_page_id)
+
     return render_template(
         'client/orders/detail.html',
         order=order,
         order_items=order_items,
         order_history=order_history,
+        set_probabilities=set_probabilities,
+        has_set_sections=has_set_sections,
         page_title=f'Zamówienie {order.order_number}'
     )
 
@@ -2971,323 +3009,6 @@ def admin_add_custom_product(order_id):
 
 
 # ============================================
-# GUEST ORDER TRACKING
-# ============================================
-
-@orders_bp.route('/order/track/<token>')
-def guest_track(token):
-    """
-    Publiczny podgląd zamówienia dla gościa (bez logowania).
-    Token jest unikalny i nigdy nie wygasa.
-    Rozbudowany panel z płatnościami, wysyłką i podsumowaniem finansowym.
-    """
-    order = Order.get_by_guest_token(token)
-
-    if not order:
-        abort(404)
-
-    from modules.payments.models import PaymentMethod
-    payment_methods = PaymentMethod.get_active()
-
-    # Sprawdź czy są dozwolone statusy do wysyłki
-    from modules.auth.models import Settings
-    setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
-    allowed_shipping_statuses = []
-    if setting and setting.value:
-        try:
-            import json as json_mod
-            allowed_shipping_statuses = json_mod.loads(setting.value)
-        except (ValueError, TypeError):
-            allowed_shipping_statuses = ['dostarczone_gom']
-    else:
-        allowed_shipping_statuses = ['dostarczone_gom']
-
-    can_create_shipping = (
-        order.status in allowed_shipping_statuses
-        and not order.is_in_shipping_request
-    )
-
-    return render_template(
-        'orders/guest_track.html',
-        order=order,
-        payment_methods=payment_methods,
-        can_create_shipping=can_create_shipping
-    )
-
-
-@orders_bp.route('/order/track/<token>/payment-methods')
-def guest_payment_methods(token):
-    """Zwraca aktywne metody płatności (JSON) dla gościa."""
-    order = Order.get_by_guest_token(token)
-    if not order:
-        abort(404)
-
-    from modules.payments.models import PaymentMethod
-    methods = PaymentMethod.get_active()
-    return jsonify({
-        'success': True,
-        'methods': [m.to_dict() for m in methods]
-    })
-
-
-@orders_bp.route('/order/track/<token>/upload-payment', methods=['POST'])
-def guest_upload_payment(token):
-    """
-    Upload potwierdzenia płatności dla gościa (bez logowania).
-    Zabezpieczony tokenem guest_view_token.
-    """
-    order = Order.get_by_guest_token(token)
-    if not order:
-        return jsonify({'success': False, 'error': 'Zamówienie nie znalezione'}), 404
-
-    from modules.client.payment_confirmations import (
-        allowed_proof_file, save_payment_proof_file, MAX_PROOF_FILE_SIZE
-    )
-    from modules.orders.models import PaymentConfirmation
-    from decimal import Decimal
-    from modules.orders.models import get_local_now
-    import json as json_mod
-
-    VALID_STAGES = {'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'}
-
-    try:
-        # Parsowanie etapów
-        stages_raw = request.form.get('stages', '[]')
-        try:
-            stages = [s for s in json_mod.loads(stages_raw) if s in VALID_STAGES]
-        except (ValueError, json_mod.JSONDecodeError):
-            stages = []
-
-        if not stages:
-            return jsonify({'success': False, 'error': 'Nie wybrano etapów płatności'}), 400
-
-        # Walidacja pliku
-        if 'proof_file' not in request.files:
-            return jsonify({'success': False, 'error': 'Nie przesłano pliku'}), 400
-
-        file = request.files['proof_file']
-        if file.filename == '':
-            return jsonify({'success': False, 'error': 'Nie wybrano pliku'}), 400
-
-        if not allowed_proof_file(file.filename):
-            return jsonify({'success': False, 'error': 'Nieprawidłowy format. Dozwolone: JPG, PNG, PDF'}), 400
-
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
-        if file_size > MAX_PROOF_FILE_SIZE:
-            return jsonify({'success': False, 'error': 'Plik za duży. Max 5MB'}), 400
-
-        # Walidacja uprawnień per etap
-        for stage in stages:
-            can_upload = False
-            if stage == 'product':
-                can_upload = order.can_upload_product_payment
-            elif stage == 'korean_shipping':
-                can_upload = order.can_upload_stage_2
-            elif stage == 'customs_vat':
-                can_upload = order.can_upload_stage_3
-            elif stage == 'domestic_shipping':
-                can_upload = order.can_upload_stage_4
-            if not can_upload:
-                return jsonify({
-                    'success': False,
-                    'error': f'Nie można wgrać potwierdzenia dla tego etapu'
-                }), 400
-
-        # Zapisz plik
-        saved_filename = save_payment_proof_file(file)
-        if not saved_filename:
-            return jsonify({'success': False, 'error': 'Błąd zapisu pliku'}), 500
-
-        # Twórz/aktualizuj PaymentConfirmation per etap
-        now = get_local_now()
-        created_count = 0
-
-        stage_amounts = {
-            'product': order.effective_total,
-            'korean_shipping': order.proxy_shipping_total,
-            'customs_vat': order.customs_vat_total,
-            'domestic_shipping': Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00'),
-        }
-
-        for stage in stages:
-            amount = stage_amounts.get(stage, order.effective_total)
-
-            existing = PaymentConfirmation.query.filter_by(
-                order_id=order.id,
-                payment_stage=stage
-            ).first()
-
-            if existing:
-                if existing.is_approved:
-                    continue
-                existing.proof_file = saved_filename
-                existing.uploaded_at = now
-                existing.status = 'pending'
-                existing.rejection_reason = None
-                existing.amount = amount
-            else:
-                confirmation = PaymentConfirmation(
-                    order_id=order.id,
-                    payment_stage=stage,
-                    amount=amount,
-                    proof_file=saved_filename,
-                    uploaded_at=now,
-                    status='pending'
-                )
-                db.session.add(confirmation)
-
-            created_count += 1
-
-        db.session.commit()
-
-        # Powiadom adminów o nowym potwierdzeniu płatności
-        stage_display_names = {
-            'product': 'Płatność za produkt',
-            'korean_shipping': 'Wysyłka z Korei',
-            'customs_vat': 'Cło i VAT',
-            'domestic_shipping': 'Wysyłka krajowa'
-        }
-        stage_names = ', '.join(stage_display_names.get(s, s) for s in stages)
-        try:
-            from utils.email_manager import EmailManager
-            EmailManager.notify_admin_payment_uploaded(order, stage_names)
-        except Exception as e:
-            current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
-
-        return jsonify({
-            'success': True,
-            'message': f'Potwierdzenie przesłane ({created_count} etapów)'
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Guest payment upload error: {e}')
-        return jsonify({'success': False, 'error': 'Wystąpił błąd serwera'}), 500
-
-
-@orders_bp.route('/order/track/<token>/shipping-request', methods=['POST'])
-def guest_create_shipping_request(token):
-    """
-    Tworzenie zlecenia wysyłki dla gościa z adresem jednorazowym.
-    Nie wymaga logowania - zabezpieczone tokenem.
-    """
-    order = Order.get_by_guest_token(token)
-    if not order:
-        return jsonify({'success': False, 'error': 'Zamówienie nie znalezione'}), 404
-
-    from modules.orders.models import ShippingRequest, ShippingRequestOrder, ShippingRequestStatus
-    from modules.auth.models import Settings
-    import json as json_mod
-
-    try:
-        data = request.get_json()
-
-        # Sprawdź czy zamówienie może mieć zlecenie wysyłki
-        setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
-        allowed_statuses = []
-        if setting and setting.value:
-            try:
-                allowed_statuses = json_mod.loads(setting.value)
-            except (ValueError, json_mod.JSONDecodeError):
-                allowed_statuses = ['dostarczone_gom']
-        else:
-            allowed_statuses = ['dostarczone_gom']
-
-        if order.status not in allowed_statuses:
-            return jsonify({'success': False, 'error': 'Zamówienie nie kwalifikuje się do wysyłki'}), 400
-
-        if order.is_in_shipping_request:
-            return jsonify({'success': False, 'error': 'Zamówienie ma już zlecenie wysyłki'}), 400
-
-        # Walidacja adresu
-        address_type = data.get('address_type')
-        if address_type not in ['home', 'pickup_point']:
-            return jsonify({'success': False, 'error': 'Nieprawidłowy typ adresu'}), 400
-
-        if address_type == 'home':
-            required = ['shipping_name', 'shipping_address', 'shipping_postal_code', 'shipping_city']
-            for field in required:
-                if not data.get(field):
-                    return jsonify({'success': False, 'error': f'Pole {field} jest wymagane'}), 400
-        else:
-            required = ['pickup_courier', 'pickup_point_id', 'pickup_address', 'pickup_postal_code', 'pickup_city']
-            for field in required:
-                if not data.get(field):
-                    return jsonify({'success': False, 'error': f'Pole {field} jest wymagane'}), 400
-
-        # Status początkowy
-        default_status_setting = Settings.query.filter_by(key='shipping_request_default_status').first()
-        initial_status = None
-        if default_status_setting and default_status_setting.value:
-            initial_status = ShippingRequestStatus.query.filter_by(
-                slug=default_status_setting.value, is_active=True
-            ).first()
-        if not initial_status:
-            initial_status = ShippingRequestStatus.query.filter_by(is_initial=True, is_active=True).first()
-        if not initial_status:
-            initial_status = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).first()
-        status_slug = initial_status.slug if initial_status else 'nowe'
-
-        # Tworzenie ShippingRequest
-        shipping_request = ShippingRequest(
-            request_number=ShippingRequest.generate_request_number(),
-            user_id=order.user_id,
-            status=status_slug,
-            address_type=address_type,
-            shipping_name=data.get('shipping_name'),
-            shipping_address=data.get('shipping_address'),
-            shipping_postal_code=data.get('shipping_postal_code'),
-            shipping_city=data.get('shipping_city'),
-            shipping_voivodeship=data.get('shipping_voivodeship'),
-            shipping_country=data.get('shipping_country', 'Polska'),
-            pickup_courier=data.get('pickup_courier'),
-            pickup_point_id=data.get('pickup_point_id'),
-            pickup_address=data.get('pickup_address'),
-            pickup_postal_code=data.get('pickup_postal_code'),
-            pickup_city=data.get('pickup_city')
-        )
-        db.session.add(shipping_request)
-        db.session.flush()
-
-        # Delivery method
-        delivery_method = None
-        if address_type == 'home':
-            delivery_method = 'kurier'
-        elif data.get('pickup_courier'):
-            courier_lower = data['pickup_courier'].lower()
-            if 'inpost' in courier_lower or 'paczkomat' in courier_lower:
-                delivery_method = 'paczkomat'
-            elif 'orlen' in courier_lower:
-                delivery_method = 'orlen_paczka'
-            elif 'dpd' in courier_lower:
-                delivery_method = 'dpd_pickup'
-
-        request_order = ShippingRequestOrder(
-            shipping_request_id=shipping_request.id,
-            order_id=order.id
-        )
-        db.session.add(request_order)
-
-        if delivery_method and not order.delivery_method:
-            order.delivery_method = delivery_method
-
-        db.session.commit()
-
-        return jsonify({
-            'success': True,
-            'message': 'Zlecenie wysyłki zostało utworzone',
-            'request_number': shipping_request.request_number
-        })
-
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f'Guest shipping request error: {e}')
-        return jsonify({'success': False, 'error': 'Wystąpił błąd serwera'}), 500
-
-
-# ============================================
 # PAYMENT METHODS CRUD (Settings Tab)
 # ============================================
 
@@ -3735,6 +3456,21 @@ def admin_delete_shipping_request(shipping_request_id):
     sr = ShippingRequest.query.get_or_404(shipping_request_id)
     request_number = sr.request_number
 
+    # Check if shipping request is linked to an active WMS session
+    from modules.orders.wms_models import WmsSessionShippingRequest, WmsSession
+    active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
+        WmsSessionShippingRequest.shipping_request_id == sr.id,
+        WmsSession.status.in_(['active', 'paused'])
+    ).first()
+    if active_wms:
+        return jsonify({
+            'success': False,
+            'message': f'Zlecenie {request_number} jest powiązane z aktywną sesją WMS i nie może zostać usunięte.'
+        }), 400
+
+    # Remove old WMS junction records (from completed/cancelled sessions)
+    WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
+
     # Remove all order associations (orders go back to pool)
     ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
 
@@ -3771,11 +3507,23 @@ def admin_bulk_cancel_shipping_requests():
     if not ids:
         return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
 
+    from modules.orders.wms_models import WmsSessionShippingRequest, WmsSession
+
     deleted_numbers = []
+    skipped_numbers = []
 
     for sr_id in ids:
         sr = ShippingRequest.query.get(sr_id)
         if sr:
+            active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
+                WmsSessionShippingRequest.shipping_request_id == sr.id,
+                WmsSession.status.in_(['active', 'paused'])
+            ).first()
+            if active_wms:
+                skipped_numbers.append(sr.request_number)
+                continue
+            # Remove old WMS junction records (from completed/cancelled sessions)
+            WmsSessionShippingRequest.query.filter_by(shipping_request_id=sr.id).delete()
             deleted_numbers.append(sr.request_number)
             # Remove all order associations (orders go back to pool)
             ShippingRequestOrder.query.filter_by(shipping_request_id=sr.id).delete()
@@ -3795,9 +3543,14 @@ def admin_bulk_cancel_shipping_requests():
         })
     )
 
+    message = f'Usunięto {len(deleted_numbers)} zleceń'
+    if skipped_numbers:
+        message += f'. Pominięto {len(skipped_numbers)} zleceń powiązanych z sesją WMS ({", ".join(skipped_numbers)})'
+
     return jsonify({
         'success': True,
-        'message': f'Usunięto {len(deleted_numbers)} zleceń'
+        'message': message,
+        'skipped_count': len(skipped_numbers)
     })
 
 

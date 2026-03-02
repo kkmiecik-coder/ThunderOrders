@@ -189,54 +189,6 @@ class RefundForm(FlaskForm):
 # GUEST ORDER FORM
 # ====================
 
-class GuestOrderForm(FlaskForm):
-    """
-    Form for guest orders (exclusive pages).
-    Used when placing order without account.
-    """
-    guest_name = StringField(
-        'Imię i nazwisko',
-        validators=[
-            DataRequired(message='Podaj imię i nazwisko'),
-            Length(min=3, max=200, message='Imię i nazwisko musi mieć od 3 do 200 znaków')
-        ],
-        render_kw={'placeholder': 'Jan Kowalski'}
-    )
-
-    guest_email = StringField(
-        'Email',
-        validators=[
-            DataRequired(message='Podaj adres email'),
-            Email(message='Podaj prawidłowy adres email'),
-            Length(max=255)
-        ],
-        render_kw={'placeholder': 'jan@example.com'}
-    )
-
-    guest_phone = StringField(
-        'Telefon',
-        validators=[
-            Optional(),
-            Length(max=20, message='Numer telefonu może mieć max 20 znaków')
-        ],
-        render_kw={'placeholder': '+48 123 456 789'}
-    )
-
-    notes = TextAreaField(
-        'Uwagi do zamówienia',
-        validators=[Optional(), Length(max=1000)],
-        render_kw={'placeholder': 'Dodatkowe uwagi (opcjonalnie)...', 'rows': 3}
-    )
-
-    # Optional: Create account
-    create_account = BooleanField(
-        'Chcę założyć konto',
-        default=False
-    )
-
-    submit = SubmitField('Złóż zamówienie')
-
-
 # ====================
 # BULK ACTIONS FORM
 # ====================

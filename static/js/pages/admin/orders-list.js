@@ -417,11 +417,11 @@
         })
         .then(response => response.json())
         .then(data => {
-            return { orderId, success: data.success };
+            return { orderId, success: data.success, message: data.message };
         })
         .catch(error => {
             console.error(`Error deleting order ${orderId}:`, error);
-            return { orderId, success: false };
+            return { orderId, success: false, message: 'Błąd połączenia z serwerem' };
         });
     }
 
@@ -478,7 +478,7 @@
                     // Show success message
                     showToast(`Zamówienie ${orderNumber} zostało usunięte`, 'success');
                 } else {
-                    showToast('Nie udało się usunąć zamówienia', 'error');
+                    showToast(result.message || 'Nie udało się usunąć zamówienia', 'error');
                 }
             });
     };

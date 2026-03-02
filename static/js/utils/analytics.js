@@ -109,20 +109,6 @@ function trackExclusivePageView(exclusiveToken, exclusiveName) {
 }
 
 /**
- * Track złożenia zamówienia przez gościa (bez rejestracji)
- * @param {string} orderNumber - Numer zamówienia
- * @param {number} totalAmount - Łączna kwota
- */
-function trackGuestOrderPlaced(orderNumber, totalAmount) {
-    trackEvent('guest_order_placed', {
-        transaction_id: orderNumber,
-        value: totalAmount,
-        currency: 'PLN',
-        is_guest: true
-    });
-}
-
-/**
  * Track zlecenia wysyłki przez klienta
  * @param {number} ordersCount - Liczba zamówień do wysłania
  */
@@ -151,6 +137,5 @@ window.trackAddToCart = trackAddToCart;
 window.trackFormSubmit = trackFormSubmit;
 window.trackButtonClick = trackButtonClick;
 window.trackExclusivePageView = trackExclusivePageView;
-window.trackGuestOrderPlaced = trackGuestOrderPlaced;
 window.trackShippingRequested = trackShippingRequested;
 window.trackSearch = trackSearch;

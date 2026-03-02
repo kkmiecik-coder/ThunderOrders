@@ -3,47 +3,15 @@ Exclusive Place Order Logic
 Logika składania zamówień przez strony exclusive
 """
 
-from flask import request
 from flask_login import current_user
-from datetime import datetime
 from decimal import Decimal
 from extensions import db
 from modules.exclusive.models import ExclusiveReservation, ExclusivePage
 from modules.exclusive.reservation import cleanup_expired_reservations
 from modules.orders.models import Order, OrderItem
 from modules.orders.utils import generate_order_number
-from modules.products.models import Product
 from utils.activity_logger import log_activity
 from utils.exclusive_auto_increase import check_and_apply_auto_increase
-
-
-def validate_guest_data(guest_data):
-    """
-    Validate guest order data
-
-    Args:
-        guest_data (dict): Guest information
-
-    Returns:
-        tuple: (valid: bool, error: str or None)
-    """
-    required_fields = ['name', 'email', 'phone']
-
-    for field in required_fields:
-        if not guest_data.get(field):
-            return False, f'missing_field_{field}'
-
-    # Basic email validation
-    email = guest_data.get('email', '')
-    if '@' not in email or '.' not in email:
-        return False, 'invalid_email'
-
-    # Basic phone validation (at least 9 digits)
-    phone = guest_data.get('phone', '').replace(' ', '').replace('-', '').replace('+', '')
-    if len(phone) < 9 or not phone.isdigit():
-        return False, 'invalid_phone'
-
-    return True, None
 
 
 def check_product_availability(reservations, page_id):
@@ -127,14 +95,13 @@ def check_product_availability(reservations, page_id):
     return True, None
 
 
-def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
+def place_exclusive_order(page, session_id, order_note=None):
     """
-    Place an order from exclusive page
+    Place an order from exclusive page (requires authenticated user)
 
     Args:
         page (ExclusivePage): Exclusive page object
         session_id (str): User session ID
-        guest_data (dict, optional): Guest information (name, email, phone)
         order_note (str, optional): Order note/comment
 
     Returns:
@@ -153,29 +120,7 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     if not reservations:
         return False, {'error': 'no_reservations', 'message': 'Brak produktów w koszyku'}
 
-    # 3. Validate guest data (if guest order)
-    is_guest = not current_user.is_authenticated
-
-    if is_guest:
-        if not guest_data:
-            return False, {'error': 'missing_guest_data', 'message': 'Brak danych użytkownika'}
-
-        valid, error = validate_guest_data(guest_data)
-        if not valid:
-            return False, {'error': error, 'message': 'Nieprawidłowe dane użytkownika'}
-
-        # Check if user with this email already exists - require login
-        from modules.auth.models import User
-        guest_email = guest_data.get('email', '').lower().strip()
-        existing_user = User.query.filter_by(email=guest_email).first()
-        if existing_user:
-            return False, {
-                'error': 'email_exists',
-                'message': 'Konto z tym adresem email już istnieje. Zaloguj się, aby złożyć zamówienie.',
-                'require_login': True
-            }
-
-    # 4. Check product availability
+    # 3. Check product availability
     available, error = check_product_availability(reservations, page.id)
     if not available:
         return False, error
@@ -190,16 +135,12 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     order = Order(
         order_number=order_number,
         order_type='exclusive',
-        user_id=current_user.id if current_user.is_authenticated else None,
+        user_id=current_user.id,
         status='nowe',
         is_exclusive=True,
         exclusive_page_id=page.id,
         exclusive_page_name=page.name,  # Preserve page name for history
         payment_stages=page.payment_stages,  # Dziedziczenie z ExclusivePage (3 lub 4)
-        is_guest_order=is_guest,
-        guest_name=guest_data.get('name') if is_guest else None,
-        guest_email=guest_data.get('email') if is_guest else None,
-        guest_phone=guest_data.get('phone') if is_guest else None,
         notes=order_note,
         total_amount=Decimal('0.00')
     )
@@ -207,12 +148,19 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     db.session.add(order)
     db.session.flush()  # Get order.id
 
-    # 6b. Generate guest view token for guest orders
-    if is_guest:
-        order.generate_guest_view_token()
-
     # 7. Create order items (exclusive orders do NOT affect global stock)
     total_amount = Decimal('0.00')
+
+    # Build set of set_product_ids for this page to detect full set items
+    from modules.exclusive.models import ExclusiveSection
+    set_product_ids = set()
+    set_sections = ExclusiveSection.query.filter_by(
+        exclusive_page_id=page.id,
+        section_type='set'
+    ).all()
+    for sec in set_sections:
+        if sec.set_product_id:
+            set_product_ids.add(sec.set_product_id)
 
     for reservation in reservations:
         product = reservation.product
@@ -227,7 +175,8 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
             quantity=quantity,
             price=price,
             total=item_total,
-            picked=False
+            picked=False,
+            is_full_set=(product.id in set_product_ids)
         )
 
         db.session.add(order_item)
@@ -237,9 +186,6 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
 
         # Update total
         total_amount += item_total
-
-    # Note: Full sets are now regular products added to reservations (cart)
-    # They are processed in the main loop above (section 7)
 
     # 8. Update order total
     order.total_amount = total_amount
@@ -268,7 +214,7 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
 
     # 11. Activity log
     log_activity(
-        user=current_user if current_user.is_authenticated else None,
+        user=current_user,
         action='order_created',
         entity_type='order',
         entity_id=order.id,
@@ -278,7 +224,6 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
             'total': float(order.total_amount),
             'is_exclusive': True,
             'exclusive_page_id': page.id,
-            'is_guest': is_guest,
             'items_count': total_items_count
         }
     )
@@ -288,15 +233,56 @@ def place_exclusive_order(page, session_id, guest_data=None, order_note=None):
     EmailManager.notify_order_confirmation(order)
     EmailManager.notify_admin_new_order(order)
 
+    # 12b. Emit Socket.IO events to LIVE dashboard
+    try:
+        from modules.exclusive.socket_events import emit_new_order, emit_stats_update
+        from utils.exclusive_closure import get_live_summary
+
+        # Build order data for real-time display
+        order_items_list = []
+        for item in order.items:
+            order_items_list.append({
+                'product_name': item.product_name,
+                'quantity': item.quantity,
+                'price': float(item.price),
+                'total': float(item.total),
+                'is_full_set': item.is_full_set,
+                'is_custom': item.is_custom,
+            })
+
+        emit_new_order(page.id, {
+            'id': order.id,
+            'order_number': order.order_number,
+            'customer_name': f'{current_user.first_name} {current_user.last_name}'.strip() or current_user.email,
+            'customer_email': current_user.email,
+            'total_amount': float(order.total_amount),
+            'items_count': total_items_count,
+            'items': order_items_list,
+            'created_at': order.created_at.isoformat() if order.created_at else None,
+        })
+
+        # Get full live summary (stats + sets + products) and emit
+        live = get_live_summary(page.id, include_financials=True)
+
+        emit_stats_update(page.id, {
+            'total_orders': live['total_orders'],
+            'unique_customers': live['unique_customers'],
+            'total_revenue': live.get('total_revenue', 0),
+            'avg_order_value': live.get('avg_order_value', 0),
+            'total_items': live['total_items'],
+            'active_reservations': live['active_reservations'],
+            'sets': live['sets'],
+            'products_aggregated': live['products_aggregated'],
+        })
+    except Exception as e:
+        # Don't fail the order if Socket.IO emit fails
+        import logging
+        logging.getLogger(__name__).error(f"Socket.IO emit failed for page {page.id}: {str(e)}")
+
     # 13. Return success
     return True, {
         'order_id': order.id,
         'order_number': order.order_number,
         'total_amount': float(order.total_amount),
         'items_count': total_items_count,
-        'is_guest': is_guest,
-        'guest_view_token': order.guest_view_token if is_guest else None,
-        'guest_name': order.guest_name if is_guest else None,
-        'guest_email': order.guest_email if is_guest else None,
-        'guest_phone': order.guest_phone if is_guest else None
     }

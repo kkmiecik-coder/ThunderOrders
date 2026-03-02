@@ -219,10 +219,37 @@
     padding: 0;
 }
 
+/* Column headers */
+.od-products__header {
+    display: none;
+}
+
+.od-products__header--with-set {
+    display: grid;
+    grid-template-columns: 56px 1fr minmax(40px, auto) minmax(44px, auto) minmax(70px, auto) minmax(80px, auto);
+    gap: var(--space-4);
+    align-items: center;
+    padding: var(--space-2) var(--space-5);
+    border-bottom: 1px solid var(--card-border);
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+}
+
+.od-products__header--with-set .text-center { text-align: center; }
+.od-products__header--with-set .text-right { text-align: right; }
+
+[data-theme="dark"] .od-products__header--with-set {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+    color: rgba(255, 255, 255, 0.45);
+}
+
 .od-product-row {
     display: grid;
     grid-template-columns: 56px 1fr auto auto auto;
-    gap: var(--space-3);
+    gap: var(--space-4);
     align-items: center;
     padding: var(--space-3) var(--space-5);
     border-bottom: 1px solid var(--card-border);
@@ -282,6 +309,7 @@
     padding: 2px 10px;
     border-radius: 8px;
     white-space: nowrap;
+    justify-self: center;
 }
 
 [data-theme="dark"] .od-product-row__qty {
@@ -294,6 +322,7 @@
     color: var(--text-secondary);
     white-space: nowrap;
     text-align: right;
+    justify-self: end;
 }
 
 .od-product-row__total {
@@ -303,6 +332,94 @@
     white-space: nowrap;
     text-align: right;
     min-width: 80px;
+    justify-self: end;
+}
+
+/* Grid with Set column */
+.od-product-row--with-set {
+    grid-template-columns: 56px 1fr minmax(40px, auto) minmax(44px, auto) minmax(70px, auto) minmax(80px, auto);
+}
+
+.od-product-row__set {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Set badge variants */
+.od-set-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 12px;
+}
+
+.od-set-badge--ok {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #4CAF50;
+    color: #fff;
+}
+
+.od-set-badge--fail {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #F44336;
+    color: #fff;
+}
+
+.od-set-badge--prob {
+    min-width: 36px;
+    height: 24px;
+    padding: 0 8px;
+    background-color: #FF9800;
+    color: #fff;
+}
+
+.od-set-badge--full {
+    background-color: #4CAF50;
+}
+
+.od-set-badge--na {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: #9E9E9E;
+    color: #fff;
+}
+
+/* Dark mode set badges */
+[data-theme="dark"] .od-set-badge--ok {
+    background-color: rgba(76, 175, 80, 0.25);
+    color: #66BB6A;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+[data-theme="dark"] .od-set-badge--fail {
+    background-color: rgba(244, 67, 54, 0.25);
+    color: #EF5350;
+    border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+[data-theme="dark"] .od-set-badge--prob {
+    background-color: rgba(255, 152, 0, 0.2);
+    color: #FFB74D;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+[data-theme="dark"] .od-set-badge--full {
+    background-color: rgba(76, 175, 80, 0.25);
+    color: #66BB6A;
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+[data-theme="dark"] .od-set-badge--na {
+    background-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
 }
 
 /* ===================================================================
@@ -1043,12 +1160,21 @@
         font-size: 1.5rem;
     }
 
+    /* Hide column headers on mobile */
+    .od-products__header--with-set {
+        display: none;
+    }
+
     /* Products as cards */
     .od-product-row {
         grid-template-columns: 44px 1fr;
         grid-template-rows: auto auto;
         gap: var(--space-2);
         padding: var(--space-3) var(--space-4);
+    }
+
+    .od-product-row--with-set {
+        grid-template-columns: 44px 1fr;
     }
 
     .od-product-row__img {
@@ -1060,6 +1186,11 @@
 
     .od-product-row__info {
         grid-column: 2;
+    }
+
+    .od-product-row__set {
+        grid-column: 2;
+        justify-content: flex-start;
     }
 
     .od-product-row__qty,

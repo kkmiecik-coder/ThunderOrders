@@ -16,7 +16,7 @@ Models for orders management:
 """
 
 from datetime import datetime, timezone, timedelta
-import secrets
+
 from extensions import db
 
 
@@ -188,13 +188,6 @@ class Order(db.Model):
     exclusive_page_name = db.Column(db.String(200), nullable=True)  # Preserved page name for history
     payment_stages = db.Column(db.Integer, nullable=True)  # Dziedziczone z ExclusivePage (2 lub 3)
 
-    # Guest order fields
-    is_guest_order = db.Column(db.Boolean, default=False)
-    guest_email = db.Column(db.String(255), nullable=True)
-    guest_name = db.Column(db.String(200), nullable=True)
-    guest_phone = db.Column(db.String(20), nullable=True)
-    guest_view_token = db.Column(db.String(64), nullable=True, unique=True, index=True)  # Token for guest order tracking
-
     # Shipping request
     shipping_requested = db.Column(db.Boolean, default=False)
     shipping_requested_at = db.Column(db.DateTime, nullable=True)
@@ -250,19 +243,15 @@ class Order(db.Model):
 
     @property
     def customer_name(self):
-        """Returns customer name (user or guest)"""
-        if self.is_guest_order:
-            return self.guest_name
-        elif self.user:
+        """Returns customer name"""
+        if self.user:
             return self.user.full_name
         return 'Unknown'
 
     @property
     def customer_email(self):
-        """Returns customer email (user or guest)"""
-        if self.is_guest_order:
-            return self.guest_email
-        elif self.user:
+        """Returns customer email"""
+        if self.user:
             return self.user.email
         return None
 
@@ -910,19 +899,6 @@ class Order(db.Model):
                 total += Decimal(str(item.total))
         self.total_amount = total
 
-    def generate_guest_view_token(self):
-        """Generates a unique token for guest order tracking"""
-        self.guest_view_token = secrets.token_urlsafe(32)
-        return self.guest_view_token
-
-    @classmethod
-    def get_by_guest_token(cls, token):
-        """Find order by guest view token"""
-        if not token:
-            return None
-        return cls.query.filter_by(guest_view_token=token, is_guest_order=True).first()
-
-
 class OrderItem(db.Model):
     """
     Order line items - products in order.
@@ -1000,8 +976,8 @@ class OrderItem(db.Model):
     @property
     def product_image_url(self):
         """Returns primary product image URL (or placeholder for custom products)"""
-        # For custom products (full sets, manually added), use a special placeholder
-        if self.is_custom or self.is_full_set:
+        # For custom products without a linked product, use a special placeholder
+        if (self.is_custom or self.is_full_set) and not self.product_id:
             return '/static/img/placeholders/custom-product.svg'
         if self.product and self.product.primary_image:
             path = self.product.primary_image.path_compressed

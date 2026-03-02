@@ -61,13 +61,6 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
-                        <a href="#"
-                           class="sidebar-sublink disabled"
-                           data-tooltip="Standardowe (wkrótce)">
-                            <span class="sidebar-text">Standardowe</span>
-                        </a>
-                    </li>
-                    <li class="sidebar-subitem">
                         <a href="{{ url_for('admin.exclusive_list') }}"
                            class="sidebar-sublink {% if request.endpoint == 'admin.exclusive_list' or request.endpoint == 'admin.exclusive_edit' %}active{% endif %}"
                            data-tooltip="Exclusive">

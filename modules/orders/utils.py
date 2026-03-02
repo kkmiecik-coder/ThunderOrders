@@ -261,7 +261,6 @@ def get_order_summary(order):
         'total_amount': float(order.total_amount),
         'items_count': order.items_count,
         'created_at': order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'is_guest': order.is_guest_order,
         'tracking_number': order.tracking_number,
         'courier': order.courier,
     }

@@ -920,11 +920,6 @@
     letter-spacing: 0.5px;
 }
 
-.badge-guest {
-    background: #9E9E9E; /* Gray-400 */
-    color: white;
-}
-
 /* Status badges */
 .badge-info {
     background: #2196F3;
@@ -1581,14 +1576,6 @@
 
 .customer-link:hover {
     text-decoration: underline;
-}
-
-.badge-guest-sm {
-    font-size: 0.65rem;
-    padding: 0.15rem 0.4rem;
-    background: #E0E0E0;
-    color: #616161;
-    border-radius: 3px;
 }
 
 .customer-source {
@@ -2353,11 +2340,6 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .badge-guest {
-    background: rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.8);
-}
-
 /* Transitions for smooth theme switching */
 .status-sidebar,
 .status-sidebar-header,
@@ -2451,11 +2433,6 @@
 
 [data-theme="dark"] .customer-link {
     color: #f093fb;
-}
-
-[data-theme="dark"] .badge-guest-sm {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="dark"] .customer-source {
@@ -2893,7 +2870,6 @@
 }
 
 .item-full-set {
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.08) 0%, rgba(123, 44, 191, 0.08) 100%);
     border-radius: 4px;
     padding: 2px 4px;
     margin: 2px 0;
@@ -2933,7 +2909,6 @@
    ==================== */
 
 [data-theme="dark"] .item-full-set {
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.15) 0%, rgba(123, 44, 191, 0.15) 100%);
 }
 
 [data-theme="dark"] .item-custom {

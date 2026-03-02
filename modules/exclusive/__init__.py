@@ -8,3 +8,6 @@ from flask import Blueprint
 exclusive_bp = Blueprint('exclusive', __name__, url_prefix='/exclusive')
 
 from . import routes
+
+# Import SocketIO event handlers for exclusive LIVE dashboard
+from . import socket_events

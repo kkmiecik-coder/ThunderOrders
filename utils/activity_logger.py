@@ -109,8 +109,7 @@ def log_order_created(user, order):
             'order_number': order.order_number,
             'total_amount': float(order.total_amount),
             'status': order.status,
-            'is_exclusive': order.is_exclusive,
-            'is_guest_order': order.is_guest_order
+            'is_exclusive': order.is_exclusive
         }
     )
 

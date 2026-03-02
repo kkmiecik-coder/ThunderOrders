@@ -137,7 +137,7 @@ def payment_confirmation_approve(confirmation_id):
         }
     )
 
-    # Wyślij email do klienta (obsługuje też gości przez order.customer_email)
+    # Wyślij email do klienta
     from utils.email_manager import EmailManager
     EmailManager.notify_payment_approved(order, confirmation)
 
@@ -316,7 +316,7 @@ def payment_confirmation_reject(confirmation_id):
         }
     )
 
-    # Wyślij email do klienta (obsługuje też gości przez order.customer_email)
+    # Wyślij email do klienta
     from utils.email_manager import EmailManager
     EmailManager.notify_payment_rejected(order, confirmation, rejection_reason)
 

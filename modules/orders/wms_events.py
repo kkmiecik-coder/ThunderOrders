@@ -380,8 +380,17 @@ def handle_disconnect():
     """
     Handle client disconnect.
     If mobile — mark phone_connected=False and notify the room.
+    Also handles exclusive visitor tracking cleanup.
     """
     sid = flask_request.sid
+
+    # Handle exclusive visitor disconnect (visitor counting for LIVE dashboard)
+    try:
+        from modules.exclusive.socket_events import handle_exclusive_disconnect
+        handle_exclusive_disconnect(sid)
+    except Exception:
+        pass
+
     client = connected_clients.pop(sid, None)
     if not client:
         return

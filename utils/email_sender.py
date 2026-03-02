@@ -175,7 +175,7 @@ def send_password_reset_email(user_email, reset_token, user_name):
     )
 
 
-def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_guest=False, guest_view_token=None, is_exclusive=False, payment_stages=None):
+def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_exclusive=False, payment_stages=None):
     """
     Wysyła potwierdzenie zamówienia do klienta
 
@@ -185,8 +185,6 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_number (str): Numer zamówienia (np. ST/00000001)
         order_total (float): Łączna kwota zamówienia
         order_items (list): Lista produktów w zamówieniu
-        is_guest (bool): Czy zamówienie złożone przez gościa
-        guest_view_token (str): Token do podglądu zamówienia dla gościa
         is_exclusive (bool): Czy zamówienie exclusive
         payment_stages (int): Liczba etapów płatności (3 lub 4)
     """
@@ -198,8 +196,6 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_number=order_number,
         order_total=order_total,
         order_items=order_items,
-        is_guest=is_guest,
-        guest_view_token=guest_view_token,
         is_exclusive=is_exclusive,
         payment_stages=payment_stages
     )
@@ -361,7 +357,7 @@ def send_payment_rejected_email(user_email, user_name, order_number, amount, rej
 
 
 def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email,
-                                      order_number, stage_names, is_guest, review_url):
+                                      order_number, stage_names, review_url):
     """
     Wysyła email do admina o nowym potwierdzeniu płatności do weryfikacji.
 
@@ -371,7 +367,6 @@ def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email
         customer_email (str): Email klienta
         order_number (str): Numer zamówienia
         stage_names (str): Nazwy etapów (np. 'Płatność za produkt, Cło i VAT')
-        is_guest (bool): Czy klient jest gościem
         review_url (str): URL do strony weryfikacji płatności
     """
     return send_email(
@@ -382,13 +377,12 @@ def send_admin_payment_uploaded_email(admin_email, customer_name, customer_email
         customer_email=customer_email,
         order_number=order_number,
         stage_names=stage_names,
-        is_guest=is_guest,
         review_url=review_url
     )
 
 
 def send_admin_new_order_email(admin_email, customer_name, customer_email,
-                               order_number, page_name, is_guest, items,
+                               order_number, page_name, items,
                                order_total, order_detail_url, created_at):
     """
     Wysyła email do admina o nowym zamówieniu exclusive.
@@ -399,7 +393,6 @@ def send_admin_new_order_email(admin_email, customer_name, customer_email,
         customer_email (str): Email klienta
         order_number (str): Numer zamówienia
         page_name (str): Nazwa strony Exclusive
-        is_guest (bool): Czy klient jest gościem
         items (list): Lista dict z product_name, quantity, price, total
         order_total (float): Suma zamówienia
         order_detail_url (str): URL do szczegółów zamówienia (admin)
@@ -413,7 +406,6 @@ def send_admin_new_order_email(admin_email, customer_name, customer_email,
         customer_email=customer_email,
         order_number=order_number,
         page_name=page_name,
-        is_guest=is_guest,
         items=items,
         order_total=order_total,
         order_detail_url=order_detail_url,

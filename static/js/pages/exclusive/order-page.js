@@ -20,12 +20,9 @@ function trackProductAddedToCart(productName, productId, price, quantity) {
     }
 }
 
-function trackOrderSubmitted(orderNumber, totalAmount, isGuest) {
+function trackOrderSubmitted(orderNumber, totalAmount) {
     // Track order placement
-    if (isGuest && typeof window.trackGuestOrderPlaced === 'function') {
-        window.trackGuestOrderPlaced(orderNumber, totalAmount);
-    } else if (!isGuest && typeof window.trackOrderPlaced === 'function') {
-        // Count items in cart
+    if (typeof window.trackOrderPlaced === 'function') {
         const itemsCount = cart.reduce((sum, item) => sum + item.qty, 0);
         window.trackOrderPlaced(orderNumber, totalAmount, itemsCount, 'exclusive');
     }
@@ -453,12 +450,12 @@ function updateQty(input) {
 }
 
 function openOrderModal() {
-    // This will be set by template
     if (window.isAuthenticated) {
         const modal = document.getElementById('orderModal');
         modal.classList.add('active');
     } else {
-        const modal = document.getElementById('guestChoiceModal');
+        // Not authenticated - show login modal
+        const modal = document.getElementById('loginModal');
         modal.classList.add('active');
     }
 }
@@ -471,30 +468,6 @@ function closeOrderModal() {
     }, 350);
 }
 
-function closeGuestChoiceModal() {
-    const modal = document.getElementById('guestChoiceModal');
-    modal.classList.add('closing');
-    setTimeout(() => {
-        modal.classList.remove('active', 'closing');
-    }, 350);
-}
-
-function continueAsGuest() {
-    closeGuestChoiceModal();
-    setTimeout(() => {
-        const modal = document.getElementById('orderModal');
-        modal.classList.add('active');
-    }, 400);
-}
-
-function showLoginModal() {
-    closeGuestChoiceModal();
-    setTimeout(() => {
-        const modal = document.getElementById('loginModal');
-        modal.classList.add('active');
-    }, 400);
-}
-
 function closeLoginModal() {
     const modal = document.getElementById('loginModal');
     modal.classList.add('closing');
@@ -504,14 +477,6 @@ function closeLoginModal() {
         errorEl.style.display = 'none';
         errorEl.textContent = '';
     }, 350);
-}
-
-function backToGuestChoice() {
-    closeLoginModal();
-    setTimeout(() => {
-        const modal = document.getElementById('guestChoiceModal');
-        modal.classList.add('active');
-    }, 400);
 }
 
 // Show/hide login overlay
@@ -618,7 +583,6 @@ function updateOrderModalForLoggedInUser(user) {
 
     // Update global state
     window.isAuthenticated = true;
-    window.isGuest = false;
 }
 
 async function handleLogin(event) {
@@ -722,26 +686,6 @@ async function submitOrder() {
             order_note: orderNote || null
         };
 
-        // If guest, gather guest data (set by template)
-        if (window.isGuest) {
-            const guestName = document.getElementById('guestName').value.trim();
-            const guestEmail = document.getElementById('guestEmail').value.trim();
-            const guestPhone = document.getElementById('guestPhone').value.trim();
-
-            if (!guestName || !guestEmail || !guestPhone) {
-                alert('Proszę wypełnić wszystkie wymagane pola.');
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                return;
-            }
-
-            requestData.guest_data = {
-                name: guestName,
-                email: guestEmail,
-                phone: guestPhone
-            };
-        }
-
         // Order URL set by template
         const response = await fetch(window.placeOrderUrl, {
             method: 'POST',
@@ -756,7 +700,7 @@ async function submitOrder() {
         if (data.success) {
             // GA4: Track order submission
             const totalAmount = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
-            trackOrderSubmitted(data.order_number, totalAmount, window.isGuest || false);
+            trackOrderSubmitted(data.order_number, totalAmount);
 
             // Clear localStorage reservation (storage key set by template)
             localStorage.removeItem(window.reservationStorageKey);
@@ -780,12 +724,8 @@ async function submitOrder() {
                 errorMessage = `Produkt "${data.product_name}" nie ma wystarczającej ilości w magazynie.`;
             } else if (data.error === 'page_not_active') {
                 errorMessage = 'Sprzedaż nie jest już aktywna.';
-            } else if (data.error === 'email_exists') {
-                errorMessage = data.message;
-                btn.disabled = false;
-                btn.innerHTML = originalText;
-                showEmailExistsModal(data.message);
-                return;
+            } else if (data.error === 'login_required') {
+                errorMessage = data.message || 'Musisz się zalogować, aby złożyć zamówienie.';
             } else if (data.message) {
                 errorMessage = data.message;
             }
@@ -830,28 +770,6 @@ function closeSuccessModal() {
 function redirectToOrders() {
     // URL set by template
     window.location.href = window.redirectAfterOrderUrl;
-}
-
-function showEmailExistsModal(message) {
-    const modal = document.getElementById('emailExistsModal');
-    const messageEl = document.getElementById('emailExistsMessage');
-    if (messageEl) {
-        messageEl.textContent = message;
-    }
-    modal.classList.add('active');
-}
-
-function closeEmailExistsModal() {
-    const modal = document.getElementById('emailExistsModal');
-    modal.classList.add('closing');
-    setTimeout(() => {
-        modal.classList.remove('active', 'closing');
-    }, 350);
-}
-
-function redirectToLogin() {
-    const currentUrl = window.location.href;
-    window.location.href = '/auth/login?next=' + encodeURIComponent(currentUrl);
 }
 
 // Initialize button states on page load

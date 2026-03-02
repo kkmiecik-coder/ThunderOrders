@@ -106,14 +106,6 @@ document.getElementById('guest-order-form').addEventListener('submit', function(
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Track zamówienia gościa
-            if (typeof window.trackGuestOrderPlaced === 'function') {
-                window.trackGuestOrderPlaced(
-                    data.order_number,
-                    data.total_amount
-                );
-            }
-
             // Pokazanie strony "Dziękujemy"...
             showThankYouPage(data.order_number);
         }

@@ -175,37 +175,7 @@
                                 </tr>
                             </table>
 
-                            {% if is_guest and guest_view_token %}
-                            <!-- GUEST USER - Tracking link and registration -->
-                            <p style="margin: 30px 0 10px 0; font-size: 14px; color: #616161;">
-                                Status zamówienia możesz sprawdzić klikając poniższy przycisk:
-                            </p>
-
-                            <!-- Check Order Button -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
-                                <tr>
-                                    <td align="center">
-                                        <a href="{{ url_for('orders.guest_track', token=guest_view_token, _external=True) }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
-                                            Sprawdź swoje zamówienie
-                                        </a>
-                                    </td>
-                                </tr>
-                            </table>
-
-                            <!-- Separator -->
-                            <p style="margin: 30px 0; text-align: center; font-size: 14px; color: #9E9E9E;">
-                                ─────────── lub ───────────
-                            </p>
-
-                            <!-- Register Link -->
-                            <p style="margin: 20px 0; text-align: center; font-size: 16px; color: #212121;">
-                                <a href="{{ url_for('auth.register', _external=True) }}" style="color: #7B2CBF; text-decoration: underline; font-weight: 600;">
-                                    Zarejestruj się
-                                </a> i zyskaj dostęp do pełnego panelu klienta
-                            </p>
-
-                            {% else %}
-                            <!-- LOGGED IN USER - Panel link -->
+                            <!-- Panel link -->
                             <p style="margin: 30px 0 10px 0; font-size: 14px; color: #616161;">
                                 Status zamówienia możesz sprawdzić w panelu klienta:
                             </p>
@@ -214,7 +184,6 @@
                                     Panel zamówień
                                 </a>
                             </p>
-                            {% endif %}
 
                             <p style="margin: 30px 0 0 0; font-size: 16px; color: #212121; font-weight: 600;">
                                 Dziękujemy za zaufanie!

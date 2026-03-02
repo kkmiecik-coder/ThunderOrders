@@ -471,7 +471,6 @@ def global_search():
             orders = Order.query.filter(
                 db.or_(
                     Order.order_number.ilike(f'%{query}%'),
-                    Order.guest_name.ilike(f'%{query}%'),
                     Order.tracking_number.ilike(f'%{query}%'),
                     Order.shipping_name.ilike(f'%{query}%')
                 )

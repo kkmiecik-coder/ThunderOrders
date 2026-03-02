@@ -309,4 +309,22 @@
     }, { once: true });
 })();
 </script>
+
+<!-- Socket.IO for visitor tracking -->
+<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script>
+(function() {
+    try {
+        var socket = io({ transports: ['websocket', 'polling'] });
+        socket.on('connect', function() {
+            socket.emit('join_exclusive', {
+                page_id: {{ page.id }},
+                page_type: 'countdown'
+            });
+        });
+    } catch (e) {
+        console.log('Socket.IO not available:', e);
+    }
+})();
+</script>
 {% endblock %}

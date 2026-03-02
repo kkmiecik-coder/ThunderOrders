@@ -403,10 +403,7 @@
                         <div class="customer-cell-new">
                             <div class="customer-name-row">
                                 <span class="country-flag" data-tooltip="{{ order.shipping_country or 'Polska' }}">{{ order.shipping_country_flag }}</span>
-                                {% if order.is_guest_order %}
-                                    <span class="customer-name">{{ order.guest_name }}</span>
-                                    <span class="badge badge-guest-sm">Gość</span>
-                                {% elif order.user %}
+                                {% if order.user %}
                                     <a href="{{ url_for('admin.client_detail', id=order.user.id) }}" class="customer-name customer-link">
                                         {{ order.user.full_name }}
                                     </a>
@@ -468,9 +465,7 @@
                             {# NORMALNIE #}
                             <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
                                 <div class="item-thumb-wrapper">
-                                    {% if item.is_full_set %}
-                                    <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
-                                    {% elif item.is_custom %}
+                                    {% if item.is_custom and not item.product_id %}
                                     <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
                                     {% else %}
                                     <img src="{{ item.product_image_url }}" alt="" class="item-thumb">
@@ -533,9 +528,7 @@
                                 {# NORMALNIE #}
                                 <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
                                     <div class="item-thumb-wrapper">
-                                        {% if item.is_full_set %}
-                                        <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
-                                        {% elif item.is_custom %}
+                                        {% if item.is_custom and not item.product_id %}
                                         <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
                                         {% else %}
                                         <img src="{{ item.product_image_url }}" alt="" class="item-thumb">

@@ -20,9 +20,8 @@ html:has(.exclusive-page-body) {
 }
 
 .countdown-page {
-    min-height: 100vh;
-    min-height: 100dvh;
-    min-height: -webkit-fill-available;
+    height: 100vh;
+    height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -33,6 +32,7 @@ html:has(.exclusive-page-body) {
     padding-right: calc(var(--space-6) + env(safe-area-inset-right, 0px));
     position: relative;
     z-index: 1;
+    overflow: hidden;
 }
 
 /* ==========================================

@@ -511,7 +511,7 @@ def get_page_summary(page_id, include_financials=True):
     # Podstawowe statystyki
     total_orders = len(orders)
     unique_customers = len(set(
-        order.guest_email or order.user_id for order in orders
+        order.user_id for order in orders if order.user_id
     ))
 
     # Przychód liczony tylko z produktów zrealizowanych
@@ -609,7 +609,7 @@ def get_page_summary(page_id, include_financials=True):
             'order_number': order.order_number,
             'customer_name': order.customer_name,
             'customer_email': order.customer_email,
-            'customer_phone': order.guest_phone if order.is_guest_order else (order.user.phone if order.user else None),
+            'customer_phone': order.user.phone if order.user else None,
             'created_at': order.created_at,
             'total_amount': fulfilled_amount,  # Tylko zrealizowane produkty
             'order_items': items_details,
@@ -714,6 +714,228 @@ def get_page_summary(page_id, include_financials=True):
         'total_items': total_items,
         'fulfillment_pct': fulfillment_pct,
         'orders_by_date': orders_by_date_list,
+        'order_timestamps': order_timestamps,
+        'products_aggregated': products_aggregated,
+        'top_products': products_aggregated[:5],
+    }
+
+    if include_financials:
+        result['total_revenue'] = total_revenue
+        result['avg_order_value'] = round(total_revenue / total_orders, 2) if total_orders > 0 else 0
+
+    return result
+
+
+def get_live_summary(page_id, include_financials=True):
+    """
+    Generuje podsumowanie LIVE dla aktywnej/wstrzymanej/zakończonej strony Exclusive.
+    W odróżnieniu od get_page_summary() — nie filtruje po is_set_fulfilled
+    i nie wymaga is_fully_closed.
+
+    Args:
+        page_id: ID strony Exclusive
+        include_financials: Czy uwzględniać dane finansowe (tylko Admin)
+
+    Returns:
+        dict: Podsumowanie LIVE
+    """
+    from collections import Counter
+
+    page = ExclusivePage.query.get(page_id)
+    if not page:
+        raise ValueError(f"Strona Exclusive o ID {page_id} nie istnieje")
+
+    orders = Order.query.filter_by(exclusive_page_id=page_id).order_by(Order.created_at.asc()).all()
+
+    # Podstawowe statystyki
+    total_orders = len(orders)
+    unique_customers = len(set(
+        order.user_id for order in orders if order.user_id
+    ))
+
+    # Revenue = suma WSZYSTKICH itemów (bez filtrowania po fulfillment)
+    total_revenue = 0.0
+    total_items = 0
+    for order in orders:
+        for item in order.items:
+            total_revenue += float(item.total) if item.total else 0
+            total_items += item.quantity
+
+    # Aktywne rezerwacje
+    from modules.exclusive.models import ExclusiveReservation
+    active_reservations = ExclusiveReservation.query.filter_by(
+        exclusive_page_id=page_id
+    ).count()
+
+    # Aktywne rezerwacje per product (do macierzy setów)
+    import time as _time
+    now_ts = int(_time.time())
+    active_reservations_by_product = {}
+    active_res_rows = db.session.query(
+        ExclusiveReservation.product_id,
+        db.func.sum(ExclusiveReservation.quantity)
+    ).filter(
+        ExclusiveReservation.exclusive_page_id == page_id,
+        ExclusiveReservation.expires_at > now_ts
+    ).group_by(ExclusiveReservation.product_id).all()
+    for pid, qty in active_res_rows:
+        active_reservations_by_product[pid] = int(qty)
+
+    # Sety — macierz slotów (ordered vs available)
+    sets_info = []
+    set_sections = page.sections.filter_by(section_type='set').all()
+
+    for section in set_sections:
+        set_items = section.get_set_items_ordered()
+        max_sets = section.set_max_sets or 0
+        products_matrix = []
+
+        for item in set_items:
+            for product in item.get_products():
+                # Policz zamówione sztuki tego produktu
+                ordered_qty = db.session.query(
+                    db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+                ).filter(
+                    OrderItem.product_id == product.id,
+                    OrderItem.order_id.in_(
+                        db.session.query(Order.id).filter_by(exclusive_page_id=page_id)
+                    )
+                ).scalar()
+                ordered_qty = int(ordered_qty)
+
+                # Slots: chronologiczna alokacja — 1 zamówienie = Set 1, 2 = Set 2 itd.
+                slots = [i < ordered_qty for i in range(max_sets)] if max_sets > 0 else []
+
+                reserved_qty = active_reservations_by_product.get(product.id, 0)
+
+                products_matrix.append({
+                    'product_id': product.id,
+                    'product_name': product.name,
+                    'quantity_per_set': item.quantity_per_set,
+                    'total_ordered': ordered_qty,
+                    'reserved': reserved_qty,
+                    'slots': slots,
+                    'is_full_set': False,
+                })
+
+        # Full set product (set_product_id) — dodatkowy wiersz
+        if section.set_product_id and section.set_product:
+            full_set_qty = db.session.query(
+                db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+            ).filter(
+                OrderItem.product_id == section.set_product_id,
+                OrderItem.order_id.in_(
+                    db.session.query(Order.id).filter_by(exclusive_page_id=page_id)
+                )
+            ).scalar()
+            full_set_qty = int(full_set_qty)
+
+            full_set_reserved = active_reservations_by_product.get(section.set_product_id, 0)
+
+            products_matrix.append({
+                'product_id': section.set_product_id,
+                'product_name': 'Set produktów',
+                'quantity_per_set': 1,
+                'total_ordered': full_set_qty,
+                'reserved': full_set_reserved,
+                'slots': [full_set_qty],  # single value for display
+                'is_full_set': True,
+            })
+
+        # Oblicz kompletne sety (minimum slotów sprzedanych per produkt)
+        if products_matrix:
+            non_full_set = [p for p in products_matrix if not p['is_full_set']]
+            if non_full_set:
+                ordered_sets = min(
+                    p['total_ordered'] // p['quantity_per_set']
+                    for p in non_full_set
+                    if p['quantity_per_set'] > 0
+                ) if any(p['quantity_per_set'] > 0 for p in non_full_set) else 0
+            else:
+                ordered_sets = 0
+        else:
+            ordered_sets = 0
+
+        sets_info.append({
+            'section_id': section.id,
+            'set_name': section.set_name or 'Bez nazwy',
+            'set_image': section.set_image,
+            'set_max_sets': max_sets,
+            'ordered_sets': ordered_sets,
+            'progress_pct': round((ordered_sets / max_sets) * 100, 1) if max_sets > 0 else 0,
+            'products': products_matrix,
+        })
+
+    # Order timestamps (do Chart.js)
+    order_timestamps = []
+    for order in orders:
+        if order.created_at:
+            order_timestamps.append(order.created_at.isoformat())
+
+    # Products aggregated
+    products_agg = {}
+    for order in orders:
+        for item in order.items:
+            key = item.product_id if item.product_id else f"custom_{item.product_name}"
+
+            if key not in products_agg:
+                products_agg[key] = {
+                    'product_id': item.product_id,
+                    'product_name': item.product_name,
+                    'total_quantity': 0,
+                    'revenue': 0.0,
+                    'order_count': 0,
+                    'is_custom': item.is_custom,
+                    'is_full_set': item.is_full_set,
+                }
+
+            p = products_agg[key]
+            p['total_quantity'] += item.quantity
+            p['order_count'] += 1
+
+            if include_financials:
+                p['revenue'] += float(item.total) if item.total else 0
+
+    products_aggregated = sorted(products_agg.values(), key=lambda x: x['total_quantity'], reverse=True)
+
+    # Lista zamówień
+    orders_list = []
+    for order in orders:
+        items_details = []
+        for item in order.items:
+            items_details.append({
+                'product_id': item.product_id,
+                'product_name': item.product_name,
+                'quantity': item.quantity,
+                'price': float(item.price) if item.price else 0,
+                'total': float(item.total) if item.total else 0,
+                'is_full_set': item.is_full_set,
+                'is_custom': item.is_custom,
+            })
+
+        orders_list.append({
+            'order_id': order.id,
+            'order_number': order.order_number,
+            'customer_name': order.customer_name,
+            'customer_email': order.customer_email,
+            'customer_phone': order.user.phone if order.user else None,
+            'created_at': order.created_at,
+            'total_amount': float(order.total_amount) if order.total_amount else 0,
+            'order_items': items_details,
+        })
+
+    result = {
+        'page_id': page_id,
+        'page_name': page.name,
+        'status': page.status,
+        'starts_at': page.starts_at,
+        'ends_at': page.ends_at,
+        'total_orders': total_orders,
+        'unique_customers': unique_customers,
+        'total_items': total_items,
+        'active_reservations': active_reservations,
+        'sets': sets_info,
+        'orders': orders_list,
         'order_timestamps': order_timestamps,
         'products_aggregated': products_aggregated,
         'top_products': products_aggregated[:5],

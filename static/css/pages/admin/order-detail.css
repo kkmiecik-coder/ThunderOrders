@@ -287,6 +287,24 @@ code {
     color: #fff;
 }
 
+.set-badge-prob {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 24px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0 6px;
+    background-color: #FF9800;
+    color: #fff;
+}
+
+.set-badge-prob--full {
+    background-color: #4CAF50;
+}
+
 /* Text outside set - red for unfulfilled items */
 .text-outside-set {
     color: #F44336 !important;
@@ -1050,11 +1068,6 @@ code {
     font-weight: 600;
 }
 
-.badge-guest {
-    background: #E3F2FD;
-    color: #1565C0;
-}
-
 .badge-internal {
     background: #FFC107;
     color: #212121;
@@ -1512,6 +1525,13 @@ code {
         font-size: 0.625rem;
         width: 18px;
         height: 18px;
+    }
+
+    .products-table .mobile-badges .set-badge-prob {
+        font-size: 0.625rem;
+        min-width: 30px;
+        height: 18px;
+        padding: 0 4px;
     }
 
     .products-table .product-name {
@@ -3551,11 +3571,6 @@ code {
 }
 
 /* Badges - Dark Mode */
-[data-theme="dark"] .badge-guest {
-    background: rgba(59, 130, 246, 0.2);
-    color: #60a5fa;
-}
-
 [data-theme="dark"] .badge-internal {
     background: rgba(251, 191, 36, 0.2);
     color: #fbbf24;
@@ -4197,6 +4212,18 @@ code {
     color: rgba(255, 255, 255, 0.8);
 }
 
+[data-theme="dark"] .set-badge-prob {
+    background-color: rgba(255, 152, 0, 0.25);
+    color: #FFB74D;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+[data-theme="dark"] .set-badge-prob--full {
+    background-color: rgba(76, 175, 80, 0.25);
+    color: #66BB6A;
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
 [data-theme="dark"] .text-outside-set {
     color: #EF5350 !important;
 }
@@ -4482,13 +4509,6 @@ code {
 }
 
 /* Full Set Row Styling */
-.full-set-row {
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.05) 0%, rgba(123, 44, 191, 0.05) 100%);
-}
-
-.full-set-row:hover {
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%);
-}
 
 /* Custom Product Row Styling */
 .custom-product-row {
@@ -4620,13 +4640,6 @@ code {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
-[data-theme="dark"] .full-set-row {
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%);
-}
-
-[data-theme="dark"] .full-set-row:hover {
-    background: linear-gradient(135deg, rgba(157, 78, 221, 0.15) 0%, rgba(123, 44, 191, 0.15) 100%);
-}
 
 [data-theme="dark"] .custom-product-row {
     background: linear-gradient(135deg, rgba(240, 147, 251, 0.08) 0%, rgba(245, 87, 108, 0.08) 100%);

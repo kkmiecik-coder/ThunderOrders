@@ -149,8 +149,6 @@ class EmailManager:
             current_app.logger.warning(f"Cannot send order confirmation for {order.order_number}: no email")
             return
 
-        is_guest = order.is_guest_order
-
         try:
             order_items = []
             for item in order.items:
@@ -167,8 +165,6 @@ class EmailManager:
                 order_number=order.order_number,
                 order_total=float(order.total_amount),
                 order_items=order_items,
-                is_guest=is_guest,
-                guest_view_token=order.guest_view_token if is_guest else None,
                 is_exclusive=order.is_exclusive,
                 payment_stages=order.payment_stages
             )
@@ -272,13 +268,8 @@ class EmailManager:
             current_app.logger.warning(f"Cannot send order completed email for {order.order_number}: no email")
             return
 
-        # URL różny dla gości i zalogowanych
-        if order.is_guest_order and order.guest_view_token:
-            order_detail_url = url_for('orders.guest_track',
-                                       token=order.guest_view_token, _external=True)
-        else:
-            order_detail_url = url_for('orders.client_detail',
-                                       order_id=order.id, _external=True)
+        order_detail_url = url_for('orders.client_detail',
+                                   order_id=order.id, _external=True)
 
         # Przygotuj listę produktów
         order_items = []
@@ -379,15 +370,9 @@ class EmailManager:
             current_app.logger.warning(f"Cannot send closure email for {order.order_number}: no email")
             return
 
-        # URL do wgrania dowodu - różny dla gości i zalogowanych
-        if order.is_guest_order and order.guest_view_token:
-            upload_payment_url = url_for('orders.guest_track',
-                                         token=order.guest_view_token,
-                                         _external=True) + '?action=upload_payment'
-        else:
-            upload_payment_url = url_for('orders.client_detail',
-                                         order_id=order.id,
-                                         _external=True) + '?action=upload_payment'
+        upload_payment_url = url_for('orders.client_detail',
+                                     order_id=order.id,
+                                     _external=True) + '?action=upload_payment'
 
         try:
             send_exclusive_closure_email(
@@ -652,11 +637,7 @@ class EmailManager:
             current_app.logger.warning(f"Cannot send cost email for {order.order_number}: no email")
             return
 
-        # Guest → link do guest_track, zalogowany → client_detail
-        if order.is_guest_order and order.guest_view_token:
-            detail_url = url_for('orders.guest_track', token=order.guest_view_token, _external=True)
-        else:
-            detail_url = url_for('orders.client_detail', order_id=order.id, _external=True)
+        detail_url = url_for('orders.client_detail', order_id=order.id, _external=True)
 
         try:
             send_cost_added_email(
@@ -695,7 +676,6 @@ class EmailManager:
             return
 
         review_url = url_for('admin.payment_confirmations_list', _external=True)
-        is_guest = order.is_guest_order
 
         for admin in admins:
             if not admin.email:
@@ -707,7 +687,6 @@ class EmailManager:
                     customer_email=order.customer_email,
                     order_number=order.order_number,
                     stage_names=stage_names,
-                    is_guest=is_guest,
                     review_url=review_url
                 )
             except Exception as e:
@@ -745,7 +724,6 @@ class EmailManager:
         } for item in order.items]
 
         page_name = order.exclusive_page.name if order.exclusive_page else (order.exclusive_page_name or 'Exclusive')
-        is_guest = order.is_guest_order
         created_at = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else ''
         order_total = float(order.total_amount or 0)
 
@@ -759,7 +737,6 @@ class EmailManager:
                     customer_email=order.customer_email,
                     order_number=order.order_number,
                     page_name=page_name,
-                    is_guest=is_guest,
                     items=items,
                     order_total=order_total,
                     order_detail_url=order_detail_url,
@@ -842,13 +819,8 @@ class EmailManager:
         if not unpaid_stages:
             return False
 
-        # URL różny dla gości i zalogowanych
-        if order.is_guest_order and order.guest_view_token:
-            order_detail_url = url_for('orders.guest_track',
-                                       token=order.guest_view_token, _external=True)
-        else:
-            order_detail_url = url_for('orders.client_detail',
-                                       order_id=order.id, _external=True)
+        order_detail_url = url_for('orders.client_detail',
+                                   order_id=order.id, _external=True)
 
         try:
             send_payment_reminder_email(
@@ -888,13 +860,8 @@ class EmailManager:
             current_app.logger.warning(f"Cannot send payment approved email for {order.order_number}: no email")
             return
 
-        # URL różny dla gości i zalogowanych
-        if order.is_guest_order and order.guest_view_token:
-            order_detail_url = url_for('orders.guest_track',
-                                       token=order.guest_view_token, _external=True)
-        else:
-            order_detail_url = url_for('orders.client_detail',
-                                       order_id=order.id, _external=True)
+        order_detail_url = url_for('orders.client_detail',
+                                   order_id=order.id, _external=True)
 
         stage_name = confirmation.stage_display_name
 
@@ -930,12 +897,7 @@ class EmailManager:
             return
 
         try:
-            # URL różny dla gości i zalogowanych
-            if order.is_guest_order and order.guest_view_token:
-                upload_url = url_for('orders.guest_track',
-                                     token=order.guest_view_token, _external=True)
-            else:
-                upload_url = url_for('client.payment_confirmations', _external=True)
+            upload_url = url_for('client.payment_confirmations', _external=True)
 
             stage_name = confirmation.stage_display_name
 

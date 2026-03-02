@@ -881,6 +881,51 @@ def exclusive_close_complete(page_id):
 # Podsumowanie zamkniętej strony Exclusive
 # ============================================
 
+@admin_bp.route('/exclusive/<int:page_id>/live')
+@login_required
+@mod_required
+def exclusive_live(page_id):
+    """
+    LIVE Dashboard — statystyki w czasie rzeczywistym dla aktywnych stron Exclusive.
+    Dostępny gdy strona NIE jest is_fully_closed.
+    """
+    from utils.exclusive_closure import get_live_summary
+
+    page = ExclusivePage.query.get_or_404(page_id)
+
+    # Tylko dla niezamkniętych stron
+    if page.is_fully_closed:
+        flash('Ta strona jest już zamknięta. Użyj podsumowania.', 'info')
+        return redirect(url_for('admin.exclusive_summary', page_id=page_id))
+
+    include_financials = current_user.role == 'admin'
+    summary = get_live_summary(page_id, include_financials=include_financials)
+
+    # Serializacja zamówień do JSON
+    orders_json_list = []
+    for o in summary.get('orders', []):
+        orders_json_list.append({
+            'order_id': o['order_id'],
+            'order_number': o['order_number'],
+            'customer_name': o['customer_name'] or '-',
+            'customer_email': o['customer_email'] or '',
+            'customer_phone': o.get('customer_phone') or '',
+            'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',
+            'total_amount': o['total_amount'],
+            'item_count': sum(item['quantity'] for item in o['order_items']),
+            'items': o['order_items'],
+        })
+
+    return render_template(
+        'admin/exclusive/live_dashboard.html',
+        title=f'LIVE: {page.name}',
+        page=page,
+        summary=summary,
+        include_financials=include_financials,
+        orders_json=json.dumps(orders_json_list, default=str),
+    )
+
+
 @admin_bp.route('/exclusive/<int:page_id>/summary')
 @login_required
 @mod_required
@@ -910,7 +955,7 @@ def exclusive_summary(page_id):
         orders_json_list.append({
             'order_id': o['order_id'],
             'order_number': o['order_number'],
-            'customer_name': o['customer_name'] or 'Gość',
+            'customer_name': o['customer_name'] or '-',
             'customer_email': o['customer_email'] or '',
             'customer_phone': o.get('customer_phone') or '',
             'created_at': o['created_at'].strftime('%d.%m.%Y %H:%M') if o['created_at'] else '',

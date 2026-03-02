@@ -620,7 +620,7 @@ def generate_orders_excel(orders, filename_prefix="zamowienia"):
         ws.cell(row=idx + 1, column=3, value=order.customer_name or "-")
         ws.cell(row=idx + 1, column=4, value=order.customer_email or "-")
 
-        phone = order.guest_phone if order.is_guest_order else (order.user.phone if order.user else None)
+        phone = order.user.phone if order.user else None
         ws.cell(row=idx + 1, column=5, value=phone or "-")
 
         ws.cell(row=idx + 1, column=6, value=order.status_display)

@@ -238,6 +238,11 @@ def reserve(token):
     )
 
     if success:
+        try:
+            from modules.exclusive.socket_events import emit_reservations_update
+            emit_reservations_update(page.id)
+        except Exception:
+            pass
         return jsonify({'success': True, **result})
     else:
         return jsonify({'success': False, **result}), 409
@@ -264,6 +269,13 @@ def release(token):
         product_id=product_id,
         quantity=quantity
     )
+
+    if success:
+        try:
+            from modules.exclusive.socket_events import emit_reservations_update
+            emit_reservations_update(page.id)
+        except Exception:
+            pass
 
     return jsonify({'success': True, **result})
 
@@ -427,9 +439,13 @@ def restore(token):
 def place_order(token):
     """
     Place an order from exclusive page
-    Supports both authenticated users and guests
+    Requires authenticated user
     """
     from modules.exclusive.place_order import place_exclusive_order
+
+    # Require login
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'login_required', 'message': 'Musisz się zalogować, aby złożyć zamówienie.'}), 401
 
     page = ExclusivePage.get_by_token(token)
     if not page:
@@ -441,7 +457,6 @@ def place_order(token):
 
     data = request.get_json()
     session_id = data.get('session_id')
-    guest_data = data.get('guest_data')
     order_note = data.get('order_note')
 
     if not session_id:
@@ -451,7 +466,6 @@ def place_order(token):
     success, result = place_exclusive_order(
         page=page,
         session_id=session_id,
-        guest_data=guest_data,
         order_note=order_note
     )
 
@@ -462,11 +476,6 @@ def place_order(token):
             'order_number': result.get('order_number'),
             'total_amount': result.get('total_amount'),
             'items_count': result.get('items_count'),
-            'is_guest': result.get('is_guest'),
-            'guest_view_token': result.get('guest_view_token'),
-            'guest_name': result.get('guest_name'),
-            'guest_email': result.get('guest_email'),
-            'guest_phone': result.get('guest_phone')
         }
         return jsonify({'success': True, **result})
     else:

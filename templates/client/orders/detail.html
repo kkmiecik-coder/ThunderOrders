@@ -35,8 +35,18 @@
                     <span class="od-pill">{{ order_items|length }}</span>
                 </div>
                 <div class="od-products__list">
+                    {% if has_set_sections %}
+                    <div class="od-products__header od-products__header--with-set">
+                        <span></span>
+                        <span>Produkt</span>
+                        <span class="text-center">Set</span>
+                        <span class="text-center">Ilość</span>
+                        <span class="text-right">Cena</span>
+                        <span class="text-right">Wartość</span>
+                    </div>
+                    {% endif %}
                     {% for item in order_items %}
-                    <div class="od-product-row">
+                    <div class="od-product-row {% if has_set_sections %}od-product-row--with-set{% endif %}">
                         <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="od-product-row__img" loading="lazy">
                         <div class="od-product-row__info">
                             <span class="od-product-row__name">{{ item.product_name }}</span>
@@ -48,6 +58,24 @@
                             </span>
                             {% endif %}
                         </div>
+                        {% if has_set_sections %}
+                        <span class="od-product-row__set">
+                            {% if item.is_set_fulfilled is not none %}
+                                {% if item.is_set_fulfilled %}
+                                <span class="od-set-badge od-set-badge--ok" title="Złapany">✓</span>
+                                {% else %}
+                                <span class="od-set-badge od-set-badge--fail" title="Poza setem">✗</span>
+                                {% endif %}
+                            {% elif item.is_full_set %}
+                                <span class="od-set-badge od-set-badge--prob od-set-badge--full" title="Komplet setu - gwarantowany">100%</span>
+                            {% elif set_probabilities.get(item.product_id) %}
+                                {% set prob = set_probabilities[item.product_id] %}
+                                <span class="od-set-badge od-set-badge--prob" title="{{ prob.set_name }} - {{ prob.probability }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                            {% else %}
+                                <span class="od-set-badge od-set-badge--na">—</span>
+                            {% endif %}
+                        </span>
+                        {% endif %}
                         <span class="od-product-row__qty">×{{ item.quantity }}</span>
                         <span class="od-product-row__price">{{ "%.2f"|format(item.price) }}&nbsp;PLN</span>
                         <span class="od-product-row__total">{{ "%.2f"|format(item.total) }}&nbsp;PLN</span>

@@ -203,11 +203,14 @@ async function bulkDeleteRequests() {
             })
         });
 
+        const data = await response.json();
         if (response.ok) {
+            if (data.skipped_count && data.skipped_count > 0) {
+                alert(data.message);
+            }
             window.location.reload();
         } else {
-            const data = await response.json();
-            alert(data.error || 'Błąd podczas usuwania zleceń');
+            alert(data.message || data.error || 'Błąd podczas usuwania zleceń');
         }
     } catch (error) {
         console.error('Error deleting requests:', error);
@@ -612,12 +615,12 @@ async function cancelShippingRequest() {
             }
         });
 
-        if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
             closeShippingRequestModal();
             window.location.reload();
         } else {
-            const data = await response.json();
-            alert(data.error || 'Błąd podczas anulowania zlecenia');
+            alert(data.message || data.error || 'Błąd podczas anulowania zlecenia');
         }
     } catch (error) {
         console.error('Error canceling shipping request:', error);

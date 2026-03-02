@@ -239,7 +239,9 @@
 
 .btn-action.btn-edit:hover { color: var(--primary-color); }
 .btn-action.btn-duplicate:hover { color: var(--info); }
-.btn-action.btn-preview:hover { color: var(--success); }
+.btn-action.btn-external-link:hover { color: var(--success); }
+.btn-action.btn-live-dashboard { color: #8b5cf6; }
+.btn-action.btn-live-dashboard:hover { background: rgba(139, 92, 246, 0.1); color: #7c3aed; }
 .btn-action.btn-delete:hover { color: var(--error); background: rgba(244, 67, 54, 0.1); }
 
 /* Play/Pause/Stop/Reactivate buttons */
@@ -744,9 +746,18 @@
     background: rgba(96, 165, 250, 0.1);
 }
 
-[data-theme="dark"] .btn-action.btn-preview:hover {
+[data-theme="dark"] .btn-action.btn-external-link:hover {
     color: #34d399;
     background: rgba(52, 211, 153, 0.1);
+}
+
+[data-theme="dark"] .btn-action.btn-live-dashboard {
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .btn-action.btn-live-dashboard:hover {
+    color: #c4b5fd;
+    background: rgba(167, 139, 250, 0.15);
 }
 
 [data-theme="dark"] .btn-action.btn-delete:hover {
