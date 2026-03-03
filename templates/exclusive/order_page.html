@@ -7,6 +7,25 @@
 {% endblock %}
 
 {% block body_content %}
+{% if not current_user.is_authenticated %}
+<div id="loginRequiredOverlay" class="exclusive-login-required-overlay">
+    <div class="exclusive-login-required-box">
+        <div class="exclusive-login-required-icon">&#x1F510;</div>
+        <h2>Zaloguj się, aby kontynuować</h2>
+        <p>Aby przeglądać ofertę i składać zamówienia, musisz być zalogowany.</p>
+        <button class="exclusive-btn-submit" onclick="openLoginModal()">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M6 3.5a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-2a.5.5 0 0 0-1 0v2A1.5 1.5 0 0 0 6.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-8A1.5 1.5 0 0 0 5 3.5v2a.5.5 0 0 0 1 0v-2z"/>
+                <path fill-rule="evenodd" d="M11.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H1.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+            </svg>
+            <span>Zaloguj się</span>
+        </button>
+        <p class="exclusive-login-required-register">
+            Nie masz konta? <a href="{{ url_for('auth.register', next=url_for('exclusive.order_page', token=page.token)) }}">Zarejestruj się</a>
+        </p>
+    </div>
+</div>
+{% endif %}
 <div class="exclusive-order-page">
     <!-- Sticky Reservation Header -->
     <div id="reservationHeader" class="reservation-header hidden">
@@ -778,26 +797,25 @@ window.redirectAfterOrderUrl = '#'; // Guest - will just close modal
 {% endif %}
 </script>
 
-<!-- Load external JavaScript -->
-<script src="{{ url_for('static', filename='js/pages/exclusive/order-page.js') }}"></script>
-
-<!-- Socket.IO for visitor tracking -->
+<!-- Socket.IO (ładowany PRZED order-page.js) -->
 {% if not preview_mode %}
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
 <script>
-(function() {
-    try {
-        var socket = io({ transports: ['websocket', 'polling'] });
-        socket.on('connect', function() {
-            socket.emit('join_exclusive', {
-                page_id: {{ page.id }},
-                page_type: 'order'
-            });
-        });
-    } catch (e) {
-        console.log('Socket.IO not available:', e);
-    }
-})();
+// Globalna instancja socketa — używana przez order-page.js
+try {
+    window.exclusiveSocket = io({ transports: ['websocket', 'polling'] });
+} catch (e) {
+    console.log('[SocketIO] Niedostępne:', e);
+    window.exclusiveSocket = null;
+}
+
+// Dane strony dla SocketIO
+window.exclusivePageId = {{ page.id }};
+window.exclusivePageToken = '{{ page.token }}';
+window.currentUserId = {{ current_user.id if current_user.is_authenticated else 'null' }};
 </script>
 {% endif %}
+
+<!-- Load external JavaScript -->
+<script src="{{ url_for('static', filename='js/pages/exclusive/order-page.js') }}"></script>
 {% endblock %}

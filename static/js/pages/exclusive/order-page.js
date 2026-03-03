@@ -450,14 +450,14 @@ function updateQty(input) {
 }
 
 function openOrderModal() {
-    if (window.isAuthenticated) {
-        const modal = document.getElementById('orderModal');
-        modal.classList.add('active');
-    } else {
-        // Not authenticated - show login modal
-        const modal = document.getElementById('loginModal');
-        modal.classList.add('active');
+    // User powinien być zawsze zalogowany (overlay blokuje niezalogowanych).
+    // Safety net: gdyby jakoś przeszedł — otwórz login modal.
+    if (!window.isAuthenticated) {
+        openLoginModal();
+        return;
     }
+    const modal = document.getElementById('orderModal');
+    modal.classList.add('active');
 }
 
 function closeOrderModal() {
@@ -466,6 +466,13 @@ function closeOrderModal() {
     setTimeout(() => {
         modal.classList.remove('active', 'closing');
     }, 350);
+}
+
+function openLoginModal() {
+    const modal = document.getElementById('loginModal');
+    if (modal) {
+        modal.classList.add('active');
+    }
 }
 
 function closeLoginModal() {
@@ -628,19 +635,25 @@ async function handleLogin(event) {
             // Update order modal with logged-in user view
             updateOrderModalForLoggedInUser(data.user);
 
+            // Set authenticated state
+            window.isAuthenticated = true;
+            window.currentUserId = data.user.id || null;
+
+            // Remove login required overlay (if present)
+            const loginRequiredOverlay = document.getElementById('loginRequiredOverlay');
+            if (loginRequiredOverlay) {
+                loginRequiredOverlay.classList.add('fade-out');
+                setTimeout(() => loginRequiredOverlay.remove(), 400);
+            }
+
             // Hide overlay
             hideLoginOverlay();
 
             // Close login modal
             closeLoginModal();
 
-            // Open order modal after a short delay
-            setTimeout(() => {
-                const orderModal = document.getElementById('orderModal');
-                if (orderModal) {
-                    orderModal.classList.add('active');
-                }
-            }, 400);
+            // Initialize reservation system (socket + polling)
+            initReservationSystem();
 
         } else {
             // Hide overlay
@@ -705,11 +718,14 @@ async function submitOrder() {
             // Clear localStorage reservation (storage key set by template)
             localStorage.removeItem(window.reservationStorageKey);
 
+            // Zatrzymaj polling i countdown
             if (reservationState.pollingInterval) {
                 clearInterval(reservationState.pollingInterval);
+                reservationState.pollingInterval = null;
             }
             if (reservationState.countdownInterval) {
                 clearInterval(reservationState.countdownInterval);
+                reservationState.countdownInterval = null;
             }
 
             // Redirect to thank you page (URL set by template)
@@ -804,7 +820,9 @@ let reservationState = {
     expiresAt: null,
     extended: false,
     pollingInterval: null,
-    countdownInterval: null
+    countdownInterval: null,
+    socketConnected: false,     // Czy SocketIO jest połączony
+    forceDisconnected: false,   // Czy sesja została przejęta
 };
 
 // Generate UUID v4
@@ -816,9 +834,26 @@ function generateUUID() {
     });
 }
 
-// Initialize session
+/**
+ * Sprawdza czy socket jest połączony i gotowy do użycia.
+ * Używane jako warunek: socket vs HTTP fallback.
+ */
+function isSocketReady() {
+    return window.exclusiveSocket &&
+           window.exclusiveSocket.connected &&
+           reservationState.socketConnected &&
+           !reservationState.forceDisconnected;
+}
+
+// Inicjalizacja systemu rezerwacji
 function initReservationSystem() {
-    // Storage key set by template
+    // Blokada dla niezalogowanych - nie uruchamiaj systemu rezerwacji
+    if (!window.isAuthenticated) {
+        console.log('[Reservation] Użytkownik niezalogowany — system rezerwacji zablokowany');
+        return;
+    }
+
+    // Klucz localStorage ustawiony przez template
     let stored = localStorage.getItem(window.reservationStorageKey);
     if (stored) {
         try {
@@ -826,14 +861,207 @@ function initReservationSystem() {
             reservationState.sessionId = data.sessionId;
             restoreReservation(data);
         } catch (e) {
-            console.error('Failed to parse localStorage', e);
+            console.error('[Reservation] Błąd parsowania localStorage', e);
             createNewSession();
         }
     } else {
         createNewSession();
     }
 
+    // Próba połączenia SocketIO, fallback na polling
+    initSocketConnection();
+}
+
+/**
+ * Inicjalizuje połączenie SocketIO dla systemu rezerwacji.
+ * Jeśli socket niedostępny — fallback na HTTP polling.
+ */
+function initSocketConnection() {
+    const socket = window.exclusiveSocket;
+
+    // Zawsze uruchom polling od razu — daje dane zanim SocketIO się połączy.
+    // Polling automatycznie się zatrzyma gdy SocketIO przejmie (logika w startPolling).
     startPolling();
+    startStatusPolling();
+
+    if (!socket) {
+        console.log('[SocketIO] Niedostępny — polling HTTP aktywny');
+        return;
+    }
+
+    // --- CONNECT ---
+    socket.on('connect', function() {
+        console.log('[SocketIO] Połączono, dołączanie do rezerwacji...');
+        _joinReservationRoom();
+    });
+
+    // --- RECONNECT ---
+    socket.on('reconnect', function() {
+        console.log('[SocketIO] Ponowne połączenie, synchronizacja stanu...');
+        if (!reservationState.forceDisconnected) {
+            _joinReservationRoom();
+        }
+    });
+
+    // --- DISCONNECT ---
+    socket.on('disconnect', function() {
+        console.log('[SocketIO] Rozłączono');
+        reservationState.socketConnected = false;
+    });
+
+    // --- AVAILABILITY UPDATED (broadcast z serwera) ---
+    socket.on('availability_updated', function(data) {
+        if (data && data.products) {
+            Object.entries(data.products).forEach(([productId, productData]) => {
+                updateProductAvailability(productId, productData);
+            });
+        }
+    });
+
+    // --- PAGE STATUS CHANGED (admin zmienił status) ---
+    socket.on('page_status_changed', function(data) {
+        handleSaleClosed(data);
+    });
+
+    // --- DEADLINE CHANGED (admin zmienił deadline) ---
+    socket.on('deadline_changed', function(data) {
+        handleDeadlineChanged(data.ends_at);
+    });
+
+    // --- FORCE DISCONNECT (sesja przejęta w innej karcie) ---
+    socket.on('force_disconnect', function(data) {
+        console.warn('[SocketIO] Force disconnect:', data.reason);
+        reservationState.forceDisconnected = true;
+        reservationState.socketConnected = false;
+
+        // Zatrzymaj countdown timer
+        stopCountdown();
+
+        // Zablokuj przyciski +/-
+        document.querySelectorAll('.qty-plus, .qty-minus').forEach(btn => {
+            btn.disabled = true;
+            btn.style.opacity = '0.3';
+            btn.style.cursor = 'not-allowed';
+        });
+
+        // Pokaż popup z opcją przejęcia kontroli
+        showForceDisconnectPopup();
+    });
+
+    // --- PRODUCT AVAILABLE (powiadomienie "Powiadom mnie") ---
+    socket.on('product_available', function(data) {
+        showToast(`Produkt "${data.product_name}" jest ponownie dostępny!`, 'success');
+    });
+
+    // Jeśli socket już jest połączony — dołącz od razu
+    if (socket.connected) {
+        _joinReservationRoom();
+    }
+}
+
+/**
+ * Dołącza do rooma rezerwacji i pobiera snapshot dostępności.
+ */
+function _joinReservationRoom() {
+    const socket = window.exclusiveSocket;
+    if (!socket || !socket.connected) return;
+
+    socket.emit('join_exclusive_reservation', {
+        page_id: window.exclusivePageId,
+        session_id: reservationState.sessionId,
+        user_id: window.currentUserId || null,
+        token: window.exclusivePageToken,
+    }, function(response) {
+        // Ack callback z pełnym snapshotem
+        if (response && response.success) {
+            console.log('[SocketIO] Dołączono do rezerwacji, snapshot otrzymany');
+            reservationState.socketConnected = true;
+            reservationState.forceDisconnected = false;
+
+            // Odblokuj przyciski (mogły być zablokowane przez force_disconnect)
+            document.querySelectorAll('.qty-plus, .qty-minus').forEach(btn => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            });
+
+            // Zastosuj snapshot dostępności (updateProductAvailability ponownie zablokuje "+" jeśli available=0)
+            if (response.products) {
+                Object.entries(response.products).forEach(([productId, data]) => {
+                    updateProductAvailability(productId, data);
+                });
+            }
+
+            // Zastosuj info o sesji
+            if (response.session && response.session.has_reservations) {
+                reservationState.expiresAt = response.session.expires_at;
+                reservationState.extended = response.session.extended || false;
+                reservationState.firstReservedAt = response.session.first_reserved_at;
+                showReservationHeader();
+            }
+
+            // Zatrzymaj polling jeśli działa (SocketIO przejmuje)
+            if (reservationState.pollingInterval) {
+                clearInterval(reservationState.pollingInterval);
+                reservationState.pollingInterval = null;
+                console.log('[SocketIO] Polling HTTP zatrzymany');
+            }
+        } else {
+            console.warn('[SocketIO] Nie udało się dołączyć:', response);
+            // Fallback na polling
+            startPolling();
+            startStatusPolling();
+        }
+    });
+}
+
+/**
+ * Obsługa zamknięcia/wstrzymania sprzedaży (z socketa lub pollingu).
+ */
+function handleSaleClosed(data) {
+    if (!data.is_active) {
+        // Sprzedaż nieaktywna — przeładuj stronę
+        showToast('Sprzedaż została zakończona lub wstrzymana', 'warning');
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+    }
+}
+
+/**
+ * Obsługa zmiany deadline (z socketa lub pollingu).
+ */
+function handleDeadlineChanged(endsAt) {
+    if (endsAt) {
+        window.initialEndsAt = endsAt;
+    }
+}
+
+/**
+ * Status polling — fallback gdy SocketIO niedostępne.
+ * Sprawdza status strony co 5s (czy admin nie zamknął sprzedaży).
+ */
+function startStatusPolling() {
+    // Nie uruchamiaj jeśli socket jest połączony
+    if (isSocketReady()) return;
+
+    setInterval(async () => {
+        // Pomiń jeśli socket się połączył w międzyczasie
+        if (isSocketReady()) return;
+
+        try {
+            const resp = await fetch(window.statusCheckUrl);
+            const data = await resp.json();
+
+            handleSaleClosed(data);
+
+            if (data.ends_at) {
+                handleDeadlineChanged(data.ends_at);
+            }
+        } catch (e) {
+            // Cichy błąd
+        }
+    }, 5000);
 }
 
 function createNewSession() {
@@ -936,7 +1164,7 @@ async function restoreReservation(data) {
     }
 }
 
-// Modified increaseQty with reservation (non-blocking)
+// Rezerwacja produktu z optimistic UI (SocketIO z HTTP fallback)
 function increaseQtyWithReservation(btn) {
     if (btn.disabled) return;
 
@@ -969,53 +1197,72 @@ function increaseQtyWithReservation(btn) {
         return;
     }
 
-    // IMMEDIATE UI update
+    // NATYCHMIASTOWY update UI
     input.value = val + 1;
     optimisticUpdateAvailability(productId, -1);
     updateCart();
     saveToLocalStorage();
 
-    // Background reservation (reserve URL set by template)
-    fetch(window.reserveProductUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            session_id: reservationState.sessionId,
-            product_id: productId,
-            quantity: 1,
-            action: val === 0 ? 'add' : 'increase'
-        })
-    }).then(r => r.json()).then(result => {
-        if (result.success) {
-            if (result.reservation.first_reservation_at) {
-                reservationState.firstReservedAt = result.reservation.first_reservation_at;
-                reservationState.expiresAt = result.reservation.expires_at;
-                showReservationHeader();
-            }
-
-            // GA4: Track add to cart (only on first add, not on increase)
-            if (val === 0) {
-                const cartItem = cart.find(item => item.productId == productId);
-                if (cartItem) {
-                    trackProductAddedToCart(cartItem.name, productId, cartItem.price, 1);
-                }
-            }
-        } else {
-            input.value = Math.max(0, parseInt(input.value) - 1);
-            optimisticUpdateAvailability(productId, +1);
-            updateCart();
-            if (result.error === 'insufficient_availability') {
-                showUnavailablePopup(result.message, result.check_back_at);
+    // Callback po odpowiedzi (wspólny dla socket i HTTP)
+    function onSuccess(result) {
+        if (result.reservation && result.reservation.first_reservation_at) {
+            reservationState.firstReservedAt = result.reservation.first_reservation_at;
+            reservationState.expiresAt = result.reservation.expires_at;
+            showReservationHeader();
+        }
+        // GA4: Track dodanie do koszyka (tylko przy pierwszym dodaniu)
+        if (val === 0) {
+            const cartItem = cart.find(item => item.productId == productId);
+            if (cartItem) {
+                trackProductAddedToCart(cartItem.name, productId, cartItem.price, 1);
             }
         }
-    }).catch(() => {
+    }
+
+    function onError(result) {
         input.value = Math.max(0, parseInt(input.value) - 1);
         optimisticUpdateAvailability(productId, +1);
         updateCart();
-    });
+        if (result && result.error === 'insufficient_availability') {
+            showUnavailablePopup(result.message, result.check_back_at);
+        }
+    }
+
+    // SocketIO lub HTTP fallback
+    if (isSocketReady()) {
+        window.exclusiveSocket.emit('reserve_product', {
+            page_id: window.exclusivePageId,
+            session_id: reservationState.sessionId,
+            product_id: productId,
+            quantity: 1,
+        }, function(result) {
+            if (result && result.success) {
+                onSuccess(result);
+            } else {
+                onError(result);
+            }
+        });
+    } else {
+        fetch(window.reserveProductUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: reservationState.sessionId,
+                product_id: productId,
+                quantity: 1,
+                action: val === 0 ? 'add' : 'increase'
+            })
+        }).then(r => r.json()).then(result => {
+            if (result.success) {
+                onSuccess(result);
+            } else {
+                onError(result);
+            }
+        }).catch(() => onError(null));
+    }
 }
 
-// Modified decreaseQty with release (non-blocking)
+// Zwolnienie rezerwacji produktu (SocketIO z HTTP fallback)
 function decreaseQtyWithReservation(btn) {
     if (btn.disabled) return;
 
@@ -1031,7 +1278,7 @@ function decreaseQtyWithReservation(btn) {
     const productSection = input.closest('.section-product, .set-item, .variant-product');
     const productId = productSection.dataset.productId;
 
-    // IMMEDIATE UI update
+    // NATYCHMIASTOWY update UI
     input.value = val - 1;
     optimisticUpdateAvailability(productId, +1);
     updateCart();
@@ -1041,26 +1288,43 @@ function decreaseQtyWithReservation(btn) {
         hideReservationHeader();
     }
 
-    // Background release (release URL set by template)
-    fetch(window.releaseProductUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    // SocketIO lub HTTP fallback
+    if (isSocketReady()) {
+        window.exclusiveSocket.emit('release_product', {
+            page_id: window.exclusivePageId,
             session_id: reservationState.sessionId,
             product_id: productId,
             quantity: 1,
-            action: 'decrease'
-        })
-    }).catch(() => {
-        // Silent fail - polling will sync state
-    });
+        });
+    } else {
+        fetch(window.releaseProductUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: reservationState.sessionId,
+                product_id: productId,
+                quantity: 1,
+                action: 'decrease'
+            })
+        }).catch(() => {});
+    }
 }
 
-// Polling availability (every 1 second)
+// Polling dostępności — FALLBACK gdy SocketIO niedostępne (co 1s)
 function startPolling() {
     if (reservationState.pollingInterval) return;
+    // Nie uruchamiaj jeśli socket jest gotowy
+    if (isSocketReady()) return;
 
+    console.log('[Polling] Uruchomiono HTTP polling (fallback)');
     reservationState.pollingInterval = setInterval(async () => {
+        // Zatrzymaj polling jeśli socket się połączył
+        if (isSocketReady()) {
+            clearInterval(reservationState.pollingInterval);
+            reservationState.pollingInterval = null;
+            console.log('[Polling] Zatrzymano — SocketIO przejął');
+            return;
+        }
         await checkAvailability();
     }, 1000);
 }
@@ -1162,6 +1426,25 @@ function optimisticUpdateAvailability(productId, delta) {
     availabilityElements.forEach(el => el.classList.add('availability-updating'));
 
     renderAvailabilityInfo(productId, productAvailability[productId]);
+
+    // Zablokuj/odblokuj przycisk "+" w zależności od dostępności
+    const productElements = document.querySelectorAll(`[data-product-id="${productId}"]`);
+    productElements.forEach(element => {
+        const quantityControl = element.querySelector('.quantity-control');
+        if (!quantityControl) return;
+        const plusBtn = quantityControl.querySelector('.qty-plus');
+        if (!plusBtn) return;
+
+        if (productAvailability[productId] <= 0) {
+            plusBtn.disabled = true;
+            plusBtn.style.opacity = '0.5';
+            plusBtn.style.cursor = 'not-allowed';
+        } else {
+            plusBtn.disabled = false;
+            plusBtn.style.opacity = '1';
+            plusBtn.style.cursor = 'pointer';
+        }
+    });
 }
 
 function showReservationHeader() {
@@ -1245,34 +1528,53 @@ function updateReservationTimer() {
     }
 }
 
+// Przedłużenie rezerwacji (SocketIO z HTTP fallback)
 async function extendReservation() {
     if (reservationState.extended) return;
 
-    try {
-        // Extend URL set by template
-        const response = await fetch(window.extendReservationUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                session_id: reservationState.sessionId
-            })
+    function onSuccess(result) {
+        reservationState.expiresAt = result.new_expires_at;
+        reservationState.extended = true;
+        saveToLocalStorage();
+        showToast('Rezerwacja przedłużona o 2 minuty', 'success');
+    }
+
+    function onError(msg) {
+        showToast(msg || 'Nie można przedłużyć rezerwacji', 'error');
+    }
+
+    if (isSocketReady()) {
+        window.exclusiveSocket.emit('extend_reservation', {
+            page_id: window.exclusivePageId,
+            session_id: reservationState.sessionId,
+        }, function(result) {
+            if (result && result.success) {
+                onSuccess(result);
+            } else {
+                onError(result ? result.message : null);
+            }
         });
+    } else {
+        try {
+            const response = await fetch(window.extendReservationUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: reservationState.sessionId
+                })
+            });
 
-        const result = await response.json();
+            const result = await response.json();
 
-        if (result.success) {
-            reservationState.expiresAt = result.new_expires_at;
-            reservationState.extended = true;
-            saveToLocalStorage();
-            showToast('Rezerwacja przedłużona o 2 minuty', 'success');
-        } else {
-            showToast(result.message || 'Nie można przedłużyć rezerwacji', 'error');
+            if (result.success) {
+                onSuccess(result);
+            } else {
+                onError(result.message);
+            }
+        } catch (error) {
+            console.error('[Extend] Błąd:', error);
+            onError('Błąd przedłużania rezerwacji');
         }
-    } catch (error) {
-        console.error('Extend failed:', error);
-        showToast('Błąd przedłużania rezerwacji', 'error');
     }
 }
 
@@ -1293,13 +1595,17 @@ function clearReservation() {
 }
 
 function showUnavailablePopup(message, checkBackAtTimestamp) {
-    const checkBackDate = new Date(checkBackAtTimestamp * 1000);
-    const formatter = new Intl.DateTimeFormat('pl-PL', {
-        timeZone: 'Europe/Warsaw',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    const timeStr = formatter.format(checkBackDate);
+    let checkBackHtml = '';
+    if (checkBackAtTimestamp) {
+        const checkBackDate = new Date(checkBackAtTimestamp * 1000);
+        const formatter = new Intl.DateTimeFormat('pl-PL', {
+            timeZone: 'Europe/Warsaw',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        const timeStr = formatter.format(checkBackDate);
+        checkBackHtml = `<p class="check-back" style="margin-bottom:24px;">Sprawdź dostępność o <strong>${timeStr}</strong></p>`;
+    }
 
     const modal = document.createElement('div');
     modal.className = 'unavailable-modal';
@@ -1307,9 +1613,9 @@ function showUnavailablePopup(message, checkBackAtTimestamp) {
     modal.innerHTML = `
         <div class="unavailable-content" style="background:white;padding:32px;border-radius:12px;max-width:500px;text-align:center;">
             <div class="unavailable-icon" style="font-size:48px;margin-bottom:16px;">⚠️</div>
-            <h3 style="margin-bottom:16px;">Produkt zarezerwowany</h3>
+            <h3 style="margin-bottom:16px;">Produkt niedostępny</h3>
             <p style="margin-bottom:16px;">${message}</p>
-            <p class="check-back" style="margin-bottom:24px;">Sprawdź dostępność o <strong>${timeStr}</strong></p>
+            ${checkBackHtml}
             <button onclick="this.closest('.unavailable-modal').remove()" class="btn-close-modal" style="padding:12px 24px;background:#7B2CBF;color:white;border:none;border-radius:8px;cursor:pointer;">
                 Rozumiem
             </button>
@@ -1317,6 +1623,59 @@ function showUnavailablePopup(message, checkBackAtTimestamp) {
     `;
 
     document.body.appendChild(modal);
+}
+
+function showForceDisconnectPopup() {
+    // Usuń istniejący popup jeśli jest (unikaj duplikatów)
+    const existing = document.querySelector('.force-disconnect-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'force-disconnect-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10001;';
+    modal.innerHTML = `
+        <div style="background:white;padding:32px;border-radius:12px;max-width:500px;text-align:center;">
+            <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+            <h3 style="margin-bottom:16px;">Sesja przejęta</h3>
+            <p style="margin-bottom:24px;">Twoja sesja została przeniesiona na inną kartę lub urządzenie. Przyciski zostały zablokowane.</p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button class="btn-takeover" style="padding:12px 24px;background:#7B2CBF;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+                    Przejmij kontrolę
+                </button>
+                <button class="btn-close-popup" style="padding:12px 24px;background:#e0e0e0;color:#333;border:none;border-radius:8px;cursor:pointer;">
+                    Zamknij
+                </button>
+            </div>
+        </div>
+    `;
+
+    modal.querySelector('.btn-takeover').addEventListener('click', function() {
+        takeOverSession();
+        modal.remove();
+    });
+
+    modal.querySelector('.btn-close-popup').addEventListener('click', function() {
+        modal.remove();
+    });
+
+    document.body.appendChild(modal);
+}
+
+function takeOverSession() {
+    const socket = window.exclusiveSocket;
+    if (!socket) return;
+
+    // Reset flagi — pozwól reconnectowi
+    reservationState.forceDisconnected = false;
+
+    // Jeśli socket rozłączony — reconnect (on connect wywoła _joinReservationRoom)
+    if (!socket.connected) {
+        socket.connect();
+        return;
+    }
+
+    // Socket jest połączony — dołącz ponownie (serwer zrobi force takeover na "nową" kartę)
+    _joinReservationRoom();
 }
 
 // Replace original functions with reservation-aware versions
@@ -1365,32 +1724,32 @@ async function removeProductFromCart(productId) {
     const currentQty = parseInt(input.value) || 0;
     if (currentQty === 0) return;
 
-    try {
-        // Release URL set by template
-        const response = await fetch(window.releaseProductUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: currentQty
-            })
+    // Zwolnienie rezerwacji — SocketIO lub HTTP fallback
+    input.value = 0;
+    updateCart();
+
+    if (isSocketReady()) {
+        window.exclusiveSocket.emit('release_product', {
+            page_id: window.exclusivePageId,
+            session_id: reservationState.sessionId,
+            product_id: productId,
+            quantity: currentQty,
         });
-
-        const result = await response.json();
-        console.log(`[Cart] Release result:`, result);
-
-        input.value = 0;
-        updateCart();
-
-        await checkAvailability();
-
-    } catch (error) {
-        console.error('[Cart] Error releasing product:', error);
-        input.value = 0;
-        updateCart();
+    } else {
+        try {
+            await fetch(window.releaseProductUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: reservationState.sessionId,
+                    product_id: productId,
+                    quantity: currentQty
+                })
+            });
+            await checkAvailability();
+        } catch (error) {
+            console.error('[Cart] Błąd zwalniania produktu:', error);
+        }
     }
 }
 
@@ -1465,48 +1824,61 @@ function increaseFullSet(btn) {
     updateCart();
     saveToLocalStorage();
 
-    // Background reservation (same as regular products)
-    fetch(window.reserveProductUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            session_id: reservationState.sessionId,
-            product_id: productId,
-            quantity: 1,
-            action: val === 0 ? 'add' : 'increase'
-        })
-    }).then(r => r.json()).then(result => {
-        if (result.success) {
-            if (result.reservation.first_reservation_at) {
-                reservationState.firstReservedAt = result.reservation.first_reservation_at;
-                reservationState.expiresAt = result.reservation.expires_at;
-                showReservationHeader();
-            }
-        } else {
-            // Rollback on error
-            input.value = Math.max(0, parseInt(input.value) - 1);
-            if (input.value === 0) {
-                confettiContainer.classList.add('fade-out');
-                setTimeout(() => {
-                    confettiContainer.classList.remove('has-items', 'fade-out');
-                }, 500);
-            }
-            updateCart();
-            if (result.error === 'insufficient_availability') {
-                showUnavailablePopup(result.message, result.check_back_at);
-            }
-        }
-    }).catch(() => {
-        // Rollback on network error
+    // Callback obsługi błędu (wspólny)
+    function onFullSetError(result) {
         input.value = Math.max(0, parseInt(input.value) - 1);
-        if (input.value === 0) {
+        if (parseInt(input.value) === 0) {
             confettiContainer.classList.add('fade-out');
             setTimeout(() => {
                 confettiContainer.classList.remove('has-items', 'fade-out');
             }, 500);
         }
         updateCart();
-    });
+        if (result && result.error === 'insufficient_availability') {
+            showUnavailablePopup(result.message, result.check_back_at);
+        }
+    }
+
+    function onFullSetSuccess(result) {
+        if (result.reservation && result.reservation.first_reservation_at) {
+            reservationState.firstReservedAt = result.reservation.first_reservation_at;
+            reservationState.expiresAt = result.reservation.expires_at;
+            showReservationHeader();
+        }
+    }
+
+    // SocketIO lub HTTP fallback
+    if (isSocketReady()) {
+        window.exclusiveSocket.emit('reserve_product', {
+            page_id: window.exclusivePageId,
+            session_id: reservationState.sessionId,
+            product_id: productId,
+            quantity: 1,
+        }, function(result) {
+            if (result && result.success) {
+                onFullSetSuccess(result);
+            } else {
+                onFullSetError(result);
+            }
+        });
+    } else {
+        fetch(window.reserveProductUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: reservationState.sessionId,
+                product_id: productId,
+                quantity: 1,
+                action: val === 0 ? 'add' : 'increase'
+            })
+        }).then(r => r.json()).then(result => {
+            if (result.success) {
+                onFullSetSuccess(result);
+            } else {
+                onFullSetError(result);
+            }
+        }).catch(() => onFullSetError(null));
+    }
 }
 
 function decreaseFullSet(btn) {
@@ -1541,18 +1913,25 @@ function decreaseFullSet(btn) {
             hideReservationHeader();
         }
 
-        // Background release (same as regular products)
-        fetch(window.releaseProductUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        // SocketIO lub HTTP fallback
+        if (isSocketReady()) {
+            window.exclusiveSocket.emit('release_product', {
+                page_id: window.exclusivePageId,
                 session_id: reservationState.sessionId,
                 product_id: productId,
-                quantity: 1
-            })
-        }).then(r => r.json()).catch(() => {
-            // Silent fail - already updated UI
-        });
+                quantity: 1,
+            });
+        } else {
+            fetch(window.releaseProductUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: reservationState.sessionId,
+                    product_id: productId,
+                    quantity: 1
+                })
+            }).catch(() => {});
+        }
     }
 }
 
@@ -1593,63 +1972,86 @@ function updateFullSetQty(input) {
     updateCart();
     saveToLocalStorage();
 
-    // Sync with reservation
+    // Rollback helper
+    function rollbackFullSetQty() {
+        input.value = oldVal;
+        if (oldVal === 0) {
+            confettiContainer.classList.add('fade-out');
+            setTimeout(() => {
+                confettiContainer.classList.remove('has-items', 'fade-out');
+            }, 500);
+        }
+        updateCart();
+    }
+
+    // Synchronizacja z rezerwacją
     if (delta > 0) {
-        // Increased - reserve more
-        fetch(window.reserveProductUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        // Zwiększono — zarezerwuj więcej
+        if (isSocketReady()) {
+            window.exclusiveSocket.emit('reserve_product', {
+                page_id: window.exclusivePageId,
                 session_id: reservationState.sessionId,
                 product_id: productId,
                 quantity: delta,
-                action: oldVal === 0 ? 'add' : 'increase'
-            })
-        }).then(r => r.json()).then(result => {
-            if (result.success) {
-                if (result.reservation.first_reservation_at) {
-                    reservationState.firstReservedAt = result.reservation.first_reservation_at;
-                    reservationState.expiresAt = result.reservation.expires_at;
-                    showReservationHeader();
+            }, function(result) {
+                if (result && result.success) {
+                    if (result.reservation && result.reservation.first_reservation_at) {
+                        reservationState.firstReservedAt = result.reservation.first_reservation_at;
+                        reservationState.expiresAt = result.reservation.expires_at;
+                        showReservationHeader();
+                    }
+                } else {
+                    rollbackFullSetQty();
+                    if (result && result.error === 'insufficient_availability') {
+                        showUnavailablePopup(result.message, result.check_back_at);
+                    }
                 }
-            } else {
-                // Rollback to old value
-                input.value = oldVal;
-                if (oldVal === 0) {
-                    confettiContainer.classList.add('fade-out');
-                    setTimeout(() => {
-                        confettiContainer.classList.remove('has-items', 'fade-out');
-                    }, 500);
+            });
+        } else {
+            fetch(window.reserveProductUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: reservationState.sessionId,
+                    product_id: productId,
+                    quantity: delta,
+                    action: oldVal === 0 ? 'add' : 'increase'
+                })
+            }).then(r => r.json()).then(result => {
+                if (result.success) {
+                    if (result.reservation.first_reservation_at) {
+                        reservationState.firstReservedAt = result.reservation.first_reservation_at;
+                        reservationState.expiresAt = result.reservation.expires_at;
+                        showReservationHeader();
+                    }
+                } else {
+                    rollbackFullSetQty();
+                    if (result.error === 'insufficient_availability') {
+                        showUnavailablePopup(result.message, result.check_back_at);
+                    }
                 }
-                updateCart();
-                if (result.error === 'insufficient_availability') {
-                    showUnavailablePopup(result.message, result.check_back_at);
-                }
-            }
-        }).catch(() => {
-            // Rollback on error
-            input.value = oldVal;
-            if (oldVal === 0) {
-                confettiContainer.classList.add('fade-out');
-                setTimeout(() => {
-                    confettiContainer.classList.remove('has-items', 'fade-out');
-                }, 500);
-            }
-            updateCart();
-        });
+            }).catch(() => rollbackFullSetQty());
+        }
     } else {
-        // Decreased - release
-        fetch(window.releaseProductUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        // Zmniejszono — zwolnij
+        if (isSocketReady()) {
+            window.exclusiveSocket.emit('release_product', {
+                page_id: window.exclusivePageId,
                 session_id: reservationState.sessionId,
                 product_id: productId,
-                quantity: Math.abs(delta)
-            })
-        }).then(r => r.json()).catch(() => {
-            // Silent fail - already updated UI
-        });
+                quantity: Math.abs(delta),
+            });
+        } else {
+            fetch(window.releaseProductUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: reservationState.sessionId,
+                    product_id: productId,
+                    quantity: Math.abs(delta)
+                })
+            }).catch(() => {});
+        }
 
         if (cart.length === 0) {
             hideReservationHeader();
@@ -2069,147 +2471,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ============================================
-// STATUS POLLING - Auto-refresh for deadline changes & manual closure
+// STATUS & DEADLINE — SocketIO push + HTTP fallback
 // ============================================
 (function() {
-    // Skip polling in preview mode
+    // Pomiń w trybie podglądu
     if (window.previewMode) return;
-
-    // Check if statusCheckUrl is available
     if (!window.statusCheckUrl) return;
 
-    const POLL_INTERVAL = 1000; // 1 second - fast polling for manual closure detection
     let currentEndsAt = window.initialEndsAt;
-    let pollingInterval = null;
-    let isClosed = false;
+    let _statusPollingInterval = null;
+    let _isClosed = false;
 
     /**
-     * Checks status from server and handles changes
-     */
-    async function checkStatusChanges() {
-        // Stop checking if already closed
-        if (isClosed) return;
-
-        try {
-            const response = await fetch(window.statusCheckUrl);
-            if (!response.ok) return;
-
-            const data = await response.json();
-
-            // Handle manual closure by admin
-            if (data.is_manually_closed || !data.is_active) {
-                handleSaleClosed();
-                return;
-            }
-
-            // Handle ends_at change (admin added/changed deadline)
-            if (data.ends_at !== currentEndsAt) {
-                handleDeadlineChanged(data.ends_at);
-            }
-
-        } catch (error) {
-            console.error('Status check failed:', error);
-        }
-    }
-
-    /**
-     * Handles when sale is closed by admin
-     */
-    function handleSaleClosed() {
-        // Prevent multiple triggers
-        if (isClosed) return;
-        isClosed = true;
-
-        // Stop polling
-        if (pollingInterval) {
-            clearInterval(pollingInterval);
-            pollingInterval = null;
-        }
-
-        // Show toast notification
-        if (typeof showToast === 'function') {
-            showToast('Sprzedaż została zakończona przez administratora', 'info');
-        }
-
-        // Reload page after short delay to show closed state
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000);
-    }
-
-    /**
-     * Handles when deadline is changed/added by admin
-     * @param {string|null} newEndsAt - New deadline ISO string or null
-     */
-    function handleDeadlineChanged(newEndsAt) {
-        const oldEndsAt = currentEndsAt;
-        currentEndsAt = newEndsAt;
-
-        if (!newEndsAt) {
-            // Deadline was removed - refresh to show "unknown date" state
-            window.location.reload();
-            return;
-        }
-
-        // Deadline was added or changed
-        const headerRight = document.querySelector('.header-right');
-        if (!headerRight) return;
-
-        const newDeadlineDate = new Date(newEndsAt);
-        const formattedDate = formatDeadlineDate(newDeadlineDate);
-
-        // Check if there's already a deadline banner
-        const existingBanner = headerRight.querySelector('.deadline-banner:not(.deadline-unknown)');
-        const unknownBanner = headerRight.querySelector('.deadline-unknown');
-
-        if (unknownBanner) {
-            // Replace "unknown date" banner with real deadline
-            unknownBanner.outerHTML = `
-                <div class="deadline-banner" data-deadline="${newEndsAt}">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
-                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-                    </svg>
-                    <span>Koniec zamówień: <strong>${formattedDate}</strong></span>
-                </div>
-                <div id="dynamicCountdown" class="deadline-countdown hidden">
-                    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
-                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-                    </svg>
-                    <span>Do końca: <strong id="countdownTime">--:--</strong></span>
-                </div>
-            `;
-
-            // Initialize the deadline timer for the new deadline
-            initializeDeadlineTimer(newEndsAt);
-
-            // Show toast
-            if (typeof showToast === 'function') {
-                showToast('Ustawiono datę zakończenia sprzedaży: ' + formattedDate, 'info');
-            }
-        } else if (existingBanner) {
-            // Update existing banner with new date
-            existingBanner.setAttribute('data-deadline', newEndsAt);
-            const strongEl = existingBanner.querySelector('strong');
-            if (strongEl) {
-                strongEl.textContent = formattedDate;
-            }
-
-            // Reinitialize timer with new deadline
-            initializeDeadlineTimer(newEndsAt);
-
-            // Show toast about changed deadline
-            if (typeof showToast === 'function') {
-                showToast('Zmieniono datę zakończenia sprzedaży: ' + formattedDate, 'info');
-            }
-        }
-    }
-
-    /**
-     * Formats deadline date for display
-     * @param {Date} date - Date object
-     * @returns {string} Formatted date string
+     * Formatuje datę deadline do wyświetlenia
      */
     function formatDeadlineDate(date) {
         const day = String(date.getDate()).padStart(2, '0');
@@ -2221,23 +2495,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Initializes or reinitializes the deadline timer
-     * @param {string} deadlineStr - ISO deadline string
+     * Inicjalizuje lub reinicjalizuje timer deadline
      */
     function initializeDeadlineTimer(deadlineStr) {
         const deadlineDate = new Date(deadlineStr);
         const dynamicCountdown = document.getElementById('dynamicCountdown');
         const countdownTime = document.getElementById('countdownTime');
 
-        // Clear any existing timer
         if (window._deadlineTimerInterval) {
             clearInterval(window._deadlineTimerInterval);
         }
 
         function formatTime(minutes, seconds) {
-            const m = String(minutes).padStart(2, '0');
-            const s = String(seconds).padStart(2, '0');
-            return `${m}:${s}`;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         }
 
         function updateTimer() {
@@ -2245,7 +2515,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const diff = deadlineDate - now;
 
             if (diff <= 0) {
-                // Deadline passed - reload page
                 window.location.reload();
                 return;
             }
@@ -2274,9 +2543,129 @@ document.addEventListener('DOMContentLoaded', function() {
         window._deadlineTimerInterval = setInterval(updateTimer, 1000);
     }
 
-    // Start polling
-    pollingInterval = setInterval(checkStatusChanges, POLL_INTERVAL);
+    // Nadpisz globalne handlery — wzbogacone o UI deadline
+    const _origHandleSaleClosed = window.handleSaleClosed || handleSaleClosed;
+    handleSaleClosed = function(data) {
+        if (_isClosed) return;
 
-    // Also check immediately after page load (with small delay)
-    setTimeout(checkStatusChanges, 3000);
+        // Obsługa danych z SocketIO (obiekt z is_active) lub z pollingu
+        const isActive = data ? data.is_active : false;
+        const isClosed = data ? (data.is_manually_closed || !isActive) : true;
+
+        if (!isClosed) return;
+
+        _isClosed = true;
+        if (_statusPollingInterval) {
+            clearInterval(_statusPollingInterval);
+            _statusPollingInterval = null;
+        }
+
+        if (typeof showToast === 'function') {
+            showToast('Sprzedaż została zakończona lub wstrzymana', 'info');
+        }
+        setTimeout(() => window.location.reload(), 2000);
+    };
+
+    const _origHandleDeadlineChanged = window.handleDeadlineChanged || handleDeadlineChanged;
+    handleDeadlineChanged = function(newEndsAt) {
+        if (newEndsAt === currentEndsAt) return;
+
+        const oldEndsAt = currentEndsAt;
+        currentEndsAt = newEndsAt;
+        window.initialEndsAt = newEndsAt;
+
+        if (!newEndsAt) {
+            window.location.reload();
+            return;
+        }
+
+        const headerRight = document.querySelector('.header-right');
+        if (!headerRight) return;
+
+        const newDeadlineDate = new Date(newEndsAt);
+        const formattedDate = formatDeadlineDate(newDeadlineDate);
+
+        const existingBanner = headerRight.querySelector('.deadline-banner:not(.deadline-unknown)');
+        const unknownBanner = headerRight.querySelector('.deadline-unknown');
+
+        if (unknownBanner) {
+            unknownBanner.outerHTML = `
+                <div class="deadline-banner" data-deadline="${newEndsAt}">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                    </svg>
+                    <span>Koniec zamówień: <strong>${formattedDate}</strong></span>
+                </div>
+                <div id="dynamicCountdown" class="deadline-countdown hidden">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                        <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                    </svg>
+                    <span>Do końca: <strong id="countdownTime">--:--</strong></span>
+                </div>
+            `;
+
+            initializeDeadlineTimer(newEndsAt);
+
+            if (typeof showToast === 'function') {
+                showToast('Ustawiono datę zakończenia sprzedaży: ' + formattedDate, 'info');
+            }
+        } else if (existingBanner) {
+            existingBanner.setAttribute('data-deadline', newEndsAt);
+            const strongEl = existingBanner.querySelector('strong');
+            if (strongEl) {
+                strongEl.textContent = formattedDate;
+            }
+
+            initializeDeadlineTimer(newEndsAt);
+
+            if (typeof showToast === 'function') {
+                showToast('Zmieniono datę zakończenia sprzedaży: ' + formattedDate, 'info');
+            }
+        }
+    };
+
+    // HTTP fallback polling — uruchamiany TYLKO gdy socket niedostępny
+    // SocketIO listenery (page_status_changed, deadline_changed) obsługują to automatycznie
+    function startStatusPollingFallback() {
+        if (isSocketReady()) return; // Socket obsługuje — nie potrzeba pollingu
+
+        _statusPollingInterval = setInterval(async () => {
+            // Zatrzymaj polling jeśli socket się połączył
+            if (isSocketReady()) {
+                clearInterval(_statusPollingInterval);
+                _statusPollingInterval = null;
+                return;
+            }
+
+            if (_isClosed) return;
+
+            try {
+                const response = await fetch(window.statusCheckUrl);
+                if (!response.ok) return;
+
+                const data = await response.json();
+
+                if (data.is_manually_closed || !data.is_active) {
+                    handleSaleClosed(data);
+                    return;
+                }
+
+                if (data.ends_at !== currentEndsAt) {
+                    handleDeadlineChanged(data.ends_at);
+                }
+            } catch (e) {
+                // Cichy błąd
+            }
+        }, 5000); // Co 5s zamiast co 1s (SocketIO obsługuje natychmiast)
+    }
+
+    // Uruchom fallback polling po krótkim opóźnieniu
+    // (dając czas SocketIO na połączenie)
+    setTimeout(() => {
+        if (!isSocketReady()) {
+            startStatusPollingFallback();
+        }
+    }, 3000);
 })();

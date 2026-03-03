@@ -492,6 +492,17 @@ def exclusive_change_status(page_id):
 
     db.session.commit()
 
+    # Broadcast zmiany statusu do kupujących przez SocketIO
+    try:
+        from modules.exclusive.socket_events import broadcast_page_status
+        broadcast_page_status(
+            page.id,
+            page.status,
+            ends_at=page.ends_at.isoformat() if page.ends_at else None
+        )
+    except Exception:
+        pass
+
     return jsonify({
         'success': True,
         'message': message,

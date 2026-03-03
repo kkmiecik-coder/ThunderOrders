@@ -4142,3 +4142,103 @@ body.exclusive-page-body {
         height: 20px;
     }
 }
+
+/* ==========================================
+   Login Required Overlay
+   ========================================== */
+.exclusive-login-required-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 23, 48, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: opacity 0.4s ease;
+}
+
+.exclusive-login-required-overlay.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.exclusive-login-required-box {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    padding: 48px 40px;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    animation: loginBoxAppear 0.5s ease-out;
+}
+
+@keyframes loginBoxAppear {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.exclusive-login-required-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    line-height: 1;
+}
+
+.exclusive-login-required-box h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 8px;
+}
+
+.exclusive-login-required-box > p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 24px;
+    line-height: 1.5;
+}
+
+.exclusive-login-required-box .exclusive-btn-submit {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.exclusive-login-required-register {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0;
+}
+
+.exclusive-login-required-register a {
+    color: #f093fb;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s;
+}
+
+.exclusive-login-required-register a:hover {
+    color: #f5576c;
+    text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+    .exclusive-login-required-box {
+        padding: 32px 24px;
+        border-radius: 20px;
+    }
+
+    .exclusive-login-required-box h2 {
+        font-size: 20px;
+    }
+}

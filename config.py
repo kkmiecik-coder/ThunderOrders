@@ -53,6 +53,10 @@ class Config:
     # Google Analytics 4
     GA_MEASUREMENT_ID = os.getenv('GA_MEASUREMENT_ID')
 
+    # Cloudflare Turnstile (anti-bot CAPTCHA)
+    CF_TURNSTILE_SITE_KEY = os.getenv('CF_TURNSTILE_SITE_KEY', '')
+    CF_TURNSTILE_SECRET_KEY = os.getenv('CF_TURNSTILE_SECRET_KEY', '')
+
     # Security
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # Token nie wygasa

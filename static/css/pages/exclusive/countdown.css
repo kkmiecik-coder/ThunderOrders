@@ -515,6 +515,206 @@ html:has(.exclusive-page-body) {
 }
 
 /* ==========================================
+   Auth Info Section
+   ========================================== */
+.countdown-auth-info {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Logged-in state */
+.countdown-auth-logged {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 16px 22px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 16px;
+    border: 1px solid rgba(76, 175, 80, 0.15);
+}
+
+.countdown-auth-check {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 50%;
+    color: #66bb6a;
+}
+
+.countdown-auth-avatar {
+    flex-shrink: 0;
+}
+
+.countdown-auth-avatar img,
+.countdown-auth-avatar-placeholder {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.countdown-auth-avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.countdown-auth-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.countdown-auth-status {
+    font-size: 11px;
+    color: #66bb6a;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.countdown-auth-name {
+    font-size: 15px;
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Not logged-in state */
+.countdown-auth-login {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 28px 24px;
+    background: rgba(240, 147, 251, 0.08);
+    border-radius: 20px;
+    border: 1px solid rgba(240, 147, 251, 0.25);
+    text-align: center;
+    animation: authPulse 3s ease-in-out infinite;
+}
+
+@keyframes authPulse {
+    0%, 100% { border-color: rgba(240, 147, 251, 0.25); box-shadow: 0 0 20px rgba(240, 147, 251, 0.05); }
+    50% { border-color: rgba(240, 147, 251, 0.45); box-shadow: 0 0 30px rgba(240, 147, 251, 0.12); }
+}
+
+.countdown-auth-login-icon {
+    flex-shrink: 0;
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.2), rgba(245, 87, 108, 0.2));
+    border-radius: 50%;
+    color: #f093fb;
+    border: 1px solid rgba(240, 147, 251, 0.3);
+}
+
+.countdown-auth-login-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.countdown-auth-login-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.countdown-auth-login-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.countdown-auth-login-desc {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+}
+
+.countdown-auth-login-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 36px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.3s;
+    white-space: nowrap;
+    box-shadow: 0 6px 25px rgba(240, 147, 251, 0.35);
+    width: 100%;
+}
+
+.countdown-auth-login-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 35px rgba(240, 147, 251, 0.5);
+    color: white;
+}
+
+.countdown-auth-login-btn:active {
+    transform: translateY(0);
+}
+
+@media (max-width: 480px) {
+    .countdown-auth-logged {
+        padding: 14px 16px;
+        gap: 10px;
+    }
+
+    .countdown-auth-check {
+        width: 28px;
+        height: 28px;
+    }
+
+    .countdown-auth-check svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .countdown-auth-login {
+        flex-direction: column;
+        text-align: center;
+        padding: 20px 16px;
+        gap: 12px;
+    }
+
+    .countdown-auth-login-text {
+        align-items: center;
+    }
+
+    .countdown-auth-login-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 24px;
+    }
+}
+
+/* ==========================================
    Dynamic Pulse Rings
    ========================================== */
 .pulse-rings-container {

@@ -57,6 +57,7 @@ def record_login_attempt(email, ip_address, success):
 
 
 from utils.email_manager import EmailManager
+from utils.turnstile import verify_turnstile_token, is_turnstile_enabled
 
 
 # =============================================
@@ -87,6 +88,7 @@ def login():
             return jsonify({
                 'success': True,
                 'user': {
+                    'id': current_user.id,
                     'full_name': current_user.full_name,
                     'email': current_user.email,
                     'avatar_url': current_user.avatar_url
@@ -166,6 +168,7 @@ def login():
         return jsonify({
             'success': True,
             'user': {
+                'id': user.id,
                 'full_name': user.full_name,
                 'email': user.email,
                 'avatar_url': user.avatar_url
@@ -237,6 +240,7 @@ def login():
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@limiter.limit("5 per hour", methods=["POST"])
 def register():
     """
     Strona rejestracji (zunifikowany szablon)
@@ -250,6 +254,13 @@ def register():
     form = RegisterForm()
 
     if form.validate_on_submit():
+        # Weryfikacja Cloudflare Turnstile (jeśli włączone)
+        if is_turnstile_enabled():
+            turnstile_token = request.form.get('cf-turnstile-response', '')
+            if not verify_turnstile_token(turnstile_token):
+                flash('Weryfikacja anty-bot nie powiodła się. Spróbuj ponownie.', 'error')
+                return render_template('auth/auth_unified.html', form=form, mode='register')
+
         # Sprawdź czy email już istnieje (manualna walidacja)
         email = form.email.data.lower().strip()
         # Bezpośrednie query zamiast używania metody klasowej

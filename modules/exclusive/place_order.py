@@ -269,7 +269,16 @@ def place_exclusive_order(page, session_id, order_note=None):
     EmailManager.notify_order_confirmation(order)
     EmailManager.notify_admin_new_order(order)
 
-    # 12b. Emit Socket.IO events to LIVE dashboard
+    # 12b. Broadcast dostępności do kupujących (rezerwacje usunięte → produkty wolne)
+    try:
+        from modules.exclusive.socket_events import broadcast_availability_update, _schedule_expiry_timer
+        broadcast_availability_update(page.id)
+        _schedule_expiry_timer(page.id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Broadcast availability failed for page {page.id}: {e}")
+
+    # 12c. Emit Socket.IO events to LIVE dashboard
     try:
         from modules.exclusive.socket_events import emit_new_order, emit_stats_update
         from utils.exclusive_closure import get_live_summary

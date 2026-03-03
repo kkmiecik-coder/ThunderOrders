@@ -195,7 +195,7 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
             available_qty = int(available) if available != float('inf') else 999999
             return False, {
                 'error': 'insufficient_availability',
-                'message': 'Ten produkt został już zarezerwowany przez innych użytkowników.',
+                'message': 'Ktoś właśnie zarezerwował lub zakupił ten produkt.',
                 'available_quantity': available_qty,
                 'check_back_at': earliest_expiry
             }
@@ -221,6 +221,14 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
             user_reservation.quantity += quantity
             user_reservation.expires_at = expires_at
         else:
+            # Bezpieczne pobieranie IP/UA (SocketIO może nie mieć tych danych)
+            try:
+                ip_addr = request.remote_addr or ''
+                user_agent = request.headers.get('User-Agent', '')
+            except (RuntimeError, AttributeError):
+                ip_addr = ''
+                user_agent = ''
+
             user_reservation = ExclusiveReservation(
                 session_id=session_id,
                 exclusive_page_id=page_id,
@@ -228,8 +236,8 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
                 quantity=quantity,
                 reserved_at=first_reserved_at,
                 expires_at=expires_at,
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent', '')
+                ip_address=ip_addr,
+                user_agent=user_agent
             )
             db.session.add(user_reservation)
 
@@ -334,6 +342,129 @@ def extend_reservation(session_id, page_id):
     return True, {
         'new_expires_at': reservations[0].expires_at
     }
+
+
+def get_section_max_for_product(page_id, product_id):
+    """
+    Zwraca limit max_quantity dla produktu na stronie exclusive.
+
+    Sprawdza kolejno:
+    1. Sekcja typu 'product' z bezpośrednim product_id
+    2. Sekcja typu 'variant_group' z grupą wariantową produktu
+    3. Sekcja typu 'set' — element setu z bezpośrednim product_id
+    4. Sekcja typu 'set' — element setu przez grupę wariantową
+
+    Args:
+        page_id: ID strony exclusive
+        product_id: ID produktu
+
+    Returns:
+        int | None: Limit ilości (None = bez limitu)
+    """
+    from modules.exclusive.models import ExclusiveSection, ExclusiveSetItem
+    from modules.products.models import variant_products
+
+    # 1. Bezpośrednia sekcja produktowa
+    section = ExclusiveSection.query.filter_by(
+        exclusive_page_id=page_id,
+        section_type='product',
+        product_id=product_id
+    ).first()
+
+    if section:
+        return section.max_quantity
+
+    # Znajdź grupy wariantowe produktu (potrzebne dla kroków 2-4)
+    product_vg_ids = db.session.query(variant_products.c.variant_group_id).filter(
+        variant_products.c.product_id == product_id
+    ).all()
+    product_vg_ids = [vg_id for (vg_id,) in product_vg_ids]
+
+    # 2. Sekcja variant_group
+    if product_vg_ids:
+        vg_section = ExclusiveSection.query.filter(
+            ExclusiveSection.exclusive_page_id == page_id,
+            ExclusiveSection.section_type == 'variant_group',
+            ExclusiveSection.variant_group_id.in_(product_vg_ids)
+        ).first()
+
+        if vg_section:
+            return vg_section.max_quantity
+
+    # 3. Bezpośredni element setu
+    set_item = ExclusiveSetItem.query.join(ExclusiveSection).filter(
+        ExclusiveSection.exclusive_page_id == page_id,
+        ExclusiveSection.section_type == 'set',
+        ExclusiveSetItem.product_id == product_id
+    ).first()
+
+    if set_item:
+        return set_item.section.set_max_sets
+
+    # 4. Element setu przez grupę wariantową
+    if product_vg_ids:
+        set_item_vg = ExclusiveSetItem.query.join(ExclusiveSection).filter(
+            ExclusiveSection.exclusive_page_id == page_id,
+            ExclusiveSection.section_type == 'set',
+            ExclusiveSetItem.variant_group_id.in_(product_vg_ids)
+        ).first()
+        if set_item_vg:
+            return set_item_vg.section.set_max_sets
+
+    return None
+
+
+def get_section_products_map(page_id):
+    """
+    Zwraca mapę {product_id: section_max} dla wszystkich produktów na stronie exclusive.
+
+    Potrzebne do broadcast_availability_update() — zamiast budować mapę
+    za każdym razem w route, robimy to raz.
+
+    Args:
+        page_id: ID strony exclusive
+
+    Returns:
+        dict: {product_id: max_quantity (int lub None)}
+    """
+    from modules.exclusive.models import ExclusiveSection, ExclusiveSetItem
+    from modules.products.models import Product, VariantGroup
+
+    sections = ExclusiveSection.query.filter_by(exclusive_page_id=page_id).all()
+    section_products = {}
+
+    for section in sections:
+        if section.section_type == 'product' and section.product_id:
+            section_products[section.product_id] = section.max_quantity
+
+        elif section.section_type == 'variant_group' and section.variant_group_id:
+            products = Product.query.join(
+                Product.variant_groups
+            ).filter(
+                VariantGroup.id == section.variant_group_id,
+                Product.is_active == True
+            ).all()
+            for product in products:
+                section_products[product.id] = section.max_quantity
+
+        elif section.section_type == 'set':
+            product_limit = section.set_max_sets
+            set_items = ExclusiveSetItem.query.filter_by(section_id=section.id).all()
+
+            for set_item in set_items:
+                if set_item.product_id:
+                    section_products[set_item.product_id] = product_limit
+                elif set_item.variant_group_id:
+                    vg_products = Product.query.join(
+                        Product.variant_groups
+                    ).filter(
+                        VariantGroup.id == set_item.variant_group_id,
+                        Product.is_active == True
+                    ).all()
+                    for product in vg_products:
+                        section_products[product.id] = product_limit
+
+    return section_products
 
 
 def get_sold_counts(page_id, product_ids):

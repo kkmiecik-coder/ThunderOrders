@@ -5,6 +5,9 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-unified.css') }}">
+{% if config.CF_TURNSTILE_SITE_KEY %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
 {% endblock %}
 
 {% block title %}
@@ -252,6 +255,11 @@
                     <div class="required-fields-note">
                         <span class="required-asterisk">*</span> Pole wymagane
                     </div>
+
+                    {% if config.CF_TURNSTILE_SITE_KEY %}
+                    <!-- Cloudflare Turnstile (managed CAPTCHA) -->
+                    <div class="cf-turnstile" data-sitekey="{{ config.CF_TURNSTILE_SITE_KEY }}" data-theme="dark"></div>
+                    {% endif %}
 
                     <!-- Submit Button -->
                     <button type="submit" class="auth-submit">

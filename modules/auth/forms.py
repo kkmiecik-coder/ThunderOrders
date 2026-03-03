@@ -120,8 +120,11 @@ class RegisterForm(FlaskForm):
 
     submit = SubmitField('Zarejestruj się')
 
-    # Usunięto validate_email - sprawdzanie unikalności przeniesione do routes.py
-    # aby uniknąć problemów z application context
+    def validate_email(self, field):
+        """Sprawdza czy email nie jest z tymczasowej domeny."""
+        from utils.disposable_emails import is_disposable_email
+        if is_disposable_email(field.data):
+            raise ValidationError('Rejestracja z tymczasowymi adresami email jest niedozwolona.')
 
 
 class ForgotPasswordForm(FlaskForm):
