@@ -716,8 +716,10 @@ def complete_profile():
         return redirect(url_for('client.dashboard'))
 
     # Ustal aktualny krok
+    # Krok 1 wymaga imienia, nazwiska i telefonu (OAuth daje imię/nazwisko, ale nie telefon)
     current_step = 1
-    if current_user.first_name and current_user.first_name.strip():
+    if (current_user.first_name and current_user.first_name.strip()
+            and current_user.phone and current_user.phone.strip()):
         current_step = 2
 
     form = CompleteProfileForm()
@@ -746,6 +748,13 @@ def complete_profile():
             for field_name, field_errors in form.errors.items():
                 errors[field_name] = field_errors[0] if field_errors else ''
             return jsonify({'success': False, 'errors': errors}), 400
+
+    # GET — pre-fill danymi OAuth (jeśli użytkownik logował przez Google/Facebook)
+    if request.method == 'GET' and current_step == 1:
+        if current_user.first_name and not form.first_name.data:
+            form.first_name.data = current_user.first_name
+        if current_user.last_name and not form.last_name.data:
+            form.last_name.data = current_user.last_name
 
     # GET — renderuj wizard
     from modules.profile.models import AvatarSeries

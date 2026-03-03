@@ -348,6 +348,23 @@
 }
 
 /* ==========================================
+   Auth Source
+   ========================================== */
+.auth-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+}
+
+.auth-source-icon {
+  flex-shrink: 0;
+}
+
+/* ==========================================
    Links
    ========================================== */
 .email-link,
@@ -922,6 +939,11 @@
 
 [data-theme="dark"] .data-table td {
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* Auth Source - Dark Mode */
+[data-theme="dark"] .auth-source {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Client Name - Dark Mode */
