@@ -87,8 +87,9 @@ def _get_visitor_counts(page_id):
         counts['active_reservations'] = ExclusiveReservation.query.filter_by(
             exclusive_page_id=page_id
         ).count()
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Visitor counts reservation query failed: {e}")
 
     return counts
 
@@ -545,18 +546,19 @@ def handle_join_exclusive_reservation(data):
             if user_id:
                 _user_sessions[(page_id, user_id)] = sid
 
-        # Transfer rezerwacji ze starej sesji na nową (poza lockiem — operacja DB)
+        # Transfer rezerwacji ze starej sesji na nową (z lockowaniem DB)
         if transferred_from_session:
             try:
                 from modules.exclusive.models import ExclusiveReservation
                 from extensions import db
                 now = int(time.time())
 
+                # SELECT FOR UPDATE — lockuje wiersze na czas transferu
                 old_reservations = ExclusiveReservation.query.filter(
                     ExclusiveReservation.session_id == transferred_from_session,
                     ExclusiveReservation.exclusive_page_id == page_id,
                     ExclusiveReservation.expires_at > now
-                ).all()
+                ).with_for_update().all()
 
                 if old_reservations:
                     for res in old_reservations:
@@ -565,7 +567,7 @@ def handle_join_exclusive_reservation(data):
                             session_id=session_id,
                             exclusive_page_id=page_id,
                             product_id=res.product_id
-                        ).first()
+                        ).with_for_update().first()
 
                         if existing:
                             # Dodaj ilość do istniejącej rezerwacji
@@ -579,7 +581,8 @@ def handle_join_exclusive_reservation(data):
                     print(f"[SOCKET] Transferred {len(old_reservations)} reservations "
                           f"from session {transferred_from_session[:8]}... to {session_id[:8]}...")
             except Exception as e:
-                print(f"[SOCKET] Reservation transfer error: {e}")
+                import logging
+                logging.getLogger(__name__).error(f"Reservation transfer error: {e}")
                 db.session.rollback()
 
         # Dołącz do rooma
@@ -614,8 +617,9 @@ def handle_join_exclusive_reservation(data):
         if session_info.get('has_reservations'):
             try:
                 _schedule_expiry_timer(page_id)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Schedule expiry timer failed for page {page_id}: {e}")
 
         return {
             'success': True,
@@ -686,8 +690,9 @@ def handle_reserve_product(data):
             # Zaplanuj/aktualizuj expiry timer
             try:
                 _schedule_expiry_timer(page_id)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Schedule expiry timer failed for page {page_id}: {e}")
 
         return {'success': success, **result}
 
@@ -771,8 +776,9 @@ def handle_extend_reservation(data):
         # Przelicz expiry timer
         try:
             _schedule_expiry_timer(page_id)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"Schedule expiry timer failed for page {page_id}: {e}")
 
     return {'success': success, **result}
 

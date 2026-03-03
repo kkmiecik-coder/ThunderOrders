@@ -159,6 +159,9 @@ def check_status(token):
 @limiter.limit("120 per minute")
 def reserve(token):
     """Reserve product"""
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'login_required'}), 401
+
     from modules.exclusive.reservation import reserve_product
     from modules.exclusive.models import ExclusiveSection, ExclusiveSetItem
     from modules.products.models import Product, VariantGroup, variant_products
@@ -253,6 +256,9 @@ def reserve(token):
 @limiter.limit("120 per minute")
 def release(token):
     """Release product"""
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'login_required'}), 401
+
     from modules.exclusive.reservation import release_product
 
     page = ExclusivePage.get_by_token(token)
@@ -354,6 +360,9 @@ def availability(token):
 @limiter.limit("20 per minute")
 def extend(token):
     """Extend reservation"""
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'error': 'login_required'}), 401
+
     from modules.exclusive.reservation import extend_reservation
 
     page = ExclusivePage.get_by_token(token)

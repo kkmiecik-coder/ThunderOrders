@@ -14,82 +14,67 @@ from utils.activity_logger import log_activity
 from utils.exclusive_auto_increase import check_and_apply_auto_increase
 
 
-def check_product_availability(reservations, page_id):
+def check_product_availability(reservations, page_id, session_id):
     """
-    Check if all reserved products are still available
+    Check if all reserved products are still available.
+
+    Sprawdza faktyczną dostępność: section_max - total_ordered - reserved_by_others.
+    Używa SELECT FOR UPDATE żeby uniknąć race condition przy jednoczesnych zamówieniach.
 
     Args:
         reservations (list): List of ExclusiveReservation objects
         page_id (int): Exclusive page ID
+        session_id (str): Current session ID (to exclude own reservations)
 
     Returns:
         tuple: (available: bool, error: dict or None)
     """
+    import time
     from modules.exclusive.models import ExclusiveSection, ExclusiveSetItem
     from modules.products.models import VariantGroup, variant_products
+    from modules.exclusive.reservation import get_section_max_for_product
+    from sqlalchemy import func
+
+    now = int(time.time())
 
     for reservation in reservations:
         product = reservation.product
+        section_max = get_section_max_for_product(page_id, product.id)
 
-        # NOTE: Exclusive orders do NOT check global product stock (product.quantity)
-        # Availability is controlled only by section limits (max_quantity)
+        if section_max is None:
+            continue  # Unlimited
 
-        # Check section max_quantity limits
-        # 1. Direct product section
-        section = ExclusiveSection.query.filter_by(
-            exclusive_page_id=page_id,
-            section_type='product',
-            product_id=product.id
-        ).first()
+        # Lock reservations for this product (prevents concurrent order race)
+        locked_reservations = ExclusiveReservation.query.filter(
+            ExclusiveReservation.exclusive_page_id == page_id,
+            ExclusiveReservation.product_id == product.id,
+            ExclusiveReservation.expires_at > now
+        ).with_for_update().all()
 
-        section_max = None
+        # Total reserved by OTHER sessions
+        reserved_by_others = sum(
+            r.quantity for r in locked_reservations if r.session_id != session_id
+        )
 
-        if section:
-            section_max = section.max_quantity
-        else:
-            # 2. Variant group section
-            product_vg_ids = db.session.query(variant_products.c.variant_group_id).filter(
-                variant_products.c.product_id == product.id
-            ).all()
-            product_vg_ids = [vg_id for (vg_id,) in product_vg_ids]
+        # Total already ordered (permanent)
+        total_ordered = db.session.query(
+            func.sum(OrderItem.quantity)
+        ).join(Order).filter(
+            Order.exclusive_page_id == page_id,
+            Order.status != 'anulowane',
+            OrderItem.product_id == product.id
+        ).scalar() or 0
 
-            if product_vg_ids:
-                vg_section = ExclusiveSection.query.filter(
-                    ExclusiveSection.exclusive_page_id == page_id,
-                    ExclusiveSection.section_type == 'variant_group',
-                    ExclusiveSection.variant_group_id.in_(product_vg_ids)
-                ).first()
+        available = section_max - int(total_ordered) - reserved_by_others
 
-                if vg_section:
-                    section_max = vg_section.max_quantity
-
-            # 3. Set section
-            if section_max is None:
-                set_item = ExclusiveSetItem.query.join(ExclusiveSection).filter(
-                    ExclusiveSection.exclusive_page_id == page_id,
-                    ExclusiveSection.section_type == 'set',
-                    ExclusiveSetItem.product_id == product.id
-                ).first()
-
-                if set_item:
-                    section_max = set_item.section.set_max_sets
-                elif product_vg_ids:
-                    set_item_vg = ExclusiveSetItem.query.join(ExclusiveSection).filter(
-                        ExclusiveSection.exclusive_page_id == page_id,
-                        ExclusiveSection.section_type == 'set',
-                        ExclusiveSetItem.variant_group_id.in_(product_vg_ids)
-                    ).first()
-                    if set_item_vg:
-                        section_max = set_item_vg.section.set_max_sets
-
-        # If section has max_quantity, check if product has enough
-        if section_max is not None and section_max < reservation.quantity:
+        if available < reservation.quantity:
             return False, {
-                'error': 'exceeds_section_limit',
+                'error': 'insufficient_availability',
                 'product_id': product.id,
                 'product_name': product.name,
                 'requested': reservation.quantity,
-                'section_max': section_max
+                'available': max(0, available),
+                'message': f'Produkt "{product.name}" nie ma wystarczającej dostępności ({max(0, available)} szt.)'
             }
 
     return True, None
@@ -120,8 +105,8 @@ def place_exclusive_order(page, session_id, order_note=None):
     if not reservations:
         return False, {'error': 'no_reservations', 'message': 'Brak produktów w koszyku'}
 
-    # 3. Check product availability
-    available, error = check_product_availability(reservations, page.id)
+    # 3. Check product availability (with SELECT FOR UPDATE to prevent race conditions)
+    available, error = check_product_availability(reservations, page.id, session_id)
     if not available:
         return False, error
 

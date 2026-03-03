@@ -746,7 +746,7 @@ def exclusive_upload_image():
         # Opcjonalnie: kompresuj obrazek
         try:
             from utils.image_processor import compress_image
-            compress_image(file_path, max_width=1600, quality=85)
+            compress_image(file_path, max_size=1600, quality=85)
         except Exception:
             pass  # Jeśli nie ma image_processor, zapisz bez kompresji
 

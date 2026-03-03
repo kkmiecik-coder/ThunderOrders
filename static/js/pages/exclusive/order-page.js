@@ -108,9 +108,14 @@ function initExpandableImages() {
         const checkImageHeight = () => {
             const imgHeight = img.naturalHeight;
             const imgWidth = img.naturalWidth;
-            const wrapperWidth = wrapper.offsetWidth;
 
-            // Calculate displayed height based on aspect ratio
+            // Guard: image failed to load (naturalWidth/Height are 0)
+            if (!imgWidth || !imgHeight) {
+                wrapper.style.display = 'none';
+                return;
+            }
+
+            const wrapperWidth = wrapper.offsetWidth;
             const displayedHeight = (imgHeight / imgWidth) * wrapperWidth;
 
             if (displayedHeight <= MAX_HEIGHT) {
@@ -128,6 +133,9 @@ function initExpandableImages() {
             checkImageHeight();
         } else {
             img.addEventListener('load', checkImageHeight);
+            img.addEventListener('error', () => {
+                wrapper.style.display = 'none';
+            });
         }
     });
 }
@@ -1270,6 +1278,13 @@ function increaseQtyWithReservation(btn) {
             if (typeof showToast === 'function') {
                 showToast(result.message || 'Zbyt wiele prób. Poczekaj chwilę.', 'warning');
             }
+        } else if (result && result.error === 'login_required') {
+            showToast('Zaloguj się, aby rezerwować produkty.', 'warning');
+        } else if (result && result.error === 'reservation_expired') {
+            showToast(result.message || 'Twoja rezerwacja wygasła.', 'error');
+            clearReservation();
+        } else if (result && result.message) {
+            showToast(result.message, 'error');
         }
     }
 
@@ -1591,8 +1606,14 @@ async function extendReservation() {
         showToast('Rezerwacja przedłużona o 2 minuty', 'success');
     }
 
-    function onError(msg) {
-        showToast(msg || 'Nie można przedłużyć rezerwacji', 'error');
+    function onError(result) {
+        const msg = (result && result.message) || 'Nie można przedłużyć rezerwacji';
+        showToast(msg, 'error');
+
+        // Jeśli rezerwacja wygasła — wyczyść koszyk
+        if (result && result.error === 'reservation_expired') {
+            clearReservation();
+        }
     }
 
     if (isSocketReady()) {
@@ -1603,7 +1624,7 @@ async function extendReservation() {
             if (result && result.success) {
                 onSuccess(result);
             } else {
-                onError(result ? result.message : null);
+                onError(result);
             }
         });
     } else {
@@ -1621,7 +1642,7 @@ async function extendReservation() {
             if (result.success) {
                 onSuccess(result);
             } else {
-                onError(result.message);
+                onError(result);
             }
         } catch (error) {
             console.error('[Extend] Błąd:', error);
@@ -1631,6 +1652,9 @@ async function extendReservation() {
 }
 
 function clearReservation() {
+    // Zwolnij rezerwacje na serwerze (żeby produkty były dostępne natychmiast)
+    _releaseAllServerReservations();
+
     reservationState.firstReservedAt = null;
     reservationState.expiresAt = null;
     reservationState.extended = false;
@@ -1644,6 +1668,49 @@ function clearReservation() {
 
     localStorage.removeItem(window.reservationStorageKey);
     hideReservationHeader();
+}
+
+/**
+ * Zwalnia wszystkie rezerwacje sesji na serwerze.
+ * Fire-and-forget — nie czekamy na odpowiedź.
+ */
+function _releaseAllServerReservations() {
+    // Zbierz produkty z koszyka które mają qty > 0
+    const productsToRelease = [];
+    document.querySelectorAll('.qty-input').forEach(input => {
+        const qty = parseInt(input.value) || 0;
+        if (qty <= 0) return;
+        const section = input.closest('[data-product-id]');
+        if (section) {
+            productsToRelease.push({
+                product_id: parseInt(section.dataset.productId),
+                quantity: qty
+            });
+        }
+    });
+
+    if (productsToRelease.length === 0) return;
+
+    for (const item of productsToRelease) {
+        if (isSocketReady()) {
+            window.exclusiveSocket.emit('release_product', {
+                page_id: window.exclusivePageId,
+                session_id: reservationState.sessionId,
+                product_id: item.product_id,
+                quantity: item.quantity,
+            });
+        } else {
+            fetch(window.releaseProductUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: reservationState.sessionId,
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                })
+            }).catch(() => {});
+        }
+    }
 }
 
 function showUnavailablePopup(message, checkBackAtTimestamp) {

@@ -232,7 +232,7 @@
                             <!-- Tło seta -->
                             <div class="set-background expandable-image collapsed" onclick="toggleSetImage(this)">
                                 <div class="image-wrapper">
-                                    <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.set_name }}">
+                                    <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.set_name }}" onerror="this.closest('.set-background').style.display='none'">
                                 </div>
                                 <div class="expand-overlay">
                                     <span class="expand-text">Pokaż cały obraz</span>

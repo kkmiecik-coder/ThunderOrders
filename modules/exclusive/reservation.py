@@ -314,15 +314,20 @@ def extend_reservation(session_id, page_id):
     Returns:
         tuple: (success: bool, data: dict)
     """
-    reservations = ExclusiveReservation.query.filter_by(
-        session_id=session_id,
-        exclusive_page_id=page_id
+    # Cleanup expired BEFORE checking — zapobiega wskrzeszaniu wygasłych rezerwacji
+    cleanup_expired_reservations(page_id)
+
+    now = int(time.time())
+    reservations = ExclusiveReservation.query.filter(
+        ExclusiveReservation.session_id == session_id,
+        ExclusiveReservation.exclusive_page_id == page_id,
+        ExclusiveReservation.expires_at > now
     ).all()
 
     if not reservations:
         return False, {
-            'error': 'no_reservations',
-            'message': 'Brak aktywnych rezerwacji.'
+            'error': 'reservation_expired',
+            'message': 'Twoja rezerwacja wygasła. Dodaj produkty ponownie.'
         }
 
     # Check if already extended
