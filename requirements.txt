@@ -31,6 +31,9 @@ requests==2.31.0
 # Security & Utilities
 cryptography==41.0.7
 
+# OAuth (Google, Facebook login)
+Authlib==1.6.9
+
 # Rate Limiting
 Flask-Limiter==3.11.0
 

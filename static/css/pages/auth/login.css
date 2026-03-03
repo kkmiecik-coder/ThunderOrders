@@ -541,6 +541,79 @@ html.auth-html body::after {
     }
 }
 
+/* ============================================
+   OAUTH BUTTONS
+   ============================================ */
+
+.oauth-separator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.25rem 0;
+}
+
+.oauth-separator::before,
+.oauth-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.oauth-separator span {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    text-transform: lowercase;
+    letter-spacing: 0.05em;
+}
+
+.oauth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.oauth-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.oauth-btn-google {
+    background: rgba(255, 255, 255, 0.95);
+    color: #3c4043;
+}
+
+.oauth-btn-google:hover {
+    background: #ffffff;
+    box-shadow: 0 2px 12px rgba(255, 255, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.oauth-btn-facebook {
+    background: #1877f2;
+    color: #ffffff;
+}
+
+.oauth-btn-facebook:hover {
+    background: #166fe5;
+    box-shadow: 0 2px 12px rgba(24, 119, 242, 0.4);
+    transform: translateY(-1px);
+}
+
+.oauth-icon {
+    flex-shrink: 0;
+}
+
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
     html.auth-html body::before,

@@ -59,6 +59,7 @@ def record_login_attempt(email, ip_address, success):
 
 from utils.email_manager import EmailManager
 from utils.turnstile import verify_turnstile_token, is_turnstile_enabled
+from utils.oauth import oauth
 
 
 # =============================================
@@ -566,6 +567,131 @@ def verification_success():
         success_title='Konto aktywowane!',
         success_message='Twój adres email został pomyślnie zweryfikowany. Możesz teraz zalogować się na swoje konto.'
     )
+
+
+# =============================================
+# OAuth Login (Google, Facebook)
+# =============================================
+
+@auth_bp.route('/login/<provider>')
+def oauth_login(provider):
+    """
+    Rozpoczyna flow OAuth - redirect do providera (Google/Facebook).
+    """
+    if provider not in ('google', 'facebook'):
+        flash('Nieobsługiwany provider.', 'error')
+        return redirect(url_for('auth.login'))
+
+    client = oauth.create_client(provider)
+    if client is None:
+        flash('Logowanie przez ten serwis nie jest dostępne.', 'error')
+        return redirect(url_for('auth.login'))
+
+    redirect_uri = url_for('auth.oauth_callback', provider=provider, _external=True)
+    return client.authorize_redirect(redirect_uri)
+
+
+@auth_bp.route('/callback/<provider>')
+def oauth_callback(provider):
+    """
+    Callback od providera OAuth.
+    Pobiera dane użytkownika, tworzy/loguje konto.
+    """
+    if provider not in ('google', 'facebook'):
+        flash('Nieobsługiwany provider.', 'error')
+        return redirect(url_for('auth.login'))
+
+    client = oauth.create_client(provider)
+    if client is None:
+        flash('Logowanie przez ten serwis nie jest dostępne.', 'error')
+        return redirect(url_for('auth.login'))
+
+    try:
+        token = client.authorize_access_token()
+    except Exception as e:
+        current_app.logger.error(f'OAuth token error ({provider}): {e}')
+        flash('Nie udało się zalogować. Spróbuj ponownie.', 'error')
+        return redirect(url_for('auth.login'))
+
+    # Pobierz dane użytkownika z providera
+    if provider == 'google':
+        user_info = token.get('userinfo')
+        if not user_info:
+            user_info = client.userinfo()
+        oauth_id = user_info.get('sub')
+        email = user_info.get('email', '').lower().strip()
+        first_name = user_info.get('given_name', '')
+        last_name = user_info.get('family_name', '')
+    else:  # facebook
+        resp = client.get('me?fields=id,name,email,first_name,last_name')
+        user_info = resp.json()
+        oauth_id = user_info.get('id')
+        email = user_info.get('email', '').lower().strip()
+        first_name = user_info.get('first_name', '')
+        last_name = user_info.get('last_name', '')
+
+    if not email:
+        flash('Nie udało się pobrać adresu email z konta. Upewnij się, że konto ma przypisany email.', 'error')
+        return redirect(url_for('auth.login'))
+
+    # 1. Szukaj usera po OAuth ID
+    if provider == 'google':
+        user = User.get_by_google_id(oauth_id)
+    else:
+        user = User.get_by_facebook_id(oauth_id)
+
+    # 2. Jeśli nie znaleziono po OAuth ID → szukaj po emailu
+    if user is None:
+        user = User.get_by_email(email)
+
+        if user:
+            # Dowiąż OAuth ID do istniejącego konta
+            if provider == 'google':
+                user.google_id = oauth_id
+            else:
+                user.facebook_id = oauth_id
+            # Oznacz email jako zweryfikowany (provider gwarantuje)
+            if not user.email_verified:
+                user.email_verified = True
+            db.session.commit()
+        else:
+            # 3. Stwórz nowe konto
+            user = User(
+                email=email,
+                role='client',
+                is_active=True,
+                email_verified=True,
+                profile_completed=False,
+                first_name=first_name or None,
+                last_name=last_name or None,
+            )
+            if provider == 'google':
+                user.google_id = oauth_id
+            else:
+                user.facebook_id = oauth_id
+
+            db.session.add(user)
+            db.session.commit()
+
+            # Wyślij email powitalny
+            EmailManager.send_welcome(user)
+
+    # Sprawdź czy konto aktywne
+    if not user.is_active:
+        flash('Twoje konto zostało dezaktywowane. Skontaktuj się z administratorem.', 'error')
+        return redirect(url_for('auth.login'))
+
+    # Zaloguj użytkownika
+    login_user(user, remember=True)
+    user.update_last_login()
+
+    # Redirect
+    if not user.profile_completed:
+        return redirect(url_for('auth.complete_profile'))
+
+    if user.role in ['admin', 'mod']:
+        return redirect(url_for('admin.dashboard'))
+    return redirect(url_for('client.dashboard'))
 
 
 # =============================================

@@ -58,9 +58,13 @@ class User(UserMixin, db.Model):
 
     # Basic Info
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
+    password_hash = db.Column(db.String(255), nullable=True)  # nullable for OAuth users
     first_name = db.Column(db.String(100), nullable=True)
     last_name = db.Column(db.String(100), nullable=True)
+
+    # OAuth Provider IDs
+    google_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
+    facebook_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
 
     # Role & Permissions
     role = db.Column(
@@ -156,6 +160,8 @@ class User(UserMixin, db.Model):
         Returns:
             bool: True jeśli hasło poprawne
         """
+        if not self.password_hash:
+            return False
         return check_password_hash(self.password_hash, password)
 
     # ============================================
@@ -475,6 +481,20 @@ class User(UserMixin, db.Model):
             User|None: Obiekt użytkownika lub None
         """
         return cls.query.filter_by(email_verification_token=token).first()
+
+    @classmethod
+    def get_by_google_id(cls, google_id):
+        """Znajduje użytkownika po Google ID"""
+        if not google_id:
+            return None
+        return cls.query.filter_by(google_id=google_id).first()
+
+    @classmethod
+    def get_by_facebook_id(cls, facebook_id):
+        """Znajduje użytkownika po Facebook ID"""
+        if not facebook_id:
+            return None
+        return cls.query.filter_by(facebook_id=facebook_id).first()
 
     # ============================================
     # Flask-Login Required Methods

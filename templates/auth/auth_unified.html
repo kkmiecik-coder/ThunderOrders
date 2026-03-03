@@ -133,6 +133,29 @@
                     </button>
                 </form>
 
+                {% if config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID %}
+                <!-- OAuth Separator -->
+                <div class="oauth-separator">
+                    <span>lub</span>
+                </div>
+
+                <!-- OAuth Buttons -->
+                <div class="oauth-buttons">
+                    {% if config.GOOGLE_CLIENT_ID %}
+                    <a href="{{ url_for('auth.oauth_login', provider='google') }}" class="oauth-btn oauth-btn-google">
+                        <img src="{{ url_for('static', filename='img/icons/google-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
+                        <span>Kontynuuj z Google</span>
+                    </a>
+                    {% endif %}
+                    {% if config.FACEBOOK_CLIENT_ID %}
+                    <a href="{{ url_for('auth.oauth_login', provider='facebook') }}" class="oauth-btn oauth-btn-facebook">
+                        <img src="{{ url_for('static', filename='img/icons/facebook-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
+                        <span>Kontynuuj z Facebook</span>
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+
                 <!-- Login Link -->
                 <div class="auth-footer">
                     <p>Masz już konto?</p>

@@ -42,6 +42,10 @@ def create_app(config_name=None):
     limiter.init_app(app)
     socketio.init_app(app, async_mode='threading', cors_allowed_origins='*')
 
+    # OAuth (Google, Facebook login)
+    from utils.oauth import init_oauth
+    init_oauth(app)
+
     # Konfiguracja Flask-Login
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Zaloguj się, aby uzyskać dostęp do tej strony.'

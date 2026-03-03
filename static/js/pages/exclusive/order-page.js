@@ -1223,8 +1223,13 @@ function increaseQtyWithReservation(btn) {
         input.value = Math.max(0, parseInt(input.value) - 1);
         optimisticUpdateAvailability(productId, +1);
         updateCart();
+        saveToLocalStorage();
         if (result && result.error === 'insufficient_availability') {
             showUnavailablePopup(result.message, result.check_back_at);
+        } else if (result && result.error === 'rate_limited') {
+            if (typeof showToast === 'function') {
+                showToast(result.message || 'Zbyt wiele prób. Poczekaj chwilę.', 'warning');
+            }
         }
     }
 
@@ -1252,7 +1257,14 @@ function increaseQtyWithReservation(btn) {
                 quantity: 1,
                 action: val === 0 ? 'add' : 'increase'
             })
-        }).then(r => r.json()).then(result => {
+        }).then(r => {
+            if (r.status === 429) {
+                onError({ error: 'rate_limited', message: 'Zbyt wiele prób. Poczekaj chwilę.' });
+                return;
+            }
+            return r.json();
+        }).then(result => {
+            if (!result) return; // 429 — już obsłużone
             if (result.success) {
                 onSuccess(result);
             } else {

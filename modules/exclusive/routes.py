@@ -156,7 +156,7 @@ def check_status(token):
 # ============================================
 
 @exclusive_bp.route('/<token>/reserve', methods=['POST'])
-@limiter.limit("30 per minute")
+@limiter.limit("120 per minute")
 def reserve(token):
     """Reserve product"""
     from modules.exclusive.reservation import reserve_product
@@ -249,7 +249,7 @@ def reserve(token):
 
 
 @exclusive_bp.route('/<token>/release', methods=['POST'])
-@limiter.limit("30 per minute")
+@limiter.limit("120 per minute")
 def release(token):
     """Release product"""
     from modules.exclusive.reservation import release_product
@@ -281,7 +281,7 @@ def release(token):
 
 
 @exclusive_bp.route('/<token>/availability', methods=['GET'])
-@limiter.limit("60 per minute")
+@limiter.limit("120 per minute")
 def availability(token):
     """Get availability snapshot"""
     from modules.exclusive.reservation import get_availability_snapshot
