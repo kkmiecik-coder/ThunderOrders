@@ -388,8 +388,9 @@ def handle_disconnect():
     try:
         from modules.exclusive.socket_events import handle_exclusive_disconnect
         handle_exclusive_disconnect(sid)
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Exclusive disconnect cleanup failed for {sid}: {e}")
 
     client = connected_clients.pop(sid, None)
     if not client:

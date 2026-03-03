@@ -239,8 +239,9 @@ def reserve(token):
 
     if success:
         try:
-            from modules.exclusive.socket_events import emit_reservations_update
+            from modules.exclusive.socket_events import emit_reservations_update, broadcast_availability_update
             emit_reservations_update(page.id)
+            broadcast_availability_update(page.id)
         except Exception:
             pass
         return jsonify({'success': True, **result})
@@ -272,8 +273,9 @@ def release(token):
 
     if success:
         try:
-            from modules.exclusive.socket_events import emit_reservations_update
+            from modules.exclusive.socket_events import emit_reservations_update, broadcast_availability_update
             emit_reservations_update(page.id)
+            broadcast_availability_update(page.id)
         except Exception:
             pass
 

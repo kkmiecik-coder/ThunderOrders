@@ -40,7 +40,7 @@ def create_app(config_name=None):
     csrf.init_app(app)
     executor.init_app(app)
     limiter.init_app(app)
-    socketio.init_app(app, async_mode='threading', cors_allowed_origins='*')
+    socketio.init_app(app, async_mode='eventlet', cors_allowed_origins='*')
 
     # OAuth (Google, Facebook login)
     from utils.oauth import init_oauth
