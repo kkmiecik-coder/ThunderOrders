@@ -17,7 +17,7 @@
 {% block body_content %}
 <div class="auth-page">
     <!-- Glass Container -->
-    <div class="auth-container {% if mode == 'success' %}success-mode{% endif %}">
+    <div class="auth-container {% if mode == 'success' %}success-mode{% endif %} {% if mode == 'register' and (config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID) %}auth-container-split{% endif %}">
         <!-- Logo -->
         <div class="auth-logo">
             <a href="{{ url_for('auth.login') }}">
@@ -35,6 +35,9 @@
                     <h1 class="auth-title">Utwórz konto</h1>
                     <p class="auth-subtitle">Dołącz do ThunderOrders już dziś</p>
                 </div>
+
+                <div class="auth-split-layout">
+                    <div class="auth-split-left">
 
                 <form method="POST" action="{{ url_for('auth.register') }}" class="auth-form" id="register-form">
                     {{ form.hidden_tag() }}
@@ -132,33 +135,33 @@
                         <div class="btn-shine"></div>
                     </button>
                 </form>
+                    </div>
 
-                {% if config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID %}
-                <!-- OAuth Separator -->
-                <div class="oauth-separator">
-                    <span>lub</span>
-                </div>
-
-                <!-- OAuth Buttons -->
-                <div class="oauth-buttons">
-                    {% if config.GOOGLE_CLIENT_ID %}
-                    <a href="{{ url_for('auth.oauth_login', provider='google') }}" class="oauth-btn oauth-btn-google">
-                        <img src="{{ url_for('static', filename='img/icons/google-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
-                        <span>Kontynuuj z Google</span>
-                    </a>
+                    {% if config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID %}
+                    <div class="auth-split-divider"><span>lub</span></div>
+                    <div class="auth-split-right">
+                        <p class="auth-split-label">Szybka rejestracja</p>
+                        <div class="oauth-buttons">
+                            {% if config.GOOGLE_CLIENT_ID %}
+                            <a href="{{ url_for('auth.oauth_login', provider='google') }}" class="oauth-btn oauth-btn-google">
+                                <img src="{{ url_for('static', filename='img/icons/google-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
+                                <span>Kontynuuj z Google</span>
+                            </a>
+                            {% endif %}
+                            {% if config.FACEBOOK_CLIENT_ID %}
+                            <a href="{{ url_for('auth.oauth_login', provider='facebook') }}" class="oauth-btn oauth-btn-facebook">
+                                <img src="{{ url_for('static', filename='img/icons/facebook-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
+                                <span>Kontynuuj z Facebook</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
                     {% endif %}
-                    {% if config.FACEBOOK_CLIENT_ID %}
-                    <a href="{{ url_for('auth.oauth_login', provider='facebook') }}" class="oauth-btn oauth-btn-facebook">
-                        <img src="{{ url_for('static', filename='img/icons/facebook-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
-                        <span>Kontynuuj z Facebook</span>
-                    </a>
-                    {% endif %}
                 </div>
-                {% endif %}
 
                 <!-- Login Link -->
                 <div class="auth-footer">
-                    <p>Masz już konto?</p>
+                    <p>Masz już konto? To super!</p>
                     <a href="{{ url_for('auth.login') }}" class="auth-link">
                         <span>Zaloguj się</span>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

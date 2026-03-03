@@ -298,6 +298,42 @@
     height: 14px;
 }
 
+/* ============================================
+   Buttons container (Wstecz + Zapisz)
+   ============================================ */
+.cp-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.auth-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 12px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.auth-back-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+}
+
+.auth-back-btn svg {
+    flex-shrink: 0;
+}
+
 /* Brak avatarów */
 .cp-panel .no-avatars-message {
     text-align: center;

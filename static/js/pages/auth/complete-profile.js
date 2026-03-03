@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initPhoneInput();
     initStep1Form();
     initStep2Avatar();
+    initBackButton();
 });
 
 // ============================================
@@ -152,6 +153,62 @@ function transitionToStep2() {
         // Inicjalizuj widoczność przycisków nawigacji carousel
         updateCarouselNavButtons();
     }, 300);
+}
+
+// ============================================
+// Cofnięcie do kroku 1
+// ============================================
+function transitionToStep1() {
+    const step1Panel = document.getElementById('step-1');
+    const step2Panel = document.getElementById('step-2');
+    const stepDot1 = document.querySelector('.cp-step[data-step="1"]');
+    const stepDot2 = document.querySelector('.cp-step[data-step="2"]');
+    const stepLine = document.querySelector('.cp-step-line');
+
+    // Animacja ukrycia kroku 2
+    step2Panel.style.opacity = '0';
+    step2Panel.style.transform = 'translateY(15px)';
+    step2Panel.style.transition = 'opacity 0.3s, transform 0.3s';
+
+    setTimeout(() => {
+        step2Panel.style.display = 'none';
+
+        // Zaktualizuj step indicator
+        stepDot2.classList.remove('active');
+        stepLine.classList.remove('active');
+        stepDot1.classList.remove('completed');
+        stepDot1.classList.add('active');
+
+        // Pokaż krok 1
+        step1Panel.style.display = 'block';
+        step1Panel.style.opacity = '0';
+        step1Panel.style.transform = 'translateY(-15px)';
+
+        requestAnimationFrame(() => {
+            step1Panel.style.transition = 'opacity 0.4s, transform 0.4s';
+            step1Panel.style.opacity = '1';
+            step1Panel.style.transform = 'translateY(0)';
+        });
+    }, 300);
+}
+
+function initBackButton() {
+    const backBtn = document.getElementById('back-to-step1');
+    if (backBtn) {
+        backBtn.addEventListener('click', transitionToStep1);
+    }
+
+    // Klikniecie w step indicator "1" na kroku 2 też cofa
+    const stepDot1 = document.querySelector('.cp-step[data-step="1"]');
+    if (stepDot1) {
+        stepDot1.style.cursor = 'pointer';
+        stepDot1.addEventListener('click', function() {
+            const step2Panel = document.getElementById('step-2');
+            if (step2Panel && step2Panel.style.display !== 'none') {
+                transitionToStep1();
+            }
+        });
+    }
 }
 
 // ============================================
