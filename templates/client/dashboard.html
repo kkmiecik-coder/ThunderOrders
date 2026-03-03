@@ -12,7 +12,7 @@
     <div class="dashboard-header">
         <div class="header-content">
             <h1 class="dashboard-title">
-                Witaj z powrotem, <span class="title-gradient">{{ current_user.first_name }}!</span>
+                Witaj z powrotem, <span class="title-gradient">{{ current_user.first_name or current_user.email.split('@')[0] }}!</span>
             </h1>
         </div>
     </div>

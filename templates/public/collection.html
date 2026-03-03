@@ -1,6 +1,6 @@
 {% extends "public/base_public.html" %}
 
-{% block title %}Kolekcja {{ user.first_name }} {{ user.last_name }} - ThunderOrders{% endblock %}
+{% block title %}Kolekcja {{ user.first_name or '' }} {{ user.last_name or '' }} - ThunderOrders{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/public/collection.css') }}">
@@ -37,15 +37,15 @@
         </a>
         <div class="header-user">
             {% if user.avatar %}
-                <img class="user-avatar" src="{{ user.avatar.url }}" alt="{{ user.first_name }}">
+                <img class="user-avatar" src="{{ user.avatar.url }}" alt="{{ user.first_name or '' }}">
             {% else %}
                 <div class="user-avatar user-avatar-fallback">
-                    {{ user.first_name[0]|upper }}
+                    {{ (user.first_name or user.email)[0]|upper }}
                 </div>
             {% endif %}
             <div class="header-info">
                 <p class="header-subtitle">Kolekcja użytkownika</p>
-                <span class="header-name">{{ user.first_name }} {{ user.last_name }}</span>
+                <span class="header-name">{{ user.first_name or '' }} {{ user.last_name or '' }}</span>
             </div>
         </div>
     </div>

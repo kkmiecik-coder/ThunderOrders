@@ -59,8 +59,8 @@ class User(UserMixin, db.Model):
     # Basic Info
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    first_name = db.Column(db.String(100), nullable=False)
-    last_name = db.Column(db.String(100), nullable=False)
+    first_name = db.Column(db.String(100), nullable=True)
+    last_name = db.Column(db.String(100), nullable=True)
 
     # Role & Permissions
     role = db.Column(
@@ -71,11 +71,12 @@ class User(UserMixin, db.Model):
     )
 
     # Contact
-    phone = db.Column(db.String(20), nullable=False)
+    phone = db.Column(db.String(20), nullable=True)
 
     # Status
     is_active = db.Column(db.Boolean, default=True)
     email_verified = db.Column(db.Boolean, default=False)
+    profile_completed = db.Column(db.Boolean, default=False, nullable=False)
 
     # Deactivation (by admin)
     deactivation_reason = db.Column(db.Text)
@@ -360,8 +361,11 @@ class User(UserMixin, db.Model):
 
     @property
     def full_name(self):
-        """Zwraca pełne imię i nazwisko"""
-        return f"{self.first_name} {self.last_name}"
+        """Zwraca pełne imię i nazwisko (null-safe, fallback na email)"""
+        first = self.first_name or ''
+        last = self.last_name or ''
+        name = f"{first} {last}".strip()
+        return name if name else self.email
 
     @property
     def has_avatar(self):

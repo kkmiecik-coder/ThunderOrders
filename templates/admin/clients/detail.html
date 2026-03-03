@@ -16,11 +16,11 @@
             <h1 class="page-title">
                 {% if client.has_avatar %}
                 <div class="client-avatar-large has-avatar">
-                    <img src="{{ client.avatar_url }}" alt="{{ client.first_name }}">
+                    <img src="{{ client.avatar_url }}" alt="{{ client.first_name or '' }}">
                 </div>
                 {% else %}
                 <div class="client-avatar-large">
-                    {{ client.first_name[0] }}{{ client.last_name[0] }}
+                    {{ (client.first_name or '?')[0] }}{{ (client.last_name or '?')[0] }}
                 </div>
                 {% endif %}
                 {{ client.full_name }}
@@ -65,11 +65,11 @@
                     <div id="viewMode" class="info-grid">
                         <div class="info-row">
                             <span class="info-label">Imię:</span>
-                            <span class="info-value">{{ client.first_name }}</span>
+                            <span class="info-value">{{ client.first_name or '-' }}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Nazwisko:</span>
-                            <span class="info-value">{{ client.last_name }}</span>
+                            <span class="info-value">{{ client.last_name or '-' }}</span>
                         </div>
                         <div class="info-row">
                             <span class="info-label">Email:</span>
@@ -125,12 +125,12 @@
                             <div class="form-group">
                                 <label for="first_name">Imię</label>
                                 <input type="text" id="first_name" name="first_name"
-                                       class="form-input" value="{{ client.first_name }}" required>
+                                       class="form-input" value="{{ client.first_name or '' }}" required>
                             </div>
                             <div class="form-group">
                                 <label for="last_name">Nazwisko</label>
                                 <input type="text" id="last_name" name="last_name"
-                                       class="form-input" value="{{ client.last_name }}" required>
+                                       class="form-input" value="{{ client.last_name or '' }}" required>
                             </div>
                         </div>
 

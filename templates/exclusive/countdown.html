@@ -141,7 +141,7 @@
                             <img src="{{ current_user.avatar_url }}" alt="">
                         {% else %}
                             <div class="countdown-auth-avatar-placeholder">
-                                {{ current_user.first_name[0] }}{{ current_user.last_name[0] }}
+                                {{ (current_user.first_name or '?')[0] }}{{ (current_user.last_name or '?')[0] }}
                             </div>
                         {% endif %}
                     </div>

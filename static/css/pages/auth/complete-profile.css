@@ -1,0 +1,398 @@
+/**
+ * ThunderOrders - Complete Profile Page (2-step wizard)
+ * Style dla strony dokończenia rejestracji
+ * Light + Dark mode (auth page jest zawsze dark, ale zachowujemy konwencję)
+ */
+
+/* ============================================
+   Kontener główny - szerszy niż standardowy auth
+   ============================================ */
+.complete-profile-container {
+    max-width: 560px;
+}
+
+/* ============================================
+   Step Indicator
+   ============================================ */
+.cp-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 32px;
+}
+
+.cp-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+
+.cp-step-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.4s ease;
+    position: relative;
+}
+
+.cp-step-number {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    transition: all 0.3s;
+}
+
+.cp-step-check {
+    display: none;
+    color: white;
+}
+
+.cp-step-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 500;
+    transition: color 0.3s;
+    white-space: nowrap;
+}
+
+/* Aktywny krok */
+.cp-step.active .cp-step-dot {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-color: transparent;
+    box-shadow: 0 0 20px rgba(240, 147, 251, 0.4);
+}
+
+.cp-step.active .cp-step-number {
+    color: white;
+}
+
+.cp-step.active .cp-step-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Ukończony krok */
+.cp-step.completed .cp-step-dot {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    border-color: transparent;
+    box-shadow: 0 0 15px rgba(67, 233, 123, 0.3);
+}
+
+.cp-step.completed .cp-step-number {
+    display: none;
+}
+
+.cp-step.completed .cp-step-check {
+    display: block;
+}
+
+.cp-step.completed .cp-step-label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Linia między krokami */
+.cp-step-line {
+    width: 80px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.15);
+    margin: 0 16px;
+    margin-bottom: 28px; /* wyrównanie z kropkami */
+    border-radius: 1px;
+    transition: background 0.4s ease;
+}
+
+.cp-step-line.active {
+    background: linear-gradient(90deg, #43e97b, #f093fb);
+}
+
+/* ============================================
+   Panel kroków
+   ============================================ */
+.cp-panel {
+    animation: fadeSlideIn 0.4s ease forwards;
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(15px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   Krok 2 - Style avatarów (reuse z select_avatar.css)
+   ============================================ */
+.cp-panel .avatar-series-container {
+    margin-bottom: 24px;
+}
+
+.cp-panel .avatar-series-row {
+    margin-bottom: 20px;
+}
+
+.cp-panel .series-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    margin: 0 0 12px;
+    padding-left: 4px;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Carousel */
+.cp-panel .avatar-carousel-wrapper {
+    position: relative;
+    overflow: visible;
+}
+
+.cp-panel .carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.cp-panel .carousel-nav-prev { left: -8px; }
+.cp-panel .carousel-nav-next { right: -8px; }
+
+.cp-panel .carousel-nav:hover {
+    background: rgba(0, 0, 0, 0.6);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.cp-panel .carousel-nav.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.cp-panel .avatar-carousel {
+    overflow: hidden;
+    padding: 12px 4px;
+}
+
+.cp-panel .avatar-carousel-track {
+    display: flex;
+    gap: 12px;
+    padding: 0 4px;
+}
+
+/* Avatar option */
+.cp-panel .avatar-option {
+    flex-shrink: 0;
+    width: 90px;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cp-panel .avatar-option:hover {
+    transform: scale(1.1);
+    z-index: 10;
+}
+
+.cp-panel .avatar-image-wrapper {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.3s;
+}
+
+.cp-panel .avatar-option:hover .avatar-image-wrapper {
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+}
+
+.cp-panel .avatar-option img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s;
+}
+
+.cp-panel .avatar-option:hover img {
+    transform: scale(1.05);
+}
+
+/* Glow */
+.cp-panel .avatar-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    box-shadow: inset 0 0 20px rgba(240, 147, 251, 0.5);
+}
+
+.cp-panel .avatar-option:hover .avatar-glow {
+    opacity: 0.5;
+}
+
+.cp-panel .avatar-option.selected .avatar-glow {
+    opacity: 1;
+    box-shadow: inset 0 0 25px rgba(240, 147, 251, 0.6);
+}
+
+.cp-panel .avatar-option.selected {
+    filter: drop-shadow(0 0 12px rgba(240, 147, 251, 0.5)) drop-shadow(0 0 25px rgba(245, 87, 108, 0.3));
+}
+
+.cp-panel .avatar-option.selected .avatar-image-wrapper {
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.8);
+}
+
+/* Checkmark */
+.cp-panel .avatar-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: opacity 0.3s, transform 0.3s;
+    box-shadow: 0 2px 8px rgba(240, 147, 251, 0.5);
+}
+
+.cp-panel .avatar-option.selected .avatar-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.cp-panel .avatar-check svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* Brak avatarów */
+.cp-panel .no-avatars-message {
+    text-align: center;
+    padding: 32px 16px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    .cp-steps {
+        margin-bottom: 24px;
+    }
+
+    .cp-step-line {
+        width: 50px;
+        margin: 0 10px;
+    }
+
+    .cp-step-dot {
+        width: 32px;
+        height: 32px;
+    }
+
+    .cp-step-number {
+        font-size: 13px;
+    }
+
+    .cp-step-label {
+        font-size: 11px;
+    }
+
+    /* Avatar grid na mobile */
+    .cp-panel .carousel-nav {
+        display: none;
+    }
+
+    .cp-panel .avatar-carousel {
+        overflow-x: visible;
+        padding: 8px 0;
+    }
+
+    .cp-panel .avatar-carousel-track {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+        gap: 10px;
+        padding: 0;
+        justify-items: center;
+    }
+
+    .cp-panel .avatar-option {
+        width: 100%;
+        max-width: 85px;
+    }
+
+    .cp-panel .avatar-image-wrapper {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1;
+    }
+
+    .cp-panel .avatar-option:hover {
+        transform: none;
+    }
+
+    .cp-panel .avatar-option:active {
+        transform: scale(0.95);
+    }
+
+    .cp-panel .avatar-series-container {
+        max-height: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .cp-step-line {
+        width: 40px;
+        margin: 0 8px;
+    }
+
+    .cp-panel .avatar-carousel-track {
+        grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+        gap: 8px;
+    }
+
+    .cp-panel .avatar-check {
+        width: 20px;
+        height: 20px;
+        top: 3px;
+        right: 3px;
+    }
+
+    .cp-panel .avatar-check svg {
+        width: 12px;
+        height: 12px;
+    }
+}

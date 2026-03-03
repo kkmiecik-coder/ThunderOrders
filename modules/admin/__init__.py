@@ -3,9 +3,18 @@ Admin Module
 Panel administratora i moderatora
 """
 
-from flask import Blueprint
+from flask import Blueprint, redirect, url_for
+from flask_login import current_user
 
 admin_bp = Blueprint('admin', __name__)
+
+
+@admin_bp.before_request
+def check_profile_completed():
+    """Wymuszenie dokończenia profilu przed dostępem do panelu admina."""
+    if current_user.is_authenticated and not current_user.profile_completed:
+        return redirect(url_for('auth.complete_profile'))
+
 
 # Import routes na końcu aby uniknąć circular imports
 from modules.admin import routes

@@ -399,7 +399,8 @@ def create_client():
             phone=phone if phone else None,
             role='client',
             is_active=True,
-            email_verified=True  # Skip verification for admin-created clients
+            email_verified=True,  # Pomijamy weryfikację dla klientów tworzonych przez admina
+            profile_completed=True  # Profil kompletny - admin podaje dane
         )
         new_client.set_password(random_password)
 

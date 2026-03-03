@@ -265,7 +265,7 @@
                 <label for="taskAssignees">Przypisz do</label>
                 <select id="taskAssignees" name="assigned_users" class="form-select" multiple>
                     {% for user in assignable_users %}
-                    <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>
+                    <option value="{{ user.id }}">{{ user.first_name or '' }} {{ user.last_name or '' }}</option>
                     {% endfor %}
                 </select>
                 <small class="form-hint">Przytrzymaj Ctrl/Cmd aby wybrać wielu użytkowników</small>
@@ -1935,8 +1935,8 @@ const assignableUsers = [
     {% for user in assignable_users %}
     {
         id: {{ user.id }},
-        first_name: "{{ user.first_name }}",
-        last_name: "{{ user.last_name }}"
+        first_name: "{{ user.first_name or '' }}",
+        last_name: "{{ user.last_name or '' }}"
     }{% if not loop.last %},{% endif %}
     {% endfor %}
 ];

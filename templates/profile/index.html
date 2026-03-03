@@ -42,7 +42,7 @@
                                 <input type="text"
                                        id="first_name"
                                        name="first_name"
-                                       value="{{ current_user.first_name }}"
+                                       value="{{ current_user.first_name or '' }}"
                                        required
                                        maxlength="100">
                             </div>
@@ -51,7 +51,7 @@
                                 <input type="text"
                                        id="last_name"
                                        name="last_name"
-                                       value="{{ current_user.last_name }}"
+                                       value="{{ current_user.last_name or '' }}"
                                        required
                                        maxlength="100">
                             </div>
@@ -176,7 +176,7 @@
                                 <img src="{{ current_user.avatar.url }}" alt="Twój avatar" class="avatar-preview">
                             {% else %}
                                 <div class="avatar-placeholder">
-                                    <span>{{ current_user.first_name[0] }}{{ current_user.last_name[0] }}</span>
+                                    <span>{{ (current_user.first_name or '?')[0] }}{{ (current_user.last_name or '?')[0] }}</span>
                                 </div>
                             {% endif %}
                         </div>

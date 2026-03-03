@@ -4,6 +4,15 @@
  * Covers: Register, Verify, Forgot Password, Reset Password, Success
  */
 
+/* Honeypot - ukryte pole na boty (NIE display:none - boty to wykrywają) */
+.auth-hp-field {
+    position: absolute;
+    left: -9999px;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+}
+
 /* ============================================
    HTML & BODY - Dark background (same as login)
    ============================================ */

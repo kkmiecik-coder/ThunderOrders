@@ -14,6 +14,7 @@ from modules.auth.models import User
 from modules.auth.forms import (
     LoginForm,
     RegisterForm,
+    CompleteProfileForm,
     ForgotPasswordForm,
     ResetPasswordForm,
     VerificationCodeForm
@@ -84,6 +85,15 @@ def login():
 
     # Jeśli użytkownik już zalogowany, przekieruj
     if current_user.is_authenticated:
+        # Sprawdź czy profil jest kompletny
+        if not current_user.profile_completed:
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'requires_profile': True,
+                    'redirect_url': url_for('auth.complete_profile')
+                })
+            return redirect(url_for('auth.complete_profile'))
         if is_ajax:
             return jsonify({
                 'success': True,
@@ -173,7 +183,7 @@ def login():
                 'email': user.email,
                 'avatar_url': user.avatar_url
             },
-            'requires_avatar': not user.has_avatar
+            'requires_profile': not user.profile_completed
         })
 
     # Standardowa walidacja formularza (z CSRF) dla zwykłych żądań
@@ -223,9 +233,9 @@ def login():
         user.update_last_login()
         record_login_attempt(email, ip_address, success=True)
 
-        # Sprawdź czy użytkownik ma wybrany avatar
-        if not user.has_avatar:
-            return redirect(url_for('profile.select_avatar'))
+        # Sprawdź czy profil jest kompletny
+        if not user.profile_completed:
+            return redirect(url_for('auth.complete_profile'))
 
         # Redirect na odpowiedni dashboard
         next_page = request.args.get('next')
@@ -253,6 +263,12 @@ def register():
 
     form = RegisterForm()
 
+    if request.method == 'POST':
+        # Honeypot check - cichy odrzut botów
+        honeypot = request.form.get('website', '')
+        if honeypot:
+            return render_template('auth/auth_unified.html', form=form, mode='register')
+
     if form.validate_on_submit():
         # Weryfikacja Cloudflare Turnstile (jeśli włączone)
         if is_turnstile_enabled():
@@ -261,33 +277,21 @@ def register():
                 flash('Weryfikacja anty-bot nie powiodła się. Spróbuj ponownie.', 'error')
                 return render_template('auth/auth_unified.html', form=form, mode='register')
 
-        # Sprawdź czy email już istnieje (manualna walidacja)
+        # Sprawdź czy email już istnieje
         email = form.email.data.lower().strip()
-        # Bezpośrednie query zamiast używania metody klasowej
         existing_user = User.query.filter_by(email=email).first()
 
         if existing_user:
             form.email.errors.append('Ten adres email jest już zarejestrowany')
             return render_template('auth/auth_unified.html', form=form, mode='register')
 
-        # Pobierz zgodę na analytics (checkbox)
-        analytics_consent = request.form.get('analytics_consent') == 'on'
-
-        # Połącz prefix + numer telefonu
-        phone_prefix = form.phone_prefix.data.strip() if form.phone_prefix.data else '+48'
-        phone_number = form.phone_number.data.strip() if form.phone_number.data else ''
-        full_phone = f"{phone_prefix}{phone_number}"
-
-        # Stwórz nowego użytkownika
+        # Stwórz nowego użytkownika (tylko email + hasło)
         user = User(
-            email=form.email.data.lower().strip(),
-            first_name=form.first_name.data.strip(),
-            last_name=form.last_name.data.strip(),
-            phone=full_phone,
-            role='client',  # Domyślnie klient
+            email=email,
+            role='client',
             is_active=True,
-            email_verified=False,  # Wymaga weryfikacji
-            analytics_consent=analytics_consent  # Zgoda na cookies (RODO)
+            email_verified=False,
+            profile_completed=False
         )
 
         # Ustaw hasło (zahashowane)
@@ -562,5 +566,109 @@ def verification_success():
         success_title='Konto aktywowane!',
         success_message='Twój adres email został pomyślnie zweryfikowany. Możesz teraz zalogować się na swoje konto.'
     )
+
+
+# =============================================
+# Complete Profile (2-step wizard)
+# =============================================
+
+@auth_bp.route('/complete-profile', methods=['GET', 'POST'])
+@login_required
+def complete_profile():
+    """
+    Strona dokończenia profilu (2-krokowy wizard).
+    Krok 1: dane osobowe (imię, nazwisko, telefon)
+    Krok 2: wybór avatara
+
+    GET: renderuje wizard z odpowiednim krokiem
+    POST (AJAX): zapisuje dane osobowe (krok 1)
+    """
+    # Jeśli profil jest już kompletny, przekieruj na dashboard
+    if current_user.profile_completed:
+        if current_user.role in ['admin', 'mod']:
+            return redirect(url_for('admin.dashboard'))
+        return redirect(url_for('client.dashboard'))
+
+    # Ustal aktualny krok
+    current_step = 1
+    if current_user.first_name and current_user.first_name.strip():
+        current_step = 2
+
+    form = CompleteProfileForm()
+
+    # POST — zapis danych osobowych (krok 1, AJAX)
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            # Połącz prefix + numer telefonu
+            phone_prefix = form.phone_prefix.data.strip() if form.phone_prefix.data else '+48'
+            phone_number = form.phone_number.data.strip() if form.phone_number.data else ''
+            full_phone = f"{phone_prefix}{phone_number}"
+
+            # Pobierz zgodę na analytics
+            analytics_consent = request.form.get('analytics_consent') == 'on'
+
+            current_user.first_name = form.first_name.data.strip()
+            current_user.last_name = form.last_name.data.strip()
+            current_user.phone = full_phone
+            current_user.analytics_consent = analytics_consent
+            db.session.commit()
+
+            return jsonify({'success': True})
+        else:
+            # Zbierz błędy walidacji
+            errors = {}
+            for field_name, field_errors in form.errors.items():
+                errors[field_name] = field_errors[0] if field_errors else ''
+            return jsonify({'success': False, 'errors': errors}), 400
+
+    # GET — renderuj wizard
+    from modules.profile.models import AvatarSeries
+    series_list = AvatarSeries.get_all_ordered()
+    has_avatars = any(s.avatar_count > 0 for s in series_list)
+
+    return render_template(
+        'auth/complete_profile.html',
+        form=form,
+        current_step=current_step,
+        series_list=series_list,
+        has_avatars=has_avatars,
+        current_avatar_id=current_user.avatar_id
+    )
+
+
+@auth_bp.route('/complete-profile/save-avatar', methods=['POST'])
+@login_required
+def complete_profile_save_avatar():
+    """
+    Zapis avatara (krok 2) i oznaczenie profilu jako kompletny.
+    POST (AJAX): zapisuje avatar_id, ustawia profile_completed=True
+    """
+    from modules.profile.models import Avatar
+
+    avatar_id = request.form.get('avatar_id', type=int)
+
+    if not avatar_id:
+        return jsonify({'success': False, 'error': 'Nie wybrano avatara.'}), 400
+
+    avatar = Avatar.query.get(avatar_id)
+    if not avatar:
+        return jsonify({'success': False, 'error': 'Wybrany avatar nie istnieje.'}), 400
+
+    try:
+        current_user.avatar_id = avatar_id
+        current_user.profile_completed = True
+        db.session.commit()
+
+        # Ustal URL dashboardu
+        if current_user.role in ['admin', 'mod']:
+            redirect_url = url_for('admin.dashboard')
+        else:
+            redirect_url = url_for('client.dashboard')
+
+        return jsonify({'success': True, 'redirect_url': redirect_url})
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': 'Wystąpił błąd. Spróbuj ponownie.'}), 500
 
 

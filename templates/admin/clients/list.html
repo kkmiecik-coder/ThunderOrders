@@ -131,11 +131,11 @@
                             <a href="{{ url_for('admin.client_detail', id=client.id) }}" class="client-name-link">
                                 {% if client.has_avatar %}
                                 <div class="client-avatar has-avatar">
-                                    <img src="{{ client.avatar_url }}" alt="{{ client.first_name }}">
+                                    <img src="{{ client.avatar_url }}" alt="{{ client.first_name or '' }}">
                                 </div>
                                 {% else %}
                                 <div class="client-avatar">
-                                    {{ client.first_name[0] }}{{ client.last_name[0] }}
+                                    {{ (client.first_name or '?')[0] }}{{ (client.last_name or '?')[0] }}
                                 </div>
                                 {% endif %}
                                 <span class="client-name">{{ client.full_name }}</span>

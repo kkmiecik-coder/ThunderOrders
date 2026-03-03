@@ -144,7 +144,7 @@
                             <span class="sr-card-value">
                                 {% if sr.user %}
                                 <a href="{{ url_for('admin.client_detail', id=sr.user.id) }}" class="client-link" onclick="event.stopPropagation();">
-                                    {{ sr.user.first_name }} {{ sr.user.last_name }}
+                                    {{ sr.user.first_name or '' }} {{ sr.user.last_name or '' }}
                                 </a>
                                 {% else %}
                                 <span class="text-muted">-</span>

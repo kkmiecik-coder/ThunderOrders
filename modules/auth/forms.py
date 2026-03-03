@@ -41,25 +41,10 @@ class LoginForm(FlaskForm):
 
 
 class RegisterForm(FlaskForm):
-    """Formularz rejestracji"""
+    """Formularz rejestracji (uproszczony - email + hasło)"""
 
-    first_name = StringField(
-        'Imię',
-        validators=[
-            DataRequired(message='Imię jest wymagane'),
-            Length(min=2, max=100, message='Imię musi mieć od 2 do 100 znaków')
-        ],
-        render_kw={'placeholder': 'Jan', 'autofocus': True}
-    )
-
-    last_name = StringField(
-        'Nazwisko',
-        validators=[
-            DataRequired(message='Nazwisko jest wymagane'),
-            Length(min=2, max=100, message='Nazwisko musi mieć od 2 do 100 znaków')
-        ],
-        render_kw={'placeholder': 'Kowalski'}
-    )
+    # Honeypot - ukryte pole na boty
+    website = StringField()
 
     email = StringField(
         'Email',
@@ -69,31 +54,6 @@ class RegisterForm(FlaskForm):
             Length(max=255, message='Email jest za długi')
         ],
         render_kw={'placeholder': 'twoj@email.pl'}
-    )
-
-    phone_prefix = StringField(
-        'Prefix',
-        validators=[
-            DataRequired(message='Prefix jest wymagany'),
-            Regexp(
-                r'^\+\d{1,4}$',
-                message='Prefix musi zaczynać się od + i zawierać 1-4 cyfry'
-            )
-        ],
-        render_kw={'readonly': True}
-    )
-
-    phone_number = StringField(
-        'Numer telefonu',
-        validators=[
-            DataRequired(message='Numer telefonu jest wymagany'),
-            Length(min=6, max=15, message='Numer telefonu musi mieć od 6 do 15 cyfr'),
-            Regexp(
-                r'^\d+$',
-                message='Numer telefonu może zawierać tylko cyfry'
-            )
-        ],
-        render_kw={'placeholder': '123456789', 'inputmode': 'tel'}
     )
 
     password = PasswordField(
@@ -125,6 +85,55 @@ class RegisterForm(FlaskForm):
         from utils.disposable_emails import is_disposable_email
         if is_disposable_email(field.data):
             raise ValidationError('Rejestracja z tymczasowymi adresami email jest niedozwolona.')
+
+
+class CompleteProfileForm(FlaskForm):
+    """Formularz dokończenia profilu (krok 1 - dane osobowe)"""
+
+    first_name = StringField(
+        'Imię',
+        validators=[
+            DataRequired(message='Imię jest wymagane'),
+            Length(min=2, max=100, message='Imię musi mieć od 2 do 100 znaków')
+        ],
+        render_kw={'placeholder': 'Jan', 'autofocus': True}
+    )
+
+    last_name = StringField(
+        'Nazwisko',
+        validators=[
+            DataRequired(message='Nazwisko jest wymagane'),
+            Length(min=2, max=100, message='Nazwisko musi mieć od 2 do 100 znaków')
+        ],
+        render_kw={'placeholder': 'Kowalski'}
+    )
+
+    phone_prefix = StringField(
+        'Prefix',
+        validators=[
+            DataRequired(message='Prefix jest wymagany'),
+            Regexp(
+                r'^\+\d{1,4}$',
+                message='Prefix musi zaczynać się od + i zawierać 1-4 cyfry'
+            )
+        ],
+        render_kw={'readonly': True}
+    )
+
+    phone_number = StringField(
+        'Numer telefonu',
+        validators=[
+            DataRequired(message='Numer telefonu jest wymagany'),
+            Length(min=6, max=15, message='Numer telefonu musi mieć od 6 do 15 cyfr'),
+            Regexp(
+                r'^\d+$',
+                message='Numer telefonu może zawierać tylko cyfry'
+            )
+        ],
+        render_kw={'placeholder': '123456789', 'inputmode': 'tel'}
+    )
+
+    submit = SubmitField('Dalej')
 
 
 class ForgotPasswordForm(FlaskForm):
