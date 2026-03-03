@@ -512,6 +512,9 @@ def handle_join_exclusive_reservation(data):
                 socketio.emit('force_disconnect', {
                     'reason': 'Sesja została przejęta w innej karcie.'
                 }, to=old_sid)
+                # Usuń stary SID z rooma żeby nie dostawał broadcastów
+                old_room = _get_visitor_room(page_id, 'order')
+                leave_room(old_room, sid=old_sid)
                 _cleanup_reservation_client(old_sid)
 
             # Sprawdź duplikat po user_id (zalogowany user)
@@ -522,6 +525,9 @@ def handle_join_exclusive_reservation(data):
                     socketio.emit('force_disconnect', {
                         'reason': 'Sesja została przejęta w innej karcie.'
                     }, to=old_user_sid)
+                    # Usuń stary SID z rooma żeby nie dostawał broadcastów
+                    old_room = _get_visitor_room(page_id, 'order')
+                    leave_room(old_room, sid=old_user_sid)
                     _cleanup_reservation_client(old_user_sid)
 
             # Rejestracja nowej sesji

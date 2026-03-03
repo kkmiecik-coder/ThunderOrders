@@ -1166,7 +1166,7 @@ async function restoreReservation(data) {
 
 // Rezerwacja produktu z optimistic UI (SocketIO z HTTP fallback)
 function increaseQtyWithReservation(btn) {
-    if (btn.disabled) return;
+    if (btn.disabled || reservationState.forceDisconnected) return;
 
     const quantityControl = btn.closest('.quantity-control');
     if (!quantityControl) return;
@@ -1276,7 +1276,7 @@ function increaseQtyWithReservation(btn) {
 
 // Zwolnienie rezerwacji produktu (SocketIO z HTTP fallback)
 function decreaseQtyWithReservation(btn) {
-    if (btn.disabled) return;
+    if (btn.disabled || reservationState.forceDisconnected) return;
 
     const quantityControl = btn.closest('.quantity-control');
     if (!quantityControl) return;
@@ -1390,9 +1390,9 @@ function updateProductAvailability(productId, data) {
 
         const shouldDisable = data.available <= 0;
 
-        if (shouldDisable) {
+        if (shouldDisable || reservationState.forceDisconnected) {
             plusBtn.disabled = true;
-            plusBtn.style.opacity = '0.5';
+            plusBtn.style.opacity = shouldDisable ? '0.5' : '0.3';
             plusBtn.style.cursor = 'not-allowed';
         } else {
             plusBtn.disabled = false;
@@ -1667,6 +1667,11 @@ function showForceDisconnectPopup() {
     });
 
     modal.querySelector('.btn-close-popup').addEventListener('click', function() {
+        // Rozłącz socket żeby nie odbierać broadcastów na przejętej sesji
+        const socket = window.exclusiveSocket;
+        if (socket && socket.connected) {
+            socket.disconnect();
+        }
         modal.remove();
     });
 
