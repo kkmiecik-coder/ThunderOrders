@@ -960,6 +960,40 @@ function initSocketConnection() {
 }
 
 /**
+ * Synchronizuje koszyk UI z rezerwacjami z serwera.
+ * Ważne po przejęciu sesji — koszyk na nowym urządzeniu
+ * powinien odzwierciedlać przeniesione rezerwacje.
+ */
+function _syncCartFromSnapshot(products) {
+    let hasChanges = false;
+
+    Object.entries(products).forEach(([productId, data]) => {
+        const serverQty = data.user_reserved || 0;
+        const productElements = document.querySelectorAll(`[data-product-id="${productId}"]`);
+
+        productElements.forEach(element => {
+            // Pomiń full-set sections (mają osobną logikę)
+            if (element.classList.contains('full-set-section')) return;
+
+            const input = element.querySelector('.qty-input');
+            if (!input) return;
+
+            const currentQty = parseInt(input.value) || 0;
+            if (currentQty !== serverQty) {
+                input.value = serverQty;
+                hasChanges = true;
+            }
+        });
+    });
+
+    if (hasChanges) {
+        updateCart();
+        saveToLocalStorage();
+        console.log('[Sync] Koszyk zsynchronizowany z rezerwacjami serwera');
+    }
+}
+
+/**
  * Dołącza do rooma rezerwacji i pobiera snapshot dostępności.
  */
 function _joinReservationRoom() {
@@ -987,6 +1021,10 @@ function _joinReservationRoom() {
 
             // Zastosuj snapshot dostępności (updateProductAvailability ponownie zablokuje "+" jeśli available=0)
             if (response.products) {
+                // Synchronizuj koszyk UI z server-side rezerwacjami
+                // (ważne po przejęciu sesji z innego urządzenia)
+                _syncCartFromSnapshot(response.products);
+
                 Object.entries(response.products).forEach(([productId, data]) => {
                     updateProductAvailability(productId, data);
                 });
@@ -998,6 +1036,8 @@ function _joinReservationRoom() {
                 reservationState.extended = response.session.extended || false;
                 reservationState.firstReservedAt = response.session.first_reserved_at;
                 showReservationHeader();
+            } else if (response.session && !response.session.has_reservations) {
+                hideReservationHeader();
             }
 
             // Zatrzymaj polling jeśli działa (SocketIO przejmuje)

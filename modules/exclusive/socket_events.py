@@ -504,6 +504,8 @@ def handle_join_exclusive_reservation(data):
         if not page or page.id != page_id or not page.is_active:
             return {'success': False, 'error': 'invalid_page'}
 
+        transferred_from_session = None
+
         with _reservation_lock:
             # Sprawdź duplikat po session_id
             session_key = (page_id, session_id)
@@ -522,6 +524,10 @@ def handle_join_exclusive_reservation(data):
                 user_key = (page_id, user_id)
                 old_user_sid = _user_sessions.get(user_key)
                 if old_user_sid and old_user_sid != sid and old_user_sid in _connected_clients:
+                    # Pobierz stary session_id do transferu rezerwacji
+                    old_client = _connected_clients.get(old_user_sid)
+                    old_session_id = old_client.get('session_id') if old_client else None
+
                     socketio.emit('force_disconnect', {
                         'reason': 'Sesja została przejęta w innej karcie.'
                     }, to=old_user_sid)
@@ -530,10 +536,51 @@ def handle_join_exclusive_reservation(data):
                     leave_room(old_room, sid=old_user_sid)
                     _cleanup_reservation_client(old_user_sid)
 
+                    # Zapamiętaj stary session_id do transferu (jeśli inny niż nowy)
+                    if old_session_id and old_session_id != session_id:
+                        transferred_from_session = old_session_id
+
             # Rejestracja nowej sesji
             _reservation_sessions[session_key] = sid
             if user_id:
                 _user_sessions[(page_id, user_id)] = sid
+
+        # Transfer rezerwacji ze starej sesji na nową (poza lockiem — operacja DB)
+        if transferred_from_session:
+            try:
+                from modules.exclusive.models import ExclusiveReservation
+                from extensions import db
+                now = int(time.time())
+
+                old_reservations = ExclusiveReservation.query.filter(
+                    ExclusiveReservation.session_id == transferred_from_session,
+                    ExclusiveReservation.exclusive_page_id == page_id,
+                    ExclusiveReservation.expires_at > now
+                ).all()
+
+                if old_reservations:
+                    for res in old_reservations:
+                        # Sprawdź czy nowa sesja ma już rezerwację na ten produkt
+                        existing = ExclusiveReservation.query.filter_by(
+                            session_id=session_id,
+                            exclusive_page_id=page_id,
+                            product_id=res.product_id
+                        ).first()
+
+                        if existing:
+                            # Dodaj ilość do istniejącej rezerwacji
+                            existing.quantity += res.quantity
+                            db.session.delete(res)
+                        else:
+                            # Przenieś rezerwację na nową sesję
+                            res.session_id = session_id
+
+                    db.session.commit()
+                    print(f"[SOCKET] Transferred {len(old_reservations)} reservations "
+                          f"from session {transferred_from_session[:8]}... to {session_id[:8]}...")
+            except Exception as e:
+                print(f"[SOCKET] Reservation transfer error: {e}")
+                db.session.rollback()
 
         # Dołącz do rooma
         room = _get_visitor_room(page_id, 'order')
