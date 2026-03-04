@@ -30,14 +30,23 @@ function toggleSidebarCategory(headerElement) {
         return;
     }
 
-    // Toggle expanded class
-    categoryItem.classList.toggle('expanded');
+    const wasExpanded = categoryItem.classList.contains('expanded');
+
+    // Collapse all other categories (accordion behavior)
+    document.querySelectorAll('.sidebar-category.expanded').forEach(otherCategory => {
+        if (otherCategory !== categoryItem) {
+            otherCategory.classList.remove('expanded');
+            const otherName = otherCategory.querySelector('.sidebar-text').textContent.trim();
+            saveCategoryState(otherName, false);
+        }
+    });
+
+    // Toggle clicked category
+    categoryItem.classList.toggle('expanded', !wasExpanded);
 
     // Save state to localStorage
     const categoryName = categoryItem.querySelector('.sidebar-text').textContent.trim();
-    const isExpanded = categoryItem.classList.contains('expanded');
-
-    saveCategoryState(categoryName, isExpanded);
+    saveCategoryState(categoryName, !wasExpanded);
 }
 
 /**
@@ -61,21 +70,31 @@ function saveCategoryState(categoryName, isExpanded) {
 function restoreCategoryStates() {
     try {
         const states = JSON.parse(localStorage.getItem('sidebarCategoryStates') || '{}');
+        let alreadyExpanded = false;
 
-        document.querySelectorAll('.sidebar-category').forEach(category => {
-            const categoryName = category.querySelector('.sidebar-text').textContent.trim();
-            const isExpanded = states[categoryName];
+        const categories = document.querySelectorAll('.sidebar-category');
 
-            // If state exists and is true, or if one of the subcategories is active, expand it
+        // Priority: first expand the category with an active subcategory
+        categories.forEach(category => {
             const hasActiveSubcategory = category.querySelector('.sidebar-sublink.active');
-
-            if (isExpanded === true || hasActiveSubcategory) {
+            if (hasActiveSubcategory && !alreadyExpanded) {
                 category.classList.add('expanded');
-            } else if (isExpanded === false) {
+                alreadyExpanded = true;
+            } else {
                 category.classList.remove('expanded');
             }
-            // If no state exists (undefined), leave it as default (collapsed)
         });
+
+        // If no active subcategory found, restore last saved expanded category
+        if (!alreadyExpanded) {
+            categories.forEach(category => {
+                const categoryName = category.querySelector('.sidebar-text').textContent.trim();
+                if (states[categoryName] === true && !alreadyExpanded) {
+                    category.classList.add('expanded');
+                    alreadyExpanded = true;
+                }
+            });
+        }
     } catch (error) {
         console.error('Error restoring category states:', error);
     }
