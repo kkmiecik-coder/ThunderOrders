@@ -5,19 +5,25 @@ Add the output to your .env file.
 """
 
 from py_vapid import Vapid
+import base64
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, NoEncryption
+from cryptography.hazmat.primitives.asymmetric.ec import ECDH
 
 vapid = Vapid()
 vapid.generate_keys()
 
-print('Add these to your .env file:\n')
-print(f'VAPID_PRIVATE_KEY={vapid.private_pem().decode().strip()}')
-print()
-
-import base64
+# Public key as base64url (applicationServerKey format)
 raw_pub = vapid.public_key.public_bytes(
-    encoding=__import__('cryptography').hazmat.primitives.serialization.Encoding.X962,
-    format=__import__('cryptography').hazmat.primitives.serialization.PublicFormat.UncompressedPoint
+    encoding=Encoding.X962,
+    format=PublicFormat.UncompressedPoint
 )
-application_server_key = base64.urlsafe_b64encode(raw_pub).rstrip(b'=').decode()
-print(f'VAPID_PUBLIC_KEY={application_server_key}')
-print(f'\nVAPID_CLAIMS_EMAIL=mailto:noreply@thunderorders.cloud')
+public_key_b64 = base64.urlsafe_b64encode(raw_pub).rstrip(b'=').decode()
+
+# Private key as base64url (raw 32-byte scalar)
+raw_priv = vapid.private_key.private_numbers().private_value.to_bytes(32, 'big')
+private_key_b64 = base64.urlsafe_b64encode(raw_priv).rstrip(b'=').decode()
+
+print('Add these to your .env file:\n')
+print(f'VAPID_PUBLIC_KEY={public_key_b64}')
+print(f'VAPID_PRIVATE_KEY={private_key_b64}')
+print(f'VAPID_CLAIMS_EMAIL=mailto:noreply@thunderorders.cloud')
