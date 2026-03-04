@@ -109,10 +109,10 @@
         iconWrap.appendChild(iconImg);
         item.appendChild(iconWrap);
 
-        // Content (clickable link)
-        var link = document.createElement('a');
-        link.href = n.url || '#';
+        // Content (clickable area – marks as read, no navigation)
+        var link = document.createElement('div');
         link.className = 'notif-item-content';
+        link.style.cursor = 'pointer';
 
         var titleRow = document.createElement('div');
         titleRow.className = 'notif-item-title-row';
@@ -156,14 +156,18 @@
         });
         item.appendChild(delBtn);
 
-        // Click on link = mark as read
-        link.addEventListener('click', function () {
+        // Click = mark as read + navigate if URL exists
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
             if (!n.is_read) {
                 markAsRead([n.id]);
                 item.classList.remove('notif-unread');
                 var d = item.querySelector('.notif-unread-dot');
                 if (d) d.remove();
                 n.is_read = true;
+            }
+            if (n.url) {
+                window.location.href = n.url;
             }
         });
 

@@ -26,3 +26,4 @@ from modules.admin import payment_confirmations  # Payment confirmations admin
 from modules.admin import statistics  # Statistics page
 from modules.admin import popups_models  # Popup models
 from modules.admin import popups  # Popup admin routes
+from modules.admin import broadcasts  # Broadcast notifications admin

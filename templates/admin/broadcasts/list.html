@@ -1,0 +1,141 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Powiadomienia - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/broadcasts.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="broadcasts-page">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1 class="page-title">Centrum powiadomień</h1>
+            <p class="page-subtitle">Wysyłaj powiadomienia broadcast do użytkowników</p>
+        </div>
+        <a href="{{ url_for('admin.broadcasts_new') }}" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Nowe powiadomienie
+        </a>
+    </div>
+
+    <!-- Broadcasts table -->
+    {% if broadcasts %}
+    <div class="broadcasts-table-wrapper">
+        <table class="broadcasts-table">
+            <thead>
+                <tr>
+                    <th>Powiadomienie</th>
+                    <th>Odbiorcy</th>
+                    <th>Data</th>
+                    <th>Wysłano</th>
+                    <th>Przeczytano</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in broadcasts %}
+                <tr data-broadcast-id="{{ b.id }}">
+                    <td>
+                        <div class="broadcast-info">
+                            <span class="broadcast-title">{{ b.title }}</span>
+                            {% if b.body %}
+                            <span class="broadcast-body-preview">{{ b.body[:80] }}{% if b.body|length > 80 %}...{% endif %}</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="target-badge target-{{ b.target_type }}">{{ b.target_display }}</span>
+                    </td>
+                    <td class="text-sm text-secondary">
+                        {{ b.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    </td>
+                    <td class="text-sm">{{ b.sent_count }}</td>
+                    <td>
+                        {% set read = b.read_count %}
+                        {% set total = b.sent_count %}
+                        {% set pct = ((read / total * 100) | round | int) if total > 0 else 0 %}
+                        <div class="read-stats">
+                            <span class="read-count">{{ read }}/{{ total }}</span>
+                            <div class="read-progress">
+                                <div class="read-progress-bar" style="width: {{ pct }}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn-icon btn-danger-icon btn-delete-broadcast"
+                                data-broadcast-id="{{ b.id }}"
+                                title="Usuń">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                            </svg>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="pagination">
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('admin.broadcasts_list', page=pagination.prev_num) }}" class="pagination-link">&laquo; Poprzednia</a>
+        {% endif %}
+
+        {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+                <a href="{{ url_for('admin.broadcasts_list', page=p) }}"
+                   class="pagination-link {% if p == pagination.page %}active{% endif %}">{{ p }}</a>
+            {% else %}
+                <span class="pagination-ellipsis">&hellip;</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if pagination.has_next %}
+        <a href="{{ url_for('admin.broadcasts_list', page=pagination.next_num) }}" class="pagination-link">Następna &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty state -->
+    <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        <h3>Brak wysłanych powiadomień</h3>
+        <p>Wyślij pierwsze powiadomienie broadcast do użytkowników.</p>
+        <a href="{{ url_for('admin.broadcasts_new') }}" class="btn btn-primary">Nowe powiadomienie</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Delete confirmation modal -->
+<div id="deleteBroadcastModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Usunąć powiadomienie?</h2>
+            <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p>Czy na pewno chcesz usunąć ten broadcast? Powiadomienia zostaną usunięte również u odbiorców.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Anuluj</button>
+            <button class="btn btn-danger" id="confirmDeleteBtn">Usuń</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/broadcasts.js') }}"></script>
+{% endblock %}

@@ -150,6 +150,15 @@
                     <span class="sidebar-text">Popupy</span>
                 </a>
             </li>
+
+            <li class="sidebar-item">
+                <a href="{{ url_for('admin.broadcasts_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'broadcast' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Powiadomienia">
+                    <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Powiadomienia" class="sidebar-icon">
+                    <span class="sidebar-text">Powiadomienia</span>
+                </a>
+            </li>
         </ul>
     </nav>
 </aside>
