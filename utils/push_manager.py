@@ -256,6 +256,168 @@ class PushManager:
         )
 
     # ========================================
+    # ORDER CONFIRMATION
+    # ========================================
+
+    @staticmethod
+    def notify_order_confirmation(order):
+        """Push notification confirming a new order was placed."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Zamówienie złożone: {order.order_number}',
+            body=f'Kwota: {float(order.total_amount):.2f} PLN',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'order-confirm-{order.id}',
+            notification_type='order_status_changes'
+        )
+
+    # ========================================
+    # TRACKING
+    # ========================================
+
+    @staticmethod
+    def notify_tracking_added(order, tracking_number, courier_name='Kurier'):
+        """Push notification when tracking number is added."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Tracking: {order.order_number}',
+            body=f'{courier_name}: {tracking_number}',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'tracking-{order.id}',
+            notification_type='shipping_updates'
+        )
+
+    # ========================================
+    # CANCELLATION
+    # ========================================
+
+    @staticmethod
+    def notify_order_cancelled(order, reason=None):
+        """Push notification when an order is cancelled."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Zamówienie anulowane: {order.order_number}',
+            body=reason or 'Zamówienie zostało anulowane',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'order-cancelled-{order.id}',
+            notification_type='order_status_changes'
+        )
+
+    # ========================================
+    # EXCLUSIVE CLOSURE
+    # ========================================
+
+    @staticmethod
+    def notify_exclusive_closure(order, grand_total=None):
+        """Push notification about exclusive page closure settlement."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        body = f'Kwota do zapłaty: {grand_total:.2f} PLN' if grand_total else 'Sprawdź szczegóły rozliczenia'
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Rozliczenie: {order.order_number}',
+            body=body,
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'closure-{order.id}',
+            notification_type='order_status_changes'
+        )
+
+    # ========================================
+    # PACKING PHOTO
+    # ========================================
+
+    @staticmethod
+    def notify_packing_photo(order):
+        """Push notification when packing photo is available."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Zdjęcie paczki: {order.order_number}',
+            body='Twoja paczka została zapakowana! Zobacz zdjęcie.',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'packing-{order.id}',
+            notification_type='shipping_updates'
+        )
+
+    # ========================================
+    # PAYMENT REMINDER
+    # ========================================
+
+    @staticmethod
+    def notify_payment_reminder(order):
+        """Push notification reminding about pending payment."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Przypomnienie: {order.order_number}',
+            body='Masz oczekującą płatność do potwierdzenia.',
+            url=url_for('client.payment_confirmations', _external=True),
+            tag=f'reminder-{order.id}',
+            notification_type='payment_updates'
+        )
+
+    # ========================================
+    # ADMIN: SHIPPING REQUEST
+    # ========================================
+
+    @staticmethod
+    def notify_admin_shipping_request(shipping_request, admin_ids=None):
+        """Push notification to admins about new shipping request."""
+        if not admin_ids:
+            from modules.auth.models import User
+            admins = User.query.filter_by(role='admin').all()
+            admin_ids = [a.id for a in admins]
+
+        if not admin_ids:
+            return
+
+        from flask import url_for
+        app = current_app._get_current_object()
+        url = url_for('orders.admin_shipping_requests', _external=True)
+
+        def _send_all():
+            with app.app_context():
+                for uid in admin_ids:
+                    PushManager.send_to_user(
+                        user_id=uid,
+                        title=f'Nowe zlecenie wysyłki: {shipping_request.request_number}',
+                        body=f'Od: {shipping_request.user.full_name if shipping_request.user else "Klient"}',
+                        url=url,
+                        tag=f'admin-shipping-{shipping_request.id}',
+                        notification_type='admin_alerts'
+                    )
+
+        thread = threading.Thread(target=_send_all)
+        thread.daemon = True
+        thread.start()
+
+    # ========================================
     # EXCLUSIVE
     # ========================================
 

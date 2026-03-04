@@ -2595,11 +2595,17 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
     emails_sent = 0
     if email_queue:
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         # Flush zeby order.status_display_name zwrocil nowa nazwe
         db.session.flush()
         for data in email_queue:
             try:
                 EmailManager.notify_status_change(
+                    data['order'],
+                    data['old_status'],
+                    data['order'].status_display_name
+                )
+                PushManager.notify_status_change(
                     data['order'],
                     data['old_status'],
                     data['order'].status_display_name

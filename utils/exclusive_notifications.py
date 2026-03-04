@@ -87,6 +87,20 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
             )
 
             if success:
+                # Push notification (only for registered users)
+                if subscription.user_id:
+                    try:
+                        from utils.push_manager import PushManager
+                        PushManager._fire_and_forget(
+                            user_id=subscription.user_id,
+                            title=f'Produkt znów dostępny!',
+                            body=f'{product.name} - {page.name}',
+                            url=exclusive_page_url,
+                            tag=f'back-in-stock-{product_id}',
+                            notification_type='new_exclusive_pages'
+                        )
+                    except Exception:
+                        pass
                 # Oznacz jako wysłane
                 subscription.notified = True
                 subscription.notified_at = get_local_now()

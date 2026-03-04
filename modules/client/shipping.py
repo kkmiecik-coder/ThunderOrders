@@ -440,12 +440,14 @@ def shipping_requests_create():
 
         db.session.commit()
 
-        # Wyślij email potwierdzający zlecenie wysyłki
+        # Wyślij email potwierdzający zlecenie wysyłki + push do adminów
         try:
             from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
             EmailManager.notify_shipping_request_created(shipping_request, current_user)
+            PushManager.notify_admin_shipping_request(shipping_request)
         except Exception as e:
-            current_app.logger.error(f'Failed to send shipping request email: {e}')
+            current_app.logger.error(f'Failed to send shipping request notifications: {e}')
 
         return jsonify({
             'success': True,

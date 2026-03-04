@@ -621,6 +621,7 @@ def admin_update_tracking(order_id):
         # Send tracking email if tracking number was added (not just updated)
         if order.tracking_number and not old_tracking:
             from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
             courier_names = {'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
                            'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
                            'ups': 'UPS', 'fedex': 'FedEx', 'other': 'Inny'}
@@ -628,6 +629,11 @@ def admin_update_tracking(order_id):
                 order,
                 tracking_number=order.tracking_number,
                 courier=order.courier,
+                courier_name=courier_names.get(order.courier, order.courier or 'Kurier')
+            )
+            PushManager.notify_tracking_added(
+                order,
+                tracking_number=order.tracking_number,
                 courier_name=courier_names.get(order.courier, order.courier or 'Kurier')
             )
 
@@ -960,14 +966,20 @@ def admin_add_shipment(order_id):
             }
         )
 
-        # Send tracking email to customer
+        # Send tracking email + push to customer
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         EmailManager.notify_tracking_added(
             order,
             tracking_number=shipment.tracking_number,
             courier=shipment.courier,
             courier_name=shipment.courier_display_name,
             tracking_url=shipment.tracking_url
+        )
+        PushManager.notify_tracking_added(
+            order,
+            tracking_number=shipment.tracking_number,
+            courier_name=shipment.courier_display_name
         )
 
         return jsonify({
@@ -3735,54 +3747,12 @@ def admin_list_shipping_request_statuses():
 @role_required('admin', 'mod')
 def admin_shipping_requests_list():
     """
-    Admin shipping requests list with filters and pagination.
+    Redirect old shipping requests page to WMS dashboard shipping tab.
+    Preserves query parameters (status, search, page).
     """
-    from modules.auth.models import User
-
-    # Get filter parameters
-    status_filter = request.args.get('status', '')
-    search = request.args.get('search', '')
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
-
-    # Base query
-    query = ShippingRequest.query
-
-    # Apply status filter
-    if status_filter:
-        query = query.filter(ShippingRequest.status == status_filter)
-
-    # Apply search filter (request number or user name)
-    if search:
-        search_term = f"%{search}%"
-        query = query.join(User, ShippingRequest.user_id == User.id).filter(
-            or_(
-                ShippingRequest.request_number.ilike(search_term),
-                User.first_name.ilike(search_term),
-                User.last_name.ilike(search_term),
-                func.concat(User.first_name, ' ', User.last_name).ilike(search_term)
-            )
-        )
-
-    # Order by creation date (newest first)
-    query = query.order_by(ShippingRequest.created_at.desc())
-
-    # Paginate
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    shipping_requests = pagination.items
-
-    # Get all active statuses for filter dropdown
-    statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
-
-    return render_template(
-        'admin/orders/shipping_requests_list.html',
-        shipping_requests=shipping_requests,
-        pagination=pagination,
-        statuses=statuses,
-        current_status=status_filter,
-        search=search,
-        page_title='Zlecenia wysyłki'
-    )
+    args = request.args.to_dict()
+    args['tab'] = 'shipping'
+    return redirect(url_for('orders.wms_dashboard', **args))
 
 
 # ============================================

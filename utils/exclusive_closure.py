@@ -388,9 +388,15 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
     email_queue = counts.pop('_email_queue', [])
     if email_queue:
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         db.session.flush()
         for data in email_queue:
             EmailManager.notify_status_change(
+                data['order'],
+                data['old_status_name'],
+                data['order'].status_display_name
+            )
+            PushManager.notify_status_change(
                 data['order'],
                 data['old_status_name'],
                 data['order'].status_display_name
@@ -1003,6 +1009,7 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
         cancelled_order_ids: Lista ID zamówień do anulowania
     """
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
 
     page = ExclusivePage.query.get(page_id)
     if not page:
@@ -1026,6 +1033,10 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
             order, page, cancelled_items,
             reason='Żaden z produktów w Twoim zamówieniu nie załapał się do kompletu.'
         )
+        PushManager.notify_order_cancelled(
+            order,
+            reason='Żaden z produktów nie załapał się do kompletu.'
+        )
 
 
 def send_closure_emails(page_id):
@@ -1037,6 +1048,7 @@ def send_closure_emails(page_id):
         page_id: ID strony Exclusive
     """
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
     from modules.payments.models import PaymentMethod
     from decimal import Decimal
 
@@ -1112,3 +1124,4 @@ def send_closure_emails(page_id):
             grand_total=grand_total,
             payment_methods=payment_methods
         )
+        PushManager.notify_exclusive_closure(order, grand_total=grand_total)

@@ -299,6 +299,10 @@ class ExclusivePage(db.Model):
                 current_app.logger.info(
                     f"Exclusive page '{self.name}' activated: sent notification to {sent} clients"
                 )
+                # Push notifications
+                from utils.push_manager import PushManager
+                client_ids = [c.id for c in clients]
+                PushManager.notify_new_exclusive_page(self, client_ids)
             self.notify_clients_on_publish = False  # Reset toggle po wysłaniu
         except Exception as e:
             import logging

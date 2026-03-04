@@ -327,6 +327,8 @@ def register_cli_commands(app):
 
             success = EmailManager.notify_payment_reminder(order)
             if success:
+                from utils.push_manager import PushManager
+                PushManager.notify_payment_reminder(order)
                 order.payment_reminder_sent_at = now
                 db.session.commit()
                 sent_count += 1

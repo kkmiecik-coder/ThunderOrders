@@ -253,6 +253,7 @@ def place_exclusive_order(page, session_id, order_note=None):
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
     EmailManager.notify_order_confirmation(order)
+    PushManager.notify_order_confirmation(order)
     EmailManager.notify_admin_new_order(order)
     PushManager.notify_admin_new_order(order)
 

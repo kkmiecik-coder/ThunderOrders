@@ -168,6 +168,20 @@ def _build_session_data(session):
                 'request_number': sr.request_number,
                 'status': sr.status,
                 'status_display_name': sr.status_display_name,
+                'address_type': sr.address_type,
+                'full_address': sr.full_address,
+                'shipping_name': sr.shipping_name,
+                'shipping_address': sr.shipping_address,
+                'shipping_postal_code': sr.shipping_postal_code,
+                'shipping_city': sr.shipping_city,
+                'pickup_courier': sr.pickup_courier,
+                'pickup_point_id': sr.pickup_point_id,
+                'pickup_address': sr.pickup_address,
+                'courier': sr.courier,
+                'tracking_number': sr.tracking_number,
+                'parcel_size': sr.parcel_size,
+                'total_shipping_cost': float(sr.total_shipping_cost) if sr.total_shipping_cost else None,
+                'orders_count': sr.orders_count,
             }
 
     # WMS statuses for the UI dropdown
@@ -209,23 +223,10 @@ def _release_order_lock(order):
     order.wms_session_id = None
 
 
-def _ensure_do_wyslania_status():
-    """Ensure 'do_wyslania' status exists in shipping_request_statuses."""
-    if not ShippingRequestStatus.query.filter_by(slug='do_wyslania').first():
-        db.session.add(ShippingRequestStatus(
-            slug='do_wyslania',
-            name='Do wysłania',
-            badge_color='#f97316',
-            sort_order=50,
-            is_active=True,
-            is_initial=False,
-        ))
-
-
 def _update_sr_after_packing(order):
     """
     After packing an order, check if all orders in its ShippingRequest are packed.
-    If so, change SR status to 'do_wyslania'.
+    If so, change SR status to 'spakowane'.
     Also ensure 'spakowane' is in allowed shipping statuses.
     Returns dict with SR status info or None.
     """
@@ -239,9 +240,8 @@ def _update_sr_after_packing(order):
     all_packed = all(o.status == 'spakowane' for o in sr.orders)
 
     sr_status_changed = False
-    if all_packed:
-        _ensure_do_wyslania_status()
-        sr.status = 'do_wyslania'
+    if all_packed and sr.status != 'spakowane':
+        sr.status = 'spakowane'
         sr_status_changed = True
 
     # Auto-add 'spakowane' to allowed shipping statuses (one-time)
@@ -268,7 +268,7 @@ def _update_sr_after_packing(order):
         'request_number': sr.request_number,
         'all_orders_packed': all_packed,
         'sr_status_changed': sr_status_changed,
-        'sr_new_status': 'do_wyslania' if sr_status_changed else sr.status,
+        'sr_new_status': 'spakowane' if sr_status_changed else sr.status,
     }
 
 
@@ -281,12 +281,15 @@ def _update_sr_after_packing(order):
 @login_required
 @role_required('admin', 'mod')
 def wms_dashboard():
-    """WMS Dashboard — sessions overview + packaging materials management."""
+    """WMS Dashboard — shipping requests + sessions + packaging materials."""
     from datetime import datetime, time as dt_time
-    from sqlalchemy import case
+    from sqlalchemy import case, or_, func
+    from modules.auth.models import User
 
     now = get_local_now()
     today_start = datetime.combine(now.date(), dt_time.min)
+
+    active_tab = request.args.get('tab', 'sessions')
 
     # Sessions: active first, then completed/cancelled, limit 50
     sessions = WmsSession.query.order_by(
@@ -312,7 +315,36 @@ def wms_dashboard():
     sessions_count = WmsSession.query.count()
     materials_count = len(materials)
 
-    active_tab = request.args.get('tab', 'sessions')
+    # --- Shipping Requests tab data ---
+    sr_status_filter = request.args.get('status', '')
+    sr_search = request.args.get('search', '')
+    sr_page = request.args.get('page', 1, type=int)
+    sr_per_page = 20
+
+    sr_query = ShippingRequest.query
+
+    if sr_status_filter:
+        sr_query = sr_query.filter(ShippingRequest.status == sr_status_filter)
+
+    if sr_search:
+        search_term = f"%{sr_search}%"
+        sr_query = sr_query.join(User, ShippingRequest.user_id == User.id).filter(
+            or_(
+                ShippingRequest.request_number.ilike(search_term),
+                User.first_name.ilike(search_term),
+                User.last_name.ilike(search_term),
+                func.concat(User.first_name, ' ', User.last_name).ilike(search_term)
+            )
+        )
+
+    sr_query = sr_query.order_by(ShippingRequest.created_at.desc())
+    sr_pagination = sr_query.paginate(page=sr_page, per_page=sr_per_page, error_out=False)
+    shipping_requests = sr_pagination.items
+
+    sr_statuses = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).all()
+
+    # SR count for badge
+    sr_total_count = ShippingRequest.query.count()
 
     return render_template(
         'admin/orders/wms_dashboard.html',
@@ -325,6 +357,13 @@ def wms_dashboard():
         materials_count=materials_count,
         active_tab=active_tab,
         material_types=PackagingMaterial.TYPE_CHOICES,
+        # SR data
+        shipping_requests=shipping_requests,
+        sr_pagination=sr_pagination,
+        sr_statuses=sr_statuses,
+        sr_status_filter=sr_status_filter,
+        sr_search=sr_search,
+        sr_total_count=sr_total_count,
     )
 
 
@@ -709,7 +748,9 @@ def wms_pack_order(session_id):
         if send_email_flag and order.packing_photo:
             try:
                 from utils.email_manager import EmailManager
+                from utils.push_manager import PushManager
                 EmailManager.notify_packing_photo(order)
+                PushManager.notify_packing_photo(order)
             except Exception as email_err:
                 current_app.logger.error(f'WMS packing email error: {email_err}')
 
@@ -758,6 +799,151 @@ def wms_pack_order(session_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'WMS pack order error: {e}')
+        return jsonify({
+            'success': False,
+            'message': f'Błąd: {str(e)}'
+        }), 500
+
+
+@orders_bp.route('/admin/orders/wms/<int:session_id>/ship-sr', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def wms_ship_sr(session_id):
+    """
+    Mark a ShippingRequest as shipped from within a WMS session.
+    Sets courier, tracking_number, parcel_size, status='wyslane'.
+    Creates OrderShipment records and sends emails.
+    """
+    try:
+        session = WmsSession.query.get_or_404(session_id)
+        data = request.get_json(silent=True) or {}
+
+        sr_id = data.get('shipping_request_id')
+        if not sr_id:
+            return jsonify({'success': False, 'message': 'Brak shipping_request_id'}), 400
+
+        sr = ShippingRequest.query.get(sr_id)
+        if not sr:
+            return jsonify({'success': False, 'message': 'Zlecenie wysyłki nie istnieje'}), 404
+
+        courier = data.get('courier')
+        tracking_number = data.get('tracking_number', '').strip()
+        parcel_size = data.get('parcel_size')
+        shipping_cost = data.get('shipping_cost')
+        order_costs = data.get('order_costs', [])
+
+        if not tracking_number:
+            return jsonify({'success': False, 'message': 'Numer tracking jest wymagany'}), 400
+
+        old_status = sr.status
+
+        # Update SR fields
+        sr.courier = courier or sr.courier
+        sr.tracking_number = tracking_number
+        sr.parcel_size = parcel_size or sr.parcel_size
+        sr.status = 'wyslane'
+
+        if shipping_cost:
+            try:
+                sr.total_shipping_cost = float(shipping_cost)
+            except (ValueError, TypeError):
+                pass
+
+        # Update individual order shipping costs
+        for cost_data in order_costs:
+            oid = cost_data.get('order_id')
+            cost = cost_data.get('shipping_cost')
+            if oid and cost:
+                order = Order.query.get(oid)
+                if order:
+                    try:
+                        order.shipping_cost = float(cost)
+                    except (ValueError, TypeError):
+                        pass
+
+        # Change order statuses to 'wyslane'
+        from modules.orders.models import OrderStatus, OrderShipment
+        order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
+        if order_status:
+            for o in sr.orders:
+                if o.status != 'wyslane':
+                    o.status = 'wyslane'
+
+        db.session.commit()
+
+        # Create OrderShipment records and send tracking emails
+        from utils.email_manager import EmailManager
+        courier_names = {
+            'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
+            'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
+            'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny'
+        }
+
+        for order in sr.orders:
+            # Auto-create OrderShipment record
+            existing = OrderShipment.query.filter_by(
+                order_id=order.id,
+                tracking_number=tracking_number
+            ).first()
+            if not existing:
+                shipment = OrderShipment(
+                    order_id=order.id,
+                    tracking_number=tracking_number,
+                    courier=sr.courier,
+                    notes=f'Z sesji WMS #{session.id}, zlecenie {sr.request_number}',
+                    created_by=current_user.id
+                )
+                db.session.add(shipment)
+
+            # Send tracking email + push
+            try:
+                EmailManager.notify_tracking_added(
+                    order,
+                    tracking_number=tracking_number,
+                    courier=sr.courier,
+                    courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier'),
+                    tracking_url=sr.tracking_url
+                )
+                from utils.push_manager import PushManager
+                PushManager.notify_tracking_added(
+                    order,
+                    tracking_number=tracking_number,
+                    courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier')
+                )
+            except Exception as email_err:
+                current_app.logger.error(f'WMS ship SR email error: {email_err}')
+
+        db.session.commit()
+
+        # Activity log
+        log_activity(
+            user=current_user,
+            action='shipping_request_shipped_from_wms',
+            entity_type='shipping_request',
+            entity_id=sr.id,
+            old_value={'status': old_status},
+            new_value={
+                'status': 'wyslane',
+                'tracking_number': tracking_number,
+                'courier': sr.courier,
+                'wms_session_id': session.id,
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Zlecenie {sr.request_number} oznaczone jako wysłane',
+            'shipping_request': {
+                'id': sr.id,
+                'request_number': sr.request_number,
+                'status': 'wyslane',
+                'tracking_number': tracking_number,
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f'WMS ship SR error: {e}')
         return jsonify({
             'success': False,
             'message': f'Błąd: {str(e)}'
@@ -1222,7 +1408,9 @@ def wms_send_packing_email():
             return jsonify({'success': False, 'message': 'Brak adresu email klienta'}), 400
 
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         EmailManager.notify_packing_photo(order)
+        PushManager.notify_packing_photo(order)
 
         return jsonify({
             'success': True,

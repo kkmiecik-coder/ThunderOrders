@@ -332,7 +332,9 @@ def handle_mark_order_packed(data):
         try:
             from flask import current_app
             from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
             EmailManager.notify_packing_photo(order)
+            PushManager.notify_packing_photo(order)
         except Exception as email_err:
             import logging
             logging.getLogger(__name__).error(f'WMS packing email error: {email_err}')
