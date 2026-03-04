@@ -116,8 +116,10 @@
     <!-- Cookie Consent Banner -->
     {% include 'components/cookie_banner.html' %}
 
-    <!-- PWA Install Banner -->
-    {% include 'components/pwa_install_banner.html' %}
+    <!-- PWA Install Banner (only for logged-in users) -->
+    {% if current_user.is_authenticated %}
+        {% include 'components/pwa_install_banner.html' %}
+    {% endif %}
 
     {% block body_content %}
     <!-- Default content for pages without sidebar -->
