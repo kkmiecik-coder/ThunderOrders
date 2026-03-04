@@ -137,9 +137,11 @@ def payment_confirmation_approve(confirmation_id):
         }
     )
 
-    # Wyślij email do klienta
+    # Wyślij email + push do klienta
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
     EmailManager.notify_payment_approved(order, confirmation)
+    PushManager.notify_payment_approved(order, confirmation)
 
     return jsonify({
         'success': True,
@@ -197,10 +199,12 @@ def payment_confirmation_bulk_approve():
 
     db.session.commit()
 
-    # Wyślij emaile po commit
+    # Wyślij emaile + push po commit
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
     for confirmation in confirmations:
         EmailManager.notify_payment_approved(confirmation.order, confirmation)
+        PushManager.notify_payment_approved(confirmation.order, confirmation)
 
     return jsonify({
         'success': True,
@@ -260,8 +264,10 @@ def payment_confirmation_bulk_reject():
     db.session.commit()
 
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
     for confirmation in confirmations:
         EmailManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
+        PushManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
 
     return jsonify({
         'success': True,
@@ -316,9 +322,11 @@ def payment_confirmation_reject(confirmation_id):
         }
     )
 
-    # Wyślij email do klienta
+    # Wyślij email + push do klienta
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
     EmailManager.notify_payment_rejected(order, confirmation, rejection_reason)
+    PushManager.notify_payment_rejected(order, confirmation, rejection_reason)
 
     return jsonify({
         'success': True,

@@ -63,6 +63,11 @@ class Config:
     FACEBOOK_CLIENT_ID = os.getenv('FACEBOOK_CLIENT_ID', '')
     FACEBOOK_CLIENT_SECRET = os.getenv('FACEBOOK_CLIENT_SECRET', '')
 
+    # VAPID (Web Push Notifications)
+    VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+    VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+    VAPID_CLAIMS_EMAIL = os.getenv('VAPID_CLAIMS_EMAIL', 'mailto:noreply@thunderorders.cloud')
+
     # Security
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # Token nie wygasa

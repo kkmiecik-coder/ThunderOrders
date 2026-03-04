@@ -83,6 +83,9 @@ def create_app(config_name=None):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        # Allow Service Worker to control the entire site
+        if request.path.endswith('/sw.js'):
+            response.headers['Service-Worker-Allowed'] = '/'
         return response
 
     return app
@@ -154,6 +157,16 @@ def register_blueprints(app):
     # Feedback module (ankiety i zbieranie opinii)
     from modules.feedback import feedback_bp
     app.register_blueprint(feedback_bp)
+
+    # Notifications module (push subscriptions & preferences)
+    from modules.notifications import notifications_bp
+    csrf.exempt(notifications_bp)
+    app.register_blueprint(notifications_bp, url_prefix='/notifications')
+
+    # Offline page (for Service Worker fallback)
+    @app.route('/offline')
+    def offline():
+        return render_template('errors/offline.html')
 
     # Strona główna - smart redirect
     @app.route('/')

@@ -51,6 +51,16 @@
     </script>
     {% endif %}
 
+    <!-- PWA Manifest & Meta -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#240046">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="ThunderOrders">
+    {% if config.VAPID_PUBLIC_KEY %}
+    <meta name="vapid-public-key" content="{{ config.VAPID_PUBLIC_KEY }}">
+    {% endif %}
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
@@ -106,6 +116,9 @@
     <!-- Cookie Consent Banner -->
     {% include 'components/cookie_banner.html' %}
 
+    <!-- PWA Install Banner -->
+    {% include 'components/pwa_install_banner.html' %}
+
     {% block body_content %}
     <!-- Default content for pages without sidebar -->
     <main>
@@ -125,6 +138,16 @@
     <script src="{{ url_for('static', filename='js/components/sidebar.js') }}?v=8"></script>
     <script src="{{ url_for('static', filename='js/components/global-search.js') }}?v=1"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}?v=8"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script src="{{ url_for('static', filename='js/core/sw-register.js') }}?v=1"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pwa-install.css') }}?v=1">
+    <script src="{{ url_for('static', filename='js/components/pwa-install.js') }}?v=1"></script>
+
+    <!-- Push Notifications (authenticated + VAPID configured) -->
+    {% if current_user.is_authenticated and config.VAPID_PUBLIC_KEY %}
+    <script src="{{ url_for('static', filename='js/core/push-notifications.js') }}?v=1"></script>
+    {% endif %}
 
     <!-- Popup Announcements - tylko dla zalogowanych -->
     {% if current_user.is_authenticated %}

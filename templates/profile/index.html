@@ -165,6 +165,95 @@
                     </div>
                 </div>
 
+                <!-- Powiadomienia Push -->
+                {% if config.VAPID_PUBLIC_KEY %}
+                <div class="profile-card" id="pushNotificationsCard">
+                    <div class="profile-card-header">
+                        <h2>Powiadomienia Push</h2>
+                    </div>
+                    <div class="push-section">
+                        <!-- Permission denied warning -->
+                        <div id="pushPermissionWarning" class="push-warning" style="display: none;">
+                            Powiadomienia zostały zablokowane w przeglądarce. Aby je włączyć, zmień ustawienia uprawnień strony.
+                        </div>
+
+                        <!-- Main toggle -->
+                        <div class="privacy-item">
+                            <div class="privacy-info">
+                                <h3>Włącz powiadomienia push</h3>
+                                <p class="privacy-description">
+                                    Otrzymuj natychmiastowe powiadomienia o zmianach w zamówieniach, płatnościach i wysyłkach.
+                                </p>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="pushMainToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <!-- Category toggles -->
+                        <div id="pushCategories" style="display: none;">
+                            <div class="push-categories-header">Kategorie powiadomień</div>
+
+                            <div class="push-category-item">
+                                <span>Zmiany statusu zamówień</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="order_status_changes" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="push-category-item">
+                                <span>Aktualizacje płatności</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="payment_updates" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="push-category-item">
+                                <span>Status wysyłki</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="shipping_updates" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="push-category-item">
+                                <span>Nowe strony Exclusive</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="new_exclusive_pages" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="push-category-item">
+                                <span>Nowe koszty zamówień</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="cost_added" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            {% if current_user.role in ['admin', 'mod'] %}
+                            <div class="push-category-item">
+                                <span>Alerty administratora</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="admin_alerts" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Devices info -->
+                        <div id="pushDevicesInfo" class="push-devices" style="display: none;">
+                            <span class="push-devices-count">0 urządzeń</span> z aktywną subskrypcją
+                        </div>
+
+                        <!-- Test button -->
+                        <button id="pushTestBtn" class="btn btn-primary push-test-btn" style="display: none;">
+                            Wyślij testowe powiadomienie
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- Zmiana avatara -->
                 <div class="profile-card profile-card-avatar">
                     <div class="profile-card-header">
@@ -272,6 +361,9 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/profile/profile.js') }}"></script>
+{% if config.VAPID_PUBLIC_KEY %}
+<script src="{{ url_for('static', filename='js/pages/profile/push-settings.js') }}?v=1"></script>
+{% endif %}
 <script>
 // Analytics Consent Toggle (RODO)
 document.addEventListener('DOMContentLoaded', function() {

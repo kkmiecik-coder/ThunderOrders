@@ -638,3 +638,106 @@
 [data-theme="dark"] .toggle-switch input:checked + .toggle-slider {
   background-color: #f093fb;
 }
+
+/* ============================================
+   Push Notifications Section
+   ============================================ */
+
+.push-section {
+  padding: var(--space-6);
+}
+
+.push-warning {
+  padding: 10px 14px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #856404;
+  margin-bottom: var(--space-5);
+}
+
+.push-categories-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-top: var(--space-5);
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-4);
+  border-top: 1px solid var(--gray-100);
+}
+
+.push-category-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.push-category-item + .push-category-item {
+  border-top: 1px solid var(--gray-100);
+}
+
+.toggle-switch-sm {
+  width: 40px;
+  height: 22px;
+}
+
+.toggle-switch-sm .toggle-slider:before {
+  height: 16px;
+  width: 16px;
+}
+
+.toggle-switch-sm input:checked + .toggle-slider:before {
+  transform: translateX(18px);
+}
+
+.push-devices {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--gray-100);
+}
+
+.push-devices-count {
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.push-test-btn {
+  margin-top: var(--space-4);
+}
+
+/* Push Notifications - Dark Mode */
+[data-theme="dark"] .push-warning {
+  background: rgba(255, 193, 7, 0.15);
+  border-color: rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+}
+
+[data-theme="dark"] .push-categories-header {
+  color: rgba(255, 255, 255, 0.5);
+  border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .push-category-item {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .push-category-item + .push-category-item {
+  border-top-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .push-devices {
+  color: rgba(255, 255, 255, 0.5);
+  border-top-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .push-devices-count {
+  color: rgba(255, 255, 255, 0.8);
+}

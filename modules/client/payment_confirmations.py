@@ -315,7 +315,9 @@ def payment_confirmations_upload():
             stage_names = ', '.join(stage_display_names.get(s, s) for s in entry['stages'])
             try:
                 from utils.email_manager import EmailManager
+                from utils.push_manager import PushManager
                 EmailManager.notify_admin_payment_uploaded(order, stage_names)
+                PushManager.notify_admin_payment_uploaded(order, stage_names)
             except Exception as e:
                 current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
 

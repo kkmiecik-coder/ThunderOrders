@@ -249,10 +249,12 @@ def place_exclusive_order(page, session_id, order_note=None):
         }
     )
 
-    # 12. Send emails (async)
+    # 12. Send emails + push (async)
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
     EmailManager.notify_order_confirmation(order)
     EmailManager.notify_admin_new_order(order)
+    PushManager.notify_admin_new_order(order)
 
     # 12b. Broadcast dostępności do kupujących (rezerwacje usunięte → produkty wolne)
     try:

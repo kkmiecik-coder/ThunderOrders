@@ -54,3 +54,7 @@ gunicorn==21.2.0
 flask-socketio==5.3.6
 eventlet==0.36.1
 simple-websocket==1.0.0
+
+# Web Push Notifications
+pywebpush==2.0.1
+py-vapid==1.9.2

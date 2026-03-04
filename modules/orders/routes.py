@@ -526,9 +526,11 @@ def admin_update_status(order_id):
             new_value={'status': new_status}
         )
 
-        # Send email notification to customer
+        # Send email + push notification to customer
         from utils.email_manager import EmailManager
         EmailManager.notify_status_change(order, old_status_name, order.status_display_name)
+        from utils.push_manager import PushManager
+        PushManager.notify_status_change(order, old_status_name, order.status_display_name)
 
         # Return updated badge HTML with HX-Trigger for toast
         badge_html = f'<span class="badge" style="background-color: {order.status_badge_color}; color: #fff;" id="statusBadge">{order.status_display_name}</span>'
@@ -877,6 +879,8 @@ def admin_update_order_field(order_id):
             }
             cost_type = cost_type_map[field]
             EmailManager.notify_cost_added(order, cost_type, float(value))
+            from utils.push_manager import PushManager
+            PushManager.notify_cost_added(order, cost_type, float(value))
 
         return jsonify(response_data)
 
@@ -1148,10 +1152,16 @@ def bulk_status_change():
                         current_app.logger.error(f'Collection auto-add error for order {oid}: {e}')
             db.session.commit()
 
-        # Send email notifications after successful commit
+        # Send email + push notifications after successful commit
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         for email_data in email_queue:
             EmailManager.notify_status_change(
+                email_data['order'],
+                email_data['old_status'],
+                email_data['new_status']
+            )
+            PushManager.notify_status_change(
                 email_data['order'],
                 email_data['old_status'],
                 email_data['new_status']
@@ -3300,6 +3310,7 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
     Mapowanie: SR 'wyslane' → Order 'wyslane', SR 'dostarczone' → Order 'dostarczone'.
     """
     from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
 
     SR_TO_ORDER_STATUS_MAP = {
         'wyslane': 'wyslane',
@@ -3325,6 +3336,7 @@ def _sync_order_statuses_from_shipping_request(shipping_request, new_sr_status_s
 
         try:
             EmailManager.notify_status_change(order, old_status_name, order_status_obj.name)
+            PushManager.notify_status_change(order, old_status_name, order_status_obj.name)
         except Exception as e:
             current_app.logger.error(f'Status sync email error for {order.order_number}: {e}')
 
@@ -3376,12 +3388,14 @@ def admin_update_shipping_request(shipping_request_id):
         _sync_order_statuses_from_shipping_request(sr, data['status'])
         db.session.commit()
 
-    # Email notification for new domestic shipping costs
+    # Email + push notification for new domestic shipping costs
     if orders_with_new_cost:
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
         for order, cost in orders_with_new_cost:
             try:
                 EmailManager.notify_cost_added(order, 'domestic_shipping', cost)
+                PushManager.notify_cost_added(order, 'domestic_shipping', cost)
             except Exception as e:
                 current_app.logger.error(f'Błąd powiadomienia o koszcie wysyłki krajowej: {e}')
 
@@ -3432,11 +3446,16 @@ def admin_update_shipping_request(shipping_request_id):
                 db.session.add(shipment)
         db.session.commit()
 
-    # Send status change email (skip if tracking was just added - that email already covers it)
+    # Send status change email + push (skip if tracking was just added - that email already covers it)
     if 'status' in data and data['status'] != old_status and not tracking_just_added:
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        from modules.orders.models import ShippingRequestStatus
         try:
             EmailManager.notify_shipping_status_change(sr, old_status)
+            new_status_obj = ShippingRequestStatus.query.filter_by(slug=sr.status).first()
+            new_status_name = new_status_obj.name if new_status_obj else sr.status
+            PushManager.notify_shipping_status_change(sr, new_status_name)
         except Exception as e:
             current_app.logger.error(f'Błąd powiadomienia o zmianie statusu zlecenia wysyłki: {e}')
 
@@ -3657,12 +3676,17 @@ def admin_bulk_status_shipping_requests():
             _sync_order_statuses_from_shipping_request(sr, new_status)
         db.session.commit()
 
-    # Send status change emails
+    # Send status change emails + push
     if changed_requests:
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        from modules.orders.models import ShippingRequestStatus
         for sr, old_status in changed_requests:
             try:
                 EmailManager.notify_shipping_status_change(sr, old_status)
+                new_status_obj = ShippingRequestStatus.query.filter_by(slug=sr.status).first()
+                new_status_name = new_status_obj.name if new_status_obj else sr.status
+                PushManager.notify_shipping_status_change(sr, new_status_name)
             except Exception as e:
                 current_app.logger.error(f'Błąd powiadomienia o zmianie statusu zlecenia {sr.request_number}: {e}')
 
