@@ -248,6 +248,184 @@
   color: #4a9eff;
 }
 
+/* ==================== */
+/* Push Bell (Desktop)  */
+/* ==================== */
+.push-bell-wrapper {
+    position: relative;
+}
+
+.push-bell-btn {
+    position: relative;
+}
+
+.push-bell-btn img {
+    width: 20px;
+    height: 20px;
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
+}
+
+.push-bell-btn:hover img {
+    opacity: 0.8;
+}
+
+.push-bell-btn.push-bell-active img {
+    opacity: 0.8;
+}
+
+/* Dark mode - bell icon */
+[data-theme="dark"] .push-bell-btn img {
+    filter: brightness(0) invert(1);
+    opacity: 0.6;
+}
+
+[data-theme="dark"] .push-bell-btn:hover img,
+[data-theme="dark"] .push-bell-btn.push-bell-active img {
+    opacity: 1;
+}
+
+/* Badge (red dot) */
+.push-bell-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 8px;
+    height: 8px;
+    background: #f44336;
+    border-radius: 50%;
+    border: 2px solid var(--topbar-bg);
+}
+
+/* Bell Dropdown */
+.push-bell-dropdown {
+    min-width: 220px;
+    padding: var(--space-3);
+}
+
+.push-bell-dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.push-bell-status-icon {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.push-bell-status-off {
+    background: #9ca3af;
+}
+
+.push-bell-status-on {
+    background: #22c55e;
+}
+
+.push-bell-action-btn {
+    display: block;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: center;
+    transition: background var(--transition-fast);
+    margin-top: var(--space-2);
+}
+
+.push-bell-enable {
+    background: #ff8500;
+    color: white;
+    font-weight: 600;
+}
+
+.push-bell-enable:hover {
+    background: #e07600;
+}
+
+.push-bell-disable {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.push-bell-disable:hover {
+    background: var(--bg-tertiary);
+}
+
+/* Dark mode - bell dropdown */
+[data-theme="dark"] .push-bell-enable {
+    background: #f093fb;
+    color: #1a1a2e;
+}
+
+[data-theme="dark"] .push-bell-enable:hover {
+    background: #e07feb;
+}
+
+[data-theme="dark"] .push-bell-disable {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .push-bell-disable:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* ==================== */
+/* Push Bell (Mobile)   */
+/* ==================== */
+.mobile-push-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--sidebar-bg-hover);
+    color: var(--sidebar-text);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: var(--space-2);
+    transition: background var(--transition-fast);
+}
+
+.mobile-push-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.mobile-push-btn img {
+    width: 16px;
+    height: 16px;
+    filter: brightness(0) invert(1);
+}
+
+.mobile-push-badge {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.mobile-push-badge-off {
+    background: #9ca3af;
+}
+
+.mobile-push-badge-on {
+    background: #22c55e;
+}
+
 /* User Dropdown */
 .topbar-user-dropdown {
   position: relative;

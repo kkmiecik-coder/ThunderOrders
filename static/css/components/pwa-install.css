@@ -151,3 +151,54 @@
         padding: 10px 12px;
     }
 }
+
+/* ============================================
+   Push Notifications Banner
+   (Reuses PWA banner layout)
+   ============================================ */
+
+.push-notif-banner {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9998;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    max-width: 420px;
+    width: calc(100% - 32px);
+    animation: pwa-slide-up 0.3s ease-out;
+}
+
+.push-notif-icon {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+/* Dark mode - push banner */
+[data-theme="dark"] .push-notif-banner {
+    background: rgba(30, 10, 60, 0.95);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .push-notif-icon {
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+}
+
+@media (max-width: 480px) {
+    .push-notif-banner {
+        bottom: 12px;
+        padding: 10px 12px;
+    }
+}

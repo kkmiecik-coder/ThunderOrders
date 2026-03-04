@@ -121,6 +121,11 @@
         {% include 'components/pwa_install_banner.html' %}
     {% endif %}
 
+    <!-- Push Notifications Banner (authenticated + VAPID configured) -->
+    {% if current_user.is_authenticated and config.VAPID_PUBLIC_KEY %}
+        {% include 'components/push_notifications_banner.html' %}
+    {% endif %}
+
     {% block body_content %}
     <!-- Default content for pages without sidebar -->
     <main>
@@ -149,6 +154,8 @@
     <!-- Push Notifications (authenticated + VAPID configured) -->
     {% if current_user.is_authenticated and config.VAPID_PUBLIC_KEY %}
     <script src="{{ url_for('static', filename='js/core/push-notifications.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/components/push-bell.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/components/push-banner.js') }}?v=1"></script>
     {% endif %}
 
     <!-- Popup Announcements - tylko dla zalogowanych -->

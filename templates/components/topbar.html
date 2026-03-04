@@ -36,6 +36,40 @@
             <span class="topbar-fb-text">Grupa FB</span>
         </a>
 
+        <!-- Push Notifications Bell -->
+        {% if current_user.is_authenticated and config.VAPID_PUBLIC_KEY %}
+        <div class="push-bell-wrapper">
+            <button class="topbar-btn push-bell-btn" id="pushBellBtn" aria-label="Powiadomienia push">
+                <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Powiadomienia">
+                <span class="push-bell-badge" id="pushBellBadge"></span>
+            </button>
+
+            <div class="push-bell-dropdown topbar-dropdown-menu" id="pushBellDropdown">
+                <!-- State: push OFF -->
+                <div id="pushBellStateOff">
+                    <div class="push-bell-dropdown-header">
+                        <span class="push-bell-status-icon push-bell-status-off"></span>
+                        <span>Powiadomienia wyłączone</span>
+                    </div>
+                    <button class="push-bell-action-btn push-bell-enable" id="pushBellEnableBtn">Włącz powiadomienia</button>
+                </div>
+                <!-- State: push ON -->
+                <div id="pushBellStateOn" style="display: none;">
+                    <div class="push-bell-dropdown-header">
+                        <span class="push-bell-status-icon push-bell-status-on"></span>
+                        <span>Powiadomienia włączone</span>
+                    </div>
+                    <button class="push-bell-action-btn push-bell-disable" id="pushBellDisableBtn">Wyłącz</button>
+                    <div class="topbar-dropdown-divider"></div>
+                    <a href="{{ url_for('profile.index') }}#push" class="topbar-dropdown-item" id="pushBellSettingsLink">
+                        <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="Ustawienia">
+                        <span>Ustawienia</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- User Dropdown -->
         <div class="topbar-user-dropdown">
             <button class="topbar-user-btn" id="userDropdownBtn" aria-label="User menu">
@@ -148,6 +182,15 @@
                     <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
                 </svg>
             </a>
+
+            <!-- Push Notifications -->
+            {% if current_user.is_authenticated and config.VAPID_PUBLIC_KEY %}
+            <button class="mobile-push-btn" id="mobilePushBtn">
+                <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Powiadomienia">
+                <span id="mobilePushText">Powiadomienia</span>
+                <span class="mobile-push-badge mobile-push-badge-off" id="mobilePushBadge"></span>
+            </button>
+            {% endif %}
 
             <!-- Dark Mode Toggle -->
             <button class="mobile-menu-theme-toggle" id="mobileDarkModeToggle" aria-label="Toggle dark mode">

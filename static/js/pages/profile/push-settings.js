@@ -152,5 +152,24 @@
         });
     }
 
+    // Autoscroll to push card when URL has #push
+    function checkHashScroll() {
+        if (window.location.hash === '#push') {
+            var card = document.getElementById('pushNotificationsCard');
+            if (card) {
+                setTimeout(function () {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    // Briefly highlight the card
+                    card.style.transition = 'box-shadow 0.3s ease';
+                    card.style.boxShadow = '0 0 0 2px #f093fb';
+                    setTimeout(function () {
+                        card.style.boxShadow = '';
+                    }, 2000);
+                }, 300);
+            }
+        }
+    }
+
     init();
+    checkHashScroll();
 })();
