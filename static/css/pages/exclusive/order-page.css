@@ -1717,64 +1717,13 @@ body.exclusive-page-body {
 }
 
 /* ==========================================
-   Mobile Cart FAB + Slide-up Panel
+   Mobile Cart Overlay + Slide-up Panel
    ========================================== */
-.cart-fab {
-    display: none;
-}
-
 .cart-mobile-overlay {
     display: none;
 }
 
 @media (max-width: 1024px) {
-    /* FAB button */
-    .cart-fab {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        position: fixed;
-        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-        left: 20px;
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        border: none;
-        background: linear-gradient(135deg, #e91e63 0%, #9c27b0 100%);
-        color: white;
-        cursor: pointer;
-        z-index: 90;
-        box-shadow: none;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .cart-fab:active {
-        transform: scale(0.92);
-    }
-
-    .cart-fab-badge {
-        position: absolute;
-        top: -4px;
-        right: -4px;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 6px;
-        background: var(--card-bg);
-        color: #e91e63;
-        border-radius: 11px;
-        font-size: 12px;
-        font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-    }
-
-    .cart-fab-badge:empty,
-    .cart-fab-badge[data-count="0"] {
-        display: none;
-    }
-
     /* Overlay */
     .cart-mobile-overlay {
         display: none;
@@ -1861,21 +1810,6 @@ body.exclusive-page-body {
         opacity: 0.4;
         cursor: not-allowed;
     }
-
-    /* Move FAB up above the bottom bar */
-    .cart-fab {
-        bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-    }
-}
-
-/* ==========================================
-   Draggable Cart FAB
-   ========================================== */
-.cart-fab.dragging {
-    transition: none !important;
-    opacity: 0.9;
-    transform: scale(1.08);
-    box-shadow: 0 8px 32px rgba(233, 30, 99, 0.4);
 }
 
 /* ==========================================
