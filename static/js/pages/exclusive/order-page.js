@@ -317,15 +317,18 @@ function updateCheckoutBottomBar(totalItems, totalPrice) {
     const bar = document.getElementById('checkoutBottomBar');
     const countEl = document.getElementById('checkoutBottomCount');
     const totalEl = document.getElementById('checkoutBottomTotal');
+    const btn = document.getElementById('checkoutBottomBtn');
     if (!bar) return;
 
     if (totalItems > 0) {
-        bar.classList.add('visible');
         const label = totalItems === 1 ? 'produkt' : (totalItems < 5 ? 'produkty' : 'produktów');
         countEl.textContent = totalItems + ' ' + label;
         totalEl.textContent = totalPrice.toFixed(2) + ' PLN';
+        if (btn) btn.disabled = false;
     } else {
-        bar.classList.remove('visible');
+        countEl.textContent = 'Koszyk pusty';
+        totalEl.textContent = '0.00 PLN';
+        if (btn) btn.disabled = true;
     }
 }
 

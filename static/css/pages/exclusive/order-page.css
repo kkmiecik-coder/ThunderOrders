@@ -1814,12 +1814,7 @@ body.exclusive-page-body {
         -webkit-backdrop-filter: blur(20px);
         border-top: 1px solid rgba(240, 147, 251, 0.25);
         z-index: 89;
-        transform: translateY(100%);
-        transition: transform 0.3s ease;
-    }
-
-    .checkout-bottom-bar.visible {
-        transform: translateY(0);
+        transition: opacity 0.3s ease;
     }
 
     .checkout-bottom-info {
@@ -1862,8 +1857,12 @@ body.exclusive-page-body {
         opacity: 0.9;
     }
 
-    /* Move FAB up above the bottom bar when it's visible */
-    .checkout-bottom-bar.visible ~ .cart-fab,
+    .checkout-bottom-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    /* Move FAB up above the bottom bar */
     .cart-fab {
         bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     }
