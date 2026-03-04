@@ -1491,6 +1491,7 @@ body.exclusive-page-body {
 @media (max-width: 1024px) {
     .page-content {
         flex-direction: column;
+        padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     }
 
     .cart-sidebar {
