@@ -1043,3 +1043,444 @@
                 box-shadow 0.5s ease,
                 backdrop-filter 0.5s ease;
 }
+
+
+/* ================================================ */
+/* PASEK AKCJI MASOWYCH (pływający na dole ekranu)  */
+/* Element jest w HTML poza .wms-dashboard-page,     */
+/* żeby uniknąć problemów z backdrop-filter i fixed  */
+/* ================================================ */
+
+#bulkToolbar.bulk-toolbar {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: linear-gradient(135deg, #240046 0%, #5A189A 100%);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    box-shadow: 0 8px 24px rgba(36, 0, 70, 0.4);
+    z-index: 1000;
+    display: block !important;
+    opacity: 1;
+    filter: blur(0);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.3s ease-out,
+                filter 0.3s ease-out;
+}
+
+/* Ukryty stan — animacja wyjścia */
+#bulkToolbar.bulk-toolbar.hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(100px);
+    filter: blur(8px);
+}
+
+#bulkToolbar .bulk-toolbar-content {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+#bulkToolbar .selected-count {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+#bulkToolbar .bulk-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#bulkToolbar .btn-bulk {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+#bulkToolbar .btn-bulk:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+#bulkToolbar .btn-bulk-danger {
+    background: rgba(244, 67, 54, 0.2);
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+#bulkToolbar .btn-bulk-danger:hover {
+    background: rgba(244, 67, 54, 0.3);
+}
+
+/* Dropdown statusów w pasku akcji masowych */
+#bulkToolbar .bulk-status-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+#bulkToolbar .bulk-status-wrapper .dropdown-arrow {
+    margin-left: 0.25rem;
+    transition: transform 0.2s ease;
+}
+
+#bulkToolbar .bulk-status-dropdown {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--card-bg, #fff);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    display: none;
+    min-width: 200px;
+    z-index: 1001;
+}
+
+#bulkToolbar .bulk-status-dropdown.show {
+    display: block;
+}
+
+#bulkToolbar .bulk-status-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+    display: flex;
+    align-items: center;
+}
+
+#bulkToolbar .bulk-status-option:hover {
+    background: #f3f4f6;
+}
+
+#bulkToolbar .bulk-status-option .badge {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Przycisk scalania — wyłączony gdy różni klienci */
+#btnBulkMerge:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Dark mode — pasek akcji masowych */
+[data-theme="dark"] #bulkToolbar.bulk-toolbar {
+    background: linear-gradient(135deg, rgba(15, 12, 41, 0.98) 0%, rgba(48, 43, 99, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] #bulkToolbar .bulk-status-dropdown {
+    background: rgba(30, 30, 40, 0.98);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] #bulkToolbar .bulk-status-option:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* Responsive — pasek akcji masowych */
+@media (max-width: 768px) {
+    #bulkToolbar.bulk-toolbar {
+        left: 1rem;
+        right: 1rem;
+        transform: translateY(0);
+        width: auto;
+        padding: 1rem;
+        border-radius: 20px;
+    }
+
+    #bulkToolbar.bulk-toolbar.hidden {
+        transform: translateY(100px);
+    }
+
+    #bulkToolbar .bulk-toolbar-content {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    #bulkToolbar .bulk-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+/* ================================================ */
+/* SHIPPING REQUESTS TAB                            */
+/* ================================================ */
+
+.sr-tab-layout {
+    display: flex;
+    gap: var(--space-4);
+}
+
+.sr-status-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+}
+
+.sr-status-sidebar-header {
+    padding: var(--space-3);
+    font-weight: 600;
+}
+
+.sr-status-sidebar-header h3 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6B7280;
+    margin: 0;
+}
+
+.sr-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.sr-status-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #374151;
+    font-size: 0.88rem;
+    transition: background 0.15s;
+}
+
+.sr-status-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.sr-status-item.active {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    font-weight: 600;
+}
+
+.sr-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sr-main-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.sr-tab-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.sr-tab-header h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.sr-search-form {
+    display: flex;
+    gap: var(--space-2);
+    align-items: center;
+}
+
+.sr-search-form .input-icon-wrapper {
+    position: relative;
+}
+
+.sr-search-form .input-icon {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9CA3AF;
+}
+
+.sr-search-form .form-input-icon {
+    padding-left: 34px;
+    min-width: 250px;
+}
+
+/* Badge for tab - green variant */
+.tab-badge-green {
+    background: #10B981;
+    color: #fff;
+}
+
+/* Paid card highlight */
+.sr-card-paid {
+    border-left: 3px solid #10B981;
+}
+
+/* Pagination */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+    padding: var(--space-3) 0;
+}
+
+.pagination {
+    display: flex;
+    gap: 4px;
+}
+
+.pagination-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    height: 36px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid #E5E7EB;
+    background: #fff;
+    color: #374151;
+    font-size: 0.88rem;
+    text-decoration: none;
+    transition: all 0.15s;
+}
+
+.pagination-btn:hover {
+    background: #F3F4F6;
+    border-color: #D1D5DB;
+}
+
+.pagination-btn.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: #fff;
+    font-weight: 600;
+}
+
+.pagination-ellipsis {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: #9CA3AF;
+}
+
+.pagination-info {
+    font-size: 0.82rem;
+    color: #6B7280;
+}
+
+/* ================================================ */
+/* DARK MODE — SHIPPING REQUESTS TAB                */
+/* ================================================ */
+
+[data-theme="dark"] .sr-status-sidebar-header h3 {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .sr-status-item {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .sr-status-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .sr-status-item.active {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-tab-header h2 {
+    color: #fff;
+}
+
+[data-theme="dark"] .sr-card-paid {
+    border-left-color: #10B981;
+}
+
+[data-theme="dark"] .pagination-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .pagination-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pagination-btn.active {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    border-color: transparent;
+    color: #fff;
+}
+
+[data-theme="dark"] .pagination-ellipsis {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .pagination-info {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ================================================ */
+/* RESPONSIVE — SHIPPING REQUESTS TAB               */
+/* ================================================ */
+
+@media (max-width: 768px) {
+    .sr-tab-layout {
+        flex-direction: column;
+    }
+
+    .sr-status-sidebar {
+        width: 100%;
+    }
+
+    .sr-status-list {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .sr-status-item {
+        padding: 6px 10px;
+        font-size: 0.82rem;
+    }
+
+    .sr-tab-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .sr-search-form .form-input-icon {
+        min-width: auto;
+        width: 100%;
+    }
+}

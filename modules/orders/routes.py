@@ -3393,11 +3393,31 @@ def admin_update_shipping_request(shipping_request_id):
                 if shipping_cost and float(shipping_cost) > 0 and float(shipping_cost) != old_cost:
                     orders_with_new_cost.append((order, float(shipping_cost)))
 
+    # Sync total_shipping_cost on SR from order costs
+    if 'order_costs' in data:
+        sr.total_shipping_cost = sr.calculated_shipping_cost
+
     db.session.commit()
 
+    # Auto-status: czeka_na_wycene → czeka_na_oplacenie after pricing
+    auto_status_changed = False
+    if sr.status == 'czeka_na_wycene' and orders_with_new_cost:
+        has_any_cost = any(
+            (ro.order.shipping_cost or 0) > 0
+            for ro in sr.request_orders if ro.order
+        )
+        if has_any_cost:
+            old_status = sr.status
+            sr.status = 'czeka_na_oplacenie'
+            auto_status_changed = True
+            db.session.commit()
+
     # Sync order statuses based on SR status change
-    if 'status' in data and data['status'] != old_status:
+    if 'status' in data and data['status'] != old_status and not auto_status_changed:
         _sync_order_statuses_from_shipping_request(sr, data['status'])
+        db.session.commit()
+    elif auto_status_changed:
+        _sync_order_statuses_from_shipping_request(sr, sr.status)
         db.session.commit()
 
     # Email + push notification for new domestic shipping costs
@@ -3459,7 +3479,8 @@ def admin_update_shipping_request(shipping_request_id):
         db.session.commit()
 
     # Send status change email + push (skip if tracking was just added - that email already covers it)
-    if 'status' in data and data['status'] != old_status and not tracking_just_added:
+    status_actually_changed = ('status' in data and data['status'] != old_status) or auto_status_changed
+    if status_actually_changed and not tracking_just_added:
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
         from modules.orders.models import ShippingRequestStatus

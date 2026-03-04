@@ -407,6 +407,11 @@
 
         autoAdvanceToNextOrder(orderData.id);
         refreshPreviewIfVisible();
+
+        // Check if all orders in the SR are packed → show shipping panel
+        if (order && order.shipping_request) {
+            checkAndShowShippingPanel(order.shipping_request);
+        }
     }
 
     function handleSessionState(data) {
@@ -507,10 +512,15 @@
 
             Object.keys(grouped).forEach(function (srId) {
                 var group = grouped[srId];
-                var groupEl = createSRGroupHeader(group.sr);
+                var isMulti = group.orders.length > 1;
+                var customerName = group.orders[0] ? group.orders[0].customer_name : '';
+                var groupEl = createSRGroupHeader(group.sr, customerName);
+                if (isMulti) groupEl.classList.add('wms-sr-group-multi');
                 list.appendChild(groupEl);
                 group.orders.forEach(function (o) {
-                    list.appendChild(createOrderCard(o));
+                    var card = createOrderCard(o);
+                    if (isMulti) card.classList.add('wms-order-card-grouped');
+                    list.appendChild(card);
                 });
             });
 
@@ -524,12 +534,14 @@
         }
     }
 
-    function createSRGroupHeader(sr) {
+    function createSRGroupHeader(sr, customerName) {
         var tpl = el('tplWmsSrGroup');
         var clone = tpl.content.cloneNode(true);
         var groupEl = clone.querySelector('.wms-sr-group');
         groupEl.setAttribute('data-sr-id', sr.id);
         groupEl.querySelector('.wms-sr-group-number').textContent = sr.request_number;
+        var custEl = groupEl.querySelector('.wms-sr-group-customer');
+        if (custEl && customerName) custEl.textContent = customerName;
         return groupEl;
     }
 
@@ -544,8 +556,25 @@
         }
 
         card.querySelector('.wms-order-card-number').textContent = order.order_number;
-        card.querySelector('.wms-order-card-customer').textContent = order.customer_name || '-';
-        card.querySelector('.wms-order-card-items-count').textContent = order.items_count + ' poz.';
+
+        // Render product list in card
+        var itemsList = card.querySelector('.wms-order-card-items-list');
+        if (itemsList && order.items) {
+            order.items.forEach(function (item) {
+                var itemEl = document.createElement('div');
+                itemEl.className = 'wms-order-card-item';
+                itemEl.setAttribute('data-item-id', item.id);
+                var picked = item.picked_quantity || 0;
+                var total = item.quantity || 0;
+                if (picked >= total) {
+                    itemEl.classList.add('item-picked');
+                } else if (picked > 0) {
+                    itemEl.classList.add('item-partial');
+                }
+                itemEl.textContent = item.product_name || '-';
+                itemsList.appendChild(itemEl);
+            });
+        }
 
         updateOrderCardProgress(card, order);
 
@@ -583,6 +612,21 @@
         } else if (fill) {
             fill.classList.remove('complete');
         }
+
+        // Update item colors in card
+        var items = order.items || [];
+        items.forEach(function (item) {
+            var itemEl = card.querySelector('.wms-order-card-item[data-item-id="' + item.id + '"]');
+            if (!itemEl) return;
+            var picked = item.picked_quantity || 0;
+            var total = item.quantity || 0;
+            itemEl.classList.remove('item-picked', 'item-partial');
+            if (picked >= total) {
+                itemEl.classList.add('item-picked');
+            } else if (picked > 0) {
+                itemEl.classList.add('item-partial');
+            }
+        });
     }
 
     // ========================================
@@ -1169,6 +1213,11 @@
             selectOrder(orderId);
             autoAdvanceToNextOrder(orderId);
 
+            // Check if all orders in the SR are packed → show shipping panel
+            if (order.shipping_request) {
+                checkAndShowShippingPanel(order.shipping_request);
+            }
+
         }).catch(function (err) {
             setButtonLoading(packBtn, false);
             console.error('WMS packOrder error:', err);
@@ -1507,6 +1556,183 @@
     function hideConnectionAlert() {
         var alertEl = el('wmsConnectionAlert');
         if (alertEl) alertEl.style.display = 'none';
+    }
+
+    // ========================================
+    // SHIPPING PANEL (post-packing)
+    // ========================================
+
+    var activeShippingPanel = null;
+
+    /**
+     * Show the shipping panel for a given ShippingRequest after all its orders are packed.
+     * srData: object with SR fields from _build_session_data
+     */
+    function showShippingPanel(srData) {
+        if (!srData || !srData.id) return;
+
+        // Check if panel already shown for this SR
+        if (activeShippingPanel === srData.id) return;
+
+        var tpl = document.getElementById('tplWmsShippingPanel');
+        if (!tpl) return;
+
+        var clone = tpl.content.cloneNode(true);
+        var panel = clone.querySelector('.wms-shipping-panel');
+        panel.setAttribute('data-sr-id', srData.id);
+
+        // Fill in SR number
+        panel.querySelector('.shipping-panel-sr-number').textContent = srData.request_number;
+
+        // Fill in address
+        panel.querySelector('.shipping-panel-address').textContent = srData.full_address || '-';
+
+        // Pre-fill courier if set
+        var courierSelect = panel.querySelector('#shipCourier');
+        if (srData.courier) courierSelect.value = srData.courier;
+
+        // Show parcel size for pickup_point
+        if (srData.address_type === 'pickup_point') {
+            panel.querySelector('.shipping-panel-parcel-size').style.display = '';
+            var parcelSelect = panel.querySelector('#shipParcelSize');
+            if (srData.parcel_size) parcelSelect.value = srData.parcel_size;
+        }
+
+        // Pre-fill tracking
+        if (srData.tracking_number) {
+            panel.querySelector('#shipTracking').value = srData.tracking_number;
+        }
+
+        // Pre-fill cost
+        if (srData.total_shipping_cost) {
+            panel.querySelector('#shipCost').value = srData.total_shipping_cost;
+        }
+
+        // Build per-order cost inputs
+        var ordersContainer = panel.querySelector('.shipping-panel-orders-costs');
+        var srOrders = (sessionData.orders || []).filter(function(o) {
+            return o.shipping_request && o.shipping_request.id === srData.id;
+        });
+
+        if (srOrders.length > 1) {
+            var table = document.createElement('div');
+            table.className = 'shipping-panel-orders-table';
+            srOrders.forEach(function(o) {
+                var row = document.createElement('div');
+                row.className = 'shipping-panel-order-row';
+                row.innerHTML =
+                    '<span class="shipping-panel-order-num">' + o.order_number + '</span>' +
+                    '<input type="number" class="form-input form-input-xs shipping-panel-order-cost" ' +
+                    'data-order-id="' + o.id + '" step="0.01" min="0" placeholder="0.00"> ' +
+                    '<span class="shipping-panel-currency-sm">zł</span>';
+                table.appendChild(row);
+            });
+            ordersContainer.appendChild(table);
+        }
+
+        // Distribute button
+        var distributeBtn = panel.querySelector('.shipping-panel-distribute-btn');
+        distributeBtn.addEventListener('click', function() {
+            var costInput = panel.querySelector('#shipCost');
+            var totalCost = parseFloat(costInput.value) || 0;
+            var orderInputs = panel.querySelectorAll('.shipping-panel-order-cost');
+            if (orderInputs.length > 0 && totalCost > 0) {
+                var perOrder = (totalCost / orderInputs.length).toFixed(2);
+                orderInputs.forEach(function(inp) { inp.value = perOrder; });
+            }
+        });
+
+        // Submit button
+        panel.querySelector('.shipping-panel-submit-btn').addEventListener('click', function() {
+            submitShipping(srData.id, panel);
+        });
+
+        // Skip button
+        panel.querySelector('.shipping-panel-skip-btn').addEventListener('click', function() {
+            skipShipping(panel);
+        });
+
+        // Insert panel into the right side of the picking area
+        var pickingArea = document.querySelector('.wms-picking-area') || document.querySelector('.wms-content');
+        if (pickingArea) {
+            pickingArea.appendChild(panel);
+            activeShippingPanel = srData.id;
+        }
+    }
+
+    function submitShipping(srId, panelEl) {
+        var tracking = panelEl.querySelector('#shipTracking').value.trim();
+        if (!tracking) {
+            showToast('Numer tracking jest wymagany', 'error');
+            return;
+        }
+
+        var courier = panelEl.querySelector('#shipCourier').value;
+        var parcelSize = panelEl.querySelector('#shipParcelSize');
+        parcelSize = parcelSize ? parcelSize.value : '';
+        var cost = parseFloat(panelEl.querySelector('#shipCost').value) || null;
+
+        var orderCosts = [];
+        panelEl.querySelectorAll('.shipping-panel-order-cost').forEach(function(inp) {
+            var oid = parseInt(inp.getAttribute('data-order-id'));
+            var c = parseFloat(inp.value) || 0;
+            if (oid && c > 0) {
+                orderCosts.push({ order_id: oid, shipping_cost: c });
+            }
+        });
+
+        var submitBtn = panelEl.querySelector('.shipping-panel-submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wysyłanie...';
+
+        postJSON('/admin/orders/wms/' + sessionId + '/ship-sr', {
+            shipping_request_id: srId,
+            courier: courier,
+            tracking_number: tracking,
+            parcel_size: parcelSize,
+            shipping_cost: cost,
+            order_costs: orderCosts
+        }).then(function(result) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Oznacz jako wysłane';
+
+            if (result.success) {
+                showToast(result.message || 'Zlecenie oznaczone jako wysłane', 'success');
+                panelEl.remove();
+                activeShippingPanel = null;
+            } else {
+                showToast(result.message || 'Błąd', 'error');
+            }
+        }).catch(function() {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Oznacz jako wysłane';
+            showToast('Błąd połączenia', 'error');
+        });
+    }
+
+    function skipShipping(panelEl) {
+        panelEl.remove();
+        activeShippingPanel = null;
+        showToast('Pominięto wysyłkę — uzupełnij tracking z dashboardu', 'info');
+    }
+
+    /**
+     * Check if all orders in an SR are packed (within this session) and show shipping panel.
+     */
+    function checkAndShowShippingPanel(srData) {
+        if (!srData || !srData.id) return;
+
+        var srOrders = (sessionData.orders || []).filter(function(o) {
+            return o.shipping_request && o.shipping_request.id === srData.id;
+        });
+
+        var allPacked = srOrders.length > 0 && srOrders.every(function(o) {
+            return o.packing_completed_at;
+        });
+
+        if (allPacked) {
+            showShippingPanel(srData);
+        }
     }
 
     // ========================================

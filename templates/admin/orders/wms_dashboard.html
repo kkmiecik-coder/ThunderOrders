@@ -1,9 +1,10 @@
 {% extends "admin/base_admin.html" %}
 
-{% block title %}WMS Pakowanie - ThunderOrders{% endblock %}
+{% block title %}WMS / Wysyłka - ThunderOrders{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/wms-dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/shipping-requests-list.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -23,6 +24,14 @@
 
     <!-- Tabs Navigation -->
     <div class="tabs-navigation">
+        <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
+           class="tab-link {% if active_tab == 'shipping' %}active{% endif %}"
+           data-tab="shipping">
+            ZLECENIA WYSYŁKI
+            {% if sr_total_count > 0 %}
+            <span class="tab-badge tab-badge-green">{{ sr_total_count }}</span>
+            {% endif %}
+        </a>
         <a href="{{ url_for('orders.wms_dashboard', tab='sessions') }}"
            class="tab-link {% if active_tab == 'sessions' %}active{% endif %}"
            data-tab="sessions">
@@ -45,10 +54,250 @@
     <div class="tab-content active" id="tab-{{ active_tab }}">
         <div class="tab-pane">
 
-            {% if active_tab == 'sessions' %}
-            <!-- Sessions Tab -->
+            {% if active_tab == 'shipping' %}
+            <!-- ======================== -->
+            <!-- SHIPPING REQUESTS TAB    -->
+            <!-- ======================== -->
+            <div class="sr-tab-layout">
+                <!-- Status Filter Sidebar -->
+                <aside class="sr-status-sidebar">
+                    <div class="sr-status-sidebar-header">
+                        <h3>Statusy</h3>
+                    </div>
+                    <div class="sr-status-list">
+                        <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
+                           class="sr-status-item {% if not sr_status_filter %}active{% endif %}">
+                            <span class="sr-status-name">Wszystkie</span>
+                        </a>
+                        {% for status in sr_statuses %}
+                        <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug) }}"
+                           class="sr-status-item {% if sr_status_filter == status.slug %}active{% endif %}">
+                            <span class="sr-status-dot" style="background-color: {{ status.badge_color }};"></span>
+                            <span class="sr-status-name">{{ status.name }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </aside>
 
-            <!-- Active Sessions -->
+                <!-- Main Content -->
+                <div class="sr-main-content">
+                    <!-- Header with Search -->
+                    <div class="sr-tab-header">
+                        <h2>Zlecenia wysyłki</h2>
+                        <form method="get" action="{{ url_for('orders.wms_dashboard') }}" class="sr-search-form">
+                            <input type="hidden" name="tab" value="shipping">
+                            {% if sr_status_filter %}
+                            <input type="hidden" name="status" value="{{ sr_status_filter }}">
+                            {% endif %}
+                            <div class="input-icon-wrapper">
+                                <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <path d="m21 21-4.35-4.35"></path>
+                                </svg>
+                                <input type="text" name="search" class="form-input form-input-icon" placeholder="Szukaj numeru lub klienta..." value="{{ sr_search }}">
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm">Szukaj</button>
+                        </form>
+                    </div>
+
+                    <!-- Cards Grid -->
+                    <div class="sr-cards-wrapper">
+                        {% if shipping_requests %}
+                        <div class="sr-cards-grid">
+                            {% for sr in shipping_requests %}
+                            <div class="sr-card {% if sr.status == 'oplacone' %}sr-card-paid{% endif %}" data-request-id="{{ sr.id }}" data-client-id="{{ sr.user.id if sr.user else '' }}" onclick="toggleCardSelection(this, event)">
+                                <div class="sr-card-header">
+                                    <div class="sr-card-header-left">
+                                        <label class="sr-checkbox-wrapper" onclick="event.stopPropagation();">
+                                            <input type="checkbox" class="sr-checkbox" data-id="{{ sr.id }}" onchange="handleCheckboxChange(this)">
+                                            <span class="sr-checkbox-custom"></span>
+                                        </label>
+                                    </div>
+                                    <div class="sr-card-header-right">
+                                        <span class="sr-card-number">{{ sr.request_number }}</span>
+                                        <span class="sr-card-status" style="background-color: {{ sr.status_badge_color }};">
+                                            {{ sr.status_display_name }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="sr-card-body">
+                                    <div class="sr-card-row">
+                                        <span class="sr-card-label">Klient</span>
+                                        <span class="sr-card-value">
+                                            {% if sr.user %}
+                                            <a href="{{ url_for('admin.client_detail', id=sr.user.id) }}" class="client-link" onclick="event.stopPropagation();">
+                                                {{ sr.user.first_name or '' }} {{ sr.user.last_name or '' }}
+                                            </a>
+                                            {% else %}
+                                            <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </span>
+                                    </div>
+
+                                    <div class="sr-card-row sr-card-row-orders">
+                                        <span class="sr-card-label">Zamówienia</span>
+                                        <div class="sr-card-orders">
+                                            {% for order in sr.orders %}
+                                            <div class="sr-order-block">
+                                                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
+                                                <div class="order-products">
+                                                    {% for item in order.items[:2] %}
+                                                    <div class="order-product-item">
+                                                        <span class="product-qty">{{ item.quantity }}x</span>
+                                                        <span class="product-name">{{ item.product_name }}</span>
+                                                    </div>
+                                                    {% endfor %}
+                                                    {% if order.items|length > 2 %}
+                                                    <div class="order-products-hidden" style="display: none;">
+                                                        {% for item in order.items[2:] %}
+                                                        <div class="order-product-item">
+                                                            <span class="product-qty">{{ item.quantity }}x</span>
+                                                            <span class="product-name">{{ item.product_name }}</span>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                    <button type="button" class="order-products-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">
+                                                        +{{ order.items|length - 2 }} więcej...
+                                                    </button>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+
+                                    <div class="sr-card-row">
+                                        <span class="sr-card-label">Adres</span>
+                                        <span class="sr-card-value sr-card-address">
+                                            {% if sr.address_type == 'home' %}
+                                            {{ sr.shipping_name }}, {{ sr.shipping_address }}, {{ sr.shipping_postal_code }} {{ sr.shipping_city }}
+                                            {% else %}
+                                            {{ sr.pickup_courier }}, {{ sr.pickup_point_id }}, {{ sr.pickup_address }}, {{ sr.pickup_postal_code }} {{ sr.pickup_city }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+
+                                    <div class="sr-card-row sr-card-row-split">
+                                        <div class="sr-card-col">
+                                            <span class="sr-card-label">Koszt</span>
+                                            <span class="sr-card-value">
+                                                {% if sr.total_shipping_cost %}
+                                                <strong>{{ "%.2f"|format(sr.total_shipping_cost) }} PLN</strong>
+                                                {% else %}
+                                                <span class="text-muted">Brak wyceny</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                        <div class="sr-card-col">
+                                            <span class="sr-card-label">Tracking</span>
+                                            <span class="sr-card-value">
+                                                {% if sr.tracking_number %}
+                                                {% if sr.tracking_url %}
+                                                <a href="{{ sr.tracking_url }}" target="_blank" class="tracking-link" onclick="event.stopPropagation();">
+                                                    {{ sr.tracking_number }}
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                        <polyline points="15 3 21 3 21 9"></polyline>
+                                                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                                                    </svg>
+                                                </a>
+                                                {% else %}
+                                                <span class="tracking-number">{{ sr.tracking_number }}</span>
+                                                {% endif %}
+                                                {% else %}
+                                                <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="sr-card-row">
+                                        <span class="sr-card-label">Data utworzenia</span>
+                                        <span class="sr-card-value">
+                                            {{ sr.created_at.strftime('%d.%m.%Y, %H:%M') }}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="sr-card-footer">
+                                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openShippingRequestModal({{ sr.id }});">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                        Edytuj
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-wms" onclick="event.stopPropagation(); handleGoToWMS({{ sr.id }});" title="Zabierz do WMS">
+                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                        </svg>
+                                        WMS
+                                    </button>
+                                    {% if sr.tracking_number and sr.tracking_url %}
+                                    <a href="{{ sr.tracking_url }}" target="_blank" class="btn btn-sm btn-secondary" onclick="event.stopPropagation();" title="Śledź przesyłkę">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                            <circle cx="12" cy="10" r="3"></circle>
+                                        </svg>
+                                        Tracking
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="empty-state">
+                            <p>Brak zleceń wysyłki{% if sr_status_filter %} z wybranym statusem{% endif %}{% if sr_search %} pasujących do wyszukiwania{% endif %}.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if sr_pagination.pages > 1 %}
+                    <div class="pagination-wrapper">
+                        <nav class="pagination">
+                            {% if sr_pagination.has_prev %}
+                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.prev_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M15 18l-6-6 6-6"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+
+                            {% for page_num in sr_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if page_num %}
+                                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=page_num, status=sr_status_filter, search=sr_search) }}"
+                                       class="pagination-btn {% if page_num == sr_pagination.page %}active{% endif %}">
+                                        {{ page_num }}
+                                    </a>
+                                {% else %}
+                                    <span class="pagination-ellipsis">...</span>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if sr_pagination.has_next %}
+                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.next_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 18l6-6-6-6"/>
+                                </svg>
+                            </a>
+                            {% endif %}
+                        </nav>
+                        <div class="pagination-info">
+                            Strona {{ sr_pagination.page }} z {{ sr_pagination.pages }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% elif active_tab == 'sessions' %}
+            <!-- ======================== -->
+            <!-- SESSIONS TAB             -->
+            <!-- ======================== -->
+
             {% set active_sessions = sessions | selectattr('status', 'equalto', 'active') | list %}
             {% if active_sessions %}
             <div class="tab-header">
@@ -80,7 +329,6 @@
             </div>
             {% endif %}
 
-            <!-- Session History -->
             {% set history_sessions = sessions | rejectattr('status', 'equalto', 'active') | list %}
             <div class="tab-header" {% if active_sessions %}style="margin-top: var(--space-6);"{% endif %}>
                 <h2>Historia sesji</h2>
@@ -120,7 +368,9 @@
             {% endif %}
 
             {% elif active_tab == 'materials' %}
-            <!-- Materials Tab -->
+            <!-- ======================== -->
+            <!-- MATERIALS TAB            -->
+            <!-- ======================== -->
             <div class="tab-header">
                 <h2>Materiały pakowania</h2>
                 <button type="button" class="btn btn-secondary btn-sm" id="add-material-btn">
@@ -274,8 +524,196 @@
     </div>
 </div>
 
+<!-- Pasek akcji masowych — poza kontenerami z backdrop-filter, żeby position:fixed działał poprawnie -->
+{% if active_tab == 'shipping' %}
+<div id="bulkToolbar" class="bulk-toolbar hidden">
+    <div class="bulk-toolbar-content">
+        <span class="selected-count" id="selectedCount">0 zaznaczonych</span>
+        <div class="bulk-actions">
+            <button class="btn-bulk" data-action="bulk-cost" title="Dodaj koszty wysyłki">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4 10.781c.148 1.667 1.513 2.85 3.591 3.003V15h1.043v-1.216c2.27-.179 3.678-1.438 3.678-3.3 0-1.59-.947-2.51-2.956-3.028l-.722-.187V3.467c1.122.11 1.879.714 2.07 1.616h1.47c-.166-1.6-1.54-2.748-3.54-2.875V1H7.591v1.233c-1.939.23-3.27 1.472-3.27 3.156 0 1.454.966 2.483 2.661 2.917l.61.162v4.031c-1.149-.17-1.94-.8-2.131-1.718H4zm3.391-3.836c-1.043-.263-1.6-.825-1.6-1.616 0-.944.704-1.641 1.8-1.828v3.495l-.2-.05zm1.591 1.872c1.287.323 1.852.859 1.852 1.769 0 1.097-.826 1.828-2.2 1.939V8.73l.348.086z"/>
+                </svg>
+                Dodaj koszty
+            </button>
+            <button class="btn-bulk" data-action="merge" id="btnBulkMerge" title="Scal zaznaczone zlecenia" disabled>
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                </svg>
+                Scal
+            </button>
+            <div class="bulk-merge-tooltip" id="bulkMergeTooltip">Zaznaczone zlecenia pochodzą od różnych klientów</div>
+            <button class="btn-bulk btn-bulk-wms" data-action="wms" title="Zabierz do WMS">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                </svg>
+                Zabierz do WMS
+            </button>
+            <button class="btn-bulk btn-bulk-danger" data-action="delete" title="Usuń zaznaczone">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Usuń
+            </button>
+            <button class="btn-bulk" data-action="clear" title="Odznacz wszystkie" onclick="clearSelection()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                </svg>
+                Odznacz
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Shipping Request Edit Modal -->
+{% if active_tab == 'shipping' %}
+<div id="editShippingRequestModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2>Zlecenie <span id="srModalNumber"></span></h2>
+            <button type="button" class="modal-close" onclick="closeShippingRequestModal()">&times;</button>
+        </div>
+        <form id="editShippingRequestForm">
+            <input type="hidden" id="srModalId" name="id">
+            <div class="modal-body">
+                <div class="sr-form-row sr-cost-row">
+                    <div class="form-group">
+                        <label for="srTotalCost">Całkowity koszt wysyłki</label>
+                        <div class="sr-cost-input-group">
+                            <input type="number" id="srTotalCost" name="total_cost" class="form-input" step="0.01" min="0" placeholder="0.00">
+                            <span class="currency">PLN</span>
+                            <button type="button" class="btn btn-sm btn-secondary" onclick="distributeShippingCost()" title="Rozłóż równo na zamówienia">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M16 3h5v5M8 3H3v5M3 16v5h5M21 16v5h-5M12 8v8M8 12h8"/>
+                                </svg>
+                                Rozłóż
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sr-section">
+                    <h3>Zamówienia w zleceniu</h3>
+                    <div class="sr-orders-table-wrapper">
+                        <table class="sr-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Numer zamówienia</th>
+                                    <th class="text-right">Wartość</th>
+                                    <th>Koszt wysyłki</th>
+                                </tr>
+                            </thead>
+                            <tbody id="srOrdersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="sr-section">
+                    <h3>Adres dostawy</h3>
+                    <div id="srAddressPreview" class="sr-address-preview"></div>
+                </div>
+
+                <!-- Shipping details section (shown only when courier/tracking exist) -->
+                <div class="sr-section sr-shipping-section" id="srShippingSection" style="display: none;">
+                    <div class="sr-section-header">
+                        <h3>Dane wysyłki</h3>
+                        <button type="button" class="sr-shipping-edit-btn" id="srShippingEditBtn" onclick="toggleShippingEdit()" title="Edytuj dane wysyłki">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Read mode -->
+                    <div id="srShippingReadMode" class="sr-shipping-info">
+                        <div class="sr-shipping-info-row">
+                            <span class="sr-shipping-label">Kurier</span>
+                            <span class="sr-shipping-value" id="srShippingCourierText"></span>
+                        </div>
+                        <div class="sr-shipping-info-row">
+                            <span class="sr-shipping-label">Tracking</span>
+                            <span class="sr-shipping-value" id="srShippingTrackingText"></span>
+                        </div>
+                        <div class="sr-shipping-info-row" id="srShippingParcelRow" style="display: none;">
+                            <span class="sr-shipping-label">Gabaryt</span>
+                            <span class="sr-shipping-value" id="srShippingParcelText"></span>
+                        </div>
+                    </div>
+                    <!-- Edit mode -->
+                    <div id="srShippingEditMode" class="sr-shipping-edit" style="display: none;">
+                        <div class="sr-form-row sr-form-row-3">
+                            <div class="form-group">
+                                <label for="srCourier">Kurier</label>
+                                <select id="srCourier" name="courier" class="form-select">
+                                    <option value="">-- Wybierz kuriera --</option>
+                                    <option value="inpost">InPost</option>
+                                    <option value="dpd">DPD</option>
+                                    <option value="dhl">DHL</option>
+                                    <option value="ups">UPS</option>
+                                    <option value="fedex">FedEx</option>
+                                    <option value="gls">GLS</option>
+                                    <option value="pocztex">Pocztex</option>
+                                    <option value="orlen">Orlen Paczka</option>
+                                    <option value="other">Inny</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="srTracking">Numer tracking</label>
+                                <input type="text" id="srTracking" name="tracking_number" class="form-input" placeholder="Numer przesyłki">
+                            </div>
+                            <div id="srParcelSizeGroup" class="form-group" style="display: none;">
+                                <label for="srParcelSize">Gabaryt</label>
+                                <select id="srParcelSize" name="parcel_size" class="form-select">
+                                    <option value="">-- Wybierz --</option>
+                                    <option value="A">A - Mały</option>
+                                    <option value="B">B - Średni</option>
+                                    <option value="C">C - Duży</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer sr-modal-footer">
+                <button type="submit" class="btn btn-primary sr-save-btn">Zapisz</button>
+                <div class="sr-footer-bottom">
+                    <button type="button" class="btn btn-danger" onclick="cancelShippingRequest()">Anuluj zlecenie</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeShippingRequestModal()">Zamknij</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bulk Cost Modal -->
+<div id="bulkCostModal" class="modal-overlay">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2>Dodaj koszty wysyłki</h2>
+            <button type="button" class="modal-close" onclick="closeBulkCostModal()">&times;</button>
+        </div>
+        <form id="bulkCostForm">
+            <div class="modal-body">
+                <div id="bulkCostEntries"></div>
+            </div>
+            <div class="modal-footer sr-modal-footer">
+                <button type="submit" class="btn btn-primary sr-save-btn">Zapisz wszystkie</button>
+                <div class="sr-footer-bottom">
+                    <button type="button" class="btn btn-secondary" onclick="closeBulkCostModal()">Zamknij</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/admin/wms-dashboard.js') }}"></script>
+{% if active_tab == 'shipping' %}
+<script src="{{ url_for('static', filename='js/pages/admin/shipping-requests.js') }}"></script>
+{% endif %}
 {% endblock %}

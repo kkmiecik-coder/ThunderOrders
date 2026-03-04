@@ -996,26 +996,28 @@
     box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
-.wms-order-card-body {
+.wms-order-card-items-list {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 2px;
     margin-bottom: 6px;
 }
 
-.wms-order-card-customer {
-    font-size: 12px;
+.wms-order-card-item {
+    font-size: 11px;
     color: #6b7280;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 160px;
+    transition: color 0.2s;
 }
 
-.wms-order-card-items-count {
-    font-size: 11px;
-    color: #9ca3af;
-    flex-shrink: 0;
+.wms-order-card-item.item-partial {
+    color: #f59e0b;
+}
+
+.wms-order-card-item.item-picked {
+    color: #22c55e;
 }
 
 .wms-order-card-progress {
@@ -1063,6 +1065,26 @@
 .wms-sr-group-header svg {
     opacity: 0.7;
 }
+
+.wms-sr-group-customer {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 400;
+    color: #9ca3af;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Multi-order SR group: separator + indented cards */
+.wms-sr-group-multi .wms-sr-group-header {
+    border-top: 2px solid #f093fb;
+    padding-top: 8px;
+    margin-top: 4px;
+}
+
 
 /* ============================================
    PREVIEW MODE (disabled counters via CSS)
@@ -1733,12 +1755,20 @@
     box-shadow: 0 0 0 2px rgba(129, 199, 132, 0.2);
 }
 
-[data-theme="dark"] .wms-order-card-customer {
-    color: rgba(255, 255, 255, 0.5);
+[data-theme="dark"] .wms-order-card-item {
+    color: rgba(255, 255, 255, 0.45);
 }
 
-[data-theme="dark"] .wms-order-card-items-count {
-    color: rgba(255, 255, 255, 0.35);
+[data-theme="dark"] .wms-order-card-item.item-partial {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .wms-order-card-item.item-picked {
+    color: #4ade80;
+}
+
+[data-theme="dark"] .wms-sr-group-customer {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="dark"] .wms-order-card-percentage {
@@ -1748,6 +1778,10 @@
 /* SR group header — dark */
 [data-theme="dark"] .wms-sr-group-header {
     color: #f093fb;
+}
+
+[data-theme="dark"] .wms-sr-group-multi .wms-sr-group-header {
+    border-bottom-color: rgba(240, 147, 251, 0.5);
 }
 
 /* Phone indicator — dark */
@@ -2366,4 +2400,175 @@
     .wms-order-card {
         min-width: 160px;
     }
+}
+
+
+/* ============================================
+   SHIPPING PANEL (post-packing)
+   ============================================ */
+
+.wms-shipping-panel {
+    background: #ffffff;
+    border: 2px solid #10B981;
+    border-radius: 12px;
+    margin-top: 16px;
+    overflow: hidden;
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.wms-shipping-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #10B981, #059669);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.wms-shipping-panel-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.shipping-panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.shipping-panel-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.shipping-panel-address {
+    font-size: 0.9rem;
+    color: #111827;
+    line-height: 1.4;
+}
+
+.shipping-panel-cost-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.shipping-panel-currency {
+    font-size: 0.85rem;
+    color: #6B7280;
+    font-weight: 500;
+}
+
+.shipping-panel-currency-sm {
+    font-size: 0.78rem;
+    color: #9CA3AF;
+}
+
+.shipping-panel-orders-table {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.shipping-panel-order-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.shipping-panel-order-num {
+    font-size: 0.82rem;
+    color: #374151;
+    font-weight: 500;
+    min-width: 100px;
+}
+
+.form-input-xs {
+    padding: 4px 8px;
+    font-size: 0.82rem;
+    border-radius: 6px;
+    width: 80px;
+}
+
+.form-input-sm {
+    padding: 6px 10px;
+    font-size: 0.88rem;
+}
+
+.form-select-sm {
+    padding: 6px 10px;
+    font-size: 0.88rem;
+}
+
+.btn-xs {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    border-radius: 6px;
+}
+
+.wms-shipping-panel-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #E5E7EB;
+    background: #F9FAFB;
+}
+
+/* ============================================
+   DARK MODE — SHIPPING PANEL
+   ============================================ */
+
+[data-theme="dark"] .wms-shipping-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(16, 185, 129, 0.4);
+    backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .wms-shipping-panel-header {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.8), rgba(5, 150, 105, 0.8));
+}
+
+[data-theme="dark"] .shipping-panel-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .shipping-panel-address {
+    color: #fff;
+}
+
+[data-theme="dark"] .shipping-panel-currency {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .shipping-panel-currency-sm {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .shipping-panel-order-num {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .wms-shipping-panel-footer {
+    border-top-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
 }

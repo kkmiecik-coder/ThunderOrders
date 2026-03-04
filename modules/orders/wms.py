@@ -289,7 +289,7 @@ def wms_dashboard():
     now = get_local_now()
     today_start = datetime.combine(now.date(), dt_time.min)
 
-    active_tab = request.args.get('tab', 'sessions')
+    active_tab = request.args.get('tab', 'shipping')
 
     # Sessions: active first, then completed/cancelled, limit 50
     sessions = WmsSession.query.order_by(

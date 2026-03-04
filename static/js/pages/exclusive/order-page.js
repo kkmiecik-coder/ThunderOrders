@@ -186,6 +186,150 @@ function toggleMobileCart() {
 }
 
 // ============================================
+// Draggable Cart FAB
+// ============================================
+(function() {
+    function initDraggableFab() {
+        const fab = document.getElementById('cartFab');
+        if (!fab) return;
+
+        let isDragging = false;
+        let hasMoved = false;
+        let startX, startY, fabStartX, fabStartY;
+        let holdTimer = null;
+        const HOLD_DELAY = 200; // ms before drag starts
+        const MOVE_THRESHOLD = 8; // px to distinguish tap from drag
+
+        function getPosition(e) {
+            const touch = e.touches ? e.touches[0] : e;
+            return { x: touch.clientX, y: touch.clientY };
+        }
+
+        function onStart(e) {
+            const pos = getPosition(e);
+            startX = pos.x;
+            startY = pos.y;
+
+            const rect = fab.getBoundingClientRect();
+            fabStartX = rect.left;
+            fabStartY = rect.top;
+            hasMoved = false;
+
+            holdTimer = setTimeout(() => {
+                isDragging = true;
+                fab.classList.add('dragging');
+                // Prevent scroll while dragging
+                if (e.cancelable) e.preventDefault();
+            }, HOLD_DELAY);
+        }
+
+        function onMove(e) {
+            if (!isDragging && !holdTimer) return;
+
+            const pos = getPosition(e);
+            const dx = pos.x - startX;
+            const dy = pos.y - startY;
+
+            // If moved enough before hold delay, cancel drag intent (it's a scroll)
+            if (!isDragging && (Math.abs(dx) > MOVE_THRESHOLD || Math.abs(dy) > MOVE_THRESHOLD)) {
+                clearTimeout(holdTimer);
+                holdTimer = null;
+                return;
+            }
+
+            if (!isDragging) return;
+            if (e.cancelable) e.preventDefault();
+
+            hasMoved = true;
+
+            const newX = fabStartX + dx;
+            const newY = fabStartY + dy;
+
+            // Clamp within viewport
+            const maxX = window.innerWidth - fab.offsetWidth;
+            const maxY = window.innerHeight - fab.offsetHeight;
+            const clampedX = Math.max(0, Math.min(newX, maxX));
+            const clampedY = Math.max(0, Math.min(newY, maxY));
+
+            fab.style.left = clampedX + 'px';
+            fab.style.top = clampedY + 'px';
+            fab.style.bottom = 'auto';
+            fab.style.right = 'auto';
+        }
+
+        function onEnd(e) {
+            clearTimeout(holdTimer);
+            holdTimer = null;
+
+            if (isDragging) {
+                fab.classList.remove('dragging');
+                isDragging = false;
+
+                // Snap to nearest horizontal edge
+                const rect = fab.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const snapLeft = centerX < window.innerWidth / 2;
+
+                fab.style.transition = 'left 0.25s ease, top 0.25s ease';
+                fab.style.left = snapLeft ? '20px' : (window.innerWidth - fab.offsetWidth - 20) + 'px';
+
+                setTimeout(() => {
+                    fab.style.transition = '';
+                }, 260);
+
+                // If dragged, prevent the click from firing
+                if (hasMoved) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Block click event that follows touchend
+                    fab.addEventListener('click', blockClick, { capture: true, once: true });
+                }
+            }
+        }
+
+        function blockClick(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Touch events
+        fab.addEventListener('touchstart', onStart, { passive: false });
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onEnd);
+
+        // Mouse events (for testing on desktop)
+        fab.addEventListener('mousedown', onStart);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDraggableFab);
+    } else {
+        initDraggableFab();
+    }
+})();
+
+// ============================================
+// Bottom Checkout Bar
+// ============================================
+function updateCheckoutBottomBar(totalItems, totalPrice) {
+    const bar = document.getElementById('checkoutBottomBar');
+    const countEl = document.getElementById('checkoutBottomCount');
+    const totalEl = document.getElementById('checkoutBottomTotal');
+    if (!bar) return;
+
+    if (totalItems > 0) {
+        bar.classList.add('visible');
+        const label = totalItems === 1 ? 'produkt' : (totalItems < 5 ? 'produkty' : 'produktów');
+        countEl.textContent = totalItems + ' ' + label;
+        totalEl.textContent = totalPrice.toFixed(2) + ' PLN';
+    } else {
+        bar.classList.remove('visible');
+    }
+}
+
+// ============================================
 // Cart state
 // ============================================
 let cart = [];
@@ -290,6 +434,9 @@ function updateCart() {
         fabBadge.textContent = totalItems;
         fabBadge.setAttribute('data-count', totalItems);
     }
+
+    // Update bottom checkout bar
+    updateCheckoutBottomBar(totalItems, totalPrice);
 
     // Update cart items list (full sets first for visual priority)
     const fullSetItems = cart.filter(item => item.isFullSet);

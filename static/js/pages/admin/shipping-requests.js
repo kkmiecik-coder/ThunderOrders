@@ -138,45 +138,178 @@ function getSelectedRequestIds() {
 // ============================================
 
 /**
- * Toggle status dropdown
+ * Open bulk cost modal for selected shipping requests
  */
-function toggleStatusDropdown() {
-    const dropdown = document.getElementById('bulkStatusDropdown');
-    if (dropdown) {
-        dropdown.classList.toggle('show');
+async function openBulkCostModal() {
+    const ids = getSelectedRequestIds();
+    if (ids.length === 0) return;
+
+    const container = document.getElementById('bulkCostEntries');
+    if (!container) return;
+
+    container.innerHTML = '<div class="bulk-cost-loading">Ładowanie danych...</div>';
+
+    const modal = document.getElementById('bulkCostModal');
+    if (modal) modal.classList.add('active');
+
+    try {
+        // Fetch all selected SRs in parallel
+        const responses = await Promise.all(
+            ids.map(id => fetch(`/admin/orders/shipping-requests/${id}`).then(r => r.json()))
+        );
+
+        container.innerHTML = '';
+
+        responses.forEach(sr => {
+            const totalCost = sr.calculated_shipping_cost || 0;
+            const ordersHtml = sr.orders.map(o => `
+                <tr>
+                    <td><a href="/admin/orders/${o.id}" target="_blank" class="sr-order-link">${o.order_number}</a></td>
+                    <td class="text-right">${parseFloat(o.total_amount).toFixed(2)} PLN</td>
+                    <td>
+                        <div class="sr-cost-input">
+                            <input type="number" class="form-input bulk-order-cost"
+                                data-sr-id="${sr.id}" data-order-id="${o.id}"
+                                value="${o.shipping_cost > 0 ? parseFloat(o.shipping_cost).toFixed(2) : ''}"
+                                step="0.01" min="0" placeholder="0.00">
+                            <span class="currency">PLN</span>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            const entry = document.createElement('div');
+            entry.className = 'bulk-cost-entry';
+            entry.dataset.srId = sr.id;
+            entry.innerHTML = `
+                <div class="bulk-cost-entry-header">
+                    <span class="bulk-cost-sr-number">${sr.request_number}</span>
+                    <span class="bulk-cost-sr-status badge">${sr.status_display_name || sr.status}</span>
+                    <div class="bulk-cost-total-group">
+                        <input type="number" class="form-input bulk-total-cost" data-sr-id="${sr.id}"
+                            value="${totalCost > 0 ? totalCost.toFixed(2) : ''}"
+                            step="0.01" min="0" placeholder="0.00">
+                        <span class="currency">PLN</span>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="distributeBulkCost(${sr.id})" title="Rozłóż równo">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M16 3h5v5M8 3H3v5M3 16v5h5M21 16v5h-5M12 8v8M8 12h8"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <table class="sr-orders-table bulk-cost-orders-table">
+                    <thead>
+                        <tr>
+                            <th>Zamówienie</th>
+                            <th class="text-right">Wartość</th>
+                            <th>Koszt wysyłki</th>
+                        </tr>
+                    </thead>
+                    <tbody>${ordersHtml}</tbody>
+                </table>
+            `;
+            container.appendChild(entry);
+        });
+
+    } catch (error) {
+        console.error('Error loading bulk cost data:', error);
+        container.innerHTML = '<div class="bulk-cost-loading">Błąd ładowania danych</div>';
     }
 }
 
 /**
- * Bulk change status
- * @param {string} newStatus - New status slug
+ * Distribute total cost evenly for a specific SR in bulk modal
  */
-async function bulkChangeStatus(newStatus) {
-    const ids = getSelectedRequestIds();
-    if (ids.length === 0) return;
+function distributeBulkCost(srId) {
+    const totalInput = document.querySelector(`.bulk-total-cost[data-sr-id="${srId}"]`);
+    const costInputs = document.querySelectorAll(`.bulk-order-cost[data-sr-id="${srId}"]`);
+    if (!totalInput || costInputs.length === 0) return;
 
-    try {
-        const response = await fetch('/admin/orders/shipping-requests/bulk-status', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({
-                ids: ids.map(id => parseInt(id)),
-                status: newStatus
-            })
+    const total = parseFloat(totalInput.value) || 0;
+    const perOrder = total / costInputs.length;
+    const rounded = Math.floor(perOrder * 100) / 100;
+    const remainder = Math.round((total - rounded * costInputs.length) * 100) / 100;
+
+    costInputs.forEach((input, i) => {
+        input.value = (i === 0 ? (rounded + remainder) : rounded).toFixed(2);
+    });
+}
+
+/**
+ * Close bulk cost modal
+ */
+function closeBulkCostModal() {
+    const modal = document.getElementById('bulkCostModal');
+    if (!modal || !modal.classList.contains('active')) return;
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+    }, 350);
+}
+
+/**
+ * Submit bulk cost form — sends PUT for each SR
+ */
+async function submitBulkCosts(e) {
+    e.preventDefault();
+
+    const entries = document.querySelectorAll('.bulk-cost-entry');
+    if (entries.length === 0) return;
+
+    const submitBtn = document.querySelector('#bulkCostForm .sr-save-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Zapisywanie...';
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const entry of entries) {
+        const srId = entry.dataset.srId;
+        const costInputs = entry.querySelectorAll('.bulk-order-cost');
+
+        const orderCosts = [];
+        costInputs.forEach(input => {
+            orderCosts.push({
+                order_id: parseInt(input.dataset.orderId),
+                shipping_cost: parseFloat(input.value) || 0
+            });
         });
 
-        if (response.ok) {
-            window.location.reload();
-        } else {
-            const data = await response.json();
-            alert(data.error || 'Błąd podczas zmiany statusu');
+        try {
+            const response = await fetch(`/admin/orders/shipping-requests/${srId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                },
+                body: JSON.stringify({ order_costs: orderCosts })
+            });
+
+            if (response.ok) {
+                successCount++;
+                entry.classList.add('bulk-cost-entry-saved');
+            } else {
+                errorCount++;
+                entry.classList.add('bulk-cost-entry-error');
+            }
+        } catch (error) {
+            errorCount++;
+            entry.classList.add('bulk-cost-entry-error');
         }
-    } catch (error) {
-        console.error('Error changing status:', error);
-        alert('Błąd podczas zmiany statusu');
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Zapisz wszystkie';
+    }
+
+    if (errorCount === 0) {
+        closeBulkCostModal();
+        window.location.reload();
+    } else {
+        alert(`Zapisano ${successCount}/${successCount + errorCount} zleceń. ${errorCount} z błędem.`);
     }
 }
 
@@ -385,16 +518,6 @@ async function openShippingRequestModal(shippingRequestId) {
         document.getElementById('srModalId').value = data.id;
         document.getElementById('srModalNumber').textContent = data.request_number;
 
-        // Load statuses and set current
-        await loadShippingRequestStatuses(data.status);
-
-        // Set courier and tracking
-        const courierSelect = document.getElementById('srCourier');
-        if (courierSelect) {
-            courierSelect.value = data.courier || '';
-        }
-        document.getElementById('srTracking').value = data.tracking_number || '';
-
         // Set total cost
         const totalCost = data.calculated_shipping_cost || 0;
         document.getElementById('srTotalCost').value = totalCost > 0 ? totalCost.toFixed(2) : '';
@@ -404,6 +527,47 @@ async function openShippingRequestModal(shippingRequestId) {
 
         // Render address preview
         renderAddressPreview(data);
+
+        // Shipping section: show only if courier or tracking exist
+        const shippingSection = document.getElementById('srShippingSection');
+        const shippingReadMode = document.getElementById('srShippingReadMode');
+        const shippingEditMode = document.getElementById('srShippingEditMode');
+        const hasCourier = !!data.courier;
+        const hasTracking = !!data.tracking_number;
+        const courierNames = {
+            'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'ups': 'UPS',
+            'fedex': 'FedEx', 'gls': 'GLS', 'pocztex': 'Pocztex',
+            'orlen': 'Orlen Paczka', 'other': 'Inny'
+        };
+        const parcelNames = { 'A': 'A - Mały', 'B': 'B - Średni', 'C': 'C - Duży' };
+
+        if (shippingSection) {
+            if (hasCourier || hasTracking) {
+                shippingSection.style.display = '';
+                // Fill read mode texts
+                document.getElementById('srShippingCourierText').textContent = courierNames[data.courier] || data.courier || '—';
+                document.getElementById('srShippingTrackingText').textContent = data.tracking_number || '—';
+                // Parcel size
+                const parcelRow = document.getElementById('srShippingParcelRow');
+                if (data.parcel_size) {
+                    parcelRow.style.display = '';
+                    document.getElementById('srShippingParcelText').textContent = parcelNames[data.parcel_size] || data.parcel_size;
+                } else {
+                    parcelRow.style.display = 'none';
+                }
+                // Show read mode, hide edit mode
+                shippingReadMode.style.display = '';
+                shippingEditMode.style.display = 'none';
+            } else {
+                shippingSection.style.display = 'none';
+            }
+        }
+
+        // Fill edit mode fields (courier, tracking, parcel_size)
+        const courierSelect = document.getElementById('srCourier');
+        if (courierSelect) courierSelect.value = data.courier || '';
+        const trackingInput = document.getElementById('srTracking');
+        if (trackingInput) trackingInput.value = data.tracking_number || '';
 
         // Handle parcel size field visibility and value
         const parcelSizeGroup = document.getElementById('srParcelSizeGroup');
@@ -445,32 +609,25 @@ function closeShippingRequestModal() {
 }
 
 /**
- * Load shipping request statuses into select
+ * Toggle shipping details between read and edit mode
  */
-async function loadShippingRequestStatuses(currentStatus) {
-    const select = document.getElementById('srStatus');
-    if (!select) return;
+function toggleShippingEdit() {
+    const readMode = document.getElementById('srShippingReadMode');
+    const editMode = document.getElementById('srShippingEditMode');
+    const editBtn = document.getElementById('srShippingEditBtn');
+    if (!readMode || !editMode) return;
 
-    try {
-        const response = await fetch('/admin/orders/shipping-request-statuses/list');
-        if (!response.ok) throw new Error('Failed to load statuses');
-
-        const statuses = await response.json();
-        select.innerHTML = '';
-
-        statuses.forEach(status => {
-            const option = document.createElement('option');
-            option.value = status.slug;
-            option.textContent = status.name;
-            if (status.slug === currentStatus) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error loading statuses:', error);
-        // Fallback - keep current status
-        select.innerHTML = `<option value="${currentStatus}" selected>${currentStatus}</option>`;
+    const isEditing = editMode.style.display !== 'none';
+    if (isEditing) {
+        // Switch to read mode
+        readMode.style.display = '';
+        editMode.style.display = 'none';
+        if (editBtn) editBtn.classList.remove('active');
+    } else {
+        // Switch to edit mode
+        readMode.style.display = 'none';
+        editMode.style.display = '';
+        if (editBtn) editBtn.classList.add('active');
     }
 }
 
@@ -647,12 +804,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             const formData = {
-                status: document.getElementById('srStatus').value,
-                courier: document.getElementById('srCourier').value,
-                tracking_number: document.getElementById('srTracking').value,
-                parcel_size: document.getElementById('srParcelSize')?.value || null,
                 order_costs: orderCosts
             };
+
+            // Only include shipping fields if edit mode is active
+            const shippingEditMode = document.getElementById('srShippingEditMode');
+            if (shippingEditMode && shippingEditMode.style.display !== 'none') {
+                formData.courier = document.getElementById('srCourier').value;
+                formData.tracking_number = document.getElementById('srTracking').value;
+                formData.parcel_size = document.getElementById('srParcelSize')?.value || null;
+            }
 
             try {
                 const response = await fetch(`/admin/orders/shipping-requests/${currentShippingRequest.id}`, {
@@ -682,9 +843,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
             closeShippingRequestModal();
-            // Also close status dropdown
-            const dropdown = document.getElementById('bulkStatusDropdown');
-            if (dropdown) dropdown.classList.remove('show');
+            closeBulkCostModal();
         }
     });
 
@@ -702,22 +861,17 @@ document.addEventListener('DOMContentLoaded', function() {
     // BULK TOOLBAR EVENT LISTENERS
     // ============================================
 
-    // Status button - toggle dropdown
-    const statusBtn = document.querySelector('.btn-bulk[data-action="status"]');
-    if (statusBtn) {
-        statusBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            toggleStatusDropdown();
-        });
+    // Bulk cost button
+    const bulkCostBtn = document.querySelector('.btn-bulk[data-action="bulk-cost"]');
+    if (bulkCostBtn) {
+        bulkCostBtn.addEventListener('click', openBulkCostModal);
     }
 
-    // Status dropdown options
-    document.querySelectorAll('.bulk-status-option').forEach(option => {
-        option.addEventListener('click', function() {
-            const status = this.dataset.status;
-            bulkChangeStatus(status);
-        });
-    });
+    // Bulk cost form submit
+    const bulkCostForm = document.getElementById('bulkCostForm');
+    if (bulkCostForm) {
+        bulkCostForm.addEventListener('submit', submitBulkCosts);
+    }
 
     // Merge button
     const mergeBtn = document.querySelector('.btn-bulk[data-action="merge"]');
@@ -737,13 +891,13 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteBtn.addEventListener('click', bulkDeleteRequests);
     }
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        const dropdown = document.getElementById('bulkStatusDropdown');
-        const statusWrapper = document.querySelector('.bulk-status-wrapper');
-
-        if (dropdown && statusWrapper && !statusWrapper.contains(e.target)) {
-            dropdown.classList.remove('show');
-        }
-    });
+    // Close bulk cost modal when clicking outside
+    const bulkCostModal = document.getElementById('bulkCostModal');
+    if (bulkCostModal) {
+        bulkCostModal.addEventListener('click', function(e) {
+            if (e.target === bulkCostModal) {
+                closeBulkCostModal();
+            }
+        });
+    }
 });

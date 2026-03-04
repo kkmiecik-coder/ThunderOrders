@@ -40,17 +40,10 @@
                         </a>
                     </li>
                     <li class="sidebar-subitem">
-                        <a href="{{ url_for('orders.admin_shipping_requests_list') }}"
-                           class="sidebar-sublink {% if request.endpoint == 'orders.admin_shipping_requests_list' %}active{% endif %}"
-                           data-tooltip="Zlecenia wysyłki">
-                            <span class="sidebar-text">Zlecenia wysyłki</span>
-                        </a>
-                    </li>
-                    <li class="sidebar-subitem">
                         <a href="{{ url_for('orders.wms_dashboard') }}"
-                           class="sidebar-sublink {% if request.endpoint and 'wms' in request.endpoint %}active{% endif %}"
-                           data-tooltip="WMS Pakowanie">
-                            <span class="sidebar-text">WMS Pakowanie</span>
+                           class="sidebar-sublink {% if request.endpoint and ('wms' in request.endpoint or request.endpoint == 'orders.admin_shipping_requests_list') %}active{% endif %}"
+                           data-tooltip="WMS / Wysyłka">
+                            <span class="sidebar-text">WMS / Wysyłka</span>
                         </a>
                     </li>
                     <li class="sidebar-subitem">

@@ -12,6 +12,65 @@ from extensions import db
 from modules.orders.models import PaymentConfirmation, Order
 from modules.orders.models import get_local_now
 
+import logging
+logger = logging.getLogger(__name__)
+
+
+def _check_sr_auto_oplacone(order):
+    """
+    After approving a domestic_shipping (E4) payment, check if ALL orders
+    in the associated ShippingRequest have approved E4.
+    If so, auto-change SR status to 'oplacone'.
+    """
+    from modules.orders.models import ShippingRequest, ShippingRequestOrder, ShippingRequestStatus
+
+    # Find SR containing this order
+    sro = ShippingRequestOrder.query.filter_by(order_id=order.id).first()
+    if not sro:
+        return
+
+    sr = sro.shipping_request
+    if not sr:
+        return
+
+    # Only transition from 'czeka_na_oplacenie'
+    if sr.status != 'czeka_na_oplacenie':
+        return
+
+    # Check if ALL orders in this SR have an approved domestic_shipping confirmation
+    all_paid = True
+    for ro in sr.request_orders:
+        has_approved_e4 = PaymentConfirmation.query.filter_by(
+            order_id=ro.order_id,
+            payment_stage='domestic_shipping',
+            status='approved'
+        ).first()
+        if not has_approved_e4:
+            all_paid = False
+            break
+
+    if all_paid:
+        # Verify 'oplacone' status exists and is active
+        status_obj = ShippingRequestStatus.query.filter_by(slug='oplacone', is_active=True).first()
+        if not status_obj:
+            logger.warning("SR status 'oplacone' not found or inactive — skipping auto-transition")
+            return
+
+        old_status = sr.status
+        sr.status = 'oplacone'
+        db.session.commit()
+
+        logger.info(f"SR {sr.request_number} auto-transitioned to 'oplacone' (all E4 approved)")
+
+        # Send notification about SR status change
+        try:
+            from utils.email_manager import EmailManager
+            from utils.push_manager import PushManager
+            EmailManager.notify_shipping_status_change(sr, old_status)
+            PushManager.notify_shipping_status_change(sr, status_obj.name)
+        except Exception as e:
+            logger.error(f"Error sending SR status change notification for {sr.request_number}: {e}")
+
 
 @admin_bp.route('/payment-confirmations')
 @login_required
@@ -143,6 +202,10 @@ def payment_confirmation_approve(confirmation_id):
     EmailManager.notify_payment_approved(order, confirmation)
     PushManager.notify_payment_approved(order, confirmation)
 
+    # Auto-transition SR to 'oplacone' if all E4 payments approved
+    if confirmation.payment_stage == 'domestic_shipping':
+        _check_sr_auto_oplacone(order)
+
     return jsonify({
         'success': True,
         'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało zaakceptowane.'
@@ -205,6 +268,13 @@ def payment_confirmation_bulk_approve():
     for confirmation in confirmations:
         EmailManager.notify_payment_approved(confirmation.order, confirmation)
         PushManager.notify_payment_approved(confirmation.order, confirmation)
+
+    # Auto-transition SRs to 'oplacone' if all E4 payments approved
+    checked_orders = set()
+    for confirmation in confirmations:
+        if confirmation.payment_stage == 'domestic_shipping' and confirmation.order_id not in checked_orders:
+            checked_orders.add(confirmation.order_id)
+            _check_sr_auto_oplacone(confirmation.order)
 
     return jsonify({
         'success': True,
