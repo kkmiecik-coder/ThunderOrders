@@ -1578,7 +1578,7 @@ body.exclusive-page-body {
     }
 
     .page-content {
-        padding: 0 var(--space-4) var(--space-4);
+        padding: 0 var(--space-4) calc(80px + env(safe-area-inset-bottom, 0px));
     }
 
     .logo-image {
