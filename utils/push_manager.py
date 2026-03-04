@@ -35,6 +35,7 @@ class PushManager:
                      notification_type=None):
         """
         Send a push notification to all active subscriptions of a user.
+        Also stores a Notification record in the database for the notification center.
 
         Args:
             user_id (int): Target user ID
@@ -47,13 +48,41 @@ class PushManager:
         Returns:
             bool: True if at least one notification was sent
         """
-        from modules.notifications.models import PushSubscription, NotificationPreference
+        from modules.notifications.models import (
+            PushSubscription, NotificationPreference, Notification
+        )
+        from extensions import db as _db
 
         # Check user preference
         if notification_type:
             pref = NotificationPreference.query.filter_by(user_id=user_id).first()
             if pref and not getattr(pref, notification_type, True):
                 return False
+
+        # Store notification in DB (regardless of push subscription status)
+        try:
+            notif = Notification(
+                user_id=user_id,
+                title=title,
+                body=body,
+                url=url,
+                notification_type=notification_type,
+                tag=tag,
+            )
+            _db.session.add(notif)
+            _db.session.commit()
+
+            # Auto-cleanup: remove notifications older than 30 days for this user
+            from datetime import datetime, timedelta
+            cutoff = datetime.utcnow() - timedelta(days=30)
+            Notification.query.filter(
+                Notification.user_id == user_id,
+                Notification.created_at < cutoff
+            ).delete(synchronize_session=False)
+            _db.session.commit()
+        except Exception as e:
+            _db.session.rollback()
+            current_app.logger.warning(f'Failed to store notification for user {user_id}: {e}')
 
         subs = PushSubscription.query.filter_by(
             user_id=user_id, is_active=True

@@ -1,5 +1,5 @@
 """
-Notification API endpoints for push subscriptions and preferences.
+Notification API endpoints for push subscriptions, preferences, and notification center.
 """
 
 from flask import request, jsonify, current_app
@@ -7,7 +7,7 @@ from flask_login import login_required, current_user
 
 from extensions import db
 from . import notifications_bp
-from .models import PushSubscription, NotificationPreference
+from .models import PushSubscription, NotificationPreference, Notification
 
 
 @notifications_bp.route('/vapid-public-key', methods=['GET'])
@@ -160,3 +160,96 @@ def send_test():
     if sent:
         return jsonify({'success': True, 'message': 'Testowe powiadomienie wysłane'})
     return jsonify({'success': False, 'message': 'Brak aktywnych subskrypcji push'}), 400
+
+
+# ========================================
+# NOTIFICATION CENTER ENDPOINTS
+# ========================================
+
+@notifications_bp.route('/list', methods=['GET'])
+@login_required
+def notification_list():
+    """
+    Get notifications for the current user.
+    Returns all unread + fills remaining with read ones up to limit.
+    If unread count > limit, returns ALL unread.
+    """
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', 10, type=int)
+    limit = min(limit, 50)  # cap at 50
+
+    uid = current_user.id
+
+    # Get all unread notifications (no limit)
+    unread = Notification.query.filter_by(
+        user_id=uid, is_read=False
+    ).order_by(Notification.created_at.desc()).all()
+
+    unread_count = len(unread)
+
+    if unread_count >= limit:
+        # More unread than limit - return all unread, no read ones
+        items = [n.to_dict() for n in unread]
+        has_more = Notification.query.filter_by(
+            user_id=uid, is_read=True
+        ).count() > 0
+    else:
+        # Fill remaining slots with read notifications
+        remaining = limit - unread_count
+        read_query = Notification.query.filter_by(
+            user_id=uid, is_read=True
+        ).order_by(Notification.created_at.desc())
+
+        if offset > 0:
+            # When paginating, offset only applies to read notifications
+            read_query = read_query.offset(offset)
+
+        read = read_query.limit(remaining + 1).all()
+        has_more = len(read) > remaining
+        read = read[:remaining]
+
+        items = [n.to_dict() for n in unread] + [n.to_dict() for n in read]
+
+    return jsonify({
+        'notifications': items,
+        'unread_count': unread_count,
+        'has_more': has_more,
+    })
+
+
+@notifications_bp.route('/mark-read', methods=['POST'])
+@login_required
+def mark_read():
+    """Mark specific notifications as read. Body: {ids: [1,2,3]}."""
+    data = request.get_json()
+    if not data or 'ids' not in data:
+        return jsonify({'error': 'Missing ids'}), 400
+
+    ids = data['ids']
+    if not isinstance(ids, list) or not ids:
+        return jsonify({'error': 'ids must be a non-empty list'}), 400
+
+    # Only mark notifications belonging to current user
+    Notification.query.filter(
+        Notification.id.in_(ids),
+        Notification.user_id == current_user.id,
+        Notification.is_read == False  # noqa: E712
+    ).update({'is_read': True}, synchronize_session=False)
+    db.session.commit()
+
+    # Return new unread count
+    unread_count = Notification.query.filter_by(
+        user_id=current_user.id, is_read=False
+    ).count()
+
+    return jsonify({'success': True, 'unread_count': unread_count})
+
+
+@notifications_bp.route('/unread-count', methods=['GET'])
+@login_required
+def unread_count():
+    """Lightweight endpoint for polling the badge count."""
+    count = Notification.query.filter_by(
+        user_id=current_user.id, is_read=False
+    ).count()
+    return jsonify({'count': count})
