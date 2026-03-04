@@ -95,10 +95,7 @@ class PushManager:
         """Send push to a single subscription via pywebpush."""
         from pywebpush import webpush
 
-        # Detect PEM vs base64url key format
-        is_pem = vapid_private_key.strip().startswith('-----')
-
-        kwargs = dict(
+        webpush(
             subscription_info={
                 'endpoint': sub.endpoint,
                 'keys': {
@@ -107,28 +104,9 @@ class PushManager:
                 }
             },
             data=payload,
+            vapid_private_key=vapid_private_key,
             vapid_claims={'sub': vapid_claims_email or 'mailto:noreply@thunderorders.cloud'}
         )
-
-        if is_pem:
-            kwargs['vapid_private_key'] = vapid_private_key
-        else:
-            # base64url encoded raw key - decode to PEM for pywebpush
-            import base64
-            from cryptography.hazmat.primitives.asymmetric import ec
-            from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
-
-            # Pad base64url and decode
-            padded = vapid_private_key + '=' * (4 - len(vapid_private_key) % 4)
-            raw_bytes = base64.urlsafe_b64decode(padded)
-            private_key = ec.derive_private_key(
-                int.from_bytes(raw_bytes, 'big'),
-                ec.SECP256R1()
-            )
-            pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-            kwargs['vapid_private_key'] = pem
-
-        webpush(**kwargs)
 
     @staticmethod
     def _handle_send_error(sub, error):
