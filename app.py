@@ -163,6 +163,16 @@ def register_blueprints(app):
     csrf.exempt(notifications_bp)
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
+    # Service Worker served from root scope
+    @app.route('/sw.js')
+    def service_worker():
+        from flask import send_from_directory, make_response
+        response = make_response(send_from_directory(app.static_folder, 'sw.js'))
+        response.headers['Content-Type'] = 'application/javascript'
+        response.headers['Service-Worker-Allowed'] = '/'
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
+
     # Offline page (for Service Worker fallback)
     @app.route('/offline')
     def offline():
