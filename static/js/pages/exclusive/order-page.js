@@ -1693,9 +1693,9 @@ function clearReservation() {
  * Fire-and-forget — nie czekamy na odpowiedź.
  */
 function _releaseAllServerReservations() {
-    // Zbierz produkty z koszyka które mają qty > 0
+    // Zbierz produkty z koszyka które mają qty > 0 (pomijaj full sety — nie mają rezerwacji)
     const productsToRelease = [];
-    document.querySelectorAll('.qty-input').forEach(input => {
+    document.querySelectorAll('.qty-input:not(.full-set-qty-input)').forEach(input => {
         const qty = parseInt(input.value) || 0;
         if (qty <= 0) return;
         const section = input.closest('[data-product-id]');
@@ -1926,7 +1926,13 @@ function removeFullSetFromCart(sectionId) {
 
 // ============================================
 // Full Set Functions (No Reservation System)
+// Full sets are unlimited — no time-limited reservations needed.
 // ============================================
+
+// Helper: check if cart has any regular (non-full-set) products
+function hasRegularProductsInCart() {
+    return cart.some(item => !item.isFullSet);
+}
 
 let fullSets = {};
 
@@ -1966,61 +1972,7 @@ function increaseFullSet(btn) {
     updateCart();
     saveToLocalStorage();
 
-    // Callback obsługi błędu (wspólny)
-    function onFullSetError(result) {
-        input.value = Math.max(0, parseInt(input.value) - 1);
-        if (parseInt(input.value) === 0) {
-            confettiContainer.classList.add('fade-out');
-            setTimeout(() => {
-                confettiContainer.classList.remove('has-items', 'fade-out');
-            }, 500);
-        }
-        updateCart();
-        if (result && result.error === 'insufficient_availability') {
-            showUnavailablePopup(result.message, result.check_back_at);
-        }
-    }
-
-    function onFullSetSuccess(result) {
-        if (result.reservation && result.reservation.first_reservation_at) {
-            reservationState.firstReservedAt = result.reservation.first_reservation_at;
-            reservationState.expiresAt = result.reservation.expires_at;
-            showReservationHeader();
-        }
-    }
-
-    // SocketIO lub HTTP fallback
-    if (isSocketReady()) {
-        window.exclusiveSocket.emit('reserve_product', {
-            page_id: window.exclusivePageId,
-            session_id: reservationState.sessionId,
-            product_id: productId,
-            quantity: 1,
-        }, function(result) {
-            if (result && result.success) {
-                onFullSetSuccess(result);
-            } else {
-                onFullSetError(result);
-            }
-        });
-    } else {
-        fetch(window.reserveProductUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: 1,
-                action: val === 0 ? 'add' : 'increase'
-            })
-        }).then(r => r.json()).then(result => {
-            if (result.success) {
-                onFullSetSuccess(result);
-            } else {
-                onFullSetError(result);
-            }
-        }).catch(() => onFullSetError(null));
-    }
+    // Full sets are unlimited — no reservation needed
 }
 
 function decreaseFullSet(btn) {
@@ -2051,29 +2003,12 @@ function decreaseFullSet(btn) {
         updateCart();
         saveToLocalStorage();
 
-        if (cart.length === 0) {
+        // Hide reservation header only if no regular products remain
+        if (!hasRegularProductsInCart()) {
             hideReservationHeader();
         }
 
-        // SocketIO lub HTTP fallback
-        if (isSocketReady()) {
-            window.exclusiveSocket.emit('release_product', {
-                page_id: window.exclusivePageId,
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: 1,
-            });
-        } else {
-            fetch(window.releaseProductUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: reservationState.sessionId,
-                    product_id: productId,
-                    quantity: 1
-                })
-            }).catch(() => {});
-        }
+        // Full sets are unlimited — no release needed
     }
 }
 
@@ -2114,90 +2049,10 @@ function updateFullSetQty(input) {
     updateCart();
     saveToLocalStorage();
 
-    // Rollback helper
-    function rollbackFullSetQty() {
-        input.value = oldVal;
-        if (oldVal === 0) {
-            confettiContainer.classList.add('fade-out');
-            setTimeout(() => {
-                confettiContainer.classList.remove('has-items', 'fade-out');
-            }, 500);
-        }
-        updateCart();
-    }
-
-    // Synchronizacja z rezerwacją
-    if (delta > 0) {
-        // Zwiększono — zarezerwuj więcej
-        if (isSocketReady()) {
-            window.exclusiveSocket.emit('reserve_product', {
-                page_id: window.exclusivePageId,
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: delta,
-            }, function(result) {
-                if (result && result.success) {
-                    if (result.reservation && result.reservation.first_reservation_at) {
-                        reservationState.firstReservedAt = result.reservation.first_reservation_at;
-                        reservationState.expiresAt = result.reservation.expires_at;
-                        showReservationHeader();
-                    }
-                } else {
-                    rollbackFullSetQty();
-                    if (result && result.error === 'insufficient_availability') {
-                        showUnavailablePopup(result.message, result.check_back_at);
-                    }
-                }
-            });
-        } else {
-            fetch(window.reserveProductUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: reservationState.sessionId,
-                    product_id: productId,
-                    quantity: delta,
-                    action: oldVal === 0 ? 'add' : 'increase'
-                })
-            }).then(r => r.json()).then(result => {
-                if (result.success) {
-                    if (result.reservation.first_reservation_at) {
-                        reservationState.firstReservedAt = result.reservation.first_reservation_at;
-                        reservationState.expiresAt = result.reservation.expires_at;
-                        showReservationHeader();
-                    }
-                } else {
-                    rollbackFullSetQty();
-                    if (result.error === 'insufficient_availability') {
-                        showUnavailablePopup(result.message, result.check_back_at);
-                    }
-                }
-            }).catch(() => rollbackFullSetQty());
-        }
-    } else {
-        // Zmniejszono — zwolnij
-        if (isSocketReady()) {
-            window.exclusiveSocket.emit('release_product', {
-                page_id: window.exclusivePageId,
-                session_id: reservationState.sessionId,
-                product_id: productId,
-                quantity: Math.abs(delta),
-            });
-        } else {
-            fetch(window.releaseProductUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: reservationState.sessionId,
-                    product_id: productId,
-                    quantity: Math.abs(delta)
-                })
-            }).catch(() => {});
-        }
-
-        if (cart.length === 0) {
-            hideReservationHeader();
-        }
+    // Full sets are unlimited — no reservation/release needed.
+    // Hide reservation header only if no regular products remain.
+    if (delta < 0 && !hasRegularProductsInCart()) {
+        hideReservationHeader();
     }
 }
 
