@@ -47,12 +47,20 @@
             <div class="notif-dropdown" id="notifDropdown">
                 <div class="notif-dropdown-header">
                     <span class="notif-dropdown-title">Powiadomienia</span>
-                    <a href="{{ url_for('profile.index') }}#push" class="notif-settings-link" title="Ustawienia powiadomień">
-                        <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="Ustawienia">
-                    </a>
+                    <div class="notif-header-actions">
+                        <button class="notif-mark-all-btn" id="notifMarkAllBtn" title="Oznacz wszystko jako przeczytane" style="display:none;">
+                            <img src="{{ url_for('static', filename='img/icons/check-circle.svg') }}" alt="Oznacz">
+                        </button>
+                        <a href="{{ url_for('profile.index') }}#push" class="notif-settings-link" title="Ustawienia powiadomień">
+                            <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="Ustawienia">
+                        </a>
+                    </div>
                 </div>
                 <div class="notif-list" id="notifList">
-                    <div class="notif-empty" id="notifEmpty">Brak powiadomień</div>
+                    <div class="notif-empty" id="notifEmpty">
+                        <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="" class="notif-empty-icon">
+                        <span>Brak powiadomień</span>
+                    </div>
                 </div>
                 <button class="notif-load-more" id="notifLoadMore" style="display:none;">Pokaż więcej</button>
                 <div class="notif-dropdown-footer" id="notifFooter">

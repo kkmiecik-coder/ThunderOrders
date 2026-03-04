@@ -1,6 +1,5 @@
 /**
  * Notification Center - Bell dropdown with notification list, badge, and push status.
- * Replaces the old push toggle dropdown.
  */
 (function () {
     'use strict';
@@ -12,6 +11,7 @@
     var notifList = document.getElementById('notifList');
     var notifEmpty = document.getElementById('notifEmpty');
     var loadMoreBtn = document.getElementById('notifLoadMore');
+    var markAllBtn = document.getElementById('notifMarkAllBtn');
     var pushDot = document.getElementById('notifPushDot');
     var pushText = document.getElementById('notifPushText');
     var mobileBellBtn = document.getElementById('mobilePushBtn');
@@ -23,16 +23,41 @@
     // === State ===
     var currentOffset = 0;
     var hasMore = false;
-    var markReadTimer = null;
-    var MARK_READ_DELAY = 2000;
     var POLL_INTERVAL = 60000;
     var pollTimer = null;
     var isOpen = false;
     var loadedNotifIds = new Set();
+    var currentUnreadCount = 0;
+
+    // === Notification type → icon mapping ===
+    var TYPE_ICONS = {
+        order_status_changes: 'img/icons/check-circle.svg',
+        payment_updates: 'img/icons/payment.svg',
+        shipping_updates: 'img/icons/truck.svg',
+        new_exclusive_pages: 'img/icons/exclusive.svg',
+        cost_added: 'img/icons/payment-pending.svg',
+        admin_alerts: 'img/icons/bell.svg'
+    };
+    var DEFAULT_ICON = 'img/icons/bell.svg';
+
+    function getIconPath(notifType) {
+        var path = TYPE_ICONS[notifType] || DEFAULT_ICON;
+        // Build URL using the static prefix from the page
+        var staticBase = document.querySelector('link[href*="/static/css/"]');
+        if (staticBase) {
+            var href = staticBase.getAttribute('href');
+            var idx = href.indexOf('/static/');
+            if (idx !== -1) {
+                return href.substring(0, idx) + '/static/' + path;
+            }
+        }
+        return '/static/' + path;
+    }
 
     // === Badge ===
     function updateBadge(count) {
         count = parseInt(count, 10) || 0;
+        currentUnreadCount = count;
         if (badge) {
             badge.textContent = count > 99 ? '99+' : count;
             badge.style.display = count > 0 ? '' : 'none';
@@ -43,6 +68,10 @@
         }
         if (mobileBellText) {
             mobileBellText.textContent = count > 0 ? ('Powiadomienia (' + count + ')') : 'Powiadomienia';
+        }
+        // Show/hide mark-all button
+        if (markAllBtn) {
+            markAllBtn.style.display = count > 0 ? '' : 'none';
         }
     }
 
@@ -67,13 +96,23 @@
 
     // === Render single notification ===
     function renderNotifItem(n) {
-        var item = document.createElement('a');
-        item.href = n.url || '#';
+        var item = document.createElement('div');
         item.className = 'notif-item' + (n.is_read ? '' : ' notif-unread');
         item.dataset.notifId = n.id;
 
-        var content = document.createElement('div');
-        content.className = 'notif-item-content';
+        // Type icon
+        var iconWrap = document.createElement('div');
+        iconWrap.className = 'notif-item-icon';
+        var iconImg = document.createElement('img');
+        iconImg.src = getIconPath(n.notification_type);
+        iconImg.alt = '';
+        iconWrap.appendChild(iconImg);
+        item.appendChild(iconWrap);
+
+        // Content (clickable link)
+        var link = document.createElement('a');
+        link.href = n.url || '#';
+        link.className = 'notif-item-content';
 
         var titleRow = document.createElement('div');
         titleRow.className = 'notif-item-title-row';
@@ -89,35 +128,56 @@
             titleRow.appendChild(dot);
         }
 
-        content.appendChild(titleRow);
+        link.appendChild(titleRow);
 
         if (n.body) {
             var body = document.createElement('div');
             body.className = 'notif-item-body';
             body.textContent = n.body;
-            content.appendChild(body);
+            link.appendChild(body);
         }
 
         var time = document.createElement('div');
         time.className = 'notif-item-time';
         time.textContent = relativeTime(n.created_at);
-        content.appendChild(time);
+        link.appendChild(time);
 
-        item.appendChild(content);
+        item.appendChild(link);
+
+        // Delete button
+        var delBtn = document.createElement('button');
+        delBtn.className = 'notif-item-delete';
+        delBtn.title = 'Usuń';
+        delBtn.innerHTML = '&times;';
+        delBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteNotification(n.id, item);
+        });
+        item.appendChild(delBtn);
+
+        // Click on link = mark as read
+        link.addEventListener('click', function () {
+            if (!n.is_read) {
+                markAsRead([n.id]);
+                item.classList.remove('notif-unread');
+                var d = item.querySelector('.notif-unread-dot');
+                if (d) d.remove();
+                n.is_read = true;
+            }
+        });
+
         return item;
     }
 
-    // === Fetch unread count ===
+    // === API helpers ===
     function fetchUnreadCount() {
         fetch('/notifications/unread-count', { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
-            .then(function (data) {
-                updateBadge(data.count || 0);
-            })
+            .then(function (data) { updateBadge(data.count || 0); })
             .catch(function () {});
     }
 
-    // === Fetch notifications ===
     function fetchNotifications(offset, append) {
         var url = '/notifications/list?offset=' + offset + '&limit=10';
         fetch(url, { credentials: 'same-origin' })
@@ -128,14 +188,13 @@
                 updateBadge(data.unread_count || 0);
 
                 if (!append) {
-                    // Clear existing items (keep empty state element)
                     var items = notifList.querySelectorAll('.notif-item');
                     items.forEach(function (el) { el.remove(); });
                     loadedNotifIds.clear();
                 }
 
                 if (notifications.length === 0 && !append) {
-                    notifEmpty.style.display = 'block';
+                    notifEmpty.style.display = '';
                 } else {
                     notifEmpty.style.display = 'none';
                     notifications.forEach(function (n) {
@@ -148,41 +207,14 @@
 
                 loadMoreBtn.style.display = hasMore ? '' : 'none';
 
-                // Count read items for offset tracking
                 var readCount = 0;
                 notifications.forEach(function (n) { if (n.is_read) readCount++; });
                 currentOffset = (append ? currentOffset : 0) + readCount;
-
-                // Start mark-read timer
-                startMarkReadTimer();
             })
             .catch(function () {});
     }
 
-    // === Mark visible unread as read ===
-    function startMarkReadTimer() {
-        clearMarkReadTimer();
-        markReadTimer = setTimeout(function () {
-            markVisibleAsRead();
-        }, MARK_READ_DELAY);
-    }
-
-    function clearMarkReadTimer() {
-        if (markReadTimer) {
-            clearTimeout(markReadTimer);
-            markReadTimer = null;
-        }
-    }
-
-    function markVisibleAsRead() {
-        var unreadItems = notifList.querySelectorAll('.notif-unread');
-        if (unreadItems.length === 0) return;
-
-        var ids = [];
-        unreadItems.forEach(function (el) {
-            ids.push(parseInt(el.dataset.notifId, 10));
-        });
-
+    function markAsRead(ids) {
         fetch('/notifications/mark-read', {
             method: 'POST',
             credentials: 'same-origin',
@@ -191,14 +223,50 @@
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+            if (data.success) updateBadge(data.unread_count || 0);
+        })
+        .catch(function () {});
+    }
+
+    function markAllAsRead() {
+        fetch('/notifications/mark-all-read', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
             if (data.success) {
-                updateBadge(data.unread_count || 0);
-                // Update UI - remove unread styling
-                unreadItems.forEach(function (el) {
+                updateBadge(0);
+                // Update UI
+                notifList.querySelectorAll('.notif-unread').forEach(function (el) {
                     el.classList.remove('notif-unread');
                     var dot = el.querySelector('.notif-unread-dot');
                     if (dot) dot.remove();
                 });
+            }
+        })
+        .catch(function () {});
+    }
+
+    function deleteNotification(id, element) {
+        fetch('/notifications/delete', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: id })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.success) {
+                loadedNotifIds.delete(id);
+                element.remove();
+                updateBadge(data.unread_count);
+                // Show empty state if no items left
+                if (notifList.querySelectorAll('.notif-item').length === 0) {
+                    notifEmpty.style.display = '';
+                    loadMoreBtn.style.display = 'none';
+                }
             }
         })
         .catch(function () {});
@@ -232,27 +300,21 @@
         if (!isOpen) return;
         isOpen = false;
         dropdown.classList.remove('active');
-        clearMarkReadTimer();
     }
 
     // === Event listeners ===
     bellBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (isOpen) {
-            closeDropdown();
-        } else {
-            openDropdown();
-        }
+        if (isOpen) closeDropdown();
+        else openDropdown();
     });
 
-    // Close on outside click
     document.addEventListener('click', function (e) {
         if (isOpen && dropdown && !dropdown.contains(e.target) && !bellBtn.contains(e.target)) {
             closeDropdown();
         }
     });
 
-    // Load more
     if (loadMoreBtn) {
         loadMoreBtn.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -260,16 +322,19 @@
         });
     }
 
-    // Mobile bell - open dropdown on desktop-like behavior or navigate
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            markAllAsRead();
+        });
+    }
+
     if (mobileBellBtn) {
         mobileBellBtn.addEventListener('click', function () {
-            // On mobile, navigate to profile#push or toggle dropdown
-            // For simplicity: navigate to notifications section of profile
             window.location.href = '/profile/#push';
         });
     }
 
-    // Prevent dropdown links from closing on click (let them navigate)
     if (dropdown) {
         dropdown.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -278,19 +343,12 @@
 
     // === Polling ===
     function startPolling() {
-        stopPolling();
+        if (pollTimer) clearInterval(pollTimer);
         pollTimer = setInterval(fetchUnreadCount, POLL_INTERVAL);
     }
 
-    function stopPolling() {
-        if (pollTimer) {
-            clearInterval(pollTimer);
-            pollTimer = null;
-        }
-    }
-
     // Listen for subscription changes (compatibility with push-banner.js)
-    window.addEventListener('push-subscription-changed', function (e) {
+    window.addEventListener('push-subscription-changed', function () {
         updatePushStatus();
     });
 

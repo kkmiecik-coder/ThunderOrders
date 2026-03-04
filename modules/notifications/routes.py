@@ -245,6 +245,54 @@ def mark_read():
     return jsonify({'success': True, 'unread_count': unread_count})
 
 
+@notifications_bp.route('/mark-all-read', methods=['POST'])
+@login_required
+def mark_all_read():
+    """Mark ALL unread notifications as read for current user."""
+    Notification.query.filter_by(
+        user_id=current_user.id, is_read=False
+    ).update({'is_read': True}, synchronize_session=False)
+    db.session.commit()
+    return jsonify({'success': True, 'unread_count': 0})
+
+
+@notifications_bp.route('/delete', methods=['POST'])
+@login_required
+def delete_notification():
+    """Delete a single notification. Body: {id: 123}."""
+    data = request.get_json()
+    if not data or 'id' not in data:
+        return jsonify({'error': 'Missing id'}), 400
+
+    notif = Notification.query.filter_by(
+        id=data['id'], user_id=current_user.id
+    ).first()
+
+    if notif:
+        was_unread = not notif.is_read
+        db.session.delete(notif)
+        db.session.commit()
+    else:
+        was_unread = False
+
+    unread_count_val = Notification.query.filter_by(
+        user_id=current_user.id, is_read=False
+    ).count()
+
+    return jsonify({'success': True, 'unread_count': unread_count_val})
+
+
+@notifications_bp.route('/clear-all', methods=['POST'])
+@login_required
+def clear_all():
+    """Delete ALL notifications for current user."""
+    Notification.query.filter_by(user_id=current_user.id).delete(
+        synchronize_session=False
+    )
+    db.session.commit()
+    return jsonify({'success': True, 'unread_count': 0})
+
+
 @notifications_bp.route('/unread-count', methods=['GET'])
 @login_required
 def unread_count():

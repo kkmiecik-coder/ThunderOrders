@@ -53,13 +53,7 @@ class PushManager:
         )
         from extensions import db as _db
 
-        # Check user preference
-        if notification_type:
-            pref = NotificationPreference.query.filter_by(user_id=user_id).first()
-            if pref and not getattr(pref, notification_type, True):
-                return False
-
-        # Store notification in DB (regardless of push subscription status)
+        # Always store notification in DB for the notification center
         try:
             notif = Notification(
                 user_id=user_id,
@@ -83,6 +77,12 @@ class PushManager:
         except Exception as e:
             _db.session.rollback()
             current_app.logger.warning(f'Failed to store notification for user {user_id}: {e}')
+
+        # Check user preference (only affects push delivery, not DB storage)
+        if notification_type:
+            pref = NotificationPreference.query.filter_by(user_id=user_id).first()
+            if pref and not getattr(pref, notification_type, True):
+                return False
 
         subs = PushSubscription.query.filter_by(
             user_id=user_id, is_active=True
