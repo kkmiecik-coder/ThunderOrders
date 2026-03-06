@@ -140,6 +140,17 @@
         localStorage.setItem(DISMISS_KEY, Date.now().toString());
     });
 
+    // Listen for force-show from health check (Scenario B: localStorage cleared, backend has subs)
+    window.addEventListener('push-force-banner', function () {
+        // Bypass cooldown and show immediately
+        if (Notification.permission === 'denied') return;
+        PN.isSubscribed().then(function (subscribed) {
+            if (!subscribed) {
+                showBanner();
+            }
+        });
+    });
+
     // Wait a bit for page to load, then try showing
     setTimeout(tryShow, 1500);
 })();

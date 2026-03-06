@@ -37,46 +37,36 @@
         </div>
     </div>
 
-    <!-- Orders Table -->
-    <div class="table-container">
+    <!-- Orders Cards -->
+    <div class="pc-orders-container">
         {% if orders %}
-        <table class="orders-table orders-table-new">
-            <thead>
-                <tr>
-                    <th class="pc-col-checkbox">
-                        <input
-                            type="checkbox"
-                            id="select-all"
-                            title="Zaznacz wszystkie"
-                        >
-                    </th>
-                    <th class="col-number">Numer zamówienia</th>
-                    <th class="col-items hide-mobile">Produkty</th>
-                    <th class="col-amount">Kwota</th>
-                    <th class="col-stage">E1: Produkt</th>
-                    {% if any_order_has_4_stages %}
-                    <th class="col-stage">E2: Wysyłka KR</th>
-                    {% endif %}
-                    <th class="col-stage">E3: Cło/VAT</th>
-                    <th class="col-stage">E4: Wysyłka PL</th>
-                    <th class="col-actions">Akcje</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in orders %}
-                <tr data-order-id="{{ order.id }}"
-                    data-payment-stages="{{ order.payment_stages or 3 }}"
-                    data-stage2-status="{{ order.stage_2_status or '' }}"
-                    data-stage3-status="{{ order.stage_3_status }}"
-                    data-stage4-status="{{ order.stage_4_status }}"
-                    data-can-upload-stage2="{{ 'true' if order.can_upload_stage_2 else 'false' }}"
-                    data-can-upload-stage3="{{ 'true' if order.can_upload_stage_3 else 'false' }}"
-                    data-can-upload-stage4="{{ 'true' if order.can_upload_stage_4 else 'false' }}"
-                    data-proxy-shipping-amount="{{ order.proxy_shipping_total }}"
-                    data-customs-vat-amount="{{ order.customs_vat_total }}"
-                    data-shipping-cost-amount="{{ order.shipping_cost or 0 }}"
-                >
-                    <td class="pc-col-checkbox" data-label="">
+        <!-- Zaznacz wszystkie -->
+        <div class="pc-select-all-bar">
+            <label class="pc-select-all-label">
+                <input type="checkbox" id="select-all" title="Zaznacz wszystkie">
+                <span>Zaznacz wszystkie</span>
+            </label>
+        </div>
+
+        <div class="pc-cards-grid">
+            {% for order in orders %}
+            <div class="pc-order-card"
+                 data-order-id="{{ order.id }}"
+                 data-payment-stages="{{ order.payment_stages or 3 }}"
+                 data-stage2-status="{{ order.stage_2_status or '' }}"
+                 data-stage3-status="{{ order.stage_3_status }}"
+                 data-stage4-status="{{ order.stage_4_status }}"
+                 data-can-upload-stage2="{{ 'true' if order.can_upload_stage_2 else 'false' }}"
+                 data-can-upload-stage3="{{ 'true' if order.can_upload_stage_3 else 'false' }}"
+                 data-can-upload-stage4="{{ 'true' if order.can_upload_stage_4 else 'false' }}"
+                 data-proxy-shipping-amount="{{ order.proxy_shipping_total }}"
+                 data-customs-vat-amount="{{ order.customs_vat_total }}"
+                 data-shipping-cost-amount="{{ order.shipping_cost or 0 }}"
+                 onclick="toggleCardCheckbox(event)"
+            >
+                <!-- Header: checkbox + numer -->
+                <div class="pc-card-header">
+                    <label class="pc-card-checkbox">
                         <input
                             type="checkbox"
                             class="order-checkbox"
@@ -87,81 +77,38 @@
                             data-payment-stages="{{ order.payment_stages or 3 }}"
                             {% if not (order.can_upload_product_payment or order.can_upload_stage_2 or order.can_upload_stage_3 or order.can_upload_stage_4) %}disabled{% endif %}
                         >
-                    </td>
+                    </label>
+                    <span class="pc-card-order-number">
+                        {{ order.order_number }}
+                    </span>
+                </div>
 
-                    <td class="col-number" data-label="Numer">
-                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link">
-                            {{ order.order_number }}
-                        </a>
-                    </td>
-
-                    <td class="col-items hide-mobile" data-label="Produkty">
-                        <div class="items-list">
-                            {% set visible_items = order.sorted_items[:3] %}
-                            {% set hidden_items = order.sorted_items[3:] %}
-
-                            {% for item in visible_items %}
-                            <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
-                                <div class="item-thumb-wrapper">
-                                    {% if item.is_full_set %}
-                                    <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
-                                    {% elif item.is_custom %}
-                                    <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
-                                    {% else %}
-                                    <img src="{{ item.product_image_url }}" alt="" class="item-thumb" loading="lazy">
-                                    {% endif %}
-                                    {% if item.quantity > 1 %}
-                                    <span class="item-qty-badge">{{ item.quantity }}</span>
-                                    {% endif %}
-                                </div>
-                                <div class="item-details">
-                                    <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
-                                        {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}
-                                    </span>
-                                    <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
-                                </div>
-                            </div>
-                            {% endfor %}
-
-                            {% if hidden_items|length > 0 %}
-                            <div class="items-hidden" id="hiddenItems-{{ order.id }}" style="display: none;">
-                                {% for item in hidden_items %}
-                                <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
-                                    <div class="item-thumb-wrapper">
-                                        {% if item.is_full_set %}
-                                        <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
-                                        {% elif item.is_custom %}
-                                        <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
-                                        {% else %}
-                                        <img src="{{ item.product_image_url }}" alt="" class="item-thumb" loading="lazy">
-                                        {% endif %}
-                                        {% if item.quantity > 1 %}
-                                        <span class="item-qty-badge">{{ item.quantity }}</span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="item-details">
-                                        <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
-                                            {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}
-                                        </span>
-                                        <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            <button type="button" class="items-toggle-btn" onclick="toggleOrderItems({{ order.id }}, {{ order.sorted_items|length }})">
-                                <span class="toggle-text">W sumie {{ order.sorted_items|length }} przedmiotów - pokaż pozostałe</span>
-                            </button>
-                            {% endif %}
+                <!-- Produkty -->
+                <div class="pc-card-products">
+                    {% for item in order.sorted_items %}
+                    <div class="pc-product-item">
+                        {% if item.is_full_set %}
+                        <div class="pc-product-thumb pc-product-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
+                        {% elif item.is_custom %}
+                        <div class="pc-product-thumb pc-product-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
+                        {% else %}
+                        <img src="{{ item.product_image_url }}" alt="" class="pc-product-thumb" loading="lazy">
+                        {% endif %}
+                        <div class="pc-product-info">
+                            <span class="pc-product-name">{{ item.quantity }}× {{ item.product_name }}</span>
+                            <span class="pc-product-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
                         </div>
-                    </td>
+                    </div>
+                    {% endfor %}
+                </div>
 
-                    <td class="col-amount" data-label="Kwota">
-                        <span class="amount-cell">{{ "%.2f"|format(order.effective_total) }} zł</span>
-                    </td>
-
-                    <!-- E1: Produkt -->
-                    <td class="col-stage" data-label="E1">
-                        {% set e1_status = order.product_payment_status %}
+                <!-- Płatności: etapy -->
+                <div class="pc-payments-list">
+                    {# E1: Produkt #}
+                    {% set e1_status = order.product_payment_status %}
+                    <div class="pc-payment-row">
+                        <span class="pc-payment-label">Produkt</span>
+                        <span class="pc-payment-amount{% if e1_status == 'approved' %} pc-payment-amount-paid{% endif %}">{{ "%.2f"|format(order.total_amount or 0) }} zł</span>
                         {% if e1_status == 'approved' %}
                             <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
                         {% elif e1_status == 'pending' %}
@@ -171,33 +118,33 @@
                         {% else %}
                             <span class="pc-stage-badge pc-stage-badge-soon">Oczekuje</span>
                         {% endif %}
-                    </td>
+                    </div>
 
-                    <!-- E2: Wysyłka KR - tylko dla 4-płatnościowych -->
-                    {% if any_order_has_4_stages %}
-                    <td class="col-stage" data-label="E2">
-                        {% if order.payment_stages == 4 %}
-                            {% set e2_status = order.stage_2_status %}
-                            {% if e2_status == 'approved' %}
-                                <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
-                            {% elif e2_status == 'pending' %}
-                                <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
-                            {% elif e2_status == 'rejected' %}
-                                <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
-                            {% elif order.can_upload_stage_2 %}
-                                <span class="pc-stage-badge pc-stage-badge-ready">Do zapłaty</span>
-                            {% else %}
-                                <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
-                            {% endif %}
+                    {# E2: Wysyłka KR (tylko 4-etapowe) #}
+                    {% if order.payment_stages == 4 %}
+                    {% set e2_status = order.stage_2_status %}
+                    <div class="pc-payment-row">
+                        <span class="pc-payment-label">Wysyłka KR</span>
+                        <span class="pc-payment-amount{% if e2_status == 'approved' %} pc-payment-amount-paid{% endif %}">{{ "%.2f"|format(order.proxy_shipping_cost or 0) }} zł</span>
+                        {% if e2_status == 'approved' %}
+                            <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
+                        {% elif e2_status == 'pending' %}
+                            <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
+                        {% elif e2_status == 'rejected' %}
+                            <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
+                        {% elif order.can_upload_stage_2 %}
+                            <span class="pc-stage-badge pc-stage-badge-ready">Do zapłaty</span>
                         {% else %}
-                            <span class="pc-stage-badge pc-stage-badge-na">Nie dotyczy</span>
+                            <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
-                    </td>
+                    </div>
                     {% endif %}
 
-                    <!-- E3: Cło/VAT - zawsze -->
-                    <td class="col-stage" data-label="E3">
-                        {% set e3_status = order.stage_3_status %}
+                    {# E3: Cło/VAT #}
+                    {% set e3_status = order.stage_3_status %}
+                    <div class="pc-payment-row">
+                        <span class="pc-payment-label">Cło/VAT</span>
+                        <span class="pc-payment-amount{% if e3_status == 'approved' %} pc-payment-amount-paid{% endif %}">{{ "%.2f"|format(order.customs_vat_sale_cost or 0) }} zł</span>
                         {% if e3_status == 'approved' %}
                             <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
                         {% elif e3_status == 'pending' %}
@@ -209,11 +156,13 @@
                         {% else %}
                             <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
-                    </td>
+                    </div>
 
-                    <!-- E4: Wysyłka PL - zawsze -->
-                    <td class="col-stage" data-label="E4">
-                        {% set e4_status = order.stage_4_status %}
+                    {# E4: Wysyłka PL #}
+                    {% set e4_status = order.stage_4_status %}
+                    <div class="pc-payment-row">
+                        <span class="pc-payment-label">Wysyłka PL</span>
+                        <span class="pc-payment-amount{% if e4_status == 'approved' %} pc-payment-amount-paid{% endif %}">{{ "%.2f"|format(order.shipping_cost or 0) }} zł</span>
                         {% if e4_status == 'approved' %}
                             <span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>
                         {% elif e4_status == 'pending' %}
@@ -225,26 +174,27 @@
                         {% else %}
                             <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
-                    </td>
+                    </div>
+                </div>
 
-                    <td class="col-actions" data-label="Akcje">
-                        {% if order.can_upload_product_payment or order.can_upload_stage_2 or order.can_upload_stage_3 or order.can_upload_stage_4 %}
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-primary pc-row-action-btn"
-                            data-order-id="{{ order.id }}"
-                            data-order-number="{{ order.order_number }}"
-                            data-amount="{{ order.effective_total }}"
-                            onclick="openPaymentForOrder(this)"
-                        >
-                            Wykonaj płatność
-                        </button>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                {% if order.can_upload_product_payment or order.can_upload_stage_2 or order.can_upload_stage_3 or order.can_upload_stage_4 %}
+                <button
+                    type="button"
+                    class="btn btn-primary pc-card-pay-btn"
+                    data-order-id="{{ order.id }}"
+                    data-order-number="{{ order.order_number }}"
+                    data-amount="{{ order.effective_total }}"
+                    onclick="openPaymentForOrder(this)"
+                >
+                    Wykonaj płatność
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
         {% else %}
         <div class="pc-empty-state">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -256,6 +206,54 @@
         </div>
         {% endif %}
     </div>
+
+    <!-- Sekcja: W pełni opłacone zamówienia -->
+    {% if fully_paid_orders %}
+    <div class="pc-fully-paid-section">
+        <div class="pc-fully-paid-header">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <h2>W pełni opłacone</h2>
+            <span class="pc-fully-paid-count">{{ fully_paid_orders|length }}</span>
+        </div>
+        <div class="pc-fully-paid-list">
+            {% for order in fully_paid_orders %}
+            <div class="pc-fully-paid-card">
+                <div class="pc-fully-paid-order">
+                    <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link">
+                        {{ order.order_number }}
+                    </a>
+                </div>
+                <div class="pc-fully-paid-stages">
+                    <div class="pc-fully-paid-stage">
+                        <span class="pc-fully-paid-label">Produkt</span>
+                        <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.total_amount or 0) }} zł</span>
+                    </div>
+                    {% if order.payment_stages == 4 %}
+                    <div class="pc-fully-paid-stage">
+                        <span class="pc-fully-paid-label">Wysyłka KR</span>
+                        <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.proxy_shipping_cost or 0) }} zł</span>
+                    </div>
+                    {% endif %}
+                    <div class="pc-fully-paid-stage">
+                        <span class="pc-fully-paid-label">Cło/VAT</span>
+                        <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.customs_vat_sale_cost or 0) }} zł</span>
+                    </div>
+                    <div class="pc-fully-paid-stage">
+                        <span class="pc-fully-paid-label">Wysyłka PL</span>
+                        <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.shipping_cost or 0) }} zł</span>
+                    </div>
+                </div>
+                <div class="pc-fully-paid-total">
+                    <span class="pc-fully-paid-total-label">Suma:</span> {{ "%.2f"|format((order.total_amount or 0) + (order.proxy_shipping_cost or 0) + (order.customs_vat_sale_cost or 0) + (order.shipping_cost or 0)) }} zł
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Modal płatności -->

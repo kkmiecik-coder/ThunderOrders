@@ -987,6 +987,83 @@ document.addEventListener('DOMContentLoaded', function() {
     // Exclusive Closure Settings - Custom Dropdowns
     // ================================================
     initCustomSelects();
+
+    // ==========================================
+    // EMAIL NOTIFICATIONS SETTINGS
+    // ==========================================
+
+    const saveEmailNotifBtn = document.getElementById('save-email-notif-btn');
+    if (saveEmailNotifBtn) {
+        saveEmailNotifBtn.addEventListener('click', async function() {
+            const toggles = {};
+            document.querySelectorAll('.email-notif-toggle').forEach(toggle => {
+                toggles[toggle.dataset.key] = toggle.checked;
+            });
+
+            // Collect disabled admin IDs (unchecked toggles)
+            const disabledAdminIds = [];
+            document.querySelectorAll('.admin-recipient-toggle').forEach(toggle => {
+                if (!toggle.checked) {
+                    disabledAdminIds.push(parseInt(toggle.dataset.adminId));
+                }
+            });
+
+            // Extra emails
+            const extraEmailsInput = document.getElementById('admin-extra-emails');
+            const extraEmails = extraEmailsInput ? extraEmailsInput.value.trim() : '';
+
+            // Validate extra emails format
+            if (extraEmails) {
+                const emails = extraEmails.split(',').map(e => e.trim()).filter(e => e);
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                const invalid = emails.filter(e => !emailRegex.test(e));
+                if (invalid.length > 0) {
+                    if (window.Toast) {
+                        window.Toast.show('Nieprawidlowy format email: ' + invalid.join(', '), 'error');
+                    }
+                    return;
+                }
+            }
+
+            try {
+                const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+                const response = await fetch('/admin/orders/settings/email-notifications', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        toggles: toggles,
+                        disabled_admin_ids: disabledAdminIds,
+                        extra_emails: extraEmails
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    if (window.Toast) {
+                        window.Toast.show(data.message, 'success');
+                    } else {
+                        window.showToast(data.message, 'success');
+                    }
+                } else {
+                    if (window.Toast) {
+                        window.Toast.show(data.message || 'Blad podczas zapisywania', 'error');
+                    } else {
+                        window.showToast(data.message || 'Blad podczas zapisywania', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving email notification settings:', error);
+                if (window.Toast) {
+                    window.Toast.show('Blad podczas zapisywania ustawien', 'error');
+                } else {
+                    window.showToast('Blad podczas zapisywania ustawien', 'error');
+                }
+            }
+        });
+    }
 });
 
 /**

@@ -301,3 +301,14 @@ def unread_count():
         user_id=current_user.id, is_read=False
     ).count()
     return jsonify({'count': count})
+
+
+@notifications_bp.route('/has-active', methods=['GET'])
+@login_required
+def has_active_subscription():
+    """Check if the current user has any active push subscriptions in the database.
+    Used by the frontend health check when localStorage is cleared."""
+    has = PushSubscription.query.filter_by(
+        user_id=current_user.id, is_active=True
+    ).first() is not None
+    return jsonify({'has_active': has})

@@ -3,7 +3,7 @@
  * Cache First for static assets, Network First for HTML, Network Only for API
  */
 
-const CACHE_VERSION = 'thunderorders-v1';
+const CACHE_VERSION = 'thunderorders-v2';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const PAGES_CACHE = CACHE_VERSION + '-pages';
 
@@ -129,5 +129,25 @@ self.addEventListener('notificationclick', event => {
             // Open new window
             return clients.openWindow(targetUrl);
         })
+    );
+});
+
+// Push subscription change handler - auto-renew when browser rotates subscription
+self.addEventListener('pushsubscriptionchange', event => {
+    event.waitUntil(
+        self.registration.pushManager.subscribe(event.oldSubscription.options)
+            .then(newSub => {
+                const subJSON = newSub.toJSON();
+                return fetch('/notifications/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        endpoint: subJSON.endpoint,
+                        keys: subJSON.keys,
+                        device_name: ''
+                    })
+                });
+            })
+            .catch(err => console.warn('[SW] pushsubscriptionchange re-subscribe failed:', err))
     );
 });

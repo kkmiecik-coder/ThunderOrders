@@ -81,11 +81,26 @@ def payment_confirmations():
     ]
 
     # Zamówienia Exclusive użytkownika w dozwolonych statusach
-    orders = Order.query.filter(
+    all_orders = Order.query.filter(
         Order.user_id == current_user.id,
         Order.is_exclusive == True,
         Order.status.in_(allowed_statuses)
     ).order_by(Order.created_at.desc()).all()
+
+    # Podział: zamówienia do opłacenia vs w pełni opłacone
+    orders = []
+    fully_paid_orders = []
+    for order in all_orders:
+        statuses = [order.product_payment_status]
+        if order.payment_stages == 4:
+            statuses.append(order.stage_2_status or 'none')
+        statuses.append(order.stage_3_status)
+        statuses.append(order.stage_4_status)
+
+        if all(s == 'approved' for s in statuses):
+            fully_paid_orders.append(order)
+        else:
+            orders.append(order)
 
     # Sprawdź czy którekolwiek zamówienie ma 4 etapy (dla warunkowego renderowania kolumny E4)
     any_order_has_4_stages = any(order.payment_stages == 4 for order in orders)
@@ -96,6 +111,7 @@ def payment_confirmations():
     return render_template(
         'client/payment_confirmations/list.html',
         orders=orders,
+        fully_paid_orders=fully_paid_orders,
         any_order_has_4_stages=any_order_has_4_stages,
         payment_methods=payment_methods,
         title='Potwierdzenia płatności'

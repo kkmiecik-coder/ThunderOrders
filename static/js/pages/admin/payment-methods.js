@@ -3,33 +3,6 @@
 // ============================================
 
 /**
- * Toggle visibility of payment method fields based on method type
- */
-function togglePaymentMethodFields(prefix) {
-    const methodType = document.getElementById(prefix + 'MethodType').value;
-    const recipientField = document.getElementById(prefix + '-field-recipient');
-    const codeField = document.getElementById(prefix + '-field-code');
-
-    if (methodType === 'transfer') {
-        // Przelew: pokaż odbiorcę i kod (SWIFT)
-        recipientField.style.display = 'block';
-        codeField.style.display = 'block';
-    } else if (methodType === 'instant') {
-        // BLIK: ukryj odbiorcę i kod
-        recipientField.style.display = 'none';
-        codeField.style.display = 'none';
-    } else if (methodType === 'online') {
-        // Online: ukryj odbiorcę, pokaż kod (Revolut)
-        recipientField.style.display = 'none';
-        codeField.style.display = 'block';
-    } else {
-        // Other: pokaż wszystko
-        recipientField.style.display = 'block';
-        codeField.style.display = 'block';
-    }
-}
-
-/**
  * Podgląd wybranego logo
  */
 function previewLogo(input, prefix, type) {
@@ -101,7 +74,6 @@ function openCreatePaymentMethodModal() {
         document.getElementById('createPaymentMethodForm').reset();
         resetLogoFields('create');
         modal.classList.add('active');
-        togglePaymentMethodFields('create');
         document.getElementById('createName').focus();
     }
 }
@@ -127,10 +99,11 @@ function openEditPaymentMethodModal(methodData) {
     if (modal && form) {
         form.action = '/admin/orders/payment-methods/' + methodData.id + '/edit';
         document.getElementById('editName').value = methodData.name || '';
-        document.getElementById('editMethodType').value = methodData.method_type || 'other';
         document.getElementById('editRecipient').value = methodData.recipient || '';
         document.getElementById('editAccountNumber').value = methodData.account_number || '';
+        document.getElementById('editAccountNumberLabel').value = methodData.account_number_label || '';
         document.getElementById('editCode').value = methodData.code || '';
+        document.getElementById('editCodeLabel').value = methodData.code_label || '';
         document.getElementById('editTransferTitle').value = methodData.transfer_title || '';
         document.getElementById('editAdditionalInfo').value = methodData.additional_info || '';
         document.getElementById('editIsActive').checked = methodData.is_active;
@@ -158,7 +131,6 @@ function openEditPaymentMethodModal(methodData) {
             darkSelect.style.display = 'none';
         }
 
-        togglePaymentMethodFields('edit');
         modal.classList.add('active');
         document.getElementById('editName').focus();
     }
@@ -273,8 +245,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialize field toggle for create modal
-    togglePaymentMethodFields('create');
 });
 
 /**

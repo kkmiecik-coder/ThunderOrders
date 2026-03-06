@@ -110,15 +110,20 @@
                         </div>
                     </td>
 
-                    <!-- Zamówienia -->
+                    <!-- Zamówienia (deduplikacja po order_id) -->
                     <td class="col-number">
+                        {% set seen_orders = [] %}
                         {% for item in items %}
-                        <div class="pc-order-line">
-                            <a href="{{ url_for('orders.admin_detail', order_id=item.order.id) }}" class="order-number-link">
-                                {{ item.order.order_number }}
-                            </a>
-                            <span class="pc-order-amount">{{ "%.2f"|format(item.amount) }} PLN</span>
-                        </div>
+                            {% if item.order.id not in seen_orders %}
+                                {% set _ = seen_orders.append(item.order.id) %}
+                                {% set order_total = items|selectattr('order.id', 'equalto', item.order.id)|map(attribute='amount')|sum %}
+                                <div class="pc-order-line">
+                                    <a href="{{ url_for('orders.admin_detail', order_id=item.order.id) }}" class="order-number-link">
+                                        {{ item.order.order_number }}
+                                    </a>
+                                    <span class="pc-order-amount">{{ "%.2f"|format(order_total) }} PLN</span>
+                                </div>
+                            {% endif %}
                         {% endfor %}
                     </td>
 
@@ -138,7 +143,13 @@
 
                     <!-- Etap (ukryty na mobile) -->
                     <td class="col-stage hide-mobile">
-                        <span class="pc-stage-badge">{{ first.stage_display_name }}</span>
+                        {% set seen_stages = [] %}
+                        {% for item in items %}
+                            {% if item.payment_stage not in seen_stages %}
+                                {% set _ = seen_stages.append(item.payment_stage) %}
+                                <span class="pc-stage-badge">{{ item.stage_display_name }}</span>
+                            {% endif %}
+                        {% endfor %}
                     </td>
 
                     <!-- Kwota -->

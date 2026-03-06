@@ -436,6 +436,10 @@ def close_exclusive_page(page_id, user_id, send_emails=True):
         raise ValueError("Strona została już całkowicie zamknięta")
 
     try:
+        # Zachowaj stare total_amount przed alokacją (do logowania)
+        orders = Order.query.filter_by(exclusive_page_id=page_id).all()
+        old_totals = {order.id: float(order.total_amount) if order.total_amount else 0 for order in orders}
+
         # 1. Wykonaj algorytm alokacji (ZMODYFIKOWANY - zeruje ceny, splituje partial)
         allocation_result = calculate_set_fulfillment(page_id)
 
@@ -446,6 +450,33 @@ def close_exclusive_page(page_id, user_id, send_emails=True):
         orders = Order.query.filter_by(exclusive_page_id=page_id).all()
         for order in orders:
             order.recalculate_total_amount()
+
+        # 3b. Log fulfillment per order (inline, przed commit)
+        import json as _json
+        from modules.admin.models import ActivityLog
+        for order in orders:
+            fulfilled_items = [item for item in order.items if item.is_set_fulfilled is not False]
+            unfulfilled_items = [item for item in order.items if item.is_set_fulfilled is False]
+            total_items = len(order.items)
+            fulfilled_count = len(fulfilled_items)
+            new_total = float(order.total_amount) if order.total_amount else 0
+            old_total = old_totals.get(order.id, 0)
+
+            db.session.add(ActivityLog(
+                user_id=user_id,
+                action='exclusive_closure_fulfillment',
+                entity_type='order',
+                entity_id=order.id,
+                old_value=_json.dumps({'total_amount': old_total}),
+                new_value=_json.dumps({
+                    'total_items': total_items,
+                    'fulfilled_items': fulfilled_count,
+                    'unfulfilled_items': len(unfulfilled_items),
+                    'old_total_amount': old_total,
+                    'new_total_amount': new_total,
+                    'exclusive_page_name': page.name,
+                }),
+            ))
 
         # 4. Ustaw flagę zamknięcia
         page.is_fully_closed = True
@@ -531,25 +562,81 @@ def get_page_summary(page_id, include_financials=True):
             if item.is_set_fulfilled is not False:
                 total_revenue += float(item.total) if item.total else 0
 
-    # Zbierz informacje o setach
+    # Zbierz informacje o setach (z macierzą slotów jak w live)
     sets_info = []
     set_sections = page.sections.filter_by(section_type='set').all()
 
     for section in set_sections:
         set_items = section.get_set_items_ordered()
+        max_sets = section.set_max_sets or 0
         products_in_set = []
+
+        # Collect all product IDs in this set section
+        all_set_product_ids = []
+        for item in set_items:
+            for product in item.get_products():
+                all_set_product_ids.append(product.id)
+
+        # Query slot data: customer names + fulfillment status per product per set_number
+        # Uses set_number (assigned during order placement) to accurately map slots,
+        # because after closure unfulfilled items have quantity=0
+        slot_data_map = {}  # {product_id: {set_number: {'customer': str, 'fulfilled': bool}}}
+        if all_set_product_ids:
+            slot_rows = db.session.query(
+                OrderItem.product_id,
+                OrderItem.set_number,
+                OrderItem.is_set_fulfilled,
+                User.first_name,
+                User.last_name,
+                User.email
+            ).join(Order, OrderItem.order_id == Order.id
+            ).join(User, Order.user_id == User.id
+            ).filter(
+                Order.exclusive_page_id == page_id,
+                Order.status != 'anulowane',
+                OrderItem.product_id.in_(all_set_product_ids),
+                OrderItem.set_number.isnot(None)
+            ).all()
+
+            for pid, set_num, is_fulfilled, fname, lname, email in slot_rows:
+                name = f'{fname} {lname}'.strip() if (fname or lname) else email
+                if pid not in slot_data_map:
+                    slot_data_map[pid] = {}
+                slot_data_map[pid][set_num] = {
+                    'customer': name,
+                    'fulfilled': is_fulfilled is True,
+                }
 
         for item in set_items:
             for product in item.get_products():
-                # Znajdź wszystkie OrderItem dla tego produktu w tej sekcji
-                order_items = OrderItem.query.filter_by(
-                    product_id=product.id,
-                    set_section_id=section.id
-                ).all()
+                # Build slots from set_number data (not from quantity which is zeroed for unfulfilled)
+                product_slots = slot_data_map.get(product.id, {})
+                slots = []
+                total_ordered = 0
+                fulfilled = 0
+                unfulfilled = 0
 
-                total_ordered = sum(oi.quantity for oi in order_items)
-                fulfilled = sum(oi.quantity for oi in order_items if oi.is_set_fulfilled)
-                unfulfilled = sum(oi.quantity for oi in order_items if oi.is_set_fulfilled is False)
+                if max_sets > 0:
+                    for i in range(max_sets):
+                        set_num = i + 1  # 1-based
+                        sd = product_slots.get(set_num)
+                        if sd:
+                            total_ordered += 1
+                            if sd['fulfilled']:
+                                fulfilled += 1
+                            else:
+                                unfulfilled += 1
+                            slots.append({
+                                'filled': True,
+                                'fulfilled': sd['fulfilled'],
+                                'customer': sd['customer'],
+                            })
+                        else:
+                            slots.append({
+                                'filled': False,
+                                'fulfilled': None,
+                                'customer': None,
+                            })
 
                 products_in_set.append({
                     'product_id': product.id,
@@ -558,26 +645,62 @@ def get_page_summary(page_id, include_financials=True):
                     'total_ordered': total_ordered,
                     'fulfilled': fulfilled,
                     'unfulfilled': unfulfilled,
+                    'reserved': 0,  # Strona zamknięta, brak rezerwacji
+                    'slots': slots,
+                    'is_full_set': False,
                 })
 
-        # Oblicz complete sets na podstawie fulfilled items
-        if products_in_set:
-            complete_sets = min(
-                p['fulfilled'] // p['quantity_per_set']
-                for p in products_in_set
-                if p['quantity_per_set'] > 0
-            ) if any(p['quantity_per_set'] > 0 for p in products_in_set) else 0
-        else:
-            complete_sets = 0
+        # Full set product (set_product_id) — dodatkowy wiersz
+        full_set_sold = 0
+        if section.set_product_id and section.set_product:
+            full_set_qty = db.session.query(
+                db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+            ).filter(
+                OrderItem.product_id == section.set_product_id,
+                OrderItem.order_id.in_(
+                    db.session.query(Order.id).filter_by(exclusive_page_id=page_id)
+                )
+            ).scalar()
+            full_set_qty = int(full_set_qty)
+            full_set_sold = full_set_qty
 
-        total_set_ordered = sum(p['total_ordered'] for p in products_in_set)
-        total_set_fulfilled = sum(p['fulfilled'] for p in products_in_set)
+            products_in_set.append({
+                'product_id': section.set_product_id,
+                'product_name': section.set_product.name,
+                'quantity_per_set': 1,
+                'total_ordered': full_set_qty,
+                'fulfilled': full_set_qty,
+                'unfulfilled': 0,
+                'reserved': 0,
+                'slots': [{'filled': full_set_qty > 0, 'customer': None}],
+                'is_full_set': True,
+            })
+
+        # Oblicz kompletne sety (minimum ordered per produkt / qty_per_set)
+        non_full_set = [p for p in products_in_set if not p['is_full_set']]
+        if non_full_set:
+            ordered_sets = min(
+                p['total_ordered'] // p['quantity_per_set']
+                for p in non_full_set
+                if p['quantity_per_set'] > 0
+            ) if any(p['quantity_per_set'] > 0 for p in non_full_set) else 0
+        else:
+            ordered_sets = 0
+
+        total_sets_sold = ordered_sets + full_set_sold
+
+        total_set_ordered = sum(p['total_ordered'] for p in products_in_set if not p['is_full_set'])
+        total_set_fulfilled = sum(p['fulfilled'] for p in products_in_set if not p['is_full_set'])
 
         sets_info.append({
             'section_id': section.id,
             'set_name': section.set_name or 'Bez nazwy',
             'set_image': section.set_image,
-            'complete_sets': complete_sets,
+            'set_max_sets': max_sets,
+            'ordered_sets': ordered_sets,
+            'full_set_sold': full_set_sold,
+            'total_sets_sold': total_sets_sold,
+            'complete_sets': ordered_sets,
             'products': products_in_set,
             'fulfillment_pct': round((total_set_fulfilled / total_set_ordered) * 100, 1) if total_set_ordered > 0 else 0,
             'total_ordered': total_set_ordered,
@@ -722,7 +845,6 @@ def get_page_summary(page_id, include_financials=True):
         'orders_by_date': orders_by_date_list,
         'order_timestamps': order_timestamps,
         'products_aggregated': products_aggregated,
-        'top_products': products_aggregated[:5],
     }
 
     if include_financials:
@@ -1108,10 +1230,11 @@ def send_closure_emails(page_id):
 
             payment_methods.append({
                 'name': method.name,
-                'method_type': method.method_type,
                 'recipient': method.recipient,
                 'account_number': method.account_number,
+                'account_number_label': method.account_number_label,
                 'code': method.code,
+                'code_label': method.code_label,
                 'transfer_title': title,
                 'additional_info': additional
             })

@@ -940,13 +940,145 @@
 .migration-warning .warning-instruction,
 .checkbox-label,
 .page-title,
-.page-description {
+.page-description,
+.section-description,
+.selected-status-badge,
+.no-statuses-message,
+.add-status-dropdown select,
+.settings-card .form-control {
     transition: background 0.5s ease,
                 background-color 0.5s ease,
                 color 0.5s ease,
                 border-color 0.5s ease,
                 box-shadow 0.5s ease,
                 backdrop-filter 0.5s ease;
+}
+
+/* ==================== */
+/* Section Description  */
+/* ==================== */
+.section-description {
+    font-size: var(--text-base);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-5);
+    line-height: 1.6;
+}
+
+.section-description strong {
+    color: var(--text-primary);
+    font-weight: var(--font-semibold);
+}
+
+/* ==================== */
+/* Form Actions         */
+/* ==================== */
+.form-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+}
+
+/* ==================== */
+/* Selected Statuses    */
+/* ==================== */
+.selected-statuses-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+    min-height: 36px;
+    align-items: center;
+}
+
+.selected-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: white;
+}
+
+.remove-status-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    padding: 0;
+    transition: background var(--transition-fast);
+    color: white;
+}
+
+.remove-status-btn:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.no-statuses-message {
+    font-size: var(--text-sm);
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+/* ==================== */
+/* Add Status Dropdown  */
+/* ==================== */
+.add-status-dropdown {
+    margin-bottom: var(--space-2);
+}
+
+.add-status-dropdown select {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    background: var(--card-bg);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+}
+
+.add-status-dropdown select:hover {
+    border-color: var(--purple-300);
+}
+
+.add-status-dropdown select:focus {
+    outline: none;
+    border-color: var(--purple-300);
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+}
+
+/* ==================== */
+/* Settings Card Spacing*/
+/* ==================== */
+.settings-card + .settings-card {
+    margin-top: var(--space-6);
+}
+
+/* ==================== */
+/* Form Control Select  */
+/* ==================== */
+.settings-card .form-control {
+    padding: var(--space-3);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    transition: border-color var(--transition-fast);
+}
+
+.settings-card .form-control:focus {
+    outline: none;
+    border-color: var(--purple-300);
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
 }
 
 /* ==================== */
@@ -958,7 +1090,7 @@
 
 .payment-method-list-header {
     display: grid;
-    grid-template-columns: 1.5fr 0.8fr 1.5fr 0.6fr 1fr;
+    grid-template-columns: 1.5fr 1.5fr 0.6fr 1fr;
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: var(--bg-secondary);
@@ -971,7 +1103,7 @@
 
 .payment-method-list-item {
     display: grid;
-    grid-template-columns: 1.5fr 0.8fr 1.5fr 0.6fr 1fr;
+    grid-template-columns: 1.5fr 1.5fr 0.6fr 1fr;
     gap: var(--space-4);
     align-items: center;
     padding: var(--space-4);
@@ -1013,10 +1145,6 @@
 .payment-method-col-name strong {
     color: var(--text-primary);
     font-weight: var(--font-semibold);
-}
-
-.payment-method-col-type {
-    font-size: var(--text-sm);
 }
 
 .payment-method-col-account code {
@@ -1431,9 +1559,73 @@
     background: rgba(240, 147, 251, 0.5);
 }
 
-/* Form actions dark mode */
+/* Section Description */
+[data-theme="dark"] .section-description {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .section-description strong {
+    color: #ffffff;
+}
+
+/* Form Actions */
 [data-theme="dark"] .form-actions {
     border-top-color: rgba(240, 147, 251, 0.15) !important;
+}
+
+/* Selected Statuses */
+[data-theme="dark"] .selected-status-badge {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .remove-status-btn {
+    background: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .remove-status-btn:hover {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .no-statuses-message {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Add Status Dropdown */
+[data-theme="dark"] .add-status-dropdown select {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .add-status-dropdown select:hover {
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .add-status-dropdown select:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .add-status-dropdown select option {
+    background: #1e1e1e;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Form Control in Settings Card */
+[data-theme="dark"] .settings-card .form-control {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .settings-card .form-control:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .settings-card .form-control option {
+    background: #1e1e1e;
+    color: rgba(255, 255, 255, 0.8);
 }
 
 /* ==================== */
@@ -1527,4 +1719,311 @@
     color: #f093fb;
 }
 
+/* ==========================================
+   EMAIL NOTIFICATIONS TAB
+   ========================================== */
+
+/* Admin Email Section */
+.admin-email-section {
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-6);
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.admin-email-section h4 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-2);
+}
+
+.admin-email-section .section-hint {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0 0 var(--space-4);
+    line-height: 1.5;
+}
+
+/* Admin Recipients List */
+.admin-recipients-list {
+    margin-bottom: var(--space-4);
+}
+
+.admin-recipient-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-2);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.admin-recipient-item:last-child {
+    border-bottom: none;
+}
+
+.admin-recipient-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.admin-recipient-name {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-primary);
+}
+
+.admin-recipient-email {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+}
+
+/* Extra Emails */
+.extra-emails-section {
+    margin-top: var(--space-4);
+}
+
+.extra-emails-label {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-primary);
+    margin-bottom: var(--space-2);
+}
+
+.admin-email-input {
+    width: 100%;
+    padding: var(--space-3);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-family: inherit;
+    transition: border-color var(--transition-fast);
+}
+
+.admin-email-input:focus {
+    outline: none;
+    border-color: var(--purple-300);
+    box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.1);
+}
+
+/* Notification Categories */
+.email-notif-category {
+    margin-bottom: var(--space-5);
+}
+
+.email-notif-category:last-child {
+    margin-bottom: 0;
+}
+
+.email-notif-category-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) 0;
+    margin-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-primary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.email-notif-category-header svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.email-notif-items {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.email-notif-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-2);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background var(--transition-fast);
+}
+
+.email-notif-item:last-child {
+    border-bottom: none;
+}
+
+.email-notif-item:hover {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+}
+
+.email-notif-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.email-notif-name {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.email-notif-desc {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+}
+
+/* Toggle Switch (copied from profile.css for this page) */
+.email-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+    cursor: pointer;
+    margin-left: var(--space-4);
+}
+
+.email-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.email-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.email-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.email-toggle-switch input:checked + .email-toggle-slider {
+    background-color: var(--orange-300);
+}
+
+.email-toggle-switch input:checked + .email-toggle-slider:before {
+    transform: translateX(20px);
+}
+
+.email-toggle-switch input:focus + .email-toggle-slider {
+    box-shadow: 0 0 0 2px rgba(255, 133, 0, 0.2);
+}
+
+/* Dark mode — Email Notifications */
+[data-theme="dark"] .admin-email-section {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .admin-email-section h4 {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .admin-email-section .section-hint {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .admin-recipient-item {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .admin-recipient-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .admin-recipient-email {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .extra-emails-label {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .admin-email-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .admin-email-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .admin-email-input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .email-notif-category-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .email-notif-item {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .email-notif-item:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .email-notif-name {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .email-notif-desc {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .email-toggle-slider {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .email-toggle-switch input:checked + .email-toggle-slider {
+    background-color: #f093fb;
+}
+
+[data-theme="dark"] .email-toggle-switch input:focus + .email-toggle-slider {
+    box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.2);
+}
+
+/* Transitions for theme switching */
+.admin-email-section,
+.admin-email-section h4,
+.admin-email-section .section-hint,
+.admin-recipient-item,
+.admin-recipient-name,
+.admin-recipient-email,
+.extra-emails-label,
+.admin-email-input,
+.email-notif-category-header,
+.email-notif-item,
+.email-notif-name,
+.email-notif-desc,
+.email-toggle-slider {
+    transition: background 0.5s ease,
+                background-color 0.5s ease,
+                color 0.5s ease,
+                border-color 0.5s ease,
+                box-shadow 0.5s ease;
+}
 

@@ -14,6 +14,7 @@ from sqlalchemy import and_, not_, exists
 from modules.orders.models import (
     Order, ShippingRequest, ShippingRequestOrder, ShippingRequestStatus
 )
+from utils.activity_logger import log_activity
 
 
 # ============================================
@@ -439,6 +440,20 @@ def shipping_requests_create():
                 order.delivery_method = delivery_method
 
         db.session.commit()
+
+        # Activity log per order
+        for order in orders:
+            log_activity(
+                user=current_user,
+                action='shipping_requested',
+                entity_type='order',
+                entity_id=order.id,
+                new_value={
+                    'request_number': shipping_request.request_number,
+                    'order_number': order.order_number,
+                    'address_type': address.address_type,
+                }
+            )
 
         # Wyślij email potwierdzający zlecenie wysyłki + push do adminów
         try:

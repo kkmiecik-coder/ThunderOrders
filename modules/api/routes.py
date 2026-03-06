@@ -564,7 +564,7 @@ def global_search():
                     prod_results.append({
                         'title': p.name,
                         'subtitle': ' | '.join(subtitle_parts),
-                        'url': url_for('products.edit_product', product_id=p.id)
+                        'url': url_for('products.list_products', search=p.name)
                     })
                 results['products'] = prod_results
 

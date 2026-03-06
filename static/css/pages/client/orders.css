@@ -941,33 +941,33 @@
 }
 
 .status-icon-active {
-    background: #4CAF50;
-    color: #fff;
+    background: rgba(76, 175, 80, 0.15);
+    color: #1B5E20;
 }
 
 .status-icon-warning {
-    background: #FFC107;
-    color: #fff;
+    background: rgba(255, 193, 7, 0.18);
+    color: #F57F17;
 }
 
 .status-icon-danger {
-    background: #F44336;
-    color: #fff;
+    background: rgba(244, 67, 54, 0.15);
+    color: #B71C1C;
 }
 
 .status-icon-info {
-    background: #2196F3;
-    color: #fff;
+    background: rgba(33, 150, 243, 0.15);
+    color: #1565C0;
 }
 
 .status-icon-pending {
-    background: #42A5F5;
-    color: #fff;
+    background: rgba(103, 58, 183, 0.12);
+    color: #4527A0;
 }
 
 .status-icon-inactive {
-    background: #E0E0E0;
-    color: #9E9E9E;
+    background: rgba(158, 158, 158, 0.15);
+    color: #757575;
 }
 
 .delivery-method {
@@ -992,21 +992,34 @@
 }
 
 /* Dark mode status icons */
-[data-theme="dark"] .status-icon-inactive {
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.4);
+[data-theme="dark"] .status-icon-active {
+    background: rgba(52, 211, 153, 0.25);
+    color: #6ee7b7;
 }
 
 [data-theme="dark"] .status-icon-warning {
-    background: #FFB300;
+    background: rgba(251, 191, 36, 0.25);
+    color: #fde68a;
 }
 
 [data-theme="dark"] .status-icon-danger {
-    background: #EF5350;
+    background: rgba(248, 113, 113, 0.25);
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .status-icon-info {
+    background: rgba(96, 165, 250, 0.25);
+    color: #93c5fd;
 }
 
 [data-theme="dark"] .status-icon-pending {
-    background: #64B5F6;
+    background: rgba(179, 136, 255, 0.2);
+    color: #ce93d8;
+}
+
+[data-theme="dark"] .status-icon-inactive {
+    background: rgba(156, 163, 175, 0.25);
+    color: rgba(255, 255, 255, 0.55);
 }
 
 [data-theme="dark"] .status-icon-link:hover {

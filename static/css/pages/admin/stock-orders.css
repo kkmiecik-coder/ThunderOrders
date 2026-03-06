@@ -2041,43 +2041,81 @@
     vertical-align: top;
 }
 
-.poland-products-inner-table {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+/* Poland Inner Products - Grid Layout */
+.poland-inner-grid {
+    display: flex;
+    flex-direction: column;
     font-size: 12px;
 }
 
-.poland-products-inner-table thead th {
+.poland-inner-header,
+.poland-inner-row,
+.poland-inner-totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 0;
+    min-width: 0;
+}
+
+.poland-inner-header {
+    padding: 2px 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.poland-inner-header .poland-inner-col {
     padding: 2px 6px;
     font-size: 11px;
     font-weight: 600;
     color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-    border-bottom: 1px solid #e5e7eb;
-    border-right: none;
     white-space: nowrap;
 }
 
-.poland-products-inner-table tbody td {
-    padding: 4px 6px;
-    vertical-align: middle;
+.poland-inner-row {
     border-bottom: 1px solid #f3f4f6;
-    border-right: none;
+    align-items: center;
 }
 
-.poland-products-inner-table tbody tr:last-child td {
+.poland-inner-row:last-child {
     border-bottom: none;
 }
 
-.poland-inner-product-name {
-    max-width: 180px;
+.poland-inner-row .poland-inner-col {
+    padding: 4px 6px;
+    min-width: 0;
 }
 
-.poland-inner-product-name .product-item-compact {
+.poland-inner-col.text-right {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.poland-inner-col-name {
+    overflow: hidden;
+}
+
+.poland-inner-col-name .product-item-compact {
     margin: 0;
     padding: 0;
+}
+
+.poland-inner-col-name .product-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: block;
+}
+
+.poland-inner-totals {
+    border-top: 2px solid #e5e7eb;
+}
+
+.poland-inner-totals .poland-inner-col {
+    padding: 4px 6px;
+    font-weight: 600;
+    font-size: 12px;
+    color: #1f2937;
 }
 
 .btn-edit-customs-vat {
@@ -2100,16 +2138,25 @@
     color: #4338ca;
 }
 
-/* Dark mode - Inner Products Table */
-[data-theme="dark"] .poland-products-inner-table thead th {
-    color: rgba(255, 255, 255, 0.5);
+/* Dark mode - Inner Products Grid */
+[data-theme="dark"] .poland-inner-header {
     border-bottom-color: rgba(255, 255, 255, 0.1);
-    border-right: none;
 }
 
-[data-theme="dark"] .poland-products-inner-table tbody td {
+[data-theme="dark"] .poland-inner-header .poland-inner-col {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .poland-inner-row {
     border-bottom-color: rgba(255, 255, 255, 0.05);
-    border-right: none;
+}
+
+[data-theme="dark"] .poland-inner-totals {
+    border-top-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .poland-inner-totals .poland-inner-col {
+    color: #ffffff;
 }
 
 [data-theme="dark"] .btn-edit-customs-vat {

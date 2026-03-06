@@ -39,11 +39,83 @@ REJESTR EMAILI:
         - notify_admin_new_order(order) -> nowe zamówienie exclusive
 """
 
+import time
+
 from flask import current_app, url_for
 
 
 class EmailManager:
     """Centralny dispatcher emailowy dla ThunderOrders."""
+
+    # Cache for email notification config (shared across requests within a worker)
+    _email_config_cache = None
+    _email_config_cache_time = 0
+    _EMAIL_CONFIG_CACHE_TTL = 60  # seconds
+
+    @classmethod
+    def clear_email_config_cache(cls):
+        """Clear the email config cache (call after saving settings)."""
+        cls._email_config_cache = None
+        cls._email_config_cache_time = 0
+
+    @classmethod
+    def is_email_enabled(cls, notification_key):
+        """
+        Check if a specific email notification is enabled.
+        Uses cached config with TTL to avoid DB queries on every email.
+        Returns True by default if no config exists.
+        """
+        now = time.time()
+        if cls._email_config_cache is None or (now - cls._email_config_cache_time) > cls._EMAIL_CONFIG_CACHE_TTL:
+            try:
+                from modules.auth.models import Settings
+                cls._email_config_cache = Settings.get_value('email_notifications_config', {})
+                cls._email_config_cache_time = now
+            except Exception:
+                return True
+
+        if not cls._email_config_cache or not isinstance(cls._email_config_cache, dict):
+            return True
+
+        return cls._email_config_cache.get(notification_key, True)
+
+    @classmethod
+    def get_admin_notification_emails(cls):
+        """
+        Get list of admin notification email addresses from settings.
+        Uses admin_notification_recipients config:
+        - disabled_admin_ids: list of admin user IDs to exclude
+        - extra_emails: comma-separated extra email addresses
+        Falls back to all admins from DB if not configured.
+        Returns list of email strings.
+        """
+        from modules.auth.models import User
+
+        # Load recipients config
+        recipients_config = {}
+        try:
+            from modules.auth.models import Settings
+            recipients_config = Settings.get_value('admin_notification_recipients', {})
+            if not isinstance(recipients_config, dict):
+                recipients_config = {}
+        except Exception:
+            pass
+
+        disabled_ids = set(recipients_config.get('disabled_admin_ids', []))
+        extra_emails_str = recipients_config.get('extra_emails', '')
+
+        # Get enabled admins (all admins minus disabled ones)
+        admins = User.query.filter_by(role='admin', is_active=True).all()
+        emails = [a.email for a in admins if a.email and a.id not in disabled_ids]
+
+        # Add extra emails
+        if extra_emails_str and extra_emails_str.strip():
+            for e in extra_emails_str.split(','):
+                e = e.strip()
+                if e and e not in emails:
+                    emails.append(e)
+
+        return emails
 
     # ========================================
     # AUTH EMAILS
@@ -142,6 +214,10 @@ class EmailManager:
         Args:
             order: obiekt Order
         """
+        if not EmailManager.is_email_enabled('notify_order_confirmation'):
+            current_app.logger.info("Email notification 'notify_order_confirmation' is disabled, skipping")
+            return
+
         from utils.email_sender import send_order_confirmation_email
 
         email = order.customer_email
@@ -180,6 +256,10 @@ class EmailManager:
         Args:
             order: obiekt Order (musi mieć ustawione packing_photo)
         """
+        if not EmailManager.is_email_enabled('notify_packing_photo'):
+            current_app.logger.info("Email notification 'notify_packing_photo' is disabled, skipping")
+            return
+
         from utils.email_sender import send_packing_photo_email
 
         email = order.customer_email
@@ -222,6 +302,10 @@ class EmailManager:
             old_status (str): poprzedni status (display name)
             new_status (str): nowy status (display name)
         """
+        if not EmailManager.is_email_enabled('notify_status_change'):
+            current_app.logger.info("Email notification 'notify_status_change' is disabled, skipping")
+            return
+
         email = order.customer_email
         if not email:
             return
@@ -261,6 +345,10 @@ class EmailManager:
         Args:
             order: obiekt Order (ze statusem 'dostarczone')
         """
+        if not EmailManager.is_email_enabled('notify_order_completed'):
+            current_app.logger.info("Email notification 'notify_order_completed' is disabled, skipping")
+            return
+
         from utils.email_sender import send_order_completed_email
 
         email = order.customer_email
@@ -317,6 +405,10 @@ class EmailManager:
             courier_name (str): display name kuriera (np. 'InPost')
             tracking_url (str): URL do śledzenia (opcjonalny, generowany jeśli brak)
         """
+        if not EmailManager.is_email_enabled('notify_tracking_added'):
+            current_app.logger.info("Email notification 'notify_tracking_added' is disabled, skipping")
+            return
+
         from utils.email_sender import send_tracking_number_email
 
         email = order.customer_email
@@ -363,6 +455,10 @@ class EmailManager:
             grand_total (float): suma całkowita
             payment_methods (list): lista metod płatności
         """
+        if not EmailManager.is_email_enabled('notify_exclusive_closure'):
+            current_app.logger.info("Email notification 'notify_exclusive_closure' is disabled, skipping")
+            return
+
         from utils.email_sender import send_exclusive_closure_email
 
         email = order.customer_email
@@ -404,6 +500,10 @@ class EmailManager:
             cancelled_items (list): lista dict z name, quantity, image_url
             reason (str): powód anulowania
         """
+        if not EmailManager.is_email_enabled('notify_order_cancelled'):
+            current_app.logger.info("Email notification 'notify_order_cancelled' is disabled, skipping")
+            return
+
         from utils.email_sender import send_order_cancelled_email
 
         email = order.customer_email
@@ -440,6 +540,10 @@ class EmailManager:
         Returns:
             bool: True jeśli wysłano
         """
+        if not EmailManager.is_email_enabled('notify_back_in_stock'):
+            current_app.logger.info("Email notification 'notify_back_in_stock' is disabled, skipping")
+            return False
+
         from utils.email_sender import send_back_in_stock_email
 
         if not email:
@@ -469,6 +573,10 @@ class EmailManager:
             page: obiekt ExclusivePage
             clients: lista obiektów User z rolą 'client'
         """
+        if not EmailManager.is_email_enabled('notify_new_exclusive_page'):
+            current_app.logger.info("Email notification 'notify_new_exclusive_page' is disabled, skipping")
+            return 0
+
         from utils.email_sender import send_new_exclusive_page_email
 
         page_url = url_for('exclusive.order_page', token=page.token, _external=True)
@@ -508,6 +616,10 @@ class EmailManager:
             shipping_request: obiekt ShippingRequest
             user: obiekt User (zalogowany klient)
         """
+        if not EmailManager.is_email_enabled('notify_shipping_request_created'):
+            current_app.logger.info("Email notification 'notify_shipping_request_created' is disabled, skipping")
+            return
+
         from utils.email_sender import send_shipping_request_created_email
 
         email = user.email
@@ -568,6 +680,10 @@ class EmailManager:
             shipping_request: obiekt ShippingRequest
             old_status_slug: poprzedni status (slug)
         """
+        if not EmailManager.is_email_enabled('notify_shipping_status_change'):
+            current_app.logger.info("Email notification 'notify_shipping_status_change' is disabled, skipping")
+            return
+
         from utils.email_sender import send_shipping_status_change_email
         from modules.orders.models import ShippingRequestStatus
 
@@ -630,6 +746,10 @@ class EmailManager:
             cost_type (str): 'proxy_shipping', 'customs_vat' lub 'domestic_shipping'
             cost_amount (float): kwota kosztu
         """
+        if not EmailManager.is_email_enabled('notify_cost_added'):
+            current_app.logger.info("Email notification 'notify_cost_added' is disabled, skipping")
+            return
+
         from utils.email_sender import send_cost_added_email
 
         email = order.customer_email
@@ -667,22 +787,25 @@ class EmailManager:
             order: obiekt Order
             stage_names (str): nazwy etapów (np. 'Płatność za produkt, Cło i VAT')
         """
-        from utils.email_sender import send_admin_payment_uploaded_email
-        from modules.auth.models import User
+        if not EmailManager.is_email_enabled('notify_admin_payment_uploaded'):
+            current_app.logger.info("Email notification 'notify_admin_payment_uploaded' is disabled, skipping")
+            return
 
-        admins = User.query.filter_by(role='admin').all()
-        if not admins:
-            current_app.logger.warning("No admins found to notify about payment upload")
+        from utils.email_sender import send_admin_payment_uploaded_email
+
+        admin_emails = EmailManager.get_admin_notification_emails()
+        if not admin_emails:
+            current_app.logger.warning("No admin emails found to notify about payment upload")
             return
 
         review_url = url_for('admin.payment_confirmations_list', _external=True)
 
-        for admin in admins:
-            if not admin.email:
+        for email in admin_emails:
+            if not email:
                 continue
             try:
                 send_admin_payment_uploaded_email(
-                    admin_email=admin.email,
+                    admin_email=email,
                     customer_name=order.customer_name,
                     customer_email=order.customer_email,
                     order_number=order.order_number,
@@ -691,11 +814,11 @@ class EmailManager:
                 )
             except Exception as e:
                 current_app.logger.error(
-                    f"Failed to send admin payment notification to {admin.email}: {e}"
+                    f"Failed to send admin payment notification to {email}: {e}"
                 )
 
         current_app.logger.info(
-            f"Admin payment upload notifications sent for {order.order_number} ({len(admins)} admins)"
+            f"Admin payment upload notifications sent for {order.order_number} ({len(admin_emails)} recipients)"
         )
 
     @staticmethod
@@ -706,12 +829,15 @@ class EmailManager:
         Args:
             order: obiekt Order
         """
-        from utils.email_sender import send_admin_new_order_email
-        from modules.auth.models import User
+        if not EmailManager.is_email_enabled('notify_admin_new_order'):
+            current_app.logger.info("Email notification 'notify_admin_new_order' is disabled, skipping")
+            return
 
-        admins = User.query.filter_by(role='admin').all()
-        if not admins:
-            current_app.logger.warning("No admins found to notify about new order")
+        from utils.email_sender import send_admin_new_order_email
+
+        admin_emails = EmailManager.get_admin_notification_emails()
+        if not admin_emails:
+            current_app.logger.warning("No admin emails found to notify about new order")
             return
 
         order_detail_url = url_for('orders.admin_detail', order_id=order.id, _external=True)
@@ -727,12 +853,12 @@ class EmailManager:
         created_at = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else ''
         order_total = float(order.total_amount or 0)
 
-        for admin in admins:
-            if not admin.email:
+        for email in admin_emails:
+            if not email:
                 continue
             try:
                 send_admin_new_order_email(
-                    admin_email=admin.email,
+                    admin_email=email,
                     customer_name=order.customer_name,
                     customer_email=order.customer_email,
                     order_number=order.order_number,
@@ -744,11 +870,11 @@ class EmailManager:
                 )
             except Exception as e:
                 current_app.logger.error(
-                    f"Failed to send admin new order notification to {admin.email}: {e}"
+                    f"Failed to send admin new order notification to {email}: {e}"
                 )
 
         current_app.logger.info(
-            f"Admin new order notifications sent for {order.order_number} ({len(admins)} admins)"
+            f"Admin new order notifications sent for {order.order_number} ({len(admin_emails)} recipients)"
         )
 
     # ========================================
@@ -767,6 +893,10 @@ class EmailManager:
         Returns:
             bool: True jeśli wysłano (były niezapłacone etapy), False w przeciwnym razie
         """
+        if not EmailManager.is_email_enabled('notify_payment_reminder'):
+            current_app.logger.info("Email notification 'notify_payment_reminder' is disabled, skipping")
+            return False
+
         from utils.email_sender import send_payment_reminder_email
 
         email = order.customer_email
@@ -853,6 +983,10 @@ class EmailManager:
             order: obiekt Order
             confirmation: obiekt PaymentConfirmation
         """
+        if not EmailManager.is_email_enabled('notify_payment_approved'):
+            current_app.logger.info("Email notification 'notify_payment_approved' is disabled, skipping")
+            return
+
         from utils.email_sender import send_payment_approved_email
 
         email = order.customer_email
@@ -889,6 +1023,10 @@ class EmailManager:
             confirmation: obiekt PaymentConfirmation
             rejection_reason (str): powód odrzucenia
         """
+        if not EmailManager.is_email_enabled('notify_payment_rejected'):
+            current_app.logger.info("Email notification 'notify_payment_rejected' is disabled, skipping")
+            return
+
         from utils.email_sender import send_payment_rejected_email
 
         email = order.customer_email

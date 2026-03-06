@@ -39,6 +39,13 @@
                 </svg>
                 <span class="tab-label">Zlecenia wysyłki</span>
             </button>
+            <button class="settings-tab" data-tab="email-notifications">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                </svg>
+                <span class="tab-label">Powiadomienia email</span>
+            </button>
         </div>
 
         <!-- Tab Content -->
@@ -181,7 +188,6 @@
                     <!-- Header row (static) -->
                     <div class="payment-method-list-header">
                         <div class="payment-method-col-name">Nazwa</div>
-                        <div class="payment-method-col-type">Typ</div>
                         <div class="payment-method-col-account">Konto/Tel/Email</div>
                         <div class="payment-method-col-status">Status</div>
                         <div class="payment-method-col-actions">Akcje</div>
@@ -200,17 +206,6 @@
                                             </svg>
                                         </div>
                                         <strong>{{ method.name }}</strong>
-                                    </div>
-                                    <div class="payment-method-col-type">
-                                        {% if method.method_type == 'transfer' %}
-                                            <span class="badge badge-info">Przelew</span>
-                                        {% elif method.method_type == 'instant' %}
-                                            <span class="badge badge-warning">Błyskawiczna</span>
-                                        {% elif method.method_type == 'online' %}
-                                            <span class="badge badge-success">Online</span>
-                                        {% else %}
-                                            <span class="badge badge-secondary">Inna</span>
-                                        {% endif %}
                                     </div>
                                     <div class="payment-method-col-account">
                                         <code>{{ method.account_number or '—' }}</code>
@@ -396,6 +391,275 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Tab: Powiadomienia email -->
+            <div class="tab-panel" id="tab-email-notifications">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Powiadomienia email</h3>
+                        <button type="button" class="btn btn-primary btn-sm" id="save-email-notif-btn">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M12.354 4.354a.5.5 0 00-.708-.708L5 10.293 2.354 7.646a.5.5 0 10-.708.708l3 3a.5.5 0 00.708 0l7-7z"/>
+                            </svg>
+                            Zapisz ustawienia
+                        </button>
+                    </div>
+
+                    <!-- Admin Recipients Section -->
+                    <div class="admin-email-section">
+                        <h4>Odbiorcy powiadomien admina</h4>
+                        <p class="section-hint">Wybierz, ktorzy administratorzy beda otrzymywac powiadomienia email (np. nowe zamowienie, nowa platnosc). Mozesz tez dodac dodatkowe adresy email.</p>
+
+                        <div class="admin-recipients-list">
+                            {% for admin in admin_users %}
+                            <div class="admin-recipient-item">
+                                <div class="admin-recipient-info">
+                                    <span class="admin-recipient-name">{{ admin.first_name or '' }} {{ admin.last_name or '' }}</span>
+                                    <span class="admin-recipient-email">{{ admin.email }}</span>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="admin-recipient-toggle" data-admin-id="{{ admin.id }}" {{ '' if admin.id in admin_notif_recipients.get('disabled_admin_ids', []) else 'checked' }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="extra-emails-section">
+                            <label class="extra-emails-label">Dodatkowe adresy email</label>
+                            <input
+                                type="text"
+                                id="admin-extra-emails"
+                                class="admin-email-input"
+                                placeholder="np. manager@example.com, accountant@example.com"
+                                value="{{ admin_notif_recipients.get('extra_emails', '') }}"
+                            >
+                            <span class="input-hint">Oddziel adresy przecinkami. Te adresy beda otrzymywac powiadomienia obok zaznaczonych administratorow.</span>
+                        </div>
+                    </div>
+
+                    <!-- Zamowienia -->
+                    <div class="email-notif-category">
+                        <div class="email-notif-category-header">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd"/></svg>
+                            Zamowienia
+                        </div>
+                        <div class="email-notif-items">
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Potwierdzenie zamowienia</div>
+                                    <div class="email-notif-desc">Email po zlozeniu zamowienia</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_order_confirmation" {{ 'checked' if email_notif_config.get('notify_order_confirmation', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Zmiana statusu</div>
+                                    <div class="email-notif-desc">Powiadomienie o zmianie statusu zamowienia</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_status_change" {{ 'checked' if email_notif_config.get('notify_status_change', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Zamowienie zakonczone</div>
+                                    <div class="email-notif-desc">Podsumowanie zakonczonego zamowienia</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_order_completed" {{ 'checked' if email_notif_config.get('notify_order_completed', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Numer sledzenia</div>
+                                    <div class="email-notif-desc">Email z numerem tracking</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_tracking_added" {{ 'checked' if email_notif_config.get('notify_tracking_added', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Zdjecie paczki</div>
+                                    <div class="email-notif-desc">Email ze zdjeciem spakowanej paczki</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_packing_photo" {{ 'checked' if email_notif_config.get('notify_packing_photo', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Anulowanie zamowienia</div>
+                                    <div class="email-notif-desc">Powiadomienie o anulowaniu zamowienia</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_order_cancelled" {{ 'checked' if email_notif_config.get('notify_order_cancelled', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Platnosci -->
+                    <div class="email-notif-category">
+                        <div class="email-notif-category-header">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+                            Platnosci
+                        </div>
+                        <div class="email-notif-items">
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Nowy koszt</div>
+                                    <div class="email-notif-desc">Dodanie kosztu (wysylka, clo)</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_cost_added" {{ 'checked' if email_notif_config.get('notify_cost_added', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Platnosc zaakceptowana</div>
+                                    <div class="email-notif-desc">Akceptacja platnosci przez admina</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_payment_approved" {{ 'checked' if email_notif_config.get('notify_payment_approved', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Platnosc odrzucona</div>
+                                    <div class="email-notif-desc">Odrzucenie platnosci przez admina</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_payment_rejected" {{ 'checked' if email_notif_config.get('notify_payment_rejected', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Przypomnienie o platnosci</div>
+                                    <div class="email-notif-desc">Auto-przypomnienie o niezaplaconych etapach</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_payment_reminder" {{ 'checked' if email_notif_config.get('notify_payment_reminder', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Wysylka -->
+                    <div class="email-notif-category">
+                        <div class="email-notif-category-header">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1v-1h3.05a2.5 2.5 0 014.9 0H19a1 1 0 001-1v-2a1 1 0 00-.293-.707l-3-3A1 1 0 0016 7h-5V5a1 1 0 00-1-1H3z"/></svg>
+                            Wysylka
+                        </div>
+                        <div class="email-notif-items">
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Zlecenie wysylki</div>
+                                    <div class="email-notif-desc">Potwierdzenie zlecenia wysylki</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_shipping_request_created" {{ 'checked' if email_notif_config.get('notify_shipping_request_created', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Status wysylki</div>
+                                    <div class="email-notif-desc">Zmiana statusu zlecenia wysylki</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_shipping_status_change" {{ 'checked' if email_notif_config.get('notify_shipping_status_change', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Exclusive -->
+                    <div class="email-notif-category">
+                        <div class="email-notif-category-header">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 2a1 1 0 011 1v1h1a1 1 0 010 2H6v1a1 1 0 01-2 0V6H3a1 1 0 010-2h1V3a1 1 0 011-1zm0 10a1 1 0 011 1v1h1a1 1 0 110 2H6v1a1 1 0 11-2 0v-1H3a1 1 0 110-2h1v-1a1 1 0 011-1zM12 2a1 1 0 01.967.744L14.146 7.2 17.5 9.134a1 1 0 010 1.732l-3.354 1.935-1.18 4.455a1 1 0 01-1.933 0L9.854 12.8 6.5 10.866a1 1 0 010-1.732l3.354-1.935 1.18-4.455A1 1 0 0112 2z" clip-rule="evenodd"/></svg>
+                            Exclusive
+                        </div>
+                        <div class="email-notif-items">
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Podsumowanie Exclusive</div>
+                                    <div class="email-notif-desc">Po zamknieciu strony Exclusive</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_exclusive_closure" {{ 'checked' if email_notif_config.get('notify_exclusive_closure', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Nowa strona Exclusive</div>
+                                    <div class="email-notif-desc">Powiadomienie o nowym dropie</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_new_exclusive_page" {{ 'checked' if email_notif_config.get('notify_new_exclusive_page', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Powrot produktu</div>
+                                    <div class="email-notif-desc">Produkt znow dostepny na stronie Exclusive</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_back_in_stock" {{ 'checked' if email_notif_config.get('notify_back_in_stock', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin -->
+                    <div class="email-notif-category">
+                        <div class="email-notif-category-header">
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-6-3a2 2 0 11-4 0 2 2 0 014 0zm-2 4a5 5 0 00-4.546 2.916A5.986 5.986 0 0010 16a5.986 5.986 0 004.546-2.084A5 5 0 0010 11z" clip-rule="evenodd"/></svg>
+                            Admin
+                        </div>
+                        <div class="email-notif-items">
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Nowe zamowienie (admin)</div>
+                                    <div class="email-notif-desc">Email do admina o nowym zamowieniu</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_admin_new_order" {{ 'checked' if email_notif_config.get('notify_admin_new_order', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Nowa platnosc (admin)</div>
+                                    <div class="email-notif-desc">Email o platnosci do weryfikacji</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_admin_payment_uploaded" {{ 'checked' if email_notif_config.get('notify_admin_payment_uploaded', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -591,26 +855,26 @@
                     <input type="text" id="createName" name="name" class="form-control" required placeholder="np. ING Bank, BLIK, PayPal">
                 </div>
                 <div class="form-group">
-                    <label for="createMethodType">Typ metody *</label>
-                    <select id="createMethodType" name="method_type" class="form-control" required onchange="togglePaymentMethodFields('create')">
-                        <option value="transfer">Przelew bankowy</option>
-                        <option value="instant">Płatność błyskawiczna (BLIK)</option>
-                        <option value="online">Płatność online (PayPal, Revolut)</option>
-                        <option value="other">Inna</option>
-                    </select>
-                </div>
-                <div class="form-group pm-field-recipient" id="create-field-recipient">
                     <label for="createRecipient">Odbiorca przelewu</label>
                     <input type="text" id="createRecipient" name="recipient" class="form-control" placeholder="Imię i nazwisko / nazwa firmy">
                 </div>
-                <div class="form-group pm-field-account" id="create-field-account">
-                    <label for="createAccountNumber">Numer konta / Telefon / Email *</label>
-                    <input type="text" id="createAccountNumber" name="account_number" class="form-control" placeholder="Nr konta, telefon lub email">
-                    <small class="input-hint">Numer konta (przelew), telefon (BLIK), email (PayPal/Revolut)</small>
+                <div class="form-group">
+                    <label for="createAccountNumber">Wartość pola (konto / telefon / email) *</label>
+                    <input type="text" id="createAccountNumber" name="account_number" class="form-control" required placeholder="Nr konta, telefon lub email">
                 </div>
-                <div class="form-group pm-field-code" id="create-field-code">
-                    <label for="createCode">Kod / SWIFT</label>
+                <div class="form-group">
+                    <label for="createAccountNumberLabel">Etykieta pola powyżej (widoczna dla klienta)</label>
+                    <input type="text" id="createAccountNumberLabel" name="account_number_label" class="form-control" placeholder="np. Numer konta, Numer telefonu, Email">
+                    <small class="input-hint">Domyślnie: „Numer konta"</small>
+                </div>
+                <div class="form-group">
+                    <label for="createCode">Wartość dodatkowego pola (kod / SWIFT)</label>
                     <input type="text" id="createCode" name="code" class="form-control" placeholder="Kod Revolut, SWIFT, BIC">
+                </div>
+                <div class="form-group">
+                    <label for="createCodeLabel">Etykieta pola powyżej (widoczna dla klienta)</label>
+                    <input type="text" id="createCodeLabel" name="code_label" class="form-control" placeholder="np. Kod SWIFT, RevTag">
+                    <small class="input-hint">Domyślnie: „Kod SWIFT"</small>
                 </div>
                 <div class="form-group">
                     <label for="createTransferTitle">Tytuł przelewu</label>
@@ -678,26 +942,26 @@
                     <input type="text" id="editName" name="name" class="form-control" required>
                 </div>
                 <div class="form-group">
-                    <label for="editMethodType">Typ metody *</label>
-                    <select id="editMethodType" name="method_type" class="form-control" required onchange="togglePaymentMethodFields('edit')">
-                        <option value="transfer">Przelew bankowy</option>
-                        <option value="instant">Płatność błyskawiczna (BLIK)</option>
-                        <option value="online">Płatność online (PayPal, Revolut)</option>
-                        <option value="other">Inna</option>
-                    </select>
-                </div>
-                <div class="form-group pm-field-recipient" id="edit-field-recipient">
                     <label for="editRecipient">Odbiorca przelewu</label>
                     <input type="text" id="editRecipient" name="recipient" class="form-control">
                 </div>
-                <div class="form-group pm-field-account" id="edit-field-account">
-                    <label for="editAccountNumber">Numer konta / Telefon / Email *</label>
-                    <input type="text" id="editAccountNumber" name="account_number" class="form-control">
-                    <small class="input-hint">Numer konta (przelew), telefon (BLIK), email (PayPal/Revolut)</small>
+                <div class="form-group">
+                    <label for="editAccountNumber">Wartość pola (konto / telefon / email) *</label>
+                    <input type="text" id="editAccountNumber" name="account_number" class="form-control" required>
                 </div>
-                <div class="form-group pm-field-code" id="edit-field-code">
-                    <label for="editCode">Kod / SWIFT</label>
+                <div class="form-group">
+                    <label for="editAccountNumberLabel">Etykieta pola powyżej (widoczna dla klienta)</label>
+                    <input type="text" id="editAccountNumberLabel" name="account_number_label" class="form-control" placeholder="np. Numer konta, Numer telefonu, Email">
+                    <small class="input-hint">Domyślnie: „Numer konta"</small>
+                </div>
+                <div class="form-group">
+                    <label for="editCode">Wartość dodatkowego pola (kod / SWIFT)</label>
                     <input type="text" id="editCode" name="code" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="editCodeLabel">Etykieta pola powyżej (widoczna dla klienta)</label>
+                    <input type="text" id="editCodeLabel" name="code_label" class="form-control" placeholder="np. Kod SWIFT, RevTag">
+                    <small class="input-hint">Domyślnie: „Kod SWIFT"</small>
                 </div>
                 <div class="form-group">
                     <label for="editTransferTitle">Tytuł przelewu</label>

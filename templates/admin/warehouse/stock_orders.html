@@ -332,42 +332,49 @@
                                     </td>
                                     <td class="font-semibold">{{ order.order_number }}</td>
                                     <td class="products-cell poland-products-cell">
-                                        <table class="poland-products-inner-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Nazwa</th>
-                                                    <th class="text-right">Koszt zakupu (szt.)</th>
-                                                    <th class="text-right">Cło/VAT (szt.)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for item in order.items %}
-                                                {% set product = item.product %}
-                                                {% set primary_image = product.primary_image if product else None %}
-                                                {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
-                                                <tr class="{% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
-                                                    <td class="poland-inner-product-name">
-                                                        <div class="product-item-compact">
-                                                            {{ product_thumbnail_compact(product) }}
-                                                            <div class="product-item-info">
-                                                                <span class="product-item-name">{{ product.name if product else '-' }}</span>
-                                                                <span class="product-item-qty">({{ item.quantity }} szt)</span>
-                                                            </div>
+                                        <div class="poland-inner-grid">
+                                            <div class="poland-inner-header">
+                                                <div class="poland-inner-col">Nazwa</div>
+                                                <div class="poland-inner-col text-right">Koszt zakupu</div>
+                                                <div class="poland-inner-col text-right">Wysyłka</div>
+                                                <div class="poland-inner-col text-right">Cło/VAT</div>
+                                            </div>
+                                            {% set ns_totals = namespace(purchase=0, customs=0, shipping=0) %}
+                                            {% for item in order.items %}
+                                            {% set product = item.product %}
+                                            {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
+                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_price * item.quantity) %}
+                                            {% set ns_totals.customs = ns_totals.customs + (item.customs_vat_amount or 0) %}
+                                            {% set ns_totals.shipping = ns_totals.shipping + (item.shipping_cost or 0) %}
+                                            <div class="poland-inner-row {% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
+                                                <div class="poland-inner-col poland-inner-col-name">
+                                                    <div class="product-item-compact">
+                                                        {{ product_thumbnail_compact(product) }}
+                                                        <div class="product-item-info">
+                                                            <span class="product-item-name">{{ product.name if product else '-' }}</span>
+                                                            <span class="product-item-qty">({{ item.quantity }} szt)</span>
                                                         </div>
-                                                    </td>
-                                                    <td class="text-right text-nowrap">{{ '%.2f'|format(purchase_price) }} zł</td>
-                                                    <td class="text-right text-nowrap poland-customs-item-cell">
-                                                        <span class="poland-item-customs-amount" data-item-id="{{ item.id }}">{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
-                                                        <button class="btn-edit-customs-item" onclick="openCustomsVatModalForItem({{ order.id }}, {{ item.id }})" title="Edytuj Cło/VAT">
-                                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                                                                <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.33301 14.6667L2.66634 10.6667L11.333 2.00004Z"/>
-                                                            </svg>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
+                                                    </div>
+                                                </div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(purchase_price) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(item.shipping_cost or 0) }} zł</div>
+                                                <div class="poland-inner-col text-right poland-customs-item-cell">
+                                                    <span class="poland-item-customs-amount" data-item-id="{{ item.id }}">{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
+                                                    <button class="btn-edit-customs-item" onclick="openCustomsVatModalForItem({{ order.id }}, {{ item.id }})" title="Edytuj Cło/VAT">
+                                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M11.333 2.00004C11.5081 1.82494 11.716 1.68605 11.9447 1.59129C12.1735 1.49653 12.4187 1.44775 12.6663 1.44775C12.914 1.44775 13.1592 1.49653 13.3879 1.59129C13.6167 1.68605 13.8246 1.82494 13.9997 2.00004C14.1748 2.17513 14.3137 2.383 14.4084 2.61178C14.5032 2.84055 14.552 3.08575 14.552 3.33337C14.552 3.58099 14.5032 3.82619 14.4084 4.05497C14.3137 4.28374 14.1748 4.49161 13.9997 4.66671L5.33301 13.3334L1.33301 14.6667L2.66634 10.6667L11.333 2.00004Z"/>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                            <div class="poland-inner-totals">
+                                                <div class="poland-inner-col text-right">Suma:</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.purchase) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.shipping) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.customs) }} zł</div>
+                                            </div>
+                                        </div>
                                         {% if order.items|length > 3 %}
                                         <span class="poland-products-toggle" onclick="togglePolandProducts(this)">Pokaż więcej ({{ order.items|length - 3 }})</span>
                                         {% endif %}
@@ -481,37 +488,44 @@
                                     </td>
                                     <td class="font-semibold">{{ order.order_number }}</td>
                                     <td class="products-cell poland-products-cell">
-                                        <table class="poland-products-inner-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Nazwa</th>
-                                                    <th class="text-right">Koszt zakupu (szt.)</th>
-                                                    <th class="text-right">Cło/VAT (szt.)</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for item in order.items %}
-                                                {% set product = item.product %}
-                                                {% set primary_image = product.primary_image if product else None %}
-                                                {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
-                                                <tr class="{% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
-                                                    <td class="poland-inner-product-name">
-                                                        <div class="product-item-compact">
-                                                            {{ product_thumbnail_compact(product) }}
-                                                            <div class="product-item-info">
-                                                                <span class="product-item-name">{{ product.name if product else '-' }}</span>
-                                                                <span class="product-item-qty">({{ item.quantity }} szt)</span>
-                                                            </div>
+                                        <div class="poland-inner-grid">
+                                            <div class="poland-inner-header">
+                                                <div class="poland-inner-col">Nazwa</div>
+                                                <div class="poland-inner-col text-right">Koszt zakupu</div>
+                                                <div class="poland-inner-col text-right">Wysyłka</div>
+                                                <div class="poland-inner-col text-right">Cło/VAT</div>
+                                            </div>
+                                            {% set ns_totals = namespace(purchase=0, customs=0, shipping=0) %}
+                                            {% for item in order.items %}
+                                            {% set product = item.product %}
+                                            {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
+                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_price * item.quantity) %}
+                                            {% set ns_totals.customs = ns_totals.customs + (item.customs_vat_amount or 0) %}
+                                            {% set ns_totals.shipping = ns_totals.shipping + (item.shipping_cost or 0) %}
+                                            <div class="poland-inner-row {% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
+                                                <div class="poland-inner-col poland-inner-col-name">
+                                                    <div class="product-item-compact">
+                                                        {{ product_thumbnail_compact(product) }}
+                                                        <div class="product-item-info">
+                                                            <span class="product-item-name">{{ product.name if product else '-' }}</span>
+                                                            <span class="product-item-qty">({{ item.quantity }} szt)</span>
                                                         </div>
-                                                    </td>
-                                                    <td class="text-right text-nowrap">{{ '%.2f'|format(purchase_price) }} zł</td>
-                                                    <td class="text-right text-nowrap">
-                                                        <span>{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
+                                                    </div>
+                                                </div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(purchase_price) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(item.shipping_cost or 0) }} zł</div>
+                                                <div class="poland-inner-col text-right">
+                                                    <span>{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                            <div class="poland-inner-totals">
+                                                <div class="poland-inner-col text-right">Suma:</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.purchase) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.shipping) }} zł</div>
+                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.customs) }} zł</div>
+                                            </div>
+                                        </div>
                                         {% if order.items|length > 3 %}
                                         <span class="poland-products-toggle" onclick="togglePolandProducts(this)">Pokaż więcej ({{ order.items|length - 3 }})</span>
                                         {% endif %}

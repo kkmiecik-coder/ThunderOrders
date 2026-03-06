@@ -254,7 +254,52 @@
   background: var(--gray-400);
 }
 
-/* Avatar Section */
+/* Avatar Inline (inside profile card) */
+.profile-avatar-inline {
+  padding: var(--space-5) var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.profile-avatar-inline .avatar-preview {
+  width: 64px;
+  height: 64px;
+}
+
+.profile-avatar-inline .avatar-placeholder {
+  width: 64px;
+  height: 64px;
+}
+
+.profile-avatar-inline .avatar-placeholder span {
+  font-size: 22px;
+}
+
+.profile-avatar-inline .avatar-info {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.btn-sm {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--gray-300);
+  color: var(--gray-700);
+}
+
+.btn-outline:hover {
+  background: var(--gray-100);
+  border-color: var(--gray-400);
+}
+
+/* Avatar Section (legacy) */
 .profile-card-avatar .avatar-section {
   padding: var(--space-6);
   display: flex;
@@ -393,13 +438,10 @@
     font-size: 24px;
   }
 
-  .profile-card-avatar .avatar-section {
+  .profile-avatar-inline .avatar-info {
     flex-direction: column;
-    text-align: center;
-  }
-
-  .avatar-info {
-    align-items: center;
+    align-items: flex-start;
+    gap: var(--space-2);
   }
 }
 
@@ -499,6 +541,20 @@
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(240, 147, 251, 0.15);
   color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .profile-avatar-inline {
+  border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .btn-outline {
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .btn-outline:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.3);
 }
 
 [data-theme="dark"] .avatar-status {

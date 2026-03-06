@@ -27,6 +27,18 @@ window.openPaymentForOrder = function(btnEl) {
 };
 
 /**
+ * Kliknięcie w kartę toggleuje checkbox (ignoruje przyciski i interaktywne elementy)
+ */
+window.toggleCardCheckbox = function(e) {
+    if (e.target.closest('button, input, a, .pc-card-pay-btn')) return;
+    var card = e.currentTarget;
+    var cb = card.querySelector('.order-checkbox');
+    if (!cb || cb.disabled) return;
+    cb.checked = !cb.checked;
+    cb.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+/**
  * Toggle widoczności ukrytych pozycji zamówienia
  */
 window.toggleOrderItems = function(orderId, totalItems) {
@@ -261,7 +273,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
                     badge = '<span class="pc-stage-badge pc-stage-badge-paid">Opłacone</span>';
                 } else if (status === 'pending') {
                     tileClass += ' pending';
-                    badge = '<span class="pc-stage-badge pc-stage-badge-pending">Oczekuje</span>';
+                    badge = '<span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>';
                 } else if (status === 'rejected') {
                     tileClass += ' rejected';
                     clickable = true;
@@ -479,9 +491,19 @@ window.toggleOrderItems = function(orderId, totalItems) {
     function syncSelectedOrders() {
         selectedOrders.clear();
 
+        // Toggle selected class on cards
+        document.querySelectorAll('.pc-order-card').forEach(function (card) {
+            var cb = card.querySelector('.order-checkbox');
+            if (cb && cb.checked) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+
         document.querySelectorAll('.order-checkbox:checked').forEach(function (cb) {
             var orderId = parseInt(cb.dataset.orderId);
-            var row = cb.closest('tr');
+            var row = cb.closest('.pc-order-card') || cb.closest('tr');
             selectedOrders.set(orderId, {
                 orderNumber: cb.dataset.orderNumber,
                 amount: parseFloat(cb.dataset.amount),
@@ -622,15 +644,6 @@ window.toggleOrderItems = function(orderId, totalItems) {
             });
     }
 
-    function getMethodTypeName(type) {
-        var types = {
-            'transfer': 'Przelew',
-            'instant': 'Błyskawiczna',
-            'online': 'Online',
-            'other': 'Inna'
-        };
-        return types[type] || type || '';
-    }
 
     function getSelectedOrderNumbers() {
         var numbers = [];
@@ -659,9 +672,6 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
         html += '<div class="pc-method-detail-header">';
         html += '<span class="pc-method-detail-name">' + escapeHtml(method.name) + '</span>';
-        if (method.method_type) {
-            html += '<span class="pc-type-badge pc-type-' + escapeAttr(method.method_type) + '">' + escapeHtml(getMethodTypeName(method.method_type)) + '</span>';
-        }
         html += '</div>';
 
         html += '<div class="pc-method-detail-fields">';
@@ -676,8 +686,9 @@ window.toggleOrderItems = function(orderId, totalItems) {
         }
 
         if (method.account_number) {
+            var accountLabel = method.account_number_label || 'Numer konta';
             html += '<div class="pc-method-field">';
-            html += '<span class="pc-method-field-label">Numer konta</span>';
+            html += '<span class="pc-method-field-label">' + escapeHtml(accountLabel) + '</span>';
             html += '<div class="pc-method-field-value">';
             html += '<code>' + escapeHtml(method.account_number) + '</code>';
             html += renderCopyButton(method.account_number);
@@ -685,8 +696,9 @@ window.toggleOrderItems = function(orderId, totalItems) {
         }
 
         if (method.code) {
+            var codeLabel = method.code_label || 'Kod SWIFT';
             html += '<div class="pc-method-field">';
-            html += '<span class="pc-method-field-label">Kod SWIFT / Sortowanie</span>';
+            html += '<span class="pc-method-field-label">' + escapeHtml(codeLabel) + '</span>';
             html += '<div class="pc-method-field-value">';
             html += '<code>' + escapeHtml(method.code) + '</code>';
             html += renderCopyButton(method.code);

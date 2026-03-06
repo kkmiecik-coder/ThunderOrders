@@ -429,16 +429,19 @@ class PushManager:
         from flask import url_for
         app = current_app._get_current_object()
         url = url_for('orders.admin_shipping_requests', _external=True)
+        request_number = shipping_request.request_number
+        user_name = shipping_request.user.full_name if shipping_request.user else "Klient"
+        request_id = shipping_request.id
 
         def _send_all():
             with app.app_context():
                 for uid in admin_ids:
                     PushManager.send_to_user(
                         user_id=uid,
-                        title=f'Nowe zlecenie wysyłki: {shipping_request.request_number}',
-                        body=f'Od: {shipping_request.user.full_name if shipping_request.user else "Klient"}',
+                        title=f'Nowe zlecenie wysyłki: {request_number}',
+                        body=f'Od: {user_name}',
                         url=url,
-                        tag=f'admin-shipping-{shipping_request.id}',
+                        tag=f'admin-shipping-{request_id}',
                         notification_type='admin_alerts'
                     )
 
@@ -457,6 +460,8 @@ class PushManager:
 
         app = current_app._get_current_object()
         page_url = url_for('exclusive.order_page', token=page.token, _external=True)
+        page_name = page.name
+        page_id = page.id
 
         def _send_all():
             with app.app_context():
@@ -464,9 +469,9 @@ class PushManager:
                     PushManager.send_to_user(
                         user_id=uid,
                         title='Nowa strona Exclusive!',
-                        body=page.name,
+                        body=page_name,
                         url=page_url,
-                        tag=f'exclusive-page-{page.id}',
+                        tag=f'exclusive-page-{page_id}',
                         notification_type='new_exclusive_pages'
                     )
 
@@ -492,16 +497,19 @@ class PushManager:
         from flask import url_for
         app = current_app._get_current_object()
         detail_url = url_for('orders.admin_detail', order_id=order.id, _external=True)
+        order_number = order.order_number
+        customer_name = order.customer_name
+        order_id = order.id
 
         def _send_all():
             with app.app_context():
                 for uid in admin_ids:
                     PushManager.send_to_user(
                         user_id=uid,
-                        title=f'Nowe zamówienie: {order.order_number}',
-                        body=f'Od: {order.customer_name}',
+                        title=f'Nowe zamówienie: {order_number}',
+                        body=f'Od: {customer_name}',
                         url=detail_url,
-                        tag=f'admin-order-{order.id}',
+                        tag=f'admin-order-{order_id}',
                         notification_type='admin_alerts'
                     )
 
@@ -523,16 +531,19 @@ class PushManager:
         from flask import url_for
         app = current_app._get_current_object()
         review_url = url_for('admin.payment_confirmations_list', _external=True)
+        order_number = order.order_number
+        customer_name = order.customer_name
+        order_id = order.id
 
         def _send_all():
             with app.app_context():
                 for uid in admin_ids:
                     PushManager.send_to_user(
                         user_id=uid,
-                        title=f'Nowa płatność: {order.order_number}',
-                        body=f'{order.customer_name} - {stage_names}',
+                        title=f'Nowa płatność: {order_number}',
+                        body=f'{customer_name} - {stage_names}',
                         url=review_url,
-                        tag=f'admin-payment-{order.id}',
+                        tag=f'admin-payment-{order_id}',
                         notification_type='admin_alerts'
                     )
 

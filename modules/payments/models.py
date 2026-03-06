@@ -45,18 +45,12 @@ class PaymentMethod(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False, comment="Nazwa metody (BLIK, Przelew, PayPal, Revolut)")
 
-    # Typ metody płatności
-    method_type = db.Column(
-        db.String(20),
-        nullable=False,
-        default='other',
-        comment="Typ: 'transfer' (przelew), 'instant' (BLIK), 'online' (PayPal/Revolut), 'other'"
-    )
-
-    # Szczegóły płatności - różne dla różnych typów
+    # Szczegóły płatności
     recipient = db.Column(db.String(200), nullable=True, comment="Odbiorca przelewu (imię nazwisko / firma)")
     account_number = db.Column(db.String(100), nullable=True, comment="Numer konta / telefon / email")
+    account_number_label = db.Column(db.String(100), nullable=True, comment="Etykieta pola account_number (np. Numer konta, Numer telefonu, Email)")
     code = db.Column(db.String(100), nullable=True, comment="Kod Revolut / SWIFT / BIC")
+    code_label = db.Column(db.String(100), nullable=True, comment="Etykieta pola code (np. Kod SWIFT, RevTag)")
     transfer_title = db.Column(db.String(200), nullable=True, comment="Szablon tytułu przelewu (np. [NUMER ZAMÓWIENIA])")
     additional_info = db.Column(db.Text, nullable=True, comment="Dodatkowe informacje (opcjonalne)")
 
@@ -83,10 +77,11 @@ class PaymentMethod(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'method_type': self.method_type,
             'recipient': self.recipient,
             'account_number': self.account_number,
+            'account_number_label': self.account_number_label,
             'code': self.code,
+            'code_label': self.code_label,
             'transfer_title': self.transfer_title,
             'additional_info': self.additional_info,
             'is_active': self.is_active,
@@ -98,4 +93,4 @@ class PaymentMethod(db.Model):
         }
 
     def __repr__(self):
-        return f'<PaymentMethod {self.id}: {self.name} ({self.method_type})>'
+        return f'<PaymentMethod {self.id}: {self.name}>'

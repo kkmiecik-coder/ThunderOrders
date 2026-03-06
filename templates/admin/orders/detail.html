@@ -1371,10 +1371,10 @@
                                     Dodano {{ event.new_value.added_products }} produkt(ów)
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
-                                {% elif event.action == 'order_status_change' %}
-                                <span class="history-icon">🔄</span>
+                                {% elif event.action in ('order_status_change', 'order_status_auto_updated') %}
+                                <span class="history-icon">{{ action_config.get(event.action, {}).get('icon', '🔄') }}</span>
                                 <span class="history-text">
-                                    Zmiana statusu: {{ event.old_value.status }} → {{ event.new_value.status }}
+                                    {{ action_config.get(event.action, {}).get('label', 'Zmiana statusu') }}: {{ event.old_value.status }} → {{ event.new_value.status }}
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
                                 {% elif event.action == 'order_created' %}
@@ -1394,10 +1394,41 @@
                                     Usunięto produkt "{{ event.old_value.product_name }}" ({{ event.old_value.quantity }} szt.)
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
-                                {% else %}
-                                <span class="history-icon">📝</span>
+                                {% elif event.action in ('payment_confirmation_uploaded', 'payment_confirmation_reuploaded', 'payment_confirmation_approved', 'payment_confirmation_rejected') %}
+                                <span class="history-icon">{{ action_config.get(event.action, {}).get('icon', '💳') }}</span>
                                 <span class="history-text">
-                                    {{ event.action }}
+                                    {{ action_config.get(event.action, {}).get('label', event.action) }}
+                                    {% if event.new_value.payment_stage %} — {{ payment_stage_labels.get(event.new_value.payment_stage, event.new_value.payment_stage) }}{% endif %}
+                                    {% if event.new_value.amount %} ({{ event.new_value.amount }} PLN){% endif %}
+                                    {% if event.new_value.rejection_reason %}<br><small>Powód: {{ event.new_value.rejection_reason }}</small>{% endif %}
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action in ('proxy_shipping_distributed', 'customs_vat_distributed') %}
+                                <span class="history-icon">{{ action_config.get(event.action, {}).get('icon', '💰') }}</span>
+                                <span class="history-text">
+                                    {{ action_config.get(event.action, {}).get('label', event.action) }}
+                                    {% if event.new_value.amount %} ({{ event.new_value.amount }} PLN){% endif %}
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'exclusive_closure_fulfillment' %}
+                                <span class="history-icon">📊</span>
+                                <span class="history-text">
+                                    Rozliczenie exclusive
+                                    {% if event.new_value.total_items %} — {{ event.new_value.fulfilled_items }}/{{ event.new_value.total_items }} produktów{% endif %}
+                                    {% if event.new_value.new_total_amount is not none %}, kwota: {{ event.new_value.new_total_amount }} PLN{% endif %}
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% elif event.action == 'order_field_updated' %}
+                                <span class="history-icon">✏️</span>
+                                <span class="history-text">
+                                    Zaktualizowano dane zamówienia
+                                    {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
+                                </span>
+                                {% else %}
+                                {% set ac = action_config.get(event.action, {'label': event.action, 'icon': '📝'}) %}
+                                <span class="history-icon">{{ ac.icon }}</span>
+                                <span class="history-text">
+                                    {{ ac.label }}
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
                                 {% endif %}

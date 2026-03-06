@@ -130,14 +130,46 @@
         <img src="{{ url_for('static', filename='img/icons/menu.svg') }}" alt="Menu">
     </button>
 
-    <div class="mobile-logo">
+    <a href="/" class="mobile-logo" aria-label="Dashboard">
         <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders">
-    </div>
+    </a>
 
-    <button class="mobile-search-btn" id="mobileSearchBtn" aria-label="Search">
-        <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search">
-    </button>
+    <div class="mobile-navbar-right">
+        {% if current_user.is_authenticated %}
+        <button class="mobile-navbar-btn" id="mobilePushBtn" aria-label="Powiadomienia">
+            <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Powiadomienia">
+            <span class="mobile-notif-badge" id="mobileNotifBadge" style="display:none;">0</span>
+        </button>
+        {% endif %}
+        <button class="mobile-search-btn" id="mobileSearchBtn" aria-label="Search">
+            <img src="{{ url_for('static', filename='img/icons/search.svg') }}" alt="Search">
+        </button>
+    </div>
 </header>
+
+<!-- Mobile Notification Overlay -->
+{% if current_user.is_authenticated %}
+<div class="mobile-notif-overlay" id="mobileNotifOverlay">
+    <div class="mobile-notif-header">
+        <button class="mobile-notif-back" id="mobileNotifBack" aria-label="Zamknij">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M10 3L5 8l5 5"/>
+            </svg>
+        </button>
+        <span class="mobile-notif-title">Powiadomienia</span>
+        <button class="mobile-notif-mark-all" id="mobileMarkAllBtn" title="Oznacz wszystko jako przeczytane" style="display:none;">
+            <img src="{{ url_for('static', filename='img/icons/check-circle.svg') }}" alt="Oznacz wszystkie">
+        </button>
+    </div>
+    <div class="mobile-notif-list" id="mobileNotifList">
+        <div class="notif-empty mobile-notif-empty" id="mobileNotifEmpty">
+            <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="" class="notif-empty-icon">
+            <span>Brak powiadomień</span>
+        </div>
+    </div>
+    <button class="notif-load-more mobile-notif-load-more" id="mobileNotifLoadMore" style="display:none;">Pokaż więcej</button>
+</div>
+{% endif %}
 
 <!-- Global Search Backdrop (desktop) -->
 <div class="global-search-backdrop" id="globalSearchBackdrop"></div>
@@ -185,15 +217,6 @@
                     <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
                 </svg>
             </a>
-
-            <!-- Notification Center (Mobile) -->
-            {% if current_user.is_authenticated %}
-            <button class="mobile-push-btn" id="mobilePushBtn">
-                <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Powiadomienia">
-                <span id="mobilePushText">Powiadomienia</span>
-                <span class="mobile-notif-badge" id="mobileNotifBadge" style="display:none;">0</span>
-            </button>
-            {% endif %}
 
             <!-- Dark Mode Toggle -->
             <button class="mobile-menu-theme-toggle" id="mobileDarkModeToggle" aria-label="Toggle dark mode">

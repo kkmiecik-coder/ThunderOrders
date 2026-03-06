@@ -1,10 +1,10 @@
 /**
- * Notification Center - Bell dropdown with notification list, badge, and push status.
+ * Notification Center - Bell dropdown (desktop) + full-screen overlay (mobile).
  */
 (function () {
     'use strict';
 
-    // === DOM Elements ===
+    // === DOM Elements (desktop) ===
     var bellBtn = document.getElementById('pushBellBtn');
     var badge = document.getElementById('notifBadge');
     var dropdown = document.getElementById('notifDropdown');
@@ -14,13 +14,20 @@
     var markAllBtn = document.getElementById('notifMarkAllBtn');
     var pushDot = document.getElementById('notifPushDot');
     var pushText = document.getElementById('notifPushText');
+
+    // === DOM Elements (mobile) ===
     var mobileBellBtn = document.getElementById('mobilePushBtn');
     var mobileBadge = document.getElementById('mobileNotifBadge');
-    var mobileBellText = document.getElementById('mobilePushText');
+    var mobileOverlay = document.getElementById('mobileNotifOverlay');
+    var mobileNotifList = document.getElementById('mobileNotifList');
+    var mobileNotifEmpty = document.getElementById('mobileNotifEmpty');
+    var mobileLoadMoreBtn = document.getElementById('mobileNotifLoadMore');
+    var mobileMarkAllBtn = document.getElementById('mobileMarkAllBtn');
+    var mobileBackBtn = document.getElementById('mobileNotifBack');
 
     if (!bellBtn) return;
 
-    // === State ===
+    // === State (desktop) ===
     var currentOffset = 0;
     var hasMore = false;
     var POLL_INTERVAL = 60000;
@@ -28,6 +35,12 @@
     var isOpen = false;
     var loadedNotifIds = new Set();
     var currentUnreadCount = 0;
+
+    // === State (mobile) ===
+    var mobileOffset = 0;
+    var mobileHasMore = false;
+    var isMobileOpen = false;
+    var mobileLoadedIds = new Set();
 
     // === Notification type → icon mapping ===
     var TYPE_ICONS = {
@@ -42,7 +55,6 @@
 
     function getIconPath(notifType) {
         var path = TYPE_ICONS[notifType] || DEFAULT_ICON;
-        // Build URL using the static prefix from the page
         var staticBase = document.querySelector('link[href*="/static/css/"]');
         if (staticBase) {
             var href = staticBase.getAttribute('href');
@@ -66,12 +78,12 @@
             mobileBadge.textContent = count > 99 ? '99+' : count;
             mobileBadge.style.display = count > 0 ? '' : 'none';
         }
-        if (mobileBellText) {
-            mobileBellText.textContent = count > 0 ? ('Powiadomienia (' + count + ')') : 'Powiadomienia';
-        }
-        // Show/hide mark-all button
+        // Show/hide mark-all buttons
         if (markAllBtn) {
             markAllBtn.style.display = count > 0 ? '' : 'none';
+        }
+        if (mobileMarkAllBtn) {
+            mobileMarkAllBtn.style.display = count > 0 ? '' : 'none';
         }
     }
 
@@ -95,7 +107,7 @@
     }
 
     // === Render single notification ===
-    function renderNotifItem(n) {
+    function renderNotifItem(n, targetListEl) {
         var item = document.createElement('div');
         item.className = 'notif-item' + (n.is_read ? '' : ' notif-unread');
         item.dataset.notifId = n.id;
@@ -109,7 +121,7 @@
         iconWrap.appendChild(iconImg);
         item.appendChild(iconWrap);
 
-        // Content (clickable area – marks as read, no navigation)
+        // Content
         var link = document.createElement('div');
         link.className = 'notif-item-content';
         link.style.cursor = 'pointer';
@@ -152,7 +164,7 @@
         delBtn.addEventListener('click', function (e) {
             e.preventDefault();
             e.stopPropagation();
-            deleteNotification(n.id, item);
+            deleteNotification(n.id, item, targetListEl);
         });
         item.appendChild(delBtn);
 
@@ -182,6 +194,7 @@
             .catch(function () {});
     }
 
+    // Desktop: fetch notifications into desktop dropdown
     function fetchNotifications(offset, append) {
         var url = '/notifications/list?offset=' + offset + '&limit=10';
         fetch(url, { credentials: 'same-origin' })
@@ -204,7 +217,7 @@
                     notifications.forEach(function (n) {
                         if (!loadedNotifIds.has(n.id)) {
                             loadedNotifIds.add(n.id);
-                            notifList.appendChild(renderNotifItem(n));
+                            notifList.appendChild(renderNotifItem(n, notifList));
                         }
                     });
                 }
@@ -214,6 +227,43 @@
                 var readCount = 0;
                 notifications.forEach(function (n) { if (n.is_read) readCount++; });
                 currentOffset = (append ? currentOffset : 0) + readCount;
+            })
+            .catch(function () {});
+    }
+
+    // Mobile: fetch notifications into mobile overlay
+    function fetchMobileNotifications(offset, append) {
+        if (!mobileNotifList) return;
+        var url = '/notifications/list?offset=' + offset + '&limit=10';
+        fetch(url, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var notifications = data.notifications || [];
+                mobileHasMore = data.has_more || false;
+                updateBadge(data.unread_count || 0);
+
+                if (!append) {
+                    mobileNotifList.querySelectorAll('.notif-item').forEach(function (el) { el.remove(); });
+                    mobileLoadedIds.clear();
+                }
+
+                if (notifications.length === 0 && !append) {
+                    if (mobileNotifEmpty) mobileNotifEmpty.style.display = '';
+                } else {
+                    if (mobileNotifEmpty) mobileNotifEmpty.style.display = 'none';
+                    notifications.forEach(function (n) {
+                        if (!mobileLoadedIds.has(n.id)) {
+                            mobileLoadedIds.add(n.id);
+                            mobileNotifList.appendChild(renderNotifItem(n, mobileNotifList));
+                        }
+                    });
+                }
+
+                if (mobileLoadMoreBtn) mobileLoadMoreBtn.style.display = mobileHasMore ? '' : 'none';
+
+                var readCount = 0;
+                notifications.forEach(function (n) { if (n.is_read) readCount++; });
+                mobileOffset = (append ? mobileOffset : 0) + readCount;
             })
             .catch(function () {});
     }
@@ -242,18 +292,21 @@
         .then(function (data) {
             if (data.success) {
                 updateBadge(0);
-                // Update UI
-                notifList.querySelectorAll('.notif-unread').forEach(function (el) {
-                    el.classList.remove('notif-unread');
-                    var dot = el.querySelector('.notif-unread-dot');
-                    if (dot) dot.remove();
+                // Update both desktop and mobile UI
+                [notifList, mobileNotifList].forEach(function (list) {
+                    if (!list) return;
+                    list.querySelectorAll('.notif-unread').forEach(function (el) {
+                        el.classList.remove('notif-unread');
+                        var dot = el.querySelector('.notif-unread-dot');
+                        if (dot) dot.remove();
+                    });
                 });
             }
         })
         .catch(function () {});
     }
 
-    function deleteNotification(id, element) {
+    function deleteNotification(id, element, listEl) {
         fetch('/notifications/delete', {
             method: 'POST',
             credentials: 'same-origin',
@@ -264,12 +317,15 @@
         .then(function (data) {
             if (data.success) {
                 loadedNotifIds.delete(id);
+                mobileLoadedIds.delete(id);
                 element.remove();
                 updateBadge(data.unread_count);
-                // Show empty state if no items left
-                if (notifList.querySelectorAll('.notif-item').length === 0) {
-                    notifEmpty.style.display = '';
-                    loadMoreBtn.style.display = 'none';
+                // Show empty state if no items left in the list where item was deleted
+                if (listEl && listEl.querySelectorAll('.notif-item').length === 0) {
+                    var emptyEl = (listEl === mobileNotifList) ? mobileNotifEmpty : notifEmpty;
+                    var loadBtn = (listEl === mobileNotifList) ? mobileLoadMoreBtn : loadMoreBtn;
+                    if (emptyEl) emptyEl.style.display = '';
+                    if (loadBtn) loadBtn.style.display = 'none';
                 }
             }
         })
@@ -291,7 +347,7 @@
         });
     }
 
-    // === Open/Close dropdown ===
+    // === Desktop: Open/Close dropdown ===
     function openDropdown() {
         if (isOpen) return;
         isOpen = true;
@@ -306,7 +362,23 @@
         dropdown.classList.remove('active');
     }
 
-    // === Event listeners ===
+    // === Mobile: Open/Close overlay ===
+    function openMobileOverlay() {
+        if (!mobileOverlay || isMobileOpen) return;
+        isMobileOpen = true;
+        mobileOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        fetchMobileNotifications(0, false);
+    }
+
+    function closeMobileOverlay() {
+        if (!mobileOverlay || !isMobileOpen) return;
+        isMobileOpen = false;
+        mobileOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // === Event listeners (desktop) ===
     bellBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         if (isOpen) closeDropdown();
@@ -333,15 +405,36 @@
         });
     }
 
-    if (mobileBellBtn) {
-        mobileBellBtn.addEventListener('click', function () {
-            window.location.href = '/profile/#push';
-        });
-    }
-
     if (dropdown) {
         dropdown.addEventListener('click', function (e) {
             e.stopPropagation();
+        });
+    }
+
+    // === Event listeners (mobile) ===
+    if (mobileBellBtn) {
+        mobileBellBtn.addEventListener('click', function () {
+            openMobileOverlay();
+        });
+    }
+
+    if (mobileBackBtn) {
+        mobileBackBtn.addEventListener('click', function () {
+            closeMobileOverlay();
+        });
+    }
+
+    if (mobileLoadMoreBtn) {
+        mobileLoadMoreBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            fetchMobileNotifications(mobileOffset, true);
+        });
+    }
+
+    if (mobileMarkAllBtn) {
+        mobileMarkAllBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            markAllAsRead();
         });
     }
 

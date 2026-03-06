@@ -1,8 +1,9 @@
 /**
  * ThunderOrders - Carousel Component
- * Liniowa karuzela z dynamicznym rozmiarem, blur i ciemnieniem
+ * Liniowa karuzela z dynamicznym rozmiarem i ciemnieniem (bez blur).
+ * 7 widocznych kart: active + prev/next + far-prev/far-next + edge-prev/edge-next
  *
- * Rozmiary (--slide-width, --prev-offset, --far-offset, --track-height)
+ * Rozmiary (--slide-width, --prev-offset, --far-offset, --edge-offset, --track-height)
  * sa ustawiane dynamicznie przez JS na podstawie dostepnego miejsca.
  */
 
@@ -13,9 +14,14 @@
     position: relative;
     width: 100%;
     overflow: visible;
-    padding: 20px 0 70px;
     user-select: none;
     -webkit-user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--carousel-container-height, auto);
+    padding-bottom: 50px;
 }
 
 /* ==========================================
@@ -36,7 +42,7 @@
 .carousel-slide {
     position: absolute;
     width: var(--slide-width, 300px);
-    transition: transform 0.5s ease, filter 0.5s ease, opacity 0.4s ease;
+    transition: transform 0.5s ease, opacity 0.4s ease;
     opacity: 0;
     transform: translateX(0) scale(0.7);
     z-index: 0;
@@ -68,62 +74,119 @@
     z-index: 2;
 }
 
+/* Shimmer / blysniecie */
+.carousel-slide::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 3;
+    background: linear-gradient(
+        105deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.08) 42%,
+        rgba(255, 255, 255, 0.35) 50%,
+        rgba(255, 255, 255, 0.08) 58%,
+        transparent 65%
+    );
+    transform: translateX(-120%);
+    opacity: 0;
+}
+
+.carousel-slide.shimmer::before {
+    opacity: 1;
+    animation: carousel-shimmer 1.1s ease-in-out forwards;
+}
+
+@keyframes carousel-shimmer {
+    0%   { transform: translateX(-120%); }
+    100% { transform: translateX(120%); }
+}
+
+/* Zapobiegaj natywnemu przeciaganiu obrazkow */
+.carousel-slide img {
+    -webkit-user-drag: none;
+    user-drag: none;
+    pointer-events: none;
+}
+
 /* --- Aktywny (srodkowy) --- */
 .carousel-slide.active {
     opacity: 1;
     transform: translateX(0) scale(1);
-    z-index: 5;
+    z-index: 6;
     pointer-events: auto;
-    filter: none;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    cursor: grab;
 }
 
 .carousel-slide.active::after {
     opacity: 0;
 }
 
-/* --- Prev / Next - lekki blur --- */
+/* --- Prev / Next (pozycja 1) --- */
 .carousel-slide.prev {
     opacity: 1;
-    transform: translateX(var(--prev-offset-neg, -270px)) scale(0.85);
-    z-index: 4;
+    transform: translateX(var(--prev-offset-neg, -270px)) scale(0.88);
+    z-index: 5;
     pointer-events: auto;
-    filter: blur(1.5px);
+    cursor: grab;
 }
 
 .carousel-slide.next {
     opacity: 1;
-    transform: translateX(var(--prev-offset, 270px)) scale(0.85);
-    z-index: 4;
+    transform: translateX(var(--prev-offset, 270px)) scale(0.88);
+    z-index: 5;
     pointer-events: auto;
-    filter: blur(1.5px);
+    cursor: grab;
 }
 
 .carousel-slide.prev::after,
 .carousel-slide.next::after {
-    opacity: 0.25;
+    opacity: 0.2;
 }
 
-/* --- Far prev / Far next - mocniejszy blur --- */
+/* --- Far prev / Far next (pozycja 2) --- */
 .carousel-slide.far-prev {
     opacity: 1;
-    transform: translateX(var(--far-offset-neg, -460px)) scale(0.7);
-    z-index: 3;
-    pointer-events: none;
-    filter: blur(3px);
+    transform: translateX(var(--far-offset-neg, -460px)) scale(0.76);
+    z-index: 4;
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .carousel-slide.far-next {
     opacity: 1;
-    transform: translateX(var(--far-offset, 460px)) scale(0.7);
-    z-index: 3;
-    pointer-events: none;
-    filter: blur(3px);
+    transform: translateX(var(--far-offset, 460px)) scale(0.76);
+    z-index: 4;
+    pointer-events: auto;
+    cursor: grab;
 }
 
 .carousel-slide.far-prev::after,
 .carousel-slide.far-next::after {
-    opacity: 0.45;
+    opacity: 0.4;
+}
+
+/* --- Edge prev / Edge next (pozycja 3 - najdalsze widoczne) --- */
+.carousel-slide.edge-prev {
+    opacity: 1;
+    transform: translateX(var(--edge-offset-neg, -600px)) scale(0.64);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.carousel-slide.edge-next {
+    opacity: 1;
+    transform: translateX(var(--edge-offset, 600px)) scale(0.64);
+    z-index: 3;
+    pointer-events: none;
+}
+
+.carousel-slide.edge-prev::after,
+.carousel-slide.edge-next::after {
+    opacity: 0.6;
 }
 
 /* ==========================================
@@ -232,19 +295,26 @@
 }
 
 /* ==========================================
-   Touch / swipe
+   Touch / swipe / drag
    ========================================== */
 .carousel-container {
     touch-action: pan-y;
     -webkit-touch-callout: none;
 }
 
-.carousel-track {
-    will-change: transform;
-}
-
 .carousel-slide {
     -webkit-tap-highlight-color: transparent;
+}
+
+/* Podczas draga: wyłącz transition, GPU-accelerated properties only */
+.carousel-container.dragging .carousel-slide {
+    transition: none !important;
+    will-change: transform, opacity;
+}
+
+.carousel-container.dragging .carousel-slide::after {
+    opacity: var(--drag-overlay, 0) !important;
+    transition: none !important;
 }
 
 /* ==========================================
@@ -277,6 +347,23 @@
 [data-theme="dark"] .carousel-slide.far-next {
     background: rgba(255, 255, 255, 0.03);
     border-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .carousel-slide.edge-prev,
+[data-theme="dark"] .carousel-slide.edge-next {
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(240, 147, 251, 0.05);
+}
+
+[data-theme="dark"] .carousel-slide::before {
+    background: linear-gradient(
+        105deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.05) 42%,
+        rgba(255, 255, 255, 0.18) 50%,
+        rgba(255, 255, 255, 0.05) 58%,
+        transparent 65%
+    );
 }
 
 [data-theme="dark"] .carousel-slide-content img {
@@ -312,22 +399,21 @@
 }
 
 /* ==========================================
-   Responsywnosc - Telefon (font/button tweaks)
+   Responsywnosc - Telefon
    ========================================== */
 @media (max-width: 480px) {
     .carousel-container {
-        padding: 16px 0 56px;
+        padding-bottom: 40px;
     }
 
-    /* Na malym ekranie ukrywamy dalekie slajdy */
-    .carousel-slide.far-prev,
-    .carousel-slide.far-next {
+    /* Na malym ekranie ukrywamy edge slajdy */
+    .carousel-slide.edge-prev,
+    .carousel-slide.edge-next {
         opacity: 0 !important;
-        filter: none;
     }
 
-    .carousel-slide.far-prev::after,
-    .carousel-slide.far-next::after {
+    .carousel-slide.edge-prev::after,
+    .carousel-slide.edge-next::after {
         opacity: 0;
     }
 

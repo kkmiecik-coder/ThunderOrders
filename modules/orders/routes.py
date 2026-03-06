@@ -39,6 +39,49 @@ from utils.activity_logger import log_activity
 # from modules.emails.sender import send_email  # Uncomment when email module is ready
 
 
+# Mapowanie akcji na polskie opisy i ikony (współdzielone między widokiem klienta i admina)
+ORDER_ACTION_CONFIG = {
+    'order_created': {'label': 'Zamówienie utworzone', 'icon': '📦'},
+    'order_status_change': {'label': 'Zmiana statusu', 'icon': '🔄'},
+    'order_status_auto_updated': {'label': 'Automatyczna zmiana statusu', 'icon': '⚡'},
+    'order_updated': {'label': 'Zaktualizowano zamówienie', 'icon': '✏️'},
+    'order_item_added': {'label': 'Dodano produkt', 'icon': '➕'},
+    'order_item_added_custom': {'label': 'Dodano produkt niestandardowy', 'icon': '➕'},
+    'order_item_removed': {'label': 'Usunięto produkt', 'icon': '🗑️'},
+    'order_item_deleted': {'label': 'Usunięto produkt', 'icon': '🗑️'},
+    'order_item_updated': {'label': 'Zaktualizowano produkt', 'icon': '✏️'},
+    'order_products_added': {'label': 'Dodano produkty', 'icon': '➕'},
+    'order_field_updated': {'label': 'Zaktualizowano dane zamówienia', 'icon': '✏️'},
+    'order_payment_updated': {'label': 'Zaktualizowano płatność', 'icon': '💳'},
+    'tracking_number_added': {'label': 'Dodano numer śledzenia', 'icon': '🚚'},
+    'tracking_number_updated': {'label': 'Zaktualizowano numer śledzenia', 'icon': '🚚'},
+    'shipping_requested': {'label': 'Utworzono zlecenie wysyłki', 'icon': '📬'},
+    'shipping_cost_updated': {'label': 'Zaktualizowano koszt wysyłki', 'icon': '💰'},
+    'comment_added': {'label': 'Dodano komentarz', 'icon': '💬'},
+    'order_cancelled': {'label': 'Anulowano zamówienie', 'icon': '🚫'},
+    'order_completed': {'label': 'Zamówienie zakończone', 'icon': '🎉'},
+    'refund_issued': {'label': 'Wystawiono zwrot', 'icon': '💸'},
+    'payment_confirmation_uploaded': {'label': 'Przesłano potwierdzenie płatności', 'icon': '📤'},
+    'payment_confirmation_reuploaded': {'label': 'Ponownie przesłano potwierdzenie', 'icon': '🔄'},
+    'payment_confirmation_approved': {'label': 'Zatwierdzono płatność', 'icon': '✅'},
+    'payment_confirmation_rejected': {'label': 'Odrzucono płatność', 'icon': '❌'},
+    'shipment_added': {'label': 'Dodano przesyłkę', 'icon': '📦'},
+    'shipment_deleted': {'label': 'Usunięto przesyłkę', 'icon': '🗑️'},
+    'order_packed': {'label': 'Zamówienie spakowane', 'icon': '📦'},
+    'proxy_shipping_distributed': {'label': 'Naliczono koszt wysyłki proxy', 'icon': '🚢'},
+    'customs_vat_distributed': {'label': 'Naliczono cło/VAT', 'icon': '🏛️'},
+    'exclusive_closure_fulfillment': {'label': 'Rozliczenie zamknięcia exclusive', 'icon': '📊'},
+}
+
+# Mapowanie etapów płatności na polskie nazwy
+PAYMENT_STAGE_LABELS = {
+    'product': 'Produkt',
+    'korean_shipping': 'Wysyłka KR',
+    'customs_vat': 'Cło/VAT',
+    'domestic_shipping': 'Wysyłka PL',
+}
+
+
 # ====================
 # ADMIN ROUTES
 # ====================
@@ -466,6 +509,8 @@ def admin_detail(order_id):
         payment_methods=payment_methods,
         wms_session_order=wms_session_order,
         set_probabilities=set_probabilities,
+        action_config=ORDER_ACTION_CONFIG,
+        payment_stage_labels=PAYMENT_STAGE_LABELS,
         page_title=f'Zamówienie {order.order_number}'
     )
 
@@ -613,10 +658,22 @@ def admin_update_tracking(order_id):
 
     if form.validate_on_submit():
         old_tracking = order.tracking_number
+        old_courier = order.courier
         order.tracking_number = form.tracking_number.data
         order.courier = form.courier.data
         order.updated_at = datetime.now()
         db.session.commit()
+
+        # Activity log
+        action = 'tracking_number_added' if not old_tracking else 'tracking_number_updated'
+        log_activity(
+            user=current_user,
+            action=action,
+            entity_type='order',
+            entity_id=order.id,
+            old_value={'tracking_number': old_tracking, 'courier': old_courier},
+            new_value={'tracking_number': order.tracking_number, 'courier': order.courier}
+        )
 
         # Send tracking email if tracking number was added (not just updated)
         if order.tracking_number and not old_tracking:
@@ -1590,31 +1647,6 @@ def client_detail(order_id):
 
     # Order history - WSZYSTKIE activity logs dla zamówienia
     from modules.admin.models import ActivityLog
-    import json
-
-    # Mapowanie akcji na polskie opisy i ikony
-    action_config = {
-        'order_created': {'label': 'Zamówienie utworzone', 'icon': '📦'},
-        'order_status_change': {'label': 'Zmiana statusu', 'icon': '🔄'},
-        'order_status_auto_updated': {'label': 'Automatyczna zmiana statusu', 'icon': '⚡'},
-        'order_updated': {'label': 'Zaktualizowano zamówienie', 'icon': '✏️'},
-        'order_item_added': {'label': 'Dodano produkt', 'icon': '➕'},
-        'order_item_added_custom': {'label': 'Dodano produkt niestandardowy', 'icon': '➕'},
-        'order_item_removed': {'label': 'Usunięto produkt', 'icon': '🗑️'},
-        'order_item_deleted': {'label': 'Usunięto produkt', 'icon': '🗑️'},
-        'order_item_updated': {'label': 'Zaktualizowano produkt', 'icon': '✏️'},
-        'order_products_added': {'label': 'Dodano produkty', 'icon': '➕'},
-        'order_field_updated': {'label': 'Zaktualizowano dane zamówienia', 'icon': '✏️'},
-        'order_payment_updated': {'label': 'Zaktualizowano płatność', 'icon': '💳'},
-        'tracking_number_added': {'label': 'Dodano numer śledzenia', 'icon': '🚚'},
-        'tracking_number_updated': {'label': 'Zaktualizowano numer śledzenia', 'icon': '🚚'},
-        'shipping_requested': {'label': 'Utworzono zlecenie wysyłki', 'icon': '📬'},
-        'shipping_cost_updated': {'label': 'Zaktualizowano koszt wysyłki', 'icon': '💰'},
-        'comment_added': {'label': 'Dodano komentarz', 'icon': '💬'},
-        'order_cancelled': {'label': 'Anulowano zamówienie', 'icon': '🚫'},
-        'order_completed': {'label': 'Zamówienie zakończone', 'icon': '🎉'},
-        'refund_issued': {'label': 'Wystawiono zwrot', 'icon': '💸'}
-    }
 
     order_history = []
     activity_logs = ActivityLog.query.filter_by(
@@ -1624,7 +1656,7 @@ def client_detail(order_id):
 
     for log in activity_logs:
         # Pobierz konfigurację akcji
-        config = action_config.get(log.action, {'label': log.action, 'icon': '📝'})
+        config = ORDER_ACTION_CONFIG.get(log.action, {'label': log.action, 'icon': '📝'})
 
         # Podstawowe dane zdarzenia
         history_item = {
@@ -1632,20 +1664,56 @@ def client_detail(order_id):
             'user_name': log.user.full_name if log.user else 'System',
             'action': log.action,
             'action_label': config['label'],
-            'action_icon': config['icon']
+            'action_icon': config['icon'],
+            'is_status_change': False,
         }
 
-        # Specjalna obsługa zmian statusu (z kolorowym badge)
-        if log.action == 'order_status_change':
-            new_value_data = json.loads(log.new_value) if log.new_value else {}
+        # Parse new_value dla wzbogacenia etykiet
+        new_value_data = {}
+        if log.new_value:
+            try:
+                new_value_data = json.loads(log.new_value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+        # Obsługa zmian statusu (z kolorowym badge) - ręczne i automatyczne
+        if log.action in ('order_status_change', 'order_status_auto_updated'):
             status_slug = new_value_data.get('status')
             status_obj = OrderStatus.query.filter_by(slug=status_slug).first()
-
             history_item['is_status_change'] = True
             history_item['status_name'] = status_obj.name if status_obj else status_slug
             history_item['status_color'] = status_obj.badge_color if status_obj else '#6B7280'
-        else:
-            history_item['is_status_change'] = False
+
+        # Wzbogacenie etykiet o kontekst z new_value
+        elif log.action in ('payment_confirmation_uploaded', 'payment_confirmation_reuploaded',
+                            'payment_confirmation_approved', 'payment_confirmation_rejected'):
+            stage = new_value_data.get('payment_stage', '')
+            amount = new_value_data.get('amount')
+            stage_name = PAYMENT_STAGE_LABELS.get(stage, stage)
+            extra = []
+            if stage_name:
+                extra.append(stage_name)
+            if amount:
+                extra.append(f"{amount} PLN")
+            if extra:
+                history_item['action_label'] = f"{config['label']} ({' — '.join(extra)})"
+
+        elif log.action in ('proxy_shipping_distributed', 'customs_vat_distributed'):
+            amount = new_value_data.get('amount')
+            if amount:
+                history_item['action_label'] = f"{config['label']} ({amount} PLN)"
+
+        elif log.action == 'exclusive_closure_fulfillment':
+            fulfilled = new_value_data.get('fulfilled_items', 0)
+            total = new_value_data.get('total_items', 0)
+            new_total = new_value_data.get('new_total_amount')
+            parts = []
+            if total:
+                parts.append(f"{fulfilled}/{total} produktów")
+            if new_total is not None:
+                parts.append(f"kwota: {new_total} PLN")
+            if parts:
+                history_item['action_label'] = f"{config['label']} ({', '.join(parts)})"
 
         order_history.append(history_item)
 
@@ -1724,6 +1792,24 @@ def settings():
     # Load shipping request default status
     shipping_request_default_status = get_setting_value('shipping_request_default_status', '')
 
+    # Load email notifications config
+    email_notif_config_json = get_setting_value('email_notifications_config', '{}')
+    try:
+        email_notif_config = json.loads(email_notif_config_json) if isinstance(email_notif_config_json, str) else (email_notif_config_json or {})
+    except (json.JSONDecodeError, TypeError):
+        email_notif_config = {}
+
+    # Admin notification recipients config (JSON: {disabled_admin_ids: [], extra_emails: ""})
+    admin_notif_recipients_json = get_setting_value('admin_notification_recipients', '{}')
+    try:
+        admin_notif_recipients = json.loads(admin_notif_recipients_json) if isinstance(admin_notif_recipients_json, str) else (admin_notif_recipients_json or {})
+    except (json.JSONDecodeError, TypeError):
+        admin_notif_recipients = {}
+
+    # Load all admin users for the email notifications tab
+    from modules.auth.models import User as AuthUser
+    admin_users = AuthUser.query.filter_by(role='admin', is_active=True).order_by(AuthUser.first_name).all()
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
@@ -1733,6 +1819,9 @@ def settings():
         shipping_request_statuses=shipping_request_statuses,
         shipping_request_allowed_statuses=shipping_request_allowed_statuses,
         shipping_request_default_status=shipping_request_default_status,
+        email_notif_config=email_notif_config,
+        admin_notif_recipients=admin_notif_recipients,
+        admin_users=admin_users,
         page_title='Ustawienia zamówień'
     )
 
@@ -1817,6 +1906,77 @@ def update_exclusive_closure_settings():
         db.session.rollback()
         flash(f'Błąd podczas zapisywania ustawień: {str(e)}', 'error')
         return redirect(url_for('orders.settings'))
+
+
+# ============================================
+# EMAIL NOTIFICATIONS SETTINGS
+# ============================================
+
+@orders_bp.route('/admin/orders/settings/email-notifications', methods=['POST'])
+@login_required
+@role_required('admin')
+def update_email_notification_settings():
+    """
+    Update email notification settings - toggle on/off for each notification type
+    and configure admin notification email addresses.
+    """
+    from modules.auth.models import Settings
+    from utils.email_manager import EmailManager
+
+    ALLOWED_KEYS = {
+        'notify_order_confirmation', 'notify_status_change', 'notify_order_completed',
+        'notify_tracking_added', 'notify_packing_photo', 'notify_order_cancelled',
+        'notify_cost_added', 'notify_payment_approved', 'notify_payment_rejected',
+        'notify_payment_reminder', 'notify_shipping_request_created',
+        'notify_shipping_status_change', 'notify_exclusive_closure',
+        'notify_new_exclusive_page', 'notify_back_in_stock',
+        'notify_admin_new_order', 'notify_admin_payment_uploaded',
+    }
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Brak danych'}), 400
+
+        # Build config dict from toggles (whitelist only allowed keys)
+        toggles = data.get('toggles', {})
+        config = {}
+        for key in ALLOWED_KEYS:
+            config[key] = bool(toggles.get(key, True))
+
+        # Save email notifications config as JSON
+        Settings.set_value(
+            'email_notifications_config',
+            json.dumps(config),
+            updated_by=current_user.id,
+            type='json',
+            description='Email notification toggles (on/off per notification type)'
+        )
+
+        # Save admin notification recipients config
+        recipients = {
+            'disabled_admin_ids': [int(x) for x in data.get('disabled_admin_ids', [])],
+            'extra_emails': data.get('extra_emails', '').strip(),
+        }
+        Settings.set_value(
+            'admin_notification_recipients',
+            json.dumps(recipients),
+            updated_by=current_user.id,
+            type='json',
+            description='Admin notification recipients (disabled admins + extra emails)'
+        )
+
+        db.session.commit()
+
+        # Clear cache so changes take effect immediately in this worker
+        EmailManager.clear_email_config_cache()
+
+        return jsonify({'success': True, 'message': 'Ustawienia powiadomień email zostały zapisane'})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error saving email notification settings: {e}")
+        return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
 
 
 # ============================================
@@ -3057,7 +3217,6 @@ def create_payment_method():
     from modules.payments.models import PaymentMethod
 
     name = request.form.get('name', '').strip()
-    method_type = request.form.get('method_type', 'other')
     is_active = request.form.get('is_active') == 'on'
 
     if not name:
@@ -3070,10 +3229,11 @@ def create_payment_method():
 
         method = PaymentMethod(
             name=name,
-            method_type=method_type,
             recipient=request.form.get('recipient', '').strip() or None,
             account_number=request.form.get('account_number', '').strip() or None,
+            account_number_label=request.form.get('account_number_label', '').strip() or None,
             code=request.form.get('code', '').strip() or None,
+            code_label=request.form.get('code_label', '').strip() or None,
             transfer_title=request.form.get('transfer_title', '').strip() or None,
             additional_info=request.form.get('additional_info', '').strip() or None,
             is_active=is_active,
@@ -3116,10 +3276,11 @@ def edit_payment_method(id):
 
     try:
         method.name = request.form.get('name', '').strip()
-        method.method_type = request.form.get('method_type', 'other')
         method.recipient = request.form.get('recipient', '').strip() or None
         method.account_number = request.form.get('account_number', '').strip() or None
+        method.account_number_label = request.form.get('account_number_label', '').strip() or None
         method.code = request.form.get('code', '').strip() or None
+        method.code_label = request.form.get('code_label', '').strip() or None
         method.transfer_title = request.form.get('transfer_title', '').strip() or None
         method.additional_info = request.form.get('additional_info', '').strip() or None
         method.is_active = request.form.get('is_active') == 'on'
@@ -3210,17 +3371,6 @@ def get_payment_methods_list():
                     </svg>
                 </div>
                 <strong>{{ method.name }}</strong>
-            </div>
-            <div class="payment-method-col-type">
-                {% if method.method_type == 'transfer' %}
-                    <span class="badge badge-info">Przelew</span>
-                {% elif method.method_type == 'instant' %}
-                    <span class="badge badge-warning">Błyskawiczna</span>
-                {% elif method.method_type == 'online' %}
-                    <span class="badge badge-success">Online</span>
-                {% else %}
-                    <span class="badge badge-secondary">Inna</span>
-                {% endif %}
             </div>
             <div class="payment-method-col-account">
                 <code>{{ method.account_number or '—' }}</code>

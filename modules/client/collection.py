@@ -18,9 +18,9 @@ def collection_list():
     from modules.client.models import CollectionItem
 
     # Tryb widoku (grid / list / carousel)
-    view = request.args.get('view', 'grid')
+    view = request.args.get('view', 'carousel')
     if view not in ('grid', 'list', 'carousel'):
-        view = 'grid'
+        view = 'carousel'
 
     # Search
     search = request.args.get('search', '').strip()

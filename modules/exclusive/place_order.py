@@ -258,13 +258,14 @@ def place_exclusive_order(page, session_id, order_note=None):
     PushManager.notify_admin_new_order(order)
 
     # 12b. Broadcast dostępności do kupujących (rezerwacje usunięte → produkty wolne)
+    page_id = page.id
     try:
         from modules.exclusive.socket_events import broadcast_availability_update, _schedule_expiry_timer
-        broadcast_availability_update(page.id)
-        _schedule_expiry_timer(page.id)
+        broadcast_availability_update(page_id)
+        _schedule_expiry_timer(page_id)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error(f"Broadcast availability failed for page {page.id}: {e}")
+        logging.getLogger(__name__).error(f"Broadcast availability failed for page {page_id}: {e}")
 
     # 12c. Emit Socket.IO events to LIVE dashboard
     try:

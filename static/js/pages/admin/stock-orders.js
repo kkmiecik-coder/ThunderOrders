@@ -94,6 +94,21 @@ function getCsrfToken() {
 }
 
 /**
+ * Handle fetch response — detect CSRF/session errors (400 HTML) and auto-reload
+ */
+function handleFetchResponse(response) {
+    if (!response.ok) {
+        if (response.status === 400) {
+            if (typeof window.showToast === 'function') window.showToast('Sesja wygasła. Odświeżam stronę...', 'warning');
+            setTimeout(() => window.location.reload(), 1000);
+            return Promise.resolve(null);
+        }
+        throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+}
+
+/**
  * Escape HTML to prevent XSS
  */
 function escapeHtml(text) {
@@ -158,8 +173,9 @@ function openPolandOrderModal() {
         },
         body: JSON.stringify({ proxy_order_ids: proxyOrderIds })
     })
-    .then(response => response.json())
+    .then(handleFetchResponse)
     .then(data => {
+        if (!data) return;
         if (data.success) {
             polandOrderData.proxyOrders = data.orders;
             renderPolandModal(data.orders);
@@ -312,6 +328,11 @@ function calculateShippingCascade() {
             packageCost = remainingForEmpty;
         }
 
+        // Store original package cost for product-level redistribution
+        if (packageInput) {
+            packageInput.dataset.originalCost = packageCost.toFixed(2);
+        }
+
         // Cascade down to products
         distributeToProducts(orderIndex, packageCost);
     });
@@ -329,6 +350,7 @@ function handlePackageShippingChange(orderIndex) {
     if (thisInput) {
         if (thisInput.value !== '') {
             thisInput.dataset.manual = 'true';
+            thisInput.dataset.originalCost = thisInput.value;
         } else {
             delete thisInput.dataset.manual;
         }
@@ -363,6 +385,11 @@ function handlePackageShippingChange(orderIndex) {
                 inp.placeholder = remainingForEmpty.toFixed(2).replace('.', ',');
             }
             packageCost = remainingForEmpty;
+        }
+
+        // Store original package cost for product-level redistribution
+        if (inp) {
+            inp.dataset.originalCost = packageCost.toFixed(2);
         }
 
         // Cascade down to products for this package
@@ -418,6 +445,18 @@ function distributeToProducts(orderIndex, packageCost) {
             }
         }
     });
+
+    // Update package placeholder
+    const pkgInput = document.querySelector(`.package-shipping-input[data-order-index="${orderIndex}"]`);
+    if (pkgInput && pkgInput.value === '') {
+        if (enteredProductSum > 0) {
+            // Products have values — show their sum
+            pkgInput.placeholder = enteredProductSum.toFixed(2).replace('.', ',');
+        } else if (pkgInput.dataset.originalCost) {
+            // No products entered yet — show original budget from cascade
+            pkgInput.placeholder = parseFloat(pkgInput.dataset.originalCost).toFixed(2).replace('.', ',');
+        }
+    }
 }
 
 /**
@@ -431,20 +470,21 @@ function handleShippingPriceChange(itemIndex) {
     const priceInput = document.querySelector(`.shipping-price-input[data-item-index="${itemIndex}"]`);
     const valueInput = document.querySelector(`.shipping-value-input[data-item-index="${itemIndex}"]`);
 
-    const price = parseFloat(priceInput.value) || 0;
-    const calculatedValue = price * qty;
-
-    if (valueInput) {
-        valueInput.value = calculatedValue.toFixed(2);
+    if (priceInput.value === '') {
+        // Price cleared — also clear Wartość so product becomes empty for redistribution
+        if (valueInput) valueInput.value = '';
+    } else {
+        const price = parseFloat(priceInput.value) || 0;
+        const calculatedValue = price * qty;
+        if (valueInput) {
+            valueInput.value = calculatedValue.toFixed(2);
+        }
     }
 
-    // SUM UP: update package
-    sumUpToPackage(item.order_index);
-
-    // Recalculate placeholders for OTHER products in this package
+    // Recalculate placeholders using ORIGINAL package cost (not sum of products)
     const packageInput = document.querySelector(`.package-shipping-input[data-order-index="${item.order_index}"]`);
-    const packageCost = packageInput ? (parseFloat(packageInput.value) || parseFloat(packageInput.placeholder.replace(',', '.')) || 0) : 0;
-    distributeToProducts(item.order_index, packageCost);
+    const originalPackageCost = packageInput ? (parseFloat(packageInput.dataset.originalCost) || parseFloat(packageInput.value) || parseFloat(packageInput.placeholder.replace(',', '.')) || 0) : 0;
+    distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
 }
@@ -468,13 +508,10 @@ function handleShippingValueChange(itemIndex) {
         priceInput.value = '';
     }
 
-    // SUM UP: update package
-    sumUpToPackage(item.order_index);
-
-    // Recalculate placeholders for OTHER products in this package
+    // Recalculate placeholders using ORIGINAL package cost (not sum of products)
     const packageInput = document.querySelector(`.package-shipping-input[data-order-index="${item.order_index}"]`);
-    const packageCost = packageInput ? (parseFloat(packageInput.value) || parseFloat(packageInput.placeholder.replace(',', '.')) || 0) : 0;
-    distributeToProducts(item.order_index, packageCost);
+    const originalPackageCost = packageInput ? (parseFloat(packageInput.dataset.originalCost) || parseFloat(packageInput.value) || parseFloat(packageInput.placeholder.replace(',', '.')) || 0) : 0;
+    distributeToProducts(item.order_index, originalPackageCost);
 
     updateShippingSummary();
 }
@@ -636,8 +673,9 @@ function confirmPolandOrder() {
             note: note
         })
     })
-    .then(response => response.json())
+    .then(handleFetchResponse)
     .then(data => {
+        if (!data) return;
         if (data.success) {
             closePolandModal();
             if (typeof window.showToast === 'function') {
@@ -1065,7 +1103,7 @@ async function apiFetch(url, { method = 'GET', body = null } = {}) {
     const options = { method, headers };
     if (body) options.body = JSON.stringify(body);
     const response = await fetch(url, options);
-    return response.json();
+    return handleFetchResponse(response);
 }
 
 // ============================================
@@ -1374,8 +1412,9 @@ function _changeOrderStatus(tab, orderId, newStatus) {
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
         body: JSON.stringify({ status: newStatus })
     })
-    .then(response => response.json())
+    .then(handleFetchResponse)
     .then(data => {
+        if (!data) return;
         if (data.success) {
             const row = document.getElementById(`${config.rowIdPrefix}-${orderId}`);
             if (row) {
@@ -1450,8 +1489,9 @@ function _deleteOrder(tab, orderId) {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }
     })
-    .then(response => response.json())
+    .then(handleFetchResponse)
     .then(data => {
+        if (!data) return;
         if (data.success) {
             if (typeof window.showToast === 'function') window.showToast(`Zamówienie${label ? ' ' + label : ''} zostało usunięte`, 'success');
             setTimeout(() => { window.location.reload(); }, 500);
@@ -1483,8 +1523,9 @@ function _bulkDeleteOrders(tab) {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() }
         })
-        .then(response => response.json())
+        .then(handleFetchResponse)
         .then(data => {
+            if (!data) return;
             completed++;
             if (!data.success) errors++;
             if (completed === orderIds.length) {
@@ -1528,8 +1569,9 @@ function _bulkMove(targetTab) {
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify({ order_type: targetTab })
         })
-        .then(response => response.json())
+        .then(handleFetchResponse)
         .then(data => {
+            if (!data) return;
             completed++;
             if (data.success) {
                 successfulMoves.push(orderId);
@@ -1683,8 +1725,9 @@ function applyBulkStatus(newStatus) {
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify({ status: newStatus })
         })
-        .then(response => response.json())
+        .then(handleFetchResponse)
         .then(data => {
+            if (!data) return;
             completed++;
 
             if (data.success) {
@@ -2106,8 +2149,9 @@ function confirmGroupOrder() {
             note: note
         })
     })
-    .then(response => response.json())
+    .then(handleFetchResponse)
     .then(data => {
+        if (!data) return;
         if (data.success) {
             closeGroupOrderModal();
             if (typeof window.showToast === 'function') {

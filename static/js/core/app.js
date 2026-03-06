@@ -40,6 +40,16 @@
 })();
 
 // ==========================================
+// bfcache: Reload page when restored from back/forward cache
+// Prevents stale CSRF tokens after browser navigation
+// ==========================================
+window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+        window.location.reload();
+    }
+});
+
+// ==========================================
 // State Management
 // ==========================================
 const AppState = {

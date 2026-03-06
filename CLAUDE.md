@@ -11,7 +11,7 @@
 
 ### 🤔 KRYTYCZNE: Podejmowanie Decyzji - Zawsze Pytaj Użytkownika
 
-**ZASADA:** Gdy istnieje **więcej niż jedno rozwiązanie** danego problemu, ZAWSZE przedstaw wszystkie opcje użytkownikowi i pozwól mu wybrać.
+**ZASADA:** Gdy istnieje **więcej niż jedno rozwiązanie** danego problemu, ZAWSZE przedstaw wszystkie opcje użytkownikowi i pozwól mu wybrać. Zawsze odpisuje uytkownikowi w języku polskim. Wszystkie informacje
 
 **Dlaczego?**
 - Użytkownik (Konrad) zna najlepiej swoje potrzeby i preferencje

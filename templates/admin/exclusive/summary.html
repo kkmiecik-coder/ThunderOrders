@@ -7,9 +7,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="summary-page">
+<div class="live-page">
     <!-- Top Bar -->
-    <div class="summary-topbar">
+    <div class="live-topbar">
         <div class="topbar-left">
             <a href="{{ url_for('admin.exclusive_list') }}" class="btn-back">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
@@ -56,21 +56,21 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="summary-tabs-navigation">
-        <button class="summary-tab-button summary-tab-active" data-tab="tab-overview">
+    <div class="live-tabs-navigation">
+        <button class="live-tab-button live-tab-active" data-tab="tab-overview">
             <svg class="tab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
             </svg>
             <span>Przegląd</span>
         </button>
-        <button class="summary-tab-button" data-tab="tab-products">
+        <button class="live-tab-button" data-tab="tab-products">
             <svg class="tab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
             </svg>
             <span>Produkty</span>
             <span class="tab-count">{{ summary.products_aggregated|length }}</span>
         </button>
-        <button class="summary-tab-button" data-tab="tab-orders">
+        <button class="live-tab-button" data-tab="tab-orders">
             <svg class="tab-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M0 2.5A.5.5 0 0 1 .5 2H2a.5.5 0 0 1 .485.379L2.89 4H14.5a.5.5 0 0 1 .485.621l-1.5 6A.5.5 0 0 1 13 11H4a.5.5 0 0 1-.485-.379L1.61 3H.5a.5.5 0 0 1-.5-.5zM3.14 5l1.25 5h8.22l1.25-5H3.14zM5 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0zm9-1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0z"/>
             </svg>
@@ -80,10 +80,10 @@
     </div>
 
     <!-- Tab Panels -->
-    <div class="summary-tabs-content">
+    <div class="live-tabs-content">
 
         <!-- ====== TAB 1: OVERVIEW ====== -->
-        <div class="summary-tab-panel summary-tab-active" id="tab-overview">
+        <div class="live-tab-panel live-tab-active" id="tab-overview">
 
             <!-- Stats Cards -->
             <div class="stats-cards">
@@ -162,38 +162,7 @@
                 </div>
             </div>
 
-            <!-- Top Products -->
-            {% if summary.top_products %}
-            <div class="section">
-                <h2 class="section-title">
-                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M2.866 14.85c-.078.444.36.791.746.593l4.39-2.256 4.389 2.256c.386.198.824-.149.746-.592l-.83-4.73 3.522-3.356c.33-.314.16-.888-.282-.95l-4.898-.696L8.465.792a.513.513 0 0 0-.927 0L5.354 5.12l-4.898.696c-.441.062-.612.636-.283.95l3.523 3.356-.83 4.73zm4.905-2.767-3.686 1.894.694-3.957a.565.565 0 0 0-.163-.505L1.71 6.745l4.052-.576a.525.525 0 0 0 .393-.288L8 2.223l1.847 3.658a.525.525 0 0 0 .393.288l4.052.575-2.906 2.77a.565.565 0 0 0-.163.506l.694 3.957-3.686-1.894a.503.503 0 0 0-.461 0z"/>
-                    </svg>
-                    Top produkty
-                </h2>
-                <div class="top-products-list">
-                    {% for product in summary.top_products %}
-                    <div class="top-product-item">
-                        <span class="top-product-rank">#{{ loop.index }}</span>
-                        <span class="top-product-name">
-                            {% if product.is_full_set %}
-                            <span class="item-badge item-badge-set">SET</span>
-                            {% elif product.is_custom %}
-                            <span class="item-badge item-badge-custom">RĘCZNY</span>
-                            {% endif %}
-                            {{ product.product_name }}
-                        </span>
-                        <span class="top-product-qty">{{ product.total_quantity }} szt.</span>
-                        {% if include_financials %}
-                        <span class="top-product-revenue">{{ "%.2f"|format(product.revenue) }} PLN</span>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Orders Chart (Chart.js) -->
+            <!-- Orders Chart -->
             {% if summary.order_timestamps %}
             <div class="section">
                 <h2 class="section-title">
@@ -202,66 +171,117 @@
                     </svg>
                     Zamówienia w czasie
                 </h2>
+                <div class="chart-granularity-toggle">
+                    <button class="chart-granularity-btn" data-granularity="day">Dzień</button>
+                    <button class="chart-granularity-btn chart-granularity-active" data-granularity="hour">Godzina</button>
+                    <button class="chart-granularity-btn" data-granularity="minute">Minuta</button>
+                </div>
                 <div class="orders-chart-container">
                     <canvas id="ordersTimelineChart"></canvas>
                 </div>
             </div>
             {% endif %}
 
-            <!-- Sets Breakdown -->
+            <!-- Sets Matrix -->
             {% if summary.sets %}
             <div class="section">
                 <h2 class="section-title">
                     <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                     </svg>
-                    Podsumowanie setów
+                    Macierz setów
                 </h2>
-                <div class="sets-grid">
+                <div class="sets-matrix-grid">
                     {% for set in summary.sets %}
-                    <div class="set-card">
-                        <div class="set-header">
+                    <div class="set-matrix-card">
+                        <div class="set-matrix-header">
                             {% if set.set_image %}
                             <img src="{{ url_for('static', filename=set.set_image) }}" alt="{{ set.set_name }}" class="set-image">
                             {% endif %}
                             <div class="set-info">
                                 <h3 class="set-name">{{ set.set_name }}</h3>
-                                <span class="set-count">{{ set.complete_sets }} kompletnych setów</span>
-                            </div>
-                            <div class="set-fulfillment-badge {% if set.fulfillment_pct >= 80 %}badge-success{% elif set.fulfillment_pct >= 50 %}badge-warning{% else %}badge-danger{% endif %}">
-                                <span class="fulfillment-value">{{ set.fulfillment_pct }}%</span>
+                                <span class="set-count">{{ set.ordered_sets }} / {{ set.set_max_sets }} kompletnych setów</span>
                             </div>
                         </div>
-                        <div class="set-progress-bar-container">
-                            <div class="set-progress-bar {% if set.fulfillment_pct >= 80 %}bar-success{% elif set.fulfillment_pct >= 50 %}bar-warning{% else %}bar-danger{% endif %}" style="width: {{ set.fulfillment_pct }}%"></div>
-                        </div>
-                        <div class="set-products">
-                            <table class="mini-table">
+                        {% if set.products %}
+                        {% set ns = namespace(full_set_product=none) %}
+                        {% for product in set.products %}
+                            {% if product.is_full_set %}{% set ns.full_set_product = product %}{% endif %}
+                        {% endfor %}
+                        <div class="set-matrix-table-wrap">
+                            <table class="set-matrix-table">
                                 <thead>
                                     <tr>
-                                        <th>Produkt</th>
-                                        <th class="text-center">Szt./set</th>
-                                        <th class="text-center">Zamówiono</th>
-                                        <th class="text-center">Zrealizowano</th>
+                                        <th class="matrix-product-col">Produkt</th>
+                                        {% for i in range(set.set_max_sets) %}
+                                        <th class="matrix-slot-col text-center">Set {{ i + 1 }}</th>
+                                        {% endfor %}
+                                        <th class="matrix-slot-col matrix-locked-col text-center">Set {{ set.set_max_sets + 1 }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for product in set.products %}
+                                    {% if not product.is_full_set %}
                                     <tr>
-                                        <td>{{ product.product_name[:40] }}{% if product.product_name|length > 40 %}...{% endif %}</td>
-                                        <td class="text-center">{{ product.quantity_per_set }}</td>
-                                        <td class="text-center">{{ product.total_ordered }}</td>
-                                        <td class="text-center">
-                                            <span class="fulfilled-count">{{ product.fulfilled }}</span>
-                                            {% if product.unfulfilled > 0 %}
-                                            <span class="unfulfilled-count">({{ product.unfulfilled }} poza)</span>
+                                        <td class="matrix-product-col">
+                                            <span>{{ product.product_name }}</span>
+                                        </td>
+                                        {% for slot in product.slots %}
+                                        <td class="matrix-slot-col text-center">
+                                            {% if slot.filled %}
+                                                {% if slot.fulfilled %}
+                                                    {% if slot.customer %}
+                                                    <span class="slot-check-wrap" data-tooltip="{{ slot.customer }}">
+                                                        <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                            <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                                        </svg>
+                                                    </span>
+                                                    {% else %}
+                                                    <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                        <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                                    </svg>
+                                                    {% endif %}
+                                                {% else %}
+                                                    {% if slot.customer %}
+                                                    <span class="slot-fail-wrap" data-tooltip="{{ slot.customer }}">
+                                                        <svg class="slot-fail" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                                        </svg>
+                                                    </span>
+                                                    {% else %}
+                                                    <svg class="slot-fail" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                                                        </svg>
+                                                    {% endif %}
+                                                {% endif %}
                                             {% endif %}
                                         </td>
+                                        {% endfor %}
+                                        <td class="matrix-slot-col matrix-locked-col text-center">
+                                            <svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                            </svg>
+                                        </td>
                                     </tr>
+                                    {% endif %}
                                     {% endfor %}
                                 </tbody>
                             </table>
                         </div>
+                        {% if ns.full_set_product %}
+                        <div class="full-set-summary">
+                            <span class="item-badge item-badge-set">SET</span>
+                            <span class="full-set-label">{{ ns.full_set_product.product_name }}</span>
+                            <span class="full-set-count">{{ ns.full_set_product.total_ordered }}</span>
+                            <span class="full-set-unit">szt. sprzedanych</span>
+                        </div>
+                        {% endif %}
+                        <div class="set-total-summary">
+                            <span>Łącznie sprzedanych setów:</span>
+                            <span class="set-total-count">{{ set.total_sets_sold }}</span>
+                            <span class="set-total-detail">({{ set.ordered_sets }} kompletnych + {{ set.full_set_sold }} pojedynczych)</span>
+                        </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -270,7 +290,7 @@
         </div>
 
         <!-- ====== TAB 2: PRODUCTS ====== -->
-        <div class="summary-tab-panel" id="tab-products">
+        <div class="live-tab-panel" id="tab-products">
             <div class="products-toolbar">
                 <h2 class="section-title">
                     <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
@@ -377,20 +397,13 @@
         </div>
 
         <!-- ====== TAB 3: ORDERS ====== -->
-        <div class="summary-tab-panel" id="tab-orders">
+        <div class="live-tab-panel" id="tab-orders">
             <div class="orders-toolbar">
                 <div class="orders-search-group">
                     <svg class="search-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
                     </svg>
                     <input type="text" id="ordersSearch" class="orders-search-input" placeholder="Szukaj po numerze, nazwisku lub email...">
-                </div>
-                <div class="orders-filter-group">
-                    <select id="ordersFulfillmentFilter" class="orders-filter-select">
-                        <option value="all">Wszystkie</option>
-                        <option value="fulfilled">Zrealizowane</option>
-                        <option value="unfulfilled">Z nierealizowanymi</option>
-                    </select>
                 </div>
                 <div class="orders-count-info">
                     <span id="ordersDisplayCount">{{ summary.total_orders }}</span> z {{ summary.total_orders }} zamówień
@@ -417,6 +430,8 @@
     window.INCLUDE_FINANCIALS = {{ include_financials|tojson }};
     window.ORDER_DETAIL_URL = "{{ url_for('orders.admin_detail', order_id=0) }}".replace('/0', '');
     window.ORDER_TIMESTAMPS = {{ summary.order_timestamps|tojson }};
+    window.STARTS_AT = {{ summary.starts_at.isoformat()|tojson if summary.starts_at else 'null' }};
+    window.ENDS_AT = {{ summary.ends_at.isoformat()|tojson if summary.ends_at else 'null' }};
 </script>
 {% endblock %}
 

@@ -959,7 +959,7 @@ def exclusive_summary(page_id):
     include_financials = current_user.role == 'admin'
     summary = get_page_summary(page_id, include_financials=include_financials)
 
-    # Serializacja zamówień do JSON dla JS (search, pagination, expand)
+    # Serializacja zamówień do JSON dla JS (search, pagination)
     import json
     orders_json_list = []
     for o in summary.get('orders', []):
@@ -973,7 +973,6 @@ def exclusive_summary(page_id):
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
-            'has_unfulfilled': any(item['is_set_fulfilled'] is False for item in o['order_items']),
         })
 
     return render_template(
@@ -983,6 +982,7 @@ def exclusive_summary(page_id):
         summary=summary,
         include_financials=include_financials,
         orders_json=json.dumps(orders_json_list, default=str),
+        sets_json=json.dumps(summary.get('sets', []), default=str),
     )
 
 

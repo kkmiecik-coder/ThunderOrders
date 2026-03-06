@@ -112,28 +112,29 @@
         var containerWidth = container.clientWidth;
         var gap = 12;
 
-        // Szerokość karty na podstawie dostępnej szerokości (5 kart widocznych)
-        var widthBased = (containerWidth - 4 * gap) / 4.1;
+        // Szerokość karty na podstawie dostępnej szerokości (7 kart widocznych)
+        var widthBased = (containerWidth - 6 * gap) / 5.5;
 
         // Rzeczywista pozycja karuzeli na stronie (pod nagłówkiem, statystykami, toolbarem)
         var containerTop = container.getBoundingClientRect().top + window.scrollY;
-        // Dostępna wysokość = viewport - pozycja karuzeli - margines dolny (np. padding strony)
         var availableHeight = window.innerHeight - containerTop + window.scrollY - 16;
-        // Karuzela ma padding: 20px góra + 70px dół (przyciski), odejmij to
         var usableHeight = availableHeight - 90;
-        // Karta ma proporcję 4:3 + ~55px na tekst pod obrazkiem
-        // cardHeight = cardWidth * (4/3) + 55, więc cardWidth = (usableHeight - 55) * 0.75
         var heightBased = (usableHeight - 55) * 0.75;
 
-        // Wybierz mniejszą z dwóch wartości, ogranicz zakresem 160-380px
-        var cardWidth = Math.max(160, Math.min(380, Math.round(Math.min(widthBased, heightBased))));
+        // Wybierz mniejszą z dwóch wartości, ogranicz zakresem 140-360px
+        var cardWidth = Math.max(140, Math.min(360, Math.round(Math.min(widthBased, heightBased))));
 
-        // Oblicz offsety pozycji
-        var prevOffset = Math.round(cardWidth * 0.925 + gap);
-        var farOffset = Math.round(prevOffset + cardWidth * 0.775 + gap);
+        // Oblicz offsety pozycji (3 poziomy po każdej stronie)
+        var prevOffset = Math.round(cardWidth * 0.9 + gap);
+        var farOffset = Math.round(prevOffset + cardWidth * 0.72 + gap);
+        var edgeOffset = Math.round(farOffset + cardWidth * 0.58 + gap);
 
         // Wysokość tracka: karta (proporcja 4:3 + tekst)
         var trackHeight = Math.round(cardWidth * (4 / 3) + 55);
+
+        // Wysokość kontenera = reszta viewportu pod nim (centrowanie w pionie)
+        var containerHeight = Math.max(trackHeight + 80, window.innerHeight - containerTop - 16);
+        container.style.setProperty('--carousel-container-height', containerHeight + 'px');
 
         // Ustaw CSS custom properties
         track.style.setProperty('--slide-width', cardWidth + 'px');
@@ -141,7 +142,74 @@
         track.style.setProperty('--prev-offset-neg', '-' + prevOffset + 'px');
         track.style.setProperty('--far-offset', farOffset + 'px');
         track.style.setProperty('--far-offset-neg', '-' + farOffset + 'px');
+        track.style.setProperty('--edge-offset', edgeOffset + 'px');
+        track.style.setProperty('--edge-offset-neg', '-' + edgeOffset + 'px');
         track.style.setProperty('--track-height', trackHeight + 'px');
+    }
+
+    /**
+     * Animacja wejścia kart karuzeli.
+     * Środkowa (active) wjeżdża pierwsza z dołu, kolejne z 200ms opóźnieniem.
+     * Kolejność: active → prev, next → far-prev, far-next → edge-prev, edge-next
+     */
+    function playEntranceAnimation() {
+        var total = carouselSlides.length;
+        if (total === 0) return;
+
+        var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next', '-3': 'edge-prev', 3: 'edge-next' };
+
+        // Grupy wjazdu: środkowa solo, potem pary symetrycznie
+        var groups = [[0], [-1, 1], [-2, 2], [-3, 3]];
+
+        // 1. Ustaw pozycje bez transition, przesuń w dół i ukryj
+        carouselSlides.forEach(function (s) { s.classList.add('no-transition'); });
+
+        carouselSlides.forEach(function (slide, index) {
+            var diff = index - carouselIndex;
+            if (diff > total / 2) diff -= total;
+            if (diff < -total / 2) diff += total;
+
+            var cls = posMap[diff] || null;
+            applyPos(slide, cls);
+
+            if (cls) {
+                slide.style.opacity = '0';
+                slide.style.transform = getComputedStyle(slide).transform + ' translateY(140px)';
+            }
+        });
+
+        void (carouselSlides[0] && carouselSlides[0].offsetHeight);
+
+        // 2. Usuń no-transition i dodaj transition wejścia
+        carouselSlides.forEach(function (s) {
+            s.classList.remove('no-transition');
+            s.style.transition = 'transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.5s ease';
+        });
+
+        // 3. Animuj parami — każda grupa startuje w połowie animacji poprzedniej (350ms)
+        groups.forEach(function (diffs, groupIdx) {
+            setTimeout(function () {
+                carouselSlides.forEach(function (slide, index) {
+                    var d = index - carouselIndex;
+                    if (d > total / 2) d -= total;
+                    if (d < -total / 2) d += total;
+
+                    if (diffs.indexOf(d) !== -1) {
+                        slide.style.opacity = '';
+                        slide.style.transform = '';
+                    }
+                });
+            }, groupIdx * 350);
+        });
+
+        // 4. Wyczyść inline style po zakończeniu (3 * 350ms + 700ms animacji ≈ 1.75s)
+        setTimeout(function () {
+            carouselSlides.forEach(function (s) {
+                s.style.transition = '';
+                s.style.opacity = '';
+                s.style.transform = '';
+            });
+        }, 1800);
     }
 
     function initCarousel() {
@@ -153,43 +221,255 @@
         carouselIndex = 0;
 
         computeCarouselLayout();
-        updateCarouselPositions();
+        playEntranceAnimation();
 
         // Strzałki nawigacji
         var prevBtn = document.getElementById('carouselPrev');
         var nextBtn = document.getElementById('carouselNext');
+        var isDragging = false;
+        var isAnimating = false;
 
         if (prevBtn) {
             prevBtn.addEventListener('click', function () {
+                if (isDragging || isAnimating) return;
                 carouselIndex = (carouselIndex - 1 + carouselSlides.length) % carouselSlides.length;
                 updateCarouselPositions();
             });
         }
         if (nextBtn) {
             nextBtn.addEventListener('click', function () {
+                if (isDragging || isAnimating) return;
                 carouselIndex = (carouselIndex + 1) % carouselSlides.length;
                 updateCarouselPositions();
             });
         }
 
-        // Touch swipe
+        // ================================================================
+        // FIZYCZNA KARUZELA - drag (mysz) + touch (telefon)
+        // Każda karta jest interpolowana indywidualnie na podstawie
+        // ułamkowego indeksu (fractionalIndex). Ciągniesz kartę →
+        // wszystkie karty obracają pozycje płynnie w czasie rzeczywistym.
+        // ================================================================
         var container = document.getElementById('collectionCarousel');
-        var touchStartX = 0;
-        if (container) {
-            container.addEventListener('touchstart', function (e) {
-                touchStartX = e.changedTouches[0].clientX;
-            }, { passive: true });
+        var track = document.querySelector('#collectionCarousel .carousel-track');
+        var dragStartX = 0;
+        var dragStartY = 0;
+        var dragDelta = 0;
+        var dragStartTime = 0;
+        var fractionalIndex = 0;
+        var cachedMetrics = null;
+        var CLICK_THRESHOLD = 6;
 
-            container.addEventListener('touchend', function (e) {
-                var deltaX = e.changedTouches[0].clientX - touchStartX;
-                if (Math.abs(deltaX) > 50) {
-                    if (deltaX < 0) {
-                        carouselIndex = (carouselIndex + 1) % carouselSlides.length;
-                    } else {
-                        carouselIndex = (carouselIndex - 1 + carouselSlides.length) % carouselSlides.length;
+        /** Pobiera metryki karuzeli z CSS custom properties (cache). */
+        function getMetrics() {
+            if (cachedMetrics) return cachedMetrics;
+            if (!track) return { cardWidth: 300, prevOffset: 270, farOffset: 460, edgeOffset: 600 };
+            var s = getComputedStyle(track);
+            cachedMetrics = {
+                cardWidth: parseFloat(s.getPropertyValue('--slide-width')) || 300,
+                prevOffset: parseFloat(s.getPropertyValue('--prev-offset')) || 270,
+                farOffset: parseFloat(s.getPropertyValue('--far-offset')) || 460,
+                edgeOffset: parseFloat(s.getPropertyValue('--edge-offset')) || 600
+            };
+            return cachedMetrics;
+        }
+
+        function lerp(a, b, t) { return a + (b - a) * t; }
+
+        /**
+         * Renderuje pozycje slajdów na podstawie ułamkowego indeksu.
+         * 7 widocznych kart (3 po każdej stronie), ściemnianie przez overlay.
+         * Tylko transform + opacity — GPU-composited, bez blur/filter.
+         */
+        function renderDragPositions(fracIdx) {
+            var total = carouselSlides.length;
+            if (total === 0) return;
+            var m = getMetrics();
+
+            // Klatki kluczowe: [absDiff] → {x, scale, overlay, opacity}
+            // 0=active, 1=prev/next, 2=far, 3=edge, 4+=hidden
+            var kx  = [0, m.prevOffset, m.farOffset, m.edgeOffset, m.edgeOffset * 1.3];
+            var ksc = [1, 0.88, 0.76, 0.64, 0.55];
+            var kov = [0, 0.2,  0.4,  0.6,  0.7];
+            var kop = [1, 1,    1,    1,    0];
+
+            for (var i = 0; i < total; i++) {
+                var slide = carouselSlides[i];
+                var diff = i - fracIdx;
+                if (diff > total / 2) diff -= total;
+                if (diff < -total / 2) diff += total;
+
+                var absDiff = Math.abs(diff);
+
+                if (absDiff >= 4) {
+                    if (slide._dragHidden !== true) {
+                        slide.style.cssText = 'opacity:0;pointer-events:none;z-index:0;transform:translateX(0) scale(0.55)';
+                        slide._dragHidden = true;
                     }
-                    updateCarouselPositions();
+                    continue;
                 }
+
+                slide._dragHidden = false;
+                var sign = diff >= 0 ? 1 : -1;
+                var lo = absDiff | 0;
+                var hi = lo < 4 ? lo + 1 : 4;
+                var t = absDiff - lo;
+
+                var x = (kx[lo] + (kx[hi] - kx[lo]) * t) * sign;
+                var sc = ksc[lo] + (ksc[hi] - ksc[lo]) * t;
+                var ov = kov[lo] + (kov[hi] - kov[lo]) * t;
+                var op = kop[lo] + (kop[hi] - kop[lo]) * t;
+                var z = absDiff < 0.5 ? 6 : absDiff < 1.5 ? 5 : absDiff < 2.5 ? 4 : 3;
+
+                slide.style.cssText = 'transform:translateX(' + (x | 0) + 'px) scale(' + sc.toFixed(3) + ');opacity:' + op.toFixed(2) + ';z-index:' + z + ';pointer-events:' + (absDiff < 2.5 ? 'auto' : 'none') + ';--drag-overlay:' + ov.toFixed(2);
+            }
+        }
+
+        /** Czyści wszystkie inline style po drag/animacji. */
+        function cleanUpDragStyles() {
+            if (container) container.classList.remove('dragging');
+            for (var i = 0; i < carouselSlides.length; i++) {
+                carouselSlides[i].style.cssText = '';
+                delete carouselSlides[i]._dragHidden;
+            }
+        }
+
+        /**
+         * Po puszczeniu: animuje od bieżącego fractionalIndex do targetIdx
+         * za pomocą requestAnimationFrame (ease-out cubic, ~280ms).
+         */
+        function animateToIndex(targetIdx) {
+            isAnimating = true;
+            var startFrac = fractionalIndex;
+            var startTime = performance.now();
+            var duration = 280;
+            var total = carouselSlides.length;
+
+            function step(now) {
+                var t = Math.min((now - startTime) / duration, 1);
+                t = 1 - Math.pow(1 - t, 3); // ease-out cubic
+                fractionalIndex = lerp(startFrac, targetIdx, t);
+                renderDragPositions(fractionalIndex);
+
+                if (t < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    // Zakończono — przywróć system klas CSS (bez animacji)
+                    isAnimating = false;
+                    var normIdx = targetIdx % total;
+                    if (normIdx < 0) normIdx += total;
+                    carouselIndex = normIdx;
+
+                    // Ustaw klasy bez transition (slajdy już są na docelowych pozycjach)
+                    carouselSlides.forEach(function (s) { s.classList.add('no-transition'); });
+                    var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next', '-3': 'edge-prev', 3: 'edge-next' };
+                    carouselSlides.forEach(function (slide, index) {
+                        if (slide._fadeTimer) { clearTimeout(slide._fadeTimer); slide._fadeTimer = null; }
+                        var d = index - carouselIndex;
+                        if (d > total / 2) d -= total;
+                        if (d < -total / 2) d += total;
+                        applyPos(slide, posMap[d] || null);
+                    });
+                    cleanUpDragStyles();
+                    void (carouselSlides[0] && carouselSlides[0].offsetHeight);
+                    carouselSlides.forEach(function (s) { s.classList.remove('no-transition'); });
+                }
+            }
+            requestAnimationFrame(step);
+        }
+
+        function onDragStart(x, y, e) {
+            if (e && e.target && e.target.closest('.carousel-prev, .carousel-next')) return;
+            if (isAnimating) return;
+            isDragging = true;
+            dragStartX = x;
+            dragStartY = y;
+            dragDelta = 0;
+            dragStartTime = Date.now();
+            fractionalIndex = carouselIndex;
+            // Ustaw inline style (w tym --drag-overlay) PRZED dodaniem .dragging
+            // żeby nie było flashu jasności (CSS overlay → JS overlay)
+            renderDragPositions(fractionalIndex);
+            void (container && container.offsetHeight);
+            if (container) {
+                container.classList.add('dragging');
+                container.style.cursor = 'grabbing';
+            }
+        }
+
+        function onDragMove(x) {
+            if (!isDragging) return;
+            dragDelta = x - dragStartX;
+            var m = getMetrics();
+            // Przesunięcie o szerokość karty = przeskok o 1 pozycję
+            fractionalIndex = carouselIndex - dragDelta / (m.cardWidth * 0.85);
+            renderDragPositions(fractionalIndex);
+        }
+
+        function onDragEnd(x) {
+            if (!isDragging) return;
+            isDragging = false;
+            if (container) container.style.cursor = '';
+            dragDelta = x - dragStartX;
+            var absDelta = Math.abs(dragDelta);
+            var elapsed = Date.now() - dragStartTime;
+            var velocity = elapsed > 0 ? absDelta / elapsed : 0;
+
+            if (absDelta <= CLICK_THRESHOLD) {
+                // Kliknięcie → otwórz edycję
+                cleanUpDragStyles();
+                updateCarouselPositions();
+                var clickTarget = document.elementFromPoint(x, dragStartY);
+                var slide = clickTarget && clickTarget.closest('.carousel-slide');
+                if (slide && slide.dataset.itemId) {
+                    openEditModal(parseInt(slide.dataset.itemId, 10));
+                }
+                return;
+            }
+
+            // Oblicz docelowy index na podstawie pozycji i prędkości
+            var rawTarget = fractionalIndex;
+            var targetIdx;
+            if (velocity > 0.5) {
+                // Szybki swipe → zaokrąglij w kierunku ruchu
+                targetIdx = dragDelta < 0 ? Math.ceil(rawTarget) : Math.floor(rawTarget);
+            } else {
+                // Wolny drag → zaokrąglij do najbliższego
+                targetIdx = Math.round(rawTarget);
+            }
+            animateToIndex(targetIdx);
+        }
+
+        if (container) {
+            // --- Mouse ---
+            container.addEventListener('mousedown', function (e) {
+                if (e.target.closest('.carousel-prev, .carousel-next')) return;
+                onDragStart(e.clientX, e.clientY, e);
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function (e) {
+                if (!isDragging) return;
+                onDragMove(e.clientX);
+            });
+            document.addEventListener('mouseup', function (e) {
+                if (!isDragging) return;
+                onDragEnd(e.clientX);
+            });
+
+            // --- Touch ---
+            container.addEventListener('touchstart', function (e) {
+                if (e.target.closest('.carousel-prev, .carousel-next')) return;
+                var t = e.changedTouches[0];
+                onDragStart(t.clientX, t.clientY, e);
+            }, { passive: true });
+            container.addEventListener('touchmove', function (e) {
+                if (!isDragging) return;
+                onDragMove(e.changedTouches[0].clientX);
+                if (Math.abs(dragDelta) > 10) e.preventDefault();
+            }, { passive: false });
+            container.addEventListener('touchend', function (e) {
+                if (!isDragging) return;
+                onDragEnd(e.changedTouches[0].clientX);
             }, { passive: true });
         }
 
@@ -198,7 +478,31 @@
             clearTimeout(carouselResizeTimer);
             carouselResizeTimer = setTimeout(function () {
                 computeCarouselLayout();
+                cachedMetrics = null;
             }, 150);
+        });
+
+        // ---- Shimmer / błyśnięcie — losowy timer per karta ----
+        function scheduleShimmer(slide) {
+            var delay = 3000 + Math.random() * 10000; // 3-13s
+            setTimeout(function () {
+                // Tylko jeśli karta jest widoczna (ma klasę pozycji)
+                if (slide.classList.contains('active') ||
+                    slide.classList.contains('prev') || slide.classList.contains('next') ||
+                    slide.classList.contains('far-prev') || slide.classList.contains('far-next') ||
+                    slide.classList.contains('edge-prev') || slide.classList.contains('edge-next')) {
+                    slide.classList.add('shimmer');
+                    slide.addEventListener('animationend', function onEnd() {
+                        slide.removeEventListener('animationend', onEnd);
+                        slide.classList.remove('shimmer');
+                    });
+                }
+                scheduleShimmer(slide);
+            }, delay);
+        }
+
+        carouselSlides.forEach(function (slide) {
+            scheduleShimmer(slide);
         });
     }
 
@@ -206,7 +510,7 @@
      * Pomocnicza - ustawia klasę pozycji na slajdzie
      */
     function applyPos(slide, cls) {
-        ['active', 'prev', 'next', 'far-prev', 'far-next'].forEach(function (c) {
+        ['active', 'prev', 'next', 'far-prev', 'far-next', 'edge-prev', 'edge-next'].forEach(function (c) {
             slide.classList.remove(c);
         });
         if (cls) slide.classList.add(cls);
@@ -224,8 +528,8 @@
         var total = carouselSlides.length;
         if (total === 0) return;
 
-        var posClasses = ['active', 'prev', 'next', 'far-prev', 'far-next'];
-        var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next' };
+        var posClasses = ['active', 'prev', 'next', 'far-prev', 'far-next', 'edge-prev', 'edge-next'];
+        var posMap = { 0: 'active', '-1': 'prev', 1: 'next', '-2': 'far-prev', 2: 'far-next', '-3': 'edge-prev', 3: 'edge-next' };
 
         carouselSlides.forEach(function (slide, index) {
             // Anuluj wcześniejszy timer fade jeśli istnieje
@@ -240,7 +544,7 @@
             if (diff > total / 2) diff -= total;
             if (diff < -total / 2) diff += total;
 
-            var willBeVisible = (diff >= -2 && diff <= 2);
+            var willBeVisible = (diff >= -3 && diff <= 3);
             var targetCls = posMap[diff] || null;
 
             if (!wasVisible && willBeVisible) {
@@ -280,9 +584,10 @@
         });
     }
 
-    // Inicjalizacja karuzeli jeśli domyślny widok to carousel
+    // Inicjalizacja karuzeli jeśli widok to carousel (domyślny lub z URL)
     var urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('view') === 'carousel') {
+    var currentView = urlParams.get('view');
+    if (currentView === 'carousel' || (!currentView && !document.querySelector('#collectionCarousel.hidden'))) {
         initCarousel();
     }
 

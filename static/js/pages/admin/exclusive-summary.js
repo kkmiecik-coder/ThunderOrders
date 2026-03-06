@@ -1,10 +1,11 @@
 /**
  * Exclusive Summary Page
- * Tab switching, orders search/filter/pagination, card expand/collapse, products sorting
+ * Tab switching, Chart.js with granularity toggle, orders search/pagination, products sorting
+ * Based on exclusive-live.js without Socket.IO, JS matrix/products rendering, meta countdowns
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-    initializeSummaryTabs();
+    initializeLiveTabs();
     initializeOrdersTimelineChart();
     initializeOrdersTab();
     initializeProductsTab();
@@ -14,26 +15,25 @@ document.addEventListener('DOMContentLoaded', function () {
    1. TAB SWITCHING
    ========================================== */
 
-function initializeSummaryTabs() {
-    const tabButtons = document.querySelectorAll('.summary-tab-button');
-    const tabPanels = document.querySelectorAll('.summary-tab-panel');
+function initializeLiveTabs() {
+    var tabButtons = document.querySelectorAll('.live-tab-button');
+    var tabPanels = document.querySelectorAll('.live-tab-panel');
 
     if (tabButtons.length === 0) return;
 
     tabButtons.forEach(function (button) {
         button.addEventListener('click', function () {
-            const targetTab = this.getAttribute('data-tab');
+            var targetTab = this.getAttribute('data-tab');
 
-            tabButtons.forEach(function (btn) { btn.classList.remove('summary-tab-active'); });
-            tabPanels.forEach(function (panel) { panel.classList.remove('summary-tab-active'); });
+            tabButtons.forEach(function (btn) { btn.classList.remove('live-tab-active'); });
+            tabPanels.forEach(function (panel) { panel.classList.remove('live-tab-active'); });
 
-            this.classList.add('summary-tab-active');
+            this.classList.add('live-tab-active');
             var targetPanel = document.getElementById(targetTab);
             if (targetPanel) {
-                targetPanel.classList.add('summary-tab-active');
+                targetPanel.classList.add('live-tab-active');
             }
 
-            // Lazy-render orders on first switch to that tab
             if (targetTab === 'tab-orders' && !ordersRendered) {
                 renderOrderCards();
                 ordersRendered = true;
@@ -45,40 +45,49 @@ function initializeSummaryTabs() {
         });
     });
 
-    // Restore saved tab
     try {
         var savedTab = localStorage.getItem('exclusiveSummaryActiveTab');
         if (savedTab) {
-            var btn = document.querySelector('.summary-tab-button[data-tab="' + savedTab + '"]');
+            var btn = document.querySelector('.live-tab-button[data-tab="' + savedTab + '"]');
             if (btn) btn.click();
         }
     } catch (e) { /* ignore */ }
 }
 
 /* ==========================================
-   2. ORDERS TIMELINE CHART (Chart.js)
+   2. ORDERS TIMELINE CHART
    ========================================== */
 
 var ordersChart = null;
+var currentGranularity = 'hour';
+
+var GRANULARITY_LABELS = {
+    day: 'Zamówienia / dzień',
+    hour: 'Zamówienia / godz.',
+    minute: 'Zamówienia / min.'
+};
 
 function initializeOrdersTimelineChart() {
     var canvas = document.getElementById('ordersTimelineChart');
     if (!canvas || typeof Chart === 'undefined') return;
 
+    buildChart(canvas);
+    initializeGranularityToggle();
+
+    // Theme change observer
+    var observer = new MutationObserver(function (mutations) {
+        for (var m = 0; m < mutations.length; m++) {
+            if (mutations[m].attributeName === 'data-theme') updateChartTheme();
+        }
+    });
+    observer.observe(document.documentElement, { attributes: true });
+}
+
+function buildChart(canvas) {
     var timestamps = window.ORDER_TIMESTAMPS || [];
-    if (timestamps.length === 0) return;
 
-    // Group timestamps by hour
-    var hourCounts = {};
-    for (var i = 0; i < timestamps.length; i++) {
-        var dt = new Date(timestamps[i]);
-        // Round to hour
-        var hourKey = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours()).toISOString();
-        hourCounts[hourKey] = (hourCounts[hourKey] || 0) + 1;
-    }
-
-    // Sort by time and build data arrays
-    var sortedKeys = Object.keys(hourCounts).sort();
+    var buckets = bucketTimestamps(timestamps, currentGranularity);
+    var sortedKeys = Object.keys(buckets).sort();
     var labels = [];
     var data = [];
     var cumulativeData = [];
@@ -86,14 +95,19 @@ function initializeOrdersTimelineChart() {
 
     for (var j = 0; j < sortedKeys.length; j++) {
         labels.push(sortedKeys[j]);
-        data.push(hourCounts[sortedKeys[j]]);
-        cumulative += hourCounts[sortedKeys[j]];
+        data.push(buckets[sortedKeys[j]]);
+        cumulative += buckets[sortedKeys[j]];
         cumulativeData.push(cumulative);
     }
 
-    // Detect theme
     var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     var colors = getChartColors(isDark);
+    var timeUnit = currentGranularity === 'day' ? 'day' : currentGranularity === 'minute' ? 'minute' : 'hour';
+
+    if (ordersChart) {
+        ordersChart.destroy();
+        ordersChart = null;
+    }
 
     var ctx = canvas.getContext('2d');
 
@@ -103,7 +117,7 @@ function initializeOrdersTimelineChart() {
             labels: labels,
             datasets: [
                 {
-                    label: 'Zamówienia / godz.',
+                    label: GRANULARITY_LABELS[currentGranularity],
                     data: data,
                     borderColor: colors.primary,
                     backgroundColor: colors.primaryBg,
@@ -136,38 +150,23 @@ function initializeOrdersTimelineChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
+            interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
-                    display: true,
-                    position: 'top',
-                    align: 'end',
-                    labels: {
-                        color: colors.text,
-                        font: { size: 12 },
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        padding: 16,
-                    }
+                    display: true, position: 'top', align: 'end',
+                    labels: { color: colors.text, font: { size: 12 }, usePointStyle: true, pointStyle: 'circle', padding: 16 }
                 },
                 tooltip: {
-                    backgroundColor: colors.tooltipBg,
-                    titleColor: colors.tooltipTitle,
-                    bodyColor: colors.tooltipBody,
-                    borderColor: colors.tooltipBorder,
-                    borderWidth: 1,
-                    padding: 12,
-                    cornerRadius: 8,
+                    backgroundColor: colors.tooltipBg, titleColor: colors.tooltipTitle,
+                    bodyColor: colors.tooltipBody, borderColor: colors.tooltipBorder,
+                    borderWidth: 1, padding: 12, cornerRadius: 8,
                     callbacks: {
                         title: function (items) {
                             if (!items.length) return '';
                             var ts = items[0].parsed.x;
-                            var dt = new Date(ts);
-                            if (isNaN(dt.getTime())) return items[0].label || '';
-                            return formatChartDate(dt);
+                            var d = new Date(ts);
+                            if (isNaN(d.getTime())) return items[0].label || '';
+                            return formatChartDate(d);
                         }
                     }
                 }
@@ -176,116 +175,83 @@ function initializeOrdersTimelineChart() {
                 x: {
                     type: 'time',
                     time: {
-                        unit: detectTimeUnit(timestamps),
-                        displayFormats: {
-                            hour: 'dd.MM HH:mm',
-                            day: 'dd.MM.yyyy',
-                        },
-                        tooltipFormat: 'dd.MM.yyyy HH:mm',
+                        unit: timeUnit,
+                        displayFormats: { minute: 'HH:mm', hour: 'dd.MM HH:mm', day: 'dd.MM.yyyy' },
+                        tooltipFormat: 'dd.MM.yyyy HH:mm'
                     },
-                    grid: {
-                        color: colors.grid,
-                    },
-                    ticks: {
-                        color: colors.tickText,
-                        font: { size: 11 },
-                        maxRotation: 45,
-                        autoSkip: true,
-                        maxTicksLimit: 12,
-                    },
-                    border: {
-                        color: colors.grid,
-                    }
+                    grid: { color: colors.grid },
+                    ticks: { color: colors.tickText, font: { size: 11 }, maxRotation: 45, autoSkip: true, maxTicksLimit: 14 },
+                    border: { color: colors.grid }
                 },
                 y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Zamówienia / godz.',
-                        color: colors.tickText,
-                        font: { size: 11 },
-                    },
-                    grid: {
-                        color: colors.grid,
-                    },
-                    ticks: {
-                        color: colors.tickText,
-                        font: { size: 11 },
-                        stepSize: 1,
-                        precision: 0,
-                    },
-                    border: {
-                        color: colors.grid,
-                    }
+                    type: 'linear', display: true, position: 'left', beginAtZero: true,
+                    title: { display: true, text: GRANULARITY_LABELS[currentGranularity], color: colors.tickText, font: { size: 11 } },
+                    grid: { color: colors.grid }, ticks: { color: colors.tickText, font: { size: 11 }, stepSize: 1, precision: 0 },
+                    border: { color: colors.grid }
                 },
                 y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Suma',
-                        color: colors.tickText,
-                        font: { size: 11 },
-                    },
-                    grid: {
-                        drawOnChartArea: false,
-                    },
-                    ticks: {
-                        color: colors.tickText,
-                        font: { size: 11 },
-                        precision: 0,
-                    },
-                    border: {
-                        color: colors.grid,
-                    }
+                    type: 'linear', display: true, position: 'right', beginAtZero: true,
+                    title: { display: true, text: 'Suma', color: colors.tickText, font: { size: 11 } },
+                    grid: { drawOnChartArea: false }, ticks: { color: colors.tickText, font: { size: 11 }, precision: 0 },
+                    border: { color: colors.grid }
                 }
             }
         }
     });
+}
 
-    // Listen for theme changes
-    var observer = new MutationObserver(function (mutations) {
-        for (var m = 0; m < mutations.length; m++) {
-            if (mutations[m].attributeName === 'data-theme') {
-                updateChartTheme();
-            }
+function bucketTimestamps(timestamps, granularity) {
+    var buckets = {};
+    for (var i = 0; i < timestamps.length; i++) {
+        var dt = new Date(timestamps[i]);
+        var key;
+        if (granularity === 'day') {
+            key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).toISOString();
+        } else if (granularity === 'minute') {
+            key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), dt.getMinutes()).toISOString();
+        } else {
+            key = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours()).toISOString();
         }
+        buckets[key] = (buckets[key] || 0) + 1;
+    }
+    return buckets;
+}
+
+function rebuildChart() {
+    var canvas = document.getElementById('ordersTimelineChart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    buildChart(canvas);
+}
+
+function initializeGranularityToggle() {
+    var buttons = document.querySelectorAll('.chart-granularity-btn');
+    buttons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            buttons.forEach(function (b) { b.classList.remove('chart-granularity-active'); });
+            this.classList.add('chart-granularity-active');
+            currentGranularity = this.getAttribute('data-granularity');
+            rebuildChart();
+        });
     });
-    observer.observe(document.documentElement, { attributes: true });
 }
 
 function getChartColors(isDark) {
     if (isDark) {
         return {
-            primary: '#f093fb',
-            primaryBg: 'rgba(240, 147, 251, 0.15)',
-            secondary: 'rgba(52, 211, 153, 0.8)',
-            text: 'rgba(255, 255, 255, 0.7)',
-            tickText: 'rgba(255, 255, 255, 0.5)',
-            grid: 'rgba(255, 255, 255, 0.08)',
-            pointBorder: 'rgba(15, 12, 41, 0.8)',
-            tooltipBg: 'rgba(15, 12, 41, 0.95)',
-            tooltipTitle: '#ffffff',
-            tooltipBody: 'rgba(255, 255, 255, 0.8)',
+            primary: '#f093fb', primaryBg: 'rgba(240, 147, 251, 0.15)',
+            secondary: 'rgba(52, 211, 153, 0.8)', text: 'rgba(255, 255, 255, 0.7)',
+            tickText: 'rgba(255, 255, 255, 0.5)', grid: 'rgba(255, 255, 255, 0.08)',
+            pointBorder: 'rgba(15, 12, 41, 0.8)', tooltipBg: 'rgba(15, 12, 41, 0.95)',
+            tooltipTitle: '#ffffff', tooltipBody: 'rgba(255, 255, 255, 0.8)',
             tooltipBorder: 'rgba(240, 147, 251, 0.3)',
         };
     }
     return {
-        primary: '#FF8500',
-        primaryBg: 'rgba(255, 133, 0, 0.1)',
-        secondary: 'rgba(16, 185, 129, 0.7)',
-        text: '#616161',
-        tickText: '#9E9E9E',
-        grid: 'rgba(0, 0, 0, 0.06)',
-        pointBorder: '#ffffff',
-        tooltipBg: '#ffffff',
-        tooltipTitle: '#212121',
-        tooltipBody: '#616161',
+        primary: '#FF8500', primaryBg: 'rgba(255, 133, 0, 0.1)',
+        secondary: 'rgba(16, 185, 129, 0.7)', text: '#616161',
+        tickText: '#9E9E9E', grid: 'rgba(0, 0, 0, 0.06)',
+        pointBorder: '#ffffff', tooltipBg: '#ffffff',
+        tooltipTitle: '#212121', tooltipBody: '#616161',
         tooltipBorder: '#E0E0E0',
     };
 }
@@ -294,46 +260,21 @@ function updateChartTheme() {
     if (!ordersChart) return;
     var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     var c = getChartColors(isDark);
-
-    // Datasets
     ordersChart.data.datasets[0].borderColor = c.primary;
     ordersChart.data.datasets[0].backgroundColor = c.primaryBg;
     ordersChart.data.datasets[0].pointBackgroundColor = c.primary;
     ordersChart.data.datasets[0].pointBorderColor = c.pointBorder;
     ordersChart.data.datasets[1].borderColor = c.secondary;
-
-    // Scales
     var scales = ordersChart.options.scales;
-    scales.x.grid.color = c.grid;
-    scales.x.ticks.color = c.tickText;
-    scales.x.border.color = c.grid;
-    scales.y.grid.color = c.grid;
-    scales.y.ticks.color = c.tickText;
-    scales.y.title.color = c.tickText;
-    scales.y.border.color = c.grid;
-    scales.y1.ticks.color = c.tickText;
-    scales.y1.title.color = c.tickText;
-    scales.y1.border.color = c.grid;
-
-    // Legend
+    scales.x.grid.color = c.grid; scales.x.ticks.color = c.tickText; scales.x.border.color = c.grid;
+    scales.y.grid.color = c.grid; scales.y.ticks.color = c.tickText; scales.y.title.color = c.tickText; scales.y.border.color = c.grid;
+    scales.y1.ticks.color = c.tickText; scales.y1.title.color = c.tickText; scales.y1.border.color = c.grid;
     ordersChart.options.plugins.legend.labels.color = c.text;
-
-    // Tooltip
     ordersChart.options.plugins.tooltip.backgroundColor = c.tooltipBg;
     ordersChart.options.plugins.tooltip.titleColor = c.tooltipTitle;
     ordersChart.options.plugins.tooltip.bodyColor = c.tooltipBody;
     ordersChart.options.plugins.tooltip.borderColor = c.tooltipBorder;
-
     ordersChart.update('none');
-}
-
-function detectTimeUnit(timestamps) {
-    if (timestamps.length < 2) return 'hour';
-    var first = new Date(timestamps[0]);
-    var last = new Date(timestamps[timestamps.length - 1]);
-    var diffHours = (last - first) / (1000 * 60 * 60);
-    if (diffHours > 168) return 'day'; // > 7 days
-    return 'hour';
 }
 
 function formatChartDate(dt) {
@@ -355,48 +296,28 @@ var filteredOrders = [];
 var ordersRendered = false;
 
 function initializeOrdersTab() {
-    var allOrders = window.SUMMARY_ORDERS || [];
-    filteredOrders = allOrders.slice();
+    filteredOrders = (window.SUMMARY_ORDERS || []).slice();
 
     var searchInput = document.getElementById('ordersSearch');
-    var filterSelect = document.getElementById('ordersFulfillmentFilter');
-
     if (searchInput) {
         searchInput.addEventListener('input', debounce(function () {
             currentPage = 1;
             applyOrdersFilters();
         }, 300));
     }
-
-    if (filterSelect) {
-        filterSelect.addEventListener('change', function () {
-            currentPage = 1;
-            applyOrdersFilters();
-        });
-    }
 }
 
 function applyOrdersFilters() {
     var allOrders = window.SUMMARY_ORDERS || [];
     var searchInput = document.getElementById('ordersSearch');
-    var filterSelect = document.getElementById('ordersFulfillmentFilter');
     var searchTerm = (searchInput ? searchInput.value : '').toLowerCase().trim();
-    var fulfillmentFilter = filterSelect ? filterSelect.value : 'all';
 
     filteredOrders = allOrders.filter(function (order) {
-        // Search
         if (searchTerm) {
-            var matches =
-                order.order_number.toLowerCase().indexOf(searchTerm) !== -1 ||
+            return order.order_number.toLowerCase().indexOf(searchTerm) !== -1 ||
                 order.customer_name.toLowerCase().indexOf(searchTerm) !== -1 ||
                 order.customer_email.toLowerCase().indexOf(searchTerm) !== -1;
-            if (!matches) return false;
         }
-
-        // Fulfillment filter
-        if (fulfillmentFilter === 'fulfilled' && order.has_unfulfilled) return false;
-        if (fulfillmentFilter === 'unfulfilled' && !order.has_unfulfilled) return false;
-
         return true;
     });
 
@@ -412,7 +333,6 @@ function renderOrderCards() {
     var paginationContainer = document.getElementById('ordersPagination');
     if (!grid) return;
 
-    // Ensure filteredOrders is populated (handles case when tab is restored before initializeOrdersTab runs)
     if (filteredOrders.length === 0 && (window.SUMMARY_ORDERS || []).length > 0) {
         filteredOrders = (window.SUMMARY_ORDERS || []).slice();
         var countEl = document.getElementById('ordersDisplayCount');
@@ -428,13 +348,11 @@ function renderOrderCards() {
 
     if (emptyState) emptyState.style.display = 'none';
 
-    // Paginate
     var totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
     if (currentPage > totalPages) currentPage = totalPages;
     var start = (currentPage - 1) * ORDERS_PER_PAGE;
     var pageOrders = filteredOrders.slice(start, start + ORDERS_PER_PAGE);
 
-    // Build cards
     var html = '';
     for (var i = 0; i < pageOrders.length; i++) {
         html += buildOrderCardHTML(pageOrders[i]);
@@ -447,14 +365,13 @@ function renderOrderCards() {
 function buildOrderCardHTML(order) {
     var detailUrl = window.ORDER_DETAIL_URL + '/' + order.order_id;
     var includeFinancials = window.INCLUDE_FINANCIALS;
-    var dotClass = order.has_unfulfilled ? 'unfulfilled' : 'fulfilled';
 
-    // Build items
     var itemsHTML = '';
     for (var i = 0; i < order.items.length; i++) {
         var item = order.items[i];
         var cls = 'order-item';
         var badge = '';
+
         var statusIcon = '';
 
         if (item.is_full_set) {
@@ -498,7 +415,6 @@ function buildOrderCardHTML(order) {
         '<div class="order-card-main">' +
         '<div class="order-card-number">' +
         '<a href="' + detailUrl + '">' + escapeHtml(order.order_number) + '</a>' +
-        '<span class="order-card-fulfillment-dot ' + dotClass + '"></span>' +
         '</div>' +
         '<div class="order-card-customer">' + escapeHtml(order.customer_name) + '</div>' +
         '<div class="order-card-meta">' +
@@ -521,26 +437,19 @@ function renderPagination(totalPages, container) {
     }
 
     var html = '';
+    html += '<button class="pagination-btn"' + (currentPage === 1 ? ' disabled' : '') + ' data-page="' + (currentPage - 1) + '">&laquo;</button>';
 
-    // Prev
-    html += '<button class="pagination-btn"' + (currentPage === 1 ? ' disabled' : '') +
-        ' data-page="' + (currentPage - 1) + '">&laquo;</button>';
-
-    // Pages
     var pages = getPaginationRange(currentPage, totalPages, 7);
     for (var i = 0; i < pages.length; i++) {
         var p = pages[i];
         if (p === '...') {
             html += '<span class="pagination-ellipsis">...</span>';
         } else {
-            html += '<button class="pagination-btn' + (p === currentPage ? ' active' : '') +
-                '" data-page="' + p + '">' + p + '</button>';
+            html += '<button class="pagination-btn' + (p === currentPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
         }
     }
 
-    // Next
-    html += '<button class="pagination-btn"' + (currentPage === totalPages ? ' disabled' : '') +
-        ' data-page="' + (currentPage + 1) + '">&raquo;</button>';
+    html += '<button class="pagination-btn"' + (currentPage === totalPages ? ' disabled' : '') + ' data-page="' + (currentPage + 1) + '">&raquo;</button>';
 
     container.innerHTML = html;
 
@@ -578,24 +487,15 @@ function sortProductsTable(sortKey) {
 
     rows.sort(function (a, b) {
         switch (sortKey) {
-            case 'quantity-desc':
-                return parseFloat(b.dataset.quantity) - parseFloat(a.dataset.quantity);
-            case 'quantity-asc':
-                return parseFloat(a.dataset.quantity) - parseFloat(b.dataset.quantity);
-            case 'name-asc':
-                return (a.dataset.productName || '').localeCompare(b.dataset.productName || '');
-            case 'name-desc':
-                return (b.dataset.productName || '').localeCompare(a.dataset.productName || '');
-            case 'revenue-desc':
-                return parseFloat(b.dataset.revenue) - parseFloat(a.dataset.revenue);
-            case 'revenue-asc':
-                return parseFloat(a.dataset.revenue) - parseFloat(b.dataset.revenue);
-            case 'fulfillment-desc':
-                return parseFloat(b.dataset.fulfillment) - parseFloat(a.dataset.fulfillment);
-            case 'fulfillment-asc':
-                return parseFloat(a.dataset.fulfillment) - parseFloat(b.dataset.fulfillment);
-            default:
-                return 0;
+            case 'quantity-desc': return parseFloat(b.dataset.quantity) - parseFloat(a.dataset.quantity);
+            case 'quantity-asc': return parseFloat(a.dataset.quantity) - parseFloat(b.dataset.quantity);
+            case 'name-asc': return (a.dataset.productName || '').localeCompare(b.dataset.productName || '');
+            case 'name-desc': return (b.dataset.productName || '').localeCompare(a.dataset.productName || '');
+            case 'revenue-desc': return parseFloat(b.dataset.revenue) - parseFloat(a.dataset.revenue);
+            case 'revenue-asc': return parseFloat(a.dataset.revenue) - parseFloat(b.dataset.revenue);
+            case 'fulfillment-desc': return parseFloat(b.dataset.fulfillment) - parseFloat(a.dataset.fulfillment);
+            case 'fulfillment-asc': return parseFloat(a.dataset.fulfillment) - parseFloat(b.dataset.fulfillment);
+            default: return 0;
         }
     });
 
@@ -614,9 +514,7 @@ function debounce(func, wait) {
         var context = this;
         var args = arguments;
         clearTimeout(timeout);
-        timeout = setTimeout(function () {
-            func.apply(context, args);
-        }, wait);
+        timeout = setTimeout(function () { func.apply(context, args); }, wait);
     };
 }
 
@@ -633,20 +531,16 @@ function getPaginationRange(current, total, maxVisible) {
         for (var i = 1; i <= total; i++) arr.push(i);
         return arr;
     }
-
     var pages = [];
     var half = Math.floor(maxVisible / 2);
     var start = Math.max(2, current - half);
     var end = Math.min(total - 1, current + half);
-
     if (current <= half + 1) end = Math.min(total - 1, maxVisible - 1);
     if (current >= total - half) start = Math.max(2, total - maxVisible + 2);
-
     pages.push(1);
     if (start > 2) pages.push('...');
     for (var j = start; j <= end; j++) pages.push(j);
     if (end < total - 1) pages.push('...');
     pages.push(total);
-
     return pages;
 }

@@ -28,10 +28,31 @@
             </div>
 
             <div class="profile-grid">
-                <!-- Dane osobowe -->
+                <!-- Profil -->
                 <div class="profile-card">
                     <div class="profile-card-header">
-                        <h2>Dane osobowe</h2>
+                        <h2>Profil</h2>
+                    </div>
+                    <div class="profile-avatar-inline">
+                        <div class="current-avatar">
+                            {% if current_user.avatar %}
+                                <img src="{{ current_user.avatar.url }}" alt="Twój avatar" class="avatar-preview">
+                            {% else %}
+                                <div class="avatar-placeholder">
+                                    <span>{{ (current_user.first_name or '?')[0] }}{{ (current_user.last_name or '?')[0] }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="avatar-info">
+                            {% if current_user.avatar %}
+                                <p class="avatar-status">Seria <strong>{{ current_user.avatar.series.name }}</strong></p>
+                            {% else %}
+                                <p class="avatar-status">Brak avatara</p>
+                            {% endif %}
+                            <a href="{{ url_for('profile.select_avatar') }}" class="btn btn-sm btn-outline">
+                                {% if current_user.avatar %}Zmień{% else %}Wybierz{% endif %}
+                            </a>
+                        </div>
                     </div>
                     <form action="{{ url_for('profile.update_profile') }}" method="POST" class="profile-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -253,34 +274,6 @@
                     </div>
                 </div>
                 {% endif %}
-
-                <!-- Zmiana avatara -->
-                <div class="profile-card profile-card-avatar">
-                    <div class="profile-card-header">
-                        <h2>Avatar</h2>
-                    </div>
-                    <div class="avatar-section">
-                        <div class="current-avatar">
-                            {% if current_user.avatar %}
-                                <img src="{{ current_user.avatar.url }}" alt="Twój avatar" class="avatar-preview">
-                            {% else %}
-                                <div class="avatar-placeholder">
-                                    <span>{{ (current_user.first_name or '?')[0] }}{{ (current_user.last_name or '?')[0] }}</span>
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="avatar-info">
-                            {% if current_user.avatar %}
-                                <p class="avatar-status">Masz ustawiony avatar z serii <strong>{{ current_user.avatar.series.name }}</strong></p>
-                            {% else %}
-                                <p class="avatar-status">Nie masz jeszcze ustawionego avatara</p>
-                            {% endif %}
-                            <a href="{{ url_for('profile.select_avatar') }}" class="btn btn-primary">
-                                {% if current_user.avatar %}Zmień avatar{% else %}Wybierz avatar{% endif %}
-                            </a>
-                        </div>
-                    </div>
-                </div>
 
                 <!-- Informacje o koncie -->
                 <div class="profile-card profile-card-info">

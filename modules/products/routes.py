@@ -2583,8 +2583,31 @@ def _apply_coverage_status_update(product_quantities, client_orders, new_status)
             for item in items:
                 if item.quantity > 0:
                     remaining[item.product_id] = remaining.get(item.product_id, 0) - item.quantity
+            old_status = order.status
             old_status_name = order.status_display_name
             order.status = new_status
+            # Expire cached status_rel so status_display_name returns the new name
+            db.session.expire(order, ['status_rel'])
+
+            # Log auto status change (inline, bez commit - caller commituje)
+            from modules.admin.models import ActivityLog
+            import json as _json
+            try:
+                from flask import request as _req
+                _ip = _req.remote_addr if _req else None
+                _ua = _req.headers.get('User-Agent', '')[:500] if _req else None
+            except RuntimeError:
+                _ip, _ua = None, None
+            db.session.add(ActivityLog(
+                action='order_status_auto_updated',
+                entity_type='order',
+                entity_id=order.id,
+                old_value=_json.dumps({'status': old_status}),
+                new_value=_json.dumps({'status': new_status}),
+                ip_address=_ip,
+                user_agent=_ua,
+            ))
+
             if order.customer_email:
                 email_queue.append({
                     'order': order,
@@ -3147,10 +3170,15 @@ def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
             order_shipping_totals[order_id] = total
 
     # Zapisz na zamówieniach
+    updated_orders = {}
     for order_id, shipping_cost in order_shipping_totals.items():
         order = Order.query.get(order_id)
         if order:
+            old_cost = float(order.proxy_shipping_cost) if order.proxy_shipping_cost else 0
             order.proxy_shipping_cost = shipping_cost
+            updated_orders[order_id] = {'old': old_cost, 'new': float(shipping_cost)}
+
+    return updated_orders
 
 
 def _distribute_customs_vat_to_client_orders(product_customs_percentages):
@@ -3172,6 +3200,7 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
         Order.status != 'anulowane'
     ).all()
 
+    updated_customs = {}
     for order in client_orders:
         customs_total = Decimal('0')
         has_match = False
@@ -3191,7 +3220,13 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
                         has_match = True
 
         if has_match:
+            updated_customs[order.id] = {
+                'old': float(order.customs_vat_sale_cost) if order.customs_vat_sale_cost else 0,
+                'new': float(customs_total)
+            }
             order.customs_vat_sale_cost = customs_total
+
+    return updated_customs
 
 
 @products_bp.route('/api/create-poland-order', methods=['POST'])
@@ -3273,7 +3308,7 @@ def create_poland_order():
                 # dla poprawnego rozliczania already_ordered w "Do zamówienia"
 
         # Auto-fill proxy shipping costs na zamówieniach klientów
-        _distribute_proxy_shipping_to_client_orders(product_shipping_costs)
+        distributed_shipping = _distribute_proxy_shipping_to_client_orders(product_shipping_costs) or {}
 
         # Automatyczna zmiana statusu zamówień klientów na 'w_drodze_polska'
         _update_client_orders_on_polska_ordered()
@@ -3287,6 +3322,17 @@ def create_poland_order():
             entity_id=poland_order.id,
             new_value={'order_number': poland_number}
         )
+
+        # Log per-order proxy shipping distribution
+        for oid, costs in distributed_shipping.items():
+            log_activity(
+                user=current_user,
+                action='proxy_shipping_distributed',
+                entity_type='order',
+                entity_id=oid,
+                old_value={'proxy_shipping_cost': costs['old']},
+                new_value={'proxy_shipping_cost': costs['new'], 'amount': costs['new']}
+            )
 
         return jsonify({
             'success': True,
@@ -3460,7 +3506,7 @@ def update_poland_customs_vat():
             })
 
         # Auto-fill CŁO/VAT od ceny SPRZEDAŻY na zamówieniach klientów
-        _distribute_customs_vat_to_client_orders(product_customs_percentages)
+        distributed_customs = _distribute_customs_vat_to_client_orders(product_customs_percentages) or {}
 
         db.session.commit()
 
@@ -3470,6 +3516,17 @@ def update_poland_customs_vat():
             entity_type='poland_order',
             new_value={'updated_orders': len(updated_orders), 'updated_items': len(updated_items)}
         )
+
+        # Log per-order customs/VAT distribution
+        for oid, costs in distributed_customs.items():
+            log_activity(
+                user=current_user,
+                action='customs_vat_distributed',
+                entity_type='order',
+                entity_id=oid,
+                old_value={'customs_vat_sale_cost': costs['old']},
+                new_value={'customs_vat_sale_cost': costs['new'], 'amount': costs['new']}
+            )
 
         return jsonify({
             'success': True,

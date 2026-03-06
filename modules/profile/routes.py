@@ -407,12 +407,7 @@ def save_avatar():
         db.session.commit()
 
         flash('Avatar został zapisany.', 'success')
-
-        # Przekieruj na odpowiedni dashboard
-        if current_user.is_admin() or current_user.is_mod():
-            return redirect(url_for('admin.dashboard'))
-        else:
-            return redirect(url_for('client.dashboard'))
+        return redirect(url_for('profile.index'))
 
     except Exception as e:
         db.session.rollback()
