@@ -250,8 +250,12 @@
     position: relative;
     background: linear-gradient(145deg, rgba(240, 147, 251, 0.08), rgba(255, 255, 255, 0.03));
     border-radius: 20px;
-    padding: 24px 34px;
-    min-width: 130px;
+    padding: 0;
+    width: 130px;
+    height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid rgba(240, 147, 251, 0.12);
     box-shadow:
         0 4px 20px rgba(0, 0, 0, 0.25),
@@ -420,8 +424,8 @@
     .countdown { gap: 14px; }
     .countdown-card {
         border-radius: 16px;
-        padding: 18px 24px;
-        min-width: 100px;
+        width: 100px;
+        height: 100px;
     }
     .countdown-digits { font-size: 52px; }
     .countdown-unit { gap: 8px; }
@@ -433,8 +437,8 @@
     .countdown { gap: 8px; }
     .countdown-card {
         border-radius: 14px;
-        padding: 12px 14px;
-        min-width: 70px;
+        width: 70px;
+        height: 70px;
     }
     .countdown-digits { font-size: 36px; }
     .countdown-unit { gap: 6px; }
