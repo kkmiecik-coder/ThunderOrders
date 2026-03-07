@@ -61,49 +61,58 @@
                     Dodaj zamówienie
                 </button>
             </div>
-            <div class="quick-filters">
-                <a href="{{ url_for('orders.admin_list') }}"
-                   class="filter-btn {% if not request.args.get('order_type') %}active{% endif %}">
-                    Wszystkie
-                </a>
-                <a href="{{ url_for('orders.admin_list', order_type='pre_order') }}"
-                   class="filter-btn {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
-                    Pre-order
-                </a>
-                <a href="{{ url_for('orders.admin_list', order_type='on_hand') }}"
-                   class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
-                    On-hand
-                </a>
-                <a href="{{ url_for('orders.admin_list', order_type='exclusive') }}"
-                   class="filter-btn {% if request.args.get('order_type') == 'exclusive' %}active{% endif %}">
-                    Exclusive
-                </a>
+            <div class="page-header-right">
+                <div class="quick-filters">
+                    <a href="{{ url_for('orders.admin_list') }}"
+                       class="filter-btn {% if not request.args.get('order_type') %}active{% endif %}">
+                        Wszystkie
+                    </a>
+                    <a href="{{ url_for('orders.admin_list', order_type='pre_order') }}"
+                       class="filter-btn {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
+                        Pre-order
+                    </a>
+                    <a href="{{ url_for('orders.admin_list', order_type='on_hand') }}"
+                       class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
+                        On-hand
+                    </a>
+                    <a href="{{ url_for('orders.admin_list', order_type='exclusive') }}"
+                       class="filter-btn {% if request.args.get('order_type') == 'exclusive' %}active{% endif %}">
+                        Exclusive
+                    </a>
+                </div>
+                <!-- Filter Icon Button -->
+                <button class="btn btn-icon" id="openFiltersBtn" title="Otwórz filtry">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
+                </button>
             </div>
         </div>
 
-    <!-- Advanced Filters (collapsible) -->
+    <!-- Advanced Filters Modal Overlay -->
     {% set active_filters = namespace(count=0) %}
     {% if request.args.get('date_from') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.get('date_to') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.get('search') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.get('products') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.getlist('status') %}{% set active_filters.count = active_filters.count + request.args.getlist('status')|length %}{% endif %}
-    <div class="filters-panel" id="filtersPanel">
-        <div class="filters-header" onclick="toggleFilters()">
-            <div class="filters-header-left">
-                <svg class="filters-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                </svg>
-                <span>Filtry zaawansowane</span>
-                {% if active_filters.count > 0 %}
-                <span class="filters-badge">{{ active_filters.count }}</span>
-                {% endif %}
+
+    <div class="filters-modal" id="filtersModal">
+        <div class="filters-modal-backdrop" id="filtersBackdrop"></div>
+        <div class="filters-modal-content">
+            <!-- Modal Header -->
+            <div class="filters-modal-header">
+                <h2>Filtry</h2>
+                <button class="filters-modal-close" id="closeFiltersBtn" aria-label="Zamknij filtry">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                </button>
             </div>
-            <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z"/>
-            </svg>
-        </div>
-        <div class="filters-content">
+
+            <!-- Modal Body (scrollable) -->
+            <div class="filters-modal-body">
+                <form method="get" action="{{ url_for('orders.admin_list') }}" id="filterForm">
             <form method="get" action="{{ url_for('orders.admin_list') }}" id="filterForm">
                 <div class="filters-grid">
                     <!-- Search -->
@@ -204,24 +213,26 @@
 
                 </div>
 
-                <!-- Action buttons -->
-                <div class="filters-actions">
-                    <a href="{{ url_for('orders.admin_list') }}" class="btn btn-ghost">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 6h18"></path>
-                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                        Wyczyść filtry
-                    </a>
-                    <button type="submit" class="btn btn-primary">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                        </svg>
-                        Zastosuj filtry
-                    </button>
-                </div>
             </form>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="filters-modal-footer">
+                <a href="{{ url_for('orders.admin_list') }}" class="btn btn-secondary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 6h18"></path>
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                    </svg>
+                    Wyczyść
+                </a>
+                <button type="submit" form="filterForm" class="btn btn-primary">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
+                    Filtruj
+                </button>
+            </div>
         </div>
     </div>
 
@@ -365,7 +376,61 @@
         </div>
     </div>
 
-    <!-- Orders Table -->
+    <!-- Orders Cards (Mobile Layout) -->
+    <div class="orders-cards">
+        {% if orders.items %}
+        {% for order in orders.items %}
+        <div class="admin-order-card" data-order-id="{{ order.id }}">
+            <!-- Header: Number + Amount -->
+            <div class="admin-card-header">
+                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="admin-card-number">
+                    {{ order.order_number }}
+                </a>
+                <div class="admin-card-amount">{{ "%.2f"|format(order.total_amount) }} zł</div>
+            </div>
+
+            <!-- Body: Details -->
+            <div class="admin-card-body">
+                <div class="admin-card-row">
+                    <span class="admin-card-label">Klient:</span>
+                    <span class="admin-card-value">
+                        {% if order.user %}{{ order.user.full_name }}{% else %}Nieznany{% endif %}
+                    </span>
+                </div>
+                <div class="admin-card-row">
+                    <span class="admin-card-label">Przedmioty:</span>
+                    <span class="admin-card-value">{{ order.sorted_items|length }} szt.</span>
+                </div>
+                <div class="admin-card-row">
+                    <span class="admin-card-label">Data:</span>
+                    <span class="admin-card-value">{{ order.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                </div>
+                <div class="admin-card-row">
+                    <span class="admin-card-label">Status:</span>
+                    <span class="admin-card-value">
+                        <span class="badge status-badge" style="background-color: {{ order.status_badge_color }}; color: #fff;">
+                            {{ order.status_display_name }}
+                        </span>
+                    </span>
+                </div>
+            </div>
+
+            <!-- Footer: Actions -->
+            <div class="admin-card-footer">
+                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="admin-card-action-btn">
+                    Szczegóły
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+            <p>Brak zamówień</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Orders Table (Desktop Layout) -->
     <div class="table-container" id="ordersTable">
         {% if orders.items %}
         <table class="orders-table orders-table-new">

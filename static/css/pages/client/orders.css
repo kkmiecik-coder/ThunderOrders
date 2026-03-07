@@ -1266,6 +1266,191 @@
 }
 
 /* ================================================
+   Orders Cards (Mobile Layout)
+   ================================================ */
+
+.orders-cards {
+    display: none;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.order-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.15);
+    border-radius: 12px;
+    padding: var(--space-4);
+    transition: all 0.3s ease;
+}
+
+.order-card:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+    transform: translateY(-2px);
+}
+
+[data-theme="light"] .order-card {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+}
+
+[data-theme="light"] .order-card:hover {
+    background: #f5f5f5;
+    border-color: #f093fb;
+    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.1);
+}
+
+/* Card Header: Number + Amount */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="light"] .card-header {
+    border-bottom-color: #e0e0e0;
+}
+
+.card-order-number {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f093fb;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.card-order-number:hover {
+    color: #f5576c;
+    text-decoration: underline;
+}
+
+[data-theme="light"] .card-order-number {
+    color: #5A189A;
+}
+
+[data-theme="light"] .card-order-number:hover {
+    color: #7B2CBF;
+}
+
+.card-amount {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f0f0f0;
+}
+
+[data-theme="light"] .card-amount {
+    color: #333333;
+}
+
+/* Card Status Badge */
+.card-status {
+    margin-bottom: var(--space-3);
+}
+
+.card-status .badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+}
+
+/* Card Details */
+.card-details {
+    margin-bottom: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.detail-label {
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+}
+
+.detail-value {
+    color: #f0f0f0;
+    text-align: right;
+}
+
+[data-theme="light"] .detail-label {
+    color: #666666;
+}
+
+[data-theme="light"] .detail-value {
+    color: #333333;
+}
+
+/* Card Info (status icons) */
+.card-info {
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="light"] .card-info {
+    border-bottom-color: #e0e0e0;
+}
+
+.card-info .status-icons {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* Card Actions */
+.card-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-direction: column;
+}
+
+.card-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(240, 147, 251, 0.1);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    color: #f093fb;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.card-action-btn:hover {
+    background: rgba(240, 147, 251, 0.2);
+    border-color: #f093fb;
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+[data-theme="light"] .card-action-btn {
+    background: rgba(240, 147, 251, 0.08);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #5A189A;
+}
+
+[data-theme="light"] .card-action-btn:hover {
+    background: rgba(240, 147, 251, 0.15);
+    border-color: #5A189A;
+    color: #ffffff;
+}
+
+/* ================================================
    Responsive Breakpoints
    ================================================ */
 
@@ -1299,6 +1484,15 @@
 
     .page-header h1 {
         font-size: 1.75rem;
+    }
+
+    /* Show cards, hide table on mobile */
+    .orders-cards {
+        display: flex;
+    }
+
+    .orders-table-new {
+        display: none !important;
     }
 
     /* Mobile: Show toggle button */

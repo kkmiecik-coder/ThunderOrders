@@ -1086,4 +1086,51 @@
 
     // Initialize on page load
     initSelectedProducts();
+
+    // ====================
+    // FILTERS MODAL
+    // ====================
+
+    const filtersModal = document.getElementById('filtersModal');
+    const openFiltersBtn = document.getElementById('openFiltersBtn');
+    const closeFiltersBtn = document.getElementById('closeFiltersBtn');
+    const filtersBackdrop = document.getElementById('filtersBackdrop');
+
+    // Open filters modal
+    if (openFiltersBtn) {
+        openFiltersBtn.addEventListener('click', function() {
+            if (filtersModal) {
+                filtersModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        });
+    }
+
+    // Close filters modal - X button
+    if (closeFiltersBtn) {
+        closeFiltersBtn.addEventListener('click', function() {
+            if (filtersModal) {
+                filtersModal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    // Close filters modal - backdrop click
+    if (filtersBackdrop) {
+        filtersBackdrop.addEventListener('click', function() {
+            if (filtersModal) {
+                filtersModal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && filtersModal && filtersModal.classList.contains('active')) {
+            filtersModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+    });
 })();
