@@ -18,10 +18,13 @@
     <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/public/countdown.css') }}">
 
-    <!-- OG Meta -->
+    <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="ThunderOrders - Wkrótce startujemy!">
     <meta property="og:description" content="Albumy, photocards, pluszaki, kosmetyki i wiele więcej. Przygotuj się na nowości!">
+    <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
     <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:site_name" content="ThunderOrders">
 
     {% if config.GA_MEASUREMENT_ID %}
     <!-- Google Analytics -->

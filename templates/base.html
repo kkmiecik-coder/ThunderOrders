@@ -61,6 +61,14 @@
     <meta name="vapid-public-key" content="{{ config.VAPID_PUBLIC_KEY }}">
     {% endif %}
 
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="{% block og_title %}ThunderOrders{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Albumy, photocards, pluszaki, kosmetyki i wiele więcej z Korei i Japonii!{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='img/og-default.jpg', _external=True) }}{% endblock %}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta property="og:site_name" content="ThunderOrders">
+
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
