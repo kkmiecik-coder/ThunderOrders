@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>ThunderOrders - Wkrótce startujemy!</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/public/countdown.css') }}">
+
+    <!-- OG Meta -->
+    <meta property="og:title" content="ThunderOrders - Wkrótce startujemy!">
+    <meta property="og:description" content="Albumy, photocards, pluszaki, kosmetyki i wiele więcej. Przygotuj się na nowości!">
+    <meta property="og:type" content="website">
+
+    {% if config.GA_MEASUREMENT_ID %}
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA_MEASUREMENT_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config.GA_MEASUREMENT_ID }}', { anonymize_ip: true });
+    </script>
+    {% endif %}
+</head>
+<body class="countdown-page-body">
+    <div class="scene">
+        <!-- Canvases -->
+        <canvas id="particleCanvas"></canvas>
+        <canvas id="lightningCanvas"></canvas>
+        <div class="lightning-flash" id="lightningFlash"></div>
+
+        <!-- Gradient orbs -->
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+
+        <!-- Light beams (3-layer spotlight cones) -->
+        <div class="light-beams">
+            <div class="beam"><div class="beam-glow"></div><div class="beam-mid"></div><div class="beam-core"></div></div>
+            <div class="beam"><div class="beam-glow"></div><div class="beam-mid"></div><div class="beam-core"></div></div>
+            <div class="beam"><div class="beam-glow"></div><div class="beam-mid"></div><div class="beam-core"></div></div>
+            <div class="beam"><div class="beam-glow"></div><div class="beam-mid"></div><div class="beam-core"></div></div>
+            <div class="beam"><div class="beam-glow"></div><div class="beam-mid"></div><div class="beam-core"></div></div>
+        </div>
+
+        <!-- Stars -->
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+
+        <!-- Stage floor glow -->
+        <div class="stage-glow"></div>
+
+        <!-- Main content -->
+        <div class="center">
+            <!-- Logo -->
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="countdown-logo">
+
+            <!-- Badge -->
+            <div class="countdown-badge">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                1 kwietnia 2026 - 20:00
+            </div>
+
+            <!-- Countdown -->
+            <div class="countdown" id="countdown">
+                <div class="countdown-unit">
+                    <div class="countdown-card">
+                        <div class="countdown-digits" id="days">
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                        </div>
+                    </div>
+                    <span class="countdown-label">Dni</span>
+                </div>
+                <div class="countdown-sep"><span></span><span></span></div>
+                <div class="countdown-unit">
+                    <div class="countdown-card">
+                        <div class="countdown-digits" id="hours">
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                        </div>
+                    </div>
+                    <span class="countdown-label">Godzin</span>
+                </div>
+                <div class="countdown-sep"><span></span><span></span></div>
+                <div class="countdown-unit">
+                    <div class="countdown-card">
+                        <div class="countdown-digits" id="minutes">
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                        </div>
+                    </div>
+                    <span class="countdown-label">Minut</span>
+                </div>
+                <div class="countdown-sep"><span></span><span></span></div>
+                <div class="countdown-unit">
+                    <div class="countdown-card">
+                        <div class="countdown-digits" id="seconds">
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                            <span class="digit"><span class="digit-inner">0</span></span>
+                        </div>
+                    </div>
+                    <span class="countdown-label">Sekund</span>
+                </div>
+            </div>
+
+            <!-- Bottom -->
+            <div class="bottom-section">
+                <p class="countdown-description">
+                    Albumy, photocards, pluszaki, kosmetyki i wiele więcej.
+                    Przygotuj się na nowości!
+                </p>
+                <a href="https://www.facebook.com/groups/2598228800416411" target="_blank" rel="noopener noreferrer" class="fb-link">
+                    <svg viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    Dołącz do naszej grupy
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/pages/public/countdown.js') }}"></script>
+</body>
+</html>
