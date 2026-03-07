@@ -3,7 +3,7 @@
  * Cache First for static assets, Network First for HTML, Network Only for API
  */
 
-const CACHE_VERSION = 'thunderorders-v2';
+const CACHE_VERSION = 'thunderorders-v3';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const PAGES_CACHE = CACHE_VERSION + '-pages';
 

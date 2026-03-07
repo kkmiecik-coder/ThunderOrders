@@ -49,7 +49,7 @@
                     <div class="od-product-row {% if has_set_sections %}od-product-row--with-set{% endif %}">
                         <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="od-product-row__img" loading="lazy">
                         <div class="od-product-row__info">
-                            <span class="od-product-row__name">{{ item.product_name }}</span>
+                            <span class="od-product-row__name">{{ item.product_name }}{% if item.is_full_set %}<span class="od-product-row__badge-full-set">PEŁNY SET</span>{% endif %}{% if item.is_bonus %}<span class="od-product-row__badge-bonus">GRATIS</span>{% endif %}</span>
                             {% if item.product_sku or item.product_ean %}
                             <span class="od-product-row__codes">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
@@ -80,8 +80,8 @@
                         </span>
                         {% endif %}
                         <span class="od-product-row__qty">×{{ item.quantity }}</span>
-                        <span class="od-product-row__price">{{ "%.2f"|format(item.price) }}&nbsp;PLN</span>
-                        <span class="od-product-row__total">{{ "%.2f"|format(item.total) }}&nbsp;PLN</span>
+                        <span class="od-product-row__price">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }}&nbsp;PLN{% endif %}</span>
+                        <span class="od-product-row__total">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.total) }}&nbsp;PLN{% endif %}</span>
                     </div>
                     {% endfor %}
                 </div>

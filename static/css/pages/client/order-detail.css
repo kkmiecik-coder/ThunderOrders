@@ -295,6 +295,46 @@
     text-overflow: ellipsis;
 }
 
+.od-product-row__badge-full-set {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+    color: #ffffff;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+[data-theme="dark"] .od-product-row__badge-full-set {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+}
+
+.od-product-row__badge-bonus {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: #ffffff;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+[data-theme="dark"] .od-product-row__badge-bonus {
+    background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+}
+
 .od-product-row__codes {
     font-size: 0.75rem;
     color: var(--text-tertiary);

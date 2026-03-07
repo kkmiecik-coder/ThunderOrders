@@ -755,6 +755,42 @@
     color: rgba(255, 255, 255, 0.9);
 }
 
+.item-badge-set {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 4px;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 3px;
+    vertical-align: middle;
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .item-badge-set {
+    background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+}
+
+.item-badge-bonus {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 1px 4px;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-radius: 3px;
+    vertical-align: middle;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .item-badge-bonus {
+    background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+}
+
 .item-price {
     font-size: 0.75rem;
     color: var(--orange-300);

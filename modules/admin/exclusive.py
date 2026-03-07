@@ -9,7 +9,7 @@ from markupsafe import Markup
 from modules.admin import admin_bp
 from utils.decorators import admin_required, mod_required
 from extensions import db
-from modules.exclusive.models import ExclusivePage, ExclusiveSection, ExclusiveSetItem
+from modules.exclusive.models import ExclusivePage, ExclusiveSection, ExclusiveSetItem, ExclusiveSetBonus, ExclusiveSetBonusRequiredProduct
 from modules.products.models import Product, ProductType, VariantGroup
 from datetime import datetime
 import json
@@ -266,19 +266,48 @@ def _validate_section_data(section_data):
 
     # Walidacja sekcji "set"
     if section_type == 'set':
-        # Wymagane: set_product_id
         set_product_id = section_data.get('set_product_id')
-        if not set_product_id:
-            return False, 'Musisz wybrać produkt-komplet dla sekcji Set'
 
-        # Sprawdź czy produkt istnieje i jest typu "exclusive"
-        product = Product.query.get(set_product_id)
-        if not product:
-            return False, 'Wybrany produkt nie istnieje'
+        # Sprawdź czy sekcja ma grupy wariantowe w set_items
+        has_variant_groups = False
+        for item in section_data.get('set_items', []):
+            if item.get('variant_group_id'):
+                has_variant_groups = True
+                break
 
-        # Sprawdź typ produktu
-        if product.product_type and product.product_type.slug != 'exclusive':
-            return False, 'Produkt-komplet musi być typu Exclusive'
+        # set_product_id wymagany TYLKO gdy sekcja ma grupy wariantowe
+        if has_variant_groups:
+            if not set_product_id:
+                return False, 'Musisz wybrać produkt-komplet dla sekcji Set z grupami wariantowymi'
+
+        # Jeśli set_product_id podany, zwaliduj produkt
+        if set_product_id:
+            product = Product.query.get(set_product_id)
+            if not product:
+                return False, 'Wybrany produkt nie istnieje'
+
+            # Sprawdź typ produktu
+            if product.product_type and product.product_type.slug != 'exclusive':
+                return False, 'Produkt-komplet musi być typu Exclusive'
+
+    # Walidacja bonusow w secie
+    if section_type == 'set' and 'bonuses' in section_data:
+        for bonus_data in section_data['bonuses']:
+            bonus_product_id = bonus_data.get('bonus_product_id')
+            trigger_type = bonus_data.get('trigger_type')
+
+            if not bonus_product_id:
+                return False, 'Bonus musi mieć wybrany produkt gratisowy'
+
+            if trigger_type == 'buy_products':
+                required = bonus_data.get('required_products', [])
+                if not required or not any(rp.get('product_id') for rp in required):
+                    return False, 'Bonus typu "Kup produkty" musi mieć co najmniej 1 wymagany produkt'
+
+            elif trigger_type in ('price_threshold', 'quantity_threshold'):
+                threshold = bonus_data.get('threshold_value')
+                if not threshold or float(threshold) <= 0:
+                    return False, 'Bonus progowy musi mieć wartość progu większą od 0'
 
     return True, None
 
@@ -350,6 +379,10 @@ def _update_sections(page, sections_data):
         if section.section_type == 'set' and 'set_items' in section_data:
             _update_set_items(section, section_data['set_items'])
 
+        # Obsługa gratisów (bonusów) w secie
+        if section.section_type == 'set' and 'bonuses' in section_data:
+            _update_set_bonuses(section, section_data['bonuses'])
+
         # Zapisz zmiany limitów do późniejszego sprawdzenia powiadomień
         if section_type in ['product', 'variant_group']:
             if old_max_quantity is not None and new_max_quantity is not None:
@@ -395,6 +428,71 @@ def _update_set_items(section, items_data):
                 sort_order=idx
             )
             db.session.add(item)
+
+
+def _update_set_bonuses(section, bonuses_data):
+    """
+    Aktualizuje gratisy (bonusy) sekcji setu (delete-all + re-create).
+    Strategia: delete all + re-create (jak _update_set_items).
+
+    Args:
+        section: ExclusiveSection object (type='set')
+        bonuses_data: Lista danych bonusow z frontendu
+    """
+    # Usun istniejace bonusy (ORM cascade usunie tez required_products)
+    existing_bonuses = ExclusiveSetBonus.query.filter_by(section_id=section.id).all()
+    for bonus in existing_bonuses:
+        db.session.delete(bonus)
+
+    for idx, bonus_data in enumerate(bonuses_data):
+        bonus_product_id = bonus_data.get('bonus_product_id')
+        trigger_type = bonus_data.get('trigger_type')
+
+        if not bonus_product_id or not trigger_type:
+            continue
+
+        threshold_value = bonus_data.get('threshold_value')
+        if threshold_value is not None:
+            try:
+                threshold_value = float(threshold_value)
+            except (ValueError, TypeError):
+                threshold_value = None
+
+        max_available = bonus_data.get('max_available')
+        if max_available is not None:
+            try:
+                max_available = int(max_available)
+                if max_available <= 0:
+                    max_available = None
+            except (ValueError, TypeError):
+                max_available = None
+
+        bonus = ExclusiveSetBonus(
+            section_id=section.id,
+            trigger_type=trigger_type,
+            threshold_value=threshold_value,
+            bonus_product_id=int(bonus_product_id),
+            bonus_quantity=max(1, int(bonus_data.get('bonus_quantity', 1))),
+            max_available=max_available,
+            when_exhausted=bonus_data.get('when_exhausted', 'hide'),
+            count_full_set=bool(bonus_data.get('count_full_set', False)),
+            is_active=bool(bonus_data.get('is_active', True)),
+            sort_order=idx,
+        )
+        db.session.add(bonus)
+        db.session.flush()  # Get bonus.id for required products
+
+        # Dodaj wymagane produkty (tylko dla buy_products)
+        if trigger_type == 'buy_products':
+            for rp_data in bonus_data.get('required_products', []):
+                rp_product_id = rp_data.get('product_id')
+                if rp_product_id:
+                    rp = ExclusiveSetBonusRequiredProduct(
+                        bonus_id=bonus.id,
+                        product_id=int(rp_product_id),
+                        min_quantity=max(1, int(rp_data.get('min_quantity', 1))),
+                    )
+                    db.session.add(rp)
 
 
 def _send_notifications_for_limit_changes(page_id, limit_changes):
@@ -815,6 +913,32 @@ def exclusive_duplicate(page_id):
                     sort_order=item.sort_order
                 )
                 db.session.add(new_item)
+
+            # Kopiuj bonusy (gratisy)
+            for bonus in section.bonuses.order_by(ExclusiveSetBonus.sort_order).all():
+                new_bonus = ExclusiveSetBonus(
+                    section_id=new_section.id,
+                    trigger_type=bonus.trigger_type,
+                    threshold_value=bonus.threshold_value,
+                    bonus_product_id=bonus.bonus_product_id,
+                    bonus_quantity=bonus.bonus_quantity,
+                    max_available=bonus.max_available,
+                    when_exhausted=bonus.when_exhausted,
+                    count_full_set=bonus.count_full_set,
+                    is_active=bonus.is_active,
+                    sort_order=bonus.sort_order,
+                )
+                db.session.add(new_bonus)
+                db.session.flush()
+
+                # Kopiuj wymagane produkty
+                for rp in bonus.required_products:
+                    new_rp = ExclusiveSetBonusRequiredProduct(
+                        bonus_id=new_bonus.id,
+                        product_id=rp.product_id,
+                        min_quantity=rp.min_quantity,
+                    )
+                    db.session.add(new_rp)
 
     db.session.commit()
 

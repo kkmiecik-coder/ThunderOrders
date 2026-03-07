@@ -942,6 +942,10 @@ class OrderItem(db.Model):
     # fulfilled_quantity == 0 = nic nie zrealizowane
     fulfilled_quantity = db.Column(db.Integer, nullable=True)
 
+    # Bonus (gratis) fields
+    is_bonus = db.Column(db.Boolean, default=False, nullable=False)
+    bonus_source_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='SET NULL'), nullable=True)
+
     # Timestamps
     created_at = db.Column(db.DateTime, default=get_local_now)
 
@@ -951,6 +955,7 @@ class OrderItem(db.Model):
     picker = db.relationship('User', foreign_keys=[picked_by])
     wms_status_rel = db.relationship('WmsStatus', back_populates='order_items', foreign_keys=[wms_status])
     set_section = db.relationship('ExclusiveSection', foreign_keys=[set_section_id])
+    bonus_source_section = db.relationship('ExclusiveSection', foreign_keys=[bonus_source_section_id])
 
     def __repr__(self):
         return f'<OrderItem {self.id} - Order {self.order_id}>'

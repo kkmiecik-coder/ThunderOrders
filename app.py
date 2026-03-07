@@ -2,7 +2,8 @@ import os
 import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template, redirect, url_for, request, abort
+from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort
+url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
 from extensions import db, migrate, login_manager, mail, csrf, executor, limiter, socketio
@@ -183,10 +184,17 @@ def register_blueprints(app):
     def index():
         """
         Strona główna:
-        - Jeśli użytkownik niezalogowany → Pokaż stronę logowania
-        - Jeśli zalogowany → Przekieruj na odpowiedni dashboard
+        - Przed datą premiery (1 kwietnia 2026) → Countdown page
+        - Po premierze, niezalogowany → Strona logowania
+        - Po premierze, zalogowany → Dashboard
         """
         from flask_login import current_user
+        from datetime import datetime
+
+        LAUNCH_DATE = datetime(2026, 4, 1, 20, 0, 0)
+
+        if datetime.now() < LAUNCH_DATE:
+            return render_template('public/countdown.html')
 
         if current_user.is_authenticated:
             # Redirect zalogowanych użytkowników na dashboard
@@ -426,6 +434,22 @@ def register_context_processors(app):
     Rejestruje context processors
     Zmienne/funkcje dostępne globalnie we wszystkich templates
     """
+
+    @app.context_processor
+    def override_url_for():
+        """Cache-busting: dodaje ?v=<mtime> do URL-i plików statycznych"""
+        return dict(url_for=dated_url_for)
+
+    def dated_url_for(endpoint, **values):
+        if endpoint == 'static':
+            filename = values.get('filename', '')
+            if filename:
+                file_path = os.path.join(app.static_folder, filename)
+                try:
+                    values['v'] = int(os.path.getmtime(file_path))
+                except OSError:
+                    pass
+        return flask_url_for(endpoint, **values)
 
     @app.context_processor
     def inject_globals():

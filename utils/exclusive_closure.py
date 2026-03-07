@@ -53,8 +53,10 @@ def calculate_set_fulfillment(page_id):
     if not page:
         raise ValueError(f"Strona Exclusive o ID {page_id} nie istnieje")
 
-    # Pobierz wszystkie zamówienia dla tej strony
-    orders = Order.query.filter_by(exclusive_page_id=page_id).order_by(Order.created_at.asc()).all()
+    # Pobierz wszystkie zamówienia dla tej strony (bez anulowanych)
+    orders = Order.query.filter_by(exclusive_page_id=page_id).filter(
+        Order.status != 'anulowane'
+    ).order_by(Order.created_at.asc()).all()
 
     result = {
         'page_id': page_id,
@@ -119,6 +121,9 @@ def process_set_section(section, orders):
 
     for order in orders:
         for item in order.items:
+            # Skip bonus items — they don't count toward set fulfillment
+            if item.is_bonus:
+                continue
             for sp in set_products:
                 if item.product_id == sp['product_id']:
                     product_orders[sp['product_id']].append({
@@ -332,11 +337,12 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
     }
 
     for order in orders:
-        # Klasyfikacja zamówienia
-        fulfilled_items = [item for item in order.items if item.is_set_fulfilled is not False]
-        unfulfilled_items = [item for item in order.items if item.is_set_fulfilled is False]
+        # Klasyfikacja zamówienia (pomijamy bonus items)
+        non_bonus_items = [item for item in order.items if not item.is_bonus]
+        fulfilled_items = [item for item in non_bonus_items if item.is_set_fulfilled is not False]
+        unfulfilled_items = [item for item in non_bonus_items if item.is_set_fulfilled is False]
 
-        total_items = len(order.items)
+        total_items = len(non_bonus_items)
         fulfilled_count = len(fulfilled_items)
 
         # Określ typ realizacji
@@ -455,9 +461,10 @@ def close_exclusive_page(page_id, user_id, send_emails=True):
         import json as _json
         from modules.admin.models import ActivityLog
         for order in orders:
-            fulfilled_items = [item for item in order.items if item.is_set_fulfilled is not False]
-            unfulfilled_items = [item for item in order.items if item.is_set_fulfilled is False]
-            total_items = len(order.items)
+            non_bonus = [item for item in order.items if not item.is_bonus]
+            fulfilled_items = [item for item in non_bonus if item.is_set_fulfilled is not False]
+            unfulfilled_items = [item for item in non_bonus if item.is_set_fulfilled is False]
+            total_items = len(non_bonus)
             fulfilled_count = len(fulfilled_items)
             new_total = float(order.total_amount) if order.total_amount else 0
             old_total = old_totals.get(order.id, 0)
@@ -543,7 +550,9 @@ def get_page_summary(page_id, include_financials=True):
     if not page:
         raise ValueError(f"Strona Exclusive o ID {page_id} nie istnieje")
 
-    orders = Order.query.filter_by(exclusive_page_id=page_id).order_by(Order.created_at.asc()).all()
+    orders = Order.query.filter_by(exclusive_page_id=page_id).filter(
+        Order.status != 'anulowane'
+    ).order_by(Order.created_at.asc()).all()
 
     # Podstawowe statystyki
     total_orders = len(orders)
@@ -551,13 +560,17 @@ def get_page_summary(page_id, include_financials=True):
         order.user_id for order in orders if order.user_id
     ))
 
-    # Przychód liczony tylko z produktów zrealizowanych
+    # Przychód liczony tylko z produktów zrealizowanych (bez bonusów)
     # is_set_fulfilled = True -> zrealizowane w secie
     # is_set_fulfilled = None -> produkt spoza setu (zawsze realizowany)
     # is_set_fulfilled = False -> NIE zrealizowane (nie liczymy)
     total_revenue = 0.0
+    total_bonus_items = 0
     for order in orders:
         for item in order.items:
+            if item.is_bonus:
+                total_bonus_items += item.quantity
+                continue
             # Liczymy tylko zrealizowane produkty (True lub None)
             if item.is_set_fulfilled is not False:
                 total_revenue += float(item.total) if item.total else 0
@@ -658,7 +671,10 @@ def get_page_summary(page_id, include_financials=True):
             ).filter(
                 OrderItem.product_id == section.set_product_id,
                 OrderItem.order_id.in_(
-                    db.session.query(Order.id).filter_by(exclusive_page_id=page_id)
+                    db.session.query(Order.id).filter(
+                        Order.exclusive_page_id == page_id,
+                        Order.status != 'anulowane'
+                    )
                 )
             ).scalar()
             full_set_qty = int(full_set_qty)
@@ -716,8 +732,8 @@ def get_page_summary(page_id, include_financials=True):
         for item in order.items:
             item_total = float(item.total) if item.total else 0
 
-            # Liczymy wartość tylko zrealizowanych produktów
-            if item.is_set_fulfilled is not False:
+            # Liczymy wartość tylko zrealizowanych produktów (bez bonusów)
+            if not item.is_bonus and item.is_set_fulfilled is not False:
                 fulfilled_amount += item_total
 
             item_data = {
@@ -730,6 +746,7 @@ def get_page_summary(page_id, include_financials=True):
                 'set_section_id': item.set_section_id,
                 'is_full_set': item.is_full_set,
                 'is_custom': item.is_custom,
+                'is_bonus': item.is_bonus,
             }
             items_details.append(item_data)
 
@@ -747,10 +764,12 @@ def get_page_summary(page_id, include_financials=True):
 
     # === Nowe metryki ===
 
-    # Total items (zrealizowane)
+    # Total items (zrealizowane, bez bonusów)
     total_items = 0
     for order in orders:
         for item in order.items:
+            if item.is_bonus:
+                continue
             if item.is_set_fulfilled is not False:
                 total_items += item.quantity
 
@@ -801,6 +820,7 @@ def get_page_summary(page_id, include_financials=True):
                     'order_count': 0,
                     'is_custom': item.is_custom,
                     'is_full_set': item.is_full_set,
+                    'is_bonus': item.is_bonus,
                 }
 
             p = products_agg[key]
@@ -816,7 +836,7 @@ def get_page_summary(page_id, include_financials=True):
 
             if include_financials:
                 item_total = float(item.total) if item.total else 0
-                if item.is_set_fulfilled is not False:
+                if not item.is_bonus and item.is_set_fulfilled is not False:
                     p['revenue'] += item_total
 
     for key, p in products_agg.items():
@@ -847,6 +867,8 @@ def get_page_summary(page_id, include_financials=True):
         'products_aggregated': products_aggregated,
     }
 
+    result['total_bonus_items'] = total_bonus_items
+
     if include_financials:
         result['total_revenue'] = total_revenue
         result['avg_order_value'] = round(total_revenue / total_orders, 2) if total_orders > 0 else 0
@@ -873,7 +895,9 @@ def get_live_summary(page_id, include_financials=True):
     if not page:
         raise ValueError(f"Strona Exclusive o ID {page_id} nie istnieje")
 
-    orders = Order.query.filter_by(exclusive_page_id=page_id).order_by(Order.created_at.asc()).all()
+    orders = Order.query.filter_by(exclusive_page_id=page_id).filter(
+        Order.status != 'anulowane'
+    ).order_by(Order.created_at.asc()).all()
 
     # Podstawowe statystyki
     total_orders = len(orders)
@@ -881,11 +905,15 @@ def get_live_summary(page_id, include_financials=True):
         order.user_id for order in orders if order.user_id
     ))
 
-    # Revenue = suma WSZYSTKICH itemów (bez filtrowania po fulfillment)
+    # Revenue = suma WSZYSTKICH itemów (bez filtrowania po fulfillment, bez bonusów)
     total_revenue = 0.0
     total_items = 0
+    total_bonus_items = 0
     for order in orders:
         for item in order.items:
+            if item.is_bonus:
+                total_bonus_items += item.quantity
+                continue
             total_revenue += float(item.total) if item.total else 0
             total_items += item.quantity
 
@@ -950,13 +978,16 @@ def get_live_summary(page_id, include_financials=True):
 
         for item in set_items:
             for product in item.get_products():
-                # Policz zamówione sztuki tego produktu
+                # Policz zamówione sztuki tego produktu (bez anulowanych)
                 ordered_qty = db.session.query(
                     db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
                 ).filter(
                     OrderItem.product_id == product.id,
                     OrderItem.order_id.in_(
-                        db.session.query(Order.id).filter_by(exclusive_page_id=page_id)
+                        db.session.query(Order.id).filter(
+                            Order.exclusive_page_id == page_id,
+                            Order.status != 'anulowane'
+                        )
                     )
                 ).scalar()
                 ordered_qty = int(ordered_qty)
@@ -992,7 +1023,10 @@ def get_live_summary(page_id, include_financials=True):
             ).filter(
                 OrderItem.product_id == section.set_product_id,
                 OrderItem.order_id.in_(
-                    db.session.query(Order.id).filter_by(exclusive_page_id=page_id)
+                    db.session.query(Order.id).filter(
+                        Order.exclusive_page_id == page_id,
+                        Order.status != 'anulowane'
+                    )
                 )
             ).scalar()
             full_set_qty = int(full_set_qty)
@@ -1061,13 +1095,14 @@ def get_live_summary(page_id, include_financials=True):
                     'order_count': 0,
                     'is_custom': item.is_custom,
                     'is_full_set': item.is_full_set,
+                    'is_bonus': item.is_bonus,
                 }
 
             p = products_agg[key]
             p['total_quantity'] += item.quantity
             p['order_count'] += 1
 
-            if include_financials:
+            if include_financials and not item.is_bonus:
                 p['revenue'] += float(item.total) if item.total else 0
 
     products_aggregated = sorted(products_agg.values(), key=lambda x: x['total_quantity'], reverse=True)
@@ -1085,6 +1120,7 @@ def get_live_summary(page_id, include_financials=True):
                 'total': float(item.total) if item.total else 0,
                 'is_full_set': item.is_full_set,
                 'is_custom': item.is_custom,
+                'is_bonus': item.is_bonus,
             })
 
         orders_list.append({
@@ -1107,6 +1143,7 @@ def get_live_summary(page_id, include_financials=True):
         'total_orders': total_orders,
         'unique_customers': unique_customers,
         'total_items': total_items,
+        'total_bonus_items': total_bonus_items,
         'active_reservations': active_reservations,
         'sets': sets_info,
         'orders': orders_list,
@@ -1190,7 +1227,17 @@ def send_closure_emails(page_id):
         # Przygotuj listę produktów z ich statusem
         items = []
         fulfilled_items = []
+        bonus_items = []
         for item in order.items:
+            if item.is_bonus:
+                bonus_items.append({
+                    'product_name': '\U0001f381 GRATIS: ' + item.product_name,
+                    'quantity': item.quantity,
+                    'price': 0.0,
+                    'is_fulfilled': True,
+                    'is_bonus': True,
+                })
+                continue
             is_fulfilled = item.is_set_fulfilled if item.is_set_fulfilled is not None else True
             items.append({
                 'product_name': item.product_name,
@@ -1200,6 +1247,10 @@ def send_closure_emails(page_id):
             })
             if is_fulfilled:
                 fulfilled_items.append(item)
+
+        # Dołącz bonusy na koniec listy produktów (tylko jeśli są zrealizowane produkty)
+        if fulfilled_items:
+            items.extend(bonus_items)
 
         # KRYTYCZNE: Pomiń zamówienia bez żadnych zrealizowanych produktów
         # Te zamówienia dostają email o anulowaniu przez send_cancellation_emails()

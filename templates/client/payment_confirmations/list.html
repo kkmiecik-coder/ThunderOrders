@@ -95,7 +95,7 @@
                         <img src="{{ item.product_image_url }}" alt="" class="pc-product-thumb" loading="lazy">
                         {% endif %}
                         <div class="pc-product-info">
-                            <span class="pc-product-name">{{ item.quantity }}× {{ item.product_name }}</span>
+                            <span class="pc-product-name">{{ item.quantity }}× {{ item.product_name }}{% if item.is_bonus %}<span class="pc-badge-bonus">GRATIS</span>{% endif %}</span>
                             <span class="pc-product-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
                         </div>
                     </div>

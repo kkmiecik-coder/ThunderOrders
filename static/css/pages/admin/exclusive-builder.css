@@ -39,6 +39,12 @@
     gap: var(--space-3);
 }
 
+.topbar-right .btn {
+    height: 36px;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
 .topbar-center {
     display: flex;
     align-items: center;
@@ -2387,12 +2393,14 @@
 
 /* Set Product Preview Card */
 .set-product-preview-card {
-    margin-top: 16px;
+    margin-top: 10px;
     background: var(--card-bg);
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
 }
 
 .set-product-preview-card:hover {
@@ -2411,8 +2419,9 @@
 }
 
 .set-product-preview-image {
-    width: 100%;
-    aspect-ratio: 1;
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
     background: #f9fafb;
     display: flex;
     align-items: center;
@@ -2444,10 +2453,11 @@
 }
 
 .set-product-preview-info {
-    padding: 12px;
+    padding: 8px 12px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    min-width: 0;
 }
 
 .set-product-preview-name {
@@ -2806,4 +2816,635 @@
 
 [data-theme="dark"] .toggle-switch input:checked + .toggle-slider {
     background-color: #f093fb;
+}
+
+/* ============================================
+   BONUS (GRATIS) CARDS
+   ============================================ */
+
+/* ============================================
+   BONUS (GRATIS) SECTION
+   ============================================ */
+.set-bonuses-section {
+    margin-top: 16px;
+}
+
+.set-bonuses-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.set-bonuses-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.set-bonuses-icon {
+    color: #10b981;
+    flex-shrink: 0;
+}
+
+.set-bonuses-label {
+    font-weight: 600;
+    font-size: 15px;
+    color: #1e293b;
+    display: block;
+    line-height: 1.2;
+}
+
+.set-bonuses-desc {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 400;
+    display: block;
+    margin-top: 2px;
+}
+
+.btn-add-bonus {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #10b981;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-add-bonus:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* Single bonus card */
+.set-bonus-item {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.bonus-header-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.bonus-badge {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.bonus-active-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #64748b;
+    margin-left: auto;
+    cursor: pointer;
+    user-select: none;
+}
+
+.bonus-active-toggle input[type="checkbox"] {
+    accent-color: #10b981;
+    width: 15px;
+    height: 15px;
+}
+
+.btn-remove-bonus {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-remove-bonus:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* Two-column layout */
+.bonus-columns {
+    display: flex;
+    gap: 0;
+}
+
+.bonus-col {
+    flex: 1 1 0;
+    padding: 12px 16px;
+    min-width: 0;
+}
+
+.bonus-col-left {
+    border-right: 1px solid #f1f5f9;
+}
+
+.bonus-block-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+}
+
+.bonus-col > .bonus-field {
+    margin-bottom: 8px;
+}
+
+/* Field rows */
+.bonus-field-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.bonus-field-row:last-child {
+    margin-bottom: 0;
+}
+
+.bonus-field {
+    flex: 0 0 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.bonus-field-wide {
+    flex: 1 1 0;
+}
+
+.bonus-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 4px;
+}
+
+.bonus-field label small {
+    font-weight: 400;
+    color: #94a3b8;
+}
+
+.bonus-field .form-select,
+.bonus-field .form-input {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #f8fafc;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.bonus-field .form-select:focus,
+.bonus-field .form-input:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    outline: none;
+}
+
+/* Required products */
+.bonus-required-products {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+}
+
+.bonus-required-products > label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.bonus-required-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.bonus-required-item .form-select {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.bonus-required-item .form-input {
+    width: 60px;
+    padding: 6px 8px;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    text-align: center;
+    background: #fff;
+}
+
+.btn-remove-req-product {
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.btn-remove-req-product:hover {
+    color: #ef4444;
+}
+
+.btn-add-req-product {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: 1px dashed #86efac;
+    color: #059669;
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: all 0.2s;
+}
+
+.btn-add-req-product:hover {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: #10b981;
+}
+
+/* Options row at card bottom */
+.bonus-options-row {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 10px 16px;
+    background: #fafbfc;
+    border-top: 1px solid #f1f5f9;
+}
+
+.bonus-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.bonus-option input[type="checkbox"] {
+    accent-color: #10b981;
+    width: 15px;
+    height: 15px;
+}
+
+.bonus-option .form-select {
+    padding: 5px 10px;
+    font-size: 13px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+}
+
+/* ============================================
+   BONUS CARDS - DARK MODE
+   ============================================ */
+
+[data-theme="dark"] .set-bonuses-icon {
+    color: #34d399;
+}
+
+[data-theme="dark"] .set-bonuses-label {
+    color: #fff;
+}
+
+[data-theme="dark"] .set-bonuses-desc {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .btn-add-bonus {
+    background: rgba(16, 185, 129, 0.25);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .btn-add-bonus:hover {
+    background: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
+}
+
+[data-theme="dark"] .set-bonus-item {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .bonus-header-row {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(52, 211, 153, 0.05));
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .bonus-active-toggle {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .btn-remove-bonus {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .btn-remove-bonus:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+[data-theme="dark"] .bonus-col-left {
+    border-right-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .bonus-block-label {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .bonus-field label {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="dark"] .bonus-field label small {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] .bonus-field .form-select,
+[data-theme="dark"] .bonus-field .form-input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+[data-theme="dark"] .bonus-field .form-select:focus,
+[data-theme="dark"] .bonus-field .form-input:focus {
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="dark"] .bonus-required-products {
+    background: rgba(16, 185, 129, 0.06);
+    border-color: rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="dark"] .bonus-required-products > label {
+    color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="dark"] .bonus-required-item .form-select,
+[data-theme="dark"] .bonus-required-item .form-input {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-remove-req-product {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .btn-remove-req-product:hover {
+    color: #f87171;
+}
+
+[data-theme="dark"] .btn-add-req-product {
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+[data-theme="dark"] .btn-add-req-product:hover {
+    background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="dark"] .bonus-options-row {
+    background: rgba(255, 255, 255, 0.02);
+    border-top-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .bonus-option {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .bonus-option .form-select {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* Bonus product search */
+.bonus-product-search-wrapper {
+    position: relative;
+}
+
+.bonus-product-search {
+    width: 100%;
+}
+
+/* Dropdown lives in document.body with position:fixed */
+.bonus-product-results {
+    display: none;
+    position: fixed;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 10000;
+}
+
+.bonus-product-result-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.bonus-product-result-item:hover {
+    background: #f0f0f0;
+}
+
+.bonus-product-result-img {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.bonus-product-result-img-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    background: #e0e0e0;
+    flex-shrink: 0;
+}
+
+.bonus-product-result-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.bonus-product-result-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bonus-product-result-sku {
+    font-size: 11px;
+    color: #888;
+}
+
+.bonus-product-no-results {
+    padding: 12px;
+    text-align: center;
+    color: #888;
+    font-size: 13px;
+}
+
+.bonus-product-selected {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 5px 10px;
+    background: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 6px;
+}
+
+.bonus-product-selected-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: #2e7d32;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bonus-product-clear {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 0 4px;
+    flex-shrink: 0;
+}
+
+.bonus-product-clear:hover {
+    color: #e53935;
+}
+
+/* Dark mode - bonus product search */
+[data-theme="dark"] .bonus-product-results {
+    background: #1e1e2e;
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .bonus-product-result-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .bonus-product-result-img-placeholder {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .bonus-product-result-name {
+    color: #fff;
+}
+
+[data-theme="dark"] .bonus-product-result-sku {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .bonus-product-no-results {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .bonus-product-selected {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+    padding: 6px 12px;
+}
+
+[data-theme="dark"] .bonus-product-selected-name {
+    color: #6ee7b7;
+    font-weight: 600;
+}
+
+[data-theme="dark"] .bonus-product-clear {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .bonus-product-clear:hover {
+    color: #f5576c;
+}
+
+/* Bonus cards responsive - stack columns on small screens */
+@media (max-width: 768px) {
+    .bonus-columns {
+        flex-direction: column;
+    }
+
+    .bonus-col-left {
+        border-right: none;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    [data-theme="dark"] .bonus-col-left {
+        border-bottom-color: rgba(255, 255, 255, 0.06);
+    }
 }

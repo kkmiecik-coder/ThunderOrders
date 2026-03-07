@@ -377,6 +377,9 @@ function buildOrderCardHTML(order) {
         if (item.is_full_set) {
             cls += ' item-full-set';
             badge = '<span class="item-badge item-badge-set">SET</span>';
+        } else if (item.is_bonus) {
+            cls += ' item-bonus';
+            badge = '<span class="item-badge item-badge-bonus">GRATIS</span>';
         } else if (item.is_custom) {
             cls += ' item-custom';
             badge = '<span class="item-badge item-badge-custom">R\u0118CZNY</span>';

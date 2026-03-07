@@ -309,41 +309,11 @@ function updateCart() {
     // Update bottom checkout bar
     updateCheckoutBottomBar(totalItems, totalPrice);
 
-    // Update cart items list (full sets first for visual priority)
-    const fullSetItems = cart.filter(item => item.isFullSet);
-    const regularItems = cart.filter(item => !item.isFullSet);
-    const allItems = [...fullSetItems, ...regularItems];
-
-    if (allItems.length === 0) {
-        cartItems.innerHTML = '<div class="cart-empty"><p>Koszyk jest pusty</p></div>';
-    } else {
-        cartItems.innerHTML = allItems.map(item => {
-            const removeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
-
-            if (item.isFullSet) {
-                return `
-                    <div class="cart-item cart-item-fullset">
-                        <span class="cart-item-name">${item.name}</span>
-                        <span class="cart-item-qty">x${item.qty}</span>
-                        <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
-                        <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">
-                            ${removeIcon}
-                        </button>
-                    </div>
-                `;
-            } else {
-                return `
-                    <div class="cart-item">
-                        <span class="cart-item-name">${item.name}</span>
-                        <span class="cart-item-qty">x${item.qty}</span>
-                        <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
-                        <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">
-                            ${removeIcon}
-                        </button>
-                    </div>
-                `;
-            }
-        }).join('');
+    // Evaluate bonuses (gratisy) — this also renders the cart items HTML
+    // (cart rendering is done inside evaluateBonuses to avoid double-rendering)
+    // Skip during batch claimBonus operations to avoid N redundant recalculations
+    if (!window._claimingBonus) {
+        evaluateBonuses();
     }
 
     // Update button states after cart update
@@ -720,9 +690,15 @@ async function submitOrder() {
     try {
         const orderNote = document.getElementById('orderNote').value.trim();
 
+        // Collect full set items from cart (they don't have reservations)
+        const fullSetItems = cart
+            .filter(item => item.isFullSet && item.qty > 0)
+            .map(item => ({ product_id: item.productId, quantity: item.qty }));
+
         let requestData = {
             session_id: reservationState.sessionId,
-            order_note: orderNote || null
+            order_note: orderNote || null,
+            full_set_items: fullSetItems
         };
 
         // Order URL set by template
@@ -2111,6 +2087,7 @@ function triggerConfetti(container, isBig = true) {
 document.addEventListener('DOMContentLoaded', function() {
     initReservationSystem();
     initFullSetButtons();
+    evaluateBonuses();
 
     // GA4: Track exclusive page view (once on load)
     trackExclusivePageViewed();
@@ -2666,3 +2643,384 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 3000);
 })();
+
+
+// ============================================
+// BONUS (GRATIS) SYSTEM
+// ============================================
+
+/**
+ * Check if a buy_products bonus can be claimed (all required products available).
+ */
+function canClaimBonus(bonus, sectionEl) {
+    if (!bonus || bonus.trigger_type !== 'buy_products' || !sectionEl) return false;
+
+    // Check if bonus is exhausted (max_available reached)
+    if (bonus.max_available !== null && bonus.max_available !== undefined) {
+        if ((bonus.already_claimed || 0) >= bonus.max_available) return false;
+    }
+
+    // Full set contribution
+    let fullSetQty = 0;
+    if (bonus.count_full_set) {
+        const fsInput = sectionEl.querySelector('.full-set-qty-input');
+        fullSetQty = fsInput ? (parseInt(fsInput.value) || 0) : 0;
+    }
+
+    for (const req of bonus.required_products) {
+        const itemEl = sectionEl.querySelector(`.set-item[data-product-id="${req.product_id}"]`);
+        if (!itemEl) return false;
+
+        const input = itemEl.querySelector('.qty-input');
+        let currentQty = input ? (parseInt(input.value) || 0) : 0;
+
+        // Full set provides quantityPerSet of each product
+        if (fullSetQty > 0) {
+            const qps = parseInt(itemEl.dataset.quantityPerSet) || 1;
+            currentQty += fullSetQty * qps;
+        }
+
+        const needed = req.min_quantity - currentQty;
+
+        if (needed > 0) {
+            const available = productAvailability[req.product_id];
+            if (available !== undefined && available < 999999 && available < needed) return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Claim a bonus by adding the required products to the cart.
+ * Simulates clicking the + button for each missing product.
+ */
+function claimBonus(sectionId, bonusId) {
+    const config = window.bonusesConfig;
+    if (!config || !config[sectionId]) return;
+
+    const bonus = config[sectionId].find(b => b.id === bonusId);
+    if (!bonus || bonus.trigger_type !== 'buy_products') return;
+
+    const sectionEl = document.querySelector(`.section-set[data-section-id="${sectionId}"]`);
+    if (!sectionEl) return;
+
+    // Suppress evaluateBonuses() calls during batch claiming
+    window._claimingBonus = true;
+
+    // Full set contribution
+    let fullSetQty = 0;
+    if (bonus.count_full_set) {
+        const fsInput = sectionEl.querySelector('.full-set-qty-input');
+        fullSetQty = fsInput ? (parseInt(fsInput.value) || 0) : 0;
+    }
+
+    for (const req of bonus.required_products) {
+        const itemEl = sectionEl.querySelector(`.set-item[data-product-id="${req.product_id}"]`);
+        if (!itemEl) continue;
+
+        const input = itemEl.querySelector('.qty-input');
+        if (!input) continue;
+
+        let currentQty = parseInt(input.value) || 0;
+
+        // Account for full set contribution
+        if (fullSetQty > 0) {
+            const qps = parseInt(itemEl.dataset.quantityPerSet) || 1;
+            currentQty += fullSetQty * qps;
+        }
+
+        const needed = req.min_quantity - currentQty;
+
+        if (needed > 0) {
+            const plusBtn = itemEl.querySelector('.qty-plus');
+            if (plusBtn && !plusBtn.disabled) {
+                for (let i = 0; i < needed; i++) {
+                    plusBtn.click();
+                }
+            }
+        }
+    }
+
+    // Re-enable and trigger a single full update
+    window._claimingBonus = false;
+    updateCart();
+}
+
+/**
+ * Evaluate bonuses based on current cart state.
+ * Called from updateCart().
+ * Adds bonus items to cart[] and updates bonus UI (progress bars, bundle sections).
+ */
+function evaluateBonuses() {
+    // NOTE: already_claimed is static (loaded at page load). Real-time updates would require WebSocket integration.
+    const config = window.bonusesConfig;
+    if (!config || typeof config !== 'object') return;
+
+    // Remove existing bonus items from cart
+    cart = cart.filter(item => !item.isBonus);
+
+    // Get regular (non-bonus) cart items grouped by section
+    const regularItems = cart.filter(item => !item.isBonus);
+
+    // Build section->products mapping from DOM
+    const sectionProducts = {};
+    document.querySelectorAll('.section-set').forEach(sectionEl => {
+        const sectionId = sectionEl.dataset.sectionId;
+        if (!sectionId) return;
+
+        sectionProducts[sectionId] = [];
+
+        // Collect individual set items
+        sectionEl.querySelectorAll('.set-item').forEach(itemEl => {
+            const productId = parseInt(itemEl.dataset.productId);
+            if (!productId) return;
+
+            const cartItem = regularItems.find(ci => ci.productId === productId && !ci.isFullSet);
+            if (!sectionProducts[sectionId].find(p => p.productId === productId)) {
+                sectionProducts[sectionId].push({
+                    productId,
+                    qty: cartItem ? cartItem.qty : 0,
+                    price: cartItem ? cartItem.price : 0,
+                    quantityPerSet: parseInt(itemEl.dataset.quantityPerSet) || 1,
+                });
+            }
+        });
+
+        // Also collect variant products within set
+        sectionEl.querySelectorAll('.variant-product').forEach(vpEl => {
+            const productId = parseInt(vpEl.dataset.productId);
+            if (!productId) return;
+
+            const cartItem = regularItems.find(ci => ci.productId === productId && !ci.isFullSet);
+            if (!sectionProducts[sectionId].find(p => p.productId === productId)) {
+                sectionProducts[sectionId].push({
+                    productId,
+                    qty: cartItem ? cartItem.qty : 0,
+                    price: cartItem ? cartItem.price : 0,
+                    quantityPerSet: 1,
+                });
+            }
+        });
+    });
+
+    // Evaluate each section's bonuses
+    for (const [sectionId, bonuses] of Object.entries(config)) {
+        const products = sectionProducts[sectionId] || [];
+        const bonusContainer = document.querySelector(`.bonus-container[data-section-id="${sectionId}"]`);
+
+        // Full set qty for this section
+        let fullSetQty = 0;
+        const sectionEl = document.querySelector(`.section-set[data-section-id="${sectionId}"]`);
+        if (sectionEl) {
+            const fsInput = sectionEl.querySelector('.full-set-qty-input');
+            fullSetQty = fsInput ? (parseInt(fsInput.value) || 0) : 0;
+        }
+
+        let bonusHtml = '';
+
+        for (const bonus of bonuses) {
+            let earned = 0;
+
+            if (bonus.is_exhausted) {
+                bonusHtml += `
+                    <div class="bonus-coupon bonus-exhausted" data-bonus-id="${bonus.id}">
+                        <div class="bonus-coupon-icon-area">
+                            <span class="bonus-coupon-icon">🎁</span>
+                        </div>
+                        <div class="bonus-coupon-body">
+                            <div class="bonus-coupon-title">${bonus.bonus_product_name}</div>
+                            <div class="bonus-coupon-exhausted-text">Wyczerpany</div>
+                        </div>
+                    </div>`;
+                continue;
+            }
+
+            if (bonus.trigger_type === 'buy_products') {
+                const bundleCounts = [];
+                for (const req of bonus.required_products) {
+                    const inCart = products.find(p => p.productId === req.product_id);
+                    let qty = inCart ? inCart.qty : 0;
+                    // Full set contains all products — each full set counts as quantityPerSet
+                    if (bonus.count_full_set && fullSetQty > 0) {
+                        const qps = inCart ? (inCart.quantityPerSet || 1) : 1;
+                        qty += fullSetQty * qps;
+                    }
+                    bundleCounts.push(Math.floor(qty / req.min_quantity));
+                }
+                earned = bundleCounts.length > 0 ? Math.min(...bundleCounts) : 0;
+
+                if (bonus.max_available !== null) {
+                    earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
+                }
+
+                const isUnlocked = earned > 0;
+                const canClaim = !isUnlocked && canClaimBonus(bonus, sectionEl);
+                const reqLines = bonus.required_products.map(r =>
+                    `<div class="bonus-coupon-req-item">${r.product_name}${r.min_quantity > 1 ? ' x' + r.min_quantity : ''}</div>`
+                ).join('');
+                const rewardName = bonus.bonus_product_name;
+
+                let statusHtml = '';
+                let claimAreaHtml = '';
+                if (isUnlocked) {
+                    claimAreaHtml = `<div class="bonus-coupon-claim-area bonus-coupon-added">
+                        <span class="bonus-coupon-claim-text">Dodano!</span>
+                    </div>`;
+                } else if (canClaim) {
+                    claimAreaHtml = `<div class="bonus-coupon-claim-area" onclick="event.stopPropagation(); claimBonus('${sectionId}', ${bonus.id})">
+                        <span class="bonus-coupon-claim-text">Odbierz!</span>
+                    </div>`;
+                } else {
+                    statusHtml = `<div class="bonus-coupon-hint">Dodaj wymagane produkty do koszyka</div>`;
+                }
+
+                bonusHtml += `
+                    <div class="bonus-coupon ${canClaim ? 'bonus-claimable' : ''} ${isUnlocked ? 'bonus-added' : ''}"
+                         data-bonus-id="${bonus.id}"
+                         ${canClaim ? `onclick="claimBonus('${sectionId}', ${bonus.id})"` : ''}>
+                        <div class="bonus-coupon-icon-area">
+                            <span class="bonus-coupon-icon">🎁</span>
+                        </div>
+                        <div class="bonus-coupon-body">
+                            <div class="bonus-coupon-condition-label">KUP RAZEM</div>
+                            <div class="bonus-coupon-req-list">${reqLines}</div>
+                            <div class="bonus-coupon-reward-line">${rewardName}${bonus.bonus_quantity > 1 ? ' x' + bonus.bonus_quantity : ''}</div>
+                            ${statusHtml}
+                        </div>
+                        ${claimAreaHtml}
+                    </div>`;
+
+            } else if (bonus.trigger_type === 'price_threshold') {
+                let sectionTotal = products.reduce((sum, p) => sum + (p.qty * p.price), 0);
+                if (bonus.count_full_set && fullSetQty > 0) {
+                    const fsSection = sectionEl.querySelector('.full-set-section');
+                    const fsPrice = fsSection ? parseFloat(fsSection.dataset.setPrice) || 0 : 0;
+                    sectionTotal += fullSetQty * fsPrice;
+                }
+
+                const threshold = bonus.threshold_value || 0;
+                const progress = Math.min(100, (sectionTotal / threshold) * 100);
+                const isUnlocked = sectionTotal >= threshold;
+
+                if (isUnlocked) earned = 1;
+                if (bonus.max_available !== null) {
+                    earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
+                }
+
+                const remaining = Math.max(0, threshold - sectionTotal);
+                bonusHtml += `
+                    <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''}" data-bonus-id="${bonus.id}">
+                        <div class="bonus-coupon-icon-area">
+                            <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : '🎁'}</span>
+                        </div>
+                        <div class="bonus-coupon-body">
+                            <div class="bonus-coupon-title">${bonus.bonus_product_name}</div>
+                            ${isUnlocked
+                                ? `<div class="bonus-coupon-status">
+                                       <span class="bonus-coupon-check">✓</span>
+                                       <span class="bonus-coupon-unlocked-text">Odblokowano!</span>
+                                   </div>`
+                                : `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining.toFixed(2)} PLN</strong> do gratisu!</div>
+                                   <div class="bonus-coupon-progress-wrapper">
+                                       <div class="bonus-coupon-progress-bar" style="width: ${progress}%"></div>
+                                   </div>`
+                            }
+                        </div>
+                    </div>`;
+
+            } else if (bonus.trigger_type === 'quantity_threshold') {
+                let sectionQty = products.reduce((sum, p) => sum + p.qty, 0);
+                if (bonus.count_full_set) sectionQty += fullSetQty;
+
+                const threshold = bonus.threshold_value || 0;
+                const progress = Math.min(100, (sectionQty / threshold) * 100);
+                const isUnlocked = sectionQty >= threshold;
+
+                if (isUnlocked) earned = 1;
+                if (bonus.max_available !== null) {
+                    earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
+                }
+
+                const remaining = Math.max(0, threshold - sectionQty);
+                bonusHtml += `
+                    <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''}" data-bonus-id="${bonus.id}">
+                        <div class="bonus-coupon-icon-area">
+                            <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : '🎁'}</span>
+                        </div>
+                        <div class="bonus-coupon-body">
+                            <div class="bonus-coupon-title">${bonus.bonus_product_name}</div>
+                            ${isUnlocked
+                                ? `<div class="bonus-coupon-status">
+                                       <span class="bonus-coupon-check">✓</span>
+                                       <span class="bonus-coupon-unlocked-text">Odblokowano!</span>
+                                   </div>`
+                                : `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining} szt.</strong> do gratisu!</div>
+                                   <div class="bonus-coupon-progress-wrapper">
+                                       <div class="bonus-coupon-progress-bar" style="width: ${progress}%"></div>
+                                   </div>`
+                            }
+                        </div>
+                    </div>`;
+            }
+
+            // Add bonus to cart if earned
+            if (earned > 0) {
+                cart.push({
+                    productId: bonus.bonus_product_id,
+                    name: bonus.bonus_product_name,
+                    qty: bonus.bonus_quantity * earned,
+                    price: 0,
+                    isFullSet: false,
+                    isBonus: true,
+                    bonusId: bonus.id,
+                    sectionId: parseInt(sectionId),
+                });
+            }
+        }
+
+        // Update bonus container in DOM
+        if (bonusContainer) {
+            bonusContainer.innerHTML = bonusHtml;
+        }
+    }
+
+    // Re-render cart items to include bonuses (update the HTML)
+    const cartItems = document.getElementById('cartItems');
+    const fullSetItems = cart.filter(item => item.isFullSet);
+    const regItems = cart.filter(item => !item.isFullSet && !item.isBonus);
+    const bonusCartItems = cart.filter(item => item.isBonus);
+    const allItems = [...fullSetItems, ...regItems, ...bonusCartItems];
+
+    if (allItems.length === 0) {
+        cartItems.innerHTML = '<div class="cart-empty"><p>Koszyk jest pusty</p></div>';
+    } else {
+        cartItems.innerHTML = allItems.map(item => {
+            const removeIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
+            if (item.isBonus) {
+                return `
+                    <div class="cart-item cart-item-bonus">
+                        <span class="cart-item-name">🎁 GRATIS: ${item.name}</span>
+                        <span class="cart-item-qty">x${item.qty}</span>
+                        <span class="cart-item-price cart-item-price-free">GRATIS</span>
+                    </div>`;
+            } else if (item.isFullSet) {
+                return `
+                    <div class="cart-item cart-item-fullset">
+                        <span class="cart-item-name">${item.name}</span>
+                        <span class="cart-item-qty">x${item.qty}</span>
+                        <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
+                        <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">${removeIcon}</button>
+                    </div>`;
+            } else {
+                return `
+                    <div class="cart-item">
+                        <span class="cart-item-name">${item.name}</span>
+                        <span class="cart-item-qty">x${item.qty}</span>
+                        <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
+                        <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">${removeIcon}</button>
+                    </div>`;
+            }
+        }).join('');
+    }
+}

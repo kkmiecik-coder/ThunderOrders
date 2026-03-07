@@ -475,7 +475,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="item-details">
-                                    <span class="item-name" title="{{ item.product_name }}{% if item.is_full_set %} (Pełny Set){% elif item.is_custom %} (Ręczny){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-mini item-badge-set">SET</span>{% elif item.is_custom %}<span class="item-badge-mini item-badge-custom">RĘCZNY</span>{% endif %}</span>
+                                    <span class="item-name" title="{{ item.product_name }}{% if item.is_full_set %} (Pełny Set){% elif item.is_custom %} (Ręczny){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-mini item-badge-set">SET</span>{% elif item.is_custom %}<span class="item-badge-mini item-badge-custom">RĘCZNY</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-mini item-badge-bonus">GRATIS</span>{% endif %}</span>
                                     <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
                                 </div>
                             </div>
@@ -538,7 +538,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="item-details">
-                                        <span class="item-name" title="{{ item.product_name }}{% if item.is_full_set %} (Pełny Set){% elif item.is_custom %} (Ręczny){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-mini item-badge-set">SET</span>{% elif item.is_custom %}<span class="item-badge-mini item-badge-custom">RĘCZNY</span>{% endif %}</span>
+                                        <span class="item-name" title="{{ item.product_name }}{% if item.is_full_set %} (Pełny Set){% elif item.is_custom %} (Ręczny){% endif %}">{{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-mini item-badge-set">SET</span>{% elif item.is_custom %}<span class="item-badge-mini item-badge-custom">RĘCZNY</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-mini item-badge-bonus">GRATIS</span>{% endif %}</span>
                                         <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
                                     </div>
                                 </div>

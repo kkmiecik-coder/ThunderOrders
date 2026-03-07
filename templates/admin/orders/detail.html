@@ -78,8 +78,8 @@
                             <div class="mobile-values-row">
                                 <div class="mobile-values-data">
                                     <span class="mobile-value"><span class="label">Ilość:</span> {{ item.fulfilled_quantity }}</span>
-                                    <span class="mobile-value"><span class="label">Cena:</span> {{ "%.2f"|format(item.price) }} PLN</span>
-                                    <span class="mobile-value total"><span class="label">Wartość:</span> {{ "%.2f"|format(item.price * item.fulfilled_quantity) }} PLN</span>
+                                    <span class="mobile-value"><span class="label">Cena:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</span>
+                                    <span class="mobile-value total"><span class="label">Wartość:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price * item.fulfilled_quantity) }} PLN{% endif %}</span>
                                 </div>
                                 <div class="mobile-actions">
                                     <button type="button" class="mobile-action-btn btn-edit-item"
@@ -106,8 +106,8 @@
                         </div>
                     </td>
                     <td class="col-qty text-center">{{ item.fulfilled_quantity }}</td>
-                    <td class="col-price text-right">{{ "%.2f"|format(item.price) }} PLN</td>
-                    <td class="col-total text-right"><strong>{{ "%.2f"|format(item.price * item.fulfilled_quantity) }} PLN</strong></td>
+                    <td class="col-price text-right">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</td>
+                    <td class="col-total text-right"><strong>{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price * item.fulfilled_quantity) }} PLN{% endif %}</strong></td>
                     <td class="col-wms text-center">
                         <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
                             {{ item.wms_status_name }}
@@ -265,8 +265,8 @@
                             <div class="mobile-values-row">
                                 <div class="mobile-values-data">
                                     <span class="mobile-value"><span class="label">Ilość:</span> {{ item.quantity }}</span>
-                                    <span class="mobile-value"><span class="label">Cena:</span> {{ "%.2f"|format(item.price) }} PLN</span>
-                                    <span class="mobile-value total"><span class="label">Wartość:</span> {{ "%.2f"|format(item.total) }} PLN</span>
+                                    <span class="mobile-value"><span class="label">Cena:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</span>
+                                    <span class="mobile-value total"><span class="label">Wartość:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.total) }} PLN{% endif %}</span>
                                 </div>
                                 <div class="mobile-actions">
                                     <button type="button" class="mobile-action-btn btn-edit-item"
@@ -293,8 +293,8 @@
                         </div>
                     </td>
                     <td class="col-qty text-center text-outside-set">{{ item.quantity }}</td>
-                    <td class="col-price text-right text-outside-set">{{ "%.2f"|format(item.price) }} PLN</td>
-                    <td class="col-total text-right text-outside-set"><strong>{{ "%.2f"|format(item.total) }} PLN</strong></td>
+                    <td class="col-price text-right text-outside-set">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</td>
+                    <td class="col-total text-right text-outside-set"><strong>{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.total) }} PLN{% endif %}</strong></td>
                     <td class="col-wms text-center">
                         <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
                             {{ item.wms_status_name }}
@@ -369,6 +369,14 @@
                                         RĘCZNY
                                     </span>
                                     {% endif %}
+                                    {% if item.is_bonus %}
+                                    <span class="product-badge product-badge-bonus" title="Produkt gratis (bonus)">
+                                        <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M3 2.5a2.5 2.5 0 0 1 5 0 2.5 2.5 0 0 1 5 0v.006c0 .07 0 .27-.038.494H15a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h2.038A2.968 2.968 0 0 1 3 2.506V2.5zm1.068.5H7v-.5a1.5 1.5 0 1 0-3 0c0 .085.002.274.045.43a.522.522 0 0 0 .023.07zM9 3h2.932l.023-.07c.043-.156.045-.345.045-.43a1.5 1.5 0 0 0-3 0V3zM1 6v8a1 1 0 0 0 1 1h5.5V6H1zm8.5 0V15H14a1 1 0 0 0 1-1V6H9.5z"/>
+                                        </svg>
+                                        GRATIS
+                                    </span>
+                                    {% endif %}
                                 </span>
                                 <span class="mobile-badges">
                                     <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">{{ item.wms_status_name }}</span>
@@ -403,8 +411,8 @@
                             <div class="mobile-values-row">
                                 <div class="mobile-values-data">
                                     <span class="mobile-value"><span class="label">Ilość:</span> {{ item.quantity }}</span>
-                                    <span class="mobile-value"><span class="label">Cena:</span> {{ "%.2f"|format(item.price) }} PLN</span>
-                                    <span class="mobile-value total"><span class="label">Wartość:</span> {{ "%.2f"|format(item.total) }} PLN</span>
+                                    <span class="mobile-value"><span class="label">Cena:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</span>
+                                    <span class="mobile-value total"><span class="label">Wartość:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.total) }} PLN{% endif %}</span>
                                 </div>
                                 <div class="mobile-actions">
                                     <button type="button" class="mobile-action-btn btn-edit-item"
@@ -431,8 +439,8 @@
                         </div>
                     </td>
                     <td class="col-qty text-center">{{ item.quantity }}</td>
-                    <td class="col-price text-right">{{ "%.2f"|format(item.price) }} PLN</td>
-                    <td class="col-total text-right"><strong>{{ "%.2f"|format(item.total) }} PLN</strong></td>
+                    <td class="col-price text-right">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</td>
+                    <td class="col-total text-right"><strong>{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.total) }} PLN{% endif %}</strong></td>
                     <td class="col-wms text-center">
                         <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">
                             {{ item.wms_status_name }}

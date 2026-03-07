@@ -376,6 +376,9 @@ function buildOrderCardHTML(order) {
         if (item.is_full_set) {
             cls += ' item-full-set';
             badge = '<span class="item-badge item-badge-set">SET</span>';
+        } else if (item.is_bonus) {
+            cls += ' item-bonus';
+            badge = '<span class="item-badge item-badge-bonus">GRATIS</span>';
         } else if (item.is_custom) {
             cls += ' item-custom';
             badge = '<span class="item-badge item-badge-custom">R\u0118CZNY</span>';
@@ -623,6 +626,8 @@ function renderProductsTable(productsData) {
         html += '<td><div class="product-name-cell">';
         if (product.is_full_set) {
             html += '<span class="item-badge item-badge-set">SET</span>';
+        } else if (product.is_bonus) {
+            html += '<span class="item-badge item-badge-bonus">GRATIS</span>';
         } else if (product.is_custom) {
             html += '<span class="item-badge item-badge-custom">RĘCZNY</span>';
         }

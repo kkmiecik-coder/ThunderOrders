@@ -6,7 +6,7 @@ Logika składania zamówień przez strony exclusive
 from flask_login import current_user
 from decimal import Decimal
 from extensions import db
-from modules.exclusive.models import ExclusiveReservation, ExclusivePage
+from modules.exclusive.models import ExclusiveReservation, ExclusivePage, ExclusiveSetBonus, ExclusiveSetBonusRequiredProduct
 from modules.exclusive.reservation import cleanup_expired_reservations
 from modules.orders.models import Order, OrderItem
 from modules.orders.utils import generate_order_number
@@ -80,7 +80,7 @@ def check_product_availability(reservations, page_id, session_id):
     return True, None
 
 
-def place_exclusive_order(page, session_id, order_note=None):
+def place_exclusive_order(page, session_id, order_note=None, full_set_items=None):
     """
     Place an order from exclusive page (requires authenticated user)
 
@@ -88,10 +88,16 @@ def place_exclusive_order(page, session_id, order_note=None):
         page (ExclusivePage): Exclusive page object
         session_id (str): User session ID
         order_note (str, optional): Order note/comment
+        full_set_items (list, optional): List of full set items [{'product_id': int, 'quantity': int}]
 
     Returns:
         tuple: (success: bool, result: dict)
     """
+    from modules.products.models import Product
+
+    if full_set_items is None:
+        full_set_items = []
+
     # 1. Cleanup expired reservations
     cleanup_expired_reservations(page.id)
 
@@ -101,8 +107,8 @@ def place_exclusive_order(page, session_id, order_note=None):
         exclusive_page_id=page.id
     ).all()
 
-    # Check if there are any items to order
-    if not reservations:
+    # Check if there are any items to order (reservations OR full set items)
+    if not reservations and not full_set_items:
         return False, {'error': 'no_reservations', 'message': 'Brak produktów w koszyku'}
 
     # 3. Check product availability (with SELECT FOR UPDATE to prevent race conditions)
@@ -208,6 +214,139 @@ def place_exclusive_order(page, session_id, order_note=None):
         # Update total
         total_amount += item_total
 
+    # 7a. Process full set items (not in reservations — unlimited)
+    for fs_item in full_set_items:
+        fs_product_id = fs_item.get('product_id')
+        fs_quantity = fs_item.get('quantity', 0)
+        if not fs_product_id or fs_quantity <= 0:
+            continue
+
+        # Max 5 full sets per order
+        if fs_quantity > 5:
+            fs_quantity = 5
+
+        # Verify this is actually a set_product for this page
+        if fs_product_id not in set_product_ids:
+            continue
+
+        fs_product = Product.query.get(fs_product_id)
+        if not fs_product:
+            continue
+
+        fs_price = fs_product.sale_price
+        fs_total = fs_price * fs_quantity
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=fs_product.id,
+            quantity=fs_quantity,
+            price=fs_price,
+            total=fs_total,
+            picked=False,
+            is_full_set=True,
+        )
+        db.session.add(order_item)
+        total_amount += fs_total
+
+    # 7b. Evaluate bonuses for set sections
+    # Flush so order.items relationship sees all newly added items
+    db.session.flush()
+
+    for sec in set_sections:
+        active_bonuses = ExclusiveSetBonus.query.filter_by(
+            section_id=sec.id, is_active=True
+        ).all()
+
+        for bonus in active_bonuses:
+            # Check global limit for this bonus
+            claimed = 0
+            if bonus.max_available is not None:
+                from sqlalchemy import func as sql_func2
+                claimed = db.session.query(
+                    sql_func2.coalesce(sql_func2.sum(OrderItem.quantity), 0)
+                ).join(Order).filter(
+                    OrderItem.is_bonus == True,
+                    OrderItem.bonus_source_section_id == sec.id,
+                    OrderItem.product_id == bonus.bonus_product_id,
+                    Order.exclusive_page_id == page.id,
+                    Order.status != 'anulowane'
+                ).with_for_update().scalar()
+                if claimed >= bonus.max_available:
+                    continue
+
+            # Get order items from this section in current order (non-bonus only)
+            section_items = [item for item in order.items if
+                            item.product_id in product_set_info and
+                            product_set_info[item.product_id]['section_id'] == sec.id and
+                            not item.is_bonus]
+
+            # Get full set items for this section
+            section_full_set_items = [item for item in order.items if
+                                      item.is_full_set and item.product_id == sec.set_product_id]
+            full_set_qty = sum(item.quantity for item in section_full_set_items)
+
+            bonus_earned = 0
+
+            if bonus.trigger_type == 'buy_products':
+                # Check if all required products are in the order
+                required = bonus.required_products
+                if not required:
+                    continue
+                # Calculate how many complete bundles
+                bundle_counts = []
+                for req in required:
+                    matching = [i for i in section_items if i.product_id == req.product_id]
+                    qty_in_order = sum(i.quantity for i in matching)
+                    # Full set contains all products — each full set counts as quantity_per_set
+                    if bonus.count_full_set and full_set_qty > 0:
+                        qps = product_set_info.get(req.product_id, {}).get('quantity_per_set', 1)
+                        qty_in_order += full_set_qty * qps
+                    bundle_counts.append(qty_in_order // req.min_quantity)
+                bonus_earned = min(bundle_counts) if bundle_counts else 0
+
+            elif bonus.trigger_type == 'price_threshold':
+                if bonus.threshold_value is None or float(bonus.threshold_value) <= 0:
+                    continue
+                section_total = sum(float(item.total) for item in section_items)
+                if bonus.count_full_set:
+                    section_total += sum(float(item.total) for item in section_full_set_items)
+                if section_total >= float(bonus.threshold_value):
+                    bonus_earned = 1
+
+            elif bonus.trigger_type == 'quantity_threshold':
+                if bonus.threshold_value is None or int(bonus.threshold_value) <= 0:
+                    continue
+                section_qty = sum(item.quantity for item in section_items)
+                if bonus.count_full_set:
+                    section_qty += full_set_qty
+                if section_qty >= int(bonus.threshold_value):
+                    bonus_earned = 1
+
+            # Apply limit
+            if bonus.max_available is not None:
+                bonus_earned = min(bonus_earned, bonus.max_available - claimed)
+
+            if bonus_earned > 0:
+                bonus_product = Product.query.get(bonus.bonus_product_id)
+                if not bonus_product:
+                    import logging
+                    logging.getLogger(__name__).warning(
+                        f"Bonus product id={bonus.bonus_product_id} not found for bonus id={bonus.id}, skipping"
+                    )
+                    continue
+
+                bonus_item = OrderItem(
+                    order_id=order.id,
+                    product_id=bonus.bonus_product_id,
+                    quantity=bonus.bonus_quantity * bonus_earned,
+                    price=Decimal('0.00'),
+                    total=Decimal('0.00'),
+                    is_bonus=True,
+                    bonus_source_section_id=sec.id,
+                    picked=False,
+                )
+                db.session.add(bonus_item)
+
     # 8. Update order total
     order.total_amount = total_amount
 
@@ -230,8 +369,8 @@ def place_exclusive_order(page, session_id, order_note=None):
         from flask import current_app
         current_app.logger.error(f"Auto-increase check failed for page {page.id}: {str(e)}")
 
-    # Calculate total items count
-    total_items_count = len(reservations)
+    # Calculate total items count (reservations + full set items)
+    total_items_count = len(reservations) + len([fs for fs in full_set_items if fs.get('quantity', 0) > 0 and fs.get('product_id') in set_product_ids])
 
     # 11. Activity log
     log_activity(
@@ -282,6 +421,7 @@ def place_exclusive_order(page, session_id, order_note=None):
                 'total': float(item.total),
                 'is_full_set': item.is_full_set,
                 'is_custom': item.is_custom,
+                'is_bonus': item.is_bonus,
             })
 
         emit_new_order(page.id, {
@@ -290,7 +430,7 @@ def place_exclusive_order(page, session_id, order_note=None):
             'customer_name': f'{current_user.first_name} {current_user.last_name}'.strip() or current_user.email,
             'customer_email': current_user.email,
             'total_amount': float(order.total_amount),
-            'items_count': total_items_count,
+            'item_count': total_items_count,
             'items': order_items_list,
             'created_at': order.created_at.isoformat() if order.created_at else None,
         })

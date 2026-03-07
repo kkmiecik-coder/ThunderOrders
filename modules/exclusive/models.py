@@ -685,3 +685,77 @@ class ExclusiveProductNotificationSubscription(db.Model):
         if self.user:
             return self.user.email
         return self.guest_email
+
+
+# ============================================
+# ExclusiveSetBonus
+# ============================================
+
+class ExclusiveSetBonus(db.Model):
+    """
+    Gratis (bonus) konfigurowany w sekcji set na stronie Exclusive.
+
+    Trigger types:
+    - buy_products: kup konkretne produkty z listy required_products
+    - price_threshold: osiagnij minimalny prog kwoty z produktow setu
+    - quantity_threshold: osiagnij minimalny prog ilosci produktow z setu
+    """
+    __tablename__ = 'exclusive_set_bonuses'
+
+    id = db.Column(db.Integer, primary_key=True)
+    section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='CASCADE'), nullable=False, index=True)
+
+    trigger_type = db.Column(
+        db.Enum('buy_products', 'price_threshold', 'quantity_threshold', name='bonus_trigger_type'),
+        nullable=False
+    )
+    threshold_value = db.Column(db.Numeric(10, 2), nullable=True)
+
+    bonus_product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+    bonus_quantity = db.Column(db.Integer, default=1, nullable=False)
+
+    max_available = db.Column(db.Integer, nullable=True)
+    when_exhausted = db.Column(
+        db.Enum('hide', 'show_exhausted', name='bonus_when_exhausted'),
+        default='hide',
+        nullable=False
+    )
+    count_full_set = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+
+    # Relationships
+    section = db.relationship('ExclusiveSection', backref=db.backref(
+        'bonuses', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True
+    ))
+    bonus_product = db.relationship('Product', foreign_keys=[bonus_product_id], backref='exclusive_set_bonuses')
+    required_products = db.relationship(
+        'ExclusiveSetBonusRequiredProduct',
+        back_populates='bonus',
+        cascade='all, delete-orphan',
+        passive_deletes=True
+    )
+
+    def __repr__(self):
+        return f'<ExclusiveSetBonus #{self.id} trigger={self.trigger_type} section={self.section_id}>'
+
+
+class ExclusiveSetBonusRequiredProduct(db.Model):
+    """
+    Wymagany produkt dla bonusu typu 'buy_products'.
+    Klient musi kupic WSZYSTKIE produkty z listy aby otrzymac gratis.
+    """
+    __tablename__ = 'exclusive_set_bonus_required_products'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bonus_id = db.Column(db.Integer, db.ForeignKey('exclusive_set_bonuses.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+    min_quantity = db.Column(db.Integer, default=1, nullable=False)
+
+    # Relationships
+    bonus = db.relationship('ExclusiveSetBonus', back_populates='required_products')
+    product = db.relationship('Product', foreign_keys=[product_id])
+
+    def __repr__(self):
+        return f'<ExclusiveSetBonusRequiredProduct bonus={self.bonus_id} product={self.product_id}>'

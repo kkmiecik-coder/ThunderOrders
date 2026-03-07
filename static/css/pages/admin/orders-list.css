@@ -2904,6 +2904,11 @@
     color: #ffffff;
 }
 
+.item-badge-bonus {
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: #ffffff;
+}
+
 /* ====================
    DARK MODE - Full Set & Custom Items
    ==================== */
@@ -2921,6 +2926,10 @@
 
 [data-theme="dark"] .item-badge-custom {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+[data-theme="dark"] .item-badge-bonus {
+    background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
 }
 
 /* ====================

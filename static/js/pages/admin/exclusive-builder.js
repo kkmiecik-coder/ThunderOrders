@@ -404,14 +404,14 @@ function getSectionTemplate(type) {
                                 <input type="text" class="form-input set-name" placeholder="np. Karty BTS - komplet 8 szt" required>
                             </div>
 
-                            <!-- Column 2: Dodaj tło seta button -->
+                            <!-- Column 2: Dodaj tło setu button -->
                             <div class="set-image-button-col">
                                 <button type="button" class="btn btn-outline btn-sm btn-set-image" onclick="this.closest('.set-section').querySelector('.set-image-input').click()">
                                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
                                         <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
                                     </svg>
-                                    Dodaj tło seta
+                                    Dodaj tło setu
                                 </button>
                                 <input type="file" class="set-image-input" accept="image/*" onchange="uploadSetImageNew(this)" style="display:none;">
                                 <input type="hidden" class="set-image-path" value="">
@@ -503,6 +503,34 @@ function getSectionTemplate(type) {
                                         <span class="set-product-preview-price"></span>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== GRATISY (BONUSY) ========== -->
+                        <hr class="set-separator">
+                        <div class="set-bonuses-section">
+                            <div class="set-bonuses-header">
+                                <div class="set-bonuses-title">
+                                    <svg class="set-bonuses-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                                        <rect x="2" y="7" width="20" height="5"></rect>
+                                        <line x1="12" y1="22" x2="12" y2="7"></line>
+                                        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                                        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                                    </svg>
+                                    <div>
+                                        <span class="set-bonuses-label">Gratisy</span>
+                                        <small class="set-bonuses-desc">Darmowe produkty dodawane do zamówień po spełnieniu warunków</small>
+                                    </div>
+                                </div>
+                                <button type="button" class="btn-add-bonus" onclick="addSetBonus(this)">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                                    </svg>
+                                    Dodaj gratis
+                                </button>
+                            </div>
+                            <div class="set-bonuses-list">
                             </div>
                         </div>
                     </div>
@@ -748,6 +776,40 @@ function collectPageData() {
                         });
                     }
                 }
+            });
+
+            // Collect bonuses (gratisy)
+            sectionData.bonuses = [];
+            section.querySelectorAll('.set-bonus-item').forEach((bonusEl) => {
+                const triggerType = bonusEl.querySelector('.bonus-trigger-type')?.value;
+                const bonusProductId = parseInt(bonusEl.querySelector('.bonus-product-id')?.value) || null;
+                if (!bonusProductId) return;
+
+                const bonusData = {
+                    trigger_type: triggerType,
+                    threshold_value: parseFloat(bonusEl.querySelector('.bonus-threshold-value')?.value) || null,
+                    bonus_product_id: bonusProductId,
+                    bonus_quantity: parseInt(bonusEl.querySelector('.bonus-quantity')?.value) || 1,
+                    max_available: parseInt(bonusEl.querySelector('.bonus-max-available')?.value) || null,
+                    when_exhausted: bonusEl.querySelector('.bonus-when-exhausted')?.value || 'hide',
+                    count_full_set: bonusEl.querySelector('.bonus-count-full-set')?.checked || false,
+                    is_active: bonusEl.querySelector('.bonus-is-active')?.checked ?? true,
+                    required_products: [],
+                };
+
+                if (triggerType === 'buy_products') {
+                    bonusEl.querySelectorAll('.bonus-required-item').forEach((rpEl) => {
+                        const rpProductId = parseInt(rpEl.querySelector('.bonus-req-product')?.value) || null;
+                        if (rpProductId) {
+                            bonusData.required_products.push({
+                                product_id: rpProductId,
+                                min_quantity: parseInt(rpEl.querySelector('.bonus-req-min-qty')?.value) || 1,
+                            });
+                        }
+                    });
+                }
+
+                sectionData.bonuses.push(bonusData);
             });
         } else if (type === 'variant_group') {
             sectionData.variant_group_id = parseInt(section.querySelector('.variant-group-select').value) || null;
@@ -1136,7 +1198,7 @@ async function uploadSetImageNew(input) {
                     <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
                     <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
                 </svg>
-                Zmień tło seta
+                Zmień tło setu
             `;
             markDirty();
             showToast('Zdjęcie przesłane', 'success');
@@ -1175,7 +1237,7 @@ function removeSetImageNew(btn) {
             <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
             <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
         </svg>
-        Dodaj tło seta
+        Dodaj tło setu
     `;
     markDirty();
 }
@@ -1202,7 +1264,7 @@ function removeSetImage(btn, sectionId) {
             <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
             <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
         </svg>
-        Dodaj tło seta
+        Dodaj tło setu
     `;
     markDirty();
 }
@@ -1252,7 +1314,7 @@ async function uploadSetImage(input, sectionId) {
                     <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
                     <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
                 </svg>
-                Zmień tło seta
+                Zmień tło setu
             `;
             markDirty();
             showToast('Zdjęcie przesłane', 'success');
@@ -1648,7 +1710,7 @@ function updateSetProductPreview(select) {
     }
 
     // Show preview card
-    previewCard.style.display = 'block';
+    previewCard.style.display = 'flex';
 }
 
 /**
@@ -1760,4 +1822,300 @@ function toggleSettingsAccordion(btn) {
         accordion.classList.add('expanded');
         btn.classList.add('expanded');
     }
+}
+
+
+// ============================================
+// BONUS (GRATIS) MANAGEMENT
+// ============================================
+
+/**
+ * Add a new bonus card to the set section
+ */
+function addSetBonus(btn) {
+    const bonusesList = btn.closest('.set-bonuses-section').querySelector('.set-bonuses-list');
+    const bonusIndex = bonusesList.querySelectorAll('.set-bonus-item').length + 1;
+
+    const bonusHtml = `
+    <div class="set-bonus-item">
+        <div class="bonus-header-row">
+            <span class="bonus-badge">GRATIS #${bonusIndex}</span>
+            <label class="bonus-active-toggle">
+                <input type="checkbox" class="bonus-is-active" checked onchange="markDirty()">
+                Aktywny
+            </label>
+            <button type="button" class="btn-remove-bonus" onclick="removeSetBonus(this)" title="Usuń gratis">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+            </button>
+        </div>
+
+        <div class="bonus-columns">
+            <div class="bonus-col bonus-col-left">
+                <div class="bonus-block-label">Warunek</div>
+                <div class="bonus-field">
+                    <label>Typ warunku</label>
+                    <select class="form-select bonus-trigger-type" onchange="onBonusTriggerTypeChange(this); markDirty()">
+                        <option value="buy_products">Kup produkty</option>
+                        <option value="price_threshold">Próg kwoty</option>
+                        <option value="quantity_threshold">Próg ilości</option>
+                    </select>
+                </div>
+                <div class="bonus-field bonus-threshold-field" style="display: none;">
+                    <label>Wartość progu</label>
+                    <input type="number" class="form-input bonus-threshold-value" step="0.01" min="0" onchange="markDirty()">
+                </div>
+                <div class="bonus-required-products">
+                    <label>Wymagane produkty <small>(wszystkie)</small></label>
+                    <div class="bonus-required-list"></div>
+                    <button type="button" class="btn-add-req-product" onclick="addBonusRequiredProduct(this)">+ Dodaj wymagany produkt</button>
+                </div>
+            </div>
+            <div class="bonus-col bonus-col-right">
+                <div class="bonus-block-label">Nagroda</div>
+                <div class="bonus-field">
+                    <label>Produkt gratisowy <span style="color: red;">*</span></label>
+                    <div class="bonus-product-search-wrapper">
+                        <input type="text" class="form-input bonus-product-search"
+                               placeholder="Szukaj produktu (nazwa lub SKU)..."
+                               oninput="searchBonusProduct(this)"
+                               onfocus="searchBonusProduct(this)"
+                               autocomplete="off">
+                        <input type="hidden" class="bonus-product-id" value="">
+                    </div>
+                </div>
+                <div class="bonus-field-row">
+                    <div class="bonus-field bonus-field-wide">
+                        <label>Ilość</label>
+                        <input type="number" class="form-input bonus-quantity" value="1" min="1" onchange="markDirty()">
+                    </div>
+                    <div class="bonus-field bonus-field-wide">
+                        <label>Limit</label>
+                        <input type="number" class="form-input bonus-max-available" min="1" placeholder="Bez" onchange="markDirty()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bonus-options-row">
+            <label class="bonus-option">
+                <input type="checkbox" class="bonus-count-full-set" onchange="markDirty()">
+                Pełny set liczy się do progu
+            </label>
+            <div class="bonus-option">
+                <label>Po wyczerpaniu:</label>
+                <select class="form-select bonus-when-exhausted" onchange="markDirty()">
+                    <option value="hide">Ukryj</option>
+                    <option value="show_exhausted">Pokaż jako wyczerpany</option>
+                </select>
+            </div>
+        </div>
+    </div>`;
+
+    bonusesList.insertAdjacentHTML('beforeend', bonusHtml);
+    markDirty();
+}
+
+/**
+ * Remove a bonus card
+ */
+function removeSetBonus(btn) {
+    if (!confirm('Czy na pewno chcesz usunąć ten gratis?')) return;
+    const bonusItem = btn.closest('.set-bonus-item');
+    const container = bonusItem.parentElement;
+    bonusItem.remove();
+
+    // Przelicz numerację pozostałych bonusów w tym kontenerze
+    const remainingBonuses = container.querySelectorAll('.set-bonus-item');
+    remainingBonuses.forEach((item, index) => {
+        const badge = item.querySelector('.bonus-badge');
+        if (badge) {
+            badge.textContent = `GRATIS #${index + 1}`;
+        }
+    });
+
+    markDirty();
+}
+
+/**
+ * Search for bonus product (exclusive type only)
+ * Dropdown is appended to document.body to escape overflow:hidden containers.
+ */
+let _bonusSearchTimeout = null;
+let _bonusDropdown = null; // single shared dropdown element
+let _bonusDropdownOwner = null; // the input that owns the current dropdown
+
+function _getBonusDropdown() {
+    if (!_bonusDropdown) {
+        _bonusDropdown = document.createElement('div');
+        _bonusDropdown.className = 'bonus-product-results';
+        _bonusDropdown.style.display = 'none';
+        document.body.appendChild(_bonusDropdown);
+    }
+    return _bonusDropdown;
+}
+
+function _positionBonusDropdown(input) {
+    const dd = _getBonusDropdown();
+    const rect = input.getBoundingClientRect();
+    const maxH = 240;
+    const spaceBelow = window.innerHeight - rect.bottom - 4;
+    const spaceAbove = rect.top - 4;
+    const fitsBelow = spaceBelow >= maxH;
+
+    dd.style.position = 'fixed';
+    dd.style.left = rect.left + 'px';
+    dd.style.width = rect.width + 'px';
+
+    if (fitsBelow) {
+        dd.style.top = (rect.bottom + 2) + 'px';
+        dd.style.bottom = 'auto';
+        dd.style.maxHeight = maxH + 'px';
+    } else {
+        dd.style.top = 'auto';
+        dd.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+        dd.style.maxHeight = Math.min(maxH, spaceAbove) + 'px';
+    }
+}
+
+function searchBonusProduct(input) {
+    clearTimeout(_bonusSearchTimeout);
+    const dd = _getBonusDropdown();
+    _bonusDropdownOwner = input;
+    const query = input.value.trim();
+
+    if (query.length < 2) {
+        dd.innerHTML = '';
+        dd.style.display = 'none';
+        return;
+    }
+
+    _positionBonusDropdown(input);
+
+    _bonusSearchTimeout = setTimeout(() => {
+        fetch(`/admin/exclusive/api/products?q=${encodeURIComponent(query)}`)
+            .then(r => r.json())
+            .then(products => {
+                if (!products.length) {
+                    dd.innerHTML = '<div class="bonus-product-no-results">Brak wyników</div>';
+                    dd.style.display = 'block';
+                    return;
+                }
+                dd.innerHTML = products.map(p => `
+                    <div class="bonus-product-result-item" data-product-id="${p.id}" data-product-name="${p.name.replace(/"/g, '&quot;')}">
+                        ${p.image ? `<img src="${p.image}" class="bonus-product-result-img" alt="">` : '<div class="bonus-product-result-img-placeholder"></div>'}
+                        <div class="bonus-product-result-info">
+                            <span class="bonus-product-result-name">${p.name}</span>
+                            <span class="bonus-product-result-sku">${p.sku || ''} &middot; ${p.price.toFixed(2)} PLN</span>
+                        </div>
+                    </div>
+                `).join('');
+                dd.style.display = 'block';
+                _positionBonusDropdown(input);
+            })
+            .catch(() => {
+                dd.innerHTML = '<div class="bonus-product-no-results">Błąd wyszukiwania</div>';
+                dd.style.display = 'block';
+            });
+    }, 300);
+}
+
+// Delegate click on dropdown items (dropdown lives in body, not in wrapper)
+document.addEventListener('click', function(e) {
+    const item = e.target.closest('.bonus-product-result-item');
+    if (item && _bonusDropdownOwner) {
+        const productId = item.dataset.productId;
+        const productName = item.dataset.productName;
+        selectBonusProduct(_bonusDropdownOwner, productId, productName);
+        return;
+    }
+    // Close dropdown when clicking outside
+    if (!e.target.closest('.bonus-product-search-wrapper') && _bonusDropdown) {
+        _bonusDropdown.style.display = 'none';
+    }
+});
+
+function selectBonusProduct(input, productId, productName) {
+    const wrapper = input.closest('.bonus-product-search-wrapper');
+    const hiddenInput = wrapper.querySelector('.bonus-product-id');
+
+    hiddenInput.value = productId;
+    input.value = productName;
+
+    if (_bonusDropdown) {
+        _bonusDropdown.innerHTML = '';
+        _bonusDropdown.style.display = 'none';
+    }
+
+    // Show selected badge
+    let selectedDiv = wrapper.querySelector('.bonus-product-selected');
+    if (!selectedDiv) {
+        selectedDiv = document.createElement('div');
+        selectedDiv.className = 'bonus-product-selected';
+        wrapper.appendChild(selectedDiv);
+    }
+    selectedDiv.innerHTML = `
+        <span class="bonus-product-selected-name">${productName}</span>
+        <button type="button" class="bonus-product-clear" onclick="clearBonusProduct(this)">&times;</button>
+    `;
+
+    markDirty();
+}
+
+function clearBonusProduct(btn) {
+    const wrapper = btn.closest('.bonus-product-search-wrapper');
+    wrapper.querySelector('.bonus-product-id').value = '';
+    wrapper.querySelector('.bonus-product-search').value = '';
+    const selectedDiv = wrapper.querySelector('.bonus-product-selected');
+    if (selectedDiv) selectedDiv.remove();
+    markDirty();
+}
+
+/**
+ * Handle trigger type change - show/hide conditional fields
+ */
+function onBonusTriggerTypeChange(select) {
+    const bonusItem = select.closest('.set-bonus-item');
+    const triggerType = select.value;
+
+    const thresholdField = bonusItem.querySelector('.bonus-threshold-field');
+    const requiredProducts = bonusItem.querySelector('.bonus-required-products');
+
+    if (triggerType === 'buy_products') {
+        thresholdField.style.display = 'none';
+        requiredProducts.style.display = 'block';
+    } else {
+        thresholdField.style.display = 'block';
+        requiredProducts.style.display = 'none';
+    }
+}
+
+/**
+ * Add a required product row to a buy_products bonus
+ */
+function addBonusRequiredProduct(btn) {
+    const productOptions = document.getElementById('productOptionTemplate').innerHTML;
+    const list = btn.closest('.bonus-required-products').querySelector('.bonus-required-list');
+
+    const html = `
+    <div class="bonus-required-item">
+        <select class="form-select bonus-req-product" onchange="markDirty()">
+            <option value="">Wybierz...</option>
+            ${productOptions}
+        </select>
+        <input type="number" class="form-input bonus-req-min-qty" value="1" min="1" style="width: 60px;" onchange="markDirty()">
+        <button type="button" class="btn-remove-req-product" onclick="removeBonusRequiredProduct(this)">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+        </button>
+    </div>`;
+
+    list.insertAdjacentHTML('beforeend', html);
+    markDirty();
+}
+
+/**
+ * Remove a required product row
+ */
+function removeBonusRequiredProduct(btn) {
+    btn.closest('.bonus-required-item').remove();
+    markDirty();
 }

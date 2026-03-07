@@ -4263,3 +4263,436 @@ body.exclusive-page-body {
         font-size: 20px;
     }
 }
+
+/* ============================================
+   BONUS (GRATIS) ELEMENTS — GOLD COUPON STYLE
+   ============================================ */
+
+.bonus-container {
+    margin: 12px 0 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: none;
+}
+
+.bonus-container:empty {
+    display: none;
+    margin: 0;
+}
+
+/* --- Coupon card --- */
+.bonus-coupon {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    width: fit-content;
+    max-width: 100%;
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 40%, #ddd6fe 100%);
+    border: 2px solid #a855f7;
+    border-radius: 14px;
+    overflow: hidden;
+    transition: all 0.4s ease;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.12);
+}
+
+/* Icon area with dashed separator */
+.bonus-coupon-icon-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 16px;
+    border-right: 2px dashed rgba(139, 92, 246, 0.4);
+    background: rgba(139, 92, 246, 0.1);
+    flex-shrink: 0;
+    min-width: 56px;
+}
+
+.bonus-coupon-icon {
+    font-size: 26px;
+    animation: giftFloat 3s ease-in-out infinite;
+}
+
+@keyframes giftFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* Body */
+.bonus-coupon-body {
+    flex: 1;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+.bonus-coupon-condition-label {
+    font-size: 11px;
+    color: #7c3aed;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 800;
+}
+
+.bonus-coupon-req-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.bonus-coupon-req-item {
+    font-size: 13px;
+    color: #4c1d95;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.bonus-coupon-reward-line {
+    font-size: 16px;
+    color: #4c1d95;
+    font-weight: 800;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bonus-coupon-reward-line::before {
+    content: 'GRATIS';
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    color: #fff;
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.bonus-coupon-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: #4c1d95;
+    line-height: 1.3;
+}
+
+.bonus-coupon-hint {
+    font-size: 11px;
+    color: #6d28d9;
+    opacity: 0.6;
+    margin-top: 2px;
+}
+
+/* "Odbierz" right-side claim area with rotated text */
+.bonus-coupon-claim-area {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, #a855f7, #8b5cf6);
+    border-left: 2px dashed rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    min-width: 38px;
+}
+
+.bonus-coupon-claim-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.bonus-coupon-claim-area:hover {
+    background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+}
+
+.bonus-coupon-claim-area.bonus-coupon-added {
+    background: linear-gradient(180deg, #7c3aed, #6d28d9);
+    cursor: default;
+}
+
+.bonus-coupon-claim-area.bonus-coupon-added:hover {
+    background: linear-gradient(180deg, #7c3aed, #6d28d9);
+}
+
+.bonus-coupon.bonus-added {
+    background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 40%, #c4b5fd 100%);
+    border-color: #7c3aed;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
+}
+
+.bonus-coupon.bonus-added .bonus-coupon-icon-area {
+    background: rgba(124, 58, 237, 0.15);
+    border-right-color: rgba(124, 58, 237, 0.4);
+}
+
+.bonus-coupon.bonus-unlocked {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 40%, #a7f3d0 100%);
+    border-color: #10b981;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+.bonus-coupon.bonus-unlocked .bonus-coupon-icon-area {
+    background: rgba(16, 185, 129, 0.15);
+    border-right-color: rgba(16, 185, 129, 0.4);
+}
+
+.bonus-coupon.bonus-claimable {
+    cursor: pointer;
+}
+
+.bonus-coupon.bonus-claimable:hover {
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+    transform: translateY(-1px);
+}
+
+/* Status — unlocked checkmark */
+.bonus-coupon-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.bonus-coupon-check {
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+}
+
+.bonus-coupon-unlocked-text {
+    font-size: 12px;
+    font-weight: 800;
+    color: #059669;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Progress bar (threshold) */
+.bonus-coupon-remaining {
+    font-size: 13px;
+    color: #6d28d9;
+    font-weight: 600;
+}
+
+.bonus-coupon-progress-wrapper {
+    height: 8px;
+    background: rgba(139, 92, 246, 0.15);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 2px;
+}
+
+.bonus-coupon-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #a855f7, #8b5cf6, #c084fc);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+
+/* --- Exhausted state --- */
+.bonus-coupon.bonus-exhausted {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+    border-color: #d1d5db;
+    background: linear-gradient(135deg, #f9fafb, #f3f4f6);
+}
+
+.bonus-coupon.bonus-exhausted .bonus-coupon-icon-area {
+    background: rgba(156, 163, 175, 0.1);
+    border-right-color: #d1d5db;
+}
+
+.bonus-coupon-exhausted-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Cart bonus item */
+.cart-item-bonus {
+    background: rgba(139, 92, 246, 0.08);
+    border-left: 3px solid #8b5cf6;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.cart-item-bonus .cart-item-name {
+    color: #7c3aed;
+    font-weight: 600;
+}
+
+.cart-item-price-free {
+    color: #8b5cf6;
+    font-weight: 700;
+}
+
+/* Badge for templates */
+.badge-bonus {
+    background: linear-gradient(135deg, #10b981, #34d399);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    display: inline-block;
+}
+
+/* ============================================
+   BONUS COUPON - DARK MODE
+   ============================================ */
+
+[data-theme="dark"] .bonus-coupon {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(168, 85, 247, 0.08) 50%, rgba(139, 92, 246, 0.05) 100%);
+    border-color: rgba(168, 85, 247, 0.4);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
+}
+
+[data-theme="dark"] .bonus-coupon-icon-area {
+    background: rgba(139, 92, 246, 0.15);
+    border-right-color: rgba(139, 92, 246, 0.3);
+}
+
+[data-theme="dark"] .bonus-coupon-condition-label {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .bonus-coupon-req-item {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .bonus-coupon-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .bonus-coupon-reward-line {
+    color: #e9d5ff;
+}
+
+[data-theme="dark"] .bonus-coupon-hint {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .bonus-coupon-remaining {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="dark"] .bonus-coupon-unlocked-text {
+    color: #c084fc;
+}
+
+[data-theme="dark"] .bonus-coupon-progress-wrapper {
+    background: rgba(139, 92, 246, 0.15);
+}
+
+[data-theme="dark"] .bonus-coupon.bonus-added {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.2) 0%, rgba(139, 92, 246, 0.15) 50%, rgba(124, 58, 237, 0.1) 100%);
+    border-color: rgba(124, 58, 237, 0.5);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
+}
+
+[data-theme="dark"] .bonus-coupon.bonus-added .bonus-coupon-icon-area {
+    background: rgba(124, 58, 237, 0.2);
+    border-right-color: rgba(124, 58, 237, 0.4);
+}
+
+[data-theme="dark"] .bonus-coupon.bonus-unlocked {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(52, 211, 153, 0.15) 50%, rgba(16, 185, 129, 0.1) 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+[data-theme="dark"] .bonus-coupon.bonus-unlocked .bonus-coupon-icon-area {
+    background: rgba(16, 185, 129, 0.2);
+    border-right-color: rgba(16, 185, 129, 0.4);
+}
+
+[data-theme="dark"] .bonus-coupon.bonus-claimable:hover {
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.2);
+}
+
+
+[data-theme="dark"] .bonus-coupon.bonus-exhausted {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .bonus-coupon.bonus-exhausted .bonus-coupon-icon-area {
+    background: rgba(255, 255, 255, 0.05);
+    border-right-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .bonus-coupon-exhausted-text {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .cart-item-bonus {
+    background: rgba(139, 92, 246, 0.1);
+    border-left-color: #a78bfa;
+}
+
+[data-theme="dark"] .cart-item-bonus .cart-item-name {
+    color: #c4b5fd;
+}
+
+[data-theme="dark"] .cart-item-price-free {
+    color: #a78bfa;
+}
+
+/* ============================================
+   BONUS COUPON - RESPONSIVE
+   ============================================ */
+
+@media (max-width: 480px) {
+    .bonus-coupon {
+        width: 100%;
+    }
+
+    .bonus-coupon-icon-area {
+        padding: 10px 12px;
+        min-width: 46px;
+    }
+
+    .bonus-coupon-icon {
+        font-size: 22px;
+    }
+
+    .bonus-coupon-body {
+        padding: 10px 12px;
+    }
+
+    .bonus-coupon-title {
+        font-size: 12px;
+    }
+
+    .bonus-coupon-remaining {
+        font-size: 11px;
+    }
+}

@@ -5,10 +5,91 @@ Publiczne endpointy dla stron ekskluzywnych zamówień
 
 from flask import render_template, abort, redirect, url_for, request, jsonify, session
 from flask_login import login_required, current_user
-from extensions import limiter
+from extensions import db, limiter
 from . import exclusive_bp
 from .models import ExclusivePage
 from modules.products.models import Product, VariantGroup
+
+
+def _build_bonuses_config(page, sections):
+    """
+    Buduje konfiguracje bonusow (gratisow) dla strony klienta.
+    Zwraca JSON string z danymi per section.
+    """
+    import json
+    from flask import url_for
+    from .models import ExclusiveSetBonus
+    from modules.orders.models import Order, OrderItem
+    from sqlalchemy import func
+
+    config = {}
+
+    for section in sections:
+        if section.section_type != 'set':
+            continue
+
+        bonuses = ExclusiveSetBonus.query.filter_by(
+            section_id=section.id, is_active=True
+        ).order_by(ExclusiveSetBonus.sort_order).all()
+
+        if not bonuses:
+            continue
+
+        section_bonuses = []
+        for bonus in bonuses:
+            # Policz ile gratisow juz rozdano (dla limitu)
+            already_claimed = 0
+            if bonus.max_available is not None:
+                already_claimed = db.session.query(
+                    func.coalesce(func.sum(OrderItem.quantity), 0)
+                ).join(Order).filter(
+                    OrderItem.is_bonus == True,
+                    OrderItem.bonus_source_section_id == section.id,
+                    OrderItem.product_id == bonus.bonus_product_id,
+                    Order.exclusive_page_id == page.id,
+                    Order.status != 'anulowane'
+                ).scalar()
+
+            # Sprawdz czy wyczerpany
+            is_exhausted = bonus.max_available is not None and already_claimed >= bonus.max_available
+
+            # Jesli wyczerpany i ustawiony na hide - pomin
+            if is_exhausted and bonus.when_exhausted == 'hide':
+                continue
+
+            bonus_product = bonus.bonus_product
+            bonus_data = {
+                'id': bonus.id,
+                'trigger_type': bonus.trigger_type,
+                'threshold_value': float(bonus.threshold_value) if bonus.threshold_value else None,
+                'bonus_product_id': bonus.bonus_product_id,
+                'bonus_product_name': bonus_product.name if bonus_product else '',
+                'bonus_product_image': url_for('static', filename=bonus_product.primary_image.path_compressed) if bonus_product and bonus_product.primary_image else None,
+                'bonus_product_price': float(bonus_product.sale_price) if bonus_product and bonus_product.sale_price else 0,
+                'bonus_quantity': bonus.bonus_quantity,
+                'max_available': bonus.max_available,
+                'when_exhausted': bonus.when_exhausted,
+                'count_full_set': bonus.count_full_set,
+                'already_claimed': int(already_claimed),
+                'is_exhausted': is_exhausted,
+                'required_products': [],
+            }
+
+            if bonus.trigger_type == 'buy_products':
+                for rp in bonus.required_products:
+                    product = rp.product
+                    bonus_data['required_products'].append({
+                        'product_id': rp.product_id,
+                        'product_name': product.name if product else '',
+                        'min_quantity': rp.min_quantity,
+                    })
+
+            section_bonuses.append(bonus_data)
+
+        if section_bonuses:
+            config[str(section.id)] = section_bonuses
+
+    return json.dumps(config, ensure_ascii=False)
 
 
 @exclusive_bp.route('/countdown')
@@ -80,7 +161,8 @@ def order_page(token):
         cleanup_expired_reservations(page.id)
 
         sections = page.get_sections_ordered()
-        return render_template('exclusive/order_page.html', page=page, sections=sections)
+        bonuses_config = _build_bonuses_config(page, sections)
+        return render_template('exclusive/order_page.html', page=page, sections=sections, bonuses_config_json=bonuses_config)
 
     if page.is_paused:
         return render_template('exclusive/paused.html', page=page)
@@ -123,7 +205,8 @@ def preview_page(token):
         abort(404)
 
     sections = page.get_sections_ordered()
-    return render_template('exclusive/order_page.html', page=page, sections=sections, preview_mode=True)
+    bonuses_config = _build_bonuses_config(page, sections)
+    return render_template('exclusive/order_page.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
 
 
 @exclusive_bp.route('/<token>/status')
@@ -447,6 +530,7 @@ def restore(token):
 # ============================================
 
 @exclusive_bp.route('/<token>/place-order', methods=['POST'])
+@limiter.limit("5 per minute")
 def place_order(token):
     """
     Place an order from exclusive page
@@ -469,6 +553,7 @@ def place_order(token):
     data = request.get_json()
     session_id = data.get('session_id')
     order_note = data.get('order_note')
+    full_set_items = data.get('full_set_items', [])
 
     if not session_id:
         return jsonify({'success': False, 'error': 'missing_session_id'}), 400
@@ -477,7 +562,8 @@ def place_order(token):
     success, result = place_exclusive_order(
         page=page,
         session_id=session_id,
-        order_note=order_note
+        order_note=order_note,
+        full_set_items=full_set_items
     )
 
     if success:

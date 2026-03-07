@@ -24,6 +24,7 @@ _RED = "F8D7DA"
 _RED_DARK = "DC3545"
 _ORANGE = "FFE5CC"
 _VIOLET = "E8DAEF"
+_BONUS_GREEN = "D1FAE5"
 _GRAY_BG = "F8F9FA"
 _GRAY_BORDER = "D0D0D0"
 _DARK_TEXT = "212121"
@@ -56,6 +57,7 @@ def _styles():
         'unfulfilled_fill': PatternFill(start_color=_RED, end_color=_RED, fill_type="solid"),
         'fullset_fill': PatternFill(start_color=_VIOLET, end_color=_VIOLET, fill_type="solid"),
         'custom_fill': PatternFill(start_color=_ORANGE, end_color=_ORANGE, fill_type="solid"),
+        'bonus_fill': PatternFill(start_color=_BONUS_GREEN, end_color=_BONUS_GREEN, fill_type="solid"),
         'alt_fill': PatternFill(start_color=_GRAY_BG, end_color=_GRAY_BG, fill_type="solid"),
         # Fonts for stats
         'stat_value_font': Font(bold=True, size=14, color=_DARK_TEXT),
@@ -224,6 +226,8 @@ def _build_overview_sheet(wb, page, summary, s):
                 name = f"SET: {name}"
             elif prod.get('is_custom'):
                 name = f"RĘCZNY: {name}"
+            if prod.get('is_bonus'):
+                name = f"GRATIS: {name}"
 
             _write_cell(ws, row, 1, idx, s, align='center')
             _write_cell(ws, row, 2, name, s, align='left')
@@ -328,7 +332,9 @@ def _build_products_sheet(wb, summary, s):
         fill = s['alt_fill'] if idx % 2 == 0 else None
 
         # Type label
-        if prod.get('is_full_set'):
+        if prod.get('is_bonus'):
+            type_label = "Gratis"
+        elif prod.get('is_full_set'):
             type_label = "Set"
         elif prod.get('is_custom'):
             type_label = "Ręczny"
@@ -343,6 +349,8 @@ def _build_products_sheet(wb, summary, s):
             type_cell.fill = s['fullset_fill']
         elif type_label == "Ręczny":
             type_cell.fill = s['custom_fill']
+        elif type_label == "Gratis":
+            type_cell.fill = s['bonus_fill']
 
         _write_cell(ws, row, 4, prod.get('order_count', 0), s, align='center', fill=fill)
         _write_cell(ws, row, 5, prod['total_quantity'], s, align='center', bold=True, fill=fill)
@@ -483,7 +491,10 @@ def _build_orders_sheet(wb, summary, s):
                 _write_cell(ws, row, 6, product_name, s, align='left')
 
                 # Type
-                if item.get('is_full_set'):
+                if item.get('is_bonus'):
+                    type_label = "Gratis"
+                    type_fill = s['bonus_fill']
+                elif item.get('is_full_set'):
                     type_label = "Set"
                     type_fill = s['fullset_fill']
                 elif item.get('is_custom'):

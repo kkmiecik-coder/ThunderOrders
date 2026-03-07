@@ -257,6 +257,7 @@
 .stat-icon-items { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 .stat-icon-revenue { background: rgba(16, 185, 129, 0.1); color: #10b981; }
 .stat-icon-avg { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.stat-icon-bonus { background: rgba(34, 197, 94, 0.1); color: #22c55e; }
 .stat-icon-fulfillment { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
 
 .stat-content {
@@ -717,6 +718,7 @@
 .order-item { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: 4px; font-size: var(--text-xs); background: var(--bg-secondary); }
 .order-item.item-full-set { background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%); border: 1px solid rgba(157, 78, 221, 0.2); }
 .order-item.item-custom { background: linear-gradient(135deg, rgba(255, 133, 0, 0.1) 0%, rgba(255, 109, 0, 0.1) 100%); border: 1px solid rgba(255, 133, 0, 0.2); }
+.order-item.item-bonus { background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border: 1px solid rgba(16, 185, 129, 0.2); }
 .order-item.item-fulfilled { background: rgba(16, 185, 129, 0.1); }
 .order-item.item-unfulfilled { background: rgba(239, 68, 68, 0.1); }
 .item-name { color: var(--text-primary); }
@@ -728,6 +730,7 @@
 .item-badge { display: inline-flex; align-items: center; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; }
 .item-badge-set { background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%); color: white; }
 .item-badge-custom { background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%); color: white; }
+.item-badge-bonus { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: white; }
 
 /* Pagination */
 .orders-pagination { display: flex; justify-content: center; align-items: center; gap: var(--space-2); margin-top: var(--space-6); }
@@ -833,6 +836,7 @@
 [data-theme="dark"] .stat-icon-items { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
 [data-theme="dark"] .stat-icon-revenue { background: rgba(16, 185, 129, 0.15); color: #34d399; }
 [data-theme="dark"] .stat-icon-avg { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+[data-theme="dark"] .stat-icon-bonus { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
 [data-theme="dark"] .stat-icon-fulfillment { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
 [data-theme="dark"] .stat-content .stat-value { color: #ffffff; }
 [data-theme="dark"] .stat-content .stat-label { color: rgba(255, 255, 255, 0.6); }
@@ -891,6 +895,7 @@
 [data-theme="dark"] .order-item { background: rgba(255, 255, 255, 0.05); }
 [data-theme="dark"] .order-item.item-full-set { background: linear-gradient(135deg, rgba(157, 78, 221, 0.2) 0%, rgba(123, 44, 191, 0.15) 100%); border-color: rgba(157, 78, 221, 0.4); }
 [data-theme="dark"] .order-item.item-custom { background: linear-gradient(135deg, rgba(255, 133, 0, 0.2) 0%, rgba(255, 109, 0, 0.15) 100%); border-color: rgba(255, 133, 0, 0.4); }
+[data-theme="dark"] .order-item.item-bonus { background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.15) 100%); border-color: rgba(16, 185, 129, 0.4); }
 [data-theme="dark"] .order-item.item-fulfilled { background: rgba(52, 211, 153, 0.15); }
 [data-theme="dark"] .order-item.item-unfulfilled { background: rgba(248, 113, 113, 0.15); }
 [data-theme="dark"] .item-name { color: rgba(255, 255, 255, 0.9); }

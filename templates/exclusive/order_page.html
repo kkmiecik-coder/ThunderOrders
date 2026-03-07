@@ -229,7 +229,7 @@
                             </div>
 
                             {% if section.set_image %}
-                            <!-- Tło seta -->
+                            <!-- Tło setu -->
                             <div class="set-background expandable-image collapsed" onclick="toggleSetImage(this)">
                                 <div class="image-wrapper">
                                     <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.set_name }}" onerror="this.closest('.set-background').style.display='none'">
@@ -244,7 +244,7 @@
                                 {% for item in section.get_set_items_ordered() %}
                                     {% if item.is_product and item.product %}
                                     <!-- Pojedynczy produkt -->
-                                    <div class="set-item" data-item-id="{{ item.id }}" data-product-id="{{ item.product_id }}">
+                                    <div class="set-item" data-item-id="{{ item.id }}" data-product-id="{{ item.product_id }}" data-quantity-per-set="{{ item.quantity_per_set or 1 }}">
                                         <div class="set-item-info">
                                             <span class="set-item-name">{{ item.product.name }}</span>
                                             <span class="set-item-price-mobile">{{ "%.2f"|format(item.product.sale_price) }} PLN</span>
@@ -265,7 +265,7 @@
                                     <!-- Grupa wariantowa w secie -->
                                     <div class="set-item-group" data-item-id="{{ item.id }}" data-variant-group-id="{{ item.variant_group_id }}">
                                         {% for product in item.get_products() %}
-                                        <div class="set-item" data-product-id="{{ product.id }}">
+                                        <div class="set-item" data-product-id="{{ product.id }}" data-quantity-per-set="{{ item.quantity_per_set or 1 }}">
                                             <div class="set-item-info">
                                                 <span class="set-item-name">{{ product.name }}</span>
                                                 <span class="set-item-price-mobile">{{ "%.2f"|format(product.sale_price) }} PLN</span>
@@ -317,6 +317,11 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- BONUSY (GRATISY) - kupony pod sekcją setu -->
+                <div class="bonus-container" data-section-id="{{ section.id }}">
+                    <!-- JS wypelni na podstawie bonusesConfig -->
+                </div>
 
                 {% elif section.is_variant_group %}
                 <section class="section section-variant-group" data-section-id="{{ section.id }}">
@@ -772,6 +777,9 @@ window.getAvailabilityCheckUrl = function() {
 
 // Storage keys
 window.reservationStorageKey = 'exclusive_reservation_{{ page.token }}';
+
+// Bonuses (gratisy) config
+window.bonusesConfig = {{ bonuses_config_json|safe }};
 
 // Redirect URL after order
 {% if current_user.is_authenticated %}

@@ -155,11 +155,9 @@
                             {% set hidden_items = order.sorted_items[3:] %}
 
                             {% for item in visible_items %}
-                            <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
+                            <div class="item-row{% if item.is_custom %} item-custom{% endif %}">
                                 <div class="item-thumb-wrapper">
-                                    {% if item.is_full_set %}
-                                    <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
-                                    {% elif item.is_custom %}
+                                    {% if item.is_custom %}
                                     <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
                                     {% else %}
                                     <img src="{{ item.product_image_url }}" alt="" class="item-thumb" loading="lazy">
@@ -171,9 +169,9 @@
                                 </div>
                                 <div class="item-details">
                                     <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
-                                        {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}
+                                        {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-bonus">GRATIS</span>{% endif %}
                                     </span>
-                                    <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
+                                    <span class="item-price">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} zł/szt{% endif %}</span>
                                 </div>
                             </div>
                             {% endfor %}
@@ -182,11 +180,9 @@
                             {% if hidden_items|length > 0 %}
                             <div class="items-hidden" id="hiddenItems-{{ order.id }}" style="display: none;">
                                 {% for item in hidden_items %}
-                                <div class="item-row{% if item.is_full_set %} item-full-set{% elif item.is_custom %} item-custom{% endif %}">
+                                <div class="item-row{% if item.is_custom %} item-custom{% endif %}">
                                     <div class="item-thumb-wrapper">
-                                        {% if item.is_full_set %}
-                                        <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
-                                        {% elif item.is_custom %}
+                                        {% if item.is_custom %}
                                         <div class="item-thumb item-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
                                         {% else %}
                                         <img src="{{ item.product_image_url }}" alt="" class="item-thumb" loading="lazy">
@@ -197,9 +193,9 @@
                                     </div>
                                     <div class="item-details">
                                         <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
-                                            {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}
+                                            {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-bonus">GRATIS</span>{% endif %}
                                         </span>
-                                        <span class="item-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
+                                        <span class="item-price">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} zł/szt{% endif %}</span>
                                     </div>
                                 </div>
                                 {% endfor %}
