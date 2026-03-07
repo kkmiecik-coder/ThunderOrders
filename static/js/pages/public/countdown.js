@@ -410,6 +410,28 @@
             return { main: mainBolt, branches: branches };
         }
 
+        // Strike to specific point (for click handling)
+        function generateStrikeToPoint(endX, endY) {
+            var w = canvas.width;
+            var h = canvas.height;
+            var refW = Math.max(w, REF_WIDTH);
+            var startX = endX + (Math.random() - 0.5) * w * 0.3;
+            var mainBolt = generateBolt(startX, -10, endX, endY, refW * 0.15);
+
+            var branches = [];
+            var branchCount = 1 + Math.floor(Math.random() * 3);
+            for (var b = 0; b < branchCount; b++) {
+                var idx = Math.floor(Math.random() * mainBolt.length * 0.6) + Math.floor(mainBolt.length * 0.15);
+                if (idx >= mainBolt.length) idx = mainBolt.length - 1;
+                var origin = mainBolt[idx];
+                var brEndX = origin.x + (Math.random() - 0.5) * refW * 0.2;
+                var brEndY = origin.y + h * (0.05 + Math.random() * 0.1);
+                branches.push(generateBolt(origin.x, origin.y, brEndX, brEndY, refW * 0.06));
+            }
+
+            return { main: mainBolt, branches: branches };
+        }
+
         // --- Drawing ---
         function drawBoltPath(points, width, alpha, glowSize, glowColor) {
             if (points.length < 2 || alpha <= 0) return;
@@ -597,6 +619,22 @@
                     ensureRendering();
                 }
             }
+        });
+
+        // Click handler - strike at click location
+        canvas.addEventListener('click', function(e) {
+            var rect = canvas.getBoundingClientRect();
+            var clickX = e.clientX - rect.left;
+            var clickY = e.clientY - rect.top;
+
+            var strike = generateStrikeToPoint(clickX, clickY);
+            activeVolleys.push({
+                strikes: [strike],
+                startTime: performance.now(),
+                duration: 300,
+                done: false
+            });
+            ensureRendering();
         });
 
         setTimeout(scheduleStorm, 1200);
