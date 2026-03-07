@@ -164,16 +164,25 @@
             var h = canvas.height;
 
             // -- Ambient --
-            for (var i = 0; i < ambient.length; i++) {
+            for (var i = ambient.length - 1; i >= 0; i--) {
                 var a = ambient[i];
                 a.y += a.vy;
                 a.sp += a.ss;
                 a.x += Math.sin(a.sp) * a.sa;
-                if (a.y < -10) { ambient[i] = makeAmbient(false); continue; }
+                // Remove stuck particles (near-zero velocity)
+                if (Math.abs(a.vy) < 0.08 || a.y < -10) {
+                    ambient.splice(i, 1);
+                    continue;
+                }
                 ctx.beginPath();
                 ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(' + a.c.r + ',' + a.c.g + ',' + a.c.b + ',' + a.o + ')';
                 ctx.fill();
+            }
+
+            // Maintain ambient particle count
+            while (ambient.length < AMBIENT_COUNT) {
+                ambient.push(makeAmbient(false));
             }
 
             // -- Ember spawning (time-based, randomized interval) --
