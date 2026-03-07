@@ -668,38 +668,7 @@
    DASHBOARD BUTTONS (Exclusive & Show More)
    ============================================ */
 
-/* Exclusive Link Button - Secondary style with thin border */
-.exclusive-link-btn,
-.exclusive-card-btn {
-  display: inline-block;
-  padding: var(--btn-sm-padding);
-  background: var(--btn-secondary-bg);
-  color: var(--btn-secondary-color);
-  border: var(--btn-secondary-border);
-  border-radius: var(--btn-sm-border-radius);
-  font-size: var(--btn-sm-font-size);
-  font-weight: var(--btn-sm-font-weight);
-  text-decoration: none;
-  text-align: center;
-  transition: var(--btn-transition);
-  white-space: nowrap;
-  flex-shrink: 0;
-  cursor: pointer;
-}
-
-.exclusive-link-btn:hover:not(:disabled),
-.exclusive-card-btn:hover:not(:disabled) {
-  background: var(--btn-secondary-hover-bg);
-  border: var(--btn-secondary-hover-border);
-  box-shadow: var(--btn-shadow-hover);
-  transform: var(--btn-transform-hover);
-}
-
-.exclusive-link-btn:active:not(:disabled),
-.exclusive-card-btn:active:not(:disabled) {
-  transform: var(--btn-transform-active);
-  box-shadow: var(--btn-secondary-shadow);
-}
+/* Exclusive buttons now use .exclusive-action-btn with custom styling in dashboard.css */
 
 /* Show More Button - Tertiary text-based style */
 .show-more-btn {

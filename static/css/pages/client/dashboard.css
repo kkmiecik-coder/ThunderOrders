@@ -1228,3 +1228,72 @@ a.metric-card-clickable.metric-card-info:hover {
     color: #f093fb;
     text-shadow: 0 0 10px rgba(240, 147, 251, 0.5);
 }
+
+/* ================================================
+   Exclusive Action Button - Redesigned
+   (Based on collection header action buttons)
+   ================================================ */
+
+.exclusive-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid var(--card-border, #e0e0e0);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Exclusive action button hover state */
+.exclusive-action-btn:hover:not(:disabled),
+.exclusive-action-btn:not([aria-disabled="true"]):hover {
+    color: #2563eb;
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.07);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+}
+
+/* Exclusive action button disabled state */
+.exclusive-action-btn:disabled,
+.exclusive-action-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    color: var(--text-tertiary);
+    border-color: var(--card-border);
+    background: transparent;
+    pointer-events: none;
+}
+
+/* Dark mode - Exclusive action button */
+[data-theme="dark"] .exclusive-action-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+/* Dark mode - Exclusive action button hover */
+[data-theme="dark"] .exclusive-action-btn:hover:not(:disabled),
+[data-theme="dark"] .exclusive-action-btn:not([aria-disabled="true"]):hover {
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.45);
+    background: rgba(96, 165, 250, 0.1);
+    box-shadow: 0 2px 10px rgba(96, 165, 250, 0.15);
+}
+
+/* Dark mode - Exclusive action button disabled */
+[data-theme="dark"] .exclusive-action-btn:disabled,
+[data-theme="dark"] .exclusive-action-btn[aria-disabled="true"] {
+    opacity: 0.4;
+    color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(240, 147, 251, 0.08);
+    background: transparent;
+    pointer-events: none;
+}

@@ -117,9 +117,15 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-link-btn" target="_blank">
+                                {% if page.status == 'ended' and page.is_fully_closed %}
+                                <a class="exclusive-action-btn" disabled aria-disabled="true">
                                     Otwórz →
                                 </a>
+                                {% else %}
+                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
+                                    Otwórz →
+                                </a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -154,9 +160,15 @@
                                 </span>
                             </td>
                             <td class="text-center">
-                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-link-btn" target="_blank">
+                                {% if page.status == 'ended' and page.is_fully_closed %}
+                                <a class="exclusive-action-btn" disabled aria-disabled="true">
                                     Otwórz →
                                 </a>
+                                {% else %}
+                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
+                                    Otwórz →
+                                </a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -192,9 +204,15 @@
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
-                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-card-btn" target="_blank">
+                            {% if page.status == 'ended' and page.is_fully_closed %}
+                            <a class="btn btn-secondary" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
+                            {% else %}
+                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="btn btn-secondary" target="_blank">
+                                Otwórz →
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
@@ -225,9 +243,15 @@
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
-                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-card-btn" target="_blank">
+                            {% if page.status == 'ended' and page.is_fully_closed %}
+                            <a class="btn btn-secondary" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
+                            {% else %}
+                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="btn btn-secondary" target="_blank">
+                                Otwórz →
+                            </a>
+                            {% endif %}
                         </div>
                     </div>
                     {% endfor %}
@@ -607,6 +631,10 @@ document.addEventListener('DOMContentLoaded', function() {
         function createTableRowHTML(page) {
             const statusHTML = getStatusHTML(page);
             const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' exclusive-timing-important' : '';
+            const isDisabled = page.status_class === 'closed';
+            const buttonHTML = isDisabled
+                ? `<a class="exclusive-action-btn" disabled aria-disabled="true">Otwórz →</a>`
+                : `<a href="${page.page_url}" class="exclusive-action-btn" target="_blank">Otwórz →</a>`;
 
             return `
                 <tr>
@@ -620,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </span>
                     </td>
                     <td class="text-center">
-                        <a href="${page.page_url}" class="exclusive-link-btn" target="_blank">Otwórz →</a>
+                        ${buttonHTML}
                     </td>
                 </tr>
             `;
@@ -630,6 +658,10 @@ document.addEventListener('DOMContentLoaded', function() {
         function createCardHTML(page) {
             const statusHTML = getStatusHTML(page);
             const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' exclusive-timing-important' : '';
+            const isDisabled = page.status_class === 'closed';
+            const buttonHTML = isDisabled
+                ? `<a class="exclusive-action-btn" disabled aria-disabled="true">Otwórz →</a>`
+                : `<a href="${page.page_url}" class="exclusive-action-btn" target="_blank">Otwórz →</a>`;
 
             return `
                 <div class="exclusive-card">
@@ -643,7 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
                               data-starts="${page.starts_at || ''}"
                               data-ends="${page.ends_at || ''}">
                         </span>
-                        <a href="${page.page_url}" class="exclusive-card-btn" target="_blank">Otwórz →</a>
+                        ${buttonHTML}
                     </div>
                 </div>
             `;
