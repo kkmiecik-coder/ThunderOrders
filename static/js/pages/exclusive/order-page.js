@@ -2691,6 +2691,23 @@ function canClaimBonus(bonus, sectionEl) {
 }
 
 /**
+ * Check if a bonus is unavailable due to stock issues
+ * Returns true if ANY required product is unavailable (stock = 0 or fully reserved)
+ */
+function isBonusUnavailable(bonus, sectionEl) {
+    if (!bonus.required_products) return false;
+
+    for (const req of bonus.required_products) {
+        const available = productAvailability[req.product_id];
+        // If stock is 0 or unavailable
+        if (available === undefined || available === 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
  * Claim a bonus by adding the required products to the cart.
  * Simulates clicking the + button for each missing product.
  */
@@ -2854,7 +2871,8 @@ function evaluateBonuses() {
                 }
 
                 const isUnlocked = earned > 0;
-                const canClaim = !isUnlocked && canClaimBonus(bonus, sectionEl);
+                const isUnavailable = isBonusUnavailable(bonus, sectionEl);
+                const canClaim = !isUnlocked && !isUnavailable && canClaimBonus(bonus, sectionEl);
                 const reqLines = bonus.required_products.map(r =>
                     `<div class="bonus-coupon-req-item">${r.product_name}${r.min_quantity > 1 ? ' x' + r.min_quantity : ''}</div>`
                 ).join('');
@@ -2862,7 +2880,11 @@ function evaluateBonuses() {
 
                 let statusHtml = '';
                 let claimAreaHtml = '';
-                if (isUnlocked) {
+                if (isUnavailable) {
+                    claimAreaHtml = `<div class="bonus-coupon-claim-area bonus-coupon-unavailable">
+                        <span class="bonus-coupon-claim-text-unavailable">CHWILO<br/>NIEDOSTĘPNE</span>
+                    </div>`;
+                } else if (isUnlocked) {
                     claimAreaHtml = `<div class="bonus-coupon-claim-area bonus-coupon-added">
                         <span class="bonus-coupon-claim-text">Dodano!</span>
                     </div>`;
@@ -2875,7 +2897,7 @@ function evaluateBonuses() {
                 }
 
                 bonusHtml += `
-                    <div class="bonus-coupon ${canClaim ? 'bonus-claimable' : ''} ${isUnlocked ? 'bonus-added' : ''}"
+                    <div class="bonus-coupon ${canClaim ? 'bonus-claimable' : ''} ${isUnlocked ? 'bonus-added' : ''} ${isUnavailable ? 'bonus-unavailable' : ''}"
                          data-bonus-id="${bonus.id}"
                          ${canClaim ? `onclick="claimBonus('${sectionId}', ${bonus.id})"` : ''}>
                         <div class="bonus-coupon-icon-area">
