@@ -694,6 +694,7 @@ a.metric-card-clickable.metric-card-info:hover {
     padding: 0;
 }
 
+/* Widget Link - text link style */
 .widget-link {
     color: var(--kpop-purple);
     font-weight: 600;
@@ -995,23 +996,8 @@ a.metric-card-clickable.metric-card-info:hover {
     }
 }
 
-/* Link Button */
-.exclusive-link-btn {
-    display: inline-block;
-    padding: 6px 12px;
-    background: var(--orange-300);
-    color: white;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: all 0.3s ease;
-}
-
-.exclusive-link-btn:hover {
-    background: var(--orange-400);
-    transform: translateY(-1px);
-}
+/* Link Button - uses .btn .btn-secondary from buttons.css */
+/* Removed: inline styles now use .btn .btn-secondary */
 
 /* Show More */
 .exclusive-show-more {
@@ -1083,14 +1069,7 @@ a.metric-card-clickable.metric-card-info:hover {
     color: #a78bfa;
 }
 
-[data-theme="dark"] .exclusive-link-btn {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-[data-theme="dark"] .exclusive-link-btn:hover {
-    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
-    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
-}
+/* Dark mode: uses .btn .btn-secondary from buttons.css */
 
 /* Show More Button */
 .exclusive-show-more,
@@ -1100,39 +1079,15 @@ a.metric-card-clickable.metric-card-info:hover {
     border-top: 1px solid var(--gray-100);
 }
 
-.show-more-btn {
-    color: var(--orange-400);
-    font-weight: 600;
-    text-decoration: none;
-    font-size: 0.875rem;
-    transition: color 0.3s ease;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--space-2) var(--space-4);
-}
-
-.show-more-btn:hover {
-    color: var(--orange-500);
-}
-
-.show-more-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
+/* Show More Button - uses .btn .btn-tertiary from buttons.css */
+/* Removed: inline styles now use button classes from buttons.css */
 
 [data-theme="dark"] .exclusive-show-more,
 [data-theme="dark"] .orders-show-more {
     border-top-color: rgba(240, 147, 251, 0.08);
 }
 
-[data-theme="dark"] .show-more-btn {
-    color: #f093fb;
-}
-
-[data-theme="dark"] .show-more-btn:hover {
-    color: #f5576c;
-}
+/* Dark mode: show-more-btn uses .btn .btn-tertiary from buttons.css */
 
 /* Dark mode LIVE badge - keep red for visibility */
 [data-theme="dark"] .exclusive-status-live {
@@ -1220,24 +1175,8 @@ a.metric-card-clickable.metric-card-info:hover {
     gap: var(--space-3);
 }
 
-.exclusive-card-btn {
-    display: inline-block;
-    padding: var(--space-2) var(--space-4);
-    background: var(--orange-300);
-    color: white;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-decoration: none;
-    text-align: center;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.exclusive-card-btn:hover {
-    background: var(--orange-400);
-}
+/* Card Button - uses .btn .btn-secondary .btn-sm from buttons.css */
+/* Removed: inline styles now use button classes from buttons.css */
 
 /* Dark Mode - Mobile Cards */
 [data-theme="dark"] .exclusive-card {
@@ -1250,14 +1189,7 @@ a.metric-card-clickable.metric-card-info:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-[data-theme="dark"] .exclusive-card-btn {
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-[data-theme="dark"] .exclusive-card-btn:hover {
-    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
-    box-shadow: 0 4px 12px rgba(240, 147, 251, 0.3);
-}
+/* Dark mode: uses .btn .btn-secondary from buttons.css */
 
 /* ================================================
    Responsive - Switch to Cards on Mobile
