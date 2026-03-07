@@ -113,8 +113,6 @@
             };
         }
 
-        for (var i = 0; i < AMBIENT_COUNT; i++) ambient.push(makeAmbient(true));
-
         // ---- Embers (fire sparks rising from bottom) ----
         var EMBER_MAX = 150;
         // Spawn interval in ms — one ember every 30-80ms (randomized per spawn)
@@ -241,6 +239,10 @@
         }
 
         resize();
+
+        // Initialize ambient particles after canvas is sized
+        for (var i = 0; i < AMBIENT_COUNT; i++) ambient.push(makeAmbient(true));
+
         rafId = requestAnimationFrame(animate);
 
         var resizeTimer = null;
