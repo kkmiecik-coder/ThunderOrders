@@ -526,4 +526,132 @@
         });
     });
 
+    // ================================
+    // OCR DETAILS TOOLTIP
+    // ================================
+
+    var activeTooltip = null;
+
+    function closeOcrTooltip() {
+        if (activeTooltip) {
+            activeTooltip.remove();
+            activeTooltip = null;
+        }
+    }
+
+    function getScoreIcon(score, max) {
+        if (score >= max * 0.8) return '<span style="color:#10b981">&#10003;</span>';
+        if (score > 0) return '<span style="color:#f59e0b">~</span>';
+        return '<span style="color:#ef4444">&#10007;</span>';
+    }
+
+    function formatAmountDetail(info) {
+        if (!info) return '';
+        if (info.match === 'none' || !info.best_match) return 'nie znaleziono';
+        var label = info.precise === false ? ' (bez groszy)' : '';
+        return 'znaleziono ' + info.best_match + ' PLN' + label;
+    }
+
+    function formatTitleDetail(info) {
+        if (!info) return '';
+        if (info.match === 'none' || !info.found || info.found.length === 0) return 'nie znaleziono';
+        return 'znaleziono ' + info.found.join(', ');
+    }
+
+    function formatRecipientDetail(info) {
+        if (!info) return '';
+        if (info.match === 'no_method') return 'brak metody';
+        if (info.match === 'none' || !info.found || info.found.length === 0) return 'nie znaleziono';
+        var labels = info.found.map(function(f) {
+            return f.replace(/^(keyword|account|recipient|recipient_word|code):/, '');
+        });
+        return 'znaleziono ' + labels.join(', ');
+    }
+
+    function formatReadabilityDetail(info) {
+        if (!info) return '';
+        var q = info.quality || 'poor';
+        if (q === 'good') return 'dobra';
+        if (q === 'fair') return 'średnia';
+        return 'słaba';
+    }
+
+    function showOcrTooltip(btn) {
+        closeOcrTooltip();
+
+        var raw = btn.getAttribute('data-ocr-details');
+        if (!raw) return;
+
+        var details;
+        try {
+            details = JSON.parse(raw);
+        } catch (e) {
+            return;
+        }
+
+        var amount = details.amount || {};
+        var title = details.title || {};
+        var recipient = details.recipient || {};
+        var readability = details.readability || {};
+
+        var html = '<div class="ocr-tooltip">';
+
+        html += '<div class="ocr-tooltip-row">';
+        html += '<span class="ocr-tooltip-label">Kwota</span>';
+        html += '<span class="ocr-tooltip-value">' + (amount.score || 0) + '/40 ' + getScoreIcon(amount.score || 0, 40);
+        html += '<span class="ocr-tooltip-detail">(' + formatAmountDetail(amount) + ')</span></span>';
+        html += '</div>';
+
+        html += '<div class="ocr-tooltip-row">';
+        html += '<span class="ocr-tooltip-label">Tytuł</span>';
+        html += '<span class="ocr-tooltip-value">' + (title.score || 0) + '/30 ' + getScoreIcon(title.score || 0, 30);
+        html += '<span class="ocr-tooltip-detail">(' + formatTitleDetail(title) + ')</span></span>';
+        html += '</div>';
+
+        html += '<div class="ocr-tooltip-row">';
+        html += '<span class="ocr-tooltip-label">Odbiorca</span>';
+        html += '<span class="ocr-tooltip-value">' + (recipient.score || 0) + '/20 ' + getScoreIcon(recipient.score || 0, 20);
+        html += '<span class="ocr-tooltip-detail">(' + formatRecipientDetail(recipient) + ')</span></span>';
+        html += '</div>';
+
+        html += '<div class="ocr-tooltip-row">';
+        html += '<span class="ocr-tooltip-label">Czytelność</span>';
+        html += '<span class="ocr-tooltip-value">' + (readability.score || 0) + '/10 ' + getScoreIcon(readability.score || 0, 10);
+        html += '<span class="ocr-tooltip-detail">(' + formatReadabilityDetail(readability) + ')</span></span>';
+        html += '</div>';
+
+        html += '</div>';
+
+        var tooltip = document.createElement('div');
+        tooltip.innerHTML = html;
+        activeTooltip = tooltip.firstChild;
+
+        document.body.appendChild(activeTooltip);
+
+        // Position below the button
+        var rect = btn.getBoundingClientRect();
+        activeTooltip.style.position = 'fixed';
+        activeTooltip.style.top = (rect.bottom + 6) + 'px';
+        activeTooltip.style.left = Math.max(8, rect.left - 100) + 'px';
+    }
+
+    // Event delegation for OCR info buttons
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('.ocr-info-btn');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (activeTooltip) {
+                closeOcrTooltip();
+            } else {
+                showOcrTooltip(btn);
+            }
+            return;
+        }
+        // Close tooltip when clicking outside
+        if (activeTooltip && !e.target.closest('.ocr-tooltip')) {
+            closeOcrTooltip();
+        }
+    });
+
 })();

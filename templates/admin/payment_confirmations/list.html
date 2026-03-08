@@ -191,19 +191,18 @@
                                 {% endif %}
                             </span>
                             {% if first.ocr_score is not none %}
-                                {% if first.auto_approved %}
-                                    <span class="ocr-badge ocr-auto" title="Auto-zatwierdzone przez OCR ({{ first.ocr_score }}%)">
-                                        OCR {{ first.ocr_score }}%
-                                    </span>
-                                {% elif first.ocr_score >= 60 %}
-                                    <span class="ocr-badge ocr-suggested" title="OCR sugeruje zatwierdzenie">
-                                        OCR {{ first.ocr_score }}%
-                                    </span>
-                                {% else %}
-                                    <span class="ocr-badge ocr-manual" title="OCR: niski score">
-                                        OCR {{ first.ocr_score }}%
-                                    </span>
-                                {% endif %}
+                                <span class="ocr-badge-wrapper">
+                                    {% if first.auto_approved %}
+                                        <span class="ocr-badge ocr-auto">OCR {{ first.ocr_score }}%</span>
+                                    {% elif first.ocr_score >= 60 %}
+                                        <span class="ocr-badge ocr-suggested">OCR {{ first.ocr_score }}%</span>
+                                    {% else %}
+                                        <span class="ocr-badge ocr-manual">OCR {{ first.ocr_score }}%</span>
+                                    {% endif %}
+                                    {% if first.ocr_details %}
+                                        <button type="button" class="ocr-info-btn" data-ocr-details="{{ first.ocr_details|e }}" aria-label="Detale OCR">i</button>
+                                    {% endif %}
+                                </span>
                             {% endif %}
                             {% if group_status == 'rejected' and first.rejection_reason %}
                                 <span class="rejection-reason-hint" title="{{ first.rejection_reason }}">
