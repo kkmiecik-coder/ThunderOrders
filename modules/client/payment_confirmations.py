@@ -320,7 +320,120 @@ def payment_confirmations_upload():
 
                 created_count += 1
 
+        # === OCR Verification ===
+        from modules.auth.models import Settings
+        ocr_enabled = Settings.get_value('ocr_enabled', False)
+        if ocr_enabled:
+            try:
+                from utils.ocr_verifier import verify_payment_proof, TESSERACT_AVAILABLE
+
+                if TESSERACT_AVAILABLE:
+                    # Ścieżka do pliku
+                    upload_folder = os.path.join(
+                        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                        'uploads', 'payment_confirmations'
+                    )
+                    proof_filepath = os.path.join(upload_folder, saved_filename)
+
+                    # Zbierz numery zamówień
+                    all_order_numbers = [
+                        orders_by_id[e['order_id']].order_number
+                        for e in order_stages
+                        if e['order_id'] in orders_by_id
+                    ]
+
+                    # Oblicz łączną oczekiwaną kwotę
+                    total_expected = Decimal('0.00')
+                    for entry in order_stages:
+                        order = orders_by_id.get(entry['order_id'])
+                        if not order:
+                            continue
+                        for stage in entry['stages']:
+                            stage_amounts = {
+                                'product': order.effective_total,
+                                'korean_shipping': order.proxy_shipping_total,
+                                'customs_vat': order.customs_vat_total,
+                                'domestic_shipping': Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00'),
+                            }
+                            total_expected += stage_amounts.get(stage, Decimal('0.00'))
+
+                    # Pobierz obiekt metody płatności
+                    pm_obj = None
+                    if payment_method_id:
+                        pm_obj = PaymentMethod.query.get(payment_method_id)
+
+                    # Uruchom OCR
+                    ocr_result = verify_payment_proof(
+                        filepath=proof_filepath,
+                        expected_amount=total_expected,
+                        order_numbers=all_order_numbers,
+                        payment_method=pm_obj
+                    )
+
+                    ocr_score = ocr_result.get('score')
+                    ocr_details_json = json.dumps(ocr_result.get('details', {}), ensure_ascii=False)
+
+                    # Zapisz wynik OCR na wszystkich potwierdzeniach z tego uploadu
+                    confirmations_to_update = PaymentConfirmation.query.filter_by(
+                        proof_file=saved_filename
+                    ).all()
+
+                    auto_threshold = Settings.get_value('ocr_auto_approve_threshold', 90)
+
+                    for conf in confirmations_to_update:
+                        conf.ocr_score = ocr_score
+                        conf.ocr_details = ocr_details_json
+
+                        # Auto-approve jeśli score >= próg
+                        if ocr_score is not None and ocr_score >= auto_threshold and conf.status == 'pending':
+                            conf.status = 'approved'
+                            conf.auto_approved = True
+                            conf.updated_at = now
+
+                            # Zaktualizuj paid_amount (identycznie jak admin approve)
+                            order = conf.order
+                            current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+                            order.paid_amount = current_paid + Decimal(str(conf.amount))
+
+                    current_app.logger.info(f"OCR score for {saved_filename}: {ocr_score}%")
+
+            except Exception as e:
+                # OCR failure nie powinno blokować uploadu
+                current_app.logger.error(f"OCR verification error: {e}")
+
         db.session.commit()
+
+        # Powiadom o auto-approved (po GŁÓWNYM commit)
+        try:
+            auto_approved_confs = PaymentConfirmation.query.filter_by(
+                proof_file=saved_filename,
+                auto_approved=True
+            ).all()
+            if auto_approved_confs:
+                from utils.email_manager import EmailManager
+                from utils.push_manager import PushManager
+                for conf in auto_approved_confs:
+                    EmailManager.notify_payment_approved(conf.order, conf)
+                    PushManager.notify_payment_approved(conf.order, conf)
+                    log_activity(
+                        user=current_user,
+                        action='payment_confirmation_auto_approved',
+                        entity_type='order',
+                        entity_id=conf.order_id,
+                        new_value={
+                            'order_number': conf.order.order_number,
+                            'amount': float(conf.amount),
+                            'payment_stage': conf.payment_stage,
+                            'ocr_score': conf.ocr_score,
+                            'auto': True
+                        }
+                    )
+                    # Auto-transition SR
+                    if conf.payment_stage == 'domestic_shipping':
+                        from modules.admin.payment_confirmations import _check_sr_auto_oplacone
+                        _check_sr_auto_oplacone(conf.order)
+        except Exception as e:
+            current_app.logger.error(f"Error sending auto-approve notifications: {e}")
 
         # Powiadom adminów o nowym potwierdzeniu płatności
         stage_display_names = {
