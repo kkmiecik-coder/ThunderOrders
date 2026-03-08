@@ -122,8 +122,8 @@ AMOUNT_PATTERNS = [
     r'(\d[\d\s]*[\d])[,.](\d{2})\s*(?:zł|PLN|pln|ZŁ|złotych)',
     # "442,86" lub "442.86" (standalone, z separatorem tysięcy)
     r'(\d[\d\s]*[\d])[,.](\d{2})',
-    # "442 zł" (bez groszy)
-    r'(\d[\d\s]*[\d])\s*(?:zł|PLN|pln|ZŁ|złotych)',
+    # "442 zł" (bez groszy) — negative lookbehind: nie łap "86" z "442,86 zł"
+    r'(?<![,.])(\d[\d\s]*[\d])\s*(?:zł|PLN|pln|ZŁ|złotych)',
 ]
 
 
