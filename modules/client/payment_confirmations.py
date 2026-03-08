@@ -240,6 +240,9 @@ def payment_confirmations_upload():
             flash('Błąd podczas zapisywania pliku.', 'error')
             return redirect(url_for('client.payment_confirmations'))
 
+        # Metoda płatności wybrana przez klienta
+        payment_method_id = request.form.get('payment_method_id', type=int)
+
         # === Twórz/aktualizuj PaymentConfirmation per zamówienie × etap ===
         created_count = 0
         now = get_local_now()
@@ -275,6 +278,7 @@ def payment_confirmations_upload():
                     existing.status = 'pending'
                     existing.rejection_reason = None
                     existing.amount = amount
+                    existing.payment_method_id = payment_method_id
 
                     log_activity(
                         user=current_user,
@@ -296,7 +300,8 @@ def payment_confirmations_upload():
                         amount=amount,
                         proof_file=saved_filename,
                         uploaded_at=now,
-                        status='pending'
+                        status='pending',
+                        payment_method_id=payment_method_id,
                     )
                     db.session.add(confirmation)
 

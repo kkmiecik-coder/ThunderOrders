@@ -743,7 +743,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
         methods.forEach(function (method, index) {
             var logoUrl = getMethodLogoUrl(method);
 
-            html += '<div class="pc-method-tile' + (index === 0 ? ' active' : '') + '" data-method-index="' + index + '">';
+            html += '<div class="pc-method-tile' + (index === 0 ? ' active' : '') + '" data-method-index="' + index + '" data-method-id="' + method.id + '">';
             if (logoUrl) {
                 html += '<img class="pc-method-tile-logo" src="' + escapeAttr(logoUrl) + '" alt="' + escapeAttr(method.name) + '">';
             } else {
@@ -854,6 +854,12 @@ window.toggleOrderItems = function(orderId, totalItems) {
         var formData = new FormData();
         formData.append('proof_file', proofFileInput.files[0]);
         formData.append('order_stages', JSON.stringify(orderStagesArr));
+
+        // Wyślij wybraną metodę płatności
+        var activeTile = document.querySelector('.pc-method-tile.active');
+        if (activeTile && activeTile.dataset.methodId) {
+            formData.append('payment_method_id', activeTile.dataset.methodId);
+        }
 
         if (submitBtn) {
             submitBtn.disabled = true;
