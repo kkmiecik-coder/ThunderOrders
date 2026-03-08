@@ -116,14 +116,17 @@ def extract_text(image):
 # AMOUNT PARSING
 # ========================
 
-# Wzorce kwot w tekście
-AMOUNT_PATTERNS = [
+# Wzorce kwot precise (z groszami)
+PRECISE_AMOUNT_PATTERNS = [
     # "442,86 zł", "442,86 PLN", "442.86 zł"
     r'(\d[\d\s]*[\d])[,.](\d{2})\s*(?:zł|PLN|pln|ZŁ|złotych)',
     # "442,86" lub "442.86" (standalone, z separatorem tysięcy)
     r'(\d[\d\s]*[\d])[,.](\d{2})',
-    # "442 zł" (bez groszy) — negative lookbehind: nie łap "86" z "442,86 zł"
-    r'(?<![,.])(\d[\d\s]*[\d])\s*(?:zł|PLN|pln|ZŁ|złotych)',
+]
+
+# Wzorce kwot imprecise (bez groszy — np. "442 zł")
+IMPRECISE_AMOUNT_PATTERNS = [
+    r'(?<![,.\d])(\d[\d\s]*\d)\s*(?:zł|PLN|pln|ZŁ|złotych)',
 ]
 
 
@@ -131,38 +134,43 @@ def extract_amounts(text):
     """
     Wyciąga wszystkie kwoty z tekstu OCR.
     Returns:
-        list[Decimal]: lista znalezionych kwot
+        list[tuple(Decimal, bool)]: lista (kwota, precise)
+            precise=True — kwota z groszami (np. 442.86)
+            precise=False — kwota bez groszy (np. 442)
     """
     amounts = []
-    for pattern in AMOUNT_PATTERNS:
+
+    # Precise patterns (z groszami)
+    for pattern in PRECISE_AMOUNT_PATTERNS:
         for match in re.finditer(pattern, text):
             try:
                 groups = match.groups()
-                if len(groups) == 2:
-                    # Mamy część całkowitą i grosze
-                    whole = re.sub(r'\s', '', groups[0])
-                    decimal_part = groups[1]
-                    amount = Decimal(f"{whole}.{decimal_part}")
-                elif len(groups) == 1:
-                    # Tylko część całkowita
-                    whole = re.sub(r'\s', '', groups[0])
-                    amount = Decimal(whole)
-                else:
-                    continue
-
-                # Filtruj absurdalne kwoty
+                whole = re.sub(r'\s', '', groups[0])
+                decimal_part = groups[1]
+                amount = Decimal(f"{whole}.{decimal_part}")
                 if Decimal('0.01') <= amount <= Decimal('999999.99'):
-                    amounts.append(amount)
+                    amounts.append((amount, True))
+            except (InvalidOperation, ValueError):
+                continue
+
+    # Imprecise patterns (bez groszy)
+    for pattern in IMPRECISE_AMOUNT_PATTERNS:
+        for match in re.finditer(pattern, text):
+            try:
+                whole = re.sub(r'\s', '', match.group(1))
+                amount = Decimal(whole)
+                if Decimal('1') <= amount <= Decimal('999999'):
+                    amounts.append((amount, False))
             except (InvalidOperation, ValueError):
                 continue
 
     # Usuń duplikaty, zachowaj kolejność
     seen = set()
     unique = []
-    for a in amounts:
-        if a not in seen:
-            seen.add(a)
-            unique.append(a)
+    for item in amounts:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
 
     return unique
 
@@ -176,7 +184,7 @@ def score_amount(extracted_amounts, expected_amount):
     Ocenia dopasowanie kwoty. Max 40 punktów.
 
     Args:
-        extracted_amounts: list[Decimal] — kwoty znalezione na screenshocie
+        extracted_amounts: list[tuple(Decimal, bool)] — (kwota, precise) znalezione na screenshocie
         expected_amount: Decimal — oczekiwana kwota
 
     Returns:
@@ -186,34 +194,53 @@ def score_amount(extracted_amounts, expected_amount):
         return 0, {'found_amounts': [], 'expected': str(expected_amount), 'match': 'none'}
 
     expected = Decimal(str(expected_amount))
+
+    # Znajdź najlepsze dopasowanie — preferuj precise
     best_match = None
     best_diff = None
+    best_precise = False
 
-    for amount in extracted_amounts:
+    for amount, precise in extracted_amounts:
         diff = abs(amount - expected)
-        if best_diff is None or diff < best_diff:
+        # Preferuj precise przy tej samej różnicy
+        if best_diff is None or diff < best_diff or (diff == best_diff and precise and not best_precise):
             best_diff = diff
             best_match = amount
+            best_precise = precise
 
     details = {
-        'found_amounts': [str(a) for a in extracted_amounts],
+        'found_amounts': [str(a) for a, _ in extracted_amounts],
         'expected': str(expected),
         'best_match': str(best_match),
         'difference': str(best_diff),
+        'precise': best_precise,
     }
 
-    if best_diff <= Decimal('1.00'):
-        details['match'] = 'exact'
-        return 40, details
-    elif best_diff <= Decimal('5.00'):
-        details['match'] = 'close'
-        return 20, details
-    elif best_diff <= Decimal('10.00'):
-        details['match'] = 'partial'
-        return 10, details
+    if best_precise:
+        # Precise match (z groszami) — pełny scoring max 40 pkt
+        if best_diff <= Decimal('1.00'):
+            details['match'] = 'exact'
+            return 40, details
+        elif best_diff <= Decimal('5.00'):
+            details['match'] = 'close'
+            return 20, details
+        elif best_diff <= Decimal('10.00'):
+            details['match'] = 'partial'
+            return 10, details
+        else:
+            details['match'] = 'none'
+            return 0, details
     else:
-        details['match'] = 'none'
-        return 0, details
+        # Imprecise match (bez groszy) — max 20 pkt
+        if int(best_match) == int(expected):
+            details['match'] = 'imprecise_exact'
+            return 20, details
+        elif abs(int(best_match) - int(expected)) <= 1:
+            details['match'] = 'imprecise_close'
+            return 10, details
+        else:
+            details['match'] = 'none'
+            return 0, details
 
 
 def score_transfer_title(text, order_numbers):
