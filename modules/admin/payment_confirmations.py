@@ -233,13 +233,6 @@ def payment_confirmation_approve(confirmation_id):
     if confirmation.payment_stage == 'domestic_shipping':
         _check_sr_auto_oplacone(order)
 
-    # WebSocket — notify client
-    try:
-        from modules.payments.socket_events import emit_payment_status_change
-        emit_payment_status_change(confirmation)
-    except Exception as e:
-        logger.error(f"WebSocket emit error: {e}")
-
     return jsonify({
         'success': True,
         'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało zaakceptowane.',
@@ -309,14 +302,6 @@ def payment_confirmation_bulk_approve():
         if confirmation.payment_stage == 'domestic_shipping' and confirmation.order_id not in checked_orders:
             checked_orders.add(confirmation.order_id)
             _check_sr_auto_oplacone(confirmation.order)
-
-    # WebSocket — notify clients
-    try:
-        from modules.payments.socket_events import emit_payment_status_change
-        for confirmation in confirmations:
-            emit_payment_status_change(confirmation)
-    except Exception as e:
-        logger.error(f"WebSocket emit error: {e}")
 
     return jsonify({
         'success': True,
@@ -389,14 +374,6 @@ def payment_confirmation_bulk_reject():
         EmailManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
         PushManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
 
-    # WebSocket — notify clients
-    try:
-        from modules.payments.socket_events import emit_payment_status_change
-        for confirmation in confirmations:
-            emit_payment_status_change(confirmation)
-    except Exception as e:
-        logger.error(f"WebSocket emit error: {e}")
-
     return jsonify({
         'success': True,
         'message': f'Odrzucono {len(confirmations)} potwierdzeń ({", ".join(rejected_orders)}).',
@@ -463,13 +440,6 @@ def payment_confirmation_reject(confirmation_id):
     from utils.push_manager import PushManager
     EmailManager.notify_payment_rejected(order, confirmation, rejection_reason)
     PushManager.notify_payment_rejected(order, confirmation, rejection_reason)
-
-    # WebSocket — notify client
-    try:
-        from modules.payments.socket_events import emit_payment_status_change
-        emit_payment_status_change(confirmation)
-    except Exception as e:
-        logger.error(f"WebSocket emit error: {e}")
 
     return jsonify({
         'success': True,

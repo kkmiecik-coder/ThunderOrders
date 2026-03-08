@@ -70,6 +70,18 @@
                     </span>
                 </div>
             </div>
+
+            <!-- Notification Popup (auto-shown on new notifs) -->
+            <div class="notif-popup" id="notifPopup">
+                <div class="notif-popup-icon" id="notifPopupIcon">
+                    <img src="" alt="">
+                </div>
+                <div class="notif-popup-content">
+                    <div class="notif-popup-title" id="notifPopupTitle"></div>
+                    <div class="notif-popup-body" id="notifPopupBody"></div>
+                </div>
+                <button class="notif-popup-close" id="notifPopupClose" aria-label="Zamknij">&times;</button>
+            </div>
         </div>
         {% endif %}
 
@@ -146,6 +158,20 @@
         </button>
     </div>
 </header>
+
+<!-- Mobile Notification Popup -->
+{% if current_user.is_authenticated %}
+<div class="notif-popup-mobile" id="notifPopupMobile">
+    <div class="notif-popup-icon" id="notifPopupMobileIcon">
+        <img src="" alt="">
+    </div>
+    <div class="notif-popup-content">
+        <div class="notif-popup-title" id="notifPopupMobileTitle"></div>
+        <div class="notif-popup-body" id="notifPopupMobileBody"></div>
+    </div>
+    <button class="notif-popup-close" id="notifPopupMobileClose" aria-label="Zamknij">&times;</button>
+</div>
+{% endif %}
 
 <!-- Mobile Notification Overlay -->
 {% if current_user.is_authenticated %}

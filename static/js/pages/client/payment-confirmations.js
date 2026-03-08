@@ -1057,80 +1057,14 @@ window.toggleOrderItems = function(orderId, totalItems) {
         return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // === WEBSOCKET — REAL-TIME PAYMENT STATUS UPDATES ===
-
-    function initPaymentSocket() {
-        if (typeof io === 'undefined') {
-            console.warn('[PaymentSocket] socket.io library not loaded');
-            return;
-        }
-
-        var pageEl = document.querySelector('.payment-confirmations-page');
-        var userId = pageEl ? pageEl.dataset.userId : null;
-        if (!userId) {
-            console.warn('[PaymentSocket] No user_id found on page element');
-            return;
-        }
-
-        console.log('[PaymentSocket] Connecting... user_id=' + userId);
-        var socket = io();
-
-        socket.on('connect', function() {
-            console.log('[PaymentSocket] Connected, sid=' + socket.id);
-            socket.emit('join_payment_room', { user_id: parseInt(userId) }, function(ack) {
-                console.log('[PaymentSocket] join_payment_room ack:', ack);
-            });
-        });
-
-        socket.on('connect_error', function(err) {
-            console.error('[PaymentSocket] Connection error:', err.message);
-        });
-
-        socket.on('disconnect', function(reason) {
-            console.warn('[PaymentSocket] Disconnected:', reason);
-        });
-
-        socket.on('payment_status_changed', function(data) {
-            console.log('[PaymentSocket] payment_status_changed:', data);
-            updateCardPaymentStatus(data);
-
-            var statusLabel = data.status === 'approved' ? 'zatwierdzona' : 'odrzucona';
-            showToast(
-                'Płatność za ' + data.payment_stage_name + ' zamówienia ' + data.order_number + ' została ' + statusLabel + '.',
-                data.status === 'approved' ? 'success' : 'error'
-            );
-        });
-    }
-
-    function updateCardPaymentStatus(data) {
-        // Reuse updateCardStageStatus + handle can-upload flags from WebSocket
-        updateCardStageStatus(data.order_id, data.payment_stage, data.status);
-
-        var card = document.querySelector('.pc-order-card[data-order-id="' + data.order_id + '"]');
-        if (!card) return;
-
-        // Update can-upload flags: if rejected → can re-upload, if approved → lock
-        if (data.status === 'rejected') {
-            if (data.payment_stage === 'korean_shipping') card.dataset.canUploadStage2 = 'true';
-            if (data.payment_stage === 'customs_vat') card.dataset.canUploadStage3 = 'true';
-            if (data.payment_stage === 'domestic_shipping') card.dataset.canUploadStage4 = 'true';
-        } else if (data.status === 'approved') {
-            if (data.payment_stage === 'korean_shipping') card.dataset.canUploadStage2 = 'false';
-            if (data.payment_stage === 'customs_vat') card.dataset.canUploadStage3 = 'false';
-            if (data.payment_stage === 'domestic_shipping') card.dataset.canUploadStage4 = 'false';
-        }
-    }
-
     // === START ===
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
             init();
-            initPaymentSocket();
         });
     } else {
         init();
-        initPaymentSocket();
     }
 
 })();

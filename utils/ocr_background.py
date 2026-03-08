@@ -119,7 +119,6 @@ def _process_ocr_internal(task_data):
 
     # Powiadomienia i WebSocket po commit
     _send_notifications(auto_approved_confs, user_id)
-    _emit_websocket_events(confirmations)
 
 
 def _send_notifications(auto_approved_confs, user_id):
@@ -163,11 +162,3 @@ def _send_notifications(auto_approved_confs, user_id):
         logger.error(f"OCR background notification error: {e}")
 
 
-def _emit_websocket_events(confirmations):
-    """Emit WebSocket events for all processed confirmations."""
-    try:
-        from modules.payments.socket_events import emit_payment_status_change
-        for conf in confirmations:
-            emit_payment_status_change(conf)
-    except Exception as e:
-        logger.error(f"OCR background WebSocket emit error: {e}")
