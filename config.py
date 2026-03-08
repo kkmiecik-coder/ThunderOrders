@@ -30,6 +30,11 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     PERMANENT_SESSION_LIFETIME = int(os.getenv('SESSION_LIFETIME', 604800))  # 7 dni
 
+    # Remember Me Cookie (Flask-Login)
+    REMEMBER_COOKIE_DURATION = 30 * 24 * 3600  # 30 dni
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
+
     # Upload Configuration
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
     MAX_CONTENT_LENGTH = int(os.getenv('MAX_UPLOAD_SIZE', 50 * 1024 * 1024))  # 50MB
@@ -79,6 +84,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     TESTING = False
     SESSION_COOKIE_SECURE = False  # HTTP dozwolone lokalnie
+    REMEMBER_COOKIE_SECURE = False
 
     # Wyłącz cache dla plików statycznych w development
     SEND_FILE_MAX_AGE_DEFAULT = 0  # Brak cache dla plików statycznych
@@ -94,6 +100,7 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     SESSION_COOKIE_SECURE = True  # Wymaga HTTPS
+    REMEMBER_COOKIE_SECURE = True
 
     # Zwiększone bezpieczeństwo
     SESSION_COOKIE_HTTPONLY = True

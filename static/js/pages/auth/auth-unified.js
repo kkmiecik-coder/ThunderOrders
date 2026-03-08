@@ -44,8 +44,8 @@ function initFloatingLabels() {
 function initPasswordToggles() {
     document.querySelectorAll('.password-toggle-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-            const wrapper = this.closest('.password-toggle-wrapper');
-            const input = wrapper.querySelector('.auth-input');
+            const wrapper = this.closest('.input-wrapper');
+            const input = wrapper.querySelector('.auth-input, input[type="password"], input[type="text"]');
             const eyeOpen = this.querySelector('.eye-open');
             const eyeClosed = this.querySelector('.eye-closed');
 
@@ -68,7 +68,7 @@ function initPasswordToggles() {
    Password Validation
    ============================================ */
 function initPasswordValidation() {
-    const passwordInput = document.getElementById('password-input');
+    const passwordInput = document.getElementById('password-input') || document.getElementById('auth-password');
     const confirmInput = document.getElementById('password-confirm-input');
     if (!passwordInput) return;
 
@@ -179,7 +179,7 @@ function initFieldValidation() {
     // Email validation (contains @ and .)
     // - Valid (green) shows immediately while typing
     // - Invalid (red) shows only on blur (focus loss)
-    const emailInput = document.getElementById('email');
+    const emailInput = document.getElementById('email') || document.getElementById('auth-email');
     if (emailInput) {
         // On input: only show valid state (green), never invalid
         emailInput.addEventListener('input', function() {

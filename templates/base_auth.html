@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}ThunderOrders{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+
+    {% if config.GA_MEASUREMENT_ID %}
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA_MEASUREMENT_ID }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ config.GA_MEASUREMENT_ID }}', { anonymize_ip: true });
+    </script>
+    {% endif %}
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="auth-scene-body">
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    {% block body_content %}{% endblock %}
+
+    <!-- Toast JS -->
+    <script src="{{ url_for('static', filename='js/components/toast.js') }}"></script>
+
+    <!-- Flash messages as toasts -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    if (typeof window.showToast === 'function') {
+                        window.showToast({{ message|tojson }}, {{ category|tojson }});
+                    }
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

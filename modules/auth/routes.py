@@ -247,7 +247,9 @@ def login():
         else:
             return redirect(url_for('client.dashboard'))
 
-    return render_template('auth/login.html', form=form, title='Logowanie')
+    register_form = RegisterForm()
+    return render_template('auth/auth_login_register.html',
+                           login_form=form, register_form=register_form, mode='login')
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
@@ -264,27 +266,48 @@ def register():
 
     form = RegisterForm()
 
+    # Helper do wykrywania żądań AJAX
+    def is_ajax_request():
+        return (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            'application/json' in request.headers.get('Accept', '')
+        )
+
+    is_ajax = is_ajax_request()
+
     if request.method == 'POST':
         # Honeypot check - cichy odrzut botów
         honeypot = request.form.get('website', '')
         if honeypot:
-            return render_template('auth/auth_unified.html', form=form, mode='register')
+            if is_ajax:
+                return jsonify({'success': False, 'error': 'Spam detected.'}), 400
+            login_form = LoginForm()
+            return render_template('auth/auth_login_register.html',
+                                   login_form=login_form, register_form=form, mode='register')
 
     if form.validate_on_submit():
         # Weryfikacja Cloudflare Turnstile (jeśli włączone)
         if is_turnstile_enabled():
             turnstile_token = request.form.get('cf-turnstile-response', '')
             if not verify_turnstile_token(turnstile_token):
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Weryfikacja anty-bot nie powiodła się.'}), 400
                 flash('Weryfikacja anty-bot nie powiodła się. Spróbuj ponownie.', 'error')
-                return render_template('auth/auth_unified.html', form=form, mode='register')
+                login_form = LoginForm()
+                return render_template('auth/auth_login_register.html',
+                                       login_form=login_form, register_form=form, mode='register')
 
         # Sprawdź czy email już istnieje
         email = form.email.data.lower().strip()
         existing_user = User.query.filter_by(email=email).first()
 
         if existing_user:
+            if is_ajax:
+                return jsonify({'success': False, 'error': 'Ten adres email jest już zarejestrowany.'}), 400
             form.email.errors.append('Ten adres email jest już zarejestrowany')
-            return render_template('auth/auth_unified.html', form=form, mode='register')
+            login_form = LoginForm()
+            return render_template('auth/auth_login_register.html',
+                                   login_form=login_form, register_form=form, mode='register')
 
         # Stwórz nowego użytkownika (tylko email + hasło)
         user = User(
@@ -309,15 +332,35 @@ def register():
             # Wyślij email z kodem weryfikacyjnym
             EmailManager.send_verification_code(user, code)
 
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'token': session_token,
+                    'email': email,
+                    'seconds_remaining': 60
+                })
+
             # Przekieruj na stronę weryfikacji kodem
             return redirect(url_for('auth.verify_email_code', token=session_token))
 
         except Exception as e:
             db.session.rollback()
+            if is_ajax:
+                return jsonify({'success': False, 'error': 'Wystąpił błąd podczas rejestracji.'}), 500
             flash('Wystąpił błąd podczas rejestracji. Spróbuj ponownie.', 'error')
             print(f"[ERROR] Registration failed: {e}")
 
-    return render_template('auth/auth_unified.html', form=form, mode='register')
+    elif is_ajax and request.method == 'POST':
+        # Form validation failed - return errors
+        errors = {}
+        for field_name, field_errors in form.errors.items():
+            if field_name != 'csrf_token' and field_errors:
+                errors[field_name] = field_errors[0]
+        return jsonify({'success': False, 'errors': errors}), 400
+
+    login_form = LoginForm()
+    return render_template('auth/auth_login_register.html',
+                           login_form=login_form, register_form=form, mode='register')
 
 
 @auth_bp.route('/logout')
@@ -468,6 +511,12 @@ def verify_email_code(token):
     # Oblicz pozostały czas do ponownego wysłania kodu
     can_resend, seconds_remaining = user.can_resend_code()
 
+    # Helper do wykrywania żądań AJAX
+    is_ajax = (
+        request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+        'application/json' in request.headers.get('Accept', '')
+    )
+
     if form.validate_on_submit():
         # Pobierz pełny kod z formularza
         code = form.get_full_code()
@@ -481,11 +530,26 @@ def verify_email_code(token):
             from utils.email_manager import EmailManager
             EmailManager.send_welcome(user)
 
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'redirect': url_for('auth.verification_success')
+                })
+
             # Przekieruj na stronę sukcesu
             return redirect(url_for('auth.verification_success'))
         else:
+            if is_ajax:
+                return jsonify({'success': False, 'error': error_message}), 400
             flash(error_message, 'error')
             return redirect(url_for('auth.verify_email_code', token=token))
+
+    elif is_ajax and request.method == 'POST':
+        errors = {}
+        for field_name, field_errors in form.errors.items():
+            if field_name != 'csrf_token' and field_errors:
+                errors[field_name] = field_errors[0]
+        return jsonify({'success': False, 'errors': errors}), 400
 
     return render_template(
         'auth/auth_unified.html',

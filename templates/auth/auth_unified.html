@@ -1,9 +1,7 @@
-{% extends "base.html" %}
-
-{% block html_class %}auth-html{% endblock %}
-{% block body_class %}auth-page-body{% endblock %}
+{% extends "base_auth.html" %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-scene.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-unified.css') }}">
 {% if config.CF_TURNSTILE_SITE_KEY %}
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
@@ -11,24 +9,23 @@
 {% endblock %}
 
 {% block title %}
-{% if mode == 'register' %}Rejestracja{% elif mode == 'forgot' %}Resetowanie hasla{% elif mode == 'reset' %}Nowe haslo{% elif mode == 'verify' %}Weryfikacja{% elif mode == 'success' %}Sukces{% else %}Konto{% endif %} - ThunderOrders
+{% if mode == 'forgot' %}Resetowanie hasla{% elif mode == 'reset' %}Nowe haslo{% elif mode == 'verify' %}Weryfikacja{% elif mode == 'success' %}Sukces{% else %}Konto{% endif %} - ThunderOrders
 {% endblock %}
 
 {% block body_content %}
-<div class="auth-page">
-    <!-- Glass Container -->
-    <div class="auth-container {% if mode == 'success' %}success-mode{% endif %} {% if mode == 'register' and (config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID) %}auth-container-split{% endif %}">
+<body class="auth-scene-body">
+<div class="scene auth-scene">
+    {% include 'auth/_scene_background.html' %}
+
+    <div class="auth-center">
         <!-- Logo -->
-        <div class="auth-logo">
-            <a href="{{ url_for('auth.login') }}">
-                <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders">
-            </a>
-        </div>
+        <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="countdown-logo">
 
-
+    <!-- Glass Container -->
+    <div class="auth-container {% if mode == 'success' %}success-mode{% endif %}">
         <!-- Step container -->
         <div class="auth-steps-container">
-            <!-- ==================== REGISTER STEP ==================== -->
+            <!-- ==================== REGISTER STEP (legacy - now in auth_login_register.html) ==================== -->
             {% if mode == 'register' %}
             <div class="auth-step active" data-step="register">
                 <div class="auth-header">
@@ -435,57 +432,13 @@
 
         </div>
     </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/auth/auth-particles.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/auth/auth-unified.js') }}"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Floating label handling
-    document.querySelectorAll('.auth-input').forEach(input => {
-        if (input.value) {
-            input.classList.add('has-value');
-        }
-
-        input.addEventListener('input', function() {
-            this.classList.toggle('has-value', this.value.length > 0);
-        });
-    });
-
-    // Form loading state
-    document.querySelectorAll('.auth-form').forEach(form => {
-        form.addEventListener('submit', function() {
-            const btn = this.querySelector('.auth-submit');
-            if (btn) {
-                btn.classList.add('loading');
-            }
-        });
-    });
-
-    // Password toggles
-    document.querySelectorAll('.password-toggle-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const wrapper = this.closest('.input-wrapper');
-            const input = wrapper.querySelector('input');
-            const eyeOpen = this.querySelector('.eye-open');
-            const eyeClosed = this.querySelector('.eye-closed');
-
-            if (input.type === 'password') {
-                input.type = 'text';
-                eyeOpen.style.display = 'none';
-                eyeClosed.style.display = 'block';
-                this.classList.add('active');
-            } else {
-                input.type = 'password';
-                eyeOpen.style.display = 'block';
-                eyeClosed.style.display = 'none';
-                this.classList.remove('active');
-            }
-        });
-    });
-});
-</script>
 {% if mode == 'verify' and not can_resend %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {

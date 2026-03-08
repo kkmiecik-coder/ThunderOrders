@@ -206,6 +206,15 @@ def register_blueprints(app):
             # Pokaż stronę logowania dla niezalogowanych
             return redirect(url_for('auth.login'))
 
+    # URL shortcuts
+    @app.route('/login')
+    def login_shortcut():
+        return redirect(url_for('auth.login'))
+
+    @app.route('/register')
+    def register_shortcut():
+        return redirect(url_for('auth.register'))
+
     # Polityka Prywatności (RODO-compliant)
     @app.route('/privacy-policy')
     def privacy_policy():

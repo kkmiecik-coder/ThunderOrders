@@ -14,209 +14,88 @@
 }
 
 /* ============================================
-   HTML & BODY - Dark background (same as login)
+   BASE STYLES (background now handled by auth-scene.css)
    ============================================ */
-
-html.auth-html {
-    min-height: 100%;
-    background: #302b63;
-}
-
-html.auth-html body {
-    min-height: 100vh;
-    min-height: 100dvh;
-    margin: 0;
-    padding: 1rem;
-    background: #302b63;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    overflow: hidden;
-}
-
-/* Floating Orbs - pseudo elements (same as login) */
-html.auth-html body::before,
-html.auth-html body::after {
-    content: '';
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.6;
-    pointer-events: none;
-    z-index: 0;
-    animation: float 20s ease-in-out infinite;
-}
-
-html.auth-html body::before {
-    width: 400px;
-    height: 400px;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    top: 120px;
-    left: -100px;
-}
-
-html.auth-html body::after {
-    width: 350px;
-    height: 350px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    bottom: 100px;
-    right: -50px;
-    animation-delay: -7s;
-}
 
 /* ============================================
-   BASE STYLES
+   OPTIONS ROW (Remember & Forgot) - Login form
    ============================================ */
 
-.auth-page {
-    min-height: 100vh;
-    min-height: 100dvh;
+.auth-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    padding: 0.25rem 0.25rem;
+}
+
+.auth-remember {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 0.5rem;
+    cursor: pointer;
     position: relative;
-    z-index: 1;
 }
 
-/* ============================================
-   ANIMATED BACKGROUND
-   ============================================ */
-
-.animated-bg {
+.auth-remember input[type="checkbox"] {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 0;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
 }
 
-/* Floating Orbs */
-.orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.6;
-    animation: float 20s ease-in-out infinite;
+.auth-remember .checkmark {
+    display: inline-block;
+    flex-shrink: 0;
+    height: 18px;
+    width: 18px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    border-radius: 5px;
+    transition: all 0.3s ease;
 }
 
-.orb-1 {
-    width: 400px;
-    height: 400px;
+.auth-remember:hover .checkmark,
+.auth-remember input:focus-visible ~ .checkmark {
+    border-color: rgba(240, 147, 251, 0.5);
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2);
+}
+
+.auth-remember input:checked ~ .checkmark {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    top: -10%;
-    left: -5%;
-    animation-delay: 0s;
+    border-color: transparent;
 }
 
-.orb-2 {
-    width: 300px;
-    height: 300px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    top: 50%;
-    right: -5%;
-    animation-delay: -5s;
-}
-
-.orb-3 {
-    width: 350px;
-    height: 350px;
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    bottom: -10%;
-    left: 30%;
-    animation-delay: -10s;
-}
-
-.orb-4 {
-    width: 250px;
-    height: 250px;
-    background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-    top: 30%;
-    left: 60%;
-    animation-delay: -7s;
-}
-
-.orb-5 {
-    width: 200px;
-    height: 200px;
-    background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-    bottom: 20%;
-    right: 20%;
-    animation-delay: -15s;
-}
-
-@keyframes float {
-    0%, 100% {
-        transform: translate(0, 0) rotate(0deg);
-    }
-    25% {
-        transform: translate(30px, -30px) rotate(5deg);
-    }
-    50% {
-        transform: translate(-20px, 20px) rotate(-5deg);
-    }
-    75% {
-        transform: translate(10px, -10px) rotate(3deg);
-    }
-}
-
-/* Sparkles */
-.sparkle {
-    position: absolute;
+.auth-remember .checkmark:after {
+    content: "";
+    position: relative;
+    display: none;
+    left: 5px;
+    top: 1px;
     width: 4px;
-    height: 4px;
-    background: white;
-    border-radius: 50%;
-    animation: sparkle 3s ease-in-out infinite;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
 
-.sparkle-1 { top: 15%; left: 20%; animation-delay: 0s; }
-.sparkle-2 { top: 25%; right: 25%; animation-delay: 0.5s; }
-.sparkle-3 { top: 60%; left: 15%; animation-delay: 1s; }
-.sparkle-4 { top: 70%; right: 30%; animation-delay: 1.5s; }
-.sparkle-5 { bottom: 25%; left: 35%; animation-delay: 2s; }
-.sparkle-6 { bottom: 15%; right: 15%; animation-delay: 2.5s; }
-
-@keyframes sparkle {
-    0%, 100% {
-        opacity: 0;
-        transform: scale(0);
-    }
-    50% {
-        opacity: 1;
-        transform: scale(1);
-    }
+.auth-remember input:checked ~ .checkmark:after {
+    display: block;
 }
 
-/* Pulse Rings Container */
-.pulse-rings-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
+.remember-text {
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.dynamic-pulse-ring {
-    position: absolute;
-    border: 2px solid;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    animation: pulseRing ease-out forwards;
+.auth-forgot {
+    color: rgba(255, 255, 255, 0.6);
+    text-decoration: none;
+    transition: all 0.3s ease;
 }
 
-@keyframes pulseRing {
-    0% {
-        transform: translate(-50%, -50%) scale(0);
-        opacity: 1;
-    }
-    100% {
-        transform: translate(-50%, -50%) scale(2);
-        opacity: 0;
-    }
+.auth-forgot:hover {
+    color: rgba(240, 147, 251, 0.9);
 }
 
 /* ============================================
@@ -892,58 +771,87 @@ html.auth-html body::after {
 .auth-submit {
     position: relative;
     width: 100%;
-    padding: 1rem 1.5rem;
-    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-    border: none;
+    padding: 0.85rem 1.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.25);
     border-radius: 12px;
     font-size: 1rem;
     font-weight: 600;
-    color: #fff;
+    color: rgba(255, 255, 255, 0.85);
     cursor: pointer;
     overflow: hidden;
-    transition: all 0.3s ease;
-    margin-top: 0.5rem;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
     text-decoration: none;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.auth-submit:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(240, 147, 251, 0.4);
+.auth-submit:hover,
+.auth-submit:focus-visible {
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.5);
+    background: rgba(240, 147, 251, 0.1);
+    box-shadow: 0 2px 10px rgba(240, 147, 251, 0.15);
+    outline: none;
 }
 
 .auth-submit:active {
-    transform: translateY(0);
+    background: rgba(240, 147, 251, 0.15);
+}
+
+/* Login - zielony */
+.auth-submit-login {
+    border-color: rgba(52, 211, 153, 0.25);
+}
+
+.auth-submit-login:hover,
+.auth-submit-login:focus-visible {
+    color: #34d399;
+    border-color: rgba(52, 211, 153, 0.5);
+    background: rgba(52, 211, 153, 0.1);
+    box-shadow: 0 2px 10px rgba(52, 211, 153, 0.15);
+    outline: none;
+}
+
+.auth-submit-login:active {
+    background: rgba(52, 211, 153, 0.15);
+}
+
+/* Register - niebieski */
+.auth-submit-register {
+    border-color: rgba(96, 165, 250, 0.25);
+}
+
+.auth-submit-register:hover,
+.auth-submit-register:focus-visible {
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(96, 165, 250, 0.1);
+    box-shadow: 0 2px 10px rgba(96, 165, 250, 0.15);
+    outline: none;
+}
+
+.auth-submit-register:active {
+    background: rgba(96, 165, 250, 0.15);
 }
 
 .auth-submit.success-btn {
-    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    border-color: rgba(74, 222, 128, 0.25);
 }
 
-.auth-submit.success-btn:hover {
-    box-shadow: 0 10px 30px rgba(74, 222, 128, 0.4);
+.auth-submit.success-btn:hover,
+.auth-submit.success-btn:focus-visible {
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.5);
+    background: rgba(74, 222, 128, 0.1);
+    outline: none;
+    box-shadow: 0 2px 10px rgba(74, 222, 128, 0.15);
 }
 
 /* Button Shine Effect */
 .btn-shine {
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.3),
-        transparent
-    );
-    transition: left 0.5s ease;
-}
-
-.auth-submit:hover .btn-shine {
-    left: 100%;
+    display: none;
 }
 
 /* Button Loader */
@@ -980,8 +888,8 @@ html.auth-html body::after {
 
 .auth-footer {
     text-align: center;
-    margin-top: 1.5rem;
-    padding-top: 1.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -1068,11 +976,11 @@ html.auth-html body::after {
    RESPONSIVE
    ============================================ */
 
-@media (max-width: 520px) {
+@media (max-width: 680px) {
     .auth-container {
         padding: 2rem 1.5rem;
         border-radius: 20px;
-        animation: none; /* Wyłącz glow na mobile */
+        animation: none;
     }
 
     .auth-title {
@@ -1097,20 +1005,6 @@ html.auth-html body::after {
         width: 40px;
     }
 
-    /* Wyłącz kosztowne animacje na mobile - oszczędność baterii */
-    .orb {
-        animation: none;
-        filter: blur(40px);
-        opacity: 0.3;
-    }
-
-    .sparkle {
-        display: none;
-    }
-
-    .dynamic-pulse-ring {
-        display: none;
-    }
 }
 
 @media (max-width: 380px) {
@@ -1131,12 +1025,6 @@ html.auth-html body::after {
 
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-    .orb,
-    .sparkle,
-    .dynamic-pulse-ring {
-        animation: none;
-    }
-
     .auth-container {
         animation: none;
     }
@@ -1433,7 +1321,7 @@ html.auth-html body::after {
 }
 
 /* Responsive */
-@media (max-width: 520px) {
+@media (max-width: 680px) {
     .phone-input-container {
         flex-direction: column;
         gap: 0.75rem;

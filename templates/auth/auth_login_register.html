@@ -1,0 +1,300 @@
+{% extends "base_auth.html" %}
+
+{% block title %}
+{% if mode == 'register' %}Rejestracja{% else %}Logowanie{% endif %} - ThunderOrders
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-scene.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-unified.css') }}">
+{% if config.CF_TURNSTILE_SITE_KEY %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
+{% endblock %}
+
+{% block body_content %}
+<div class="scene auth-scene">
+    {% include 'auth/_scene_background.html' %}
+
+    <div class="auth-center auth-login-register">
+        <!-- Logo -->
+        <a href="/">
+            <img src="{{ url_for('static', filename='img/icons/logo-full.svg') }}" alt="ThunderOrders" class="countdown-logo">
+        </a>
+
+        <!-- Glass Container -->
+        <div class="auth-container {% if mode == 'register' %}mode-register{% endif %}" id="auth-container">
+            <div class="auth-split-layout">
+                <div class="auth-split-left">
+
+                    <!-- Header (crossfade text) -->
+                    <div class="auth-header">
+                        <h1 class="auth-title">
+                            <span class="crossfade-wrap">
+                                <span class="cf-login">Witaj ponownie</span>
+                                <span class="cf-register">Utwórz konto</span>
+                                <span class="cf-verify">Weryfikacja email</span>
+                                <span class="cf-error">Ups!</span>
+                            </span>
+                        </h1>
+                        <p class="auth-subtitle">
+                            <span class="crossfade-wrap">
+                                <span class="cf-login">Zaloguj sie na swoje konto</span>
+                                <span class="cf-register">Dołącz do ThunderOrders już dziś</span>
+                                <span class="cf-verify">Wysłaliśmy 6-cyfrowy kod na adres:<br><strong class="highlight-email" id="verify-email"></strong></span>
+                                <span class="cf-error">Coś poszło nie tak</span>
+                            </span>
+                        </p>
+                    </div>
+
+                    <!-- Single morphing form -->
+                    <form method="POST"
+                          action="{{ url_for('auth.register') if mode == 'register' else url_for('auth.login') }}"
+                          class="auth-form" id="auth-form">
+                        {{ login_form.hidden_tag() }}
+
+                        <!-- Honeypot (hidden, always present) -->
+                        <div class="auth-hp-field">
+                            <input type="text" name="website" autocomplete="off" tabindex="-1" aria-hidden="true">
+                        </div>
+
+                        <!-- ====== Form Inputs (collapse in verify mode) ====== -->
+                        <div class="auth-form-inputs">
+                            <div>
+                                <!-- Email -->
+                                <div class="auth-input-group">
+                                    <div class="input-wrapper">
+                                        <input class="auth-input" id="auth-email" name="email" type="text"
+                                               placeholder=" " required autocomplete="email"
+                                               {% if mode != 'register' and login_form.email.data %}value="{{ login_form.email.data }}"{% endif %}
+                                               {% if mode == 'register' and register_form.email.data %}value="{{ register_form.email.data }}"{% endif %}>
+                                        <label for="auth-email" class="auth-input-label">E-mail</label>
+                                        <div class="input-glow"></div>
+                                    </div>
+                                    {% if mode != 'register' and login_form.email.errors %}
+                                    <div class="form-error">{{ login_form.email.errors[0] }}</div>
+                                    {% elif mode == 'register' and register_form.email.errors %}
+                                    <div class="form-error">{{ register_form.email.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Password -->
+                                <div class="auth-input-group">
+                                    <div class="input-wrapper">
+                                        <input class="auth-input" id="auth-password" name="password" type="password"
+                                               placeholder=" " required autocomplete="current-password">
+                                        <label for="auth-password" class="auth-input-label">Hasło</label>
+                                        <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                                            <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                <circle cx="12" cy="12" r="3"></circle>
+                                            </svg>
+                                            <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                                            </svg>
+                                        </button>
+                                        <div class="input-glow"></div>
+                                    </div>
+                                    {% if mode != 'register' and login_form.password.errors %}
+                                    <div class="form-error">{{ login_form.password.errors[0] }}</div>
+                                    {% elif mode == 'register' and register_form.password.errors %}
+                                    <div class="form-error">{{ register_form.password.errors[0] }}</div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Login/Register mode content -->
+                                <div class="auth-mode-wrapper">
+                                    <!-- Login-only: Remember & Forgot -->
+                                    <div class="auth-login-content">
+                                        <div>
+                                            <div class="auth-options">
+                                                <label class="auth-remember">
+                                                    <input type="checkbox" name="remember_me" class="remember-checkbox" tabindex="0">
+                                                    <span class="checkmark"></span>
+                                                    <span class="remember-text">Zapamiętaj mnie</span>
+                                                </label>
+                                                <a href="{{ url_for('auth.forgot_password') }}" class="auth-forgot" tabindex="0">
+                                                    Nie pamiętasz hasła?
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Register-only: Requirements + Confirm + Turnstile -->
+                                    <div class="auth-register-content">
+                                        <div>
+                                            <div class="password-requirements" id="password-requirements">
+                                                <div class="req-item" id="req-length" data-valid="false">
+                                                    <span class="req-icon"></span>
+                                                    <span>Min. 8 znaków</span>
+                                                </div>
+                                                <div class="req-item" id="req-uppercase" data-valid="false">
+                                                    <span class="req-icon"></span>
+                                                    <span>Wielka litera</span>
+                                                </div>
+                                                <div class="req-item" id="req-lowercase" data-valid="false">
+                                                    <span class="req-icon"></span>
+                                                    <span>Mała litera</span>
+                                                </div>
+                                                <div class="req-item" id="req-number" data-valid="false">
+                                                    <span class="req-icon"></span>
+                                                    <span>Cyfra</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="auth-input-group">
+                                                <div class="input-wrapper">
+                                                    <input class="auth-input" id="password-confirm-input" name="password_confirm"
+                                                           type="password" placeholder=" " autocomplete="new-password">
+                                                    <label for="password-confirm-input" class="auth-input-label">Potwierdź hasło</label>
+                                                    <button type="button" class="password-toggle-btn" tabindex="-1" aria-label="Pokaz haslo">
+                                                        <svg class="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                                            <circle cx="12" cy="12" r="3"></circle>
+                                                        </svg>
+                                                        <svg class="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+                                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                                                        </svg>
+                                                    </button>
+                                                    <div class="input-glow"></div>
+                                                </div>
+                                                {% if register_form.password_confirm.errors %}
+                                                <div class="form-error">{{ register_form.password_confirm.errors[0] }}</div>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if config.CF_TURNSTILE_SITE_KEY %}
+                                            <div class="cf-turnstile" data-sitekey="{{ config.CF_TURNSTILE_SITE_KEY }}" data-theme="dark"></div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ====== Verify Code Section (expand in verify mode) ====== -->
+                        <div class="auth-verify-section">
+                            <div>
+                                <div class="code-inputs-container">
+                                    <div class="code-inputs">
+                                        <input type="text" class="code-input" name="digit1" inputmode="numeric" pattern="[0-9]*" maxlength="1" autocomplete="one-time-code">
+                                        <input type="text" class="code-input" name="digit2" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                                        <input type="text" class="code-input" name="digit3" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                                        <input type="text" class="code-input" name="digit4" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                                        <input type="text" class="code-input" name="digit5" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                                        <input type="text" class="code-input" name="digit6" inputmode="numeric" pattern="[0-9]*" maxlength="1">
+                                    </div>
+                                    <div class="code-error" style="display: none;"></div>
+                                </div>
+
+                                <div class="resend-container">
+                                    <p class="resend-text" id="resend-text"></p>
+                                    <button type="button" class="resend-btn disabled" id="resend-btn" disabled>
+                                        Wyślij ponownie
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ====== Error Section (expand in error mode) ====== -->
+                        <div class="auth-error-section">
+                            <div>
+                                <div class="auth-error-box">
+                                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                    </svg>
+                                    <p class="auth-error-message" id="auth-error-message">Wystąpił błąd</p>
+                                </div>
+                                <button type="button" class="auth-submit auth-submit-error" id="error-back-btn">
+                                    <span>Spróbuj ponownie</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Submit button (crossfade text + color) -->
+                        <button type="submit" tabindex="0"
+                                class="auth-submit {% if mode == 'register' %}auth-submit-register{% else %}auth-submit-login{% endif %}"
+                                id="auth-submit-btn">
+                            <span class="btn-text">
+                                <span class="crossfade-wrap">
+                                    <span class="cf-login">Zaloguj się</span>
+                                    <span class="cf-register">Zarejestruj się</span>
+                                    <span class="cf-verify">Weryfikuj</span>
+                                </span>
+                            </span>
+                            <span class="btn-loader"></span>
+                        </button>
+                    </form>
+
+                    <!-- Footer (crossfade text) -->
+                    <div class="auth-footer">
+                        <div class="crossfade-wrap crossfade-block">
+                            <div class="cf-login">
+                                <p>Nie masz jeszcze konta? Na co czekasz!</p>
+                                <a href="{{ url_for('auth.register') }}" class="auth-link auth-switch-tab" data-tab="register">
+                                    <span>Zarejestruj się</span>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                        <polyline points="12 5 19 12 12 19"></polyline>
+                                    </svg>
+                                </a>
+                            </div>
+                            <div class="cf-register">
+                                <p>Masz już konto? To super!</p>
+                                <a href="{{ url_for('auth.login') }}" class="auth-link auth-switch-tab" data-tab="login">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                                        <polyline points="12 19 5 12 12 5"></polyline>
+                                    </svg>
+                                    <span>Zaloguj się</span>
+                                </a>
+                            </div>
+                            <div class="cf-verify">
+                                <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                                        <polyline points="12 19 5 12 12 5"></polyline>
+                                    </svg>
+                                    <span>Powrót do logowania</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                {% if config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID %}
+                <div class="auth-split-divider"><span>lub</span></div>
+                <div class="auth-split-right">
+                    <p class="auth-split-label">Kontynuuj z</p>
+                    <div class="oauth-buttons">
+                        {% if config.GOOGLE_CLIENT_ID %}
+                        <a href="{{ url_for('auth.oauth_login', provider='google') }}" class="oauth-btn oauth-btn-google">
+                            <img src="{{ url_for('static', filename='img/icons/google-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
+                            <span>Google</span>
+                        </a>
+                        {% endif %}
+                        {% if config.FACEBOOK_CLIENT_ID %}
+                        <a href="{{ url_for('auth.oauth_login', provider='facebook') }}" class="oauth-btn oauth-btn-facebook">
+                            <img src="{{ url_for('static', filename='img/icons/facebook-logo.svg') }}" alt="" class="oauth-icon" width="20" height="20">
+                            <span>Facebook</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/auth/auth-particles.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/auth/auth-unified.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/auth/auth-tabs.js') }}"></script>
+{% endblock %}

@@ -917,6 +917,8 @@ function initSocketConnection() {
             Object.entries(data.products).forEach(([productId, productData]) => {
                 updateProductAvailability(productId, productData);
             });
+            // Re-ewaluuj kupony bonusowe (dostępność mogła się zmienić po auto-increase)
+            evaluateBonuses();
         }
     });
 
@@ -1030,6 +1032,9 @@ function _joinReservationRoom() {
                 Object.entries(response.products).forEach(([productId, data]) => {
                     updateProductAvailability(productId, data);
                 });
+
+                // Re-ewaluuj kupony bonusowe (teraz productAvailability jest wypełniony)
+                evaluateBonuses();
             }
 
             // Zastosuj info o sesji
@@ -2691,18 +2696,28 @@ function canClaimBonus(bonus, sectionEl) {
 }
 
 /**
- * Check if a bonus is unavailable due to stock issues
- * Returns true if ANY required product is unavailable (stock = 0 or fully reserved)
+ * Check if a bonus is unavailable due to stock issues.
+ * Returns true only if a required product has no stock AND the current user
+ * doesn't already have it in their cart (their own reservation).
  */
 function isBonusUnavailable(bonus, sectionEl) {
     if (!bonus.required_products) return false;
 
     for (const req of bonus.required_products) {
         const available = productAvailability[req.product_id];
-        // If stock is 0 or unavailable
-        if (available === undefined || available === 0) {
-            return true;
+        // Jeśli dostępność nie jest jeszcze załadowana, nie oznaczaj jako niedostępne
+        if (available === undefined) continue;
+        // Jeśli jest dostępny — OK
+        if (available > 0) continue;
+
+        // available === 0 — sprawdź czy użytkownik ma ten produkt w koszyku
+        const inCart = cart.find(item => item.productId === req.product_id && !item.isBonus);
+        if (inCart && inCart.qty >= req.min_quantity) {
+            // Użytkownik sam zarezerwował wymagane sztuki — nie jest niedostępne dla niego
+            continue;
         }
+
+        return true;
     }
     return false;
 }
@@ -2880,13 +2895,13 @@ function evaluateBonuses() {
 
                 let statusHtml = '';
                 let claimAreaHtml = '';
-                if (isUnavailable) {
-                    claimAreaHtml = `<div class="bonus-coupon-claim-area bonus-coupon-unavailable">
-                        <span class="bonus-coupon-claim-text-unavailable">CHWILO<br/>NIEDOSTĘPNE</span>
-                    </div>`;
-                } else if (isUnlocked) {
+                if (isUnlocked) {
                     claimAreaHtml = `<div class="bonus-coupon-claim-area bonus-coupon-added">
                         <span class="bonus-coupon-claim-text">Dodano!</span>
+                    </div>`;
+                } else if (isUnavailable) {
+                    claimAreaHtml = `<div class="bonus-coupon-claim-area bonus-coupon-unavailable">
+                        <span class="bonus-coupon-claim-text-unavailable">CHWILO<br/>NIEDOSTĘPNE</span>
                     </div>`;
                 } else if (canClaim) {
                     claimAreaHtml = `<div class="bonus-coupon-claim-area" onclick="event.stopPropagation(); claimBonus('${sectionId}', ${bonus.id})">
@@ -2897,7 +2912,7 @@ function evaluateBonuses() {
                 }
 
                 bonusHtml += `
-                    <div class="bonus-coupon ${canClaim ? 'bonus-claimable' : ''} ${isUnlocked ? 'bonus-added' : ''} ${isUnavailable ? 'bonus-unavailable' : ''}"
+                    <div class="bonus-coupon ${canClaim ? 'bonus-claimable' : ''} ${isUnlocked ? 'bonus-added' : ''} ${!isUnlocked && isUnavailable ? 'bonus-unavailable' : ''}"
                          data-bonus-id="${bonus.id}"
                          ${canClaim ? `onclick="claimBonus('${sectionId}', ${bonus.id})"` : ''}>
                         <div class="bonus-coupon-icon-area">

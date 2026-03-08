@@ -4416,6 +4416,28 @@ body.exclusive-page-body {
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
+.bonus-coupon-claim-text-unavailable {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-align: center;
+    line-height: 1.3;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+.bonus-coupon-claim-area.bonus-coupon-unavailable {
+    background: linear-gradient(180deg, #9ca3af, #6b7280);
+    cursor: default;
+}
+
+.bonus-coupon-claim-area.bonus-coupon-unavailable:hover {
+    background: linear-gradient(180deg, #9ca3af, #6b7280);
+}
+
 .bonus-coupon-claim-area:hover {
     background: linear-gradient(180deg, #8b5cf6, #7c3aed);
 }
@@ -4513,6 +4535,13 @@ body.exclusive-page-body {
     transition: width 0.5s ease;
 }
 
+
+/* --- Unavailable state --- */
+.bonus-coupon.bonus-unavailable {
+    filter: grayscale(1) brightness(1.2);
+    opacity: 0.7;
+    cursor: default;
+}
 
 /* --- Exhausted state --- */
 .bonus-coupon.bonus-exhausted {

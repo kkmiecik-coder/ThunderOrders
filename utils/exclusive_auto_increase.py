@@ -202,6 +202,14 @@ def check_and_apply_auto_increase(page_id):
         db.session.commit()
         print(f"[AUTO-INCREASE] Changes committed for sections: {increased_sections}")
 
+        # Broadcast nowej dostępności do kupujących (kupony się reaktywują)
+        try:
+            from modules.exclusive.socket_events import broadcast_availability_update
+            broadcast_availability_update(page_id)
+            print(f"[AUTO-INCREASE] Broadcasted availability update for page {page_id}")
+        except Exception as e:
+            print(f"[AUTO-INCREASE] Failed to broadcast availability (non-critical): {e}")
+
         # Wyślij powiadomienia o dostępności dla zwiększonych sekcji
         for section_id in increased_sections:
             try:

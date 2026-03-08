@@ -2930,6 +2930,7 @@
 
 [data-theme="dark"] .item-badge-bonus {
     background: linear-gradient(135deg, #34D399 0%, #10B981 100%);
+    color: #282828;
 }
 
 /* ====================
