@@ -598,25 +598,25 @@
 
         html += '<div class="ocr-tooltip-row">';
         html += '<span class="ocr-tooltip-label">Kwota</span>';
-        html += '<span class="ocr-tooltip-value">' + (amount.score || 0) + '/40 ' + getScoreIcon(amount.score || 0, 40);
+        html += '<span class="ocr-tooltip-value">' + (amount.score || 0) + '/40 pkt. ' + getScoreIcon(amount.score || 0, 40);
         html += '<span class="ocr-tooltip-detail">(' + formatAmountDetail(amount) + ')</span></span>';
         html += '</div>';
 
         html += '<div class="ocr-tooltip-row">';
         html += '<span class="ocr-tooltip-label">Tytuł</span>';
-        html += '<span class="ocr-tooltip-value">' + (title.score || 0) + '/30 ' + getScoreIcon(title.score || 0, 30);
+        html += '<span class="ocr-tooltip-value">' + (title.score || 0) + '/30 pkt. ' + getScoreIcon(title.score || 0, 30);
         html += '<span class="ocr-tooltip-detail">(' + formatTitleDetail(title) + ')</span></span>';
         html += '</div>';
 
         html += '<div class="ocr-tooltip-row">';
         html += '<span class="ocr-tooltip-label">Odbiorca</span>';
-        html += '<span class="ocr-tooltip-value">' + (recipient.score || 0) + '/20 ' + getScoreIcon(recipient.score || 0, 20);
+        html += '<span class="ocr-tooltip-value">' + (recipient.score || 0) + '/20 pkt. ' + getScoreIcon(recipient.score || 0, 20);
         html += '<span class="ocr-tooltip-detail">(' + formatRecipientDetail(recipient) + ')</span></span>';
         html += '</div>';
 
         html += '<div class="ocr-tooltip-row">';
         html += '<span class="ocr-tooltip-label">Czytelność</span>';
-        html += '<span class="ocr-tooltip-value">' + (readability.score || 0) + '/10 ' + getScoreIcon(readability.score || 0, 10);
+        html += '<span class="ocr-tooltip-value">' + (readability.score || 0) + '/10 pkt. ' + getScoreIcon(readability.score || 0, 10);
         html += '<span class="ocr-tooltip-detail">(' + formatReadabilityDetail(readability) + ')</span></span>';
         html += '</div>';
 
