@@ -17,17 +17,17 @@ logger = logging.getLogger(__name__)
 try:
     import pytesseract
     TESSERACT_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     TESSERACT_AVAILABLE = False
-    logger.warning("pytesseract not installed — OCR verification disabled")
+    logger.warning(f"pytesseract not installed — OCR verification disabled: {e}")
 
 # Próba importu pdf2image
 try:
     from pdf2image import convert_from_path
     PDF2IMAGE_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     PDF2IMAGE_AVAILABLE = False
-    logger.warning("pdf2image not installed — PDF OCR disabled")
+    logger.warning(f"pdf2image not installed — PDF OCR disabled: {e}")
 
 
 # ========================
