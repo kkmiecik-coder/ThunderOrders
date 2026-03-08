@@ -390,3 +390,20 @@ function savePaymentMethodsOrder() {
         console.error('Error saving order:', error);
     });
 }
+
+// ============================================
+// OCR SETTINGS TOGGLE
+// ============================================
+
+(function() {
+    var ocrEnabledCheckbox = document.getElementById('ocr-enabled');
+    if (ocrEnabledCheckbox) {
+        ocrEnabledCheckbox.addEventListener('change', function() {
+            var thresholds = document.getElementById('ocr-thresholds');
+            if (thresholds) {
+                thresholds.style.opacity = this.checked ? '1' : '0.5';
+                thresholds.style.pointerEvents = this.checked ? 'auto' : 'none';
+            }
+        });
+    }
+})();

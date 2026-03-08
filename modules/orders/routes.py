@@ -1810,6 +1810,11 @@ def settings():
     from modules.auth.models import User as AuthUser
     admin_users = AuthUser.query.filter_by(role='admin', is_active=True).order_by(AuthUser.first_name).all()
 
+    # OCR settings
+    ocr_enabled = Settings.get_value('ocr_enabled', False)
+    ocr_auto_approve_threshold = Settings.get_value('ocr_auto_approve_threshold', 90)
+    ocr_suggest_threshold = Settings.get_value('ocr_suggest_threshold', 60)
+
     return render_template(
         'admin/orders/settings.html',
         statuses=statuses,
@@ -1822,8 +1827,50 @@ def settings():
         email_notif_config=email_notif_config,
         admin_notif_recipients=admin_notif_recipients,
         admin_users=admin_users,
+        ocr_enabled=ocr_enabled,
+        ocr_auto_approve_threshold=ocr_auto_approve_threshold,
+        ocr_suggest_threshold=ocr_suggest_threshold,
         page_title='Ustawienia zamówień'
     )
+
+
+@orders_bp.route('/admin/orders/settings/ocr', methods=['POST'])
+@login_required
+@role_required('admin')
+def update_ocr_settings():
+    """Zapisz ustawienia OCR."""
+    from modules.auth.models import Settings
+    from utils.activity_logger import log_activity
+
+    ocr_enabled = request.form.get('ocr_enabled') == 'on'
+    auto_threshold = request.form.get('ocr_auto_approve_threshold', 90, type=int)
+    suggest_threshold = request.form.get('ocr_suggest_threshold', 60, type=int)
+
+    # Walidacja
+    auto_threshold = max(0, min(100, auto_threshold))
+    suggest_threshold = max(0, min(100, suggest_threshold))
+
+    if suggest_threshold >= auto_threshold:
+        flash('Próg sugestii musi być niższy niż próg auto-akceptacji.', 'error')
+        return redirect(url_for('orders.settings') + '#tab-payment-methods')
+
+    Settings.set_value('ocr_enabled', str(ocr_enabled).lower(), updated_by=current_user.id, type='boolean', description='Włącz/wyłącz OCR')
+    Settings.set_value('ocr_auto_approve_threshold', str(auto_threshold), updated_by=current_user.id, type='integer', description='Próg auto-akceptacji OCR')
+    Settings.set_value('ocr_suggest_threshold', str(suggest_threshold), updated_by=current_user.id, type='integer', description='Próg sugestii OCR')
+
+    log_activity(
+        user=current_user,
+        action='settings_updated',
+        entity_type='settings',
+        new_value={
+            'ocr_enabled': ocr_enabled,
+            'ocr_auto_approve_threshold': auto_threshold,
+            'ocr_suggest_threshold': suggest_threshold
+        }
+    )
+
+    flash('Ustawienia OCR zostały zapisane.', 'success')
+    return redirect(url_for('orders.settings') + '#tab-payment-methods')
 
 
 @orders_bp.route('/admin/orders/settings/exclusive-closure', methods=['POST'])

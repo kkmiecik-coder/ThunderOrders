@@ -230,6 +230,63 @@
                         {% endif %}
                     </div>
                 </div>
+
+                <!-- OCR Verification Settings -->
+                <div class="settings-card" style="margin-top: 24px;">
+                    <div class="card-header">
+                        <h3>Weryfikacja OCR</h3>
+                    </div>
+
+                    <p class="section-description">
+                        System OCR automatycznie analizuje screenshoty potwierdzeń przelewów
+                        i oblicza prawdopodobieństwo ich poprawności (0-100%).
+                    </p>
+
+                    <form method="POST" action="{{ url_for('orders.update_ocr_settings') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <div class="form-group">
+                            <label class="ocr-toggle-label">
+                                <input type="checkbox" name="ocr_enabled" id="ocr-enabled"
+                                       {% if ocr_enabled %}checked{% endif %}>
+                                <span>Włącz automatyczną weryfikację OCR</span>
+                            </label>
+                        </div>
+
+                        <div class="ocr-thresholds" id="ocr-thresholds" {% if not ocr_enabled %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
+                            <div class="form-group">
+                                <label for="ocr-auto-threshold">
+                                    Próg auto-akceptacji: <strong id="ocr-auto-value">{{ ocr_auto_approve_threshold }}%</strong>
+                                </label>
+                                <input type="range" id="ocr-auto-threshold" name="ocr_auto_approve_threshold"
+                                       min="50" max="100" value="{{ ocr_auto_approve_threshold }}"
+                                       class="ocr-range-slider"
+                                       oninput="document.getElementById('ocr-auto-value').textContent = this.value + '%'">
+                                <p class="ocr-field-hint">Potwierdzenia ze score &ge; {{ ocr_auto_approve_threshold }}% będą automatycznie zatwierdzane bez udziału admina.</p>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ocr-suggest-threshold">
+                                    Próg sugestii: <strong id="ocr-suggest-value">{{ ocr_suggest_threshold }}%</strong>
+                                </label>
+                                <input type="range" id="ocr-suggest-threshold" name="ocr_suggest_threshold"
+                                       min="10" max="99" value="{{ ocr_suggest_threshold }}"
+                                       class="ocr-range-slider"
+                                       oninput="document.getElementById('ocr-suggest-value').textContent = this.value + '%'">
+                                <p class="ocr-field-hint">Potwierdzenia ze score &ge; {{ ocr_suggest_threshold }}% będą oznaczone jako sugerowane do zatwierdzenia.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                                </svg>
+                                Zapisz ustawienia OCR
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
 
             <!-- Tab: Zlecenia wysyłki -->
