@@ -62,6 +62,27 @@
                 <span class="filter-count">{{ stage_counts.domestic_shipping }}</span>
             </a>
         </div>
+        {% if auto_approved_count > 0 or ocr_filter != 'all' %}
+        <div class="quick-filters pc-ocr-filters">
+            <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+               class="filter-btn {% if ocr_filter == 'all' %}active{% endif %}">
+                OCR: Wszystkie
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', ocr='auto', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+               class="filter-btn {% if ocr_filter == 'auto' %}active{% endif %}">
+                Auto-zatwierdzone
+                <span class="filter-count">{{ auto_approved_count }}</span>
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', ocr='suggested', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+               class="filter-btn {% if ocr_filter == 'suggested' %}active{% endif %}">
+                Sugerowane
+            </a>
+            <a href="{{ url_for('admin.payment_confirmations_list', ocr='manual', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+               class="filter-btn {% if ocr_filter == 'manual' %}active{% endif %}">
+                Ręczne
+            </a>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Tabela potwierdzeń -->
@@ -169,6 +190,21 @@
                                 {% elif group_status == 'rejected' %}Odrzucone
                                 {% endif %}
                             </span>
+                            {% if first.ocr_score is not none %}
+                                {% if first.auto_approved %}
+                                    <span class="ocr-badge ocr-auto" title="Auto-zatwierdzone przez OCR ({{ first.ocr_score }}%)">
+                                        OCR {{ first.ocr_score }}%
+                                    </span>
+                                {% elif first.ocr_score >= 60 %}
+                                    <span class="ocr-badge ocr-suggested" title="OCR sugeruje zatwierdzenie">
+                                        OCR {{ first.ocr_score }}%
+                                    </span>
+                                {% else %}
+                                    <span class="ocr-badge ocr-manual" title="OCR: niski score">
+                                        OCR {{ first.ocr_score }}%
+                                    </span>
+                                {% endif %}
+                            {% endif %}
                             {% if group_status == 'rejected' and first.rejection_reason %}
                                 <span class="rejection-reason-hint" title="{{ first.rejection_reason }}">
                                     {{ first.rejection_reason[:40] }}{% if first.rejection_reason|length > 40 %}...{% endif %}

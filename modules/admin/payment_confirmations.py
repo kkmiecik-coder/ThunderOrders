@@ -83,6 +83,7 @@ def payment_confirmations_list():
     # Filtry
     status_filter = request.args.get('status', 'all')
     stage_filter = request.args.get('stage', 'all')
+    ocr_filter = request.args.get('ocr', 'all')
 
     # Bazowe query
     query = PaymentConfirmation.query.join(Order)
@@ -94,6 +95,28 @@ def payment_confirmations_list():
     # Filtruj po etapie
     if stage_filter != 'all':
         query = query.filter(PaymentConfirmation.payment_stage == stage_filter)
+
+    # Filtruj po OCR
+    if ocr_filter == 'auto':
+        query = query.filter(PaymentConfirmation.auto_approved == True)
+    elif ocr_filter == 'suggested':
+        from modules.auth.models import Settings
+        suggest_thresh = Settings.get_value('ocr_suggest_threshold', 60)
+        auto_thresh = Settings.get_value('ocr_auto_approve_threshold', 90)
+        query = query.filter(
+            PaymentConfirmation.ocr_score >= suggest_thresh,
+            PaymentConfirmation.ocr_score < auto_thresh,
+            PaymentConfirmation.auto_approved == False
+        )
+    elif ocr_filter == 'manual':
+        from modules.auth.models import Settings
+        suggest_thresh = Settings.get_value('ocr_suggest_threshold', 60)
+        query = query.filter(
+            db.or_(
+                PaymentConfirmation.ocr_score < suggest_thresh,
+                PaymentConfirmation.ocr_score.is_(None)
+            )
+        )
 
     # Sortowanie: pending first (oldest first), potem reszta (newest first)
     from sqlalchemy import case
@@ -141,15 +164,19 @@ def payment_confirmations_list():
         'domestic_shipping': PaymentConfirmation.query.filter_by(payment_stage='domestic_shipping').count(),
     }
 
+    auto_approved_count = PaymentConfirmation.query.filter_by(auto_approved=True).count()
+
     return render_template(
         'admin/payment_confirmations/list.html',
         groups=groups,
         pagination=pagination,
         status_filter=status_filter,
         stage_filter=stage_filter,
+        ocr_filter=ocr_filter,
         pending_count=pending_count,
         approved_count=approved_count,
         rejected_count=rejected_count,
+        auto_approved_count=auto_approved_count,
         stage_counts=stage_counts,
         page_title='Potwierdzenia płatności'
     )
