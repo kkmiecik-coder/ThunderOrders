@@ -1403,6 +1403,32 @@ class PaymentConfirmation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
 
+    # Metoda płatności wybrana przez klienta
+    payment_method_id = db.Column(
+        db.Integer,
+        db.ForeignKey('payment_methods.id'),
+        nullable=True,
+        comment="Metoda płatności wybrana przez klienta przy uploadzie"
+    )
+
+    # OCR Verification
+    ocr_score = db.Column(
+        db.Integer,
+        nullable=True,
+        comment="OCR confidence score 0-100"
+    )
+    ocr_details = db.Column(
+        db.Text,
+        nullable=True,
+        comment="JSON z detalami OCR: wykryte kwoty, tytuły, dane odbiorcy"
+    )
+    auto_approved = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False,
+        comment="Czy auto-zatwierdzone przez OCR (score >= próg)"
+    )
+
     # Etap płatności
     payment_stage = db.Column(
         db.String(50),
@@ -1430,6 +1456,7 @@ class PaymentConfirmation(db.Model):
 
     # Relacje
     order = db.relationship('Order', back_populates='payment_confirmations')
+    payment_method = db.relationship('PaymentMethod', foreign_keys=[payment_method_id])
 
     @property
     def is_pending(self):
