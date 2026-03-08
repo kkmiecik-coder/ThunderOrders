@@ -368,7 +368,7 @@
         }
     };
 
-    // Otwórz reject z wiersza tabeli
+    // Otwórz reject z wiersza tabeli (pending lub approved)
     window.openRejectFromRow = function(el) {
         var row = el.closest('tr');
         if (!row) return;
@@ -377,6 +377,19 @@
         if (item) {
             currentItem = item;
             currentPendingIndex = pendingList.indexOf(item);
+        } else {
+            // Approved item — not in pendingList, build temporary item from row data
+            currentItem = {
+                ids: ids,
+                proofUrl: row.dataset.proofUrl,
+                orderNumbers: row.dataset.orderNumbers ? row.dataset.orderNumbers.split(',') : [],
+                totalAmount: row.dataset.totalAmount,
+                isPdf: row.dataset.isPdf === 'true',
+                proofFile: row.dataset.proofFile,
+                row: row,
+                isApproved: true
+            };
+            currentPendingIndex = -1;
         }
         openRejectModal();
     };
@@ -437,9 +450,16 @@
                 if (typeof window.showToast === 'function') {
                     window.showToast(data.message, 'success');
                 }
-                removeGroupFromPendingAndDomRejected(itemToReject);
+
+                if (itemToReject.isApproved) {
+                    // Odrzucono zatwierdzone — aktualizuj wiersz
+                    updateRowToRejected(itemToReject);
+                } else {
+                    // Odrzucono pending — standardowy flow
+                    removeGroupFromPendingAndDomRejected(itemToReject);
+                    showNextPending();
+                }
                 closeRejectModal();
-                showNextPending();
             } else {
                 if (typeof window.showToast === 'function') {
                     window.showToast(data.message || 'Wystąpił błąd', 'error');
@@ -455,6 +475,22 @@
             if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
         });
     };
+
+    function updateRowToRejected(item) {
+        var row = item.row;
+        if (!row) return;
+        row.dataset.status = 'rejected';
+        var badge = row.querySelector('.status-badge');
+        if (badge) {
+            badge.className = 'badge status-badge pc-badge-rejected';
+            badge.textContent = 'Odrzucone';
+        }
+        var actions = row.querySelector('.pc-actions');
+        if (actions) {
+            actions.innerHTML = '<span class="text-muted">Odrzucono</span>';
+        }
+        updateFilterCounts();
+    }
 
     if (rejectTextarea) {
         rejectTextarea.addEventListener('input', function() {

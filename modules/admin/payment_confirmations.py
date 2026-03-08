@@ -11,6 +11,7 @@ from utils.decorators import role_required
 from extensions import db
 from modules.orders.models import PaymentConfirmation, Order
 from modules.orders.models import get_local_now
+from decimal import Decimal
 
 import logging
 logger = logging.getLogger(__name__)
@@ -202,7 +203,6 @@ def payment_confirmation_approve(confirmation_id):
     confirmation.updated_at = get_local_now()
 
     # Auto-update paid_amount na zamówieniu
-    from decimal import Decimal
     current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
     order.paid_amount = current_paid + Decimal(str(confirmation.amount))
 
@@ -233,9 +233,17 @@ def payment_confirmation_approve(confirmation_id):
     if confirmation.payment_stage == 'domestic_shipping':
         _check_sr_auto_oplacone(order)
 
+    # WebSocket — notify client
+    try:
+        from modules.payments.socket_events import emit_payment_status_change
+        emit_payment_status_change(confirmation)
+    except Exception as e:
+        logger.error(f"WebSocket emit error: {e}")
+
     return jsonify({
         'success': True,
-        'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało zaakceptowane.'
+        'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało zaakceptowane.',
+        'new_status': 'approved'
     })
 
 
@@ -245,7 +253,6 @@ def payment_confirmation_approve(confirmation_id):
 def payment_confirmation_bulk_approve():
     """Zatwierdzenie wielu potwierdzeń naraz (konsolidacja tego samego dowodu)"""
     from utils.activity_logger import log_activity
-    from decimal import Decimal
 
     data = request.get_json()
     confirmation_ids = data.get('confirmation_ids', []) if data else []
@@ -303,9 +310,18 @@ def payment_confirmation_bulk_approve():
             checked_orders.add(confirmation.order_id)
             _check_sr_auto_oplacone(confirmation.order)
 
+    # WebSocket — notify clients
+    try:
+        from modules.payments.socket_events import emit_payment_status_change
+        for confirmation in confirmations:
+            emit_payment_status_change(confirmation)
+    except Exception as e:
+        logger.error(f"WebSocket emit error: {e}")
+
     return jsonify({
         'success': True,
-        'message': f'Zatwierdzono {len(confirmations)} potwierdzeń ({", ".join(approved_orders)}).'
+        'message': f'Zatwierdzono {len(confirmations)} potwierdzeń ({", ".join(approved_orders)}).',
+        'new_status': 'approved'
     })
 
 
@@ -328,15 +344,22 @@ def payment_confirmation_bulk_reject():
 
     confirmations = PaymentConfirmation.query.filter(
         PaymentConfirmation.id.in_(confirmation_ids),
-        PaymentConfirmation.status == 'pending'
+        PaymentConfirmation.status != 'rejected'
     ).all()
 
     if not confirmations:
-        return jsonify({'success': False, 'message': 'Nie znaleziono oczekujących potwierdzeń.'}), 400
+        return jsonify({'success': False, 'message': 'Nie znaleziono potwierdzeń do odrzucenia.'}), 400
 
     rejected_orders = []
     for confirmation in confirmations:
         order = confirmation.order
+        old_status = confirmation.status
+
+        # Cofnij paid_amount jeśli odrzucamy zatwierdzone
+        if old_status == 'approved':
+            current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+            order.paid_amount = max(Decimal('0.00'), current_paid - Decimal(str(confirmation.amount)))
+
         confirmation.status = 'rejected'
         confirmation.rejection_reason = rejection_reason
         confirmation.updated_at = get_local_now()
@@ -347,7 +370,7 @@ def payment_confirmation_bulk_reject():
             action='payment_confirmation_rejected',
             entity_type='order',
             entity_id=order.id,
-            old_value={'status': 'pending'},
+            old_value={'status': old_status},
             new_value={
                 'status': 'rejected',
                 'order_number': order.order_number,
@@ -366,9 +389,18 @@ def payment_confirmation_bulk_reject():
         EmailManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
         PushManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
 
+    # WebSocket — notify clients
+    try:
+        from modules.payments.socket_events import emit_payment_status_change
+        for confirmation in confirmations:
+            emit_payment_status_change(confirmation)
+    except Exception as e:
+        logger.error(f"WebSocket emit error: {e}")
+
     return jsonify({
         'success': True,
-        'message': f'Odrzucono {len(confirmations)} potwierdzeń ({", ".join(rejected_orders)}).'
+        'message': f'Odrzucono {len(confirmations)} potwierdzeń ({", ".join(rejected_orders)}).',
+        'new_status': 'rejected'
     })
 
 
@@ -390,11 +422,18 @@ def payment_confirmation_reject(confirmation_id):
             'message': 'Powód odrzucenia jest wymagany (min. 10 znaków).'
         }), 400
 
-    if confirmation.status != 'pending':
+    if confirmation.status == 'rejected':
         return jsonify({
             'success': False,
-            'message': 'To potwierdzenie nie jest w statusie oczekującym.'
+            'message': 'To potwierdzenie jest już odrzucone.'
         }), 400
+
+    old_status = confirmation.status
+
+    # Cofnij paid_amount jeśli odrzucamy zatwierdzone
+    if old_status == 'approved':
+        current_paid = Decimal(str(order.paid_amount)) if order.paid_amount else Decimal('0.00')
+        order.paid_amount = max(Decimal('0.00'), current_paid - Decimal(str(confirmation.amount)))
 
     # Zmień status
     confirmation.status = 'rejected'
@@ -409,7 +448,7 @@ def payment_confirmation_reject(confirmation_id):
         action='payment_confirmation_rejected',
         entity_type='order',
         entity_id=order.id,
-        old_value={'status': 'pending'},
+        old_value={'status': old_status},
         new_value={
             'status': 'rejected',
             'order_number': order.order_number,
@@ -425,7 +464,16 @@ def payment_confirmation_reject(confirmation_id):
     EmailManager.notify_payment_rejected(order, confirmation, rejection_reason)
     PushManager.notify_payment_rejected(order, confirmation, rejection_reason)
 
+    # WebSocket — notify client
+    try:
+        from modules.payments.socket_events import emit_payment_status_change
+        emit_payment_status_change(confirmation)
+    except Exception as e:
+        logger.error(f"WebSocket emit error: {e}")
+
     return jsonify({
         'success': True,
-        'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało odrzucone.'
+        'message': f'Potwierdzenie płatności dla zamówienia {order.order_number} zostało odrzucone.',
+        'new_status': 'rejected',
+        'old_status': old_status
     })
