@@ -134,6 +134,13 @@ def payment_confirmations_upload():
     z tą samą nazwą pliku.
     """
     VALID_STAGES = {'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'}
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    def _upload_error(message):
+        if is_ajax:
+            return jsonify({'success': False, 'message': message}), 400
+        flash(message, 'error')
+        return redirect(url_for('client.payment_confirmations'))
 
     try:
         # === Parsowanie order_stages lub order_ids (fallback) ===
@@ -149,8 +156,7 @@ def payment_confirmations_upload():
                     if oid and stages:
                         order_stages.append({'order_id': oid, 'stages': stages})
             except (ValueError, json.JSONDecodeError, TypeError):
-                flash('Nieprawidłowe dane zamówień.', 'error')
-                return redirect(url_for('client.payment_confirmations'))
+                return _upload_error('Nieprawidłowe dane zamówień.')
         else:
             # Fallback: stary format order_ids → domyślny etap 'product'
             order_ids_raw = request.form.get('order_ids', '')
@@ -160,30 +166,25 @@ def payment_confirmations_upload():
                 else:
                     order_ids = [int(oid.strip()) for oid in order_ids_raw.split(',') if oid.strip()]
             except (ValueError, json.JSONDecodeError):
-                flash('Nieprawidłowe dane zamówień.', 'error')
-                return redirect(url_for('client.payment_confirmations'))
+                return _upload_error('Nieprawidłowe dane zamówień.')
 
             for oid in order_ids:
                 order_stages.append({'order_id': oid, 'stages': ['product']})
 
         if not order_stages:
-            flash('Nie wybrano żadnych zamówień.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Nie wybrano żadnych zamówień.')
 
         # === Walidacja pliku ===
         if 'proof_file' not in request.files:
-            flash('Nie przesłano pliku potwierdzenia.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Nie przesłano pliku potwierdzenia.')
 
         file = request.files['proof_file']
 
         if file.filename == '':
-            flash('Nie wybrano pliku.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Nie wybrano pliku.')
 
         if not allowed_proof_file(file.filename):
-            flash('Nieprawidłowy format pliku. Dozwolone: JPG, PNG, PDF.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Nieprawidłowy format pliku. Dozwolone: JPG, PNG, PDF.')
 
         # Sprawdź rozmiar pliku
         file.seek(0, os.SEEK_END)
@@ -191,8 +192,7 @@ def payment_confirmations_upload():
         file.seek(0)
 
         if file_size > MAX_PROOF_FILE_SIZE:
-            flash('Plik jest za duży. Maksymalny rozmiar: 5MB.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Plik jest za duży. Maksymalny rozmiar: 5MB.')
 
         # === Walidacja zamówień ===
         all_order_ids = [entry['order_id'] for entry in order_stages]
@@ -205,8 +205,7 @@ def payment_confirmations_upload():
         orders_by_id = {o.id: o for o in orders}
 
         if len(orders) != len(set(all_order_ids)):
-            flash('Nie masz uprawnień do wybranych zamówień.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Nie masz uprawnień do wybranych zamówień.')
 
         # Sprawdź uprawnienia per zamówienie × etap
         cannot_upload_entries = []
@@ -230,15 +229,13 @@ def payment_confirmations_upload():
 
         if cannot_upload_entries:
             order_numbers = ', '.join(set(cannot_upload_entries))
-            flash(f'Nie można wgrać potwierdzenia dla zamówień: {order_numbers}', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error(f'Nie można wgrać potwierdzenia dla zamówień: {order_numbers}')
 
         # === Zapisz plik ===
         saved_filename = save_payment_proof_file(file)
 
         if not saved_filename:
-            flash('Błąd podczas zapisywania pliku.', 'error')
-            return redirect(url_for('client.payment_confirmations'))
+            return _upload_error('Błąd podczas zapisywania pliku.')
 
         # Metoda płatności wybrana przez klienta
         payment_method_id = request.form.get('payment_method_id', type=int)
@@ -385,18 +382,33 @@ def payment_confirmations_upload():
             except Exception as e:
                 current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
 
-        if created_count == 1:
-            flash('Potwierdzenie płatności zostało przesłane.', 'success')
+        if is_ajax:
+            # Zwróć JSON — JS zamknie modal i zaktualizuje karty
+            updated_stages = []
+            for entry in order_stages:
+                for stage in entry['stages']:
+                    updated_stages.append({
+                        'order_id': entry['order_id'],
+                        'stage': stage,
+                        'status': 'pending',
+                    })
+            return jsonify({
+                'success': True,
+                'message': f'Potwierdzenie przesłane dla {created_count} zamówień.' if created_count > 1
+                           else 'Potwierdzenie płatności zostało przesłane.',
+                'updated_stages': updated_stages,
+            })
         else:
-            flash(f'Potwierdzenie płatności zostało przesłane dla {created_count} zamówień.', 'success')
-
-        return redirect(url_for('client.payment_confirmations'))
+            if created_count == 1:
+                flash('Potwierdzenie płatności zostało przesłane.', 'success')
+            else:
+                flash(f'Potwierdzenie płatności zostało przesłane dla {created_count} zamówień.', 'success')
+            return redirect(url_for('client.payment_confirmations'))
 
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Błąd podczas uploadu potwierdzenia płatności: {str(e)}")
-        flash('Wystąpił błąd podczas przesyłania potwierdzenia. Spróbuj ponownie.', 'error')
-        return redirect(url_for('client.payment_confirmations'))
+        return _upload_error('Wystąpił błąd podczas przesyłania. Spróbuj ponownie.')
 
 
 @client_bp.route('/payment-confirmations/payment-methods')

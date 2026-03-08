@@ -867,24 +867,39 @@ window.toggleOrderItems = function(orderId, totalItems) {
         }
 
         var csrfToken = document.querySelector('meta[name="csrf-token"]');
+        var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+        if (csrfToken) headers['X-CSRFToken'] = csrfToken.content;
 
         fetch('/client/payment-confirmations/upload', {
             method: 'POST',
             body: formData,
-            headers: csrfToken ? { 'X-CSRFToken': csrfToken.content } : {}
+            headers: headers
         })
-            .then(function (response) {
-                if (response.redirected) {
-                    window.location.href = response.url;
-                    return;
-                }
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    return response.text().then(function () {
-                        showToast('Błąd podczas przesyłania.', 'error');
-                        resetSubmitBtn();
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    // Zamknij modal
+                    closePaymentModal();
+                    // Zaktualizuj karty — zmień etapy na "Weryfikacja"
+                    if (data.updated_stages) {
+                        data.updated_stages.forEach(function (us) {
+                            updateCardStageStatus(us.order_id, us.stage, us.status);
+                        });
+                    }
+                    // Wyczyść selekcję
+                    selectedOrders.clear();
+                    selectedStages.clear();
+                    document.querySelectorAll('.order-checkbox').forEach(function (cb) {
+                        cb.checked = false;
                     });
+                    document.querySelectorAll('.pc-order-card').forEach(function (card) {
+                        card.classList.remove('selected');
+                    });
+                    updateUI();
+                } else {
+                    showToast(data.message || 'Błąd podczas przesyłania.', 'error');
+                    resetSubmitBtn();
                 }
             })
             .catch(function (error) {
@@ -898,6 +913,69 @@ window.toggleOrderItems = function(orderId, totalItems) {
         if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Prześlij potwierdzenie';
+        }
+    }
+
+    // === CARD STAGE UPDATE ===
+
+    function updateCardStageStatus(orderId, stageId, status) {
+        var card = document.querySelector('.pc-order-card[data-order-id="' + orderId + '"]');
+        if (!card) return;
+
+        var paymentRows = card.querySelectorAll('.pc-payment-row');
+        var paymentStages = parseInt(card.dataset.paymentStages) || 3;
+
+        var rowIndex = -1;
+        if (stageId === 'product') {
+            rowIndex = 0;
+        } else if (stageId === 'korean_shipping' && paymentStages === 4) {
+            rowIndex = 1;
+        } else if (stageId === 'customs_vat') {
+            rowIndex = paymentStages === 4 ? 2 : 1;
+        } else if (stageId === 'domestic_shipping') {
+            rowIndex = paymentStages === 4 ? 3 : 2;
+        }
+
+        if (rowIndex < 0 || rowIndex >= paymentRows.length) return;
+
+        var row = paymentRows[rowIndex];
+        var badge = row.querySelector('.pc-stage-badge');
+        var amountEl = row.querySelector('.pc-payment-amount');
+
+        if (badge) {
+            badge.className = 'pc-stage-badge';
+            if (status === 'approved') {
+                badge.classList.add('pc-stage-badge-paid');
+                badge.textContent = 'Opłacone';
+                if (amountEl) amountEl.classList.add('pc-payment-amount-paid');
+            } else if (status === 'pending') {
+                badge.classList.add('pc-stage-badge-pending');
+                badge.textContent = 'Weryfikacja';
+                if (amountEl) amountEl.classList.remove('pc-payment-amount-paid');
+            } else if (status === 'rejected') {
+                badge.classList.add('pc-stage-badge-rejected');
+                badge.textContent = 'Odrzucone';
+                if (amountEl) amountEl.classList.remove('pc-payment-amount-paid');
+            }
+        }
+
+        // Zaktualizuj data-attributes na karcie
+        if (stageId === 'product') {
+            var cb = card.querySelector('.order-checkbox');
+            if (cb) cb.dataset.productStatus = status;
+        } else if (stageId === 'korean_shipping') {
+            card.dataset.stage2Status = status;
+        } else if (stageId === 'customs_vat') {
+            card.dataset.stage3Status = status;
+        } else if (stageId === 'domestic_shipping') {
+            card.dataset.stage4Status = status;
+        }
+
+        // Pending = nie można ponownie uploadować
+        if (status === 'pending') {
+            if (stageId === 'korean_shipping') card.dataset.canUploadStage2 = 'false';
+            if (stageId === 'customs_vat') card.dataset.canUploadStage3 = 'false';
+            if (stageId === 'domestic_shipping') card.dataset.canUploadStage4 = 'false';
         }
     }
 
@@ -982,24 +1060,38 @@ window.toggleOrderItems = function(orderId, totalItems) {
     // === WEBSOCKET — REAL-TIME PAYMENT STATUS UPDATES ===
 
     function initPaymentSocket() {
-        if (typeof io === 'undefined') return;
+        if (typeof io === 'undefined') {
+            console.warn('[PaymentSocket] socket.io library not loaded');
+            return;
+        }
 
         var pageEl = document.querySelector('.payment-confirmations-page');
         var userId = pageEl ? pageEl.dataset.userId : null;
-        if (!userId) return;
+        if (!userId) {
+            console.warn('[PaymentSocket] No user_id found on page element');
+            return;
+        }
 
+        console.log('[PaymentSocket] Connecting... user_id=' + userId);
         var socket = io();
 
         socket.on('connect', function() {
+            console.log('[PaymentSocket] Connected, sid=' + socket.id);
             socket.emit('join_payment_room', { user_id: parseInt(userId) }, function(ack) {
-                if (ack && ack.success) {
-                    console.log('[PaymentSocket] Joined payment room');
-                }
+                console.log('[PaymentSocket] join_payment_room ack:', ack);
             });
         });
 
+        socket.on('connect_error', function(err) {
+            console.error('[PaymentSocket] Connection error:', err.message);
+        });
+
+        socket.on('disconnect', function(reason) {
+            console.warn('[PaymentSocket] Disconnected:', reason);
+        });
+
         socket.on('payment_status_changed', function(data) {
-            // data: { order_id, order_number, payment_stage, payment_stage_name, status, ocr_score, amount }
+            console.log('[PaymentSocket] payment_status_changed:', data);
             updateCardPaymentStatus(data);
 
             var statusLabel = data.status === 'approved' ? 'zatwierdzona' : 'odrzucona';
@@ -1011,68 +1103,13 @@ window.toggleOrderItems = function(orderId, totalItems) {
     }
 
     function updateCardPaymentStatus(data) {
+        // Reuse updateCardStageStatus + handle can-upload flags from WebSocket
+        updateCardStageStatus(data.order_id, data.payment_stage, data.status);
+
         var card = document.querySelector('.pc-order-card[data-order-id="' + data.order_id + '"]');
         if (!card) return;
 
-        // Map payment_stage to the correct payment row index
-        var stageMap = {
-            'product': 0,
-            'korean_shipping': 1,
-            'customs_vat': null, // depends on payment_stages
-            'domestic_shipping': null
-        };
-
-        var paymentRows = card.querySelectorAll('.pc-payment-row');
-        var paymentStages = parseInt(card.dataset.paymentStages) || 3;
-
-        // Determine the correct row index for this stage
-        var rowIndex = -1;
-        if (data.payment_stage === 'product') {
-            rowIndex = 0;
-        } else if (data.payment_stage === 'korean_shipping' && paymentStages === 4) {
-            rowIndex = 1;
-        } else if (data.payment_stage === 'customs_vat') {
-            rowIndex = paymentStages === 4 ? 2 : 1;
-        } else if (data.payment_stage === 'domestic_shipping') {
-            rowIndex = paymentStages === 4 ? 3 : 2;
-        }
-
-        if (rowIndex < 0 || rowIndex >= paymentRows.length) return;
-
-        var row = paymentRows[rowIndex];
-        var badge = row.querySelector('.pc-stage-badge');
-        var amountEl = row.querySelector('.pc-payment-amount');
-
-        if (badge) {
-            badge.className = 'pc-stage-badge';
-            if (data.status === 'approved') {
-                badge.classList.add('pc-stage-badge-paid');
-                badge.textContent = 'Opłacone';
-                if (amountEl) amountEl.classList.add('pc-payment-amount-paid');
-            } else if (data.status === 'rejected') {
-                badge.classList.add('pc-stage-badge-rejected');
-                badge.textContent = 'Odrzucone';
-                if (amountEl) amountEl.classList.remove('pc-payment-amount-paid');
-            } else if (data.status === 'pending') {
-                badge.classList.add('pc-stage-badge-pending');
-                badge.textContent = 'Weryfikacja';
-                if (amountEl) amountEl.classList.remove('pc-payment-amount-paid');
-            }
-        }
-
-        // Update card data attributes for stage status
-        if (data.payment_stage === 'product') {
-            var cb = card.querySelector('.order-checkbox');
-            if (cb) cb.dataset.productStatus = data.status;
-        } else if (data.payment_stage === 'korean_shipping') {
-            card.dataset.stage2Status = data.status;
-        } else if (data.payment_stage === 'customs_vat') {
-            card.dataset.stage3Status = data.status;
-        } else if (data.payment_stage === 'domestic_shipping') {
-            card.dataset.stage4Status = data.status;
-        }
-
-        // Update can-upload flags: if rejected → can re-upload
+        // Update can-upload flags: if rejected → can re-upload, if approved → lock
         if (data.status === 'rejected') {
             if (data.payment_stage === 'korean_shipping') card.dataset.canUploadStage2 = 'true';
             if (data.payment_stage === 'customs_vat') card.dataset.canUploadStage3 = 'true';
