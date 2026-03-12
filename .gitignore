@@ -14,3 +14,6 @@ tests/security_report.md
 
 # GeoIP database
 data/*.mmdb
+qr-test.png
+.gitignore
+qr-test.svg
