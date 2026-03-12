@@ -222,11 +222,13 @@ def qr_campaign_qr_code(campaign_id):
     """Podglad QR kodu kampanii."""
     campaign = QRCampaign.query.filter_by(id=campaign_id, is_deleted=False).first_or_404()
     qr_url = f'https://thunderorders.cloud/qr/{campaign.slug}'
+    svg_preview = generate_qr_svg(qr_url)
 
     return render_template(
         'admin/tracking/qr_preview.html',
         campaign=campaign,
         qr_url=qr_url,
+        svg_preview=svg_preview,
     )
 
 

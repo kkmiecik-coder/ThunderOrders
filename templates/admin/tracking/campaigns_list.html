@@ -1,0 +1,159 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}QR Tracking{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/qr-tracking.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="qr-tracking-page">
+    <!-- Page Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>QR Tracking</h1>
+            <p class="page-subtitle">Zarzadzaj kampaniami QR i sledz statystyki</p>
+        </div>
+        <div class="page-header-right">
+            <a href="{{ url_for('tracking.qr_campaign_new') }}" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Nowa kampania
+            </a>
+        </div>
+    </div>
+
+    {% if campaigns %}
+    <!-- Campaigns Table -->
+    <div class="table-card">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Nazwa</th>
+                        <th>Slug</th>
+                        <th>Status</th>
+                        <th>Wizyty</th>
+                        <th>Unikalne</th>
+                        <th>Ostatnia wizyta</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for campaign in campaigns %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('tracking.qr_campaign_detail', campaign_id=campaign.id) }}" class="campaign-name-link">
+                                {{ campaign.name }}
+                            </a>
+                        </td>
+                        <td>
+                            <code class="slug-badge">/qr/{{ campaign.slug }}</code>
+                        </td>
+                        <td>
+                            <label class="toggle-switch">
+                                <input type="checkbox"
+                                       {% if campaign.is_active %}checked{% endif %}
+                                       onchange="toggleCampaign({{ campaign.id }}, this)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </td>
+                        <td>{{ campaign.total_visits }}</td>
+                        <td>{{ campaign.unique_visits }}</td>
+                        <td>
+                            {% if campaign.last_visit %}
+                                {{ campaign.last_visit.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                <span class="text-muted">Brak</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="action-buttons">
+                                <!-- Stats -->
+                                <a href="{{ url_for('tracking.qr_campaign_detail', campaign_id=campaign.id) }}"
+                                   class="btn-icon" title="Statystyki">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                                    </svg>
+                                </a>
+                                <!-- QR Code -->
+                                <a href="{{ url_for('tracking.qr_campaign_qr_code', campaign_id=campaign.id) }}"
+                                   class="btn-icon" title="Kod QR">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="2" y="2" width="8" height="8" rx="1"></rect>
+                                        <rect x="14" y="2" width="8" height="8" rx="1"></rect>
+                                        <rect x="2" y="14" width="8" height="8" rx="1"></rect>
+                                        <rect x="14" y="14" width="4" height="4" rx="0.5"></rect>
+                                        <line x1="22" y1="14" x2="22" y2="14.01"></line>
+                                        <line x1="22" y1="18" x2="22" y2="22"></line>
+                                        <line x1="18" y1="22" x2="18" y2="22.01"></line>
+                                    </svg>
+                                </a>
+                                <!-- Edit -->
+                                <a href="{{ url_for('tracking.qr_campaign_edit', campaign_id=campaign.id) }}"
+                                   class="btn-icon" title="Edytuj">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                    </svg>
+                                </a>
+                                <!-- Delete -->
+                                <button type="button" class="btn-icon btn-icon-danger"
+                                        onclick="deleteCampaign({{ campaign.id }}, '{{ campaign.name|e }}')"
+                                        title="Usun">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Hidden delete form -->
+    <form id="deleteForm" method="POST" style="display: none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="8" height="8" rx="1"></rect>
+                <rect x="14" y="2" width="8" height="8" rx="1"></rect>
+                <rect x="2" y="14" width="8" height="8" rx="1"></rect>
+                <rect x="14" y="14" width="4" height="4" rx="0.5"></rect>
+                <line x1="22" y1="14" x2="22" y2="14.01"></line>
+                <line x1="22" y1="18" x2="22" y2="22"></line>
+                <line x1="18" y1="22" x2="18" y2="22.01"></line>
+            </svg>
+        </div>
+        <h3>Brak kampanii QR</h3>
+        <p>Utworz pierwsza kampanie, aby zaczac sledzic skany kodow QR.</p>
+        <a href="{{ url_for('tracking.qr_campaign_new') }}" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Nowa kampania
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/qr-tracking.js') }}"></script>
+{% endblock %}
