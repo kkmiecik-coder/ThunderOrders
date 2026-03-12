@@ -12,162 +12,160 @@
 
     <!-- Tab: Produkt -->
     <div class="tab-content active" data-tab="product">
-        <div class="form-card">
-            <!-- Status -->
-            <div class="form-row product-status-row">
-                <div class="form-group">
-                    <label class="checkbox-label product-status-label">
-                        {{ form.is_active(class="form-checkbox") }}
-                        <span class="status-text">{{ form.is_active.label.text }}</span>
-                        <span class="status-description">Czy produkt jest aktywny i widoczny w systemie</span>
-                    </label>
-                </div>
+        <!-- Status -->
+        <div class="form-row product-status-row">
+            <div class="form-group">
+                <label class="checkbox-label product-status-label">
+                    {{ form.is_active(class="form-checkbox") }}
+                    <span class="status-text">{{ form.is_active.label.text }}</span>
+                    <span class="status-description">Czy produkt jest aktywny i widoczny w systemie</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Product Name & Type -->
+        <div class="form-row product-name-type-row">
+            <div class="form-group product-name-group">
+                <label class="form-label required">{{ form.name.label.text }}</label>
+                {{ form.name(class="form-input", placeholder="Nazwa produktu") }}
+                {% if form.name.errors %}
+                    <span class="form-error">{{ form.name.errors[0] }}</span>
+                {% endif %}
             </div>
 
-            <!-- Product Name & Type -->
-            <div class="form-row product-name-type-row">
-                <div class="form-group product-name-group">
-                    <label class="form-label required">{{ form.name.label.text }}</label>
-                    {{ form.name(class="form-input", placeholder="Nazwa produktu") }}
-                    {% if form.name.errors %}
-                        <span class="form-error">{{ form.name.errors[0] }}</span>
-                    {% endif %}
+            <div class="form-group product-type-group">
+                <label class="form-label">Typ produktu</label>
+                <div class="product-type-toggle">
+                    <button type="button" class="toggle-option {% if product and product.product_type and product.product_type.slug == 'pre-order' %}active{% elif not product %}active{% endif %}" data-type-id="1" data-type-slug="pre-order">
+                        Pre-order
+                    </button>
+                    <button type="button" class="toggle-option {% if product and product.product_type and product.product_type.slug == 'on-hand' %}active{% endif %}" data-type-id="2" data-type-slug="on-hand">
+                        On-hand
+                    </button>
+                    <button type="button" class="toggle-option {% if product and product.product_type and product.product_type.slug == 'exclusive' %}active{% endif %}" data-type-id="3" data-type-slug="exclusive">
+                        Exclusive
+                    </button>
+                    <div class="toggle-slider"></div>
                 </div>
+                <!-- Hidden select field for form submission -->
+                {{ form.product_type_id(class="hidden-select", style="display: none;") }}
+            </div>
+        </div>
 
-                <div class="form-group product-type-group">
-                    <label class="form-label">Typ produktu</label>
-                    <div class="product-type-toggle">
-                        <button type="button" class="toggle-option {% if product and product.product_type and product.product_type.slug == 'pre-order' %}active{% elif not product %}active{% endif %}" data-type-id="1" data-type-slug="pre-order">
-                            Pre-order
-                        </button>
-                        <button type="button" class="toggle-option {% if product and product.product_type and product.product_type.slug == 'on-hand' %}active{% endif %}" data-type-id="2" data-type-slug="on-hand">
-                            On-hand
-                        </button>
-                        <button type="button" class="toggle-option {% if product and product.product_type and product.product_type.slug == 'exclusive' %}active{% endif %}" data-type-id="3" data-type-slug="exclusive">
-                            Exclusive
-                        </button>
-                        <div class="toggle-slider"></div>
-                    </div>
-                    <!-- Hidden select field for form submission -->
-                    {{ form.product_type_id(class="hidden-select", style="display: none;") }}
+        <!-- Category, Manufacturer, Series -->
+        <div class="form-row three-cols">
+            <div class="form-group">
+                <label class="form-label">{{ form.category_id.label.text }}</label>
+                {{ form.category_id(class="form-select") }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">{{ form.manufacturer_id.label.text }}</label>
+                {{ form.manufacturer_id(class="form-select") }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">{{ form.series_id.label.text }}</label>
+                {{ form.series_id(class="form-select") }}
+            </div>
+        </div>
+
+        <!-- SKU, EAN -->
+        <div class="form-row two-cols">
+            <div class="form-group">
+                <label class="form-label">{{ form.sku.label.text }}</label>
+                {{ form.sku(class="form-input", placeholder="SKU") }}
+                {% if form.sku.errors %}
+                    <span class="form-error">{{ form.sku.errors[0] }}</span>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                <label class="form-label">{{ form.ean.label.text }}</label>
+                {{ form.ean(class="form-input", placeholder="EAN") }}
+                {% if form.ean.errors %}
+                    <span class="form-error">{{ form.ean.errors[0] }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Dimensions & Weight -->
+        <div class="form-row four-cols">
+            <div class="form-group">
+                <label class="form-label">{{ form.length.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.length(class="form-input", placeholder="0") }}
+                    <span class="input-unit">cm</span>
                 </div>
             </div>
-
-            <!-- Category, Manufacturer, Series -->
-            <div class="form-row three-cols">
-                <div class="form-group">
-                    <label class="form-label">{{ form.category_id.label.text }}</label>
-                    {{ form.category_id(class="form-select") }}
-                </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.manufacturer_id.label.text }}</label>
-                    {{ form.manufacturer_id(class="form-select") }}
-                </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.series_id.label.text }}</label>
-                    {{ form.series_id(class="form-select") }}
+            <div class="form-group">
+                <label class="form-label">{{ form.width.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.width(class="form-input", placeholder="0") }}
+                    <span class="input-unit">cm</span>
                 </div>
             </div>
-
-            <!-- SKU, EAN -->
-            <div class="form-row two-cols">
-                <div class="form-group">
-                    <label class="form-label">{{ form.sku.label.text }}</label>
-                    {{ form.sku(class="form-input", placeholder="SKU") }}
-                    {% if form.sku.errors %}
-                        <span class="form-error">{{ form.sku.errors[0] }}</span>
-                    {% endif %}
-                </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.ean.label.text }}</label>
-                    {{ form.ean(class="form-input", placeholder="EAN") }}
-                    {% if form.ean.errors %}
-                        <span class="form-error">{{ form.ean.errors[0] }}</span>
-                    {% endif %}
+            <div class="form-group">
+                <label class="form-label">{{ form.height.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.height(class="form-input", placeholder="0") }}
+                    <span class="input-unit">cm</span>
                 </div>
             </div>
-
-            <!-- Dimensions & Weight -->
-            <div class="form-row four-cols">
-                <div class="form-group">
-                    <label class="form-label">{{ form.length.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.length(class="form-input", placeholder="0") }}
-                        <span class="input-unit">cm</span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.width.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.width(class="form-input", placeholder="0") }}
-                        <span class="input-unit">cm</span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.height.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.height(class="form-input", placeholder="0") }}
-                        <span class="input-unit">cm</span>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">{{ form.weight.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.weight(class="form-input", placeholder="0") }}
-                        <span class="input-unit">kg</span>
-                    </div>
+            <div class="form-group">
+                <label class="form-label">{{ form.weight.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.weight(class="form-input", placeholder="0") }}
+                    <span class="input-unit">kg</span>
                 </div>
             </div>
+        </div>
 
-            <!-- Description -->
-            <div class="form-row">
-                <div class="form-group full-width">
-                    <label class="form-label">{{ form.description.label.text }}</label>
-                    {{ form.description(class="form-textarea", rows=4, placeholder="Szczegółowy opis produktu...") }}
-                </div>
+        <!-- Description -->
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label class="form-label">{{ form.description.label.text }}</label>
+                {{ form.description(class="form-textarea", rows=4, placeholder="Szczegółowy opis produktu...") }}
             </div>
+        </div>
 
-            <!-- Tags -->
-            <div class="form-row">
-                <div class="form-group full-width">
-                    <label class="form-label">Tagi produktu</label>
+        <!-- Tags -->
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label class="form-label">Tagi produktu</label>
 
-                    <!-- Hidden checkboxes for form submission -->
-                    <div style="display: none;">
-                        {% for tag_id, tag_name in form.tags.choices %}
-                            <input type="checkbox"
-                                   name="tags"
-                                   value="{{ tag_id }}"
-                                   id="tag_{{ tag_id }}"
-                                   {% if form.tags.data and tag_id in form.tags.data %}checked{% endif %}>
-                        {% endfor %}
+                <!-- Hidden checkboxes for form submission -->
+                <div style="display: none;">
+                    {% for tag_id, tag_name in form.tags.choices %}
+                        <input type="checkbox"
+                               name="tags"
+                               value="{{ tag_id }}"
+                               id="tag_{{ tag_id }}"
+                               {% if form.tags.data and tag_id in form.tags.data %}checked{% endif %}>
+                    {% endfor %}
+                </div>
+
+                <!-- Custom Tags Input UI -->
+                <div class="tags-input-wrapper">
+                    <div class="tags-selected" id="tagsSelected">
+                        <!-- Selected tags will appear here as badges -->
                     </div>
 
-                    <!-- Custom Tags Input UI -->
-                    <div class="tags-input-wrapper">
-                        <div class="tags-selected" id="tagsSelected">
-                            <!-- Selected tags will appear here as badges -->
-                        </div>
+                    <input type="text"
+                           class="tags-search-input"
+                           id="tagsSearchInput"
+                           placeholder="Szukaj tagów..."
+                           autocomplete="off"
+                           onfocus="showTagsDropdown()"
+                           oninput="filterTags(this.value)">
 
-                        <input type="text"
-                               class="tags-search-input"
-                               id="tagsSearchInput"
-                               placeholder="Szukaj tagów..."
-                               autocomplete="off"
-                               onfocus="showTagsDropdown()"
-                               oninput="filterTags(this.value)">
-
-                        <div class="tags-dropdown" id="tagsDropdown" style="display: none;">
-                            <div class="tags-dropdown-list" id="tagsDropdownList">
-                                {% for tag_id, tag_name in form.tags.choices %}
-                                <div class="tag-option"
-                                     data-tag-id="{{ tag_id }}"
-                                     data-tag-name="{{ tag_name }}"
-                                     onclick="selectTag('{{ tag_id }}', '{{ tag_name }}')">
-                                    {{ tag_name }}
-                                </div>
-                                {% endfor %}
+                    <div class="tags-dropdown" id="tagsDropdown" style="display: none;">
+                        <div class="tags-dropdown-list" id="tagsDropdownList">
+                            {% for tag_id, tag_name in form.tags.choices %}
+                            <div class="tag-option"
+                                 data-tag-id="{{ tag_id }}"
+                                 data-tag-name="{{ tag_name }}"
+                                 onclick="selectTag('{{ tag_id }}', '{{ tag_name }}')">
+                                {{ tag_name }}
                             </div>
+                            {% endfor %}
                         </div>
                     </div>
                 </div>
@@ -177,202 +175,196 @@
 
     <!-- Tab: Sprzedaż i magazyn -->
     <div class="tab-content" data-tab="sales">
-        <div class="form-card">
-            {% if current_user.role == 'admin' %}
-            <!-- All prices in one row (admin view) -->
-            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 100px 1fr 1fr 1fr; gap: var(--space-4); align-items: start;">
-                <!-- Cena sprzedaży -->
-                <div class="form-group">
-                    <label class="form-label required">{{ form.sale_price.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.sale_price(class="form-input", placeholder="0.00") }}
-                        <span class="input-unit">PLN</span>
-                    </div>
-                    {% if form.sale_price.errors %}
-                        <span class="form-error">{{ form.sale_price.errors[0] }}</span>
-                    {% endif %}
+        {% if current_user.role == 'admin' %}
+        <!-- All prices in one row (admin view) -->
+        <div class="form-row prices-row">
+            <!-- Cena sprzedaży -->
+            <div class="form-group">
+                <label class="form-label required">{{ form.sale_price.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.sale_price(class="form-input", placeholder="0.00") }}
+                    <span class="input-unit">PLN</span>
                 </div>
+                {% if form.sale_price.errors %}
+                    <span class="form-error">{{ form.sale_price.errors[0] }}</span>
+                {% endif %}
+            </div>
 
-                <!-- Cena zakupu -->
-                <div class="form-group">
-                    <label class="form-label">{{ form.purchase_price.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.purchase_price(class="form-input", id="purchase_price_modal", placeholder="0.00") }}
-                        <span class="input-unit" id="currency_unit_modal">
-                            {{ form.purchase_currency.data if form.purchase_currency.data else 'PLN' }}
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Waluta -->
-                <div class="form-group">
-                    <label class="form-label">{{ form.purchase_currency.label.text }}</label>
-                    {{ form.purchase_currency(class="form-select", id="purchase_currency_modal", style="width: 100px;") }}
-                </div>
-
-                <!-- Cena zakupu w PLN -->
-                <div class="form-group">
-                    <label class="form-label">Cena w PLN</label>
-                    <div class="input-with-unit">
-                        {{ form.purchase_price_pln(class="form-input", id="purchase_price_pln_modal", readonly=true, placeholder="0.00") }}
-                        <span class="input-unit">PLN</span>
-                    </div>
-                </div>
-
-                <!-- Marża % -->
-                <div class="form-group">
-                    <label class="form-label">{{ form.margin.label.text }}</label>
-                    <div class="input-with-unit">
-                        <input type="text" name="margin" class="form-input" id="margin_modal" placeholder="0.00" value="{{ form.margin.data if form.margin.data else '' }}">
-                        <span class="input-unit">%</span>
-                    </div>
-                </div>
-
-                <!-- Marża PLN -->
-                <div class="form-group">
-                    <label class="form-label">Marża (PLN)</label>
-                    <div class="input-with-unit">
-                        <input type="text" class="form-input" id="margin_amount_modal" placeholder="0.00">
-                        <span class="input-unit">PLN</span>
-                    </div>
+            <!-- Cena zakupu -->
+            <div class="form-group">
+                <label class="form-label">{{ form.purchase_price.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.purchase_price(class="form-input", id="purchase_price_modal", placeholder="0.00") }}
+                    <span class="input-unit" id="currency_unit_modal">
+                        {{ form.purchase_currency.data if form.purchase_currency.data else 'PLN' }}
+                    </span>
                 </div>
             </div>
 
-            <!-- Exchange rate info -->
-            <div id="exchange-rate-info-modal" class="info-text" style="margin-top: var(--space-2);"></div>
+            <!-- Waluta -->
+            <div class="form-group">
+                <label class="form-label">{{ form.purchase_currency.label.text }}</label>
+                {{ form.purchase_currency(class="form-select", id="purchase_currency_modal", style="width: 100px;") }}
+            </div>
 
-            <!-- Stock & Supplier -->
-            <div class="form-row two-cols" style="margin-top: var(--space-4);">
-                <div class="form-group">
-                    <label class="form-label">{{ form.quantity.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.quantity(class="form-input", placeholder="0") }}
-                        <span class="input-unit">szt.</span>
-                    </div>
-                    {% if form.quantity.errors %}
-                        <span class="form-error">{{ form.quantity.errors[0] }}</span>
-                    {% endif %}
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">{{ form.supplier_id.label.text }}</label>
-                    {{ form.supplier_id(class="form-select") }}
+            <!-- Cena zakupu w PLN -->
+            <div class="form-group">
+                <label class="form-label">Cena w PLN</label>
+                <div class="input-with-unit">
+                    {{ form.purchase_price_pln(class="form-input", id="purchase_price_pln_modal", readonly=true, placeholder="0.00") }}
+                    <span class="input-unit">PLN</span>
                 </div>
             </div>
 
-            {% else %}
-            <!-- Client view - only sale price and quantity -->
-            <div class="form-row two-cols">
-                <div class="form-group">
-                    <label class="form-label required">{{ form.sale_price.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.sale_price(class="form-input", placeholder="0.00") }}
-                        <span class="input-unit">PLN</span>
-                    </div>
-                    {% if form.sale_price.errors %}
-                        <span class="form-error">{{ form.sale_price.errors[0] }}</span>
-                    {% endif %}
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">{{ form.quantity.label.text }}</label>
-                    <div class="input-with-unit">
-                        {{ form.quantity(class="form-input", placeholder="0") }}
-                        <span class="input-unit">szt.</span>
-                    </div>
-                    {% if form.quantity.errors %}
-                        <span class="form-error">{{ form.quantity.errors[0] }}</span>
-                    {% endif %}
+            <!-- Marża % -->
+            <div class="form-group">
+                <label class="form-label">{{ form.margin.label.text }}</label>
+                <div class="input-with-unit">
+                    <input type="text" name="margin" class="form-input" id="margin_modal" placeholder="0.00" value="{{ form.margin.data if form.margin.data else '' }}">
+                    <span class="input-unit">%</span>
                 </div>
             </div>
-            {% endif %}
+
+            <!-- Marża PLN -->
+            <div class="form-group">
+                <label class="form-label">Marża (PLN)</label>
+                <div class="input-with-unit">
+                    <input type="text" class="form-input" id="margin_amount_modal" placeholder="0.00">
+                    <span class="input-unit">PLN</span>
+                </div>
+            </div>
         </div>
+
+        <!-- Exchange rate info -->
+        <div id="exchange-rate-info-modal" class="info-text"></div>
+
+        <!-- Stock & Supplier -->
+        <div class="form-row two-cols">
+            <div class="form-group">
+                <label class="form-label">{{ form.quantity.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.quantity(class="form-input", placeholder="0") }}
+                    <span class="input-unit">szt.</span>
+                </div>
+                {% if form.quantity.errors %}
+                    <span class="form-error">{{ form.quantity.errors[0] }}</span>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">{{ form.supplier_id.label.text }}</label>
+                {{ form.supplier_id(class="form-select") }}
+            </div>
+        </div>
+
+        {% else %}
+        <!-- Client view - only sale price and quantity -->
+        <div class="form-row two-cols">
+            <div class="form-group">
+                <label class="form-label required">{{ form.sale_price.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.sale_price(class="form-input", placeholder="0.00") }}
+                    <span class="input-unit">PLN</span>
+                </div>
+                {% if form.sale_price.errors %}
+                    <span class="form-error">{{ form.sale_price.errors[0] }}</span>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">{{ form.quantity.label.text }}</label>
+                <div class="input-with-unit">
+                    {{ form.quantity(class="form-input", placeholder="0") }}
+                    <span class="input-unit">szt.</span>
+                </div>
+                {% if form.quantity.errors %}
+                    <span class="form-error">{{ form.quantity.errors[0] }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Tab: Zdjęcia -->
     <div class="tab-content" data-tab="media">
-        <div class="form-card">
-            <p class="info-text" style="margin-bottom: var(--space-3);">
-                Maksymalnie {{ max_images }} zdjęć. Slot #1 = główne zdjęcie produktu.
-            </p>
+        <p class="info-text">
+            Maksymalnie {{ max_images }} zdjęć. Slot #1 = główne zdjęcie produktu.
+        </p>
 
-            <!-- Image Slots Grid -->
-            <div class="image-slots-grid">
-                {% for i in range(1, max_images + 1) %}
-                {% set existing_image = product.images.filter_by(sort_order=i).first() if product else None %}
-                <div class="image-slot" data-slot="{{ i }}" id="imageSlot{{ i }}">
-                    <div class="slot-number">#{{ i }}</div>
+        <!-- Image Slots Grid -->
+        <div class="image-slots-grid">
+            {% for i in range(1, max_images + 1) %}
+            {% set existing_image = product.images.filter_by(sort_order=i).first() if product else None %}
+            <div class="image-slot" data-slot="{{ i }}" id="imageSlot{{ i }}">
+                <div class="slot-number">#{{ i }}</div>
 
-                    <!-- Hidden file input -->
-                    <input type="file"
-                           id="imageInput{{ i }}"
-                           name="product_image_{{ i }}"
-                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-                           style="display: none;"
-                           onchange="handleSlotImageSelect({{ i }}, event)">
+                <!-- Hidden file input -->
+                <input type="file"
+                       id="imageInput{{ i }}"
+                       name="product_image_{{ i }}"
+                       accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                       style="display: none;"
+                       onchange="handleSlotImageSelect({{ i }}, event)">
 
-                    <!-- Empty slot (default state) -->
-                    <label for="imageInput{{ i }}" class="image-slot-upload" id="uploadLabel{{ i }}" style="{% if existing_image %}display: none;{% endif %}">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                            <polyline points="21 15 16 10 5 21"></polyline>
-                        </svg>
-                        <span>Dodaj zdjęcie</span>
-                    </label>
+                <!-- Empty slot (default state) -->
+                <label for="imageInput{{ i }}" class="image-slot-upload" id="uploadLabel{{ i }}" style="{% if existing_image %}display: none;{% endif %}">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    <span>Dodaj zdjęcie</span>
+                </label>
 
-                    <!-- Image preview (hidden by default OR showing existing image) -->
-                    <div class="image-slot-preview" id="preview{{ i }}" style="{% if existing_image %}display: block;{% else %}display: none;{% endif %}">
-                        <img id="previewImg{{ i }}" src="{% if existing_image %}/static/{{ existing_image.path_compressed }}{% endif %}" alt="Zdjęcie {{ i }}">
-                        <button type="button" class="image-slot-remove" onclick="removeSlotImage({{ i }}{% if existing_image %}, {{ existing_image.id }}{% endif %})" title="Usuń zdjęcie">
-                            <span>✕</span>
-                        </button>
-                    </div>
+                <!-- Image preview (hidden by default OR showing existing image) -->
+                <div class="image-slot-preview" id="preview{{ i }}" style="{% if existing_image %}display: block;{% else %}display: none;{% endif %}">
+                    <img id="previewImg{{ i }}" src="{% if existing_image %}/static/{{ existing_image.path_compressed }}{% endif %}" alt="Zdjęcie {{ i }}">
+                    <button type="button" class="image-slot-remove" onclick="removeSlotImage({{ i }}{% if existing_image %}, {{ existing_image.id }}{% endif %})" title="Usuń zdjęcie">
+                        <span>✕</span>
+                    </button>
                 </div>
-                {% endfor %}
             </div>
+            {% endfor %}
         </div>
     </div>
 
     <!-- Tab: Warianty (New System) -->
     <div class="tab-content" data-tab="variants">
-        <div class="form-card">
-            {% if product %}
-            <!-- Search Existing Groups (only for existing products) -->
-            <div class="search-existing-groups-container" style="margin-bottom: var(--space-4);">
-                <label class="form-label">Dodaj do istniejącej grupy</label>
-                <div class="search-input-wrapper">
-                    <input type="text"
-                           id="searchExistingGroupsInput"
-                           class="form-input"
-                           placeholder="Wyszukaj grupę po nazwie..."
-                           oninput="handleExistingGroupSearch(this.value)"
-                           onfocus="handleExistingGroupSearchFocus()"
-                           onblur="handleExistingGroupSearchBlur()">
-                    <div class="search-results-dropdown" id="existingGroupsSearchResults" style="display: none;">
-                        <!-- Results will be inserted here -->
-                    </div>
+        {% if product %}
+        <!-- Search Existing Groups (only for existing products) -->
+        <div class="search-existing-groups-container">
+            <label class="form-label">Dodaj do istniejącej grupy</label>
+            <div class="search-input-wrapper">
+                <input type="text"
+                       id="searchExistingGroupsInput"
+                       class="form-input"
+                       placeholder="Wyszukaj grupę po nazwie..."
+                       oninput="handleExistingGroupSearch(this.value)"
+                       onfocus="handleExistingGroupSearchFocus()"
+                       onblur="handleExistingGroupSearchBlur()">
+                <div class="search-results-dropdown" id="existingGroupsSearchResults" style="display: none;">
+                    <!-- Results will be inserted here -->
                 </div>
             </div>
-            {% else %}
-            <!-- Info for new products -->
-            <div class="info-box" style="margin-bottom: var(--space-3);">
-                <p>📝 Zapisz produkt, aby dodać do istniejącej grupy.</p>
-            </div>
-            {% endif %}
-
-            <!-- Variant Groups Container (Will be populated by JavaScript) -->
-            <div id="variantGroupsContainer"
-                 data-product-id="{{ product.id if product else '' }}"
-                 data-variant-groups='{{ variant_groups_data|tojson if variant_groups_data else "[]" }}'>
-                <!-- Groups will be inserted here by JS -->
-            </div>
-
-            <!-- Add New Group Button -->
-            <button type="button" class="btn btn-secondary" onclick="addNewVariantGroup()" style="margin-top: 15px;">
-                + Dodaj nową grupę wariantową
-            </button>
         </div>
+        {% else %}
+        <!-- Info for new products -->
+        <div class="info-box">
+            <p>📝 Zapisz produkt, aby dodać do istniejącej grupy.</p>
+        </div>
+        {% endif %}
+
+        <!-- Variant Groups Container (Will be populated by JavaScript) -->
+        <div id="variantGroupsContainer"
+             data-product-id="{{ product.id if product else '' }}"
+             data-variant-groups='{{ variant_groups_data|tojson if variant_groups_data else "[]" }}'>
+            <!-- Groups will be inserted here by JS -->
+        </div>
+
+        <!-- Add New Group Button -->
+        <button type="button" class="btn btn-secondary" onclick="addNewVariantGroup()">
+            + Dodaj nową grupę wariantową
+        </button>
     </div>
 
 </form>

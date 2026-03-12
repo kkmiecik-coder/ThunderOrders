@@ -3,7 +3,7 @@
 {% block title %}Popupy - ThunderOrders{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/popups.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/popups.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -45,6 +45,93 @@
 
     <!-- Lista popupów -->
     {% if popups %}
+
+    <!-- Mobile Cards -->
+    <div class="popups-cards-mobile">
+        {% for popup in popups %}
+        <div class="popup-card" data-popup-id="{{ popup.id }}">
+            <div class="popup-card-header">
+                <a href="{{ url_for('admin.popup_edit', popup_id=popup.id) }}" class="popup-card-title">
+                    {{ popup.title }}
+                </a>
+                <span class="status-badge status-{{ popup.status }}">{{ popup.status }}</span>
+                <div class="popup-card-actions">
+                    <a href="{{ url_for('admin.popup_edit', popup_id=popup.id) }}" class="btn-icon" title="Edytuj">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </a>
+                    <button class="btn-icon btn-toggle-status"
+                            data-popup-id="{{ popup.id }}"
+                            title="{% if popup.status == 'active' %}Archiwizuj{% else %}Aktywuj{% endif %}">
+                        {% if popup.status == 'active' %}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                        {% else %}
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        {% endif %}
+                    </button>
+                    <button class="btn-icon btn-reset-popup"
+                            data-popup-id="{{ popup.id }}"
+                            title="Resetuj statystyki">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+                    </button>
+                    <button class="btn-icon btn-danger-icon btn-delete-popup"
+                            data-popup-id="{{ popup.id }}"
+                            title="Usuń">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="popup-card-details">
+                <div class="popup-card-detail">
+                    <span class="detail-label">Tryb</span>
+                    <span class="detail-value">
+                        {% if popup.display_mode == 'once' %}Jednorazowo
+                        {% elif popup.display_mode == 'every_login' %}Każde logowanie
+                        {% elif popup.display_mode == 'first_login' %}Pierwsze logowanie
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="popup-card-detail">
+                    <span class="detail-label">Target</span>
+                    <span class="detail-value">
+                        {% set roles = popup.get_target_roles() %}
+                        {% if roles %}{{ roles | join(', ') }}{% else %}Wszyscy{% endif %}
+                    </span>
+                </div>
+                <div class="popup-card-detail">
+                    <span class="detail-label">Rozmiar</span>
+                    <span class="detail-value">{{ popup.modal_size | upper }}</span>
+                </div>
+                <div class="popup-card-detail">
+                    <span class="detail-label">Priorytet</span>
+                    <span class="detail-value">{{ popup.priority }}</span>
+                </div>
+            </div>
+            <div class="popup-card-stats" data-popup-id="{{ popup.id }}">
+                <span class="stat-item" title="Unikalni">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <span class="stat-unique">--</span>
+                </span>
+                <span class="stat-item" title="Wyświetlenia">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span class="stat-views">--</span>
+                </span>
+                <span class="stat-item" title="Zamknięcia">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span class="stat-dismissed">--</span>
+                </span>
+                <span class="stat-item" title="CTA">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    <span class="stat-cta">--</span>
+                </span>
+                <span class="stat-item" title="Śr. czas">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span class="stat-avg-time">--</span>
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
     <div class="popups-table-wrapper">
         <table class="popups-table">
             <thead>
@@ -192,5 +279,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/pages/admin/popups.js') }}?v=4"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/popups.js') }}"></script>
 {% endblock %}

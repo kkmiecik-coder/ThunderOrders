@@ -3,7 +3,7 @@
 {% block title %}{{ 'Edytuj popup' if popup else 'Nowy popup' }} - ThunderOrders{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/popups.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/popups.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -231,5 +231,5 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='vendor/tinymce/tinymce.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/pages/admin/popups.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/popups.js') }}"></script>
 {% endblock %}

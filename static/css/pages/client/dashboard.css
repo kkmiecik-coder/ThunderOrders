@@ -653,6 +653,12 @@ a.metric-card-clickable.metric-card-info:hover {
     .recent-orders-cards.recent-orders-mobile {
         display: flex;
     }
+
+    .widget-link {
+        padding: 0 10px;
+        height: 32px;
+        font-size: 0.78rem;
+    }
 }
 
 /* Mobile Small (max-width: 480px) */
@@ -694,16 +700,30 @@ a.metric-card-clickable.metric-card-info:hover {
     padding: 0;
 }
 
-/* Widget Link - text link style */
+/* Widget Link - outlined button style */
 .widget-link {
-    color: var(--kpop-purple);
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--card-border, #e0e0e0);
+    background: transparent;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 500;
     text-decoration: none;
-    transition: color 0.3s ease;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .widget-link:hover {
-    color: var(--kpop-pink);
+    color: #2563eb;
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.07);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
 }
 
 .recent-orders-table {
@@ -831,11 +851,16 @@ a.metric-card-clickable.metric-card-info:hover {
 }
 
 [data-theme="dark"] .widget-link {
-    color: #f093fb;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.55);
 }
 
 [data-theme="dark"] .widget-link:hover {
-    color: #f5576c;
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.45);
+    background: rgba(96, 165, 250, 0.1);
+    box-shadow: 0 2px 10px rgba(96, 165, 250, 0.15);
 }
 
 /* ================================================
@@ -996,8 +1021,7 @@ a.metric-card-clickable.metric-card-info:hover {
     }
 }
 
-/* Link Button - uses .btn .btn-secondary from buttons.css */
-/* Removed: inline styles now use .btn .btn-secondary */
+/* Link Button - uses .exclusive-action-btn defined below */
 
 /* Show More */
 .exclusive-show-more {
@@ -1079,15 +1103,39 @@ a.metric-card-clickable.metric-card-info:hover {
     border-top: 1px solid var(--gray-100);
 }
 
-/* Show More Button - uses .btn .btn-tertiary from buttons.css */
-/* Removed: inline styles now use button classes from buttons.css */
+.show-more-btn {
+    color: var(--kpop-purple);
+    font-weight: 600;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.3s ease;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.show-more-btn:hover {
+    color: var(--kpop-pink);
+}
+
+.show-more-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
 [data-theme="dark"] .exclusive-show-more,
 [data-theme="dark"] .orders-show-more {
     border-top-color: rgba(240, 147, 251, 0.08);
 }
 
-/* Dark mode: show-more-btn uses .btn .btn-tertiary from buttons.css */
+[data-theme="dark"] .show-more-btn {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .show-more-btn:hover {
+    color: #f5576c;
+}
 
 /* Dark mode LIVE badge - keep red for visibility */
 [data-theme="dark"] .exclusive-status-live {
@@ -1175,8 +1223,7 @@ a.metric-card-clickable.metric-card-info:hover {
     gap: var(--space-3);
 }
 
-/* Card Button - uses .btn .btn-secondary .btn-sm from buttons.css */
-/* Removed: inline styles now use button classes from buttons.css */
+/* Card Button - uses .exclusive-action-btn (same as desktop table) */
 
 /* Dark Mode - Mobile Cards */
 [data-theme="dark"] .exclusive-card {
@@ -1189,7 +1236,7 @@ a.metric-card-clickable.metric-card-info:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-/* Dark mode: uses .btn .btn-secondary from buttons.css */
+/* Dark mode: uses .exclusive-action-btn (same as desktop table) */
 
 /* ================================================
    Responsive - Switch to Cards on Mobile
@@ -1201,6 +1248,12 @@ a.metric-card-clickable.metric-card-info:hover {
 
     .exclusive-cards.exclusive-mobile {
         display: flex;
+    }
+
+    .exclusive-card .exclusive-action-btn {
+        padding: 0 12px;
+        height: 34px;
+        font-size: 0.8rem;
     }
 }
 

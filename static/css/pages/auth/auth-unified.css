@@ -291,7 +291,7 @@
 .auth-form {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.4rem;
 }
 
 /* Name Grid (First + Last) */
@@ -888,15 +888,28 @@
 
 .auth-footer {
     text-align: center;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 2rem;
 }
 
-.auth-footer p {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.9rem;
-    margin-bottom: 0.5rem;
+.auth-footer-separator {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.auth-footer-separator::before,
+.auth-footer-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.auth-footer-separator span {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    white-space: nowrap;
 }
 
 .auth-link {
@@ -1449,9 +1462,13 @@
 .auth-split-divider span {
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.85rem;
-    text-transform: lowercase;
     letter-spacing: 0.05em;
     padding: 0.75rem 0;
+    white-space: nowrap;
+}
+
+.divider-mobile {
+    display: none;
 }
 
 .auth-split-right {
@@ -1504,5 +1521,17 @@
     .auth-split-right {
         min-width: auto;
         width: 100%;
+    }
+
+    .auth-split-label {
+        display: none;
+    }
+
+    .divider-desktop {
+        display: none;
+    }
+
+    .divider-mobile {
+        display: inline;
     }
 }

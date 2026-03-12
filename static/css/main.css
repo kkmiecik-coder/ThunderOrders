@@ -1,26 +1,8 @@
 /**
  * ThunderOrders - Main CSS
- * Import wszystkich stylów
+ * Component CSS files are loaded as individual <link> tags in base templates
+ * for proper cache-busting via the url_for context processor.
  */
-
-/* Core */
-@import 'core/variables.css';
-
-/* Layouts */
-@import 'layouts/admin-layout.css';
-
-/* Components */
-@import 'components/sidebar.css';
-@import 'components/topbar.css';
-@import 'components/toasts.css';
-@import 'components/modals.css';
-@import 'components/preloader.css';
-@import 'components/cookie-banner.css';
-@import 'components/global-search.css';
-
-/* Pages - Admin */
-/* Note: Page-specific CSS should be loaded via {% block extra_css %} in templates */
-/* Do NOT import page CSS globally to avoid style conflicts */
 
 /* Reset & Base */
 * {

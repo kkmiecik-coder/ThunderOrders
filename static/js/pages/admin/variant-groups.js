@@ -144,8 +144,11 @@ function renderGroup(group, index) {
                        placeholder="Nazwa grupy (np. Grupa 1)"
                        onchange="updateGroupName('${group.tempId}', this.value)">
                 <button type="button" class="btn-delete-group" onclick="deleteGroup('${group.tempId}')" title="Usuń całą grupę">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                        <path d="M6 2a1 1 0 0 0-1 1v1H3a1 1 0 0 0 0 2h1v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V6h1a1 1 0 1 0 0-2h-2V3a1 1 0 0 0-1-1H6zm1 2h4v1H7V4zm-1 3h8v8a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7z"/>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
                     </svg>
                 </button>
             </div>

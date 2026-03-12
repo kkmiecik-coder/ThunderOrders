@@ -370,62 +370,63 @@ function populateMappingModal() {
 }
 
 /**
+ * Generate mapping select options HTML
+ */
+function getMappingOptions(suggestedField) {
+    const fields = [
+        ['', '-- Pomiń --'],
+        ['name', 'Nazwa produktu'],
+        ['sku', 'SKU'],
+        ['ean', 'EAN'],
+        ['category_id', 'Kategoria'],
+        ['manufacturer', 'Producent'],
+        ['series', 'Seria'],
+        ['sale_price', 'Cena sprzedaży'],
+        ['purchase_price', 'Cena zakupu'],
+        ['purchase_currency', 'Waluta'],
+        ['quantity', 'Ilość'],
+        ['length', 'Długość'],
+        ['width', 'Szerokość'],
+        ['height', 'Wysokość'],
+        ['weight', 'Waga'],
+        ['supplier_id', 'Dostawca'],
+        ['tags', 'Tagi'],
+        ['description', 'Opis'],
+        ['is_active', 'Aktywny'],
+        ['variant_group', 'Grupa wariantów']
+    ];
+    return fields.map(([val, label]) =>
+        `<option value="${val}" ${suggestedField === val ? 'selected' : ''}>${label}</option>`
+    ).join('');
+}
+
+/**
  * Populate CSV Preview Table with column mapping dropdowns
  */
 function populatePreviewTable() {
     const container = document.getElementById('csvPreviewTable');
 
+    // === Desktop: Table view ===
     let html = '<table class="csv-preview-table">';
-
-    // Header with CSV column names (Polish headers from file)
     html += '<thead>';
-
-    // Row 1: Polish column names from CSV
     html += '<tr class="csv-column-names-row">';
     currentColumns.forEach(column => {
         html += `<th>${column}</th>`;
     });
     html += '</tr>';
-
-    // Row 2: Dropdown row for mapping to database fields
     html += '<tr class="column-mapping-row">';
     currentColumns.forEach((column, index) => {
         const suggestedField = suggestedMapping[column] || '';
         html += `<th>
             <select class="column-mapping-select" id="mapping_${index}" data-csv-column="${column}">
-                <option value="">-- Pomiń --</option>
-                <option value="name" ${suggestedField === 'name' ? 'selected' : ''}>Nazwa produktu</option>
-                <option value="sku" ${suggestedField === 'sku' ? 'selected' : ''}>SKU</option>
-                <option value="ean" ${suggestedField === 'ean' ? 'selected' : ''}>EAN</option>
-                <option value="category_id" ${suggestedField === 'category_id' ? 'selected' : ''}>Kategoria</option>
-                <option value="manufacturer" ${suggestedField === 'manufacturer' ? 'selected' : ''}>Producent</option>
-                <option value="series" ${suggestedField === 'series' ? 'selected' : ''}>Seria</option>
-                <option value="sale_price" ${suggestedField === 'sale_price' ? 'selected' : ''}>Cena sprzedaży</option>
-                <option value="purchase_price" ${suggestedField === 'purchase_price' ? 'selected' : ''}>Cena zakupu</option>
-                <option value="purchase_currency" ${suggestedField === 'purchase_currency' ? 'selected' : ''}>Waluta</option>
-                <option value="quantity" ${suggestedField === 'quantity' ? 'selected' : ''}>Ilość</option>
-                <option value="length" ${suggestedField === 'length' ? 'selected' : ''}>Długość</option>
-                <option value="width" ${suggestedField === 'width' ? 'selected' : ''}>Szerokość</option>
-                <option value="height" ${suggestedField === 'height' ? 'selected' : ''}>Wysokość</option>
-                <option value="weight" ${suggestedField === 'weight' ? 'selected' : ''}>Waga</option>
-                <option value="supplier_id" ${suggestedField === 'supplier_id' ? 'selected' : ''}>Dostawca</option>
-                <option value="tags" ${suggestedField === 'tags' ? 'selected' : ''}>Tagi</option>
-                <option value="description" ${suggestedField === 'description' ? 'selected' : ''}>Opis</option>
-                <option value="is_active" ${suggestedField === 'is_active' ? 'selected' : ''}>Aktywny</option>
-                <option value="variant_group" ${suggestedField === 'variant_group' ? 'selected' : ''}>Grupa wariantów</option>
+                ${getMappingOptions(suggestedField)}
             </select>
         </th>`;
     });
     html += '</tr>';
     html += '</thead>';
-
-    // Data rows
-    // IMPORTANT: First row will be the header row (when has_headers=true)
-    // We need to get it from the backend - for now we'll show currentPreviewRows
-    // and style the first one differently if csvHasHeaders is checked
     html += '<tbody>';
     currentPreviewRows.forEach((row, rowIndex) => {
-        // First row gets special class for styling when it should be skipped
         const rowClass = rowIndex === 0 ? 'first-row-header' : '';
         html += `<tr class="${rowClass}">`;
         currentColumns.forEach((column, colIndex) => {
@@ -435,15 +436,50 @@ function populatePreviewTable() {
         html += '</tr>';
     });
     html += '</tbody>';
-
     html += '</table>';
 
+    // === Mobile: Card view ===
+    html += '<div class="csv-preview-cards">';
+    currentColumns.forEach((column, index) => {
+        const suggestedField = suggestedMapping[column] || '';
+        const values = currentPreviewRows.map(row => row[column] || '').filter(v => v);
+        html += `<div class="csv-column-card">
+            <div class="csv-column-card-header">${column}</div>
+            <select class="column-mapping-select csv-card-select" id="mapping_card_${index}" data-csv-column="${column}"
+                    onchange="syncMappingSelect(${index}, this.value, 'card')">
+                ${getMappingOptions(suggestedField)}
+            </select>
+            <div class="csv-column-card-preview">
+                ${values.slice(0, 3).map(v => `<span class="csv-card-value">${v}</span>`).join('')}
+            </div>
+        </div>`;
+    });
+    html += '</div>';
+
     container.innerHTML = html;
+
+    // Sync desktop selects with card selects on change
+    container.querySelectorAll('table .column-mapping-select').forEach((sel, index) => {
+        sel.addEventListener('change', function() {
+            syncMappingSelect(index, this.value, 'table');
+        });
+    });
 
     // Apply initial styling based on checkbox state
     toggleFirstRowStyle();
 
     // Highlight match column
+    highlightMatchColumn();
+}
+
+/**
+ * Keep table and card mapping selects in sync
+ */
+function syncMappingSelect(index, value, source) {
+    const tableSelect = document.getElementById(`mapping_${index}`);
+    const cardSelect = document.getElementById(`mapping_card_${index}`);
+    if (source === 'card' && tableSelect) tableSelect.value = value;
+    if (source === 'table' && cardSelect) cardSelect.value = value;
     highlightMatchColumn();
 }
 
@@ -724,6 +760,18 @@ function loadImportHistory() {
 function renderImportHistory(imports) {
     const container = document.getElementById('importHistoryTable');
 
+    function getStatus(imp) {
+        const statusClass = imp.status === 'completed' ? 'status-success' :
+                           imp.status === 'partial' ? 'status-warning' :
+                           imp.status === 'failed' ? 'status-error' : 'status-info';
+        const statusText = imp.status === 'completed' ? 'Zakończony' :
+                          imp.status === 'partial' ? 'Częściowy' :
+                          imp.status === 'failed' ? 'Błąd' :
+                          imp.status === 'processing' ? 'W toku' : 'Oczekuje';
+        return { statusClass, statusText };
+    }
+
+    // Desktop: Table
     let html = '<table class="import-history-table">';
     html += '<thead><tr>';
     html += '<th>Nazwa pliku</th>';
@@ -732,17 +780,8 @@ function renderImportHistory(imports) {
     html += '<th>Data</th>';
     html += '</tr></thead>';
     html += '<tbody>';
-
     imports.forEach(imp => {
-        const statusClass = imp.status === 'completed' ? 'status-success' :
-                           imp.status === 'partial' ? 'status-warning' :
-                           imp.status === 'failed' ? 'status-error' : 'status-info';
-
-        const statusText = imp.status === 'completed' ? 'Zakończony' :
-                          imp.status === 'partial' ? 'Częściowy' :
-                          imp.status === 'failed' ? 'Błąd' :
-                          imp.status === 'processing' ? 'W toku' : 'Oczekuje';
-
+        const { statusClass, statusText } = getStatus(imp);
         html += '<tr>';
         html += `<td>${imp.filename}</td>`;
         html += `<td>${imp.successful_rows} / ${imp.total_rows}</td>`;
@@ -750,8 +789,24 @@ function renderImportHistory(imports) {
         html += `<td>${formatDate(imp.created_at)}</td>`;
         html += '</tr>';
     });
-
     html += '</tbody></table>';
+
+    // Mobile: Cards
+    html += '<div class="import-history-cards">';
+    imports.forEach(imp => {
+        const { statusClass, statusText } = getStatus(imp);
+        html += `<div class="import-history-card">
+            <div class="import-card-top">
+                <span class="import-card-filename">${imp.filename}</span>
+                <span class="status-badge ${statusClass}">${statusText}</span>
+            </div>
+            <div class="import-card-bottom">
+                <span class="import-card-count">${imp.successful_rows} / ${imp.total_rows} produktów</span>
+                <span class="import-card-date">${formatDate(imp.created_at)}</span>
+            </div>
+        </div>`;
+    });
+    html += '</div>';
 
     container.innerHTML = html;
 }

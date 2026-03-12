@@ -25,6 +25,56 @@
 
     <!-- Broadcasts table -->
     {% if broadcasts %}
+
+    <!-- Mobile Cards -->
+    <div class="broadcasts-cards-mobile">
+        {% for b in broadcasts %}
+        <div class="broadcast-card" data-broadcast-id="{{ b.id }}">
+            <div class="broadcast-card-header">
+                <div class="broadcast-card-info">
+                    <span class="broadcast-card-title">{{ b.title }}</span>
+                    {% if b.body %}
+                    <span class="broadcast-card-body">{{ b.body[:60] }}{% if b.body|length > 60 %}...{% endif %}</span>
+                    {% endif %}
+                </div>
+                <span class="target-badge target-{{ b.target_type }}">{{ b.target_display }}</span>
+                <div class="broadcast-card-actions">
+                    <button class="btn-icon btn-danger-icon btn-delete-broadcast"
+                            data-broadcast-id="{{ b.id }}"
+                            title="Usuń">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="broadcast-card-details">
+                <div class="broadcast-card-detail">
+                    <span class="detail-label">Data</span>
+                    <span class="detail-value">{{ b.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                </div>
+                <div class="broadcast-card-detail">
+                    <span class="detail-label">Wysłano</span>
+                    <span class="detail-value">{{ b.sent_count }}</span>
+                </div>
+                <div class="broadcast-card-detail broadcast-card-detail-full">
+                    <span class="detail-label">Przeczytano</span>
+                    {% set read = b.read_count %}
+                    {% set total = b.sent_count %}
+                    {% set pct = ((read / total * 100) | round | int) if total > 0 else 0 %}
+                    <div class="read-stats">
+                        <span class="read-count">{{ read }}/{{ total }}</span>
+                        <div class="read-progress">
+                            <div class="read-progress-bar" style="width: {{ pct }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
     <div class="broadcasts-table-wrapper">
         <table class="broadcasts-table">
             <thead>

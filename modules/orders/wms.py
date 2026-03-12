@@ -291,14 +291,19 @@ def wms_dashboard():
 
     active_tab = request.args.get('tab', 'shipping')
 
-    # Sessions: active first, then completed/cancelled, limit 50
-    sessions = WmsSession.query.order_by(
-        case(
-            (WmsSession.status == 'active', 0),
-            else_=1,
-        ),
+    # Active sessions (always show all)
+    active_sessions_list = WmsSession.query.filter_by(status='active').order_by(
         WmsSession.created_at.desc()
-    ).limit(50).all()
+    ).all()
+
+    # History sessions (paginated, 5 per page)
+    hist_page = request.args.get('hist_page', 1, type=int)
+    hist_per_page = 5
+    history_pagination = WmsSession.query.filter(
+        WmsSession.status != 'active'
+    ).order_by(
+        WmsSession.created_at.desc()
+    ).paginate(page=hist_page, per_page=hist_per_page, error_out=False)
 
     # Packaging materials
     materials = PackagingMaterial.query.order_by(PackagingMaterial.sort_order).all()
@@ -348,7 +353,9 @@ def wms_dashboard():
 
     return render_template(
         'admin/orders/wms_dashboard.html',
-        sessions=sessions,
+        active_sessions=active_sessions_list,
+        history_sessions=history_pagination.items,
+        history_pagination=history_pagination,
         materials=materials,
         today_packed=today_packed,
         to_pack_count=to_pack_count,

@@ -35,6 +35,8 @@
 
     {% block body_content %}{% endblock %}
 
+    <!-- Auth toast styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/auth/auth-toasts.css') }}">
     <!-- Toast JS -->
     <script src="{{ url_for('static', filename='js/components/toast.js') }}"></script>
 

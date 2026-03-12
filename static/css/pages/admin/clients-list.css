@@ -17,7 +17,6 @@
   background: var(--card-bg);
   border-bottom: 1px solid #e0e0e0;
   padding: 12px 20px;
-  gap: 20px;
 }
 
 .top-bar-center {
@@ -711,6 +710,13 @@
 }
 
 /* ==========================================
+   Mobile Cards - Hidden on Desktop
+   ========================================== */
+.clients-cards-mobile {
+  display: none;
+}
+
+/* ==========================================
    Responsive
    ========================================== */
 @media (max-width: 1024px) {
@@ -743,9 +749,111 @@
     justify-content: center;
   }
 
-  .data-table {
-    min-width: 800px;
+  /* Hide table, show cards on mobile */
+  .table-responsive {
+    display: none;
   }
+
+  .clients-cards-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+}
+
+.client-card {
+  display: block;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 14px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.client-card:active {
+  background: #f5f5f5;
+}
+
+.client-card.card-inactive {
+  opacity: 0.55;
+  background: #fff5f5;
+}
+
+.client-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.client-card-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.client-card-name-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.client-card-fullname {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-email {
+  font-size: 12px;
+  color: #888;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.client-card-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.client-card-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.client-card-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #999;
+}
+
+.detail-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
 }
 
 /* ==========================================
@@ -1182,4 +1290,40 @@
 [data-theme="dark"] .btn-danger:hover {
   background: linear-gradient(135deg, #c62828 0%, #f5576c 100%);
   box-shadow: 0 4px 20px rgba(245, 87, 108, 0.4);
+}
+
+/* Mobile Cards - Dark Mode */
+[data-theme="dark"] .client-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.15);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .client-card:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .client-card.card-inactive {
+  background: rgba(245, 87, 108, 0.08);
+}
+
+[data-theme="dark"] .client-card-fullname {
+  color: #ffffff;
+}
+
+[data-theme="dark"] .client-card-email {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .client-card-details {
+  border-top-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .detail-label {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .detail-value {
+  color: rgba(255, 255, 255, 0.85);
 }

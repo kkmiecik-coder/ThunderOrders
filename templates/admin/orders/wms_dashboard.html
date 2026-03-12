@@ -27,7 +27,7 @@
         <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
            class="tab-link {% if active_tab == 'shipping' %}active{% endif %}"
            data-tab="shipping">
-            ZLECENIA WYSYŁKI
+            Zlecenia wysyłki
             {% if sr_total_count > 0 %}
             <span class="tab-badge tab-badge-green">{{ sr_total_count }}</span>
             {% endif %}
@@ -35,7 +35,7 @@
         <a href="{{ url_for('orders.wms_dashboard', tab='sessions') }}"
            class="tab-link {% if active_tab == 'sessions' %}active{% endif %}"
            data-tab="sessions">
-            SESJE PAKOWANIA
+            Sesje pakowania
             {% if active_sessions_count > 0 %}
             <span class="tab-badge tab-badge-purple">{{ active_sessions_count }}</span>
             {% endif %}
@@ -43,262 +43,259 @@
         <a href="{{ url_for('orders.wms_dashboard', tab='materials') }}"
            class="tab-link {% if active_tab == 'materials' %}active{% endif %}"
            data-tab="materials">
-            MATERIAŁY
+            Materiały
             {% if materials_count > 0 %}
             <span class="tab-badge tab-badge-blue">{{ materials_count }}</span>
             {% endif %}
         </a>
     </div>
 
-    <!-- Tab Content -->
-    <div class="tab-content active" id="tab-{{ active_tab }}">
-        <div class="tab-pane">
+    {% if active_tab == 'shipping' %}
+    <!-- ======================== -->
+    <!-- SHIPPING REQUESTS TAB    -->
+    <!-- ======================== -->
 
-            {% if active_tab == 'shipping' %}
-            <!-- ======================== -->
-            <!-- SHIPPING REQUESTS TAB    -->
-            <!-- ======================== -->
-            <div class="sr-tab-layout">
-                <!-- Status Filter Sidebar -->
-                <aside class="sr-status-sidebar">
-                    <div class="sr-status-sidebar-header">
-                        <h3>Statusy</h3>
-                    </div>
-                    <div class="sr-status-list">
-                        <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
-                           class="sr-status-item {% if not sr_status_filter %}active{% endif %}">
-                            <span class="sr-status-name">Wszystkie</span>
-                        </a>
-                        {% for status in sr_statuses %}
-                        <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug) }}"
-                           class="sr-status-item {% if sr_status_filter == status.slug %}active{% endif %}">
-                            <span class="sr-status-dot" style="background-color: {{ status.badge_color }};"></span>
-                            <span class="sr-status-name">{{ status.name }}</span>
-                        </a>
-                        {% endfor %}
-                    </div>
-                </aside>
+    <div class="sr-tab-layout">
+        <!-- Status Filter Sidebar -->
+        <aside class="sr-status-sidebar">
+            <div class="sr-status-sidebar-header">
+                <h3>Statusy</h3>
+            </div>
+            <div class="sr-status-list">
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
+                   class="sr-status-item {% if not sr_status_filter %}active{% endif %}">
+                    <span class="sr-status-name">Wszystkie</span>
+                </a>
+                {% for status in sr_statuses %}
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug) }}"
+                   class="sr-status-item {% if sr_status_filter == status.slug %}active{% endif %}">
+                    <span class="sr-status-dot" style="background-color: {{ status.badge_color }};"></span>
+                    <span class="sr-status-name">{{ status.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </aside>
 
-                <!-- Main Content -->
-                <div class="sr-main-content">
-                    <!-- Header with Search -->
-                    <div class="sr-tab-header">
-                        <h2>Zlecenia wysyłki</h2>
-                        <form method="get" action="{{ url_for('orders.wms_dashboard') }}" class="sr-search-form">
-                            <input type="hidden" name="tab" value="shipping">
-                            {% if sr_status_filter %}
-                            <input type="hidden" name="status" value="{{ sr_status_filter }}">
-                            {% endif %}
-                            <div class="input-icon-wrapper">
-                                <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="11" cy="11" r="8"></circle>
-                                    <path d="m21 21-4.35-4.35"></path>
-                                </svg>
-                                <input type="text" name="search" class="form-input form-input-icon" placeholder="Szukaj numeru lub klienta..." value="{{ sr_search }}">
+        <!-- Right column: search + results -->
+        <div class="sr-right-column">
+            <!-- Search Bar -->
+            <form method="get" action="{{ url_for('orders.wms_dashboard') }}" class="sr-search-form">
+                <input type="hidden" name="tab" value="shipping">
+                {% if sr_status_filter %}
+                <input type="hidden" name="status" value="{{ sr_status_filter }}">
+                {% endif %}
+                <div class="input-icon-wrapper">
+                    <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" name="search" class="form-input form-input-icon" placeholder="Szukaj numeru lub klienta..." value="{{ sr_search }}">
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Szukaj</button>
+            </form>
+
+            <!-- Main Content -->
+            <div class="sr-main-content">
+            <!-- Cards Grid -->
+            <div class="sr-cards-wrapper">
+                {% if shipping_requests %}
+                <div class="sr-cards-grid">
+                    {% for sr in shipping_requests %}
+                    <div class="sr-card {% if sr.status == 'oplacone' %}sr-card-paid{% endif %}" data-request-id="{{ sr.id }}" data-client-id="{{ sr.user.id if sr.user else '' }}" onclick="toggleCardSelection(this, event)">
+                        <div class="sr-card-header">
+                            <div class="sr-card-header-left">
+                                <label class="sr-checkbox-wrapper" onclick="event.stopPropagation();">
+                                    <input type="checkbox" class="sr-checkbox" data-id="{{ sr.id }}" onchange="handleCheckboxChange(this)">
+                                    <span class="sr-checkbox-custom"></span>
+                                </label>
                             </div>
-                            <button type="submit" class="btn btn-primary btn-sm">Szukaj</button>
-                        </form>
-                    </div>
+                            <div class="sr-card-header-right">
+                                <span class="sr-card-number">{{ sr.request_number }}</span>
+                                <span class="sr-card-status" style="background-color: {{ sr.status_badge_color }};">
+                                    {{ sr.status_display_name }}
+                                </span>
+                            </div>
+                        </div>
 
-                    <!-- Cards Grid -->
-                    <div class="sr-cards-wrapper">
-                        {% if shipping_requests %}
-                        <div class="sr-cards-grid">
-                            {% for sr in shipping_requests %}
-                            <div class="sr-card {% if sr.status == 'oplacone' %}sr-card-paid{% endif %}" data-request-id="{{ sr.id }}" data-client-id="{{ sr.user.id if sr.user else '' }}" onclick="toggleCardSelection(this, event)">
-                                <div class="sr-card-header">
-                                    <div class="sr-card-header-left">
-                                        <label class="sr-checkbox-wrapper" onclick="event.stopPropagation();">
-                                            <input type="checkbox" class="sr-checkbox" data-id="{{ sr.id }}" onchange="handleCheckboxChange(this)">
-                                            <span class="sr-checkbox-custom"></span>
-                                        </label>
-                                    </div>
-                                    <div class="sr-card-header-right">
-                                        <span class="sr-card-number">{{ sr.request_number }}</span>
-                                        <span class="sr-card-status" style="background-color: {{ sr.status_badge_color }};">
-                                            {{ sr.status_display_name }}
-                                        </span>
-                                    </div>
-                                </div>
+                        <div class="sr-card-body">
+                            <div class="sr-card-row">
+                                <span class="sr-card-label">Klient</span>
+                                <span class="sr-card-value">
+                                    {% if sr.user %}
+                                    <a href="{{ url_for('admin.client_detail', id=sr.user.id) }}" class="client-link" onclick="event.stopPropagation();">
+                                        {{ sr.user.first_name or '' }} {{ sr.user.last_name or '' }}
+                                    </a>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </span>
+                            </div>
 
-                                <div class="sr-card-body">
-                                    <div class="sr-card-row">
-                                        <span class="sr-card-label">Klient</span>
-                                        <span class="sr-card-value">
-                                            {% if sr.user %}
-                                            <a href="{{ url_for('admin.client_detail', id=sr.user.id) }}" class="client-link" onclick="event.stopPropagation();">
-                                                {{ sr.user.first_name or '' }} {{ sr.user.last_name or '' }}
-                                            </a>
-                                            {% else %}
-                                            <span class="text-muted">-</span>
-                                            {% endif %}
-                                        </span>
-                                    </div>
-
-                                    <div class="sr-card-row sr-card-row-orders">
-                                        <span class="sr-card-label">Zamówienia</span>
-                                        <div class="sr-card-orders">
-                                            {% for order in sr.orders %}
-                                            <div class="sr-order-block">
-                                                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
-                                                <div class="order-products">
-                                                    {% for item in order.items[:2] %}
-                                                    <div class="order-product-item">
-                                                        <span class="product-qty">{{ item.quantity }}x</span>
-                                                        <span class="product-name">{{ item.product_name }}</span>
-                                                    </div>
-                                                    {% endfor %}
-                                                    {% if order.items|length > 2 %}
-                                                    <div class="order-products-hidden" style="display: none;">
-                                                        {% for item in order.items[2:] %}
-                                                        <div class="order-product-item">
-                                                            <span class="product-qty">{{ item.quantity }}x</span>
-                                                            <span class="product-name">{{ item.product_name }}</span>
-                                                        </div>
-                                                        {% endfor %}
-                                                    </div>
-                                                    <button type="button" class="order-products-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">
-                                                        +{{ order.items|length - 2 }} więcej...
-                                                    </button>
-                                                    {% endif %}
-                                                </div>
+                            <div class="sr-card-row sr-card-row-orders">
+                                <span class="sr-card-label">Zamówienia</span>
+                                <div class="sr-card-orders">
+                                    {% for order in sr.orders %}
+                                    <div class="sr-order-block">
+                                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
+                                        <div class="order-products">
+                                            {% for item in order.items[:2] %}
+                                            <div class="order-product-item">
+                                                <span class="product-qty">{{ item.quantity }}x</span>
+                                                <span class="product-name">{{ item.product_name }}</span>
                                             </div>
                                             {% endfor %}
-                                        </div>
-                                    </div>
-
-                                    <div class="sr-card-row">
-                                        <span class="sr-card-label">Adres</span>
-                                        <span class="sr-card-value sr-card-address">
-                                            {% if sr.address_type == 'home' %}
-                                            {{ sr.shipping_name }}, {{ sr.shipping_address }}, {{ sr.shipping_postal_code }} {{ sr.shipping_city }}
-                                            {% else %}
-                                            {{ sr.pickup_courier }}, {{ sr.pickup_point_id }}, {{ sr.pickup_address }}, {{ sr.pickup_postal_code }} {{ sr.pickup_city }}
+                                            {% if order.items|length > 2 %}
+                                            <div class="order-products-hidden" style="display: none;">
+                                                {% for item in order.items[2:] %}
+                                                <div class="order-product-item">
+                                                    <span class="product-qty">{{ item.quantity }}x</span>
+                                                    <span class="product-name">{{ item.product_name }}</span>
+                                                </div>
+                                                {% endfor %}
+                                            </div>
+                                            <button type="button" class="order-products-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">
+                                                +{{ order.items|length - 2 }} więcej...
+                                            </button>
                                             {% endif %}
-                                        </span>
-                                    </div>
-
-                                    <div class="sr-card-row sr-card-row-split">
-                                        <div class="sr-card-col">
-                                            <span class="sr-card-label">Koszt</span>
-                                            <span class="sr-card-value">
-                                                {% if sr.total_shipping_cost %}
-                                                <strong>{{ "%.2f"|format(sr.total_shipping_cost) }} PLN</strong>
-                                                {% else %}
-                                                <span class="text-muted">Brak wyceny</span>
-                                                {% endif %}
-                                            </span>
-                                        </div>
-                                        <div class="sr-card-col">
-                                            <span class="sr-card-label">Tracking</span>
-                                            <span class="sr-card-value">
-                                                {% if sr.tracking_number %}
-                                                {% if sr.tracking_url %}
-                                                <a href="{{ sr.tracking_url }}" target="_blank" class="tracking-link" onclick="event.stopPropagation();">
-                                                    {{ sr.tracking_number }}
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                                        <polyline points="15 3 21 3 21 9"></polyline>
-                                                        <line x1="10" y1="14" x2="21" y2="3"></line>
-                                                    </svg>
-                                                </a>
-                                                {% else %}
-                                                <span class="tracking-number">{{ sr.tracking_number }}</span>
-                                                {% endif %}
-                                                {% else %}
-                                                <span class="text-muted">-</span>
-                                                {% endif %}
-                                            </span>
                                         </div>
                                     </div>
-
-                                    <div class="sr-card-row">
-                                        <span class="sr-card-label">Data utworzenia</span>
-                                        <span class="sr-card-value">
-                                            {{ sr.created_at.strftime('%d.%m.%Y, %H:%M') }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="sr-card-footer">
-                                    <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openShippingRequestModal({{ sr.id }});">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                        </svg>
-                                        Edytuj
-                                    </button>
-                                    <button type="button" class="btn btn-sm btn-wms" onclick="event.stopPropagation(); handleGoToWMS({{ sr.id }});" title="Zabierz do WMS">
-                                        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                        </svg>
-                                        WMS
-                                    </button>
-                                    {% if sr.tracking_number and sr.tracking_url %}
-                                    <a href="{{ sr.tracking_url }}" target="_blank" class="btn btn-sm btn-secondary" onclick="event.stopPropagation();" title="Śledź przesyłkę">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                            <circle cx="12" cy="10" r="3"></circle>
-                                        </svg>
-                                        Tracking
-                                    </a>
-                                    {% endif %}
+                                    {% endfor %}
                                 </div>
                             </div>
-                            {% endfor %}
-                        </div>
-                        {% else %}
-                        <div class="empty-state">
-                            <p>Brak zleceń wysyłki{% if sr_status_filter %} z wybranym statusem{% endif %}{% if sr_search %} pasujących do wyszukiwania{% endif %}.</p>
-                        </div>
-                        {% endif %}
-                    </div>
 
-                    <!-- Pagination -->
-                    {% if sr_pagination.pages > 1 %}
-                    <div class="pagination-wrapper">
-                        <nav class="pagination">
-                            {% if sr_pagination.has_prev %}
-                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.prev_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M15 18l-6-6 6-6"/>
+                            <div class="sr-card-row">
+                                <span class="sr-card-label">Adres</span>
+                                <span class="sr-card-value sr-card-address">
+                                    {% if sr.address_type == 'home' %}
+                                    {{ sr.shipping_name }}, {{ sr.shipping_address }}, {{ sr.shipping_postal_code }} {{ sr.shipping_city }}
+                                    {% else %}
+                                    {{ sr.pickup_courier }}, {{ sr.pickup_point_id }}, {{ sr.pickup_address }}, {{ sr.pickup_postal_code }} {{ sr.pickup_city }}
+                                    {% endif %}
+                                </span>
+                            </div>
+
+                            <div class="sr-card-row sr-card-row-split">
+                                <div class="sr-card-col">
+                                    <span class="sr-card-label">Koszt</span>
+                                    <span class="sr-card-value">
+                                        {% if sr.total_shipping_cost %}
+                                        <strong>{{ "%.2f"|format(sr.total_shipping_cost) }} PLN</strong>
+                                        {% else %}
+                                        <span class="text-muted">Brak wyceny</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="sr-card-col">
+                                    <span class="sr-card-label">Tracking</span>
+                                    <span class="sr-card-value">
+                                        {% if sr.tracking_number %}
+                                        {% if sr.tracking_url %}
+                                        <a href="{{ sr.tracking_url }}" target="_blank" class="tracking-link" onclick="event.stopPropagation();">
+                                            {{ sr.tracking_number }}
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                                <polyline points="15 3 21 3 21 9"></polyline>
+                                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                                            </svg>
+                                        </a>
+                                        {% else %}
+                                        <span class="tracking-number">{{ sr.tracking_number }}</span>
+                                        {% endif %}
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="sr-card-row">
+                                <span class="sr-card-label">Data utworzenia</span>
+                                <span class="sr-card-value">
+                                    {{ sr.created_at.strftime('%d.%m.%Y, %H:%M') }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="sr-card-footer">
+                            <button type="button" class="btn btn-sm btn-primary" onclick="event.stopPropagation(); openShippingRequestModal({{ sr.id }});">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                 </svg>
+                                Edytuj
+                            </button>
+                            <button type="button" class="btn btn-sm btn-wms" onclick="event.stopPropagation(); handleGoToWMS({{ sr.id }});" title="Zabierz do WMS">
+                                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                </svg>
+                                WMS
+                            </button>
+                            {% if sr.tracking_number and sr.tracking_url %}
+                            <a href="{{ sr.tracking_url }}" target="_blank" class="btn btn-sm btn-secondary" onclick="event.stopPropagation();" title="Śledź przesyłkę">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                Tracking
                             </a>
                             {% endif %}
-
-                            {% for page_num in sr_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
-                                {% if page_num %}
-                                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=page_num, status=sr_status_filter, search=sr_search) }}"
-                                       class="pagination-btn {% if page_num == sr_pagination.page %}active{% endif %}">
-                                        {{ page_num }}
-                                    </a>
-                                {% else %}
-                                    <span class="pagination-ellipsis">...</span>
-                                {% endif %}
-                            {% endfor %}
-
-                            {% if sr_pagination.has_next %}
-                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.next_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 18l6-6-6-6"/>
-                                </svg>
-                            </a>
-                            {% endif %}
-                        </nav>
-                        <div class="pagination-info">
-                            Strona {{ sr_pagination.page }} z {{ sr_pagination.pages }}
                         </div>
                     </div>
-                    {% endif %}
+                    {% endfor %}
                 </div>
+                {% else %}
+                <div class="empty-state">
+                    <p>Brak zleceń wysyłki{% if sr_status_filter %} z wybranym statusem{% endif %}{% if sr_search %} pasujących do wyszukiwania{% endif %}</p>
+                </div>
+                {% endif %}
             </div>
 
-            {% elif active_tab == 'sessions' %}
-            <!-- ======================== -->
-            <!-- SESSIONS TAB             -->
-            <!-- ======================== -->
+            <!-- Pagination -->
+            {% if sr_pagination.pages > 1 %}
+            <div class="pagination-wrapper">
+                <nav class="pagination">
+                    {% if sr_pagination.has_prev %}
+                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.prev_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 18l-6-6 6-6"/>
+                        </svg>
+                    </a>
+                    {% endif %}
 
-            {% set active_sessions = sessions | selectattr('status', 'equalto', 'active') | list %}
+                    {% for page_num in sr_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=page_num, status=sr_status_filter, search=sr_search) }}"
+                               class="pagination-btn {% if page_num == sr_pagination.page %}active{% endif %}">
+                                {{ page_num }}
+                            </a>
+                        {% else %}
+                            <span class="pagination-ellipsis">...</span>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if sr_pagination.has_next %}
+                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.next_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 18l6-6-6-6"/>
+                        </svg>
+                    </a>
+                    {% endif %}
+                </nav>
+                <div class="pagination-info">
+                    Strona {{ sr_pagination.page }} z {{ sr_pagination.pages }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        </div><!-- /.sr-right-column -->
+    </div>
+
+    {% elif active_tab == 'sessions' %}
+    <!-- ======================== -->
+    <!-- SESSIONS TAB             -->
+    <!-- ======================== -->
+    <div class="tab-content active" id="tab-sessions">
+        <div class="tab-pane">
             {% if active_sessions %}
             <div class="tab-header">
                 <h2>Aktywne sesje</h2>
@@ -329,13 +326,13 @@
             </div>
             {% endif %}
 
-            {% set history_sessions = sessions | rejectattr('status', 'equalto', 'active') | list %}
             <div class="tab-header" {% if active_sessions %}style="margin-top: var(--space-6);"{% endif %}>
                 <h2>Historia sesji</h2>
             </div>
 
             {% if history_sessions %}
-                <div class="session-history-list">
+                <!-- Desktop: Table -->
+                <div class="session-history-list session-history-desktop">
                     <div class="session-list-header">
                         <div>#</div>
                         <div>Status</div>
@@ -361,16 +358,80 @@
                         </a>
                     {% endfor %}
                 </div>
+
+                <!-- Mobile: Cards -->
+                <div class="session-history-cards session-history-mobile">
+                    {% for session in history_sessions %}
+                    <div class="session-history-card">
+                        <div class="session-card-id">#{{ session.id }}</div>
+                        <div class="session-card-center">
+                            <span class="session-card-orders">{{ session.packed_orders_count }}/{{ session.orders_count }} zamówień</span>
+                            <span class="session-card-user">{{ session.user.full_name if session.user else 'Nieznany' }}</span>
+                            <span class="session-card-date">{{ session.completed_at.strftime('%d.%m.%Y %H:%M') if session.completed_at else session.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                        </div>
+                        <div class="session-card-right">
+                            {% if session.status == 'completed' %}
+                                <span class="badge badge-success">Zakończona</span>
+                            {% elif session.status == 'cancelled' %}
+                                <span class="badge badge-error">Anulowana</span>
+                            {% else %}
+                                <span class="badge badge-secondary">{{ session.status }}</span>
+                            {% endif %}
+                            <a href="{{ url_for('orders.wms_session_page', session_id=session.id) }}" class="session-card-btn">Przejdź →</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <!-- Pagination -->
+                {% if history_pagination.pages > 1 %}
+                <div class="pagination-wrapper">
+                    <nav class="pagination">
+                        {% if history_pagination.has_prev %}
+                        <a href="{{ url_for('orders.wms_dashboard', tab='sessions', hist_page=history_pagination.prev_num) }}" class="pagination-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+
+                        {% for page_num in history_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                <a href="{{ url_for('orders.wms_dashboard', tab='sessions', hist_page=page_num) }}"
+                                   class="pagination-btn {% if page_num == history_pagination.page %}active{% endif %}">
+                                    {{ page_num }}
+                                </a>
+                            {% else %}
+                                <span class="pagination-ellipsis">...</span>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if history_pagination.has_next %}
+                        <a href="{{ url_for('orders.wms_dashboard', tab='sessions', hist_page=history_pagination.next_num) }}" class="pagination-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                        </a>
+                        {% endif %}
+                    </nav>
+                    <div class="pagination-info">
+                        Strona {{ history_pagination.page }} z {{ history_pagination.pages }}
+                    </div>
+                </div>
+                {% endif %}
             {% else %}
                 <div class="empty-state">
                     <p>Brak historii sesji.</p>
                 </div>
             {% endif %}
+        </div>
+    </div>
 
-            {% elif active_tab == 'materials' %}
-            <!-- ======================== -->
-            <!-- MATERIALS TAB            -->
-            <!-- ======================== -->
+    {% elif active_tab == 'materials' %}
+    <!-- ======================== -->
+    <!-- MATERIALS TAB            -->
+    <!-- ======================== -->
+    <div class="tab-content active" id="tab-materials">
+        <div class="tab-pane">
             <div class="tab-header">
                 <h2>Materiały pakowania</h2>
                 <button type="button" class="btn btn-secondary btn-sm" id="add-material-btn">
@@ -381,7 +442,8 @@
                 </button>
             </div>
 
-            <div class="materials-list">
+            <!-- Desktop table -->
+            <div class="materials-list materials-desktop">
                 <div class="material-list-header">
                     <div class="material-col-name">Nazwa</div>
                     <div class="material-col-type">Typ</div>
@@ -435,10 +497,48 @@
                     </div>
                 {% endif %}
             </div>
-            {% endif %}
 
+            <!-- Mobile cards -->
+            <div class="materials-mobile">
+                {% if materials %}
+                    {% for material in materials %}
+                        <div class="material-card {% if not material.is_active %}material-inactive{% endif %}" data-material-id="{{ material.id }}" draggable="true">
+                            <div class="drag-handle mc-col-drag">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M2 3h12v2H2V3zm0 4h12v2H2V7zm0 4h12v2H2v-2z"/>
+                                </svg>
+                            </div>
+                            <div class="mc-col-info">
+                                <span class="material-card-name">{{ material.name }}</span>
+                                <span class="badge badge-type-{{ material.type }}">{{ material.type_display }}</span>
+                                {% if material.dimensions_display %}
+                                    <span class="material-card-dim">{{ material.dimensions_display }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="mc-col-right">
+                                <span class="material-card-stock-badge {% if material.is_low_stock %}material-card-stock-low{% endif %}">
+                                    {{ material.quantity_in_stock }}
+                                    {% if material.is_low_stock %}
+                                        <span class="stock-alert" title="Niski stan magazynowy">!</span>
+                                    {% endif %}
+                                </span>
+                                <span class="material-card-cost">{% if material.cost %}{{ '%.2f' | format(material.cost) }} zł{% else %}—{% endif %}</span>
+                                <div class="material-card-actions">
+                                    <button type="button" class="material-card-btn material-edit" data-material-id="{{ material.id }}">Edytuj</button>
+                                    <button type="button" class="material-card-btn material-card-btn-danger material-delete" data-material-id="{{ material.id }}">Usuń</button>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <p>Brak materiałów pakowania. Dodaj pierwszy materiał.</p>
+                    </div>
+                {% endif %}
+            </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- Material Modal -->
@@ -452,61 +552,61 @@
             <input type="hidden" id="material-id" value="">
 
             <div class="form-group">
-                <label class="form-label" for="material-name">Nazwa *</label>
-                <input type="text" class="form-input" id="material-name" placeholder="np. Karton 30x20x15" required>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label" for="material-type">Typ</label>
-                <select class="form-select" id="material-type">
-                    {% for key, label in material_types.items() %}
-                        <option value="{{ key }}">{{ label }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">Wymiary wewnętrzne (cm)</label>
-                <div class="form-row-3">
-                    <div>
-                        <input type="number" class="form-input" id="material-length" placeholder="Długość" step="0.1" min="0">
-                    </div>
-                    <div>
-                        <input type="number" class="form-input" id="material-width" placeholder="Szerokość" step="0.1" min="0">
-                    </div>
-                    <div>
-                        <input type="number" class="form-input" id="material-height" placeholder="Wysokość" step="0.1" min="0">
-                    </div>
+                <div class="float-field">
+                    <input type="text" class="form-input" id="material-name" placeholder=" " required>
+                    <label for="material-name">Nazwa *</label>
                 </div>
             </div>
 
             <div class="form-group">
-                <label class="form-label">Waga (kg)</label>
-                <div class="form-row-2">
-                    <div>
-                        <input type="number" class="form-input" id="material-max-weight" placeholder="Maks. waga zawartości" step="0.01" min="0">
-                    </div>
-                    <div>
-                        <input type="number" class="form-input" id="material-own-weight" placeholder="Waga opakowania" step="0.01" min="0">
-                    </div>
+                <div class="float-field float-field-select">
+                    <select class="form-select" id="material-type">
+                        {% for key, label in material_types.items() %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <label for="material-type">Typ</label>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label class="form-label">Stan magazynowy</label>
-                <div class="form-row-3">
-                    <div>
-                        <input type="number" class="form-input" id="material-stock" placeholder="Stan" min="0" value="0">
-                        <span class="input-hint">Ilość</span>
-                    </div>
-                    <div>
-                        <input type="number" class="form-input" id="material-threshold" placeholder="Próg alertu" min="0" value="5">
-                        <span class="input-hint">Próg alertu</span>
-                    </div>
-                    <div>
-                        <input type="number" class="form-input" id="material-cost" placeholder="Koszt" step="0.01" min="0">
-                        <span class="input-hint">Koszt (zł)</span>
-                    </div>
+            <div class="form-row-3">
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-length" placeholder=" " step="0.1" min="0">
+                    <label for="material-length">Długość (cm)</label>
+                </div>
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-width" placeholder=" " step="0.1" min="0">
+                    <label for="material-width">Szerokość (cm)</label>
+                </div>
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-height" placeholder=" " step="0.1" min="0">
+                    <label for="material-height">Wysokość (cm)</label>
+                </div>
+            </div>
+
+            <div class="form-row-2">
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-max-weight" placeholder=" " step="0.01" min="0">
+                    <label for="material-max-weight">Maks. waga (kg)</label>
+                </div>
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-own-weight" placeholder=" " step="0.01" min="0">
+                    <label for="material-own-weight">Waga opakowania (kg)</label>
+                </div>
+            </div>
+
+            <div class="form-row-3">
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-stock" placeholder=" " min="0">
+                    <label for="material-stock">Ilość</label>
+                </div>
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-threshold" placeholder=" " min="0">
+                    <label for="material-threshold">Próg alertu</label>
+                </div>
+                <div class="float-field">
+                    <input type="number" class="form-input" id="material-cost" placeholder=" " step="0.01" min="0">
+                    <label for="material-cost">Koszt (zł)</label>
                 </div>
             </div>
 

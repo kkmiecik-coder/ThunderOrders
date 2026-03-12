@@ -205,11 +205,11 @@
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
                             {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="btn btn-secondary" disabled aria-disabled="true">
+                            <a class="exclusive-action-btn" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
                             {% else %}
-                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="btn btn-secondary" target="_blank">
+                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
                                 Otwórz →
                             </a>
                             {% endif %}
@@ -244,11 +244,11 @@
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
                             {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="btn btn-secondary" disabled aria-disabled="true">
+                            <a class="exclusive-action-btn" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
                             {% else %}
-                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="btn btn-secondary" target="_blank">
+                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
                                 Otwórz →
                             </a>
                             {% endif %}

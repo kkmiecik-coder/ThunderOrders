@@ -73,7 +73,7 @@
                 <button class="search-clear" onclick="clearSearch()" title="Wyczyść">&times;</button>
                 {% endif %}
             </div>
-            <select class="sort-select" id="collectionSort" onchange="applySort()">
+            <select class="sort-select sort-select-desktop" id="collectionSort" onchange="applySort()">
                 <option value="newest" {{ 'selected' if sort == 'newest' }}>Najnowsze</option>
                 <option value="oldest" {{ 'selected' if sort == 'oldest' }}>Najstarsze</option>
                 <option value="name_asc" {{ 'selected' if sort == 'name_asc' }}>Nazwa A-Z</option>
@@ -97,6 +97,20 @@
                         <path fill-rule="evenodd" d="M2.5 12a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5z"/>
                     </svg>
                 </button>
+            </div>
+            <!-- Mobile sort button -->
+            <div class="sort-mobile-wrapper">
+                <button class="sort-btn-mobile" id="sortBtnMobile" type="button" title="Sortowanie">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M3.5 2.5a.5.5 0 00-1 0v8.793l-1.146-1.147a.5.5 0 00-.708.708l2 2a.5.5 0 00.708 0l2-2a.5.5 0 00-.708-.708L3.5 11.293V2.5zm3.5 1a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zM7.5 6a.5.5 0 000 1h5a.5.5 0 000-1h-5zm0 3a.5.5 0 000 1h3a.5.5 0 000-1h-3zm0 3a.5.5 0 000 1h1a.5.5 0 000-1h-1z"/>
+                    </svg>
+                </button>
+                <div class="sort-dropdown-mobile" id="sortDropdownMobile">
+                    <button class="sort-dropdown-item {{ 'active' if sort == 'newest' }}" data-sort="newest">Najnowsze</button>
+                    <button class="sort-dropdown-item {{ 'active' if sort == 'oldest' }}" data-sort="oldest">Najstarsze</button>
+                    <button class="sort-dropdown-item {{ 'active' if sort == 'name_asc' }}" data-sort="name_asc">Nazwa A-Z</button>
+                    <button class="sort-dropdown-item {{ 'active' if sort == 'price_desc' }}" data-sort="price_desc">Cena malejąco</button>
+                </div>
             </div>
         </div>
     </div>

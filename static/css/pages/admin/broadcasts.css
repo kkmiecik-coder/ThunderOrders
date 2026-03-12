@@ -10,17 +10,22 @@
 
 .broadcasts-page .page-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     margin-bottom: var(--space-6);
     gap: var(--space-4);
-    flex-wrap: wrap;
 }
 
 .broadcasts-page .page-header-left {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
+    min-width: 0;
+    flex: 1;
+}
+
+.broadcasts-page .page-header > .btn {
+    flex-shrink: 0;
 }
 
 .broadcasts-page .page-title {
@@ -632,9 +637,144 @@
     background: #dc2626;
 }
 
+/* Mobile Cards - dark */
+[data-theme="dark"] .broadcast-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .broadcast-card-details {
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .broadcast-card-actions .btn-icon {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="dark"] .broadcast-card-actions .btn-danger-icon:hover {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ═══════════════════════════════════════
+   Mobile Cards - Hidden on Desktop
+   ═══════════════════════════════════════ */
+
+.broadcasts-cards-mobile {
+    display: none;
+}
+
+.broadcast-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    padding: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.broadcast-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.broadcast-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.broadcast-card-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.broadcast-card-body {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.broadcast-card-header .target-badge {
+    flex-shrink: 0;
+}
+
+.broadcast-card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.broadcast-card-actions .btn-icon {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--card-border, #e0e0e0);
+    border-radius: 8px;
+    background: transparent;
+}
+
+.broadcast-card-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-primary);
+}
+
+.broadcast-card-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.broadcast-card-detail-full {
+    grid-column: 1 / -1;
+}
+
+.broadcast-card-detail .detail-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+}
+
+.broadcast-card-detail .detail-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
 /* ═══════════════════════════════════════
    Responsive
    ═══════════════════════════════════════ */
+
+@media (max-width: 1140px) {
+    .broadcasts-table-wrapper {
+        display: none;
+    }
+
+    .broadcasts-cards-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+}
 
 @media (max-width: 768px) {
     .broadcasts-page {
@@ -642,13 +782,7 @@
     }
 
     .broadcasts-page .page-header {
-        flex-direction: column;
-        gap: var(--space-3);
-    }
-
-    .broadcasts-table th:nth-child(3),
-    .broadcasts-table td:nth-child(3) {
-        display: none;
+        align-items: flex-start;
     }
 
     .radio-cards {
@@ -665,8 +799,7 @@
 }
 
 @media (max-width: 480px) {
-    .broadcasts-table th:nth-child(5),
-    .broadcasts-table td:nth-child(5) {
-        display: none;
+    .broadcasts-page {
+        padding: var(--space-3);
     }
 }

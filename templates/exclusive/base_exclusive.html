@@ -20,8 +20,17 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=12">
+    <!-- Custom CSS - Core & Components -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layouts/admin-layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/topbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toasts.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/preloader.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cookie-banner.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/global-search.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -48,9 +57,9 @@
 
     {% block scripts %}
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/core/app.js') }}?v=8"></script>
-    <script src="{{ url_for('static', filename='js/components/toast.js') }}?v=8"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=8"></script>
+    <script src="{{ url_for('static', filename='js/core/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/toast.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
     {% block extra_js %}{% endblock %}
 

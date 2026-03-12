@@ -688,6 +688,24 @@
         if (activeTooltip && !e.target.closest('.ocr-tooltip')) {
             closeOcrTooltip();
         }
+
+        // Close filter dropdown when clicking outside
+        var filterWrapper = document.querySelector('.pc-filter-dropdown-wrapper');
+        if (filterWrapper && filterWrapper.classList.contains('open') && !e.target.closest('.pc-filter-dropdown-wrapper')) {
+            filterWrapper.classList.remove('open');
+        }
     });
+
+    // ================================
+    // FILTER DROPDOWN TOGGLE
+    // ================================
+    var filterToggle = document.getElementById('pcFilterToggle');
+    if (filterToggle) {
+        filterToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var wrapper = this.closest('.pc-filter-dropdown-wrapper');
+            wrapper.classList.toggle('open');
+        });
+    }
 
 })();

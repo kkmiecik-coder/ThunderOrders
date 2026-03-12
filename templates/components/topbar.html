@@ -226,6 +226,13 @@
             <!-- Content będzie kopiowany z sidebara przez JS -->
         </nav>
 
+        <div class="mobile-menu-fb-section">
+            <a href="https://www.facebook.com/groups/2598228800416411" target="_blank" rel="noopener noreferrer" class="mobile-menu-fb-btn">
+                <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders" class="mobile-menu-fb-icon">
+                <span>Grupa Facebook</span>
+            </a>
+        </div>
+
         <div class="mobile-menu-footer">
             <a href="{{ url_for('profile.index') }}" class="mobile-menu-user">
                 <div class="mobile-menu-user-avatar {% if current_user.has_avatar %}has-avatar{% endif %}">
@@ -244,21 +251,6 @@
                 </svg>
             </a>
 
-            <!-- Dark Mode Toggle -->
-            <button class="mobile-menu-theme-toggle" id="mobileDarkModeToggle" aria-label="Toggle dark mode">
-                <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="Light mode" class="icon-light">
-                <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="Dark mode" class="icon-dark">
-                <span class="mobile-theme-text">
-                    <span class="text-light">Tryb jasny</span>
-                    <span class="text-dark">Tryb ciemny</span>
-                </span>
-            </button>
-
-            <a href="https://www.facebook.com/groups/2598228800416411" target="_blank" rel="noopener noreferrer" class="mobile-menu-fb-btn">
-                <img src="{{ url_for('static', filename='img/icons/logo-icon.svg') }}" alt="ThunderOrders" class="mobile-menu-fb-icon">
-                <span>Grupa Facebook</span>
-            </a>
-
             {% if current_user.role in ['admin', 'mod'] %}
             <a href="{{ url_for('switch_view') }}" class="mobile-menu-switch-view">
                 <img src="{{ url_for('static', filename='img/icons/switch-view.svg') }}" alt="Switch view">
@@ -270,10 +262,22 @@
             </a>
             {% endif %}
 
-            <a href="{{ url_for('auth.logout') }}" class="mobile-menu-logout">
-                <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
-                <span>Wyloguj</span>
-            </a>
+            <div class="mobile-menu-bottom-row">
+                <a href="{{ url_for('auth.logout') }}" class="mobile-menu-logout">
+                    <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="Logout">
+                    <span>Wyloguj</span>
+                </a>
+
+                <!-- Dark Mode Toggle -->
+                <button class="mobile-menu-theme-toggle" id="mobileDarkModeToggle" aria-label="Toggle dark mode">
+                    <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="Light mode" class="icon-light">
+                    <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="Dark mode" class="icon-dark">
+                    <span class="mobile-theme-text">
+                        <span class="text-light">Tryb jasny</span>
+                        <span class="text-dark">Tryb ciemny</span>
+                    </span>
+                </button>
+            </div>
         </div>
     </div>
 </div>

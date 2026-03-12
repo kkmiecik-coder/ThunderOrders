@@ -103,9 +103,74 @@
         </div>
     </div>
 
-    <!-- Clients Table -->
+    <!-- Clients Table (Desktop) -->
     <div class="table-container">
         {% if clients %}
+
+        <!-- Mobile Cards -->
+        <div class="clients-cards-mobile">
+            {% for client in clients %}
+            <a href="{{ url_for('admin.client_detail', id=client.id) }}"
+               class="client-card {% if not client.is_active %}card-inactive{% endif %}">
+                <div class="client-card-header">
+                    <div class="client-card-identity">
+                        {% if client.has_avatar %}
+                        <div class="client-avatar has-avatar">
+                            <img src="{{ client.avatar_url }}" alt="{{ client.first_name or '' }}">
+                        </div>
+                        {% else %}
+                        <div class="client-avatar">
+                            {{ (client.first_name or '?')[0] }}{{ (client.last_name or '?')[0] }}
+                        </div>
+                        {% endif %}
+                        <div class="client-card-name-group">
+                            <span class="client-card-fullname">{{ client.full_name }}</span>
+                            <span class="client-card-email">{{ client.email }}</span>
+                        </div>
+                    </div>
+                    <div class="client-card-badges">
+                        <span class="role-badge role-{{ client.role }}">
+                            {% if client.role == 'admin' %}Admin
+                            {% elif client.role == 'mod' %}Mod
+                            {% else %}Klient{% endif %}
+                        </span>
+                        {% if client.is_active %}
+                        <span class="status-badge status-active">Aktywny</span>
+                        {% else %}
+                        <span class="status-badge status-inactive">Nieaktywny</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="client-card-details">
+                    <div class="client-card-detail">
+                        <span class="detail-label">Źródło</span>
+                        <span class="detail-value">
+                            {% if client.google_id %}Google
+                            {% elif client.facebook_id %}Facebook
+                            {% else %}Email{% endif %}
+                        </span>
+                    </div>
+                    <div class="client-card-detail">
+                        <span class="detail-label">Telefon</span>
+                        <span class="detail-value">{{ client.phone or '—' }}</span>
+                    </div>
+                    <div class="client-card-detail">
+                        <span class="detail-label">Rejestracja</span>
+                        <span class="detail-value">{{ client.created_at|format_date('%d.%m.%Y') }}</span>
+                    </div>
+                    <div class="client-card-detail">
+                        <span class="detail-label">Ostatnie logowanie</span>
+                        <span class="detail-value">
+                            {% if client.last_login %}
+                            {{ client.last_login|format_date('%d.%m.%Y') }}
+                            {% else %}Nigdy{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+
         <div class="table-responsive">
             <table class="data-table clients-table">
                 <thead>

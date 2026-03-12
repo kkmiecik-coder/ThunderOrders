@@ -39,7 +39,7 @@
                         </h1>
                         <p class="auth-subtitle">
                             <span class="crossfade-wrap">
-                                <span class="cf-login">Zaloguj sie na swoje konto</span>
+                                <span class="cf-login">Zaloguj się na swoje konto</span>
                                 <span class="cf-register">Dołącz do ThunderOrders już dziś</span>
                                 <span class="cf-verify">Wysłaliśmy 6-cyfrowy kod na adres:<br><strong class="highlight-email" id="verify-email"></strong></span>
                                 <span class="cf-error">Coś poszło nie tak</span>
@@ -230,47 +230,15 @@
                         </button>
                     </form>
 
-                    <!-- Footer (crossfade text) -->
-                    <div class="auth-footer">
-                        <div class="crossfade-wrap crossfade-block">
-                            <div class="cf-login">
-                                <p>Nie masz jeszcze konta? Na co czekasz!</p>
-                                <a href="{{ url_for('auth.register') }}" class="auth-link auth-switch-tab" data-tab="register">
-                                    <span>Zarejestruj się</span>
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                                        <polyline points="12 5 19 12 12 19"></polyline>
-                                    </svg>
-                                </a>
-                            </div>
-                            <div class="cf-register">
-                                <p>Masz już konto? To super!</p>
-                                <a href="{{ url_for('auth.login') }}" class="auth-link auth-switch-tab" data-tab="login">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                                        <polyline points="12 19 5 12 12 5"></polyline>
-                                    </svg>
-                                    <span>Zaloguj się</span>
-                                </a>
-                            </div>
-                            <div class="cf-verify">
-                                <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="19" y1="12" x2="5" y2="12"></line>
-                                        <polyline points="12 19 5 12 12 5"></polyline>
-                                    </svg>
-                                    <span>Powrót do logowania</span>
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>
 
                 {% if config.GOOGLE_CLIENT_ID or config.FACEBOOK_CLIENT_ID %}
-                <div class="auth-split-divider"><span>lub</span></div>
+                <div class="auth-split-divider">
+                    <span class="divider-desktop">lub</span>
+                    <span class="divider-mobile">lub kontynuuj z</span>
+                </div>
                 <div class="auth-split-right">
-                    <p class="auth-split-label">Kontynuuj z</p>
+                    <p class="auth-split-label">kontynuuj z</p>
                     <div class="oauth-buttons">
                         {% if config.GOOGLE_CLIENT_ID %}
                         <a href="{{ url_for('auth.oauth_login', provider='google') }}" class="oauth-btn oauth-btn-google">
@@ -287,6 +255,42 @@
                     </div>
                 </div>
                 {% endif %}
+            </div>
+
+            <!-- Footer (crossfade text) — outside split layout so it's always last -->
+            <div class="auth-footer">
+                <div class="crossfade-wrap crossfade-block">
+                    <div class="cf-login">
+                        <div class="auth-footer-separator"><span>Nie masz jeszcze konta? Na co czekasz!</span></div>
+                        <a href="{{ url_for('auth.register') }}" class="auth-link auth-switch-tab" data-tab="register">
+                            <span>Zarejestruj się</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </a>
+                    </div>
+                    <div class="cf-register">
+                        <div class="auth-footer-separator"><span>Masz już konto? To super!</span></div>
+                        <a href="{{ url_for('auth.login') }}" class="auth-link auth-switch-tab" data-tab="login">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                            <span>Zaloguj się</span>
+                        </a>
+                    </div>
+                    <div class="cf-verify">
+                        <div class="auth-footer-separator"><span>Wróć do logowania</span></div>
+                        <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="19" y1="12" x2="5" y2="12"></line>
+                                <polyline points="12 19 5 12 12 5"></polyline>
+                            </svg>
+                            <span>Powrót do logowania</span>
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

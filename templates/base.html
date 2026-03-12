@@ -75,8 +75,17 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=12">
+    <!-- Custom CSS - Core & Components (individual files for cache-busting) -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layouts/admin-layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/topbar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/toasts.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/modals.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/preloader.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cookie-banner.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/global-search.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
@@ -144,31 +153,31 @@
     {% block scripts %}
     <!-- Google Analytics Helper (custom event tracking) -->
     {% if config.GA_MEASUREMENT_ID %}
-    <script src="{{ url_for('static', filename='js/utils/analytics.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/utils/analytics.js') }}"></script>
     {% endif %}
 
-    <!-- Custom JS - UPDATED VERSION 2025-12-12 20:42 - Pure CSS tooltips -->
-    <script src="{{ url_for('static', filename='js/core/app.js') }}?v=8"></script>
-    <script src="{{ url_for('static', filename='js/components/toast.js') }}?v=8"></script>
-    <script src="{{ url_for('static', filename='js/components/sidebar.js') }}?v=8"></script>
-    <script src="{{ url_for('static', filename='js/components/global-search.js') }}?v=1"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=8"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/core/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/toast.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/sidebar.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/global-search.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
     <!-- PWA Service Worker Registration -->
-    <script src="{{ url_for('static', filename='js/core/sw-register.js') }}?v=1"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pwa-install.css') }}?v=1">
-    <script src="{{ url_for('static', filename='js/components/pwa-install.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='js/core/sw-register.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/pwa-install.css') }}">
+    <script src="{{ url_for('static', filename='js/components/pwa-install.js') }}"></script>
 
     <!-- Push Notifications (authenticated + VAPID configured) -->
     {% if current_user.is_authenticated and config.VAPID_PUBLIC_KEY %}
-    <script src="{{ url_for('static', filename='js/core/push-notifications.js') }}?v=2"></script>
-    <script src="{{ url_for('static', filename='js/components/push-bell.js') }}?v=2"></script>
-    <script src="{{ url_for('static', filename='js/components/push-banner.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/core/push-notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/push-bell.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/push-banner.js') }}"></script>
     {% endif %}
 
     <!-- Popup Announcements - tylko dla zalogowanych -->
     {% if current_user.is_authenticated %}
-    <script src="{{ url_for('static', filename='js/components/popup-announcements.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/components/popup-announcements.js') }}"></script>
     {% endif %}
 
     {% block extra_js %}{% endblock %}

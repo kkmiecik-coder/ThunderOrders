@@ -64,8 +64,8 @@
             document.getElementById('material-height').value = '';
             document.getElementById('material-max-weight').value = '';
             document.getElementById('material-own-weight').value = '';
-            document.getElementById('material-stock').value = '0';
-            document.getElementById('material-threshold').value = '5';
+            document.getElementById('material-stock').value = '';
+            document.getElementById('material-threshold').value = '';
             document.getElementById('material-cost').value = '';
             document.getElementById('material-active').checked = true;
         }
@@ -154,82 +154,83 @@
     // ====================
 
     function initDragDrop() {
-        const list = document.querySelector('.materials-list');
-        if (!list) return;
+        // Support drag&drop on both desktop (.materials-desktop) and mobile (.materials-mobile)
+        var lists = document.querySelectorAll('.materials-desktop, .materials-mobile');
+        if (!lists.length) return;
 
-        let dragItem = null;
+        lists.forEach(function(list) {
+            var dragItem = null;
+            // Draggable items can be .material-list-item (desktop) or .material-card (mobile)
+            var itemSelector = '.material-list-item, .material-card';
 
-        list.addEventListener('dragstart', function(e) {
-            const item = e.target.closest('.material-list-item');
-            if (!item) return;
-            dragItem = item;
-            item.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-        });
+            list.addEventListener('dragstart', function(e) {
+                var item = e.target.closest(itemSelector);
+                if (!item) return;
+                dragItem = item;
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
 
-        list.addEventListener('dragend', function(e) {
-            const item = e.target.closest('.material-list-item');
-            if (item) item.classList.remove('dragging');
-            // Remove all drag-over states
-            list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            list.addEventListener('dragend', function(e) {
+                var item = e.target.closest(itemSelector);
+                if (item) item.classList.remove('dragging');
+                list.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
 
-            if (!dragItem) return;
+                if (!dragItem) return;
 
-            // Build new order
-            const items = list.querySelectorAll('.material-list-item');
-            const order = [];
-            items.forEach((el, idx) => {
-                order.push({
-                    id: parseInt(el.dataset.materialId),
-                    sort_order: idx,
+                var items = list.querySelectorAll(itemSelector);
+                var order = [];
+                items.forEach(function(el, idx) {
+                    order.push({
+                        id: parseInt(el.dataset.materialId),
+                        sort_order: idx,
+                    });
                 });
+
+                fetch('/admin/orders/packaging-materials/reorder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken(),
+                    },
+                    body: JSON.stringify({ order: order }),
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (!result.success && window.Toast) {
+                        window.Toast.show(result.message || 'Błąd zmiany kolejności', 'error');
+                    }
+                });
+
+                dragItem = null;
             });
 
-            fetch('/admin/orders/packaging-materials/reorder', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken(),
-                },
-                body: JSON.stringify({ order: order }),
-            })
-            .then(r => r.json())
-            .then(result => {
-                if (!result.success && window.Toast) {
-                    window.Toast.show(result.message || 'Błąd zmiany kolejności', 'error');
+            list.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+
+                var target = e.target.closest(itemSelector);
+                if (!target || target === dragItem) return;
+
+                list.querySelectorAll('.drag-over').forEach(function(el) { el.classList.remove('drag-over'); });
+                target.classList.add('drag-over');
+            });
+
+            list.addEventListener('drop', function(e) {
+                e.preventDefault();
+                var target = e.target.closest(itemSelector);
+                if (!target || !dragItem || target === dragItem) return;
+
+                var rect = target.getBoundingClientRect();
+                var midY = rect.top + rect.height / 2;
+                if (e.clientY < midY) {
+                    list.insertBefore(dragItem, target);
+                } else {
+                    list.insertBefore(dragItem, target.nextSibling);
                 }
+
+                target.classList.remove('drag-over');
             });
-
-            dragItem = null;
-        });
-
-        list.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-
-            const target = e.target.closest('.material-list-item');
-            if (!target || target === dragItem) return;
-
-            // Remove all drag-over states first
-            list.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-            target.classList.add('drag-over');
-        });
-
-        list.addEventListener('drop', function(e) {
-            e.preventDefault();
-            const target = e.target.closest('.material-list-item');
-            if (!target || !dragItem || target === dragItem) return;
-
-            // Insert before or after
-            const rect = target.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            if (e.clientY < midY) {
-                list.insertBefore(dragItem, target);
-            } else {
-                list.insertBefore(dragItem, target.nextSibling);
-            }
-
-            target.classList.remove('drag-over');
         });
     }
 

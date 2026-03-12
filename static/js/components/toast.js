@@ -48,19 +48,3 @@ window.showToast = function(message, type = 'info', duration = 5000) {
         setTimeout(() => toast.remove(), 300);
     }, duration);
 };
-
-// Slide out animation
-const style = document.createElement('style');
-style.textContent = `
-@keyframes toast-slide-out {
-    from {
-        transform: translateX(0);
-        opacity: 1;
-    }
-    to {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-}
-`;
-document.head.appendChild(style);

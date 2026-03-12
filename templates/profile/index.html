@@ -355,7 +355,7 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/profile/profile.js') }}"></script>
 {% if config.VAPID_PUBLIC_KEY %}
-<script src="{{ url_for('static', filename='js/pages/profile/push-settings.js') }}?v=1"></script>
+<script src="{{ url_for('static', filename='js/pages/profile/push-settings.js') }}"></script>
 {% endif %}
 <script>
 // Analytics Consent Toggle (RODO)

@@ -1223,6 +1223,12 @@
   color: #1a1a2e;
 }
 
+.mobile-logo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 .mobile-logo img {
   width: 32px;
   height: 32px;
@@ -1339,10 +1345,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
   text-decoration: none;
   padding: var(--space-3);
-  margin: 0 calc(var(--space-3) * -1) var(--space-4) calc(var(--space-3) * -1);
+  margin: 0 calc(var(--space-3) * -1) var(--space-3) calc(var(--space-3) * -1);
   border-radius: 8px;
   transition: background-color 0.2s ease;
 }
@@ -1418,7 +1423,8 @@
 .mobile-menu-theme-toggle {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-3);
   background: var(--sidebar-bg-hover);
   color: var(--sidebar-text);
@@ -1426,8 +1432,7 @@
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   cursor: pointer;
-  width: 100%;
-  margin-bottom: var(--space-2);
+  flex: 1;
   transition: background var(--transition-fast);
 }
 
@@ -1473,18 +1478,24 @@
   display: inline;
 }
 
+/* Mobile Facebook section (above separator) */
+.mobile-menu-fb-section {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
 /* Mobile Facebook Group Button */
 .mobile-menu-fb-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-3);
   background: rgba(24, 119, 242, 0.12);
   color: #4a9eff;
   text-decoration: none;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  margin-bottom: var(--space-2);
+  font-weight: var(--font-semibold);
   transition: background var(--transition-fast);
   position: relative;
   overflow: hidden;
@@ -1514,6 +1525,18 @@
   height: 16px;
 }
 
+/* Mobile bottom row: Logout + Theme toggle */
+.mobile-menu-bottom-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.mobile-menu-bottom-row .mobile-menu-logout,
+.mobile-menu-bottom-row .mobile-menu-theme-toggle {
+  padding: var(--space-3);
+}
+
 .mobile-menu-switch-view {
   display: flex;
   align-items: center;
@@ -1524,6 +1547,7 @@
   text-decoration: none;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
+  margin-bottom: var(--space-2);
 }
 
 .mobile-menu-switch-view img {
@@ -1539,13 +1563,15 @@
 .mobile-menu-logout {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-3);
   background: var(--sidebar-bg-hover);
   color: var(--sidebar-text);
   text-decoration: none;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
+  flex: 1;
 }
 
 .mobile-menu-logout img {

@@ -1,0 +1,194 @@
+/**
+ * ThunderOrders - Auth Toast Styles
+ * Full-width top-bar toasts for login/register pages
+ * Standalone — no CSS variable dependencies
+ */
+
+/* ====== Container ====== */
+.toast-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10002;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+    max-width: none;
+}
+
+/* ====== Toast Base ====== */
+.toast {
+    width: 100%;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    pointer-events: auto;
+    cursor: pointer;
+    border: none;
+    border-left: none;
+    border-radius: 0;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+    font-family: 'Inter', sans-serif;
+    animation: auth-toast-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: opacity 0.3s ease;
+}
+
+/* ====== Type Colors ====== */
+
+/* Success */
+.toast.toast-success {
+    background: rgba(16, 185, 129, 0.92);
+}
+.toast-success .toast-icon,
+.toast-success .toast-title,
+.toast-success .toast-message,
+.toast-success .toast-close {
+    color: #022c22;
+}
+.toast-success .toast-close:hover {
+    color: #000;
+}
+
+/* Error */
+.toast.toast-error {
+    background: rgba(239, 68, 68, 0.92);
+}
+.toast-error .toast-icon,
+.toast-error .toast-title,
+.toast-error .toast-message,
+.toast-error .toast-close {
+    color: #fff;
+}
+.toast-error .toast-close:hover {
+    color: #fde8e8;
+}
+
+/* Warning */
+.toast.toast-warning {
+    background: rgba(245, 158, 11, 0.92);
+}
+.toast-warning .toast-icon,
+.toast-warning .toast-title,
+.toast-warning .toast-message,
+.toast-warning .toast-close {
+    color: #1c1105;
+}
+.toast-warning .toast-close:hover {
+    color: #000;
+}
+
+/* Info */
+.toast.toast-info {
+    background: rgba(59, 130, 246, 0.92);
+}
+.toast-info .toast-icon,
+.toast-info .toast-title,
+.toast-info .toast-message,
+.toast-info .toast-close {
+    color: #fff;
+}
+.toast-info .toast-close:hover {
+    color: #dbeafe;
+}
+
+/* ====== Inner Elements ====== */
+.toast-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.toast-content {
+    flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.toast-title {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.toast-message {
+    font-size: 14px;
+    font-weight: 400;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 20px;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+    flex-shrink: 0;
+}
+.toast-close:hover {
+    opacity: 1;
+}
+
+/* ====== Animations ====== */
+@keyframes auth-toast-in {
+    0% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Override the JS-injected slide-out to go UP instead of right */
+@keyframes toast-slide-out {
+    0% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+}
+
+/* ====== Dark mode — same look (auth pages are always dark) ====== */
+[data-theme="dark"] .toast {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+}
+[data-theme="dark"] .toast.toast-success { background: rgba(16, 185, 129, 0.92); }
+[data-theme="dark"] .toast.toast-error   { background: rgba(239, 68, 68, 0.92); }
+[data-theme="dark"] .toast.toast-warning { background: rgba(245, 158, 11, 0.92); }
+[data-theme="dark"] .toast.toast-info    { background: rgba(59, 130, 246, 0.92); }
+
+[data-theme="dark"] .toast-success .toast-icon,
+[data-theme="dark"] .toast-success .toast-title,
+[data-theme="dark"] .toast-success .toast-message,
+[data-theme="dark"] .toast-success .toast-close {
+    color: #022c22;
+}
+[data-theme="dark"] .toast-error .toast-icon,
+[data-theme="dark"] .toast-error .toast-title,
+[data-theme="dark"] .toast-error .toast-message,
+[data-theme="dark"] .toast-error .toast-close {
+    color: #fff;
+}
+[data-theme="dark"] .toast-warning .toast-icon,
+[data-theme="dark"] .toast-warning .toast-title,
+[data-theme="dark"] .toast-warning .toast-message,
+[data-theme="dark"] .toast-warning .toast-close {
+    color: #1c1105;
+}
+[data-theme="dark"] .toast-info .toast-icon,
+[data-theme="dark"] .toast-info .toast-title,
+[data-theme="dark"] .toast-info .toast-message,
+[data-theme="dark"] .toast-info .toast-close {
+    color: #fff;
+}

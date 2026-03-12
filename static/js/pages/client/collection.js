@@ -67,6 +67,30 @@
         applyFilters();
     };
 
+    // ---- Mobile sort dropdown ----
+    var sortBtn = document.getElementById('sortBtnMobile');
+    var sortDropdown = document.getElementById('sortDropdownMobile');
+    if (sortBtn && sortDropdown) {
+        sortBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            sortDropdown.classList.toggle('open');
+        });
+
+        sortDropdown.querySelectorAll('.sort-dropdown-item').forEach(function (item) {
+            item.addEventListener('click', function () {
+                var sortVal = this.getAttribute('data-sort');
+                var desktopSelect = document.getElementById('collectionSort');
+                if (desktopSelect) desktopSelect.value = sortVal;
+                sortDropdown.classList.remove('open');
+                applyFilters();
+            });
+        });
+
+        document.addEventListener('click', function () {
+            sortDropdown.classList.remove('open');
+        });
+    }
+
     // ---- Clear search ----
     window.clearSearch = function () {
         if (searchInput) searchInput.value = '';
@@ -111,29 +135,37 @@
 
         var containerWidth = container.clientWidth;
         var gap = 12;
+        var isMobile = window.innerWidth <= 768;
 
-        // Szerokość karty na podstawie dostępnej szerokości (7 kart widocznych)
-        var widthBased = (containerWidth - 6 * gap) / 5.5;
+        var cardWidth, prevOffset, farOffset, edgeOffset;
 
-        // Rzeczywista pozycja karuzeli na stronie (pod nagłówkiem, statystykami, toolbarem)
-        var containerTop = container.getBoundingClientRect().top + window.scrollY;
-        var availableHeight = window.innerHeight - containerTop + window.scrollY - 16;
-        var usableHeight = availableHeight - 90;
-        var heightBased = (usableHeight - 55) * 0.75;
+        if (isMobile) {
+            // Mobile: 1 duża karta + ~1/3 bocznych widoczne
+            cardWidth = Math.round(containerWidth * 0.72);
+            prevOffset = Math.round(cardWidth * 0.78 + gap);
+            farOffset = Math.round(prevOffset + cardWidth * 0.7 + gap);
+            edgeOffset = Math.round(farOffset + cardWidth * 0.6 + gap);
+        } else {
+            // Desktop: 7 kart widocznych
+            var widthBased = (containerWidth - 6 * gap) / 5.5;
 
-        // Wybierz mniejszą z dwóch wartości, ogranicz zakresem 140-360px
-        var cardWidth = Math.max(140, Math.min(360, Math.round(Math.min(widthBased, heightBased))));
+            var containerTop = container.getBoundingClientRect().top + window.scrollY;
+            var availableHeight = window.innerHeight - containerTop + window.scrollY - 16;
+            var usableHeight = availableHeight - 90;
+            var heightBased = (usableHeight - 55) * 0.75;
 
-        // Oblicz offsety pozycji (3 poziomy po każdej stronie)
-        var prevOffset = Math.round(cardWidth * 0.9 + gap);
-        var farOffset = Math.round(prevOffset + cardWidth * 0.72 + gap);
-        var edgeOffset = Math.round(farOffset + cardWidth * 0.58 + gap);
+            cardWidth = Math.max(140, Math.min(360, Math.round(Math.min(widthBased, heightBased))));
+            prevOffset = Math.round(cardWidth * 0.9 + gap);
+            farOffset = Math.round(prevOffset + cardWidth * 0.72 + gap);
+            edgeOffset = Math.round(farOffset + cardWidth * 0.58 + gap);
+        }
 
         // Wysokość tracka: karta (proporcja 4:3 + tekst)
         var trackHeight = Math.round(cardWidth * (4 / 3) + 55);
 
-        // Wysokość kontenera = reszta viewportu pod nim (centrowanie w pionie)
-        var containerHeight = Math.max(trackHeight + 80, window.innerHeight - containerTop - 16);
+        // Wysokość kontenera
+        var containerTop2 = container.getBoundingClientRect().top + window.scrollY;
+        var containerHeight = Math.max(trackHeight + 80, window.innerHeight - containerTop2 - 16);
         container.style.setProperty('--carousel-container-height', containerHeight + 'px');
 
         // Ustaw CSS custom properties

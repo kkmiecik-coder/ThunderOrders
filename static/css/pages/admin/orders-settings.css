@@ -572,57 +572,241 @@
 }
 
 /* ==================== */
-/* Responsive           */
+/* Responsive - Tablet  */
 /* ==================== */
 @media (max-width: 1024px) {
+    .warehouse-settings-page {
+        padding: var(--space-6);
+    }
+
     .settings-container {
         flex-direction: column;
+        gap: var(--space-4);
     }
 
     .settings-tabs {
         width: 100%;
         position: static;
         display: flex;
-        overflow-x: auto;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        padding: var(--space-3);
+    }
+
+    .settings-tab {
+        flex: 0 1 auto;
+        width: auto;
+        margin-bottom: 0;
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--text-sm);
+    }
+
+    .settings-content {
+        min-width: 0;
+    }
+
+    .settings-form {
+        padding: var(--space-4);
+    }
+
+    .status-list-header,
+    .status-list-item {
+        grid-template-columns: 1fr 120px 120px;
+        gap: var(--space-3);
+    }
+
+    /* Closure grid */
+    .exclusive-closure-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Closure setting rows */
+    .closure-setting-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+    }
+
+    .setting-control {
+        width: 100%;
+        min-width: auto;
+    }
+
+    /* Email notifications */
+    .email-notif-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+}
+
+/* ==================== */
+/* Responsive - Mobile  */
+/* ==================== */
+@media (max-width: 768px) {
+    .warehouse-settings-page {
+        padding: var(--space-3);
+    }
+
+    .page-header {
+        margin-bottom: var(--space-4);
+    }
+
+    .page-title {
+        font-size: var(--text-xl);
+    }
+
+    .page-description {
+        font-size: var(--text-sm);
+    }
+
+    .settings-container {
+        gap: var(--space-3);
+    }
+
+    .settings-tabs {
+        gap: var(--space-1);
         padding: var(--space-2);
     }
 
     .settings-tab {
-        flex-shrink: 0;
-        margin-right: var(--space-2);
-        margin-bottom: 0;
-    }
-}
-
-@media (max-width: 768px) {
-    .warehouse-settings-page {
-        padding: var(--space-4);
+        min-width: 44px;
+        min-height: 44px;
+        padding: 10px;
+        gap: var(--space-2);
+        justify-content: center;
     }
 
     .tab-label {
         display: none;
     }
 
-    .settings-tabs {
-        justify-content: space-around;
+    .tab-icon {
+        width: 20px;
+        height: 20px;
     }
 
-    .settings-tab {
-        margin-right: 0;
+    .settings-form {
+        padding: var(--space-3);
+    }
+
+    .settings-card {
+        padding: var(--space-4);
+    }
+
+    .tab-header {
+        margin-bottom: var(--space-4);
+        padding-bottom: var(--space-3);
+    }
+
+    .tab-title {
+        font-size: var(--text-lg);
+    }
+
+    .tab-description {
+        font-size: var(--text-sm);
+    }
+
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3);
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
     }
 
     .status-list-header {
-        font-size: 10px;
-        padding: var(--space-2) var(--space-3);
+        display: none;
     }
 
     .status-list-item {
-        padding: var(--space-2) var(--space-3);
+        grid-template-columns: 1fr;
+        gap: var(--space-2);
+        padding: var(--space-3);
+    }
+
+    .status-col-name {
+        font-weight: var(--font-medium);
+    }
+
+    .status-col-active,
+    .status-col-actions {
+        justify-content: flex-start;
     }
 
     .drag-handle {
-        margin-right: 12px;
+        margin-right: 8px;
         padding: 4px;
+    }
+
+    /* Closure status cards */
+    .closure-status-card {
+        padding: var(--space-4);
+    }
+
+    .closure-card-icon {
+        width: 44px;
+        height: 44px;
+        margin-bottom: var(--space-3);
+    }
+
+    /* Payment stages */
+    .payment-stages-cell {
+        white-space: normal;
+    }
+
+    .badge-payment {
+        margin: 1px;
+        font-size: 0.7rem;
+    }
+
+    /* OCR thresholds */
+    .ocr-range-slider {
+        max-width: 100%;
+    }
+
+    /* Checkbox grid */
+    .checkbox-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Email section */
+    .admin-recipient-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-2);
+    }
+}
+
+@media (max-width: 480px) {
+    .warehouse-settings-page {
+        padding: var(--space-2);
+    }
+
+    .settings-tabs {
+        border-radius: var(--radius-md);
+    }
+
+    .settings-form,
+    .settings-card {
+        border-radius: var(--radius-md);
+        padding: var(--space-3);
+    }
+
+    .btn {
+        padding: var(--space-2) var(--space-4);
+        font-size: var(--text-sm);
     }
 }
 

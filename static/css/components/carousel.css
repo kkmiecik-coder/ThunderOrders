@@ -325,13 +325,18 @@
 }
 
 [data-theme="dark"] .carousel-slide {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(240, 147, 251, 0.15);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 [data-theme="dark"] .carousel-slide.active {
-    background: rgba(255, 255, 255, 0.08);
+    background: linear-gradient(
+        160deg,
+        rgba(240, 147, 251, 0.15) 0%,
+        rgba(255, 255, 255, 0.2) 40%,
+        rgba(245, 87, 108, 0.12) 100%
+    );
     border-color: rgba(240, 147, 251, 0.3);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4),
                 0 0 20px rgba(240, 147, 251, 0.08);
@@ -399,58 +404,64 @@
 }
 
 /* ==========================================
-   Responsywnosc - Telefon
+   Responsywnosc - Mobile
    ========================================== */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     .carousel-container {
-        padding-bottom: 40px;
+        padding-bottom: 50px;
+        overflow: hidden;
     }
 
-    /* Na malym ekranie ukrywamy edge slajdy */
+    /* Ukryj far i edge slajdy */
+    .carousel-slide.far-prev,
+    .carousel-slide.far-next,
     .carousel-slide.edge-prev,
     .carousel-slide.edge-next {
         opacity: 0 !important;
     }
 
+    .carousel-slide.far-prev::after,
+    .carousel-slide.far-next::after,
     .carousel-slide.edge-prev::after,
     .carousel-slide.edge-next::after {
         opacity: 0;
     }
 
-    .carousel-prev,
-    .carousel-next {
-        width: 34px;
-        height: 34px;
-    }
-
-    .carousel-prev {
-        left: calc(50% - 40px);
-    }
-
-    .carousel-next {
-        left: calc(50% + 6px);
-    }
-
-    .carousel-prev svg,
-    .carousel-next svg {
-        width: 14px;
-        height: 14px;
-    }
-
     .carousel-slide-content {
-        padding: 10px;
+        padding: 12px;
     }
 
     .carousel-slide-content img {
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 8px;
     }
 
     .carousel-slide-content .carousel-slide-name {
-        font-size: 12px;
+        font-size: 14px;
     }
 
     .carousel-slide-content .carousel-slide-price {
-        font-size: 11px;
+        font-size: 13px;
+    }
+
+    /* Przyciski nawigacji */
+    .carousel-prev,
+    .carousel-next {
+        width: 44px;
+        height: 44px;
+    }
+
+    .carousel-prev {
+        left: calc(50% - 52px);
+    }
+
+    .carousel-next {
+        left: calc(50% + 8px);
+    }
+
+    .carousel-prev svg,
+    .carousel-next svg {
+        width: 16px;
+        height: 16px;
     }
 }

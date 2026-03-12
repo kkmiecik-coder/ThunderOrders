@@ -15,17 +15,22 @@
    ========================================== */
 .popups-page .page-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     margin-bottom: var(--space-6);
     gap: var(--space-4);
-    flex-wrap: wrap;
 }
 
 .popups-page .page-header-left {
     display: flex;
-    align-items: center;
-    gap: var(--space-3);
+    flex-direction: column;
+    gap: var(--space-1);
+    min-width: 0;
+    flex: 1;
+}
+
+.popups-page .page-header > .btn {
+    flex-shrink: 0;
 }
 
 .popups-page .page-title {
@@ -566,6 +571,115 @@
 }
 
 /* ==========================================
+   Mobile Cards - Hidden on Desktop
+   ========================================== */
+.popups-cards-mobile {
+    display: none;
+}
+
+.popup-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    padding: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.popup-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.popup-card-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--primary-color);
+    text-decoration: none;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.popup-card-title:hover {
+    text-decoration: underline;
+}
+
+.popup-card-header .status-badge {
+    flex-shrink: 0;
+}
+
+.popup-card-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+.popup-card-actions .btn-icon {
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--card-border, #e0e0e0);
+    border-radius: 8px;
+    background: transparent;
+}
+
+[data-theme="dark"] .popup-card-actions .btn-icon {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="dark"] .popup-card-actions .btn-icon:hover {
+    color: #60a5fa;
+    border-color: rgba(96, 165, 250, 0.45);
+    background: rgba(96, 165, 250, 0.1);
+}
+
+[data-theme="dark"] .popup-card-actions .btn-danger-icon:hover {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.popup-card-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border-primary);
+    border-bottom: 1px solid var(--border-primary);
+}
+
+.popup-card-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.popup-card-detail .detail-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-secondary);
+}
+
+.popup-card-detail .detail-value {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.popup-card-stats {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+}
+
+/* ==========================================
    Responsywność
    ========================================== */
 @media (max-width: 1024px) {
@@ -582,13 +696,24 @@
     }
 }
 
+@media (max-width: 1140px) {
+    .popups-table-wrapper {
+        display: none;
+    }
+
+    .popups-cards-mobile {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
 @media (max-width: 768px) {
     .popups-page {
         padding: var(--space-4);
     }
 
     .popups-page .page-header {
-        flex-direction: column;
         align-items: flex-start;
         margin-bottom: var(--space-4);
     }
@@ -720,6 +845,26 @@
 [data-theme="dark"] .popups-page .btn-danger-icon:hover {
     background: rgba(239, 68, 68, 0.15);
     color: #f87171;
+}
+
+/* Mobile Cards - dark */
+[data-theme="dark"] .popup-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .popup-card-title {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .popup-card-details {
+    border-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .popup-card-stats {
+    border-color: rgba(240, 147, 251, 0.1);
 }
 
 /* TinyMCE - dark */
