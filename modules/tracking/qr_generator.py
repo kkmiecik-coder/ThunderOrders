@@ -59,7 +59,25 @@ def _read_logo_svg_parts():
 
 
 def generate_qr_png(url, size=1024):
-    """Generuje QR kod jako PNG z przezroczystym tlem i logo."""
+    """Generuje QR kod jako PNG z przezroczystym tlem i logo.
+
+    Konwertuje gotowy SVG (z osadzonym logo) na PNG przez cairosvg.
+    Fallback: QR bez logo przez Pillow.
+    """
+    # Proba 1: konwersja pelnego SVG (z logo) na PNG
+    try:
+        import cairosvg
+        svg_content = generate_qr_svg(url)
+        png_data = cairosvg.svg2png(
+            bytestring=svg_content.encode('utf-8'),
+            output_width=size,
+            output_height=size,
+        )
+        return png_data
+    except Exception:
+        pass
+
+    # Fallback: Pillow (bez logo)
     qr = qrcode.QRCode(
         version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -71,7 +89,6 @@ def generate_qr_png(url, size=1024):
 
     img = qr.make_image(fill_color='black', back_color='white').convert('RGBA')
 
-    # Zamien biale piksele na przezroczyste
     data = img.getdata()
     new_data = []
     for item in data:
@@ -82,18 +99,6 @@ def generate_qr_png(url, size=1024):
     img.putdata(new_data)
 
     img = img.resize((size, size), Image.NEAREST)
-
-    # Dodaj logo na srodku
-    logo = _get_logo_for_png(size)
-    if logo:
-        logo_pos = ((size - logo.size[0]) // 2, (size - logo.size[1]) // 2)
-        circle_size = int(logo.size[0] * 1.15)
-        circle_img = Image.new('RGBA', (circle_size, circle_size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(circle_img)
-        draw.ellipse([0, 0, circle_size - 1, circle_size - 1], fill=(255, 255, 255, 255))
-        circle_pos = ((size - circle_size) // 2, (size - circle_size) // 2)
-        img.paste(circle_img, circle_pos, circle_img)
-        img.paste(logo, logo_pos, logo)
 
     buffer = io.BytesIO()
     img.save(buffer, format='PNG')
