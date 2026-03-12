@@ -64,7 +64,7 @@ def get_geolocation(ip_address):
 
 
 def get_client_ip(request):
-    """Pobiera prawdziwy IP klienta (uwzglednia proxy/nginx)"""
+    """Pobiera prawdziwy IP klienta (uwzględnia proxy/nginx)"""
     if request.headers.get('X-Forwarded-For'):
         return request.headers['X-Forwarded-For'].split(',')[0].strip()
     if request.headers.get('X-Real-Ip'):

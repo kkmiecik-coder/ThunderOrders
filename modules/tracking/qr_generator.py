@@ -10,7 +10,7 @@ LOGO_SVG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '
 
 
 def _get_logo_for_png(qr_size):
-    """Laduje logo SVG i konwertuje na PNG przez cairosvg (~25% rozmiaru QR)."""
+    """Ładuje logo SVG i konwertuje na PNG przez cairosvg (~25% rozmiaru QR)."""
     if not os.path.exists(LOGO_SVG_PATH):
         return None
 
@@ -59,12 +59,12 @@ def _read_logo_svg_parts():
 
 
 def generate_qr_png(url, size=1024):
-    """Generuje QR kod jako PNG z przezroczystym tlem i logo.
+    """Generuje QR kod jako PNG z przezroczystym tłem i logo.
 
     Konwertuje gotowy SVG (z osadzonym logo) na PNG przez cairosvg.
     Fallback: QR bez logo przez Pillow.
     """
-    # Proba 1: konwersja pelnego SVG (z logo) na PNG
+    # Próba 1: konwersja pełnego SVG (z logo) na PNG
     try:
         import cairosvg
         svg_content = generate_qr_svg(url)
@@ -107,7 +107,7 @@ def generate_qr_png(url, size=1024):
 
 
 def generate_qr_svg(url):
-    """Generuje QR kod jako SVG z przezroczystym tlem i osadzonym logo."""
+    """Generuje QR kod jako SVG z przezroczystym tłem i osadzonym logo."""
     qr = qrcode.QRCode(
         version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -124,11 +124,11 @@ def generate_qr_svg(url):
     img.save(buffer)
     svg_content = buffer.getvalue().decode('utf-8')
 
-    # Usun biale tlo
+    # Usuń białe tło
     svg_content = svg_content.replace('fill="#ffffff"', 'fill="none"')
     svg_content = svg_content.replace("fill='#ffffff'", "fill='none'")
 
-    # Osadz logo bezposrednio w SVG (nie jako <image href>)
+    # Osadź logo bezpośrednio w SVG (nie jako <image href>)
     defs, visual, logo_vb_w, logo_vb_h = _read_logo_svg_parts()
     if visual:
         viewbox_match = re.search(r'viewBox="([^"]*)"', svg_content)

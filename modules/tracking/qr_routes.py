@@ -15,16 +15,16 @@ COOKIE_MAX_AGE = 365 * 24 * 60 * 60  # 1 year
 
 @tracking_bp.route('/qr/<slug>')
 def qr_redirect(slug):
-    """Publiczny endpoint QR - rejestruje wizyte i przekierowuje"""
+    """Publiczny endpoint QR - rejestruje wizytę i przekierowuje"""
     campaign = QRCampaign.query.filter_by(slug=slug, is_deleted=False).first()
     if not campaign:
         abort(404)
 
-    # Redirect bez trackingu jesli kampania nieaktywna
+    # Redirect bez trackingu jeśli kampania nieaktywna
     if not campaign.is_active:
         return redirect(campaign.target_url, code=302)
 
-    # Identyfikacja odwiedzajacego
+    # Identyfikacja odwiedzającego
     visitor_id = request.cookies.get(COOKIE_NAME)
     set_cookie = False
 
@@ -39,7 +39,7 @@ def qr_redirect(slug):
     else:
         cookie_value = visitor_id
 
-    # Sprawdz unikalnosc
+    # Sprawdź unikalność
     is_unique = not QRVisit.query.filter_by(
         campaign_id=campaign.id,
         visitor_id=visitor_id
@@ -53,7 +53,7 @@ def qr_redirect(slug):
     client_ip = get_client_ip(request)
     geo = get_geolocation(client_ip)
 
-    # Zapisz wizyte
+    # Zapisz wizytę
     visit = QRVisit(
         campaign_id=campaign.id,
         visitor_id=visitor_id,

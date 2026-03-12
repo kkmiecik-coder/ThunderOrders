@@ -30,7 +30,7 @@ def export_visits_xlsx(campaign, visits):
     ws['A3'] = f'Eksport: {__import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")}'
 
     headers = [
-        'Data/Godzina', 'Typ urz.', 'Przegladarka', 'System',
+        'Data/Godzina', 'Typ urz.', 'Przeglądarka', 'System',
         'Kraj', 'Miasto', 'IP', 'Unikalny', 'Referer'
     ]
 

@@ -111,14 +111,14 @@
             } else {
                 checkbox.checked = !checkbox.checked;
                 if (window.Toast) {
-                    window.Toast.show(data.error || 'Wystapil blad', 'error');
+                    window.Toast.show(data.error || 'Wystąpił błąd', 'error');
                 }
             }
         })
         .catch(function () {
             checkbox.checked = !checkbox.checked;
             if (window.Toast) {
-                window.Toast.show('Blad polaczenia z serwerem', 'error');
+                window.Toast.show('Błąd połączenia z serwerem', 'error');
             }
         });
     };
@@ -128,7 +128,7 @@
     // ========================================
 
     window.deleteCampaign = function (id, name) {
-        if (!confirm('Czy na pewno chcesz usunac kampanie "' + name + '"?\nTa operacja jest nieodwracalna.')) {
+        if (!confirm('Czy na pewno chcesz usunąć kampanię "' + name + '"?\nTa operacja jest nieodwracalna.')) {
             return;
         }
 

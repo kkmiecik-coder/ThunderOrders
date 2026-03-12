@@ -30,7 +30,7 @@ POLISH_CHARS = {
 
 
 def slugify(text):
-    """Generuje slug z tekstu (obsluguje polskie znaki)."""
+    """Generuje slug z tekstu (obsługuje polskie znaki)."""
     for pl_char, ascii_char in POLISH_CHARS.items():
         text = text.replace(pl_char, ascii_char)
     text = unicodedata.normalize('NFKD', text)
@@ -42,7 +42,7 @@ def slugify(text):
 
 
 def _ensure_unique_slug(slug, exclude_id=None):
-    """Sprawdza unikalnosc sluga i dodaje suffix jesli trzeba."""
+    """Sprawdza unikalność sluga i dodaje suffix jeśli trzeba."""
     original = slug
     counter = 1
     while True:
@@ -63,7 +63,7 @@ def _ensure_unique_slug(slug, exclude_id=None):
 @login_required
 @role_required('admin', 'mod')
 def qr_campaigns_list():
-    """Lista wszystkich kampanii QR (bez usunietych)."""
+    """Lista wszystkich kampanii QR (bez usuniętych)."""
     campaigns = (
         QRCampaign.query
         .filter_by(is_deleted=False)
@@ -110,7 +110,7 @@ def qr_campaign_new():
         db.session.add(campaign)
         db.session.commit()
 
-        flash(f'Kampania "{name}" zostala utworzona.', 'success')
+        flash(f'Kampania "{name}" została utworzona.', 'success')
         return redirect(url_for('tracking.qr_campaign_detail', campaign_id=campaign.id))
 
     return render_template('admin/tracking/campaign_form.html', campaign=None)
@@ -147,7 +147,7 @@ def qr_campaign_edit(campaign_id):
         campaign.target_url = target_url
         db.session.commit()
 
-        flash(f'Kampania "{name}" zostala zaktualizowana.', 'success')
+        flash(f'Kampania "{name}" została zaktualizowana.', 'success')
         return redirect(url_for('tracking.qr_campaign_detail', campaign_id=campaign.id))
 
     return render_template('admin/tracking/campaign_form.html', campaign=campaign)
@@ -167,7 +167,7 @@ def qr_campaign_delete(campaign_id):
     campaign.is_active = False
     db.session.commit()
 
-    flash(f'Kampania "{campaign.name}" zostala usunieta.', 'success')
+    flash(f'Kampania "{campaign.name}" została usunięta.', 'success')
     return redirect(url_for('tracking.qr_campaigns_list'))
 
 
@@ -179,7 +179,7 @@ def qr_campaign_delete(campaign_id):
 @login_required
 @role_required('admin', 'mod')
 def qr_campaign_toggle(campaign_id):
-    """Przelacz aktywnosc kampanii (AJAX)."""
+    """Przełącz aktywność kampanii (AJAX)."""
     campaign = QRCampaign.query.filter_by(id=campaign_id, is_deleted=False).first()
     if not campaign:
         return jsonify({'success': False, 'error': 'Kampania nie znaleziona'}), 404
@@ -195,14 +195,14 @@ def qr_campaign_toggle(campaign_id):
 
 
 # ---------------------------------------------------------------------------
-# Route 6: Szczegoly / statystyki
+# Route 6: Szczegóły / statystyki
 # ---------------------------------------------------------------------------
 
 @tracking_bp.route('/admin/qr-tracking/<int:campaign_id>')
 @login_required
 @role_required('admin', 'mod')
 def qr_campaign_detail(campaign_id):
-    """Strona szczegolow kampanii ze statystykami."""
+    """Strona szczegółów kampanii ze statystykami."""
     campaign = QRCampaign.query.filter_by(id=campaign_id, is_deleted=False).first_or_404()
 
     return render_template(
@@ -212,14 +212,14 @@ def qr_campaign_detail(campaign_id):
 
 
 # ---------------------------------------------------------------------------
-# Route 7: Podglad QR kodu
+# Route 7: Podgląd QR kodu
 # ---------------------------------------------------------------------------
 
 @tracking_bp.route('/admin/qr-tracking/<int:campaign_id>/qr-code')
 @login_required
 @role_required('admin', 'mod')
 def qr_campaign_qr_code(campaign_id):
-    """Podglad QR kodu kampanii."""
+    """Podgląd QR kodu kampanii."""
     campaign = QRCampaign.query.filter_by(id=campaign_id, is_deleted=False).first_or_404()
     qr_url = f'https://thunderorders.cloud/qr/{campaign.slug}'
     svg_preview = generate_qr_svg(qr_url)
@@ -267,14 +267,14 @@ def qr_campaign_download(campaign_id, format):
 
 
 # ---------------------------------------------------------------------------
-# Route 9: API - statystyki dla wykresow
+# Route 9: API - statystyki dla wykresów
 # ---------------------------------------------------------------------------
 
 @tracking_bp.route('/admin/qr-tracking/<int:campaign_id>/api/stats')
 @login_required
 @role_required('admin', 'mod')
 def qr_campaign_api_stats(campaign_id):
-    """JSON ze statystykami kampanii do wykresow."""
+    """JSON ze statystykami kampanii do wykresów."""
     campaign = QRCampaign.query.filter_by(id=campaign_id, is_deleted=False).first()
     if not campaign:
         return jsonify({'success': False, 'error': 'Kampania nie znaleziona'}), 404
@@ -311,7 +311,7 @@ def qr_campaign_api_stats(campaign_id):
         if granularity == 'monthly':
             key = v.visited_at.strftime('%Y-%m')
         elif granularity == 'weekly':
-            # Poczatek tygodnia (poniedzialek)
+            # Początek tygodnia (poniedziałek)
             monday = v.visited_at - timedelta(days=v.visited_at.weekday())
             key = monday.strftime('%Y-%m-%d')
         else:  # daily
@@ -380,7 +380,7 @@ def qr_campaign_api_stats(campaign_id):
 @login_required
 @role_required('admin', 'mod')
 def qr_campaign_api_visits(campaign_id):
-    """JSON z listą wizyt (paginacja, 50 na strone)."""
+    """JSON z listą wizyt (paginacja, 50 na stronę)."""
     campaign = QRCampaign.query.filter_by(id=campaign_id, is_deleted=False).first()
     if not campaign:
         return jsonify({'success': False, 'error': 'Kampania nie znaleziona'}), 404

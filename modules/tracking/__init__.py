@@ -1,6 +1,6 @@
 """
 Tracking Module
-System sledzenia wizyt z kodow QR
+System śledzenia wizyt z kodów QR
 """
 
 from flask import Blueprint

@@ -1,7 +1,7 @@
 {% extends "admin/base_admin.html" %}
 
 {% block title %}
-    {% if campaign %}Edytuj kampanie{% else %}Nowa kampania{% endif %} - QR Tracking
+    {% if campaign %}Edytuj kampanię{% else %}Nowa kampania{% endif %} - QR Tracking
 {% endblock %}
 
 {% block extra_css %}
@@ -19,7 +19,7 @@
                 </svg>
                 Lista kampanii
             </a>
-            <h1 class="qrt-title">{% if campaign %}Edytuj kampanie{% else %}Nowa kampania{% endif %}</h1>
+            <h1 class="qrt-title">{% if campaign %}Edytuj kampanię{% else %}Nowa kampania{% endif %}</h1>
         </div>
     </div>
 
@@ -37,7 +37,7 @@
                        name="name"
                        class="qrt-form-input"
                        required
-                       placeholder="np. Wizytowka firmowa"
+                       placeholder="np. Wizytówka firmowa"
                        value="{{ campaign.name if campaign else '' }}"
                        oninput="autoSlug(this.value)">
             </div>
@@ -54,7 +54,7 @@
                            placeholder="wizytowka-firmowa"
                            value="{{ campaign.slug if campaign else '' }}">
                 </div>
-                <span class="qrt-form-hint">Tylko male litery, cyfry i myslniki. Zostaw puste, aby wygenerowac automatycznie z nazwy.</span>
+                <span class="qrt-form-hint">Tylko małe litery, cyfry i myślniki. Zostaw puste, aby wygenerować automatycznie z nazwy.</span>
             </div>
 
             <!-- Target URL -->
@@ -66,7 +66,7 @@
                        class="qrt-form-input"
                        placeholder="https://thunderorders.cloud"
                        value="{{ campaign.target_url if campaign else 'https://thunderorders.cloud' }}">
-                <span class="qrt-form-hint">Adres strony, na ktora zostanie przekierowany uzytkownik po zeskanowaniu kodu QR.</span>
+                <span class="qrt-form-hint">Adres strony, na którą zostanie przekierowany użytkownik po zeskanowaniu kodu QR.</span>
             </div>
 
             <!-- Is Active -->
@@ -92,7 +92,7 @@
                         <polyline points="17 21 17 13 7 13 7 21"></polyline>
                         <polyline points="7 3 7 8 15 8"></polyline>
                     </svg>
-                    {% if campaign %}Zapisz zmiany{% else %}Utworz kampanie{% endif %}
+                    {% if campaign %}Zapisz zmiany{% else %}Utwórz kampanię{% endif %}
                 </button>
             </div>
         </form>

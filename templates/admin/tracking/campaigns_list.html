@@ -12,7 +12,7 @@
     <div class="qrt-header">
         <div class="qrt-header-left">
             <h1 class="qrt-title">QR Tracking</h1>
-            <p class="qrt-subtitle">Zarzadzaj kampaniami QR i sledz statystyki skanow</p>
+            <p class="qrt-subtitle">Zarządzaj kampaniami QR i śledź statystyki skanów</p>
         </div>
         <div class="qrt-header-right">
             <a href="{{ url_for('tracking.qr_campaign_new') }}" class="btn btn-primary">
@@ -101,7 +101,7 @@
                                     </a>
                                     <button type="button" class="qrt-btn-icon qrt-btn-danger"
                                             onclick="deleteCampaign({{ campaign.id }}, '{{ campaign.name|e }}')"
-                                            title="Usun">
+                                            title="Usuń">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="3 6 5 6 21 6"></polyline>
                                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -134,7 +134,7 @@
             </svg>
         </div>
         <h3>Brak kampanii QR</h3>
-        <p>Utworz pierwsza kampanie, aby zaczac sledzic skany kodow QR.</p>
+        <p>Utwórz pierwszą kampanię, aby zacząć śledzić skany kodów QR.</p>
         <a href="{{ url_for('tracking.qr_campaign_new') }}" class="btn btn-primary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
