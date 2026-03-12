@@ -7,28 +7,55 @@ from PIL import Image, ImageDraw
 
 
 LOGO_SVG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'static', 'img', 'icons', 'logo-icon.svg')
-LOGO_PNG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'static', 'img', 'icons', 'logo-icon.png')
 
 
 def _get_logo_for_png(qr_size):
-    """Laduje i skaluje logo do ~25% rozmiaru QR kodu (PNG)"""
-    logo_size = int(qr_size * 0.25)
-
-    logo_path = LOGO_PNG_PATH
-    if not os.path.exists(logo_path):
-        try:
-            import cairosvg
-            svg_path = LOGO_SVG_PATH
-            if os.path.exists(svg_path):
-                png_data = cairosvg.svg2png(url=svg_path, output_width=logo_size, output_height=logo_size)
-                return Image.open(io.BytesIO(png_data)).convert('RGBA')
-        except ImportError:
-            pass
+    """Laduje logo SVG i konwertuje na PNG przez cairosvg (~25% rozmiaru QR)."""
+    if not os.path.exists(LOGO_SVG_PATH):
         return None
 
-    logo = Image.open(logo_path).convert('RGBA')
-    logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
-    return logo
+    logo_size = int(qr_size * 0.25)
+    try:
+        import cairosvg
+        with open(LOGO_SVG_PATH, 'rb') as f:
+            svg_data = f.read()
+        png_data = cairosvg.svg2png(
+            bytestring=svg_data,
+            output_width=logo_size,
+            output_height=logo_size,
+        )
+        return Image.open(io.BytesIO(png_data)).convert('RGBA')
+    except Exception:
+        return None
+
+
+def _read_logo_svg_parts():
+    """Czyta logo SVG i zwraca (defs, visual_content, vb_width, vb_height)."""
+    if not os.path.exists(LOGO_SVG_PATH):
+        return None, None, None, None
+
+    with open(LOGO_SVG_PATH, 'r', encoding='utf-8') as f:
+        svg_content = f.read()
+
+    vb_match = re.search(r'viewBox="([^"]*)"', svg_content)
+    if not vb_match:
+        return None, None, None, None
+
+    vb = vb_match.group(1).split()
+    vb_width = float(vb[2])
+    vb_height = float(vb[3])
+
+    inner_match = re.search(r'<svg[^>]*>(.*)</svg>', svg_content, re.DOTALL)
+    if not inner_match:
+        return None, None, None, None
+
+    inner = inner_match.group(1)
+
+    defs_match = re.search(r'(<defs>.*?</defs>)', inner, re.DOTALL)
+    defs = defs_match.group(1) if defs_match else ''
+    visual = inner.replace(defs, '').strip() if defs else inner.strip()
+
+    return defs, visual, vb_width, vb_height
 
 
 def generate_qr_png(url, size=1024):
@@ -75,7 +102,7 @@ def generate_qr_png(url, size=1024):
 
 
 def generate_qr_svg(url):
-    """Generuje QR kod jako SVG z przezroczystym tlem i logo."""
+    """Generuje QR kod jako SVG z przezroczystym tlem i osadzonym logo."""
     qr = qrcode.QRCode(
         version=None,
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -96,25 +123,33 @@ def generate_qr_svg(url):
     svg_content = svg_content.replace('fill="#ffffff"', 'fill="none"')
     svg_content = svg_content.replace("fill='#ffffff'", "fill='none'")
 
-    # Dodaj logo na srodku SVG
-    if os.path.exists(LOGO_SVG_PATH):
+    # Osadz logo bezposrednio w SVG (nie jako <image href>)
+    defs, visual, logo_vb_w, logo_vb_h = _read_logo_svg_parts()
+    if visual:
         viewbox_match = re.search(r'viewBox="([^"]*)"', svg_content)
         if viewbox_match:
             vb = viewbox_match.group(1).split()
             vb_width = float(vb[2])
             vb_height = float(vb[3])
 
-            logo_size = vb_width * 0.25
-            logo_x = (vb_width - logo_size) / 2
-            logo_y = (vb_height - logo_size) / 2
+            logo_target = vb_width * 0.25
+            scale = min(logo_target / logo_vb_w, logo_target / logo_vb_h)
+            scaled_w = logo_vb_w * scale
+            scaled_h = logo_vb_h * scale
 
-            circle_r = logo_size * 0.6
+            logo_x = (vb_width - scaled_w) / 2
+            logo_y = (vb_height - scaled_h) / 2
+
+            circle_r = max(scaled_w, scaled_h) * 0.6
             circle_cx = vb_width / 2
             circle_cy = vb_height / 2
 
             logo_elements = f'''
+    {defs}
     <circle cx="{circle_cx}" cy="{circle_cy}" r="{circle_r}" fill="white"/>
-    <image href="/static/img/icons/logo-icon.svg" x="{logo_x}" y="{logo_y}" width="{logo_size}" height="{logo_size}"/>
+    <g transform="translate({logo_x}, {logo_y}) scale({scale})">
+        {visual}
+    </g>
 '''
             svg_content = svg_content.replace('</svg>', f'{logo_elements}</svg>')
 
