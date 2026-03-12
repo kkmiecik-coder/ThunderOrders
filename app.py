@@ -164,6 +164,10 @@ def register_blueprints(app):
     csrf.exempt(notifications_bp)
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
+    # Tracking module (QR campaign tracking & analytics)
+    from modules.tracking import tracking_bp
+    app.register_blueprint(tracking_bp)
+
     # Service Worker served from root scope
     @app.route('/sw.js')
     def service_worker():
