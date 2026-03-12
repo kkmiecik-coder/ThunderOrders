@@ -58,6 +58,9 @@ class Config:
     # Google Analytics 4
     GA_MEASUREMENT_ID = os.getenv('GA_MEASUREMENT_ID')
 
+    # GeoIP Database
+    GEOIP_DB_PATH = os.environ.get('GEOIP_DB_PATH') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'GeoLite2-City.mmdb')
+
     # Cloudflare Turnstile (anti-bot CAPTCHA)
     CF_TURNSTILE_SITE_KEY = os.getenv('CF_TURNSTILE_SITE_KEY', '')
     CF_TURNSTILE_SECRET_KEY = os.getenv('CF_TURNSTILE_SECRET_KEY', '')
