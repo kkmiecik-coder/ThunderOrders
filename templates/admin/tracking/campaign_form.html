@@ -9,33 +9,33 @@
 {% endblock %}
 
 {% block content %}
-<div class="qr-tracking-page">
+<div class="qrt-page">
     <!-- Page Header -->
-    <div class="page-header">
-        <div class="page-header-left">
-            <a href="{{ url_for('tracking.qr_campaigns_list') }}" class="btn-back">
+    <div class="qrt-header">
+        <div class="qrt-header-left">
+            <a href="{{ url_for('tracking.qr_campaigns_list') }}" class="qrt-back">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M19 12H5M12 19l-7-7 7-7"></path>
                 </svg>
-                Powrot do listy
+                Lista kampanii
             </a>
-            <h1>{% if campaign %}Edytuj kampanie{% else %}Nowa kampania{% endif %}</h1>
+            <h1 class="qrt-title">{% if campaign %}Edytuj kampanie{% else %}Nowa kampania{% endif %}</h1>
         </div>
     </div>
 
     <!-- Form Card -->
-    <div class="form-card">
+    <div class="qrt-form-card">
         <form method="POST"
               action="{% if campaign %}{{ url_for('tracking.qr_campaign_edit', campaign_id=campaign.id) }}{% else %}{{ url_for('tracking.qr_campaign_new') }}{% endif %}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <!-- Name -->
-            <div class="form-group">
-                <label class="form-label" for="name">Nazwa kampanii <span class="required">*</span></label>
+            <div class="qrt-form-group">
+                <label class="qrt-form-label" for="name">Nazwa kampanii <span class="required">*</span></label>
                 <input type="text"
                        id="name"
                        name="name"
-                       class="form-input"
+                       class="qrt-form-input"
                        required
                        placeholder="np. Wizytowka firmowa"
                        value="{{ campaign.name if campaign else '' }}"
@@ -43,37 +43,37 @@
             </div>
 
             <!-- Slug -->
-            <div class="form-group">
-                <label class="form-label" for="slug">Slug (adres URL)</label>
-                <div class="input-with-prefix">
-                    <span class="input-prefix">thunderorders.cloud/qr/</span>
+            <div class="qrt-form-group">
+                <label class="qrt-form-label" for="slug">Slug (adres URL)</label>
+                <div class="qrt-input-prefix-wrap">
+                    <span class="qrt-input-prefix">thunderorders.cloud/qr/</span>
                     <input type="text"
                            id="slug"
                            name="slug"
-                           class="form-input"
+                           class="qrt-form-input"
                            placeholder="wizytowka-firmowa"
                            value="{{ campaign.slug if campaign else '' }}">
                 </div>
-                <span class="form-hint">Tylko male litery, cyfry i myslniki. Zostaw puste, aby wygenerowac automatycznie z nazwy.</span>
+                <span class="qrt-form-hint">Tylko male litery, cyfry i myslniki. Zostaw puste, aby wygenerowac automatycznie z nazwy.</span>
             </div>
 
             <!-- Target URL -->
-            <div class="form-group">
-                <label class="form-label" for="target_url">Docelowy URL</label>
+            <div class="qrt-form-group">
+                <label class="qrt-form-label" for="target_url">Docelowy URL</label>
                 <input type="url"
                        id="target_url"
                        name="target_url"
-                       class="form-input"
+                       class="qrt-form-input"
                        placeholder="https://thunderorders.cloud"
                        value="{{ campaign.target_url if campaign else 'https://thunderorders.cloud' }}">
-                <span class="form-hint">Adres strony, na ktora zostanie przekierowany uzytkownik po zeskanowaniu kodu QR.</span>
+                <span class="qrt-form-hint">Adres strony, na ktora zostanie przekierowany uzytkownik po zeskanowaniu kodu QR.</span>
             </div>
 
             <!-- Is Active -->
             {% if campaign %}
-            <div class="form-group">
-                <label class="form-label">Status</label>
-                <label class="checkbox-label">
+            <div class="qrt-form-group">
+                <label class="qrt-form-label">Status</label>
+                <label class="qrt-checkbox-label">
                     <input type="checkbox"
                            name="is_active"
                            value="1"
@@ -84,7 +84,7 @@
             {% endif %}
 
             <!-- Actions -->
-            <div class="form-actions">
+            <div class="qrt-form-actions">
                 <a href="{{ url_for('tracking.qr_campaigns_list') }}" class="btn btn-secondary">Anuluj</a>
                 <button type="submit" class="btn btn-primary">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

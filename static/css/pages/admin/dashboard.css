@@ -73,18 +73,12 @@
 }
 
 .title-gradient {
-    background: linear-gradient(
-        135deg,
-        var(--kpop-purple),
-        var(--kpop-pink),
-        var(--kpop-cyan),
-        var(--kpop-purple)
-    );
+    background: linear-gradient(135deg, #8338EC, #f093fb, #4facfe, #8338EC);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: gradient-shift 3s ease infinite;
+    animation: gradient-shift 4s ease infinite;
 }
 
 .dashboard-subtitle {
@@ -673,13 +667,7 @@
 }
 
 [data-theme="dark"] .title-gradient {
-    background: linear-gradient(
-        135deg,
-        #f093fb,
-        #f5576c,
-        #00F5FF,
-        #f093fb
-    );
+    background: linear-gradient(135deg, #f093fb, #4facfe, #f5576c, #f093fb);
     background-size: 200% 200%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

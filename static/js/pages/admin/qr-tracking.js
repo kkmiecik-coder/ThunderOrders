@@ -108,22 +108,7 @@
                 if (window.Toast) {
                     window.Toast.show(data.message, 'success');
                 }
-                // Update the status badge in the same row
-                var row = checkbox.closest('tr');
-                if (row) {
-                    var badge = row.querySelector('.status-badge');
-                    if (badge) {
-                        if (data.is_active) {
-                            badge.className = 'status-badge badge-active';
-                            badge.textContent = 'Aktywna';
-                        } else {
-                            badge.className = 'status-badge badge-inactive';
-                            badge.textContent = 'Nieaktywna';
-                        }
-                    }
-                }
             } else {
-                // Revert checkbox
                 checkbox.checked = !checkbox.checked;
                 if (window.Toast) {
                     window.Toast.show(data.error || 'Wystapil blad', 'error');
@@ -346,10 +331,9 @@
         var canvas = document.getElementById(canvasId);
         if (!canvas || typeof Chart === 'undefined') return;
         if (!items || items.length === 0) {
-            // Show empty message
             var container = canvas.parentElement;
             if (container) {
-                container.innerHTML = '<div class="empty-state" style="padding: 40px 20px;"><p>Brak danych</p></div>';
+                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:var(--text-sm);">Brak danych</div>';
             }
             return;
         }
@@ -418,7 +402,7 @@
         if (!countriesData || countriesData.length === 0) {
             var container = canvas.parentElement;
             if (container) {
-                container.innerHTML = '<div class="empty-state" style="padding: 40px 20px;"><p>Brak danych</p></div>';
+                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-tertiary);font-size:var(--text-sm);">Brak danych</div>';
             }
             return;
         }
@@ -514,7 +498,7 @@
         if (!tbody) return;
 
         if (!data.visits || data.visits.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="text-align:center; padding:30px;">Brak wizyt</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-tertiary);">Brak wizyt</td></tr>';
             return;
         }
 
@@ -523,15 +507,15 @@
             html += '<tr>';
             html += '<td>' + escapeHtml(v.visited_at || '-') + '</td>';
             html += '<td>' + escapeHtml(v.device_type || '-') + '</td>';
-            html += '<td class="hide-mobile">' + escapeHtml(v.browser || '-') + '</td>';
-            html += '<td class="hide-mobile">' + escapeHtml(v.os || '-') + '</td>';
+            html += '<td class="qrt-hide-mobile">' + escapeHtml(v.browser || '-') + '</td>';
+            html += '<td class="qrt-hide-mobile">' + escapeHtml(v.os || '-') + '</td>';
             html += '<td>' + escapeHtml(v.country || '-');
             if (v.city) html += ', ' + escapeHtml(v.city);
             html += '</td>';
-            html += '<td class="hide-mobile">' + escapeHtml(v.ip_address || '-') + '</td>';
+            html += '<td class="qrt-hide-mobile">' + escapeHtml(v.ip_address || '-') + '</td>';
             html += '<td>';
             if (v.is_unique) {
-                html += '<span class="status-badge badge-unique">Unikalna</span>';
+                html += '<span class="qrt-badge qrt-badge-unique">Unikalna</span>';
             }
             html += '</td>';
             html += '</tr>';
