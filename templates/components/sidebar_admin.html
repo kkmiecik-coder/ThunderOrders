@@ -133,31 +133,47 @@
                 </a>
             </li>
 
-            <li class="sidebar-item">
-                <a href="{{ url_for('feedback.admin_list') }}"
-                   class="sidebar-link {% if request.endpoint and 'feedback' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Feedback">
-                    <img src="{{ url_for('static', filename='img/icons/feedback.svg') }}" alt="Feedback" class="sidebar-icon">
-                    <span class="sidebar-text">Feedback</span>
-                </a>
-            </li>
-
-            <li class="sidebar-item">
-                <a href="{{ url_for('admin.popups_list') }}"
-                   class="sidebar-link {% if request.endpoint and 'popup' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Popupy">
-                    <img src="{{ url_for('static', filename='img/icons/popups.svg') }}" alt="Popupy" class="sidebar-icon">
-                    <span class="sidebar-text">Popupy</span>
-                </a>
-            </li>
-
-            <li class="sidebar-item">
-                <a href="{{ url_for('admin.broadcasts_list') }}"
-                   class="sidebar-link {% if request.endpoint and 'broadcast' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Powiadomienia">
-                    <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Powiadomienia" class="sidebar-icon">
-                    <span class="sidebar-text">Powiadomienia</span>
-                </a>
+            <!-- Komunikacja (Collapsible Category) -->
+            <li class="sidebar-item sidebar-category">
+                <div class="sidebar-category-header {% if request.endpoint and ('feedback' in request.endpoint or 'popup' in request.endpoint or 'broadcast' in request.endpoint or 'tracking' in request.endpoint) %}active{% endif %}" onclick="toggleSidebarCategory(this)" data-tooltip="Komunikacja">
+                    <div class="sidebar-category-main">
+                        <img src="{{ url_for('static', filename='img/icons/feedback.svg') }}" alt="Komunikacja" class="sidebar-icon">
+                        <span class="sidebar-text">Komunikacja</span>
+                    </div>
+                    <svg class="category-chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 01.708 0L8 10.293l5.646-5.647a.5.5 0 01.708.708l-6 6a.5.5 0 01-.708 0l-6-6a.5.5 0 010-.708z"/>
+                    </svg>
+                </div>
+                <ul class="sidebar-subcategories" data-category-name="Komunikacja">
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('feedback.admin_list') }}"
+                           class="sidebar-sublink {% if request.endpoint and 'feedback' in request.endpoint %}active{% endif %}"
+                           data-tooltip="Feedback">
+                            <span class="sidebar-text">Feedback</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('admin.popups_list') }}"
+                           class="sidebar-sublink {% if request.endpoint and 'popup' in request.endpoint %}active{% endif %}"
+                           data-tooltip="Popupy">
+                            <span class="sidebar-text">Popupy</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('admin.broadcasts_list') }}"
+                           class="sidebar-sublink {% if request.endpoint and 'broadcast' in request.endpoint %}active{% endif %}"
+                           data-tooltip="Powiadomienia">
+                            <span class="sidebar-text">Powiadomienia</span>
+                        </a>
+                    </li>
+                    <li class="sidebar-subitem">
+                        <a href="{{ url_for('tracking.qr_tracking_list') }}"
+                           class="sidebar-sublink {% if request.endpoint and 'tracking' in request.endpoint %}active{% endif %}"
+                           data-tooltip="QR Tracking">
+                            <span class="sidebar-text">QR Tracking</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
         </ul>
     </nav>
