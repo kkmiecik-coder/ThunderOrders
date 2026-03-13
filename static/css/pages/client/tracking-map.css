@@ -1,0 +1,538 @@
+/* ===================================================================
+   TRACKING MAP — Shipment progress map + stepper
+   Prefix: od-tracking
+   Spec: docs/superpowers/specs/2026-03-14-interactive-tracking-map-design.md
+   =================================================================== */
+
+/* ---- Section container ---- */
+.od-tracking {
+    display: flex;
+    gap: 0;
+    margin-bottom: var(--space-6);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    min-height: 380px;
+}
+
+[data-theme="dark"] .od-tracking {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.12);
+    backdrop-filter: blur(12px);
+}
+
+/* ===================================================================
+   STEPPER — Vertical (desktop)
+   =================================================================== */
+.od-tracking__stepper {
+    width: 280px;
+    flex-shrink: 0;
+    padding: var(--space-5);
+    border-right: 1px solid var(--card-border);
+    overflow-y: auto;
+}
+
+[data-theme="dark"] .od-tracking__stepper {
+    border-right-color: rgba(240, 147, 251, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.od-tracking__stepper-scroll {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---- Individual step ---- */
+.od-step {
+    display: flex;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.od-step:hover .od-step__label {
+    color: var(--purple-400);
+}
+
+[data-theme="dark"] .od-step:hover .od-step__label {
+    color: #f093fb;
+}
+
+/* Track (circle + line) */
+.od-step__track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.od-step__circle {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 700;
+    border: 2px solid var(--gray-300);
+    background: var(--gray-100);
+    color: var(--text-tertiary);
+    position: relative;
+    z-index: 2;
+    transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .od-step__circle {
+    border-color: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.25);
+}
+
+/* Done state */
+.od-step--done .od-step__circle {
+    border-color: #34d399;
+    background: rgba(52, 211, 153, 0.1);
+    color: #34d399;
+}
+
+[data-theme="dark"] .od-step--done .od-step__circle {
+    border-color: #34d399;
+    background: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+}
+
+/* Now (active) state */
+.od-step--now .od-step__circle {
+    border-color: var(--purple-400);
+    background: rgba(90, 24, 154, 0.1);
+    color: var(--purple-400);
+    box-shadow: 0 0 12px rgba(90, 24, 154, 0.2);
+}
+
+[data-theme="dark"] .od-step--now .od-step__circle {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.12);
+    color: #f093fb;
+    box-shadow: 0 0 12px rgba(240, 147, 251, 0.25);
+}
+
+/* Pulse inside active circle */
+.od-step__pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--purple-400);
+    animation: stepPulse 2s ease-in-out infinite;
+}
+
+[data-theme="dark"] .od-step__pulse {
+    background: #f093fb;
+}
+
+@keyframes stepPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.6; }
+}
+
+/* Connector line */
+.od-step__line {
+    width: 2px;
+    flex: 1;
+    min-height: 16px;
+    background: var(--gray-200);
+    margin: 3px 0;
+}
+
+[data-theme="dark"] .od-step__line {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.od-step--done .od-step__line {
+    background: rgba(52, 211, 153, 0.3);
+}
+
+.od-step--now .od-step__line {
+    background: linear-gradient(180deg, rgba(90, 24, 154, 0.3), var(--gray-200));
+}
+
+[data-theme="dark"] .od-step--now .od-step__line {
+    background: linear-gradient(180deg, rgba(240, 147, 251, 0.3), rgba(255, 255, 255, 0.06));
+}
+
+/* Content */
+.od-step__content {
+    padding: 3px 0 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.od-step__label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    transition: color 0.2s;
+}
+
+.od-step--done .od-step__label { color: var(--text-primary); }
+.od-step--now .od-step__label { color: var(--text-primary); font-weight: 700; }
+
+[data-theme="dark"] .od-step--done .od-step__label { color: rgba(255, 255, 255, 0.75); }
+[data-theme="dark"] .od-step--now .od-step__label { color: #fff; }
+
+.od-step__date {
+    font-size: 0.68rem;
+    color: var(--text-tertiary);
+}
+
+.od-step--done .od-step__date { color: rgba(52, 211, 153, 0.7); }
+.od-step--now .od-step__date { color: var(--purple-400); }
+
+[data-theme="dark"] .od-step--done .od-step__date { color: rgba(52, 211, 153, 0.5); }
+[data-theme="dark"] .od-step--now .od-step__date { color: rgba(240, 147, 251, 0.6); }
+
+/* ===================================================================
+   MAP CONTAINER
+   =================================================================== */
+.od-tracking__map-wrap {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+}
+
+.od-tracking__map {
+    width: 100%;
+    height: 100%;
+    min-height: 380px;
+}
+
+/* Loading spinner */
+.od-tracking__loader {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-100);
+    z-index: 500;
+}
+
+[data-theme="dark"] .od-tracking__loader {
+    background: rgba(15, 15, 20, 0.8);
+}
+
+.od-tracking__spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--gray-300);
+    border-top-color: var(--purple-400);
+    border-radius: 50%;
+    animation: mapSpin 0.8s linear infinite;
+}
+
+[data-theme="dark"] .od-tracking__spinner {
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: #f093fb;
+}
+
+@keyframes mapSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* Overlay bar */
+.od-tracking__overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 1000;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(12px);
+    border-radius: 12px;
+    border: 1px solid var(--card-border);
+    box-shadow: var(--shadow-md);
+}
+
+[data-theme="dark"] .od-tracking__overlay {
+    background: rgba(15, 15, 20, 0.85);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+.od-tracking__ov-status {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.od-tracking__ov-status strong {
+    color: var(--purple-400);
+}
+
+[data-theme="dark"] .od-tracking__ov-status strong {
+    color: #f093fb;
+}
+
+.od-tracking__ov-km {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--purple-400);
+}
+
+[data-theme="dark"] .od-tracking__ov-km {
+    color: #f093fb;
+}
+
+.od-tracking__ov-km small {
+    font-weight: 400;
+    color: var(--text-tertiary);
+    font-size: 0.7rem;
+}
+
+/* ===================================================================
+   LEAFLET OVERRIDES
+   =================================================================== */
+.od-tracking .leaflet-container {
+    background: #f8f9fa !important;
+    font-family: inherit;
+}
+
+[data-theme="dark"] .od-tracking .leaflet-container {
+    background: #1a1a2e !important;
+}
+
+.od-tracking .leaflet-control-zoom {
+    border: 1px solid var(--card-border) !important;
+    border-radius: 10px !important;
+    overflow: hidden;
+}
+
+.od-tracking .leaflet-control-zoom a {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--card-border) !important;
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    font-size: 14px !important;
+}
+
+[data-theme="dark"] .od-tracking .leaflet-control-zoom {
+    border-color: rgba(240, 147, 251, 0.2) !important;
+}
+
+[data-theme="dark"] .od-tracking .leaflet-control-zoom a {
+    background: rgba(15, 15, 20, 0.9) !important;
+    color: #f093fb !important;
+    border-color: rgba(240, 147, 251, 0.1) !important;
+}
+
+.od-tracking .leaflet-control-attribution {
+    background: rgba(255, 255, 255, 0.8) !important;
+    font-size: 0.55rem !important;
+    border-radius: 6px 0 0 0;
+}
+
+[data-theme="dark"] .od-tracking .leaflet-control-attribution {
+    background: rgba(15, 15, 20, 0.7) !important;
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+[data-theme="dark"] .od-tracking .leaflet-control-attribution a {
+    color: rgba(240, 147, 251, 0.5) !important;
+}
+
+/* ===================================================================
+   CUSTOM MARKERS
+   =================================================================== */
+.tm-marker-korea {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #34d399; border: 3px solid rgba(52, 211, 153, 0.4);
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.4);
+}
+
+.tm-marker-current {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #f5576c; border: 3px solid rgba(245, 87, 108, 0.4);
+    box-shadow: 0 0 16px rgba(245, 87, 108, 0.5);
+    animation: tmPulse 2s ease-in-out infinite;
+}
+
+@keyframes tmPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 16px rgba(245, 87, 108, 0.5); }
+    50% { transform: scale(1.4); box-shadow: 0 0 28px rgba(245, 87, 108, 0.7); }
+}
+
+.tm-marker-gom {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #a78bfa; border: 3px solid rgba(167, 139, 250, 0.4);
+    box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+}
+
+.tm-marker-client {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fbbf24; border: 3px solid rgba(251, 191, 36, 0.4);
+    box-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+}
+
+/* ===================================================================
+   CUSTOM POPUPS
+   =================================================================== */
+.tm-popup .leaflet-popup-content-wrapper {
+    background: rgba(255, 255, 255, 0.97) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--card-border);
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+}
+
+.tm-popup .leaflet-popup-tip {
+    background: rgba(255, 255, 255, 0.97) !important;
+}
+
+.tm-popup .leaflet-popup-content {
+    margin: 10px 14px !important;
+    font-family: inherit !important;
+}
+
+[data-theme="dark"] .tm-popup .leaflet-popup-content-wrapper {
+    background: rgba(15, 15, 20, 0.92) !important;
+    color: #fff !important;
+    border-color: rgba(240, 147, 251, 0.2);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+[data-theme="dark"] .tm-popup .leaflet-popup-tip {
+    background: rgba(15, 15, 20, 0.92) !important;
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    border-top: none;
+    border-left: none;
+}
+
+.tm-popup__title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 3px;
+}
+
+.tm-popup__detail {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    line-height: 1.5;
+}
+
+[data-theme="dark"] .tm-popup__detail {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ===================================================================
+   RESPONSIVE — TABLET + MOBILE (<1024px)
+   =================================================================== */
+@media (max-width: 1023px) {
+    .od-tracking {
+        flex-direction: column;
+    }
+
+    .od-tracking__stepper {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--card-border);
+        padding: var(--space-3) 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .od-tracking__stepper::-webkit-scrollbar {
+        display: none;
+    }
+
+    [data-theme="dark"] .od-tracking__stepper {
+        border-bottom-color: rgba(240, 147, 251, 0.08);
+    }
+
+    .od-tracking__stepper-scroll {
+        flex-direction: row;
+        padding: 0 var(--space-4);
+        min-width: max-content;
+    }
+
+    .od-step {
+        flex-direction: column;
+        align-items: center;
+        min-width: 90px;
+    }
+
+    .od-step__track {
+        flex-direction: row;
+    }
+
+    .od-step__line {
+        width: auto;
+        min-width: 24px;
+        height: 2px;
+        min-height: unset;
+        margin: 0 3px;
+    }
+
+    .od-step__content {
+        padding: 6px 0 0;
+        align-items: center;
+        text-align: center;
+    }
+
+    .od-step__label {
+        font-size: 0.65rem;
+        white-space: nowrap;
+    }
+
+    .od-step__date {
+        font-size: 0.6rem;
+    }
+
+    .od-tracking__map {
+        min-height: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .od-tracking {
+        border-radius: 12px;
+        min-height: unset;
+    }
+
+    .od-tracking__map {
+        min-height: 250px;
+    }
+
+    .od-step {
+        min-width: 80px;
+    }
+
+    .od-step__circle {
+        width: 24px;
+        height: 24px;
+        font-size: 0.6rem;
+    }
+
+    .od-tracking__overlay {
+        bottom: 8px;
+        left: 8px;
+        right: 8px;
+        padding: 8px 12px;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+    }
+
+    .od-tracking__ov-status,
+    .od-tracking__ov-km {
+        font-size: 0.7rem;
+    }
+}
