@@ -171,28 +171,38 @@
 
         function getActiveSegmentPoints() {
             if (currentStepIdx <= 1) {
-                // At Korea — no completed, all from Korea is future
-                return { completed: [], active: [KOREA], future: fullRoute };
+                // At Korea — nothing completed yet, all future
+                return { completed: [], active: [], future: fullRoute };
             }
 
-            if (currentStepIdx <= 4) {
-                // Steps 2-4: on Korea→GOM route
-                var routeIdx = [0, 0, 4, 7, 8][currentStepIdx];
-                var nextIdx = Math.min(routeIdx + 1, ROUTE_KOREA_GOM.length - 1);
-                var completedEnd = ROUTE_KOREA_GOM.slice(0, routeIdx + 1);
-                var activeSlice = ROUTE_KOREA_GOM.slice(routeIdx, nextIdx + 1);
-                var futureSlice = ROUTE_KOREA_GOM.slice(nextIdx).concat([clientCoords]);
-                return { completed: completedEnd, active: activeSlice, future: futureSlice };
+            if (currentStepIdx === 2) {
+                // W drodze do Polski — entire Korea→GOM is the active segment
+                return { completed: [], active: ROUTE_KOREA_GOM.slice(), future: [GOM, clientCoords] };
+            }
+
+            if (currentStepIdx === 3) {
+                // Urząd Celny — most of Korea→GOM completed, last bit active
+                var customsIdx = 7; // waypoint [50, 22] near customs
+                return {
+                    completed: ROUTE_KOREA_GOM.slice(0, customsIdx),
+                    active: ROUTE_KOREA_GOM.slice(customsIdx - 1, customsIdx + 1),
+                    future: ROUTE_KOREA_GOM.slice(customsIdx).concat([clientCoords])
+                };
+            }
+
+            if (currentStepIdx === 4) {
+                // Dostarczone do GOM — all Korea→GOM completed
+                return { completed: ROUTE_KOREA_GOM.slice(), active: [], future: [GOM, clientCoords] };
             }
 
             if (currentStepIdx === 5) {
                 // Spakowane — at GOM, all Korea→GOM completed
-                return { completed: ROUTE_KOREA_GOM, active: [GOM], future: [GOM, clientCoords] };
+                return { completed: ROUTE_KOREA_GOM.slice(), active: [], future: [GOM, clientCoords] };
             }
 
             if (currentStepIdx === 6) {
-                // Wysłane — GOM→Client active
-                return { completed: ROUTE_KOREA_GOM, active: [GOM, midPL], future: [midPL, clientCoords] };
+                // Wysłane — GOM→Client is the active segment
+                return { completed: ROUTE_KOREA_GOM.slice(), active: [GOM, clientCoords], future: [] };
             }
 
             // Dostarczone — everything completed
@@ -274,6 +284,7 @@
             if (travelingDot) { map.removeLayer(travelingDot); travelingDot = null; }
             if (activePoints.length < 2) return;
 
+            var dotEl = null;
             travelingDot = L.marker(activePoints[0], {
                 icon: L.divIcon({
                     className: 'tm-marker-traveler',
@@ -282,21 +293,41 @@
                 })
             }).addTo(map);
 
-            var duration = 4000; // ms for one trip
+            var travelDuration = 6000; // ms A→B
+            var pauseDuration = 800;   // ms pause at end before restart
+            var cycleDuration = travelDuration + pauseDuration;
             var startTime = null;
 
             function animate(timestamp) {
                 if (!startTime) startTime = timestamp;
-                var elapsed = timestamp - startTime;
-                // Ping-pong: go forward then backward
-                var cycle = (elapsed % (duration * 2)) / duration;
-                var t = cycle <= 1 ? cycle : 2 - cycle;
-                // Ease in-out for smoother motion
+                var elapsed = (timestamp - startTime) % cycleDuration;
+                var t = Math.min(elapsed / travelDuration, 1);
+
+                // Ease in-out
                 t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
                 var pos = interpolateRoute(activePoints, t);
                 if (travelingDot) {
                     travelingDot.setLatLng(pos);
+
+                    // Scale down at end, scale up at start
+                    if (!dotEl) {
+                        dotEl = travelingDot.getElement();
+                    }
+                    if (dotEl) {
+                        if (elapsed > travelDuration) {
+                            // Pause phase — shrink to 0
+                            var fadeT = (elapsed - travelDuration) / pauseDuration;
+                            dotEl.style.transform += ' scale(' + (1 - fadeT) + ')';
+                            dotEl.style.opacity = 1 - fadeT;
+                        } else if (elapsed < 300) {
+                            // Fade in at start
+                            var fadeIn = elapsed / 300;
+                            dotEl.style.opacity = fadeIn;
+                        } else {
+                            dotEl.style.opacity = 1;
+                        }
+                    }
                 }
                 animFrameId = requestAnimationFrame(animate);
             }
