@@ -76,8 +76,8 @@ def generate_share_image(user, achievement, fmt='post'):
         font_small = font_title
         font_logo = font_title
 
-    # Load badge icon if exists
-    icon_filename = achievement.icon_filename or ''
+    # Load badge icon — use @512 version for share images
+    icon_filename = f'{achievement.slug}@512.png'
     icon_path = os.path.join(current_app.static_folder, 'uploads', 'achievements', icon_filename)
     icon_size = 180
     icon_y = cy - 120

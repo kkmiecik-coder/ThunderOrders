@@ -425,6 +425,10 @@ def seed_achievements():
     updated = 0
 
     for data in ACHIEVEMENTS:
+        # Auto-set icon_filename from slug if not explicitly provided
+        if 'icon_filename' not in data:
+            data['icon_filename'] = f"{data['slug']}@256.png"
+
         existing = Achievement.query.filter_by(slug=data['slug']).first()
         if existing:
             for key, value in data.items():
