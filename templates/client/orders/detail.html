@@ -4,6 +4,10 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/order-detail.css') }}">
+{% if show_tracking_map %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous" />
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/tracking-map.css') }}">
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -22,6 +26,85 @@
             {% endif %}
         </div>
     </div>
+
+    {% if show_tracking_map %}
+    <!-- ========== SHIPMENT TRACKING MAP ========== -->
+    <section class="od-tracking"
+        data-status="{{ order.status }}"
+        data-status-timestamps='{{ status_timestamps | tojson }}'
+        data-shipping-city="{{ tracking_shipping_city or '' }}"
+        data-order-status-name="{{ order.status_display_name }}">
+
+        <!-- Stepper (vertical desktop / horizontal mobile) -->
+        <div class="od-tracking__stepper">
+            <div class="od-tracking__stepper-scroll">
+                {% set step_config = [
+                    ('dostarczone_proxy', 'Zamówiono w Korei', 'korea'),
+                    ('dostarczone_proxy', 'Dostarczone do Proxy', 'korea'),
+                    ('w_drodze_polska', 'W drodze do Polski', 'midroute'),
+                    ('urzad_celny', 'Urząd Celny', 'customs'),
+                    ('dostarczone_gom', 'Dostarczone do GOM', 'gom'),
+                    ('spakowane', 'Spakowane', 'gom'),
+                    ('wyslane', 'Wysłane do klienta', 'midpl'),
+                    ('dostarczone', 'Dostarczone', 'client')
+                ] %}
+                {% set status_order = ['dostarczone_proxy', 'w_drodze_polska', 'urzad_celny', 'dostarczone_gom', 'spakowane', 'wyslane', 'dostarczone'] %}
+                {% set current_idx = status_order.index(order.status) if order.status in status_order else -1 %}
+
+                {% for trigger, label, point_id in step_config %}
+                    {% set step_idx = status_order.index(trigger) if trigger in status_order else -1 %}
+                    {% if step_idx < current_idx %}
+                        {% set state = 'done' %}
+                    {% elif step_idx == current_idx %}
+                        {% set state = 'now' %}
+                    {% else %}
+                        {% set state = 'future' %}
+                    {% endif %}
+
+                    <div class="od-step od-step--{{ state }}" data-point="{{ point_id }}" data-step-index="{{ loop.index0 }}">
+                        <div class="od-step__track">
+                            <div class="od-step__circle">
+                                {% if state == 'done' %}
+                                    <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                                {% elif state == 'now' %}
+                                    <span class="od-step__pulse"></span>
+                                {% else %}
+                                    {{ loop.index }}
+                                {% endif %}
+                            </div>
+                            {% if not loop.last %}
+                            <div class="od-step__line"></div>
+                            {% endif %}
+                        </div>
+                        <div class="od-step__content">
+                            <span class="od-step__label">{{ label }}</span>
+                            {% if state == 'done' and status_timestamps.get(trigger) %}
+                                <span class="od-step__date">{{ status_timestamps[trigger][:10] }}</span>
+                            {% elif state == 'now' %}
+                                <span class="od-step__date">W trakcie</span>
+                            {% else %}
+                                <span class="od-step__date">Oczekuje</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Map container -->
+        <div class="od-tracking__map-wrap">
+            <div id="tracking-map" class="od-tracking__map">
+                <div class="od-tracking__loader">
+                    <div class="od-tracking__spinner"></div>
+                </div>
+            </div>
+            <div class="od-tracking__overlay">
+                <span class="od-tracking__ov-status">Status: <strong>{{ order.status_display_name }}</strong></span>
+                <span class="od-tracking__ov-km" id="tracking-km"></span>
+            </div>
+        </div>
+    </section>
+    {% endif %}
 
     <!-- ========== TWO-COL LAYOUT ========== -->
     <div class="od-grid">
@@ -461,4 +544,9 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/client/order-detail.js') }}"></script>
+{% if show_tracking_map %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/utils/polish-cities.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/client/tracking-map.js') }}"></script>
+{% endif %}
 {% endblock %}
