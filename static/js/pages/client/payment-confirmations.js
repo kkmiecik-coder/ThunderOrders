@@ -1179,13 +1179,25 @@ window.toggleOrderItems = function(orderId, totalItems) {
         }
 
         try {
+            console.log('[PaymentQR] Connecting Socket.IO...');
             paymentSocket = io({ transports: ['websocket', 'polling'] });
 
             paymentSocket.on('connect', function() {
+                console.log('[PaymentQR] Connected! sid=' + paymentSocket.id);
                 paymentSocket.emit('join_payment_upload', { session_token: sessionToken });
+                console.log('[PaymentQR] Joined room for token: ' + sessionToken);
+            });
+
+            paymentSocket.on('connect_error', function(err) {
+                console.error('[PaymentQR] Connection error:', err.message);
+            });
+
+            paymentSocket.on('disconnect', function(reason) {
+                console.log('[PaymentQR] Disconnected:', reason);
             });
 
             paymentSocket.on('payment_photo_uploaded', function(data) {
+                console.log('[PaymentQR] Received payment_photo_uploaded event:', data);
                 if (data.session_token === sessionToken) {
                     onQrPhotoUploaded(data.filename);
                 }

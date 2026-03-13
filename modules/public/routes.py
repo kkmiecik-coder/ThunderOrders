@@ -202,7 +202,9 @@ def payment_upload_photo(session_token):
         db.session.commit()
 
         # Notify desktop via Socket.IO
+        current_app.logger.info(f'[PaymentQR] Upload success, calling notify for token: {session_token}')
         notify_payment_uploaded(session_token, unique_filename)
+        current_app.logger.info(f'[PaymentQR] Notify completed for token: {session_token}')
 
         return jsonify({
             'success': True,
@@ -212,4 +214,6 @@ def payment_upload_photo(session_token):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Payment QR upload error: {e}')
+        import traceback
+        current_app.logger.error(f'Payment QR upload traceback: {traceback.format_exc()}')
         return jsonify({'success': False, 'message': 'Wystąpił błąd podczas uploadu'}), 500
