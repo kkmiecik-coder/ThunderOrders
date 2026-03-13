@@ -592,13 +592,22 @@ document.addEventListener('DOMContentLoaded', function() {
     function scalePreview() {
         var viewport = document.getElementById('share-viewport');
         var r = RATIOS[currentRatio];
-        // Reset viewport height so we can measure parent width
         viewport.style.height = 'auto';
         var maxW = viewport.clientWidth;
-        var scale = Math.min(maxW / r.w, 1);
+        // Calculate max available height: window minus other modal elements
+        var card = viewport.closest('.share-preview__card');
+        var otherH = 0;
+        if (card) {
+            Array.prototype.forEach.call(card.children, function(el) {
+                if (el !== viewport) otherH += el.offsetHeight;
+            });
+            var cardStyle = getComputedStyle(card);
+            otherH += parseInt(cardStyle.paddingTop) + parseInt(cardStyle.paddingBottom);
+        }
+        var maxH = window.innerHeight - otherH - 40; // 40px safety margin
+        var scale = Math.min(maxW / r.w, maxH / r.h, 1);
         shareCanvas.style.transform = 'scale(' + scale + ')';
         shareCanvas.style.transformOrigin = 'top center';
-        // Set viewport height to match scaled canvas (transform doesn't affect layout)
         viewport.style.height = Math.ceil(r.h * scale) + 'px';
     }
 
