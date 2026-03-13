@@ -1732,6 +1732,37 @@ def client_detail(order_id):
                 from modules.exclusive.reservation import get_set_probabilities
                 set_probabilities = get_set_probabilities(order)
 
+    # --- Tracking map data ---
+    tracking_statuses = [
+        'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny',
+        'dostarczone_gom', 'spakowane', 'wyslane', 'dostarczone'
+    ]
+    show_tracking_map = order.status in tracking_statuses
+
+    status_timestamps = {}
+    if show_tracking_map:
+        from modules.admin.models import ActivityLog
+        logs = ActivityLog.query.filter_by(
+            entity_type='order',
+            entity_id=order.id
+        ).filter(
+            ActivityLog.action.in_(['order_status_change', 'order_status_auto_updated'])
+        ).order_by(ActivityLog.created_at.asc()).all()
+
+        for log in logs:
+            try:
+                data = json.loads(log.new_value) if log.new_value else {}
+                slug = data.get('status')
+                if slug:
+                    status_timestamps[slug] = log.created_at.strftime('%Y-%m-%dT%H:%M')
+            except (ValueError, TypeError):
+                pass
+
+    # Shipping city for client marker (fallback chain)
+    tracking_shipping_city = order.shipping_city
+    if not tracking_shipping_city and order.shipping_request:
+        tracking_shipping_city = order.shipping_request.shipping_city
+
     return render_template(
         'client/orders/detail.html',
         order=order,
@@ -1739,6 +1770,9 @@ def client_detail(order_id):
         order_history=order_history,
         set_probabilities=set_probabilities,
         has_set_sections=has_set_sections,
+        show_tracking_map=show_tracking_map,
+        status_timestamps=status_timestamps,
+        tracking_shipping_city=tracking_shipping_city,
         page_title=f'Zamówienie {order.order_number}'
     )
 
