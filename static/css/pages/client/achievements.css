@@ -1034,6 +1034,176 @@
 }
 
 /* ================================================
+   Share Preview Modal
+   ================================================ */
+.share-preview {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.share-preview.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.share-preview.closing {
+    opacity: 0;
+}
+
+.share-preview__card {
+    background: #1a1a2e;
+    border-radius: 20px;
+    padding: 24px;
+    max-width: 520px;
+    width: 94%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.3s ease;
+    overflow: hidden;
+}
+
+.share-preview.active .share-preview__card {
+    transform: scale(1) translateY(0);
+}
+
+.share-preview__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+    align-self: flex-start;
+    transition: color 0.2s ease;
+}
+
+.share-preview__back:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.share-preview__ratios {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.share-preview__ratio {
+    padding: 8px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.share-preview__ratio:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.share-preview__ratio.active {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.2), rgba(245, 87, 108, 0.2));
+    border-color: rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+}
+
+.share-preview__viewport {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.share-preview__canvas {
+    transform-origin: top center;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.share-preview__buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.share-preview__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.share-preview__btn--native {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+    color: #fff;
+    box-shadow: 0 4px 18px rgba(240, 147, 251, 0.25);
+}
+
+.share-preview__btn--native:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(240, 147, 251, 0.35);
+}
+
+.share-preview__btn--download {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.share-preview__btn--download:hover {
+    background: rgba(255, 255, 255, 0.14);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.share-preview__btn svg {
+    flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+    .share-preview__card {
+        padding: 16px;
+        border-radius: 16px;
+    }
+
+    .share-preview__buttons {
+        flex-direction: column;
+    }
+
+    .share-preview__btn {
+        justify-content: center;
+    }
+}
+
+/* ================================================
    Dashboard Widget
    ================================================ */
 .achievements-widget {
@@ -1142,7 +1312,7 @@
     }
 
     .achievements-grid {
-        grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         gap: 10px;
     }
 

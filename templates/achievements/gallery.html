@@ -51,8 +51,38 @@
             <span class="badge-spotlight__stat" id="badge-detail-stat"></span>
             <span class="badge-spotlight__date" id="badge-detail-unlock-date"></span>
         </div>
-        <div class="badge-spotlight__actions">
-            <button class="badge-spotlight__share-btn" id="btn-share-badge" style="display:none;">Udostępnij</button>
+        <div class="badge-spotlight__actions" id="badge-actions">
+            <button class="badge-spotlight__share-btn" id="btn-share-badge" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Udostępnij
+            </button>
+        </div>
+    </div>
+</div>
+<!-- Share Preview Modal -->
+<div id="share-preview-modal" class="share-preview">
+    <div class="share-preview__card">
+        <button class="share-preview__back" id="share-back-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Wróć
+        </button>
+        <div class="share-preview__ratios">
+            <button class="share-preview__ratio active" data-ratio="1:1">1:1</button>
+            <button class="share-preview__ratio" data-ratio="9:16">9:16</button>
+            <button class="share-preview__ratio" data-ratio="3:4">3:4</button>
+        </div>
+        <div class="share-preview__viewport" id="share-viewport">
+            <div class="share-preview__canvas" id="share-canvas"></div>
+        </div>
+        <div class="share-preview__buttons">
+            <button class="share-preview__btn share-preview__btn--native" id="btn-native-share" style="display:none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+                Udostępnij
+            </button>
+            <button class="share-preview__btn share-preview__btn--download" id="btn-download-share">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Pobierz obrazek
+            </button>
         </div>
     </div>
 </div>

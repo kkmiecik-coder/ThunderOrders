@@ -1,5 +1,5 @@
 # modules/achievements/routes.py
-from flask import render_template, request, jsonify
+from flask import render_template, request, jsonify, send_file
 from flask_login import login_required, current_user
 from modules.achievements import achievements_bp
 from modules.achievements.services import AchievementService
@@ -70,9 +70,8 @@ def api_my():
 @achievements_bp.route('/api/<int:achievement_id>/share', methods=['POST'])
 @login_required
 def api_share(achievement_id):
-    """Generate share image and mark as shared."""
+    """Mark achievement as shared."""
     from modules.achievements.models import UserAchievement
-    from modules.achievements.share import generate_share_image
     from extensions import db
 
     ua = UserAchievement.query.filter_by(
@@ -81,15 +80,39 @@ def api_share(achievement_id):
     if not ua:
         return jsonify({'success': False, 'error': 'Achievement not unlocked'}), 404
 
-    fmt = request.json.get('format', 'post') if request.is_json else 'post'
-    image_url = generate_share_image(current_user, ua.achievement, fmt)
-
     if not ua.shared:
         ua.shared = True
         db.session.commit()
-        # Check share-related achievements
         service.check_event(current_user, 'achievement_shared', {
             'is_full_share': False,
         })
 
-    return jsonify({'success': True, 'image_url': image_url})
+    return jsonify({'success': True})
+
+
+@achievements_bp.route('/api/<int:achievement_id>/share-image')
+@login_required
+def api_share_image(achievement_id):
+    """Generate and return share image as PNG."""
+    from modules.achievements.models import UserAchievement
+    from modules.achievements.share import generate_share_image
+
+    ua = UserAchievement.query.filter_by(
+        user_id=current_user.id, achievement_id=achievement_id
+    ).first()
+    if not ua:
+        return jsonify({'success': False, 'error': 'Achievement not unlocked'}), 404
+
+    fmt = request.args.get('format', '1:1')
+    if fmt not in ('1:1', '9:16', '3:4'):
+        fmt = '1:1'
+
+    buf = generate_share_image(
+        ua.achievement,
+        fmt=fmt,
+        unlocked_at=ua.unlocked_at,
+        stat_percentage=ua.achievement.stat.percentage if ua.achievement.stat else 0,
+    )
+
+    filename = f'{ua.achievement.slug}-{fmt.replace(":", "x")}.png'
+    return send_file(buf, mimetype='image/png', download_name=filename)
