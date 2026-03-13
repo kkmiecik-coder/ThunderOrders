@@ -180,6 +180,12 @@
     <script src="{{ url_for('static', filename='js/components/popup-announcements.js') }}"></script>
     {% endif %}
 
+    <!-- Achievements Unlock Animation + Checker - dla wszystkich zalogowanych -->
+    {% if current_user.is_authenticated %}
+    <script src="{{ url_for('static', filename='js/components/achievement-unlock.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/achievements-checker.js') }}"></script>
+    {% endif %}
+
     {% block extra_js %}{% endblock %}
 
     <!-- Flash messages as toasts -->

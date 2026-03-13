@@ -145,6 +145,13 @@ def collection_add():
 
         db.session.commit()
 
+        # Achievement hook: collection item added
+        try:
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'collection_add')
+        except Exception:
+            pass
+
         return jsonify({
             'success': True,
             'message': 'Przedmiot dodany do kolekcji',
@@ -288,6 +295,13 @@ def collection_add_image(item_id):
         db.session.add(image)
         db.session.commit()
 
+        # Achievement hook: photo uploaded
+        try:
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'photo_upload')
+        except Exception:
+            pass
+
         return jsonify({
             'success': True,
             'message': 'Zdjęcie dodane',
@@ -402,6 +416,13 @@ def collection_public_create():
         )
         db.session.add(config)
         db.session.commit()
+
+        # Achievement hook: collection made public
+        try:
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'collection_public_toggle')
+        except Exception:
+            pass
 
         return jsonify({
             'success': True,

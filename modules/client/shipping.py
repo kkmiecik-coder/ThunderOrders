@@ -103,6 +103,13 @@ def shipping_address_add():
         db.session.add(address)
         db.session.commit()
 
+        # Achievement hook: address added
+        try:
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'address_added')
+        except Exception:
+            pass
+
         return jsonify({
             'success': True,
             'message': 'Adres został dodany',

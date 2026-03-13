@@ -1,0 +1,63 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Osiągnięcia - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/achievements.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="achievements-page">
+    <!-- Summary bar -->
+    <div class="achievements-header">
+        <h2 class="achievements-title">Moje osiągnięcia</h2>
+        <div class="achievements-summary" id="achievements-summary">
+            <span class="summary-count"><strong id="summary-unlocked">0</strong> / <span id="summary-total">0</span></span>
+            <span class="summary-label">zdobytych</span>
+        </div>
+    </div>
+
+    <!-- Category filters -->
+    <div class="achievements-filters" id="achievements-filters">
+        <button class="filter-pill active" data-category="all">Wszystkie</button>
+        <button class="filter-pill" data-category="orders">Zamówienia</button>
+        <button class="filter-pill" data-category="collection">Kolekcja</button>
+        <button class="filter-pill" data-category="loyalty">Lojalność</button>
+        <button class="filter-pill" data-category="speed">Szybkość</button>
+        <button class="filter-pill" data-category="exclusive">Exclusive</button>
+        <button class="filter-pill" data-category="social">Social</button>
+        <button class="filter-pill" data-category="financial">Finanse</button>
+        <button class="filter-pill" data-category="profile">Profil</button>
+    </div>
+
+    <!-- Badge grid — populated by JS from /achievements/api/my -->
+    <div class="achievements-grid" id="achievements-grid">
+        <div class="achievements-loading">Ładowanie odznak...</div>
+    </div>
+</div>
+
+<!-- Badge Spotlight Modal -->
+<div id="badge-detail-modal" class="badge-spotlight" data-rarity="common">
+    <div class="badge-spotlight__card">
+        <button class="badge-spotlight__close" id="badge-modal-close">&times;</button>
+        <div class="badge-spotlight__icon-wrap">
+            <div class="badge-spotlight__icon" id="badge-detail-icon"></div>
+        </div>
+        <h3 class="badge-spotlight__name" id="badge-detail-name"></h3>
+        <p class="badge-spotlight__desc" id="badge-detail-desc"></p>
+        <div class="badge-spotlight__rarity" id="badge-detail-rarity"></div>
+        <div class="badge-spotlight__progress-wrap" id="badge-detail-progress"></div>
+        <div class="badge-spotlight__meta">
+            <span class="badge-spotlight__stat" id="badge-detail-stat"></span>
+            <span class="badge-spotlight__date" id="badge-detail-unlock-date"></span>
+        </div>
+        <div class="badge-spotlight__actions">
+            <button class="badge-spotlight__share-btn" id="btn-share-badge" style="display:none;">Udostępnij</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/achievements.js') }}"></script>
+{% endblock %}

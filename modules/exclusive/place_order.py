@@ -454,6 +454,25 @@ def place_exclusive_order(page, session_id, order_note=None, full_set_items=None
         import logging
         logging.getLogger(__name__).error(f"Socket.IO emit failed for page {page.id}: {str(e)}")
 
+    # 12d. Achievement hook: order placed
+    try:
+        from flask import request as flask_request
+        from modules.achievements.services import AchievementService
+        page_entered_at = None
+        try:
+            page_entered_at = flask_request.form.get('page_entered_at', type=float)
+        except Exception:
+            pass
+        AchievementService().check_event(current_user, 'order_placed', {
+            'items_count': total_items_count,
+            'total_amount': float(order.total_amount),
+            'is_exclusive': True,
+            'exclusive_page_starts_at': page.starts_at,
+            'page_entered_at': page_entered_at,
+        })
+    except Exception:
+        pass
+
     # 13. Return success
     return True, {
         'order_id': order.id,

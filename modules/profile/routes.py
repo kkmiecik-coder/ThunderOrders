@@ -69,6 +69,14 @@ def update_profile():
         current_user.phone = phone if phone else None
 
         db.session.commit()
+
+        # Achievement hook: profile update
+        try:
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'profile_update')
+        except Exception:
+            pass
+
         flash('Dane zostały zaktualizowane.', 'success')
 
     except Exception as e:
@@ -405,6 +413,13 @@ def save_avatar():
     try:
         current_user.avatar_id = avatar_id
         db.session.commit()
+
+        # Achievement hook: avatar change
+        try:
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'avatar_change')
+        except Exception:
+            pass
 
         flash('Avatar został zapisany.', 'success')
         return redirect(url_for('profile.index'))

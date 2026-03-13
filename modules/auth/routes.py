@@ -174,6 +174,7 @@ def login():
         # Logowanie pomyślne
         login_user(user, remember=remember)
         user.update_last_login()
+        user.update_login_streak()
         record_login_attempt(email, ip_address, success=True)
 
         return jsonify({
@@ -232,6 +233,7 @@ def login():
         # Logowanie pomyślne
         login_user(user, remember=remember)
         user.update_last_login()
+        user.update_login_streak()
         record_login_attempt(email, ip_address, success=True)
 
         # Sprawdź czy profil jest kompletny
@@ -394,6 +396,13 @@ def verify_email(token):
     user.verify_email()
     db.session.commit()
 
+    # Achievement hook: email verified
+    try:
+        from modules.achievements.services import AchievementService
+        AchievementService().check_event(user, 'email_verify')
+    except Exception:
+        pass
+
     # Wyślij email powitalny
     from utils.email_manager import EmailManager
     EmailManager.send_welcome(user)
@@ -526,6 +535,13 @@ def verify_email_code(token):
         db.session.commit()
 
         if success:
+            # Achievement hook: email verified
+            try:
+                from modules.achievements.services import AchievementService
+                AchievementService().check_event(user, 'email_verify')
+            except Exception:
+                pass
+
             # Wyślij email powitalny
             from utils.email_manager import EmailManager
             EmailManager.send_welcome(user)
@@ -715,9 +731,16 @@ def oauth_callback(provider):
             else:
                 user.facebook_id = oauth_id
             # Oznacz email jako zweryfikowany (provider gwarantuje)
-            if not user.email_verified:
+            was_unverified = not user.email_verified
+            if was_unverified:
                 user.email_verified = True
             db.session.commit()
+            if was_unverified:
+                try:
+                    from modules.achievements.services import AchievementService
+                    AchievementService().check_event(user, 'email_verify')
+                except Exception:
+                    pass
         else:
             # 3. Stwórz nowe konto
             user = User(
@@ -748,6 +771,7 @@ def oauth_callback(provider):
     # Zaloguj użytkownika
     login_user(user, remember=True)
     user.update_last_login()
+    user.update_login_streak()
 
     # Redirect
     if not user.profile_completed:

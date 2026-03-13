@@ -413,6 +413,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Achievements Widget -->
+    <div class="achievements-widget" id="achievements-widget">
+        <div class="widget-header">
+            <h3>Moje odznaki</h3>
+            <a href="{{ url_for('achievements.gallery') }}" class="widget-link">Zobacz wszystkie &rarr;</a>
+        </div>
+        <div class="widget-badges" id="widget-badges">
+            <div style="font-size:12px;opacity:0.5;">Ładowanie...</div>
+        </div>
+        <div class="widget-stats" id="widget-stats"></div>
+    </div>
 </div>
 {% endblock %}
 
@@ -940,6 +952,43 @@ document.addEventListener('DOMContentLoaded', function() {
 
             updateButtonText(remaining);
         });
+    })();
+
+    // ====================================
+    // ACHIEVEMENTS WIDGET
+    // ====================================
+    (function() {
+        fetch('/achievements/api/my', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) return;
+            var unlocked = data.achievements.filter(function(a) { return a.unlocked; });
+            var recent = unlocked.slice(-5).reverse();
+            var badgesEl = document.getElementById('widget-badges');
+            var statsEl = document.getElementById('widget-stats');
+
+            if (recent.length === 0) {
+                badgesEl.innerHTML = '<div style="font-size:12px;opacity:0.5;">Brak zdobytych odznak</div>';
+            } else {
+                var badgesHtml = recent.map(function(a) {
+                    var icon = a.icon_filename
+                        ? '<img src="/static/uploads/achievements/' + a.icon_filename + '" style="width:36px;height:36px;object-fit:contain;">'
+                        : '&#127942;';
+                    return '<div class="widget-badge">'
+                        + '<div class="widget-badge-icon badge-icon ' + a.rarity + '">' + icon + '</div>'
+                        + '<div class="widget-badge-name">' + a.name + '</div>'
+                        + '</div>';
+                }).join('');
+                badgesEl.innerHTML = badgesHtml;
+            }
+
+            statsEl.innerHTML = '<span><strong>' + data.summary.unlocked + '</strong> zdobytych</span>'
+                + '<span><strong>' + data.summary.total + '</strong> wszystkich</span>'
+                + '<span><strong>' + data.summary.percent + '%</strong> ukończono</span>';
+        })
+        .catch(function() {});
     })();
 });
 </script>

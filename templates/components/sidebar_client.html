@@ -47,6 +47,15 @@
                 </a>
             </li>
 
+            <li class="sidebar-item">
+                <a href="{{ url_for('achievements.gallery') }}"
+                   class="sidebar-link {% if request.endpoint and 'achievements' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Osiągnięcia">
+                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Osiągnięcia" class="sidebar-icon">
+                    <span class="sidebar-text">Osiągnięcia</span>
+                </a>
+            </li>
+
             <li class="sidebar-item sidebar-category {% if request.endpoint and 'shipping' in request.endpoint %}expanded{% endif %}">
                 <div class="sidebar-category-header" onclick="toggleSidebarCategory(this)">
                     <div class="sidebar-category-main">

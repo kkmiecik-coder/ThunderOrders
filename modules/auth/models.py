@@ -104,6 +104,10 @@ class User(UserMixin, db.Model):
     last_login = db.Column(db.DateTime)
     login_count = db.Column(db.Integer, default=0, nullable=False)
 
+    # Login streak (for achievements)
+    login_streak = db.Column(db.Integer, default=0)
+    last_login_date = db.Column(db.Date, nullable=True)
+
     # User Preferences
     dark_mode_enabled = db.Column(db.Boolean, default=False)
     sidebar_collapsed = db.Column(db.Boolean, default=False)
@@ -163,6 +167,26 @@ class User(UserMixin, db.Model):
         if not self.password_hash:
             return False
         return check_password_hash(self.password_hash, password)
+
+    # ============================================
+    # Login Streak
+    # ============================================
+
+    def update_login_streak(self):
+        """Update login streak on login. Call after login_user()."""
+        from datetime import date, timedelta
+        today = date.today()
+
+        if self.last_login_date == today:
+            return  # Already logged in today
+
+        if self.last_login_date == today - timedelta(days=1):
+            self.login_streak = (self.login_streak or 0) + 1
+        else:
+            self.login_streak = 1
+
+        self.last_login_date = today
+        db.session.commit()
 
     # ============================================
     # Token Generation Methods

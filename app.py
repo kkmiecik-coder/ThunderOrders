@@ -168,6 +168,11 @@ def register_blueprints(app):
     from modules.tracking import tracking_bp
     app.register_blueprint(tracking_bp)
 
+    # Achievements module
+    from modules.achievements import achievements_bp
+    csrf.exempt(achievements_bp)
+    app.register_blueprint(achievements_bp, url_prefix='/achievements')
+
     # Service Worker served from root scope
     @app.route('/sw.js')
     def service_worker():
@@ -419,6 +424,34 @@ def register_cli_commands(app):
                 db.session.commit()
 
         click.echo(f"\n{'[DRY RUN] ' if dry_run else ''}Zaktualizowano: {total_updated} pozycji")
+
+    @app.cli.group()
+    def achievements():
+        """Achievement management commands."""
+        pass
+
+    @achievements.command('seed')
+    def seed_command():
+        """Seed all 47 achievements into the database."""
+        from modules.achievements.seed import seed_achievements
+        created, updated = seed_achievements()
+        click.echo(f'Achievements seeded: {created} created, {updated} updated.')
+
+    @achievements.command('check-daily')
+    def check_daily_command():
+        """Run daily cron checks for time-based achievements."""
+        from modules.achievements.services import AchievementService
+        service = AchievementService()
+        results = service.run_daily_checks()
+        click.echo(f'Daily check complete: {results["unlocked"]} new unlocks, stats updated.')
+
+    @achievements.command('backfill')
+    def backfill_command():
+        """One-time retroactive check — unlock achievements for existing users."""
+        from modules.achievements.services import AchievementService
+        service = AchievementService()
+        results = service.backfill_all()
+        click.echo(f'Backfill complete: {results["unlocked"]} achievements unlocked for {results["users"]} users.')
 
 
 def register_error_handlers(app):
