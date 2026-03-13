@@ -239,7 +239,77 @@
             }
         }
 
+        // ===== ANIMATED TRAVELING DOT =====
+        var travelingDot = null;
+        var animFrameId = null;
+
+        function interpolateRoute(points, t) {
+            // t is 0..1 along the full polyline
+            if (points.length < 2) return points[0] || KOREA;
+            // Calculate total length and find segment
+            var dists = [];
+            var total = 0;
+            for (var i = 1; i < points.length; i++) {
+                var d = haversine(points[i-1][0], points[i-1][1], points[i][0], points[i][1]);
+                dists.push(d);
+                total += d;
+            }
+            var target = t * total;
+            var acc = 0;
+            for (var j = 0; j < dists.length; j++) {
+                if (acc + dists[j] >= target) {
+                    var segT = (target - acc) / dists[j];
+                    return [
+                        points[j][0] + (points[j+1][0] - points[j][0]) * segT,
+                        points[j][1] + (points[j+1][1] - points[j][1]) * segT
+                    ];
+                }
+                acc += dists[j];
+            }
+            return points[points.length - 1];
+        }
+
+        function startTravelingDot(activePoints) {
+            if (animFrameId) cancelAnimationFrame(animFrameId);
+            if (travelingDot) { map.removeLayer(travelingDot); travelingDot = null; }
+            if (activePoints.length < 2) return;
+
+            travelingDot = L.marker(activePoints[0], {
+                icon: L.divIcon({
+                    className: 'tm-marker-traveler',
+                    iconSize: [10, 10],
+                    iconAnchor: [5, 5]
+                })
+            }).addTo(map);
+
+            var duration = 4000; // ms for one trip
+            var startTime = null;
+
+            function animate(timestamp) {
+                if (!startTime) startTime = timestamp;
+                var elapsed = timestamp - startTime;
+                // Ping-pong: go forward then backward
+                var cycle = (elapsed % (duration * 2)) / duration;
+                var t = cycle <= 1 ? cycle : 2 - cycle;
+                // Ease in-out for smoother motion
+                t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+                var pos = interpolateRoute(activePoints, t);
+                if (travelingDot) {
+                    travelingDot.setLatLng(pos);
+                }
+                animFrameId = requestAnimationFrame(animate);
+            }
+            animFrameId = requestAnimationFrame(animate);
+        }
+
         drawRoute();
+
+        // Start traveling dot on active segment
+        var activeSegment = getActiveSegmentPoints();
+        if (activeSegment.active.length > 1) {
+            startTravelingDot(activeSegment.active);
+        }
 
         // ===== MARKERS =====
         L.marker(KOREA, { icon: makeIcon('tm-marker-korea') }).addTo(map)
@@ -306,6 +376,9 @@
                         attribution: TILE_ATTRIB, maxZoom: 18
                     }).addTo(map);
                     drawRoute();
+                    // Restart traveling dot
+                    var seg = getActiveSegmentPoints();
+                    if (seg.active.length > 1) startTravelingDot(seg.active);
                 }
             });
         });

@@ -379,6 +379,14 @@
     box-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
 }
 
+.tm-marker-traveler {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 4px rgba(240, 147, 251, 0.6);
+    z-index: 900 !important;
+}
+
 /* ===================================================================
    CUSTOM POPUPS
    =================================================================== */
