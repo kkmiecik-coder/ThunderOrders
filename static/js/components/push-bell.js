@@ -55,6 +55,10 @@
     var isMobileOpen = false;
     var mobileLoadedIds = new Set();
 
+    // === State: unread IDs seen while dropdown/overlay was open ===
+    var seenUnreadIds = new Set();
+    var mobileSeenUnreadIds = new Set();
+
     // === Notification type → icon mapping ===
     var TYPE_ICONS = {
         order_status_changes: 'img/icons/check-circle.svg',
@@ -309,6 +313,10 @@
                     loadedNotifIds.clear();
                 }
 
+                if (!append) {
+                    seenUnreadIds.clear();
+                }
+
                 if (notifications.length === 0 && !append) {
                     notifEmpty.style.display = '';
                 } else {
@@ -317,6 +325,9 @@
                         if (!loadedNotifIds.has(n.id)) {
                             loadedNotifIds.add(n.id);
                             notifList.appendChild(renderNotifItem(n, notifList));
+                        }
+                        if (!n.is_read) {
+                            seenUnreadIds.add(n.id);
                         }
                     });
                 }
@@ -344,6 +355,7 @@
                 if (!append) {
                     mobileNotifList.querySelectorAll('.notif-item').forEach(function (el) { el.remove(); });
                     mobileLoadedIds.clear();
+                    mobileSeenUnreadIds.clear();
                 }
 
                 if (notifications.length === 0 && !append) {
@@ -354,6 +366,9 @@
                         if (!mobileLoadedIds.has(n.id)) {
                             mobileLoadedIds.add(n.id);
                             mobileNotifList.appendChild(renderNotifItem(n, mobileNotifList));
+                        }
+                        if (!n.is_read) {
+                            mobileSeenUnreadIds.add(n.id);
                         }
                     });
                 }
@@ -431,6 +446,36 @@
         .catch(function () {});
     }
 
+    // === Mark seen unread notifications as read ===
+    function markSeenAsRead(idSet, listEl) {
+        if (idSet.size === 0) return;
+        var ids = Array.from(idSet);
+        idSet.clear();
+        markAsRead(ids);
+        // Update UI immediately
+        if (listEl) {
+            ids.forEach(function (id) {
+                var item = listEl.querySelector('.notif-item[data-notif-id="' + id + '"]');
+                if (item) {
+                    item.classList.remove('notif-unread');
+                    var dot = item.querySelector('.notif-unread-dot');
+                    if (dot) dot.remove();
+                }
+            });
+        }
+    }
+
+    // Mark as read when navigating away while dropdown/overlay is open
+    window.addEventListener('beforeunload', function () {
+        var allSeenIds = [];
+        seenUnreadIds.forEach(function (id) { allSeenIds.push(id); });
+        mobileSeenUnreadIds.forEach(function (id) { allSeenIds.push(id); });
+        if (allSeenIds.length === 0) return;
+        // Use sendBeacon for reliability during page unload
+        var data = JSON.stringify({ ids: allSeenIds });
+        navigator.sendBeacon('/notifications/mark-read', new Blob([data], { type: 'application/json' }));
+    });
+
     // === Push status ===
     function updatePushStatus() {
         var PN = window.PushNotifications;
@@ -460,6 +505,7 @@
         if (!isOpen) return;
         isOpen = false;
         dropdown.classList.remove('active');
+        markSeenAsRead(seenUnreadIds, notifList);
     }
 
     // === Mobile: Open/Close overlay ===
@@ -477,6 +523,7 @@
         isMobileOpen = false;
         mobileOverlay.classList.remove('active');
         document.body.style.overflow = '';
+        markSeenAsRead(mobileSeenUnreadIds, mobileNotifList);
     }
 
     // === Event listeners (desktop) ===
