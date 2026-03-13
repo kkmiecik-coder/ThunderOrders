@@ -21,7 +21,7 @@ window.openPaymentForOrder = function(btnEl) {
     }
 
     setTimeout(function() {
-        var executeBtn = document.getElementById('execute-payment-btn');
+        var executeBtn = document.getElementById('bulk-execute-payment-btn');
         if (executeBtn) executeBtn.click();
     }, 50);
 };
@@ -99,9 +99,10 @@ window.toggleOrderItems = function(orderId, totalItems) {
     }
 
     // === DOM REFERENCES ===
-    var selectAllCb = document.getElementById('select-all');
-    var executePaymentBtn = document.getElementById('execute-payment-btn');
-    var selectedCountEl = document.getElementById('selected-count');
+    var bulkToolbar = document.getElementById('pcBulkToolbar');
+    var bulkSelectedCount = document.getElementById('pcSelectedCount');
+    var bulkSelectedTotal = document.getElementById('pcSelectedTotal');
+    var bulkExecuteBtn = document.getElementById('bulk-execute-payment-btn');
     var paymentModal = document.getElementById('payment-modal');
     var modalCloseBtn = document.getElementById('modal-close-btn');
     var totalAmountValue = document.getElementById('total-amount-value');
@@ -110,6 +111,12 @@ window.toggleOrderItems = function(orderId, totalItems) {
     var proofFileInput = document.getElementById('proof-file');
     var filePreview = document.getElementById('file-preview');
     var submitBtn = document.getElementById('submit-btn');
+
+    // QR Upload state
+    var paymentSocket = null;
+    var currentQrSessionToken = null;
+    var qrUploadedFilename = null;
+
     var paymentMethodsContainer = document.getElementById('payment-methods-container');
     var wizardNextBtn = document.getElementById('wizard-next-btn');
     var wizardBackBtn = document.getElementById('wizard-back-btn');
@@ -122,16 +129,27 @@ window.toggleOrderItems = function(orderId, totalItems) {
     // === INICJALIZACJA ===
 
     function init() {
-        if (!selectAllCb) return;
+        var orderCheckboxes = document.querySelectorAll('.order-checkbox');
+        if (orderCheckboxes.length === 0) return;
 
-        selectAllCb.addEventListener('change', handleSelectAll);
-
-        document.querySelectorAll('.order-checkbox').forEach(function (cb) {
+        orderCheckboxes.forEach(function (cb) {
             cb.addEventListener('change', handleOrderCheckboxChange);
         });
 
-        if (executePaymentBtn) {
-            executePaymentBtn.addEventListener('click', openPaymentModal);
+        if (bulkExecuteBtn) {
+            bulkExecuteBtn.addEventListener('click', openPaymentModal);
+        }
+
+        var selectAllToggle = document.getElementById('select-all-toggle');
+        if (selectAllToggle) {
+            selectAllToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                var enabledCbs = document.querySelectorAll('.order-checkbox:not([disabled])');
+                var allChecked = Array.from(enabledCbs).every(function(cb) { return cb.checked; });
+                enabledCbs.forEach(function(cb) { cb.checked = !allChecked; });
+                this.textContent = allChecked ? 'Zaznacz wszystkie' : 'Odznacz wszystkie';
+                syncSelectedOrders();
+            });
         }
 
         document.querySelectorAll('.pc-upload-btn').forEach(function (btn) {
@@ -180,6 +198,16 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
         if (uploadForm) {
             uploadForm.addEventListener('submit', handleUploadSubmit);
+        }
+
+        // QR Upload buttons
+        var qrBtn = document.getElementById('pc-qr-btn');
+        if (qrBtn) {
+            qrBtn.addEventListener('click', startPaymentQrSession);
+        }
+        var qrCancelBtn = document.getElementById('pc-qr-cancel-btn');
+        if (qrCancelBtn) {
+            qrCancelBtn.addEventListener('click', cancelPaymentQr);
         }
 
         initDragDrop();
@@ -476,14 +504,6 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
     // === SELECT / DESELECT ===
 
-    function handleSelectAll() {
-        var checked = selectAllCb.checked;
-        document.querySelectorAll('.order-checkbox:not([disabled])').forEach(function (cb) {
-            cb.checked = checked;
-        });
-        syncSelectedOrders();
-    }
-
     function handleOrderCheckboxChange() {
         syncSelectedOrders();
     }
@@ -537,20 +557,44 @@ window.toggleOrderItems = function(orderId, totalItems) {
     function updateUI() {
         var count = selectedOrders.size;
 
-        if (selectedCountEl) {
-            selectedCountEl.textContent = count;
+        if (bulkToolbar) {
+            if (count > 0) {
+                bulkToolbar.classList.remove('hidden');
+                bulkSelectedCount.textContent = count + ' zaznaczonych';
+
+                var total = 0;
+                selectedOrders.forEach(function(data) {
+                    // E1: Produkt - do zapłaty jeśli nie approved i nie pending
+                    var ps = data.productStatus;
+                    if (ps !== 'approved' && ps !== 'pending') {
+                        total += data.amount;
+                    }
+                    // E2: Wysyłka KR (tylko 4-etapowe)
+                    if (data.canUploadStage2) {
+                        total += data.proxyShippingAmount;
+                    }
+                    // E3: Cło/VAT
+                    if (data.canUploadStage3) {
+                        total += data.customsVatAmount;
+                    }
+                    // E4: Wysyłka PL
+                    if (data.canUploadStage4) {
+                        total += data.shippingCostAmount;
+                    }
+                });
+                if (bulkSelectedTotal) {
+                    bulkSelectedTotal.textContent = total.toFixed(2) + ' zł';
+                }
+            } else {
+                bulkToolbar.classList.add('hidden');
+            }
         }
 
-        if (executePaymentBtn) {
-            executePaymentBtn.disabled = count === 0;
-        }
-
-        if (selectAllCb) {
-            var enabledCheckboxes = document.querySelectorAll('.order-checkbox:not([disabled])');
-            var checkedCount = document.querySelectorAll('.order-checkbox:checked').length;
-
-            selectAllCb.checked = checkedCount > 0 && checkedCount === enabledCheckboxes.length;
-            selectAllCb.indeterminate = checkedCount > 0 && checkedCount < enabledCheckboxes.length;
+        var selectAllToggle = document.getElementById('select-all-toggle');
+        if (selectAllToggle) {
+            var enabledCbs = document.querySelectorAll('.order-checkbox:not([disabled])');
+            var allChecked = enabledCbs.length > 0 && Array.from(enabledCbs).every(function(cb) { return cb.checked; });
+            selectAllToggle.textContent = allChecked ? 'Odznacz wszystkie' : 'Zaznacz wszystkie';
         }
     }
 
@@ -617,6 +661,9 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
             var dropzone = document.getElementById('upload-dropzone');
             if (dropzone) dropzone.classList.remove('pc-upload-dragover');
+
+            // Reset QR state
+            resetQrState();
         }, 350);
     }
 
@@ -830,8 +877,12 @@ window.toggleOrderItems = function(orderId, totalItems) {
     function handleUploadSubmit(event) {
         event.preventDefault();
 
-        if (!proofFileInput || !proofFileInput.files[0]) {
-            showToast('Wybierz plik potwierdzenia.', 'error');
+        // Check if file uploaded via QR or local file
+        var hasLocalFile = proofFileInput && proofFileInput.files[0];
+        var hasQrFile = qrUploadedFilename && currentQrSessionToken;
+
+        if (!hasLocalFile && !hasQrFile) {
+            showToast('Wybierz plik potwierdzenia lub wgraj z telefonu.', 'error');
             return;
         }
 
@@ -852,7 +903,11 @@ window.toggleOrderItems = function(orderId, totalItems) {
         }
 
         var formData = new FormData();
-        formData.append('proof_file', proofFileInput.files[0]);
+        if (hasQrFile) {
+            formData.append('qr_session_token', currentQrSessionToken);
+        } else {
+            formData.append('proof_file', proofFileInput.files[0]);
+        }
         formData.append('order_stages', JSON.stringify(orderStagesArr));
 
         // Wyślij wybraną metodę płatności
@@ -1055,6 +1110,172 @@ window.toggleOrderItems = function(orderId, totalItems) {
     function escapeAttr(text) {
         if (!text) return '';
         return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // === QR UPLOAD (Socket.IO) ===
+
+    function startPaymentQrSession() {
+        var csrfToken = document.querySelector('meta[name="csrf-token"]');
+        var headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
+        if (csrfToken) headers['X-CSRFToken'] = csrfToken.content;
+
+        var qrBtn = document.getElementById('pc-qr-btn');
+        if (qrBtn) {
+            qrBtn.disabled = true;
+            qrBtn.textContent = 'Generowanie...';
+        }
+
+        fetch('/client/payment-confirmations/qr-session', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({})
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                showToast(data.message || 'Błąd', 'error');
+                if (qrBtn) {
+                    qrBtn.disabled = false;
+                    qrBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/></svg> Wgraj z telefonu (QR)';
+                }
+                return;
+            }
+
+            currentQrSessionToken = data.session_token;
+            qrUploadedFilename = null;
+
+            // Show QR
+            var qrImg = document.getElementById('pc-qr-image');
+            var qrDisplay = document.getElementById('pc-qr-display');
+            var qrUploaded = document.getElementById('pc-qr-uploaded');
+
+            if (qrImg) qrImg.src = data.qr_data_uri;
+            if (qrDisplay) qrDisplay.style.display = '';
+            if (qrBtn) qrBtn.style.display = 'none';
+            if (qrUploaded) qrUploaded.style.display = 'none';
+
+            // Hide regular upload area
+            var uploadForm = document.getElementById('upload-form');
+            var uploadOr = document.querySelector('.pc-upload-or');
+            if (uploadForm) uploadForm.style.display = 'none';
+            if (uploadOr) uploadOr.style.display = 'none';
+
+            // Connect Socket.IO
+            connectPaymentSocket(data.session_token);
+        })
+        .catch(function(err) {
+            console.error('QR session error:', err);
+            showToast('Błąd połączenia', 'error');
+            if (qrBtn) {
+                qrBtn.disabled = false;
+                qrBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/></svg> Wgraj z telefonu (QR)';
+            }
+        });
+    }
+
+    function connectPaymentSocket(sessionToken) {
+        if (paymentSocket) {
+            paymentSocket.disconnect();
+        }
+
+        try {
+            paymentSocket = io({ transports: ['websocket', 'polling'] });
+
+            paymentSocket.on('connect', function() {
+                paymentSocket.emit('join_payment_upload', { session_token: sessionToken });
+            });
+
+            paymentSocket.on('payment_photo_uploaded', function(data) {
+                if (data.session_token === sessionToken) {
+                    onQrPhotoUploaded(data.filename);
+                }
+            });
+        } catch (e) {
+            console.error('Socket.IO unavailable:', e);
+        }
+    }
+
+    function onQrPhotoUploaded(filename) {
+        qrUploadedFilename = filename;
+
+        // Hide QR, show success
+        var qrDisplay = document.getElementById('pc-qr-display');
+        var qrUploaded = document.getElementById('pc-qr-uploaded');
+        var filenameEl = document.getElementById('pc-qr-uploaded-filename');
+
+        if (qrDisplay) qrDisplay.style.display = 'none';
+        if (qrUploaded) qrUploaded.style.display = '';
+        if (filenameEl) filenameEl.textContent = filename.replace(/^[0-9a-f]{32}_/, '');
+
+        // Enable submit button
+        if (submitBtn) {
+            submitBtn.style.display = '';
+            submitBtn.disabled = false;
+        }
+        // Hide the "Dalej" button if visible
+        var nextBtn = document.getElementById('wizard-next-btn');
+        if (nextBtn) nextBtn.style.display = 'none';
+
+        // Disconnect socket
+        if (paymentSocket) {
+            paymentSocket.disconnect();
+            paymentSocket = null;
+        }
+
+        showToast('Potwierdzenie wgrane z telefonu!', 'success');
+    }
+
+    function cancelPaymentQr() {
+        currentQrSessionToken = null;
+        qrUploadedFilename = null;
+
+        // Hide QR, show button + upload form again
+        var qrDisplay = document.getElementById('pc-qr-display');
+        var qrBtn = document.getElementById('pc-qr-btn');
+        var uploadForm = document.getElementById('upload-form');
+        var uploadOr = document.querySelector('.pc-upload-or');
+        var qrUploaded = document.getElementById('pc-qr-uploaded');
+
+        if (qrDisplay) qrDisplay.style.display = 'none';
+        if (qrUploaded) qrUploaded.style.display = 'none';
+        if (qrBtn) {
+            qrBtn.style.display = '';
+            qrBtn.disabled = false;
+            qrBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/></svg> Wgraj z telefonu (QR)';
+        }
+        if (uploadForm) uploadForm.style.display = '';
+        if (uploadOr) uploadOr.style.display = '';
+
+        if (paymentSocket) {
+            paymentSocket.disconnect();
+            paymentSocket = null;
+        }
+    }
+
+    function resetQrState() {
+        currentQrSessionToken = null;
+        qrUploadedFilename = null;
+
+        var qrDisplay = document.getElementById('pc-qr-display');
+        var qrBtn = document.getElementById('pc-qr-btn');
+        var uploadForm = document.getElementById('upload-form');
+        var uploadOr = document.querySelector('.pc-upload-or');
+        var qrUploaded = document.getElementById('pc-qr-uploaded');
+
+        if (qrDisplay) qrDisplay.style.display = 'none';
+        if (qrUploaded) qrUploaded.style.display = 'none';
+        if (qrBtn) {
+            qrBtn.style.display = '';
+            qrBtn.disabled = false;
+            qrBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="14" y="2" width="8" height="8" rx="1"/><rect x="2" y="14" width="8" height="8" rx="1"/><rect x="14" y="14" width="4" height="4"/></svg> Wgraj z telefonu (QR)';
+        }
+        if (uploadForm) uploadForm.style.display = '';
+        if (uploadOr) uploadOr.style.display = '';
+
+        if (paymentSocket) {
+            paymentSocket.disconnect();
+            paymentSocket = null;
+        }
     }
 
     // === START ===

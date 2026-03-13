@@ -9,136 +9,160 @@
 
 {% block content %}
 <div class="pc-list-page">
-    <!-- Page Header + Filters -->
-    <div class="page-header">
+    <!-- Page Header -->
+    <div class="page-header pc-page-header">
         <div class="page-header-left">
             <h1>Potwierdzenia płatności</h1>
         </div>
-        <div class="pc-filters-bar">
-            <div class="pc-filter-dropdown-wrapper">
-                <button type="button" class="pc-filter-toggle" id="pcFilterToggle">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
-                    </svg>
-                    Filtry
-                    {% set active_count = (1 if status_filter != 'all' else 0) + (1 if stage_filter != 'all' else 0) + (1 if ocr_filter != 'all' else 0) %}
-                    {% if active_count > 0 %}
-                    <span class="pc-filter-badge">{{ active_count }}</span>
-                    {% endif %}
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" class="pc-filter-arrow">
-                        <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
-                    </svg>
-                </button>
-                <div class="pc-filter-panel" id="pcFilterPanel">
-                    <div class="pc-filter-group">
-                        <div class="pc-filter-group-label">Status</div>
-                        <div class="pc-filter-options">
-                            <a href="{{ url_for('admin.payment_confirmations_list', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if status_filter == 'all' %}active{% endif %}">
-                                Wszystkie <span class="pc-filter-count">{{ pending_count + approved_count + rejected_count }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', status='pending', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if status_filter == 'pending' %}active{% endif %}">
-                                Oczekujące <span class="pc-filter-count">{{ pending_count }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', status='approved', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if status_filter == 'approved' %}active{% endif %}">
-                                Zaakceptowane <span class="pc-filter-count">{{ approved_count }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', status='rejected', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if status_filter == 'rejected' %}active{% endif %}">
-                                Odrzucone <span class="pc-filter-count">{{ rejected_count }}</span>
-                            </a>
-                        </div>
+    </div>
+
+    <!-- Tabs Navigation (styl jak exclusive) -->
+    <div class="pc-tabs-navigation">
+        <a href="{{ url_for('admin.payment_confirmations_list', tab='active') }}"
+           class="pc-tab-button {% if tab == 'active' %}pc-tab-active{% endif %}">
+            Aktywne
+            {% if active_total > 0 %}
+            <span class="pc-tab-badge">{{ active_total }}</span>
+            {% endif %}
+        </a>
+        <a href="{{ url_for('admin.payment_confirmations_list', tab='archive') }}"
+           class="pc-tab-button {% if tab == 'archive' %}pc-tab-active{% endif %}">
+            Archiwum
+            {% if archive_count > 0 %}
+            <span class="pc-tab-badge pc-tab-badge-muted">{{ archive_count }}</span>
+            {% endif %}
+        </a>
+    </div>
+
+    <!-- Filters (only for active tab) -->
+    {% if tab == 'active' %}
+    <div class="pc-filters-bar">
+        <div class="pc-filter-dropdown-wrapper">
+            <button type="button" class="pc-filter-toggle" id="pcFilterToggle">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+                </svg>
+                Filtry
+                {% set active_count = (1 if status_filter != 'all' else 0) + (1 if stage_filter != 'all' else 0) + (1 if ocr_filter != 'all' else 0) %}
+                {% if active_count > 0 %}
+                <span class="pc-filter-badge">{{ active_count }}</span>
+                {% endif %}
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" class="pc-filter-arrow">
+                    <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+                </svg>
+            </button>
+            <div class="pc-filter-panel" id="pcFilterPanel">
+                <div class="pc-filter-group">
+                    <div class="pc-filter-group-label">Status</div>
+                    <div class="pc-filter-options">
+                        <a href="{{ url_for('admin.payment_confirmations_list', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if status_filter == 'all' %}active{% endif %}">
+                            Wszystkie <span class="pc-filter-count">{{ pending_count + approved_count + rejected_count }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', status='pending', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if status_filter == 'pending' %}active{% endif %}">
+                            Oczekujące <span class="pc-filter-count">{{ pending_count }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', status='approved', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if status_filter == 'approved' %}active{% endif %}">
+                            Zaakceptowane <span class="pc-filter-count">{{ approved_count }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', status='rejected', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if status_filter == 'rejected' %}active{% endif %}">
+                            Odrzucone <span class="pc-filter-count">{{ rejected_count }}</span>
+                        </a>
                     </div>
-                    <div class="pc-filter-group">
-                        <div class="pc-filter-group-label">Etap</div>
-                        <div class="pc-filter-options">
-                            <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if stage_filter == 'all' %}active{% endif %}">
-                                Wszystkie
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', stage='product', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if stage_filter == 'product' %}active{% endif %}">
-                                Produkt <span class="pc-filter-count">{{ stage_counts.product }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', stage='korean_shipping', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if stage_filter == 'korean_shipping' %}active{% endif %}">
-                                Wysyłka KR <span class="pc-filter-count">{{ stage_counts.korean_shipping }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', stage='customs_vat', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if stage_filter == 'customs_vat' %}active{% endif %}">
-                                Cło/VAT <span class="pc-filter-count">{{ stage_counts.customs_vat }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', stage='domestic_shipping', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if stage_filter == 'domestic_shipping' %}active{% endif %}">
-                                Wysyłka PL <span class="pc-filter-count">{{ stage_counts.domestic_shipping }}</span>
-                            </a>
-                        </div>
+                </div>
+                <div class="pc-filter-group">
+                    <div class="pc-filter-group-label">Etap</div>
+                    <div class="pc-filter-options">
+                        <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if stage_filter == 'all' %}active{% endif %}">
+                            Wszystkie
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', stage='product', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if stage_filter == 'product' %}active{% endif %}">
+                            Produkt <span class="pc-filter-count">{{ stage_counts.product }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', stage='korean_shipping', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if stage_filter == 'korean_shipping' %}active{% endif %}">
+                            Wysyłka KR <span class="pc-filter-count">{{ stage_counts.korean_shipping }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', stage='customs_vat', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if stage_filter == 'customs_vat' %}active{% endif %}">
+                            Cło/VAT <span class="pc-filter-count">{{ stage_counts.customs_vat }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', stage='domestic_shipping', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if stage_filter == 'domestic_shipping' %}active{% endif %}">
+                            Wysyłka PL <span class="pc-filter-count">{{ stage_counts.domestic_shipping }}</span>
+                        </a>
                     </div>
-                    <div class="pc-filter-group">
-                        <div class="pc-filter-group-label">OCR</div>
-                        <div class="pc-filter-options">
-                            <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if ocr_filter == 'all' %}active{% endif %}">
-                                Wszystkie
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', ocr='auto', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if ocr_filter == 'auto' %}active{% endif %}">
-                                Auto-zatwierdzone <span class="pc-filter-count">{{ auto_approved_count }}</span>
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', ocr='suggested', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if ocr_filter == 'suggested' %}active{% endif %}">
-                                Sugerowane
-                            </a>
-                            <a href="{{ url_for('admin.payment_confirmations_list', ocr='manual', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
-                               class="pc-filter-option {% if ocr_filter == 'manual' %}active{% endif %}">
-                                Ręczne
-                            </a>
-                        </div>
+                </div>
+                <div class="pc-filter-group">
+                    <div class="pc-filter-group-label">OCR</div>
+                    <div class="pc-filter-options">
+                        <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if ocr_filter == 'all' %}active{% endif %}">
+                            Wszystkie
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', ocr='auto', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if ocr_filter == 'auto' %}active{% endif %}">
+                            Auto-zatwierdzone <span class="pc-filter-count">{{ auto_approved_count }}</span>
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', ocr='suggested', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if ocr_filter == 'suggested' %}active{% endif %}">
+                            Sugerowane
+                        </a>
+                        <a href="{{ url_for('admin.payment_confirmations_list', ocr='manual', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                           class="pc-filter-option {% if ocr_filter == 'manual' %}active{% endif %}">
+                            Ręczne
+                        </a>
                     </div>
                 </div>
             </div>
-
-            <!-- Active filter badges -->
-            <div class="pc-active-filters">
-                {% if status_filter != 'all' %}
-                <a href="{{ url_for('admin.payment_confirmations_list', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                   class="pc-active-tag">
-                    {% if status_filter == 'pending' %}Oczekujące
-                    {% elif status_filter == 'approved' %}Zaakceptowane
-                    {% elif status_filter == 'rejected' %}Odrzucone
-                    {% endif %}
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                    </svg>
-                </a>
-                {% endif %}
-                {% if stage_filter != 'all' %}
-                <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
-                   class="pc-active-tag">
-                    {% if stage_filter == 'product' %}Produkt
-                    {% elif stage_filter == 'korean_shipping' %}Wysyłka KR
-                    {% elif stage_filter == 'customs_vat' %}Cło/VAT
-                    {% elif stage_filter == 'domestic_shipping' %}Wysyłka PL
-                    {% endif %}
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                    </svg>
-                </a>
-                {% endif %}
-                {% if ocr_filter != 'all' %}
-                <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
-                   class="pc-active-tag">
-                    OCR: {% if ocr_filter == 'auto' %}Auto{% elif ocr_filter == 'suggested' %}Sugerowane{% elif ocr_filter == 'manual' %}Ręczne{% endif %}
-                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
-                    </svg>
-                </a>
-                {% endif %}
-            </div>
         </div>
     </div>
+    {% endif %}
+
+    <!-- Active filter badges -->
+    {% if tab == 'active' %}
+    <div class="pc-active-filters">
+        {% if status_filter != 'all' %}
+        <a href="{{ url_for('admin.payment_confirmations_list', stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+           class="pc-active-tag">
+            {% if status_filter == 'pending' %}Oczekujące
+            {% elif status_filter == 'approved' %}Zaakceptowane
+            {% elif status_filter == 'rejected' %}Odrzucone
+            {% endif %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </a>
+        {% endif %}
+        {% if stage_filter != 'all' %}
+        <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+           class="pc-active-tag">
+            {% if stage_filter == 'product' %}Produkt
+            {% elif stage_filter == 'korean_shipping' %}Wysyłka KR
+            {% elif stage_filter == 'customs_vat' %}Cło/VAT
+            {% elif stage_filter == 'domestic_shipping' %}Wysyłka PL
+            {% endif %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </a>
+        {% endif %}
+        {% if ocr_filter != 'all' %}
+        <a href="{{ url_for('admin.payment_confirmations_list', status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+           class="pc-active-tag">
+            OCR: {% if ocr_filter == 'auto' %}Auto{% elif ocr_filter == 'suggested' %}Sugerowane{% elif ocr_filter == 'manual' %}Ręczne{% endif %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+            </svg>
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
 
     <!-- Karty mobilne -->
     <div class="pc-cards-mobile">
@@ -487,7 +511,7 @@
             </div>
             <div class="pagination-controls">
                 {% if pagination.has_prev %}
-                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.prev_num, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.prev_num, tab=tab, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
                    class="pagination-btn">
                     &laquo; Poprzednia
                 </a>
@@ -495,7 +519,7 @@
 
                 {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                     {% if page_num %}
-                        <a href="{{ url_for('admin.payment_confirmations_list', page=page_num, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', page=page_num, tab=tab, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
                            class="pagination-btn {% if page_num == pagination.page %}active{% endif %}">
                             {{ page_num }}
                         </a>
@@ -505,7 +529,7 @@
                 {% endfor %}
 
                 {% if pagination.has_next %}
-                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.next_num, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
+                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.next_num, tab=tab, status=status_filter if status_filter != 'all' else none, stage=stage_filter if stage_filter != 'all' else none) }}"
                    class="pagination-btn">
                     Następna &raquo;
                 </a>
@@ -526,7 +550,9 @@
                 {% endif %}
             </svg>
             <h3>
-                {% if status_filter == 'pending' %}
+                {% if tab == 'archive' %}
+                    Brak archiwalnych potwierdzeń
+                {% elif status_filter == 'pending' %}
                     Brak oczekujących potwierdzeń
                 {% elif status_filter == 'approved' %}
                     Brak zaakceptowanych potwierdzeń
@@ -537,7 +563,9 @@
                 {% endif %}
             </h3>
             <p>
-                {% if status_filter == 'pending' %}
+                {% if tab == 'archive' %}
+                    Zatwierdzone potwierdzenia starsze niż 3 dni pojawią się tutaj.
+                {% elif status_filter == 'pending' %}
                     Wszystkie potwierdzenia zostały rozpatrzone.
                 {% else %}
                     Klienci jeszcze nie wgrali potwierdzeń płatności.
@@ -628,7 +656,7 @@
                 <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                 </svg>
-                Odrzuć
+                Potwierdź odrzucenie
             </button>
         </div>
     </div>

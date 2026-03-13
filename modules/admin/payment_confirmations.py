@@ -80,14 +80,42 @@ def payment_confirmations_list():
     """
     Lista potwierdzeń płatności
     Sortowanie: pending first (oldest first), potem approved/rejected (newest first)
+    Zakładki: active (domyślna) i archive
     """
+    from sqlalchemy import case
+    from datetime import timedelta
+
+    # Zakładka
+    tab = request.args.get('tab', 'active')
+
     # Filtry
     status_filter = request.args.get('status', 'all')
     stage_filter = request.args.get('stage', 'all')
     ocr_filter = request.args.get('ocr', 'all')
 
+    # Granica archiwum: 3 dni od teraz
+    archive_cutoff = get_local_now() - timedelta(days=3)
+
     # Bazowe query
     query = PaymentConfirmation.query.join(Order)
+
+    # Filtruj po zakładce (active vs archive)
+    # Archive = approved AND updated_at < 3 dni temu
+    if tab == 'archive':
+        query = query.filter(
+            PaymentConfirmation.status == 'approved',
+            PaymentConfirmation.updated_at < archive_cutoff
+        )
+    else:
+        # Active = NOT (approved AND updated_at < 3 dni temu)
+        query = query.filter(
+            db.not_(
+                db.and_(
+                    PaymentConfirmation.status == 'approved',
+                    PaymentConfirmation.updated_at < archive_cutoff
+                )
+            )
+        )
 
     # Filtruj po statusie
     if status_filter != 'all':
@@ -119,21 +147,22 @@ def payment_confirmations_list():
             )
         )
 
-    # Sortowanie: pending first (oldest first), potem reszta (newest first)
-    from sqlalchemy import case
-    query = query.order_by(
-        # Pending first (value 0), then approved/rejected (value 1)
-        case(
-            (PaymentConfirmation.status == 'pending', 0),
-            else_=1
-        ).asc(),
-        # For pending: oldest first (uploaded_at ASC)
-        # For others: newest first (uploaded_at DESC)
-        case(
-            (PaymentConfirmation.status == 'pending', PaymentConfirmation.uploaded_at),
-            else_=PaymentConfirmation.updated_at
-        ).asc()
-    )
+    # Sortowanie
+    if tab == 'archive':
+        # Archive: newest first
+        query = query.order_by(PaymentConfirmation.updated_at.desc())
+    else:
+        # Active: pending first (oldest first), potem reszta (newest first)
+        query = query.order_by(
+            case(
+                (PaymentConfirmation.status == 'pending', 0),
+                else_=1
+            ).asc(),
+            case(
+                (PaymentConfirmation.status == 'pending', PaymentConfirmation.uploaded_at),
+                else_=PaymentConfirmation.updated_at
+            ).asc()
+        )
 
     # Paginacja
     page = request.args.get('page', 1, type=int)
@@ -152,10 +181,25 @@ def payment_confirmations_list():
             if conf.proof_file:
                 proof_file_map[conf.proof_file] = group
 
-    # Statystyki statusów
-    pending_count = PaymentConfirmation.query.filter_by(status='pending').count()
-    approved_count = PaymentConfirmation.query.filter_by(status='approved').count()
-    rejected_count = PaymentConfirmation.query.filter_by(status='rejected').count()
+    # Statystyki statusów (tylko dla aktywnych)
+    active_base = PaymentConfirmation.query.filter(
+        db.not_(
+            db.and_(
+                PaymentConfirmation.status == 'approved',
+                PaymentConfirmation.updated_at < archive_cutoff
+            )
+        )
+    )
+    pending_count = active_base.filter(PaymentConfirmation.status == 'pending').count()
+    approved_count = active_base.filter(PaymentConfirmation.status == 'approved').count()
+    rejected_count = active_base.filter(PaymentConfirmation.status == 'rejected').count()
+
+    # Licznik aktywnych i archiwalnych (do badge w zakładkach)
+    active_total = active_base.count()
+    archive_count = PaymentConfirmation.query.filter(
+        PaymentConfirmation.status == 'approved',
+        PaymentConfirmation.updated_at < archive_cutoff
+    ).count()
 
     # Statystyki etapów
     stage_counts = {
@@ -171,12 +215,15 @@ def payment_confirmations_list():
         'admin/payment_confirmations/list.html',
         groups=groups,
         pagination=pagination,
+        tab=tab,
         status_filter=status_filter,
         stage_filter=stage_filter,
         ocr_filter=ocr_filter,
         pending_count=pending_count,
         approved_count=approved_count,
         rejected_count=rejected_count,
+        active_total=active_total,
+        archive_count=archive_count,
         auto_approved_count=auto_approved_count,
         stage_counts=stage_counts,
         page_title='Potwierdzenia płatności'

@@ -69,7 +69,16 @@ def save_payment_proof_file(file):
 def payment_confirmations():
     """
     Panel potwierdzeń płatności - lista zamówień Exclusive wymagających potwierdzenia.
+    Zakładki: active (domyślna) i archive.
     """
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    tab = request.args.get('tab', 'active')
+
+    # Granica archiwum: 3 dni od teraz
+    archive_cutoff = get_local_now() - timedelta(days=3)
+
     # Dozwolone statusy (te same co w Order.can_upload_product_payment)
     allowed_statuses = [
         'oczekujace',
@@ -90,6 +99,9 @@ def payment_confirmations():
     # Podział: zamówienia do opłacenia vs w pełni opłacone
     orders = []
     fully_paid_orders = []
+    fully_paid_recent = []
+    archive_orders = []
+
     for order in all_orders:
         statuses = [order.product_payment_status]
         if order.payment_stages == 4:
@@ -98,22 +110,47 @@ def payment_confirmations():
         statuses.append(order.stage_4_status)
 
         if all(s == 'approved' for s in statuses):
-            fully_paid_orders.append(order)
+            # Sprawdź datę ostatniego zatwierdzenia
+            last_approval = db.session.query(
+                func.max(PaymentConfirmation.updated_at)
+            ).filter(
+                PaymentConfirmation.order_id == order.id,
+                PaymentConfirmation.status == 'approved'
+            ).scalar()
+
+            if last_approval and last_approval < archive_cutoff:
+                archive_orders.append(order)
+            else:
+                fully_paid_recent.append(order)
         else:
             orders.append(order)
 
-    # Sprawdź czy którekolwiek zamówienie ma 4 etapy (dla warunkowego renderowania kolumny E4)
-    any_order_has_4_stages = any(order.payment_stages == 4 for order in orders)
+    # Liczniki do zakładek
+    active_total = len(orders) + len(fully_paid_recent)
+    archive_count = len(archive_orders)
+
+    # Sprawdź czy którekolwiek zamówienie ma 4 etapy
+    if tab == 'archive':
+        display_orders = []
+        fully_paid_orders = archive_orders
+        any_order_has_4_stages = any(order.payment_stages == 4 for order in archive_orders)
+    else:
+        display_orders = orders
+        fully_paid_orders = fully_paid_recent
+        any_order_has_4_stages = any(order.payment_stages == 4 for order in orders)
 
     # Metody płatności (dane do przelewu)
     payment_methods = PaymentMethod.get_active()
 
     return render_template(
         'client/payment_confirmations/list.html',
-        orders=orders,
+        orders=display_orders,
         fully_paid_orders=fully_paid_orders,
         any_order_has_4_stages=any_order_has_4_stages,
         payment_methods=payment_methods,
+        tab=tab,
+        active_total=active_total,
+        archive_count=archive_count,
         title='Potwierdzenia płatności'
     )
 
@@ -174,25 +211,40 @@ def payment_confirmations_upload():
         if not order_stages:
             return _upload_error('Nie wybrano żadnych zamówień.')
 
-        # === Walidacja pliku ===
-        if 'proof_file' not in request.files:
-            return _upload_error('Nie przesłano pliku potwierdzenia.')
+        # === QR Upload flow: file already on server ===
+        qr_session_token = request.form.get('qr_session_token')
+        if qr_session_token:
+            from modules.client.payment_upload_sessions import PaymentUploadSession
+            qr_session = PaymentUploadSession.query.filter_by(
+                session_token=qr_session_token,
+                user_id=current_user.id,
+                status='uploaded'
+            ).first()
+            if not qr_session or not qr_session.uploaded_filename:
+                return _upload_error('Nieprawidłowa sesja QR lub plik nie został przesłany.')
+            saved_filename = qr_session.uploaded_filename
+        else:
+            # === Normal file upload flow ===
+            if 'proof_file' not in request.files:
+                return _upload_error('Nie przesłano pliku potwierdzenia.')
 
-        file = request.files['proof_file']
+            file = request.files['proof_file']
 
-        if file.filename == '':
-            return _upload_error('Nie wybrano pliku.')
+            if file.filename == '':
+                return _upload_error('Nie wybrano pliku.')
 
-        if not allowed_proof_file(file.filename):
-            return _upload_error('Nieprawidłowy format pliku. Dozwolone: JPG, PNG, PDF.')
+            if not allowed_proof_file(file.filename):
+                return _upload_error('Nieprawidłowy format pliku. Dozwolone: JPG, PNG, PDF.')
 
-        # Sprawdź rozmiar pliku
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
+            # Sprawdź rozmiar pliku
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0)
 
-        if file_size > MAX_PROOF_FILE_SIZE:
-            return _upload_error('Plik jest za duży. Maksymalny rozmiar: 5MB.')
+            if file_size > MAX_PROOF_FILE_SIZE:
+                return _upload_error('Plik jest za duży. Maksymalny rozmiar: 5MB.')
+
+            saved_filename = None
 
         # === Walidacja zamówień ===
         all_order_ids = [entry['order_id'] for entry in order_stages]
@@ -232,10 +284,11 @@ def payment_confirmations_upload():
             return _upload_error(f'Nie można wgrać potwierdzenia dla zamówień: {order_numbers}')
 
         # === Zapisz plik ===
-        saved_filename = save_payment_proof_file(file)
-
         if not saved_filename:
-            return _upload_error('Błąd podczas zapisywania pliku.')
+            # Normal upload - save file now
+            saved_filename = save_payment_proof_file(file)
+            if not saved_filename:
+                return _upload_error('Błąd podczas zapisywania pliku.')
 
         # Metoda płatności wybrana przez klienta
         payment_method_id = request.form.get('payment_method_id', type=int)

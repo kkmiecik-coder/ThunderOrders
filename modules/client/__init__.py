@@ -23,3 +23,5 @@ from modules.client import routes
 from modules.client import shipping
 from modules.client import payment_confirmations
 from modules.client import collection
+from modules.client import payment_upload_sessions
+from modules.client import payment_socket_events

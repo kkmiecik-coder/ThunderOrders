@@ -12,7 +12,7 @@
 /* === PAGE LAYOUT === */
 
 .payment-confirmations-page {
-    padding: var(--space-6) var(--space-8);
+    padding: 0;
     transition: all 0.3s ease;
 }
 
@@ -2015,8 +2015,12 @@
    ========================================== */
 
 @media (max-width: 1024px) {
-    .payment-confirmations-page {
-        padding: var(--space-4) var(--space-6);
+    .pc-page-header {
+        padding: var(--space-4) var(--space-6) 0 var(--space-6);
+    }
+
+    .pc-content {
+        padding: 0 var(--space-6) var(--space-4) var(--space-6);
     }
 
     .payment-confirmations-page .page-header h1 {
@@ -2025,8 +2029,12 @@
 }
 
 @media (max-width: 768px) {
-    .payment-confirmations-page {
-        padding: var(--space-4);
+    .pc-page-header {
+        padding: var(--space-4) var(--space-4) 0 var(--space-4);
+    }
+
+    .pc-content {
+        padding: 0 var(--space-4) var(--space-4) var(--space-4);
     }
 
     .payment-confirmations-page .page-header h1 {
@@ -2101,5 +2109,414 @@
 @media (max-width: 480px) {
     .payment-confirmations-page .page-header h1 {
         font-size: 1.5rem;
+    }
+}
+
+/* ============================
+   QR Upload Section
+   ============================ */
+.pc-upload-or {
+    text-align: center;
+    margin: 16px 0;
+    position: relative;
+}
+.pc-upload-or::before,
+.pc-upload-or::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 20px);
+    height: 1px;
+    background: #e0e0e0;
+}
+.pc-upload-or::before { left: 0; }
+.pc-upload-or::after { right: 0; }
+.pc-upload-or span {
+    background: #fff;
+    padding: 0 12px;
+    color: #9e9e9e;
+    font-size: 13px;
+}
+
+.pc-qr-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.pc-qr-display {
+    text-align: center;
+    padding: 20px;
+}
+.pc-qr-image {
+    max-width: 200px;
+    margin: 0 auto 12px;
+    display: block;
+    border-radius: 8px;
+}
+.pc-qr-hint {
+    font-size: 14px;
+    color: #757575;
+    margin-bottom: 8px;
+}
+.pc-qr-status {
+    font-size: 13px;
+    color: #9e9e9e;
+    margin-bottom: 12px;
+}
+
+.pc-qr-uploaded {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    background: rgba(76, 175, 80, 0.08);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    border-radius: 10px;
+    margin-top: 12px;
+}
+.pc-qr-uploaded-icon {
+    flex-shrink: 0;
+}
+.pc-qr-uploaded-text {
+    font-weight: 500;
+    color: #2e7d32;
+    font-size: 14px;
+}
+.pc-qr-uploaded-filename {
+    font-size: 12px;
+    color: #757575;
+    word-break: break-all;
+}
+
+/* Dark mode - QR Upload */
+[data-theme="dark"] .pc-upload-or::before,
+[data-theme="dark"] .pc-upload-or::after {
+    background: rgba(240, 147, 251, 0.15);
+}
+[data-theme="dark"] .pc-upload-or span {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+}
+[data-theme="dark"] .pc-qr-hint {
+    color: rgba(255, 255, 255, 0.6);
+}
+[data-theme="dark"] .pc-qr-status {
+    color: rgba(255, 255, 255, 0.4);
+}
+[data-theme="dark"] .pc-qr-uploaded {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: rgba(76, 175, 80, 0.25);
+}
+[data-theme="dark"] .pc-qr-uploaded-text {
+    color: #81c784;
+}
+[data-theme="dark"] .pc-qr-uploaded-filename {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ==========================================
+   SELECT ALL LINK
+   ========================================== */
+
+.pc-select-all-link {
+    margin-bottom: var(--space-3);
+}
+
+.pc-select-all-link a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--primary-color, #7B2CBF);
+    background: var(--bg-secondary, #f5f5f5);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pc-select-all-link a:hover {
+    background: var(--bg-tertiary, #eee);
+    border-color: var(--primary-color, #7B2CBF);
+    text-decoration: none;
+}
+
+[data-theme="dark"] .pc-select-all-link a {
+    color: #f093fb;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .pc-select-all-link a:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+/* ==========================================
+   FLOATING BULK TOOLBAR
+   ========================================== */
+
+#pcBulkToolbar {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background: linear-gradient(135deg, #240046 0%, #5A189A 100%);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 50px;
+    box-shadow: 0 8px 24px rgba(36, 0, 70, 0.4);
+    z-index: 1000;
+    opacity: 1;
+    filter: blur(0);
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                opacity 0.3s ease-out,
+                filter 0.3s ease-out;
+}
+
+#pcBulkToolbar.hidden {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(100px);
+    filter: blur(8px);
+}
+
+#pcBulkToolbar .bulk-toolbar-content {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+#pcBulkToolbar .selected-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    white-space: nowrap;
+}
+
+#pcBulkToolbar .selected-count {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+#pcBulkToolbar .selected-total {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+#pcBulkToolbar .bulk-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+#pcBulkToolbar .btn-bulk {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+#pcBulkToolbar .btn-bulk:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+#pcBulkToolbar .btn-bulk-primary {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+#pcBulkToolbar .btn-bulk-primary:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* Dark mode */
+[data-theme="dark"] #pcBulkToolbar {
+    background: linear-gradient(135deg, rgba(15, 12, 41, 0.98) 0%, rgba(48, 43, 99, 0.98) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] #pcBulkToolbar .btn-bulk {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] #pcBulkToolbar .btn-bulk:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ==========================================
+   TABS NAVIGATION (Aktywne / Archiwum)
+   ========================================== */
+
+.pc-page-header {
+    padding: var(--space-6) var(--space-8) 0 var(--space-8);
+}
+
+.pc-content {
+    padding: 0 var(--space-8) var(--space-6) var(--space-8);
+}
+
+.pc-tabs-navigation {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+    border-bottom: 2px solid var(--border-color);
+    background: var(--bg-primary);
+    padding: 0;
+}
+
+.pc-tab-button {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    position: relative;
+    margin-bottom: -2px;
+    text-decoration: none;
+}
+
+.pc-tab-button:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    text-decoration: none;
+}
+
+.pc-tab-button.pc-tab-active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.pc-tab-button .tab-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.pc-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.pc-tab-badge-muted {
+    background: var(--text-secondary);
+    opacity: 0.6;
+}
+
+.pc-tab-button.pc-tab-active .pc-tab-badge-muted {
+    background: var(--primary-color);
+    opacity: 0.7;
+}
+
+/* Dark mode */
+[data-theme="dark"] .pc-tabs-navigation {
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom-color: rgba(240, 147, 251, 0.2);
+    backdrop-filter: blur(20px);
+}
+
+[data-theme="dark"] .pc-tab-button {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .pc-tab-button:hover {
+    color: #ffffff;
+    background: rgba(240, 147, 251, 0.05);
+}
+
+[data-theme="dark"] .pc-tab-button.pc-tab-active {
+    color: #f093fb;
+    border-bottom-color: #f093fb;
+}
+
+[data-theme="dark"] .pc-tab-badge {
+    background: #f093fb;
+    color: #1a1a2e;
+}
+
+[data-theme="dark"] .pc-tab-badge-muted {
+    background: rgba(255, 255, 255, 0.3);
+    color: #fff;
+}
+
+@media (max-width: 768px) {
+    .pc-tabs-navigation {
+        overflow-x: auto;
+        padding: 0;
+        gap: 0;
+    }
+
+    .pc-tab-button {
+        padding: var(--space-2) var(--space-3);
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    #pcBulkToolbar {
+        left: 1rem;
+        right: 1rem;
+        transform: translateY(0);
+        border-radius: 16px;
+        padding: 0.75rem 1rem;
+    }
+
+    #pcBulkToolbar.hidden {
+        transform: translateY(100px);
+    }
+
+    #pcBulkToolbar .bulk-toolbar-content {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    #pcBulkToolbar .bulk-actions {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    #pcBulkToolbar .btn-bulk {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
     }
 }
