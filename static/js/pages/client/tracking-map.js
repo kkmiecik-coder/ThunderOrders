@@ -92,6 +92,7 @@
         if (!section) return;
 
         var status = section.dataset.status;
+        var proxyStatus = section.dataset.proxyStatus || '';
         var statusTimestamps = {};
         try {
             statusTimestamps = JSON.parse(section.dataset.statusTimestamps || '{}');
@@ -99,8 +100,16 @@
         var shippingCity = section.dataset.shippingCity || '';
         var statusName = section.dataset.orderStatusName || '';
 
+        // Determine current step index
         var currentStepIdx = STATUS_TO_STEP[status];
-        if (currentStepIdx === undefined) return;
+        if (currentStepIdx === undefined) {
+            // oczekujace with proxy — step 0 (zamowiono) or step 1 (dostarczone_do_proxy)
+            if (status === 'oczekujace' && proxyStatus) {
+                currentStepIdx = proxyStatus === 'dostarczone_do_proxy' ? 1 : 0;
+            } else {
+                return;
+            }
+        }
 
         // Client coords
         var clientCoords = (typeof window.lookupCityCoords === 'function')

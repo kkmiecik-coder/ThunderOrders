@@ -33,13 +33,15 @@
         data-status="{{ order.status }}"
         data-status-timestamps='{{ status_timestamps | tojson }}'
         data-shipping-city="{{ tracking_shipping_city or '' }}"
-        data-order-status-name="{{ order.status_display_name }}">
+        data-order-status-name="{{ order.status_display_name }}"
+        data-proxy-status="{{ tracking_proxy_status or '' }}">
 
         <!-- Stepper (vertical desktop / horizontal mobile) -->
         <div class="od-tracking__stepper">
             <div class="od-tracking__stepper-scroll">
+                {# Step config: (id, label, map_point) #}
                 {% set step_config = [
-                    ('dostarczone_proxy', 'Zamówiono w Korei', 'korea'),
+                    ('zamowiono', 'Zamówiono w Korei', 'korea'),
                     ('dostarczone_proxy', 'Dostarczone do Proxy', 'korea'),
                     ('w_drodze_polska', 'W drodze do Polski', 'midroute'),
                     ('urzad_celny', 'Urząd Celny', 'customs'),
@@ -48,17 +50,45 @@
                     ('wyslane', 'Wysłane do klienta', 'midpl'),
                     ('dostarczone', 'Dostarczone', 'client')
                 ] %}
+
+                {# Determine state for each step based on order status + proxy status #}
                 {% set status_order = ['dostarczone_proxy', 'w_drodze_polska', 'urzad_celny', 'dostarczone_gom', 'spakowane', 'wyslane', 'dostarczone'] %}
                 {% set current_idx = status_order.index(order.status) if order.status in status_order else -1 %}
 
-                {% for trigger, label, point_id in step_config %}
-                    {% set step_idx = status_order.index(trigger) if trigger in status_order else -1 %}
-                    {% if step_idx < current_idx %}
-                        {% set state = 'done' %}
-                    {% elif step_idx == current_idx %}
-                        {% set state = 'now' %}
+                {% for step_id, label, point_id in step_config %}
+                    {# Special handling for first two steps (proxy-related) #}
+                    {% if step_id == 'zamowiono' %}
+                        {# "Zamówiono w Korei" — done if proxy exists, now if oczekujace+proxy zamowiono #}
+                        {% if current_idx >= 0 %}
+                            {% set state = 'done' %}
+                        {% elif tracking_proxy_status == 'zamowiono' %}
+                            {% set state = 'now' %}
+                        {% elif tracking_proxy_status == 'dostarczone_do_proxy' %}
+                            {% set state = 'done' %}
+                        {% else %}
+                            {% set state = 'future' %}
+                        {% endif %}
+                    {% elif step_id == 'dostarczone_proxy' %}
+                        {# "Dostarczone do Proxy" — done if order status >= dostarczone_proxy #}
+                        {% if current_idx >= 0 %}
+                            {% set state = 'done' %}
+                        {% elif tracking_proxy_status == 'dostarczone_do_proxy' %}
+                            {% set state = 'now' %}
+                        {% elif tracking_proxy_status == 'zamowiono' %}
+                            {% set state = 'future' %}
+                        {% else %}
+                            {% set state = 'future' %}
+                        {% endif %}
                     {% else %}
-                        {% set state = 'future' %}
+                        {# Regular steps — compare with status_order #}
+                        {% set step_idx = status_order.index(step_id) if step_id in status_order else -1 %}
+                        {% if step_idx < current_idx %}
+                            {% set state = 'done' %}
+                        {% elif step_idx == current_idx %}
+                            {% set state = 'now' %}
+                        {% else %}
+                            {% set state = 'future' %}
+                        {% endif %}
                     {% endif %}
 
                     <div class="od-step od-step--{{ state }}" data-point="{{ point_id }}" data-step-index="{{ loop.index0 }}">
@@ -78,8 +108,8 @@
                         </div>
                         <div class="od-step__content">
                             <span class="od-step__label">{{ label }}</span>
-                            {% if state == 'done' and status_timestamps.get(trigger) %}
-                                <span class="od-step__date">{{ status_timestamps[trigger][:10] }}</span>
+                            {% if state == 'done' and status_timestamps.get(step_id) %}
+                                <span class="od-step__date">{{ status_timestamps[step_id][:10] }}</span>
                             {% elif state == 'now' %}
                                 <span class="od-step__date">W trakcie</span>
                             {% else %}

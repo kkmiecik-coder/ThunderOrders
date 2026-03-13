@@ -1739,6 +1739,17 @@ def client_detail(order_id):
     ]
     show_tracking_map = order.status in tracking_statuses
 
+    # Also show map for 'oczekujace' if product payment is approved (products ordered)
+    tracking_proxy_status = None
+    if not show_tracking_map and order.status == 'oczekujace' and order.product_payment_status == 'approved':
+        from modules.products.models import ProxyOrderItem, ProxyOrder
+        proxy_item = ProxyOrderItem.query.filter_by(order_id=order.id).first()
+        if proxy_item:
+            proxy_order = proxy_item.proxy_order
+            if proxy_order and proxy_order.status in ('zamowiono', 'dostarczone_do_proxy'):
+                show_tracking_map = True
+                tracking_proxy_status = proxy_order.status
+
     status_timestamps = {}
     if show_tracking_map:
         from modules.admin.models import ActivityLog
@@ -1773,6 +1784,7 @@ def client_detail(order_id):
         show_tracking_map=show_tracking_map,
         status_timestamps=status_timestamps,
         tracking_shipping_city=tracking_shipping_city,
+        tracking_proxy_status=tracking_proxy_status,
         page_title=f'Zamówienie {order.order_number}'
     )
 
