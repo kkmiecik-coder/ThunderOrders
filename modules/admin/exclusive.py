@@ -1248,6 +1248,43 @@ def update_global_auto_increase_settings():
 # Export Excel zamkniętej strony Exclusive
 # ============================================
 
+@admin_bp.route('/exclusive/<int:page_id>/live/export-excel')
+@login_required
+@admin_required
+def exclusive_live_export_excel(page_id):
+    """
+    Generuje i pobiera plik Excel z danymi LIVE dla aktywnej strony Exclusive.
+    Tylko Admin może pobrać Excel.
+    """
+    from utils.excel_export import generate_exclusive_live_excel
+    from utils.exclusive_closure import get_live_summary
+
+    page = ExclusivePage.query.get_or_404(page_id)
+
+    try:
+        summary = get_live_summary(page_id, include_financials=True)
+        excel_buffer = generate_exclusive_live_excel(page, summary)
+
+        safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = safe_name.replace(' ', '_')[:50]
+        filename = f'exclusive_LIVE_{safe_name}_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+
+        return Response(
+            excel_buffer.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            }
+        )
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Błąd generowania pliku Excel: {str(e)}', 'error')
+        return redirect(url_for('admin.exclusive_live', page_id=page_id))
+
+
 @admin_bp.route('/exclusive/<int:page_id>/export-excel')
 @login_required
 @admin_required

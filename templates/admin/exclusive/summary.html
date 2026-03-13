@@ -24,12 +24,12 @@
         </div>
         <div class="topbar-right">
             {% if current_user.role == 'admin' %}
-            <a href="{{ url_for('admin.exclusive_export_excel', page_id=page.id) }}" class="btn btn-primary">
+            <a href="{{ url_for('admin.exclusive_export_excel', page_id=page.id) }}" class="btn btn-secondary-outline">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                     <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                 </svg>
-                Pobierz Excel
+                Pobierz raport
             </a>
             {% endif %}
         </div>
@@ -212,8 +212,21 @@
                             {% endif %}
                             <div class="set-info">
                                 <h3 class="set-name">{{ set.set_name }}</h3>
+                                {% if set.has_limit %}
                                 <span class="set-count">{{ set.ordered_sets }} / {{ set.set_max_sets }} kompletnych setów</span>
+                                {% else %}
+                                <span class="set-count">{{ set.ordered_sets }} kompletnych setów (bez limitu)</span>
+                                {% endif %}
                             </div>
+                            {% if loop.first %}
+                            <button type="button" class="matrix-toggle-btn" id="matrixToggleNames" title="Pokaż imiona i nazwiska">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                    <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                </svg>
+                                <span>Imiona</span>
+                            </button>
+                            {% endif %}
                         </div>
                         {% if set.products %}
                         {% set ns = namespace(full_set_product=none) %}
@@ -228,7 +241,9 @@
                                         {% for i in range(set.set_max_sets) %}
                                         <th class="matrix-slot-col text-center">Set {{ i + 1 }}</th>
                                         {% endfor %}
+                                        {% if set.has_limit %}
                                         <th class="matrix-slot-col matrix-locked-col text-center">Set {{ set.set_max_sets + 1 }}</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -241,27 +256,38 @@
                                         {% for slot in product.slots %}
                                         <td class="matrix-slot-col text-center">
                                             {% if slot.filled %}
+                                                {% if slot.customer %}
+                                                {% set name_parts = slot.customer.split(' ', 1) %}
+                                                {% endif %}
                                                 {% if slot.fulfilled %}
                                                     {% if slot.customer %}
                                                     <span class="slot-check-wrap" data-tooltip="{{ slot.customer }}">
-                                                        <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                        <svg class="slot-check slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                             <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
                                                         </svg>
+                                                        <span class="slot-name-view">
+                                                            <span class="slot-first-name">{{ name_parts[0] }}</span>
+                                                            {% if name_parts|length > 1 %}<span class="slot-last-name">{{ name_parts[1] }}</span>{% endif %}
+                                                        </span>
                                                     </span>
                                                     {% else %}
-                                                    <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                    <svg class="slot-check slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                         <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
                                                     </svg>
                                                     {% endif %}
                                                 {% else %}
                                                     {% if slot.customer %}
                                                     <span class="slot-fail-wrap" data-tooltip="{{ slot.customer }}">
-                                                        <svg class="slot-fail" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                        <svg class="slot-fail slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                             <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                                                         </svg>
+                                                        <span class="slot-name-view">
+                                                            <span class="slot-first-name">{{ name_parts[0] }}</span>
+                                                            {% if name_parts|length > 1 %}<span class="slot-last-name">{{ name_parts[1] }}</span>{% endif %}
+                                                        </span>
                                                     </span>
                                                     {% else %}
-                                                    <svg class="slot-fail" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                    <svg class="slot-fail slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                         <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                                                         </svg>
                                                     {% endif %}
@@ -269,11 +295,13 @@
                                             {% endif %}
                                         </td>
                                         {% endfor %}
+                                        {% if set.has_limit %}
                                         <td class="matrix-slot-col matrix-locked-col text-center">
                                             <svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                                 <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
                                             </svg>
                                         </td>
+                                        {% endif %}
                                     </tr>
                                     {% endif %}
                                     {% endfor %}
@@ -293,6 +321,14 @@
                             <span class="set-total-count">{{ set.total_sets_sold }}</span>
                             <span class="set-total-detail">({{ set.ordered_sets }} kompletnych + {{ set.full_set_sold }} pojedynczych)</span>
                         </div>
+                        {% if set.bonus_items_count and set.bonus_items_count > 0 %}
+                        <div class="set-bonus-summary">
+                            <span class="item-badge item-badge-bonus">GRATIS</span>
+                            <span>Rozdanych gratisów:</span>
+                            <span class="set-total-count">{{ set.bonus_items_count }}</span>
+                            <span class="set-total-detail">szt.</span>
+                        </div>
+                        {% endif %}
                         {% endif %}
                     </div>
                     {% endfor %}

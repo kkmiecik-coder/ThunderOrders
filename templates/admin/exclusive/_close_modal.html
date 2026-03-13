@@ -1,0 +1,51 @@
+<!-- Close Complete Modal (shared between list and live_dashboard) -->
+<div id="closeModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2>Zamknij całkowicie stronę</h2>
+            <button type="button" class="modal-close" onclick="closeCloseModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-warning-box">
+                <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                </svg>
+                <div>
+                    <strong>Ta operacja jest nieodwracalna!</strong>
+                    <p>Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.</p>
+                </div>
+            </div>
+
+            <p>Zamykasz stronę: <strong id="closePageName"></strong></p>
+
+            <p class="modal-info">
+                Zamknięcie wykona następujące operacje:
+            </p>
+            <ul class="modal-list">
+                <li>Algorytm alokacji produktów w setach (pierwsi zamawiający dostają produkty)</li>
+                <li>Oznaczenie zamówień jako zrealizowane/niezrealizowane</li>
+                <li>Automatyczne przeniesienie zamówień do statusów zgodnie z konfiguracją w ustawieniach</li>
+                <li>Generowanie podsumowania sprzedaży</li>
+            </ul>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="sendEmailsCheckbox" checked>
+                    <span>Wyślij emaile do wszystkich klientów z informacją o statusie ich produktów</span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeCloseModal()">Anuluj</button>
+            <button type="button" class="btn btn-danger" onclick="executeCloseComplete()" id="closeCompleteBtn">
+                <span class="btn-text">Zamknij całkowicie</span>
+                <span class="btn-loading" style="display: none;">
+                    <svg class="spinner" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0a8 8 0 1 0 8 8h-2a6 6 0 1 1-6-6V0z"/>
+                    </svg>
+                    Przetwarzanie...
+                </span>
+            </button>
+        </div>
+    </div>
+</div>

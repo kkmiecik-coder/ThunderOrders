@@ -171,7 +171,8 @@ def place_exclusive_order(page, session_id, order_note=None, full_set_items=None
         ).join(Order).filter(
             Order.exclusive_page_id == page.id,
             Order.status != 'anulowane',
-            OrderItem.product_id.in_(product_set_info.keys())
+            OrderItem.product_id.in_(product_set_info.keys()),
+            OrderItem.is_bonus != True,
         ).group_by(OrderItem.product_id).all()
         prev_ordered_map = {pid: int(qty) for pid, qty in prev_counts}
 

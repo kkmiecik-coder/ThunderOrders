@@ -26,6 +26,15 @@
             </span>
         </div>
         <div class="topbar-right">
+            {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('admin.exclusive_live_export_excel', page_id=page.id) }}" class="btn btn-secondary-outline">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                </svg>
+                Pobierz raport live
+            </a>
+            {% endif %}
             <a href="{{ url_for('exclusive.order_page', token=page.token) }}" target="_blank" class="btn btn-secondary-outline">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
@@ -33,6 +42,54 @@
                 </svg>
                 Strona sprzedaży
             </a>
+            <div class="topbar-actions">
+                <!-- Edit -->
+                <a href="{{ url_for('admin.exclusive_edit', page_id=page.id) }}" class="btn-action btn-edit" title="Edytuj">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
+                        <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5v11z"/>
+                    </svg>
+                </a>
+                {% if page.status == 'active' %}
+                <!-- Pause -->
+                <button type="button" class="btn-action btn-pause" onclick="changePageStatus({{ page.id }}, 'pause')" title="Wstrzymaj sprzedaż">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/>
+                    </svg>
+                </button>
+                {% elif page.status == 'paused' %}
+                <!-- Resume -->
+                <button type="button" class="btn-action btn-play" onclick="changePageStatus({{ page.id }}, 'publish')" title="Wznów sprzedaż">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                    </svg>
+                </button>
+                {% endif %}
+                {% if page.status in ['active', 'paused'] %}
+                <!-- End -->
+                <button type="button" class="btn-action btn-stop" onclick="changePageStatus({{ page.id }}, 'end')" title="Zakończ sprzedaż">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+                    </svg>
+                </button>
+                {% elif page.status == 'ended' and not page.is_fully_closed %}
+                <!-- Reactivate -->
+                <button type="button" class="btn-action btn-reactivate" onclick="changePageStatus({{ page.id }}, 'publish')" title="Wznów sprzedaż">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/>
+                        <path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/>
+                    </svg>
+                </button>
+                {% if current_user.role == 'admin' %}
+                <!-- Close completely -->
+                <button type="button" class="btn-action btn-close-complete" onclick="openCloseModal({{ page.id }}, '{{ page.name }}')" title="Zamknij całkowicie">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                    </svg>
+                </button>
+                {% endif %}
+                {% endif %}
+            </div>
         </div>
     </div>
 
@@ -236,8 +293,21 @@
                             {% endif %}
                             <div class="set-info">
                                 <h3 class="set-name">{{ set.set_name }}</h3>
+                                {% if set.has_limit %}
                                 <span class="set-count">{{ set.ordered_sets }} / {{ set.set_max_sets }} kompletnych setów</span>
+                                {% else %}
+                                <span class="set-count">{{ set.ordered_sets }} kompletnych setów (bez limitu)</span>
+                                {% endif %}
                             </div>
+                            {% if loop.first %}
+                            <button type="button" class="matrix-toggle-btn" id="matrixToggleNames" title="Pokaż imiona i nazwiska">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                    <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                </svg>
+                                <span>Imiona</span>
+                            </button>
+                            {% endif %}
                         </div>
                         {% if set.products %}
                         {% set ns = namespace(full_set_product=none) %}
@@ -252,7 +322,9 @@
                                         {% for i in range(set.set_max_sets) %}
                                         <th class="matrix-slot-col text-center">Set {{ i + 1 }}</th>
                                         {% endfor %}
+                                        {% if set.has_limit %}
                                         <th class="matrix-slot-col matrix-locked-col text-center">Set {{ set.set_max_sets + 1 }}</th>
+                                        {% endif %}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -272,24 +344,31 @@
                                         <td class="matrix-slot-col text-center">
                                             {% if slot.filled %}
                                             {% if slot.customer %}
+                                            {% set name_parts = slot.customer.split(' ', 1) %}
                                             <span class="slot-check-wrap" data-tooltip="{{ slot.customer }}">
-                                                <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                                <svg class="slot-check slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                     <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
                                                 </svg>
+                                                <span class="slot-name-view">
+                                                    <span class="slot-first-name">{{ name_parts[0] }}</span>
+                                                    {% if name_parts|length > 1 %}<span class="slot-last-name">{{ name_parts[1] }}</span>{% endif %}
+                                                </span>
                                             </span>
                                             {% else %}
-                                            <svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                                            <svg class="slot-check slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
                                                 <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
                                             </svg>
                                             {% endif %}
                                             {% endif %}
                                         </td>
                                         {% endfor %}
+                                        {% if set.has_limit %}
                                         <td class="matrix-slot-col matrix-locked-col text-center">
                                             <svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                                                 <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
                                             </svg>
                                         </td>
+                                        {% endif %}
                                     </tr>
                                     {% endif %}
                                     {% endfor %}
@@ -315,6 +394,14 @@
                             <span class="set-total-count">{{ set.total_sets_sold }}</span>
                             <span class="set-total-detail">({{ set.ordered_sets }} kompletnych + {{ set.full_set_sold }} pojedynczych)</span>
                         </div>
+                        {% if set.bonus_items_count and set.bonus_items_count > 0 %}
+                        <div class="set-bonus-summary">
+                            <span class="item-badge item-badge-bonus">GRATIS</span>
+                            <span>Gratisów w zamówieniach:</span>
+                            <span class="set-total-count">{{ set.bonus_items_count }}</span>
+                            <span class="set-total-detail">szt.</span>
+                        </div>
+                        {% endif %}
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -430,6 +517,8 @@
     </div>
 </div>
 
+{% include 'admin/exclusive/_close_modal.html' %}
+
 <script>
     window.LIVE_ORDERS = {{ orders_json|safe }};
     window.LIVE_SETS = {{ summary.sets|tojson }};
@@ -440,6 +529,85 @@
     window.EXCLUSIVE_PAGE_ID = {{ page.id }};
     window.STARTS_AT = {{ summary.starts_at.isoformat()|tojson if summary.starts_at else 'null' }};
     window.ENDS_AT = {{ summary.ends_at.isoformat()|tojson if summary.ends_at else 'null' }};
+
+    // Page action functions (pause/end/close)
+    async function changePageStatus(pageId, action) {
+        try {
+            const response = await fetch('/admin/exclusive/' + pageId + '/status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ action: action })
+            });
+            const data = await response.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                if (window.Toast) { window.Toast.show(data.error || 'Wystąpił błąd', 'error'); }
+                else { alert(data.error || 'Wystąpił błąd'); }
+            }
+        } catch (error) {
+            if (window.Toast) { window.Toast.show('Błąd połączenia z serwerem', 'error'); }
+            else { alert('Błąd połączenia z serwerem'); }
+        }
+    }
+
+    var closePageId = null;
+
+    function openCloseModal(pageId, pageName) {
+        closePageId = pageId;
+        document.getElementById('closePageName').textContent = pageName;
+        document.getElementById('closeModal').classList.add('active');
+    }
+
+    function closeCloseModal() {
+        var modal = document.getElementById('closeModal');
+        modal.classList.add('closing');
+        setTimeout(function() {
+            modal.classList.remove('active', 'closing');
+            closePageId = null;
+            var btn = document.getElementById('closeCompleteBtn');
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-loading').style.display = 'none';
+            btn.disabled = false;
+        }, 350);
+    }
+
+    async function executeCloseComplete() {
+        if (!closePageId) return;
+        var btn = document.getElementById('closeCompleteBtn');
+        var sendEmails = document.getElementById('sendEmailsCheckbox').checked;
+        btn.querySelector('.btn-text').style.display = 'none';
+        btn.querySelector('.btn-loading').style.display = 'inline-flex';
+        btn.disabled = true;
+        try {
+            const response = await fetch('/admin/exclusive/' + closePageId + '/close-complete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({ send_emails: sendEmails })
+            });
+            const data = await response.json();
+            if (data.success) {
+                if (data.redirect) { window.location.href = data.redirect; }
+                else { window.location.reload(); }
+            } else {
+                if (window.Toast) { window.Toast.show(data.error || 'Wystąpił błąd', 'error'); }
+                btn.querySelector('.btn-text').style.display = 'inline';
+                btn.querySelector('.btn-loading').style.display = 'none';
+                btn.disabled = false;
+            }
+        } catch (error) {
+            if (window.Toast) { window.Toast.show('Błąd połączenia z serwerem', 'error'); }
+            btn.querySelector('.btn-text').style.display = 'inline';
+            btn.querySelector('.btn-loading').style.display = 'none';
+            btn.disabled = false;
+        }
+    }
 </script>
 {% endblock %}
 

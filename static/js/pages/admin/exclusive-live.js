@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeProductsTab();
     initializeSocketIO();
     initializeMetaCountdowns();
+    initializeMatrixToggle();
 });
 
 /* ==========================================
@@ -526,8 +527,18 @@ function renderSetsMatrix(setsData) {
         }
         html += '<div class="set-info">';
         html += '<h3 class="set-name">' + escapeHtml(set.set_name) + '</h3>';
-        html += '<span class="set-count">' + set.ordered_sets + ' / ' + set.set_max_sets + ' kompletnych setów</span>';
-        html += '</div></div>';
+        if (set.has_limit) {
+            html += '<span class="set-count">' + set.ordered_sets + ' / ' + set.set_max_sets + ' kompletnych setów</span>';
+        } else {
+            html += '<span class="set-count">' + set.ordered_sets + ' kompletnych setów (bez limitu)</span>';
+        }
+        html += '</div>';
+        if (s === 0) {
+            html += '<button type="button" class="matrix-toggle-btn" id="matrixToggleNames" title="Pokaż imiona i nazwiska">';
+            html += '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/></svg>';
+            html += '<span>Imiona</span></button>';
+        }
+        html += '</div>';
 
         if (set.products && set.products.length > 0) {
             html += '<div class="set-matrix-table-wrap"><table class="set-matrix-table"><thead><tr>';
@@ -535,7 +546,9 @@ function renderSetsMatrix(setsData) {
             for (var col = 0; col < set.set_max_sets; col++) {
                 html += '<th class="matrix-slot-col text-center">Set ' + (col + 1) + '</th>';
             }
-            html += '<th class="matrix-slot-col matrix-locked-col text-center">Set ' + (set.set_max_sets + 1) + '</th>';
+            if (set.has_limit) {
+                html += '<th class="matrix-slot-col matrix-locked-col text-center">Set ' + (set.set_max_sets + 1) + '</th>';
+            }
             html += '</tr></thead><tbody>';
 
             for (var p = 0; p < set.products.length; p++) {
@@ -558,16 +571,24 @@ function renderSetsMatrix(setsData) {
                     var isFilled = slot && (typeof slot === 'object' ? slot.filled : slot);
                     if (isFilled) {
                         var customerName = (slot && typeof slot === 'object' && slot.customer) ? slot.customer : '';
-                        var svgHtml = '<svg class="slot-check slot-check-new" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
+                        var svgHtml = '<svg class="slot-check slot-check-new slot-icon-view" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
                         if (customerName) {
-                            html += '<span class="slot-check-wrap" data-tooltip="' + escapeHtml(customerName) + '">' + svgHtml + '</span>';
+                            var nameParts = customerName.split(' ', 2);
+                            var nameHtml = '<span class="slot-name-view"><span class="slot-first-name">' + escapeHtml(nameParts[0]) + '</span>';
+                            if (nameParts.length > 1) {
+                                nameHtml += '<span class="slot-last-name">' + escapeHtml(nameParts.slice(1).join(' ')) + '</span>';
+                            }
+                            nameHtml += '</span>';
+                            html += '<span class="slot-check-wrap" data-tooltip="' + escapeHtml(customerName) + '">' + svgHtml + nameHtml + '</span>';
                         } else {
                             html += svgHtml;
                         }
                     }
                     html += '</td>';
                 }
-                html += '<td class="matrix-slot-col matrix-locked-col text-center">' + lockSvg + '</td>';
+                if (set.has_limit) {
+                    html += '<td class="matrix-slot-col matrix-locked-col text-center">' + lockSvg + '</td>';
+                }
                 html += '</tr>';
             }
 
@@ -593,11 +614,34 @@ function renderSetsMatrix(setsData) {
             html += '<span class="set-total-count">' + totalSetsSold + '</span>';
             html += '<span class="set-total-detail">(' + set.ordered_sets + ' kompletnych + ' + fullSetSold + ' pojedynczych)</span>';
             html += '</div>';
+            if (set.bonus_items_count && set.bonus_items_count > 0) {
+                html += '<div class="set-bonus-summary">';
+                html += '<span class="item-badge item-badge-bonus">GRATIS</span>';
+                html += '<span>Gratisów w zamówieniach:</span>';
+                html += '<span class="set-total-count">' + set.bonus_items_count + '</span>';
+                html += '<span class="set-total-detail">szt.</span>';
+                html += '</div>';
+            }
         }
         html += '</div>';
     }
 
     container.innerHTML = html;
+
+    // Re-apply names mode and re-bind toggle after re-render
+    if (_showNames) {
+        container.classList.add('show-names');
+    }
+    var btn = document.getElementById('matrixToggleNames');
+    if (btn) {
+        if (_showNames) btn.classList.add('active');
+        btn.addEventListener('click', function () {
+            _showNames = !_showNames;
+            _applyNamesMode(_showNames);
+            this.classList.toggle('active', _showNames);
+            try { localStorage.setItem('matrixShowNames', _showNames); } catch (e) { /* ignore */ }
+        });
+    }
 }
 
 /* ==========================================
@@ -864,6 +908,46 @@ function getPaginationRange(current, total, maxVisible) {
     if (end < total - 1) pages.push('...');
     pages.push(total);
     return pages;
+}
+
+/* ==========================================
+   MATRIX NAMES TOGGLE
+   ========================================== */
+
+var _showNames = false;
+
+function initializeMatrixToggle() {
+    var btn = document.getElementById('matrixToggleNames');
+    if (!btn) return;
+
+    // Restore saved preference
+    try {
+        _showNames = localStorage.getItem('matrixShowNames') === 'true';
+    } catch (e) { /* ignore */ }
+
+    if (_showNames) {
+        _applyNamesMode(true);
+        btn.classList.add('active');
+    }
+
+    btn.addEventListener('click', function () {
+        _showNames = !_showNames;
+        _applyNamesMode(_showNames);
+        btn.classList.toggle('active', _showNames);
+        try {
+            localStorage.setItem('matrixShowNames', _showNames);
+        } catch (e) { /* ignore */ }
+    });
+}
+
+function _applyNamesMode(show) {
+    var container = document.getElementById('setsContainer');
+    if (!container) return;
+    if (show) {
+        container.classList.add('show-names');
+    } else {
+        container.classList.remove('show-names');
+    }
 }
 
 /* ==========================================

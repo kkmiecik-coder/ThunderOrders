@@ -590,14 +590,15 @@ def get_page_summary(page_id, include_financials=True):
             for product in item.get_products():
                 all_set_product_ids.append(product.id)
 
-        # Query slot data: customer names + fulfillment status per product per set_number
-        # Uses set_number (assigned during order placement) to accurately map slots,
-        # because after closure unfulfilled items have quantity=0
-        slot_data_map = {}  # {product_id: {set_number: {'customer': str, 'fulfilled': bool}}}
+        # Query slot data: customer names + fulfillment status per product
+        # Build sequential mapping from ALL OrderItems (chronologically)
+        # to handle items without set_number
+        slot_data_map = {}  # {product_id: {slot_number: {'customer': str, 'fulfilled': bool}}}
         if all_set_product_ids:
+            # Include ALL orders (even cancelled by closure) to show unfulfilled slots with X
             slot_rows = db.session.query(
                 OrderItem.product_id,
-                OrderItem.set_number,
+                OrderItem.quantity,
                 OrderItem.is_set_fulfilled,
                 User.first_name,
                 User.last_name,
@@ -606,31 +607,43 @@ def get_page_summary(page_id, include_financials=True):
             ).join(User, Order.user_id == User.id
             ).filter(
                 Order.exclusive_page_id == page_id,
-                Order.status != 'anulowane',
                 OrderItem.product_id.in_(all_set_product_ids),
-                OrderItem.set_number.isnot(None)
-            ).all()
+                OrderItem.is_bonus != True,
+            ).order_by(OrderItem.id.asc()).all()
 
-            for pid, set_num, is_fulfilled, fname, lname, email in slot_rows:
+            slot_counter = {}  # {product_id: next_slot_number}
+            for pid, qty, is_fulfilled, fname, lname, email in slot_rows:
                 name = f'{fname} {lname}'.strip() if (fname or lname) else email
                 if pid not in slot_data_map:
                     slot_data_map[pid] = {}
-                slot_data_map[pid][set_num] = {
-                    'customer': name,
-                    'fulfilled': is_fulfilled is True,
-                }
+                if pid not in slot_counter:
+                    slot_counter[pid] = 1
+                # After closure, unfulfilled items may have quantity=0 but still represent a slot
+                effective_qty = max(qty, 1) if qty == 0 else qty
+                for _ in range(effective_qty):
+                    slot_data_map[pid][slot_counter[pid]] = {
+                        'customer': name,
+                        'fulfilled': is_fulfilled is True,
+                    }
+                    slot_counter[pid] += 1
+
+        # When max_sets is 0 (no limit), determine effective columns from slot data
+        if max_sets > 0:
+            effective_max_sets = max_sets
+        else:
+            max_slots = max((max(slots.keys()) if slots else 0) for slots in slot_data_map.values()) if slot_data_map else 0
+            effective_max_sets = max_slots
 
         for item in set_items:
             for product in item.get_products():
-                # Build slots from set_number data (not from quantity which is zeroed for unfulfilled)
                 product_slots = slot_data_map.get(product.id, {})
                 slots = []
                 total_ordered = 0
                 fulfilled = 0
                 unfulfilled = 0
 
-                if max_sets > 0:
-                    for i in range(max_sets):
+                if effective_max_sets > 0:
+                    for i in range(effective_max_sets):
                         set_num = i + 1  # 1-based
                         sd = product_slots.get(set_num)
                         if sd:
@@ -658,7 +671,7 @@ def get_page_summary(page_id, include_financials=True):
                     'total_ordered': total_ordered,
                     'fulfilled': fulfilled,
                     'unfulfilled': unfulfilled,
-                    'reserved': 0,  # Strona zamknięta, brak rezerwacji
+                    'reserved': 0,
                     'slots': slots,
                     'is_full_set': False,
                 })
@@ -708,14 +721,28 @@ def get_page_summary(page_id, include_financials=True):
         total_set_ordered = sum(p['total_ordered'] for p in products_in_set if not p['is_full_set'])
         total_set_fulfilled = sum(p['fulfilled'] for p in products_in_set if not p['is_full_set'])
 
+        # Bonus items for this section
+        bonus_items_count = db.session.query(
+            db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+        ).join(Order, OrderItem.order_id == Order.id
+        ).filter(
+            Order.exclusive_page_id == page_id,
+            Order.status != 'anulowane',
+            OrderItem.is_bonus == True,
+            OrderItem.bonus_source_section_id == section.id,
+        ).scalar()
+        bonus_items_count = int(bonus_items_count)
+
         sets_info.append({
             'section_id': section.id,
             'set_name': section.set_name or 'Bez nazwy',
             'set_image': section.set_image,
-            'set_max_sets': max_sets,
+            'set_max_sets': effective_max_sets,
+            'has_limit': max_sets > 0,
             'ordered_sets': ordered_sets,
             'full_set_sold': full_set_sold,
             'total_sets_sold': total_sets_sold,
+            'bonus_items_count': bonus_items_count,
             'complete_sets': ordered_sets,
             'products': products_in_set,
             'fulfillment_pct': round((total_set_fulfilled / total_set_ordered) * 100, 1) if total_set_ordered > 0 else 0,
@@ -952,12 +979,13 @@ def get_live_summary(page_id, include_financials=True):
             for product in item.get_products():
                 all_set_product_ids.append(product.id)
 
-        # Query customer names per product per set_number (single query for all products)
-        slot_customer_map = {}  # {product_id: {set_number: customer_name}}
+        # Query customer names per product — build sequential slot mapping
+        # from ALL OrderItems (chronologically), excluding bonus items
+        slot_customer_map = {}  # {product_id: {slot_number: customer_name}}
         if all_set_product_ids:
             customer_rows = db.session.query(
                 OrderItem.product_id,
-                OrderItem.set_number,
+                OrderItem.quantity,
                 User.first_name,
                 User.last_name,
                 User.email
@@ -967,22 +995,29 @@ def get_live_summary(page_id, include_financials=True):
                 Order.exclusive_page_id == page_id,
                 Order.status != 'anulowane',
                 OrderItem.product_id.in_(all_set_product_ids),
-                OrderItem.set_number.isnot(None)
-            ).all()
+                OrderItem.is_bonus != True,
+            ).order_by(OrderItem.id.asc()).all()
 
-            for pid, set_num, fname, lname, email in customer_rows:
+            slot_counter = {}  # {product_id: next_slot_number}
+            for pid, qty, fname, lname, email in customer_rows:
                 name = f'{fname} {lname}'.strip() if (fname or lname) else email
                 if pid not in slot_customer_map:
                     slot_customer_map[pid] = {}
-                slot_customer_map[pid][set_num] = name
+                if pid not in slot_counter:
+                    slot_counter[pid] = 1
+                for _ in range(qty):
+                    slot_customer_map[pid][slot_counter[pid]] = name
+                    slot_counter[pid] += 1
 
+        # First pass: collect ordered quantities (excluding bonus) to determine effective_max_sets
+        product_ordered_qtys = {}
         for item in set_items:
             for product in item.get_products():
-                # Policz zamówione sztuki tego produktu (bez anulowanych)
                 ordered_qty = db.session.query(
                     db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
                 ).filter(
                     OrderItem.product_id == product.id,
+                    OrderItem.is_bonus != True,
                     OrderItem.order_id.in_(
                         db.session.query(Order.id).filter(
                             Order.exclusive_page_id == page_id,
@@ -990,13 +1025,23 @@ def get_live_summary(page_id, include_financials=True):
                         )
                     )
                 ).scalar()
-                ordered_qty = int(ordered_qty)
+                product_ordered_qtys[product.id] = int(ordered_qty)
+
+        # When max_sets is 0 (no limit), use the highest ordered quantity as effective columns
+        if max_sets > 0:
+            effective_max_sets = max_sets
+        else:
+            effective_max_sets = max(product_ordered_qtys.values()) if product_ordered_qtys else 0
+
+        for item in set_items:
+            for product in item.get_products():
+                ordered_qty = product_ordered_qtys[product.id]
 
                 # Slots: objects with filled status + customer name
                 product_customers = slot_customer_map.get(product.id, {})
                 slots = []
-                if max_sets > 0:
-                    for i in range(max_sets):
+                if effective_max_sets > 0:
+                    for i in range(effective_max_sets):
                         set_num = i + 1  # 1-based
                         filled = i < ordered_qty
                         slots.append({
@@ -1062,14 +1107,28 @@ def get_live_summary(page_id, include_financials=True):
         full_set_sold = full_set_entries[0]['total_ordered'] if full_set_entries else 0
         total_sets_sold = ordered_sets + full_set_sold
 
+        # Bonus items for this section
+        bonus_items_count = db.session.query(
+            db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+        ).join(Order, OrderItem.order_id == Order.id
+        ).filter(
+            Order.exclusive_page_id == page_id,
+            Order.status != 'anulowane',
+            OrderItem.is_bonus == True,
+            OrderItem.bonus_source_section_id == section.id,
+        ).scalar()
+        bonus_items_count = int(bonus_items_count)
+
         sets_info.append({
             'section_id': section.id,
             'set_name': section.set_name or 'Bez nazwy',
             'set_image': section.set_image,
-            'set_max_sets': max_sets,
+            'set_max_sets': effective_max_sets,
+            'has_limit': max_sets > 0,
             'ordered_sets': ordered_sets,
             'full_set_sold': full_set_sold,
             'total_sets_sold': total_sets_sold,
+            'bonus_items_count': bonus_items_count,
             'progress_pct': round((ordered_sets / max_sets) * 100, 1) if max_sets > 0 else 0,
             'products': products_matrix,
         })

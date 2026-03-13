@@ -574,6 +574,479 @@ def _build_orders_sheet(wb, summary, s):
 
 
 # ============================================
+# Live Dashboard Excel (multi-sheet)
+# ============================================
+
+def generate_exclusive_live_excel(page, summary):
+    """
+    Generates a multi-sheet Excel file for LIVE Exclusive dashboard.
+
+    Sheets:
+        1. Przegląd   - Key metrics, top products, sets matrix with customer names
+        2. Produkty    - Aggregated product table
+        3. Zamówienia  - Order details (one row per order item)
+
+    Args:
+        page: ExclusivePage model object
+        summary: Dict from get_live_summary(include_financials=True)
+
+    Returns:
+        BytesIO: Buffer with .xlsx file
+    """
+    wb = Workbook()
+    s = _styles()
+
+    _build_live_overview_sheet(wb, page, summary, s)
+    _build_live_products_sheet(wb, summary, s)
+    _build_live_orders_sheet(wb, summary, s)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+# ------------------------------------------
+# Live Sheet 1: Przegląd (Overview + Sets Matrix)
+# ------------------------------------------
+
+_MATRIX_FILLED = "D4EDDA"       # green bg for filled slot
+_MATRIX_EMPTY = "F8F9FA"        # light gray for empty slot
+_MATRIX_HEADER = "E8DAEF"       # light violet for set column headers
+
+
+def _build_live_overview_sheet(wb, page, summary, s):
+    ws = wb.active
+    ws.title = "Przegląd"
+    ws.sheet_properties.tabColor = _PURPLE
+
+    filled_fill = PatternFill(start_color=_MATRIX_FILLED, end_color=_MATRIX_FILLED, fill_type="solid")
+    empty_fill = PatternFill(start_color=_MATRIX_EMPTY, end_color=_MATRIX_EMPTY, fill_type="solid")
+    matrix_header_fill = PatternFill(start_color=_MATRIX_HEADER, end_color=_MATRIX_HEADER, fill_type="solid")
+
+    # --- Page title ---
+    ws.merge_cells('A1:F1')
+    cell = ws['A1']
+    cell.value = f"{summary.get('page_name', page.name)} — LIVE"
+    cell.font = s['title_font']
+    cell.alignment = s['left']
+
+    # --- Meta info ---
+    row = 3
+    meta_items = [
+        ("Status:", summary.get('status', '-')),
+        ("Okres:", _format_period(summary.get('starts_at'), summary.get('ends_at'))),
+        ("Eksport:", datetime.now().strftime('%d.%m.%Y %H:%M')),
+    ]
+    for label, value in meta_items:
+        ws.cell(row=row, column=1, value=label).font = s['bold']
+        ws.cell(row=row, column=1).alignment = s['right']
+        ws.cell(row=row, column=2, value=value).alignment = s['left']
+        row += 1
+
+    # --- Statistics section ---
+    row += 1
+    ws.merge_cells(f'A{row}:F{row}')
+    cell = ws.cell(row=row, column=1, value="STATYSTYKI")
+    cell.font = s['section_font']
+    cell.fill = s['section_fill']
+    cell.alignment = s['left']
+    row += 1
+
+    stats = [
+        ("Zamówienia", summary.get('total_orders', 0)),
+        ("Klienci", summary.get('unique_customers', 0)),
+        ("Produkty (szt.)", summary.get('total_items', 0)),
+    ]
+
+    total_revenue = summary.get('total_revenue')
+    if total_revenue is not None:
+        stats.append(("Przychód (PLN)", f"{total_revenue:,.2f}"))
+        avg = summary.get('avg_order_value')
+        if avg is not None:
+            stats.append(("Śr. wartość zamówienia", f"{avg:,.2f} PLN"))
+
+    bonus = summary.get('total_bonus_items', 0)
+    if bonus > 0:
+        stats.append(("Produkty gratis (szt.)", bonus))
+
+    reservations = summary.get('active_reservations', 0)
+    if reservations > 0:
+        stats.append(("Aktywne rezerwacje", reservations))
+
+    col = 1
+    for label, value in stats:
+        ws.cell(row=row, column=col, value=label).font = s['stat_label_font']
+        ws.cell(row=row, column=col).alignment = s['right']
+        val_cell = ws.cell(row=row, column=col + 1, value=value)
+        val_cell.font = s['stat_value_font']
+        val_cell.alignment = s['left']
+        col += 3
+        if col > 6:
+            col = 1
+            row += 1
+    row += 1
+
+    # --- Top 5 Products ---
+    top_products = summary.get('top_products', [])
+    if top_products:
+        row += 1
+        ws.merge_cells(f'A{row}:F{row}')
+        cell = ws.cell(row=row, column=1, value="TOP 5 PRODUKTÓW")
+        cell.font = s['section_font']
+        cell.fill = s['section_fill']
+        cell.alignment = s['left']
+        row += 1
+
+        top_headers = ["#", "Produkt", "Ilość", "Zamówień"]
+        if total_revenue is not None:
+            top_headers.append("Przychód (PLN)")
+        _write_header_row(ws, row, top_headers, s)
+        row += 1
+
+        for idx, prod in enumerate(top_products, 1):
+            name = prod['product_name']
+            if prod.get('is_full_set'):
+                name = f"SET: {name}"
+            elif prod.get('is_custom'):
+                name = f"RĘCZNY: {name}"
+            if prod.get('is_bonus'):
+                name = f"GRATIS: {name}"
+
+            _write_cell(ws, row, 1, idx, s, align='center')
+            _write_cell(ws, row, 2, name, s, align='left')
+            _write_cell(ws, row, 3, prod['total_quantity'], s, align='center', bold=True)
+            _write_cell(ws, row, 4, prod.get('order_count', 0), s, align='center')
+
+            if total_revenue is not None:
+                rev = prod.get('revenue', 0) or 0
+                _write_cell(ws, row, 5, rev, s, align='right', fmt='#,##0.00')
+
+            row += 1
+
+    # --- Sets matrix with customer names ---
+    sets_info = summary.get('sets', [])
+    if sets_info:
+        row += 1
+        ws.merge_cells(f'A{row}:F{row}')
+        cell = ws.cell(row=row, column=1, value="MACIERZ SETÓW")
+        cell.font = s['section_font']
+        cell.fill = s['section_fill']
+        cell.alignment = s['left']
+        row += 1
+
+        for set_data in sets_info:
+            set_name = set_data.get('set_name', 'Set')
+            max_sets = set_data.get('set_max_sets', 0)
+            has_limit = set_data.get('has_limit', True)
+            ordered_sets = set_data.get('ordered_sets', 0)
+            total_sets_sold = set_data.get('total_sets_sold', 0)
+            full_set_sold = set_data.get('full_set_sold', 0)
+
+            # Set header
+            if has_limit:
+                set_header = f"{set_name}  —  {ordered_sets} / {max_sets} kompletnych setów"
+            else:
+                set_header = f"{set_name}  —  {ordered_sets} kompletnych setów (bez limitu)"
+
+            total_cols = 1 + max_sets  # product name + set columns
+            if has_limit:
+                total_cols += 1  # locked column
+
+            end_col_letter = get_column_letter(max(total_cols, 2))
+            ws.merge_cells(f'A{row}:{end_col_letter}{row}')
+            cell = ws.cell(row=row, column=1, value=set_header)
+            cell.font = Font(bold=True, size=11)
+            row += 1
+
+            products = set_data.get('products', [])
+            non_full_set = [p for p in products if not p.get('is_full_set')]
+            full_set_products = [p for p in products if p.get('is_full_set')]
+
+            if non_full_set and max_sets > 0:
+                # Matrix header row: Produkt | Set 1 | Set 2 | ... | Set N
+                cell = ws.cell(row=row, column=1, value="Produkt")
+                cell.font = s['header_font']
+                cell.fill = s['header_fill']
+                cell.alignment = s['header_align']
+                cell.border = s['border']
+
+                for col_idx in range(max_sets):
+                    cell = ws.cell(row=row, column=col_idx + 2, value=f"Set {col_idx + 1}")
+                    cell.font = Font(bold=True, size=10)
+                    cell.fill = matrix_header_fill
+                    cell.alignment = s['center']
+                    cell.border = s['border']
+
+                ws.row_dimensions[row].height = 28
+                row += 1
+
+                # Product rows with customer names in slots
+                for prod in non_full_set:
+                    cell = ws.cell(row=row, column=1, value=prod.get('product_name', ''))
+                    cell.font = s['bold']
+                    cell.alignment = s['left']
+                    cell.border = s['border']
+
+                    slots = prod.get('slots', [])
+                    for sl_idx in range(max_sets):
+                        slot = slots[sl_idx] if sl_idx < len(slots) else None
+                        is_filled = slot and (slot.get('filled') if isinstance(slot, dict) else slot)
+                        customer = slot.get('customer', '') if isinstance(slot, dict) else ''
+
+                        cell = ws.cell(row=row, column=sl_idx + 2)
+                        cell.border = s['border']
+                        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+                        if is_filled:
+                            cell.value = customer or "✓"
+                            cell.fill = filled_fill
+                            if customer:
+                                cell.font = Font(size=9)
+                            else:
+                                cell.font = Font(size=12, color=_GREEN_DARK)
+                        else:
+                            cell.value = ""
+                            cell.fill = empty_fill
+
+                    row += 1
+
+            # Full set product line
+            if full_set_products:
+                fp = full_set_products[0]
+                row += 1
+                ws.merge_cells(f'A{row}:B{row}')
+                cell = ws.cell(row=row, column=1, value=f"SET: {fp.get('product_name', '')}  —  {fp.get('total_ordered', 0)} szt. sprzedanych")
+                cell.font = Font(bold=True, size=10, color=_PURPLE)
+                cell.fill = s['fullset_fill']
+                cell.border = s['border']
+                row += 1
+
+            # Total sets sold summary
+            ws.merge_cells(f'A{row}:B{row}')
+            cell = ws.cell(row=row, column=1, value=f"Łącznie setów: {total_sets_sold} ({ordered_sets} kompletnych + {full_set_sold} pojedynczych)")
+            cell.font = Font(bold=True, size=10)
+            cell.border = s['border']
+            row += 2
+
+    # Column widths - dynamic based on sets
+    _set_col_widths(ws, {'A': 30, 'B': 20, 'C': 20, 'D': 20, 'E': 20, 'F': 20})
+    # Wider columns for set matrices
+    max_set_cols = max((sd.get('set_max_sets', 0) for sd in sets_info), default=0) if sets_info else 0
+    for i in range(2, max_set_cols + 2):
+        ws.column_dimensions[get_column_letter(i)].width = 18
+    ws.freeze_panes = 'A3'
+
+
+# ------------------------------------------
+# Live Sheet 2: Produkty
+# ------------------------------------------
+
+def _build_live_products_sheet(wb, summary, s):
+    ws = wb.create_sheet("Produkty")
+    ws.sheet_properties.tabColor = "28A745"
+
+    # Title
+    ws.merge_cells('A1:F1')
+    cell = ws['A1']
+    cell.value = "Sprzedaż produktów — LIVE"
+    cell.font = s['title_font']
+    cell.alignment = s['left']
+
+    has_financials = summary.get('total_revenue') is not None
+    headers = ["#", "Produkt", "Typ", "Zamówień", "Ilość łączna"]
+    if has_financials:
+        headers.append("Przychód (PLN)")
+
+    header_row = 3
+    _write_header_row(ws, header_row, headers, s)
+
+    products = summary.get('products_aggregated', [])
+    for idx, prod in enumerate(products, 1):
+        row = header_row + idx
+        fill = s['alt_fill'] if idx % 2 == 0 else None
+
+        if prod.get('is_bonus'):
+            type_label = "Gratis"
+        elif prod.get('is_full_set'):
+            type_label = "Set"
+        elif prod.get('is_custom'):
+            type_label = "Ręczny"
+        else:
+            type_label = "Zwykły"
+
+        _write_cell(ws, row, 1, idx, s, align='center', fill=fill)
+        _write_cell(ws, row, 2, prod['product_name'], s, align='left', fill=fill)
+
+        type_cell = _write_cell(ws, row, 3, type_label, s, align='center', fill=fill)
+        if type_label == "Set":
+            type_cell.fill = s['fullset_fill']
+        elif type_label == "Ręczny":
+            type_cell.fill = s['custom_fill']
+        elif type_label == "Gratis":
+            type_cell.fill = s['bonus_fill']
+
+        _write_cell(ws, row, 4, prod.get('order_count', 0), s, align='center', fill=fill)
+        _write_cell(ws, row, 5, prod['total_quantity'], s, align='center', bold=True, fill=fill)
+
+        if has_financials:
+            rev = prod.get('revenue', 0) or 0
+            _write_cell(ws, row, 6, rev, s, align='right', fill=fill, fmt='#,##0.00')
+
+    # Summary row
+    if products:
+        sum_row = header_row + len(products) + 2
+        ws.cell(row=sum_row, column=1, value="SUMA").font = Font(bold=True, size=11)
+        ws.cell(row=sum_row, column=5, value=sum(p['total_quantity'] for p in products)).font = Font(bold=True, size=11)
+        ws.cell(row=sum_row, column=5).alignment = s['center']
+
+        if has_financials:
+            total_rev = sum(p.get('revenue', 0) or 0 for p in products)
+            c = ws.cell(row=sum_row, column=6, value=total_rev)
+            c.font = Font(bold=True, size=11)
+            c.number_format = '#,##0.00'
+            c.alignment = s['right']
+
+        for col in range(1, len(headers) + 1):
+            ws.cell(row=sum_row, column=col).border = Border(
+                top=Side(style='medium', color=_PURPLE),
+                bottom=Side(style='medium', color=_PURPLE),
+            )
+
+    _set_col_widths(ws, {'A': 6, 'B': 35, 'C': 12, 'D': 12, 'E': 14, 'F': 18})
+    ws.freeze_panes = 'A4'
+
+
+# ------------------------------------------
+# Live Sheet 3: Zamówienia
+# ------------------------------------------
+
+def _build_live_orders_sheet(wb, summary, s):
+    ws = wb.create_sheet("Zamówienia")
+    ws.sheet_properties.tabColor = "4A90D9"
+
+    ws.merge_cells('A1:K1')
+    cell = ws['A1']
+    cell.value = "Szczegóły zamówień — LIVE"
+    cell.font = s['title_font']
+    cell.alignment = s['left']
+
+    has_financials = summary.get('total_revenue') is not None
+
+    headers = [
+        "Nr zamówienia", "Klient", "Email", "Telefon", "Data",
+        "Produkt", "Typ", "Ilość",
+    ]
+    if has_financials:
+        headers.extend(["Cena jedn. (PLN)", "Wartość (PLN)"])
+
+    header_row = 3
+    _write_header_row(ws, header_row, headers, s)
+
+    orders = summary.get('orders', [])
+    row = header_row + 1
+    prev_order_id = None
+
+    for order in orders:
+        order_id = order.get('order_id')
+        items = order.get('order_items', [])
+        if not items:
+            items = [None]
+
+        is_new_order = order_id != prev_order_id
+        prev_order_id = order_id
+
+        for item_idx, item in enumerate(items):
+            if item_idx == 0:
+                if is_new_order and row > header_row + 1:
+                    for col in range(1, len(headers) + 1):
+                        ws.cell(row=row - 1, column=col).border = Border(
+                            bottom=Side(style='thin', color=_PURPLE),
+                            left=ws.cell(row=row - 1, column=col).border.left,
+                            right=ws.cell(row=row - 1, column=col).border.right,
+                            top=ws.cell(row=row - 1, column=col).border.top,
+                        )
+
+                _write_cell(ws, row, 1, order.get('order_number', ''), s, align='left', bold=True)
+
+                customer_name = order.get('customer_name') or 'Gość'
+                _write_cell(ws, row, 2, customer_name, s, align='left')
+                _write_cell(ws, row, 3, order.get('customer_email') or '-', s, align='left')
+                _write_cell(ws, row, 4, order.get('customer_phone') or '-', s, align='left')
+
+                created_at = order.get('created_at')
+                if created_at and hasattr(created_at, 'strftime'):
+                    date_str = created_at.strftime('%d.%m.%Y %H:%M')
+                else:
+                    date_str = str(created_at) if created_at else '-'
+                _write_cell(ws, row, 5, date_str, s, align='center')
+            else:
+                for col in range(1, 6):
+                    _write_cell(ws, row, col, '', s, align='left')
+
+            if item:
+                product_name = item.get('product_name', '-')
+                _write_cell(ws, row, 6, product_name, s, align='left')
+
+                if item.get('is_bonus'):
+                    type_label = "Gratis"
+                    type_fill = s['bonus_fill']
+                elif item.get('is_full_set'):
+                    type_label = "Set"
+                    type_fill = s['fullset_fill']
+                elif item.get('is_custom'):
+                    type_label = "Ręczny"
+                    type_fill = s['custom_fill']
+                else:
+                    type_label = "Zwykły"
+                    type_fill = None
+                type_cell = _write_cell(ws, row, 7, type_label, s, align='center')
+                if type_fill:
+                    type_cell.fill = type_fill
+
+                _write_cell(ws, row, 8, item.get('quantity', 0), s, align='center', bold=True)
+
+                if has_financials:
+                    price = item.get('price', 0) or 0
+                    total = item.get('total', 0) or 0
+                    _write_cell(ws, row, 9, price, s, align='right', fmt='#,##0.00')
+                    _write_cell(ws, row, 10, total, s, align='right', fmt='#,##0.00')
+            else:
+                for col in range(6, len(headers) + 1):
+                    _write_cell(ws, row, col, '-', s, align='center')
+
+            row += 1
+
+    # Summary
+    if orders:
+        row += 1
+        ws.cell(row=row, column=1, value="PODSUMOWANIE").font = Font(bold=True, size=11)
+        row += 1
+
+        ws.cell(row=row, column=1, value="Zamówień:").font = s['bold']
+        ws.cell(row=row, column=1).alignment = s['right']
+        ws.cell(row=row, column=2, value=summary.get('total_orders', len(orders))).font = s['stat_value_font']
+
+        if has_financials:
+            total_rev = summary.get('total_revenue', 0)
+            ws.cell(row=row, column=4, value="Przychód:").font = s['bold']
+            ws.cell(row=row, column=4).alignment = s['right']
+            c = ws.cell(row=row, column=5, value=total_rev)
+            c.font = s['stat_value_font']
+            c.number_format = '#,##0.00'
+
+    widths = {
+        'A': 18, 'B': 25, 'C': 28, 'D': 16, 'E': 18,
+        'F': 30, 'G': 12, 'H': 10,
+    }
+    if has_financials:
+        widths['I'] = 16
+        widths['J'] = 16
+    _set_col_widths(ws, widths)
+    ws.freeze_panes = 'A4'
+
+
+# ============================================
 # Helpers
 # ============================================
 

@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function () {
     initializeOrdersTimelineChart();
     initializeOrdersTab();
     initializeProductsTab();
+    initializeMatrixToggle();
 });
 
 /* ==========================================
@@ -546,4 +547,36 @@ function getPaginationRange(current, total, maxVisible) {
     if (end < total - 1) pages.push('...');
     pages.push(total);
     return pages;
+}
+
+
+/* ==========================================
+   MATRIX NAMES TOGGLE
+   ========================================== */
+
+function initializeMatrixToggle() {
+    var btn = document.getElementById('matrixToggleNames');
+    if (!btn) return;
+
+    var container = document.querySelector('.sets-matrix-grid');
+    if (!container) return;
+
+    var showNames = false;
+    try {
+        showNames = localStorage.getItem('matrixShowNames') === 'true';
+    } catch (e) { /* ignore */ }
+
+    if (showNames) {
+        container.classList.add('show-names');
+        btn.classList.add('active');
+    }
+
+    btn.addEventListener('click', function () {
+        showNames = !showNames;
+        container.classList.toggle('show-names', showNames);
+        btn.classList.toggle('active', showNames);
+        try {
+            localStorage.setItem('matrixShowNames', showNames);
+        } catch (e) { /* ignore */ }
+    });
 }
