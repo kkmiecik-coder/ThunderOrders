@@ -379,14 +379,19 @@
 
                     <!-- Preview uploaded from phone (hidden by default) -->
                     <div class="pc-qr-uploaded" id="pc-qr-uploaded" style="display: none;">
-                        <div class="pc-qr-uploaded-icon">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2">
-                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                                <polyline points="22 4 12 14.01 9 11.01"/>
-                            </svg>
+                        <div class="pc-qr-preview-image" id="pc-qr-preview-image" style="display: none;">
+                            <img id="pc-qr-preview-img" src="" alt="Podgląd potwierdzenia">
                         </div>
-                        <span class="pc-qr-uploaded-text">Potwierdzenie wgrane z telefonu</span>
-                        <span class="pc-qr-uploaded-filename" id="pc-qr-uploaded-filename"></span>
+                        <div class="pc-qr-uploaded-info">
+                            <div class="pc-qr-uploaded-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2">
+                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                    <polyline points="22 4 12 14.01 9 11.01"/>
+                                </svg>
+                            </div>
+                            <span class="pc-qr-uploaded-text">Potwierdzenie wgrane z telefonu</span>
+                            <span class="pc-qr-uploaded-filename" id="pc-qr-uploaded-filename"></span>
+                        </div>
                     </div>
                 </div>
             </div>

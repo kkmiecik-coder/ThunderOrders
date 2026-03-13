@@ -2169,13 +2169,27 @@
 
 .pc-qr-uploaded {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 12px;
     padding: 16px;
     background: rgba(76, 175, 80, 0.08);
     border: 1px solid rgba(76, 175, 80, 0.2);
     border-radius: 10px;
     margin-top: 12px;
+}
+.pc-qr-preview-image {
+    text-align: center;
+}
+.pc-qr-preview-image img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.pc-qr-uploaded-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 .pc-qr-uploaded-icon {
     flex-shrink: 0;
@@ -2205,6 +2219,9 @@
 }
 [data-theme="dark"] .pc-qr-status {
     color: rgba(255, 255, 255, 0.4);
+}
+[data-theme="dark"] .pc-qr-preview-image img {
+    border-color: rgba(240, 147, 251, 0.15);
 }
 [data-theme="dark"] .pc-qr-uploaded {
     background: rgba(76, 175, 80, 0.1);

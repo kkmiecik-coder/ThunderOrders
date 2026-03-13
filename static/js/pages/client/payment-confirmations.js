@@ -1214,10 +1214,19 @@ window.toggleOrderItems = function(orderId, totalItems) {
         var qrDisplay = document.getElementById('pc-qr-display');
         var qrUploaded = document.getElementById('pc-qr-uploaded');
         var filenameEl = document.getElementById('pc-qr-uploaded-filename');
+        var previewContainer = document.getElementById('pc-qr-preview-image');
+        var previewImg = document.getElementById('pc-qr-preview-img');
 
         if (qrDisplay) qrDisplay.style.display = 'none';
         if (qrUploaded) qrUploaded.style.display = '';
         if (filenameEl) filenameEl.textContent = filename.replace(/^[0-9a-f]{32}_/, '');
+
+        // Show image preview (for JPG/PNG, not PDF)
+        var isImage = /\.(jpg|jpeg|png)$/i.test(filename);
+        if (isImage && previewContainer && previewImg && currentQrSessionToken) {
+            previewImg.src = '/client/payment-confirmations/qr-preview/' + currentQrSessionToken;
+            previewContainer.style.display = '';
+        }
 
         // Enable submit button
         if (submitBtn) {

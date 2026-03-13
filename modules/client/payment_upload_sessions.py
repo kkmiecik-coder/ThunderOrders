@@ -8,7 +8,8 @@ import base64
 import qrcode
 from datetime import timedelta
 
-from flask import request, jsonify, current_app
+import os
+from flask import request, jsonify, current_app, send_from_directory, abort
 from flask_login import login_required, current_user
 from extensions import db
 from modules.client import client_bp
@@ -45,12 +46,25 @@ def payment_qr_session_create():
     """Create QR upload session, return QR data URI + session token."""
     try:
         now = get_local_now()
-        # Cleanup expired sessions
+        # Cleanup expired sessions + their orphaned files
+        from modules.orders.models import PaymentConfirmation
+        upload_folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')
         expired = PaymentUploadSession.query.filter(
             PaymentUploadSession.user_id == current_user.id,
             PaymentUploadSession.expires_at < now
         ).all()
         for s in expired:
+            if s.uploaded_filename:
+                # Only delete file if not used by any PaymentConfirmation
+                in_use = PaymentConfirmation.query.filter_by(proof_file=s.uploaded_filename).first()
+                if not in_use:
+                    filepath = os.path.join(upload_folder, s.uploaded_filename)
+                    try:
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
+                            current_app.logger.info(f'[PaymentQR] Cleaned up orphaned file: {s.uploaded_filename}')
+                    except OSError:
+                        pass
             db.session.delete(s)
 
         session_token = secrets.token_urlsafe(32)
@@ -86,3 +100,19 @@ def payment_qr_session_create():
         db.session.rollback()
         current_app.logger.error(f'Payment QR session create error: {e}')
         return jsonify({'success': False, 'message': 'Wystąpił błąd'}), 500
+
+
+@client_bp.route('/payment-confirmations/qr-preview/<session_token>')
+@login_required
+def payment_qr_preview(session_token):
+    """Serve uploaded file preview for QR session (only for session owner)."""
+    session = PaymentUploadSession.query.filter_by(
+        session_token=session_token,
+        user_id=current_user.id,
+        status='uploaded'
+    ).first()
+    if not session or not session.uploaded_filename:
+        abort(404)
+
+    upload_folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')
+    return send_from_directory(upload_folder, session.uploaded_filename)
