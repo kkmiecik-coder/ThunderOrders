@@ -91,10 +91,10 @@
             future: 'rgba(80,80,100,0.3)'
         },
         light: {
-            completed: 'rgba(90,24,154,0.35)',
-            active: '#7B2CBF',
-            activeGlow: 'rgba(90,24,154,0.15)',
-            future: 'rgba(90,24,154,0.12)'
+            completed: 'rgba(120,120,130,0.35)',
+            active: 'rgba(100,100,110,0.5)',
+            activeGlow: 'rgba(100,100,110,0.15)',
+            future: 'rgba(120,120,130,0.2)'
         }
     };
 

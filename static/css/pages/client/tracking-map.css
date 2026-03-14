@@ -404,16 +404,16 @@
     display: block;
 }
 
-/* Light mode: dark purple vehicle */
+/* Light mode: dark vehicle */
 .tm-traveler-svg {
-    fill: #5A189A;
-    filter: drop-shadow(0 1px 3px rgba(90, 24, 154, 0.4));
+    fill: #374151;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
 }
 
-/* Dark mode: muted violet vehicle */
+/* Dark mode: white vehicle */
 [data-theme="dark"] .tm-traveler-svg {
-    fill: #7c6a9c;
-    filter: drop-shadow(0 0 4px rgba(140, 120, 170, 0.4));
+    fill: #ffffff;
+    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.5));
 }
 
 /* ===================================================================
