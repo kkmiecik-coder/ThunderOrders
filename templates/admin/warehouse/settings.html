@@ -414,6 +414,11 @@
                         </div>
                         <p class="rates-updated">
                             Ostatnia aktualizacja: <strong>{{ currency_last_update or 'Nigdy' }}</strong>
+                            {% if currency_last_update_source == 'auto-cron' %}
+                                <span class="badge badge-auto">auto</span>
+                            {% elif currency_last_update_source == 'manual' %}
+                                <span class="badge badge-manual">ręcznie</span>
+                            {% endif %}
                         </p>
                         <button type="button" class="btn btn-secondary" id="refresh-rates">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

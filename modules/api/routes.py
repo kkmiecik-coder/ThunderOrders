@@ -170,6 +170,7 @@ def refresh_currency_rates():
         Settings.set_value('warehouse_currency_krw_rate', str(krw_data['rate']), updated_by=current_user.id, type='string')
         Settings.set_value('warehouse_currency_usd_rate', str(usd_data['rate']), updated_by=current_user.id, type='string')
         Settings.set_value('warehouse_currency_last_update', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), updated_by=current_user.id, type='string')
+        Settings.set_value('warehouse_currency_last_update_source', 'manual', updated_by=current_user.id, type='string')
 
         db.session.commit()
 

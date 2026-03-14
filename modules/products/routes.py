@@ -1298,6 +1298,7 @@ def warehouse_settings():
 
     # Get last currency update
     currency_last_update = Settings.get_value('warehouse_currency_last_update', None)
+    currency_last_update_source = Settings.get_value('warehouse_currency_last_update_source', None)
 
     # Load order types and statuses for stock order aggregation settings
     order_types = OrderType.query.filter_by(is_active=True).all()
@@ -1326,6 +1327,7 @@ def warehouse_settings():
                            manufacturers=manufacturers,
                            suppliers=suppliers,
                            currency_last_update=currency_last_update,
+                           currency_last_update_source=currency_last_update_source,
                            order_types=order_types,
                            order_statuses=order_statuses,
                            current_aggregation_types=current_aggregation_types,

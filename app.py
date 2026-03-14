@@ -451,6 +451,33 @@ def register_cli_commands(app):
 
         click.echo(f"\n{'[DRY RUN] ' if dry_run else ''}Zaktualizowano: {total_updated} pozycji")
 
+    @app.cli.command('refresh-rates')
+    def refresh_rates():
+        """Odświeża kursy walut KRW i USD z NBP API (do użycia z cron)."""
+        from utils.currency import fetch_nbp_rate, cache_rate
+        from modules.auth.models import Settings
+
+        click.echo('Pobieranie kursów walut z NBP API...')
+
+        updated = {}
+        for currency in ('KRW', 'USD'):
+            try:
+                rate = fetch_nbp_rate(currency)
+                cache_rate(currency, rate)
+                updated[currency] = rate
+                click.echo(f'  {currency} → PLN: {rate}')
+            except Exception as e:
+                click.echo(f'  BŁĄD {currency}: {e}')
+
+        if updated:
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            Settings.set_value('warehouse_currency_last_update', now, type='string')
+            Settings.set_value('warehouse_currency_last_update_source', 'auto-cron', type='string')
+            db.session.commit()
+            click.echo(f'\nGotowe. Zaktualizowano {len(updated)} kurs(y) o {now}')
+        else:
+            click.echo('\nNie udało się pobrać żadnego kursu.')
+
     @app.cli.group()
     def achievements():
         """Achievement management commands."""

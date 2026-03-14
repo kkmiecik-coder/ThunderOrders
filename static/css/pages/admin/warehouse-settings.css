@@ -384,6 +384,27 @@
     margin: var(--space-3) 0;
 }
 
+.badge-auto,
+.badge-manual {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.badge-auto {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.badge-manual {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
 /* ==================== */
 /* Categories Tree      */
 /* ==================== */
@@ -1145,6 +1166,16 @@
 
 [data-theme="dark"] .rates-updated {
     color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .badge-auto {
+    background: rgba(46, 125, 50, 0.2);
+    color: #81c784;
+}
+
+[data-theme="dark"] .badge-manual {
+    background: rgba(21, 101, 192, 0.2);
+    color: #64b5f6;
 }
 
 /* Categories Tree - Dark Mode */
