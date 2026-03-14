@@ -348,23 +348,28 @@
             if (activePoints.length < 2) return;
 
             var isPlane = vehicleType === 'plane';
-            var iconClass = isPlane ? 'tm-traveler-plane' : 'tm-traveler-van';
-            var iconSize = isPlane ? [28, 28] : [24, 24];
+            var size = isPlane ? 28 : 24;
+            var svgSize = isPlane ? 22 : 18;
+            var svgPath = isPlane
+                ? 'M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'
+                : 'M18 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM19.5 9.5h-2.8L15.3 6H3v2h2v7H3v2h4.2a3 3 0 0 1 5.6 0h2.4a3 3 0 0 1 5.6 0H22v-4.5l-2.5-3zM15 9h4l1.67 2H15V9z';
 
-            var dotEl = null;
+            var html = '<div class="tm-traveler-inner" style="width:' + size + 'px;height:' + size + 'px;">'
+                + '<svg viewBox="0 0 24 24" fill="white" width="' + svgSize + '" height="' + svgSize + '">'
+                + '<path d="' + svgPath + '"/></svg></div>';
+
             travelingDot = L.marker(activePoints[0], {
                 icon: L.divIcon({
-                    className: iconClass,
-                    iconSize: iconSize,
-                    iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
-                    html: isPlane
-                        ? '<svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>'
-                        : '<svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M18 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM19.5 9.5h-2.8L15.3 6H3v2h2v7H3v2h4.2a3 3 0 0 1 5.6 0h2.4a3 3 0 0 1 5.6 0H22v-4.5l-2.5-3zM15 9h4l1.67 2H15V9z"/></svg>'
+                    className: 'tm-traveler',
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2],
+                    html: html
                 })
             }).addTo(map);
 
-            var travelDuration = 6000; // ms A→B
-            var pauseDuration = 800;   // ms pause at end before restart
+            var innerEl = null;
+            var travelDuration = 6000;
+            var pauseDuration = 800;
             var cycleDuration = travelDuration + pauseDuration;
             var startTime = null;
 
@@ -377,35 +382,33 @@
                 t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
                 var pos = interpolateRoute(activePoints, t);
-                // Get next point for rotation
+                // Get bearing for rotation
                 var tNext = Math.min(t + 0.02, 1);
                 var posNext = interpolateRoute(activePoints, tNext);
-                var angle = Math.atan2(posNext[1] - pos[1], posNext[0] - pos[0]) * (180 / Math.PI);
-                // Leaflet lat/lng: positive angle = east, but CSS rotation needs adjustment
-                // For a plane pointing right by default, rotate by -angle (since lat increases upward)
-                var rotation = -angle + 180; // flip because SVG plane points up by default
+                // angle: east=0, north=90 in standard math
+                var angle = Math.atan2(posNext[0] - pos[0], posNext[1] - pos[1]) * (180 / Math.PI);
+                // SVG plane points up (north), so rotation = 0 when heading north
+                // SVG van points right (east), needs -90 offset
+                var rotation = isPlane ? -angle : -angle - 90;
 
                 if (travelingDot) {
                     travelingDot.setLatLng(pos);
 
-                    if (!dotEl) {
-                        dotEl = travelingDot.getElement();
+                    if (!innerEl) {
+                        var el = travelingDot.getElement();
+                        if (el) innerEl = el.querySelector('.tm-traveler-inner');
                     }
-                    if (dotEl) {
-                        var baseTransform = 'rotate(' + rotation + 'deg)';
+                    if (innerEl) {
                         if (elapsed > travelDuration) {
-                            // Pause phase — shrink to 0
                             var fadeT = (elapsed - travelDuration) / pauseDuration;
-                            dotEl.style.transform = baseTransform + ' scale(' + (1 - fadeT) + ')';
-                            dotEl.style.opacity = 1 - fadeT;
+                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + (1 - fadeT) + ')';
+                            innerEl.style.opacity = 1 - fadeT;
                         } else if (elapsed < 300) {
-                            // Fade in at start
-                            var fadeIn = elapsed / 300;
-                            dotEl.style.transform = baseTransform;
-                            dotEl.style.opacity = fadeIn;
+                            innerEl.style.transform = 'rotate(' + rotation + 'deg)';
+                            innerEl.style.opacity = elapsed / 300;
                         } else {
-                            dotEl.style.transform = baseTransform;
-                            dotEl.style.opacity = 1;
+                            innerEl.style.transform = 'rotate(' + rotation + 'deg)';
+                            innerEl.style.opacity = 1;
                         }
                     }
                 }
