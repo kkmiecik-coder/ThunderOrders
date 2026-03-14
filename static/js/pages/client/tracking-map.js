@@ -398,15 +398,23 @@
                         if (el) innerEl = el.querySelector('.tm-traveler-inner');
                     }
                     if (innerEl) {
+                        // Speed-based scale: velocity is derivative of eased t
+                        // eased t uses quadratic in/out, so speed peaks at t=0.5
+                        var rawT = Math.min(elapsed / travelDuration, 1);
+                        var speed = rawT < 0.5 ? (4 * rawT) : (4 * (1 - rawT));
+                        // Scale: 1.0 at rest → 1.3 at max speed
+                        var speedScale = 1.0 + speed * 0.3;
+
                         if (elapsed > travelDuration) {
                             var fadeT = (elapsed - travelDuration) / pauseDuration;
-                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + (1 - fadeT) + ')';
+                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + (speedScale * (1 - fadeT)) + ')';
                             innerEl.style.opacity = 1 - fadeT;
                         } else if (elapsed < 300) {
-                            innerEl.style.transform = 'rotate(' + rotation + 'deg)';
-                            innerEl.style.opacity = elapsed / 300;
+                            var fadeIn = elapsed / 300;
+                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + (speedScale * fadeIn) + ')';
+                            innerEl.style.opacity = fadeIn;
                         } else {
-                            innerEl.style.transform = 'rotate(' + rotation + 'deg)';
+                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + speedScale + ')';
                             innerEl.style.opacity = 1;
                         }
                     }
