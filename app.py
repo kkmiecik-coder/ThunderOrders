@@ -470,7 +470,7 @@ def register_cli_commands(app):
                 click.echo(f'  BŁĄD {currency}: {e}')
 
         if updated:
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            now = datetime.now(tz=POLAND_TZ).strftime('%Y-%m-%d %H:%M:%S')
             Settings.set_value('warehouse_currency_last_update', now, type='string')
             Settings.set_value('warehouse_currency_last_update_source', 'auto-cron', type='string')
             db.session.commit()

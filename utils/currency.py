@@ -5,8 +5,11 @@ Fetches exchange rates from NBP API (free, no API key required)
 
 import requests
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from flask import current_app
 from extensions import db
+
+POLAND_TZ = ZoneInfo('Europe/Warsaw')
 
 
 def get_exchange_rate(currency_code):
@@ -45,7 +48,7 @@ def get_exchange_rate(currency_code):
         return {
             'rate': rate,
             'currency': currency_code,
-            'date': datetime.now().strftime('%Y-%m-%d'),
+            'date': datetime.now(tz=POLAND_TZ).strftime('%Y-%m-%d'),
             'cached': False,
             'cached_at': None
         }
@@ -145,7 +148,7 @@ def get_cached_rate(currency_code, allow_stale=False):
                 # Try ISO format as fallback
                 cached_at = datetime.fromisoformat(last_update)
 
-            age = datetime.now() - cached_at
+            age = datetime.now(tz=POLAND_TZ) - cached_at
 
             # Check if cache is still fresh based on update frequency
             if not allow_stale and age > timedelta(hours=update_frequency):
@@ -176,7 +179,7 @@ def get_cached_rate(currency_code, allow_stale=False):
 
         # Check if cache is fresh based on update frequency
         cached_at = datetime.fromisoformat(timestamp_setting.value)
-        age = datetime.now() - cached_at
+        age = datetime.now(tz=POLAND_TZ) - cached_at
 
         if not allow_stale and age > timedelta(hours=update_frequency):
             return None
@@ -207,7 +210,7 @@ def cache_rate(currency_code, rate):
     try:
         from modules.auth.models import Settings
 
-        timestamp_value = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp_value = datetime.now(tz=POLAND_TZ).strftime('%Y-%m-%d %H:%M:%S')
 
         # Cache in warehouse settings (preferred location)
         warehouse_key = f'warehouse_currency_{currency_code.lower()}_rate'
@@ -234,11 +237,11 @@ def cache_rate(currency_code, rate):
         timestamp_setting = Settings.query.filter_by(key=timestamp_key).first()
 
         if timestamp_setting:
-            timestamp_setting.value = datetime.now().isoformat()
+            timestamp_setting.value = datetime.now(tz=POLAND_TZ).isoformat()
         else:
             timestamp_setting = Settings(
                 key=timestamp_key,
-                value=datetime.now().isoformat(),
+                value=datetime.now(tz=POLAND_TZ).isoformat(),
                 type='string',
                 description=f'Timestamp of last {currency_code} rate update (legacy)'
             )
