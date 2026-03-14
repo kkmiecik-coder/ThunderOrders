@@ -367,6 +367,12 @@
     50% { transform: scale(1.4); box-shadow: 0 0 28px rgba(245, 87, 108, 0.7); }
 }
 
+.tm-marker-customs {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #f97316; border: 3px solid rgba(249, 115, 22, 0.4);
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
+}
+
 .tm-marker-gom {
     width: 14px; height: 14px; border-radius: 50%;
     background: #a78bfa; border: 3px solid rgba(167, 139, 250, 0.4);

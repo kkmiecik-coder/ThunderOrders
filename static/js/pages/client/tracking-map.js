@@ -8,13 +8,61 @@
 
     // ===== CONSTANTS =====
     var KOREA = [37.5665, 126.978];
-    var GOM = [49.85, 22.15];
+    var LUBLIN = [51.2465, 22.5684]; // Urząd celny
+    var GOM = [49.85, 22.15];        // Racławówka
     var POLAND_CENTER = [51.9194, 19.1451];
 
-    // Route waypoints Korea → GOM (curved through Central Asia)
-    var ROUTE_KOREA_GOM = [
-        KOREA, [40, 110], [43, 90], [46, 70], [48, 50], [49, 35], [50, 25], [50, 22], GOM
-    ];
+    // Key route points (arcs will be generated between them)
+    var ROUTE_STOPS = [KOREA, LUBLIN, GOM]; // Seoul → Lublin → GOM
+
+    /**
+     * Generate a smooth arc between two points using great-circle-like curve.
+     * Adds intermediate points with a northward bulge for visual appeal.
+     * @param {Array} from [lat, lng]
+     * @param {Array} to [lat, lng]
+     * @param {number} segments Number of intermediate points
+     * @param {number} bulge Fraction of distance to offset perpendicular (positive = north)
+     * @returns {Array} Array of [lat, lng] points including from and to
+     */
+    function generateArc(from, to, segments, bulge) {
+        segments = segments || 40;
+        bulge = bulge !== undefined ? bulge : 0.15;
+        var points = [];
+        var dLat = to[0] - from[0];
+        var dLng = to[1] - from[1];
+        // Perpendicular direction (rotated 90° counterclockwise = northward for east-west routes)
+        var perpLat = -dLng;
+        var perpLng = dLat;
+        // Normalize perpendicular
+        var perpLen = Math.sqrt(perpLat * perpLat + perpLng * perpLng);
+        if (perpLen > 0) {
+            perpLat /= perpLen;
+            perpLng /= perpLen;
+        }
+        // Scale by route distance and bulge factor
+        var dist = Math.sqrt(dLat * dLat + dLng * dLng);
+        perpLat *= dist * bulge;
+        perpLng *= dist * bulge;
+
+        for (var i = 0; i <= segments; i++) {
+            var t = i / segments;
+            // Sine bulge peaks at midpoint
+            var offset = Math.sin(t * Math.PI);
+            points.push([
+                from[0] + dLat * t + perpLat * offset,
+                from[1] + dLng * t + perpLng * offset
+            ]);
+        }
+        return points;
+    }
+
+    // Pre-generate the full arc route: Korea → Lublin → GOM
+    // (client segment added dynamically)
+    var ARC_KOREA_LUBLIN = generateArc(KOREA, LUBLIN, 50, 0.12);
+    var ARC_LUBLIN_GOM = generateArc(LUBLIN, GOM, 15, 0.05);
+    var ROUTE_KOREA_GOM = ARC_KOREA_LUBLIN.concat(ARC_LUBLIN_GOM.slice(1));
+    // Index where Lublin sits in the combined route
+    var LUBLIN_IDX = ARC_KOREA_LUBLIN.length - 1;
 
     // Status → step index mapping
     var STATUS_TO_STEP = {
@@ -116,28 +164,28 @@
             ? window.lookupCityCoords(shippingCity)
             : POLAND_CENTER;
 
-        // Build full route: Korea → GOM → Client
-        var fullRoute = ROUTE_KOREA_GOM.concat([clientCoords]);
+        // Build arc GOM → Client
+        var ARC_GOM_CLIENT = generateArc(GOM, clientCoords, 15, -0.03);
 
-        // Midpoint GOM → Client for "wyslane" step
-        var midPL = [
-            (GOM[0] + clientCoords[0]) / 2,
-            (GOM[1] + clientCoords[1]) / 2
-        ];
+        // Full route: Korea → Lublin → GOM → Client (all arcs)
+        var fullRoute = ROUTE_KOREA_GOM.concat(ARC_GOM_CLIENT.slice(1));
+
+        // Midpoint on the arc for "w drodze" visual centering
+        var midRouteKoreaLublin = ARC_KOREA_LUBLIN[Math.floor(ARC_KOREA_LUBLIN.length / 2)];
 
         // Step → map coords (for flyTo)
         var stepCoords = [
             KOREA,                  // 0: Zamówiono
             KOREA,                  // 1: Dost. do Proxy
-            ROUTE_KOREA_GOM[4],     // 2: W drodze (mid ocean)
-            [50, 22],               // 3: Urząd Celny
+            midRouteKoreaLublin,    // 2: W drodze (center of Korea→Lublin arc)
+            LUBLIN,                 // 3: Urząd Celny
             GOM,                    // 4: Dost. do GOM
             GOM,                    // 5: Spakowane
-            midPL,                  // 6: Wysłane
+            ARC_GOM_CLIENT[Math.floor(ARC_GOM_CLIENT.length / 2)], // 6: Wysłane (mid GOM→client)
             clientCoords            // 7: Dostarczone
         ];
 
-        var stepZooms = [6, 6, 4, 6, 10, 10, 8, 10];
+        var stepZooms = [6, 6, 3, 8, 10, 10, 8, 10];
 
         // Current position marker coords
         var currentMarkerCoords = stepCoords[currentStepIdx];
@@ -176,33 +224,48 @@
             }
 
             if (currentStepIdx === 2) {
-                // W drodze do Polski — entire Korea→GOM is the active segment
-                return { completed: [], active: ROUTE_KOREA_GOM.slice(), future: [GOM, clientCoords] };
+                // W drodze do Polski — Korea→Lublin is active, Lublin→GOM→Client is future
+                return {
+                    completed: [],
+                    active: ARC_KOREA_LUBLIN.slice(),
+                    future: ARC_LUBLIN_GOM.concat(ARC_GOM_CLIENT.slice(1))
+                };
             }
 
             if (currentStepIdx === 3) {
-                // Urząd Celny — most of Korea→GOM completed, last bit active
-                var customsIdx = 7; // waypoint [50, 22] near customs
+                // Urząd Celny (Lublin) — Korea→Lublin completed, at Lublin
                 return {
-                    completed: ROUTE_KOREA_GOM.slice(0, customsIdx),
-                    active: ROUTE_KOREA_GOM.slice(customsIdx - 1, customsIdx + 1),
-                    future: ROUTE_KOREA_GOM.slice(customsIdx).concat([clientCoords])
+                    completed: ARC_KOREA_LUBLIN.slice(),
+                    active: [],
+                    future: ARC_LUBLIN_GOM.concat(ARC_GOM_CLIENT.slice(1))
                 };
             }
 
             if (currentStepIdx === 4) {
-                // Dostarczone do GOM — all Korea→GOM completed
-                return { completed: ROUTE_KOREA_GOM.slice(), active: [], future: [GOM, clientCoords] };
+                // Dostarczone do GOM — Korea→Lublin→GOM completed
+                return {
+                    completed: ROUTE_KOREA_GOM.slice(),
+                    active: [],
+                    future: ARC_GOM_CLIENT.slice()
+                };
             }
 
             if (currentStepIdx === 5) {
-                // Spakowane — at GOM, all Korea→GOM completed
-                return { completed: ROUTE_KOREA_GOM.slice(), active: [], future: [GOM, clientCoords] };
+                // Spakowane — at GOM, same as above
+                return {
+                    completed: ROUTE_KOREA_GOM.slice(),
+                    active: [],
+                    future: ARC_GOM_CLIENT.slice()
+                };
             }
 
             if (currentStepIdx === 6) {
-                // Wysłane — GOM→Client is the active segment
-                return { completed: ROUTE_KOREA_GOM.slice(), active: [GOM, clientCoords], future: [] };
+                // Wysłane — Korea→GOM completed, GOM→Client active
+                return {
+                    completed: ROUTE_KOREA_GOM.slice(),
+                    active: ARC_GOM_CLIENT.slice(),
+                    future: []
+                };
             }
 
             // Dostarczone — everything completed
@@ -346,6 +409,10 @@
         L.marker(KOREA, { icon: makeIcon('tm-marker-korea') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">Seoul, Korea</div><div class="tm-popup__detail">Proxy zakupowe</div>', { className: 'tm-popup' });
 
+        // Lublin (Urząd Celny)
+        L.marker(LUBLIN, { icon: makeIcon('tm-marker-customs') }).addTo(map)
+            .bindPopup('<div class="tm-popup__title">Urząd Celny — Lublin</div><div class="tm-popup__detail">Odprawa celna</div>', { className: 'tm-popup' });
+
         L.marker(GOM, { icon: makeIcon('tm-marker-gom') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">GOM — Racławówka</div><div class="tm-popup__detail">Magazyn ThunderOrders<br>Podkarpackie, Polska</div>', { className: 'tm-popup' });
 
@@ -353,8 +420,8 @@
         L.marker(clientCoords, { icon: makeIcon('tm-marker-client') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">Adres dostawy</div><div class="tm-popup__detail">' + clientLabel + '</div>', { className: 'tm-popup' });
 
-        // Current position (pulsing) — only when NOT at a fixed marker location
-        if (currentStepIdx >= 2 && currentStepIdx <= 6 && currentStepIdx !== 4 && currentStepIdx !== 5) {
+        // Current position (pulsing) — only for "w drodze" and "wyslane" (moving states)
+        if (currentStepIdx === 2 || currentStepIdx === 6) {
             L.marker(currentMarkerCoords, { icon: makeIcon('tm-marker-current', 16) }).addTo(map)
                 .bindPopup('<div class="tm-popup__title">' + statusName + '</div><div class="tm-popup__detail">Aktualna pozycja przesyłki</div>', { className: 'tm-popup' });
         }
