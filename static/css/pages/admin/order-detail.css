@@ -252,53 +252,54 @@ code {
     white-space: nowrap;
 }
 
+/* Set badge base */
+.set-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 12px;
+}
+
 .set-badge-ok {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
     background-color: #4CAF50;
     color: #fff;
 }
 
 .set-badge-fail {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
     background-color: #F44336;
     color: #fff;
 }
 
 .set-badge-na {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    font-size: 0.875rem;
-    font-weight: 700;
     background-color: #9E9E9E;
     color: #fff;
 }
 
 .set-badge-set-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     height: 24px;
-    border-radius: 12px;
-    font-size: 0.65rem;
-    font-weight: 600;
     padding: 0 6px;
     background-color: #e3f2fd;
     color: #1565c0;
+    font-size: 0.65rem;
+    font-weight: 600;
     margin-right: 3px;
 }
 
 .set-badge-prob {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
     min-width: 36px;
     height: 24px;
-    border-radius: 12px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    padding: 0 6px;
+    padding: 0 8px;
     background-color: #FF9800;
     color: #fff;
 }
@@ -4209,11 +4210,15 @@ code {
 
 /* Set Fulfillment Badge - Dark Mode */
 [data-theme="dark"] .set-badge-ok {
-    background-color: #66BB6A;
+    background-color: rgba(76, 175, 80, 0.25);
+    color: #66BB6A;
+    border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 [data-theme="dark"] .set-badge-fail {
-    background-color: #EF5350;
+    background-color: rgba(244, 67, 54, 0.25);
+    color: #EF5350;
+    border: 1px solid rgba(244, 67, 54, 0.3);
 }
 
 [data-theme="dark"] .set-badge-na {
@@ -4228,7 +4233,7 @@ code {
 }
 
 [data-theme="dark"] .set-badge-prob {
-    background-color: rgba(255, 152, 0, 0.25);
+    background-color: rgba(255, 152, 0, 0.2);
     color: #FFB74D;
     border: 1px solid rgba(255, 152, 0, 0.3);
 }
