@@ -9,7 +9,7 @@
     // ===== CONSTANTS =====
     var KOREA = [37.5665, 126.978];
     var CUSTOMS = [51.7, 19.55]; // Dobra koło Łodzi — urząd celny
-    var GOM = [49.85, 22.15];        // Racławówka
+    var GOM = [50.0412, 21.9991];     // Rzeszów (GOM)
     var POLAND_CENTER = [51.9194, 19.1451];
 
     // Key route points (arcs will be generated between them)
@@ -445,7 +445,7 @@
             .bindPopup('<div class="tm-popup__title">Urząd Celny — Dobra k. Łodzi</div><div class="tm-popup__detail">Odprawa celna</div>', { className: 'tm-popup' });
 
         L.marker(GOM, { icon: makeIcon('tm-marker-gom') }).addTo(map)
-            .bindPopup('<div class="tm-popup__title">GOM — Racławówka</div><div class="tm-popup__detail">Magazyn ThunderOrders<br>Podkarpackie, Polska</div>', { className: 'tm-popup' });
+            .bindPopup('<div class="tm-popup__title">GOM — Rzeszów</div><div class="tm-popup__detail">Magazyn ThunderOrders<br>Podkarpackie, Polska</div>', { className: 'tm-popup' });
 
         // Client marker — only if shipping request exists with city
         if (clientCoords) {
