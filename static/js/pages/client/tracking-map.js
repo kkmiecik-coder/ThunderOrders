@@ -85,14 +85,14 @@
     // Route colors per theme
     var ROUTE_COLORS = {
         dark: {
-            completed: 'rgba(167,139,250,0.4)',
-            active: '#f093fb',
-            activeGlow: 'rgba(240,147,251,0.25)',
-            future: 'rgba(240,147,251,0.15)'
+            completed: 'rgba(100,100,120,0.4)',
+            active: 'rgba(140,130,160,0.6)',
+            activeGlow: 'rgba(140,130,160,0.2)',
+            future: 'rgba(80,80,100,0.3)'
         },
         light: {
-            completed: 'rgba(90,24,154,0.3)',
-            active: '#9D4EDD',
+            completed: 'rgba(90,24,154,0.35)',
+            active: '#7B2CBF',
             activeGlow: 'rgba(90,24,154,0.15)',
             future: 'rgba(90,24,154,0.12)'
         }
@@ -355,7 +355,7 @@
                 : 'M18 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM19.5 9.5h-2.8L15.3 6H3v2h2v7H3v2h4.2a3 3 0 0 1 5.6 0h2.4a3 3 0 0 1 5.6 0H22v-4.5l-2.5-3zM15 9h4l1.67 2H15V9z';
 
             var html = '<div class="tm-traveler-inner" style="width:' + size + 'px;height:' + size + 'px;">'
-                + '<svg viewBox="0 0 24 24" fill="white" width="' + svgSize + '" height="' + svgSize + '">'
+                + '<svg viewBox="0 0 24 24" class="tm-traveler-svg" width="' + svgSize + '" height="' + svgSize + '">'
                 + '<path d="' + svgPath + '"/></svg></div>';
 
             travelingDot = L.marker(activePoints[0], {
@@ -387,9 +387,8 @@
                 var posNext = interpolateRoute(activePoints, tNext);
                 // angle: east=0, north=90 in standard math
                 var angle = Math.atan2(posNext[0] - pos[0], posNext[1] - pos[1]) * (180 / Math.PI);
-                // SVG plane points up (north), so rotation = 0 when heading north
-                // SVG van points right (east), needs -90 offset
-                var rotation = isPlane ? -angle : -angle - 90;
+                // SVG plane points up (north), rotate +90 so it points in travel direction
+                var rotation = isPlane ? -angle + 90 : -angle - 90;
 
                 if (travelingDot) {
                     travelingDot.setLatLng(pos);

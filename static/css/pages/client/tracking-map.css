@@ -397,12 +397,23 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8)) drop-shadow(0 0 3px rgba(240, 147, 251, 0.5));
     will-change: transform, opacity;
 }
 
 .tm-traveler-inner svg {
     display: block;
+}
+
+/* Light mode: dark purple vehicle */
+.tm-traveler-svg {
+    fill: #5A189A;
+    filter: drop-shadow(0 1px 3px rgba(90, 24, 154, 0.4));
+}
+
+/* Dark mode: muted violet vehicle */
+[data-theme="dark"] .tm-traveler-svg {
+    fill: #7c6a9c;
+    filter: drop-shadow(0 0 4px rgba(140, 120, 170, 0.4));
 }
 
 /* ===================================================================
