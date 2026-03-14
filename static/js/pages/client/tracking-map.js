@@ -420,11 +420,7 @@
         L.marker(clientCoords, { icon: makeIcon('tm-marker-client') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">Adres dostawy</div><div class="tm-popup__detail">' + clientLabel + '</div>', { className: 'tm-popup' });
 
-        // Current position (pulsing) — only for "w drodze" and "wyslane" (moving states)
-        if (currentStepIdx === 2 || currentStepIdx === 6) {
-            L.marker(currentMarkerCoords, { icon: makeIcon('tm-marker-current', 16) }).addTo(map)
-                .bindPopup('<div class="tm-popup__title">' + statusName + '</div><div class="tm-popup__detail">Aktualna pozycja przesyłki</div>', { className: 'tm-popup' });
-        }
+        // No static "current position" marker — the traveling dot handles this
 
         // Fit bounds
         map.fitBounds(L.latLngBounds([KOREA, clientCoords]).pad(0.12));
