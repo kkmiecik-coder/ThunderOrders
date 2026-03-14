@@ -66,6 +66,10 @@ def fetch_nbp_rate(currency_code):
     Fetch current exchange rate from NBP API
 
     NBP API Documentation: https://api.nbp.pl/
+    Uses /last/1/ endpoint to get the most recent rate (handles weekends/holidays).
+
+    Table A: common currencies (USD, EUR) — field 'mid'
+    Table C: exotic currencies (KRW) — field 'ask'+'bid', averaged
 
     Args:
         currency_code (str): Currency code (KRW, USD, EUR, etc.)
@@ -77,14 +81,10 @@ def fetch_nbp_rate(currency_code):
         Exception: If API request fails
     """
 
-    # NBP API endpoint
-    # Table A - most common currencies (USD, EUR, etc.)
-    # Table C - exotic currencies (KRW, etc.)
-
-    # Try Table A first
+    # Try Table A first (uses 'mid' rate)
     try:
-        url = f'https://api.nbp.pl/api/exchangerates/rates/a/{currency_code}/?format=json'
-        response = requests.get(url, timeout=5)
+        url = f'https://api.nbp.pl/api/exchangerates/rates/a/{currency_code}/last/1/?format=json'
+        response = requests.get(url, timeout=10)
 
         if response.status_code == 200:
             data = response.json()
@@ -94,15 +94,17 @@ def fetch_nbp_rate(currency_code):
     except requests.exceptions.RequestException:
         pass
 
-    # If not in Table A, try Table C
+    # If not in Table A, try Table C (uses average of 'ask' and 'bid')
     try:
-        url = f'https://api.nbp.pl/api/exchangerates/rates/c/{currency_code}/?format=json'
-        response = requests.get(url, timeout=5)
+        url = f'https://api.nbp.pl/api/exchangerates/rates/c/{currency_code}/last/1/?format=json'
+        response = requests.get(url, timeout=10)
 
         if response.status_code == 200:
             data = response.json()
-            rate = data['rates'][0]['mid']
-            return float(rate)
+            rate_data = data['rates'][0]
+            # Table C has 'ask' and 'bid', average them
+            rate = (float(rate_data['ask']) + float(rate_data['bid'])) / 2
+            return round(rate, 6)
 
     except requests.exceptions.RequestException as e:
         raise Exception(f'NBP API request failed: {str(e)}')
