@@ -146,6 +146,7 @@
             statusTimestamps = JSON.parse(section.dataset.statusTimestamps || '{}');
         } catch (e) { /* ignore */ }
         var shippingCity = section.dataset.shippingCity || '';
+        var hasShipping = section.dataset.hasShipping === 'true';
         var statusName = section.dataset.orderStatusName || '';
 
         // Determine current step index
@@ -159,16 +160,24 @@
             }
         }
 
-        // Client coords
-        var clientCoords = (typeof window.lookupCityCoords === 'function')
-            ? window.lookupCityCoords(shippingCity)
-            : POLAND_CENTER;
+        // Client coords — only if shipping request exists
+        var clientCoords = null;
+        var ARC_GOM_CLIENT = [];
+        if (hasShipping && shippingCity) {
+            clientCoords = (typeof window.lookupCityCoords === 'function')
+                ? window.lookupCityCoords(shippingCity)
+                : null;
+        }
 
-        // Build arc GOM → Client
-        var ARC_GOM_CLIENT = generateArc(GOM, clientCoords, 15, -0.03);
+        // Build arc GOM → Client (only if we have client coords)
+        if (clientCoords) {
+            ARC_GOM_CLIENT = generateArc(GOM, clientCoords, 15, -0.03);
+        }
 
-        // Full route: Korea → Dobra → GOM → Client (all arcs)
-        var fullRoute = ROUTE_KOREA_GOM.concat(ARC_GOM_CLIENT.slice(1));
+        // Full route depends on whether we have client destination
+        var fullRoute = clientCoords
+            ? ROUTE_KOREA_GOM.concat(ARC_GOM_CLIENT.slice(1))
+            : ROUTE_KOREA_GOM.slice();
 
         // Midpoint on the arc for "w drodze" visual centering
         var midRouteKoreaDobra = ARC_KOREA_CUSTOMS[Math.floor(ARC_KOREA_CUSTOMS.length / 2)];
@@ -177,12 +186,12 @@
         var stepCoords = [
             KOREA,                  // 0: Zamówiono
             KOREA,                  // 1: Dost. do Proxy
-            midRouteKoreaDobra,    // 2: W drodze (center of Korea→Dobra arc)
-            CUSTOMS,                 // 3: Urząd Celny
+            midRouteKoreaDobra,     // 2: W drodze (center of Korea→Dobra arc)
+            CUSTOMS,                // 3: Urząd Celny
             GOM,                    // 4: Dost. do GOM
             GOM,                    // 5: Spakowane
-            ARC_GOM_CLIENT[Math.floor(ARC_GOM_CLIENT.length / 2)], // 6: Wysłane (mid GOM→client)
-            clientCoords            // 7: Dostarczone
+            clientCoords ? ARC_GOM_CLIENT[Math.floor(ARC_GOM_CLIENT.length / 2)] : GOM, // 6: Wysłane
+            clientCoords || GOM     // 7: Dostarczone
         ];
 
         var stepZooms = [6, 6, 3, 8, 10, 10, 8, 10];
@@ -223,47 +232,40 @@
                 return { completed: [], active: [], future: fullRoute };
             }
 
+            var futureClientArc = ARC_GOM_CLIENT.length > 1 ? ARC_GOM_CLIENT.slice(1) : [];
+
             if (currentStepIdx === 2) {
-                // W drodze do Polski — Korea→Dobra is active, Dobra→GOM→Client is future
+                // W drodze do Polski — Korea→Dobra is active
                 return {
                     completed: [],
                     active: ARC_KOREA_CUSTOMS.slice(),
-                    future: ARC_CUSTOMS_GOM.concat(ARC_GOM_CLIENT.slice(1))
+                    future: ARC_CUSTOMS_GOM.concat(futureClientArc)
                 };
             }
 
             if (currentStepIdx === 3) {
-                // Urząd Celny (Dobra) — Korea→Dobra completed, at Dobra
+                // Urząd Celny (Dobra) — Korea→Dobra completed
                 return {
                     completed: ARC_KOREA_CUSTOMS.slice(),
                     active: [],
-                    future: ARC_CUSTOMS_GOM.concat(ARC_GOM_CLIENT.slice(1))
+                    future: ARC_CUSTOMS_GOM.concat(futureClientArc)
                 };
             }
 
-            if (currentStepIdx === 4) {
-                // Dostarczone do GOM — Korea→Dobra→GOM completed
+            if (currentStepIdx === 4 || currentStepIdx === 5) {
+                // Dostarczone do GOM / Spakowane
                 return {
                     completed: ROUTE_KOREA_GOM.slice(),
                     active: [],
-                    future: ARC_GOM_CLIENT.slice()
-                };
-            }
-
-            if (currentStepIdx === 5) {
-                // Spakowane — at GOM, same as above
-                return {
-                    completed: ROUTE_KOREA_GOM.slice(),
-                    active: [],
-                    future: ARC_GOM_CLIENT.slice()
+                    future: clientCoords ? ARC_GOM_CLIENT.slice() : []
                 };
             }
 
             if (currentStepIdx === 6) {
-                // Wysłane — Korea→GOM completed, GOM→Client active
+                // Wysłane — GOM→Client active (only if client coords exist)
                 return {
                     completed: ROUTE_KOREA_GOM.slice(),
-                    active: ARC_GOM_CLIENT.slice(),
+                    active: clientCoords ? ARC_GOM_CLIENT.slice() : [],
                     future: []
                 };
             }
@@ -445,14 +447,17 @@
         L.marker(GOM, { icon: makeIcon('tm-marker-gom') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">GOM — Racławówka</div><div class="tm-popup__detail">Magazyn ThunderOrders<br>Podkarpackie, Polska</div>', { className: 'tm-popup' });
 
-        var clientLabel = shippingCity || 'Polska';
-        L.marker(clientCoords, { icon: makeIcon('tm-marker-client') }).addTo(map)
-            .bindPopup('<div class="tm-popup__title">Adres dostawy</div><div class="tm-popup__detail">' + clientLabel + '</div>', { className: 'tm-popup' });
+        // Client marker — only if shipping request exists with city
+        if (clientCoords) {
+            L.marker(clientCoords, { icon: makeIcon('tm-marker-client') }).addTo(map)
+                .bindPopup('<div class="tm-popup__title">Adres dostawy</div><div class="tm-popup__detail">' + shippingCity + '</div>', { className: 'tm-popup' });
+        }
 
         // No static "current position" marker — the traveling dot handles this
 
         // Fit bounds
-        map.fitBounds(L.latLngBounds([KOREA, clientCoords]).pad(0.12));
+        var boundsEnd = clientCoords || GOM;
+        map.fitBounds(L.latLngBounds([KOREA, boundsEnd]).pad(0.12));
 
         // ===== DISTANCE =====
         var segments = getActiveSegmentPoints();

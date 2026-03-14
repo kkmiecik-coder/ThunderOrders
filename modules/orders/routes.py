@@ -1769,10 +1769,12 @@ def client_detail(order_id):
             except (ValueError, TypeError):
                 pass
 
-    # Shipping city for client marker (fallback chain)
-    tracking_shipping_city = order.shipping_city
-    if not tracking_shipping_city and order.shipping_request:
-        tracking_shipping_city = order.shipping_request.shipping_city
+    # Shipping city for client marker — only from shipping request
+    tracking_shipping_city = ''
+    tracking_has_shipping = False
+    if order.shipping_request:
+        tracking_has_shipping = True
+        tracking_shipping_city = order.shipping_request.shipping_city or ''
 
     return render_template(
         'client/orders/detail.html',
@@ -1784,6 +1786,7 @@ def client_detail(order_id):
         show_tracking_map=show_tracking_map,
         status_timestamps=status_timestamps,
         tracking_shipping_city=tracking_shipping_city,
+        tracking_has_shipping=tracking_has_shipping,
         tracking_proxy_status=tracking_proxy_status,
         page_title=f'Zamówienie {order.order_number}'
     )

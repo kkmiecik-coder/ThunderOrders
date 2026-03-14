@@ -33,6 +33,7 @@
         data-status="{{ order.status }}"
         data-status-timestamps='{{ status_timestamps | tojson }}'
         data-shipping-city="{{ tracking_shipping_city or '' }}"
+        data-has-shipping="{{ 'true' if tracking_has_shipping else 'false' }}"
         data-order-status-name="{{ order.status_display_name }}"
         data-proxy-status="{{ tracking_proxy_status or '' }}">
 
