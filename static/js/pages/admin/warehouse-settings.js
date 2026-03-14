@@ -149,7 +149,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Update last update time
                     const lastUpdateEl = document.querySelector('.rates-updated strong');
                     if (lastUpdateEl) {
-                        lastUpdateEl.textContent = new Date().toLocaleString('pl-PL');
+                        lastUpdateEl.textContent = data.updated_at || new Date().toLocaleString('pl-PL');
+                    }
+
+                    // Update source badge to "ręcznie"
+                    const ratesUpdatedEl = document.querySelector('.rates-updated');
+                    if (ratesUpdatedEl) {
+                        let badge = ratesUpdatedEl.querySelector('.badge-auto, .badge-manual');
+                        if (badge) {
+                            badge.className = 'badge badge-manual';
+                            badge.textContent = 'ręcznie';
+                        } else {
+                            const newBadge = document.createElement('span');
+                            newBadge.className = 'badge badge-manual';
+                            newBadge.textContent = 'ręcznie';
+                            ratesUpdatedEl.appendChild(newBadge);
+                        }
                     }
                 } else {
                     window.showToast('Nie udało się pobrać kursów walut', 'error');
