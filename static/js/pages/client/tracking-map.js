@@ -342,17 +342,24 @@
             return points[points.length - 1];
         }
 
-        function startTravelingDot(activePoints) {
+        function startTravelingDot(activePoints, vehicleType) {
             if (animFrameId) cancelAnimationFrame(animFrameId);
             if (travelingDot) { map.removeLayer(travelingDot); travelingDot = null; }
             if (activePoints.length < 2) return;
 
+            var isPlane = vehicleType === 'plane';
+            var iconClass = isPlane ? 'tm-traveler-plane' : 'tm-traveler-van';
+            var iconSize = isPlane ? [28, 28] : [24, 24];
+
             var dotEl = null;
             travelingDot = L.marker(activePoints[0], {
                 icon: L.divIcon({
-                    className: 'tm-marker-traveler',
-                    iconSize: [10, 10],
-                    iconAnchor: [5, 5]
+                    className: iconClass,
+                    iconSize: iconSize,
+                    iconAnchor: [iconSize[0] / 2, iconSize[1] / 2],
+                    html: isPlane
+                        ? '<svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg>'
+                        : '<svg viewBox="0 0 24 24" fill="white" width="18" height="18"><path d="M18 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM19.5 9.5h-2.8L15.3 6H3v2h2v7H3v2h4.2a3 3 0 0 1 5.6 0h2.4a3 3 0 0 1 5.6 0H22v-4.5l-2.5-3zM15 9h4l1.67 2H15V9z"/></svg>'
                 })
             }).addTo(map);
 
@@ -370,24 +377,34 @@
                 t = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 
                 var pos = interpolateRoute(activePoints, t);
+                // Get next point for rotation
+                var tNext = Math.min(t + 0.02, 1);
+                var posNext = interpolateRoute(activePoints, tNext);
+                var angle = Math.atan2(posNext[1] - pos[1], posNext[0] - pos[0]) * (180 / Math.PI);
+                // Leaflet lat/lng: positive angle = east, but CSS rotation needs adjustment
+                // For a plane pointing right by default, rotate by -angle (since lat increases upward)
+                var rotation = -angle + 180; // flip because SVG plane points up by default
+
                 if (travelingDot) {
                     travelingDot.setLatLng(pos);
 
-                    // Scale down at end, scale up at start
                     if (!dotEl) {
                         dotEl = travelingDot.getElement();
                     }
                     if (dotEl) {
+                        var baseTransform = 'rotate(' + rotation + 'deg)';
                         if (elapsed > travelDuration) {
                             // Pause phase — shrink to 0
                             var fadeT = (elapsed - travelDuration) / pauseDuration;
-                            dotEl.style.transform += ' scale(' + (1 - fadeT) + ')';
+                            dotEl.style.transform = baseTransform + ' scale(' + (1 - fadeT) + ')';
                             dotEl.style.opacity = 1 - fadeT;
                         } else if (elapsed < 300) {
                             // Fade in at start
                             var fadeIn = elapsed / 300;
+                            dotEl.style.transform = baseTransform;
                             dotEl.style.opacity = fadeIn;
                         } else {
+                            dotEl.style.transform = baseTransform;
                             dotEl.style.opacity = 1;
                         }
                     }
@@ -400,9 +417,11 @@
         drawRoute();
 
         // Start traveling dot on active segment
+        // plane for Korea→Lublin (international), van for GOM→Client (domestic)
         var activeSegment = getActiveSegmentPoints();
         if (activeSegment.active.length > 1) {
-            startTravelingDot(activeSegment.active);
+            var vehicle = (currentStepIdx <= 2) ? 'plane' : 'van';
+            startTravelingDot(activeSegment.active, vehicle);
         }
 
         // ===== MARKERS =====
@@ -472,7 +491,10 @@
                     drawRoute();
                     // Restart traveling dot
                     var seg = getActiveSegmentPoints();
-                    if (seg.active.length > 1) startTravelingDot(seg.active);
+                    if (seg.active.length > 1) {
+                        var v = (currentStepIdx <= 2) ? 'plane' : 'van';
+                        startTravelingDot(seg.active, v);
+                    }
                 }
             });
         });

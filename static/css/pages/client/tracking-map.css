@@ -385,12 +385,28 @@
     box-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
 }
 
-.tm-marker-traveler {
-    width: 10px; height: 10px; border-radius: 50%;
-    background: #ffffff;
-    border: 2px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 4px rgba(240, 147, 251, 0.6);
+/* Traveling vehicle icons */
+.tm-traveler-plane,
+.tm-traveler-van {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     z-index: 900 !important;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.7)) drop-shadow(0 0 3px rgba(240, 147, 251, 0.5));
+    transition: opacity 0.3s ease;
+}
+
+.tm-traveler-plane {
+    width: 28px; height: 28px;
+}
+
+.tm-traveler-van {
+    width: 24px; height: 24px;
+}
+
+.tm-traveler-plane svg,
+.tm-traveler-van svg {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
 }
 
 /* ===================================================================
