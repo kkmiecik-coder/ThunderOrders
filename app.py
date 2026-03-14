@@ -5,6 +5,18 @@ from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
+# Sentry - error tracking (inicjalizacja przed create_app)
+import sentry_sdk
+
+sentry_dsn = os.getenv('SENTRY_DSN')
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        traces_sample_rate=0.2,
+        environment=os.getenv('FLASK_ENV', 'production'),
+        send_default_pii=True,
+    )
+
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
 from extensions import db, migrate, login_manager, mail, csrf, executor, limiter, socketio
 
@@ -76,6 +88,20 @@ def create_app(config_name=None):
 
     # CLI commands
     register_cli_commands(app)
+
+    # Sentry - identyfikacja użytkownika przy błędach
+    @app.before_request
+    def sentry_set_user():
+        from flask_login import current_user
+        if current_user.is_authenticated:
+            sentry_sdk.set_user({
+                'id': current_user.id,
+                'username': f'{current_user.first_name} {current_user.last_name}',
+                'email': current_user.email,
+                'role': current_user.role,
+            })
+        else:
+            sentry_sdk.set_user(None)
 
     # Security headers
     @app.after_request

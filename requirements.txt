@@ -88,6 +88,7 @@ requests==2.31.0
 rich==13.9.4
 simple-websocket==1.0.0
 six==1.15.0
+sentry-sdk[flask]==2.29.1
 SQLAlchemy==2.0.23
 sympy==1.14.0
 tiktoken==0.11.0
