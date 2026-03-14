@@ -161,6 +161,9 @@ def refresh_currency_rates():
         from utils.currency import get_exchange_rate
         from modules.auth.models import Settings
         from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        now = datetime.now(tz=ZoneInfo('Europe/Warsaw')).strftime('%Y-%m-%d %H:%M:%S')
 
         # Fetch fresh rates from NBP API
         krw_data = get_exchange_rate('KRW')
@@ -169,7 +172,7 @@ def refresh_currency_rates():
         # Update settings in database
         Settings.set_value('warehouse_currency_krw_rate', str(krw_data['rate']), updated_by=current_user.id, type='string')
         Settings.set_value('warehouse_currency_usd_rate', str(usd_data['rate']), updated_by=current_user.id, type='string')
-        Settings.set_value('warehouse_currency_last_update', datetime.now().strftime('%Y-%m-%d %H:%M:%S'), updated_by=current_user.id, type='string')
+        Settings.set_value('warehouse_currency_last_update', now, updated_by=current_user.id, type='string')
         Settings.set_value('warehouse_currency_last_update_source', 'manual', updated_by=current_user.id, type='string')
 
         db.session.commit()
@@ -180,7 +183,7 @@ def refresh_currency_rates():
                 'KRW': krw_data['rate'],
                 'USD': usd_data['rate']
             },
-            'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'updated_at': now
         }), 200
 
     except Exception as e:
