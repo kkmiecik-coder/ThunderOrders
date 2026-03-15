@@ -390,7 +390,8 @@
                 // angle: east=0, north=90 in standard math
                 var angle = Math.atan2(posNext[0] - pos[0], posNext[1] - pos[1]) * (180 / Math.PI);
                 // SVG plane points up (north), rotate +90 so it points in travel direction
-                var rotation = isPlane ? -angle + 90 : -angle - 90;
+                // Van/truck stays fixed (no rotation), only plane rotates
+                var rotation = isPlane ? -angle + 90 : 0;
 
                 if (travelingDot) {
                     travelingDot.setLatLng(pos);
@@ -409,14 +410,14 @@
 
                         if (elapsed > travelDuration) {
                             var fadeT = (elapsed - travelDuration) / pauseDuration;
-                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + (speedScale * (1 - fadeT)) + ')';
+                            innerEl.style.transform = 'scale(' + (speedScale * (1 - fadeT)) + ')' + (isPlane ? ' rotate(' + rotation + 'deg)' : '');
                             innerEl.style.opacity = 1 - fadeT;
                         } else if (elapsed < 300) {
                             var fadeIn = elapsed / 300;
-                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + (speedScale * fadeIn) + ')';
+                            innerEl.style.transform = 'scale(' + (speedScale * fadeIn) + ')' + (isPlane ? ' rotate(' + rotation + 'deg)' : '');
                             innerEl.style.opacity = fadeIn;
                         } else {
-                            innerEl.style.transform = 'rotate(' + rotation + 'deg) scale(' + speedScale + ')';
+                            innerEl.style.transform = 'scale(' + speedScale + ')' + (isPlane ? ' rotate(' + rotation + 'deg)' : '');
                             innerEl.style.opacity = 1;
                         }
                     }
@@ -455,9 +456,15 @@
 
         // No static "current position" marker — the traveling dot handles this
 
-        // Fit bounds
-        var boundsEnd = clientCoords || GOM;
-        map.fitBounds(L.latLngBounds([KOREA, boundsEnd]).pad(0.12));
+        // Auto-zoom: fit to active segment, or zoom to current step point
+        var activeSegs = getActiveSegmentPoints();
+        if (activeSegs.active.length > 1) {
+            // Traveling — fit to active route segment
+            map.fitBounds(L.latLngBounds(activeSegs.active).pad(0.15));
+        } else {
+            // Stationary — zoom to current step location
+            map.setView(stepCoords[currentStepIdx], stepZooms[currentStepIdx]);
+        }
 
         // ===== DISTANCE =====
         var segments = getActiveSegmentPoints();

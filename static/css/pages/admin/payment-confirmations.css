@@ -1497,3 +1497,64 @@
         white-space: nowrap;
     }
 }
+
+/* ===================================================================
+   HIGHLIGHT PULSE (from order detail link)
+   Uses per-cell animation because border-collapse prevents
+   background-color animation on <tr>.
+   =================================================================== */
+@keyframes pcHighlightPulse {
+    0%   { background-color: transparent; }
+    15%  { background-color: rgba(90, 24, 154, 0.14); }
+    40%  { background-color: rgba(90, 24, 154, 0.03); }
+    60%  { background-color: rgba(90, 24, 154, 0.14); }
+    85%  { background-color: rgba(90, 24, 154, 0.03); }
+    100% { background-color: transparent; }
+}
+
+@keyframes pcHighlightPulseDark {
+    0%   { background-color: transparent; }
+    15%  { background-color: rgba(240, 147, 251, 0.18); }
+    40%  { background-color: rgba(240, 147, 251, 0.04); }
+    60%  { background-color: rgba(240, 147, 251, 0.18); }
+    85%  { background-color: rgba(240, 147, 251, 0.04); }
+    100% { background-color: transparent; }
+}
+
+/* Desktop: table row cells — animation applied per <td> via JS class */
+.pc-highlight-pulse-cell {
+    animation: pcHighlightPulse 2s ease-in-out !important;
+}
+
+[data-theme="dark"] .pc-highlight-pulse-cell {
+    animation-name: pcHighlightPulseDark !important;
+}
+
+/* Mobile cards — use outline pulse (background shorthand blocks background-color) */
+@keyframes pcHighlightPulseCard {
+    0%   { outline-color: transparent; outline-offset: 0; }
+    15%  { outline-color: rgba(90, 24, 154, 0.6); outline-offset: 3px; }
+    40%  { outline-color: transparent; outline-offset: 0; }
+    60%  { outline-color: rgba(90, 24, 154, 0.6); outline-offset: 3px; }
+    85%  { outline-color: transparent; outline-offset: 0; }
+    100% { outline-color: transparent; outline-offset: 0; }
+}
+
+@keyframes pcHighlightPulseCardDark {
+    0%   { outline-color: transparent; outline-offset: 0; }
+    15%  { outline-color: rgba(240, 147, 251, 0.7); outline-offset: 3px; }
+    40%  { outline-color: transparent; outline-offset: 0; }
+    60%  { outline-color: rgba(240, 147, 251, 0.7); outline-offset: 3px; }
+    85%  { outline-color: transparent; outline-offset: 0; }
+    100% { outline-color: transparent; outline-offset: 0; }
+}
+
+.pc-card.pc-highlight-pulse {
+    outline: 3px solid transparent;
+    outline-offset: 0;
+    animation: pcHighlightPulseCard 2s ease-in-out !important;
+}
+
+[data-theme="dark"] .pc-card.pc-highlight-pulse {
+    animation-name: pcHighlightPulseCardDark !important;
+}

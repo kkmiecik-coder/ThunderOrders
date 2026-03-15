@@ -29,15 +29,22 @@
     // ================================
     function buildPendingList() {
         pendingList = [];
-        document.querySelectorAll('tr[data-status="pending"]').forEach(function(row) {
+        // Collect from both table rows and mobile cards, deduplicate by ids
+        var seen = {};
+        document.querySelectorAll('[data-status="pending"][data-confirmation-ids]').forEach(function(el) {
+            var key = el.dataset.confirmationIds;
+            if (seen[key]) return;
+            // Skip hidden elements (mobile cards hidden on desktop, table rows hidden on mobile)
+            if (el.offsetParent === null) return;
+            seen[key] = true;
             pendingList.push({
-                ids: row.dataset.confirmationIds.split(',').map(Number),
-                proofUrl: row.dataset.proofUrl,
-                orderNumbers: row.dataset.orderNumbers.split(','),
-                totalAmount: row.dataset.totalAmount,
-                isPdf: row.dataset.isPdf === 'true',
-                proofFile: row.dataset.proofFile,
-                row: row
+                ids: key.split(',').map(Number),
+                proofUrl: el.dataset.proofUrl,
+                orderNumbers: el.dataset.orderNumbers.split(','),
+                totalAmount: el.dataset.totalAmount,
+                isPdf: el.dataset.isPdf === 'true',
+                proofFile: el.dataset.proofFile,
+                row: el
             });
         });
     }
@@ -104,16 +111,20 @@
             }
         }
 
-        // Pokaż przyciski akcji
+        // Pokaż przyciski akcji (oba — pending ma approve + reject)
         if (lightboxActions) {
             lightboxActions.style.display = '';
+            var approveBtn = lightboxActions.querySelector('.pc-btn-approve');
+            var rejectBtn = lightboxActions.querySelector('.pc-btn-reject');
+            if (approveBtn) approveBtn.style.display = '';
+            if (rejectBtn) rejectBtn.style.display = '';
         }
     }
 
-    // Otwórz lightbox z wiersza tabeli
+    // Otwórz lightbox z wiersza tabeli lub karty mobilnej
     window.openLightboxFromRow = function(el) {
         if (!lightbox) return;
-        var row = el.closest('tr');
+        var row = el.closest('tr') || el.closest('.pc-card');
         if (!row) return;
 
         var ids = row.dataset.confirmationIds.split(',').map(Number);
@@ -122,13 +133,24 @@
         if (item) {
             updateLightboxContent(item);
         } else {
-            // Nie-pending — podgląd bez akcji
-            currentItem = null;
-            currentPendingIndex = -1;
+            // Nie-pending — podgląd z ograniczonymi akcjami
             var proofUrl = row.dataset.proofUrl;
             var isPdf = row.dataset.isPdf === 'true';
             var orderNumbers = row.dataset.orderNumbers.split(',');
             var totalAmount = row.dataset.totalAmount;
+            var status = row.dataset.status;
+
+            // Store as currentItem so approve/reject actions can use it
+            currentItem = {
+                ids: ids,
+                proofUrl: proofUrl,
+                orderNumbers: orderNumbers,
+                totalAmount: totalAmount,
+                isPdf: isPdf,
+                proofFile: row.dataset.proofFile,
+                row: row
+            };
+            currentPendingIndex = -1;
 
             if (isPdf) {
                 if (lightboxImage) lightboxImage.style.display = 'none';
@@ -142,7 +164,25 @@
                 lightboxInfo.innerHTML = ordersHtml + ' &mdash; ' + totalAmount + ' PLN';
             }
             if (lightboxCounter) lightboxCounter.style.display = 'none';
-            if (lightboxActions) lightboxActions.style.display = 'none';
+
+            // Show actions for non-rejected items
+            if (lightboxActions) {
+                if (status === 'rejected') {
+                    lightboxActions.style.display = 'none';
+                } else {
+                    lightboxActions.style.display = '';
+                    // For approved: hide approve button, show only reject
+                    var approveBtn = lightboxActions.querySelector('.pc-btn-approve');
+                    var rejectBtn = lightboxActions.querySelector('.pc-btn-reject');
+                    if (status === 'approved') {
+                        if (approveBtn) approveBtn.style.display = 'none';
+                        if (rejectBtn) rejectBtn.style.display = '';
+                    } else {
+                        if (approveBtn) approveBtn.style.display = '';
+                        if (rejectBtn) rejectBtn.style.display = '';
+                    }
+                }
+            }
         }
 
         lightbox.classList.add('active');
@@ -268,9 +308,9 @@
         }
     };
 
-    // Otwórz approve z wiersza tabeli (przycisk w tabeli)
+    // Otwórz approve z wiersza tabeli lub karty mobilnej
     window.openConfirmApproveFromRow = function(el) {
-        var row = el.closest('tr');
+        var row = el.closest('tr') || el.closest('.pc-card');
         if (!row) return;
         var ids = row.dataset.confirmationIds.split(',').map(Number);
         var item = pendingList.find(function(p) { return p.ids.join(',') === ids.join(','); });
@@ -368,9 +408,9 @@
         }
     };
 
-    // Otwórz reject z wiersza tabeli (pending lub approved)
+    // Otwórz reject z wiersza tabeli lub karty mobilnej
     window.openRejectFromRow = function(el) {
-        var row = el.closest('tr');
+        var row = el.closest('tr') || el.closest('.pc-card');
         if (!row) return;
         var ids = row.dataset.confirmationIds.split(',').map(Number);
         var item = pendingList.find(function(p) { return p.ids.join(',') === ids.join(','); });
@@ -695,6 +735,64 @@
             filterWrapper.classList.remove('open');
         }
     });
+
+    // ================================
+    // HIGHLIGHT CONFIRMATION (from order detail link)
+    // ================================
+    (function highlightFromUrl() {
+        var params = new URLSearchParams(window.location.search);
+        var highlightId = params.get('highlight');
+        if (!highlightId) return;
+
+        // Find ALL matching elements (desktop <tr> + mobile .pc-card)
+        var elements = document.querySelectorAll('[data-confirmation-ids]');
+        var matches = [];
+        for (var i = 0; i < elements.length; i++) {
+            var ids = elements[i].getAttribute('data-confirmation-ids').split(',');
+            if (ids.indexOf(highlightId) !== -1) {
+                matches.push(elements[i]);
+            }
+        }
+        if (matches.length === 0) return;
+
+        // Pick the visible one for scrolling (offsetParent !== null)
+        var scrollTarget = null;
+        for (var i = 0; i < matches.length; i++) {
+            if (matches[i].offsetParent !== null) {
+                scrollTarget = matches[i];
+                break;
+            }
+        }
+        if (!scrollTarget) scrollTarget = matches[0];
+
+        // Scroll and pulse immediately
+        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+        requestAnimationFrame(function() {
+            for (var i = 0; i < matches.length; i++) {
+                var el = matches[i];
+                el.classList.add('pc-highlight-pulse');
+
+                if (el.tagName === 'TR') {
+                    var cells = el.querySelectorAll('td');
+                    for (var j = 0; j < cells.length; j++) {
+                        cells[j].classList.add('pc-highlight-pulse-cell');
+                    }
+                }
+            }
+
+            // Clean up after animation (2s)
+            setTimeout(function() {
+                for (var i = 0; i < matches.length; i++) {
+                    matches[i].classList.remove('pc-highlight-pulse');
+                    var marked = matches[i].querySelectorAll('.pc-highlight-pulse-cell');
+                    for (var j = 0; j < marked.length; j++) {
+                        marked[j].classList.remove('pc-highlight-pulse-cell');
+                    }
+                }
+            }, 2200);
+        });
+    })();
 
     // ================================
     // FILTER DROPDOWN TOGGLE
