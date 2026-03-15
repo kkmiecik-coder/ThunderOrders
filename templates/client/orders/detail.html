@@ -163,7 +163,30 @@
                     <div class="od-product-row {% if has_set_sections %}od-product-row--with-set{% endif %}">
                         <img src="{{ item.product_image_url }}" alt="{{ item.product_name }}" class="od-product-row__img" loading="lazy">
                         <div class="od-product-row__info">
-                            <span class="od-product-row__name">{{ item.product_name }}{% if item.is_full_set %}<span class="od-product-row__badge-full-set">PEŁNY SET</span>{% endif %}{% if item.is_bonus %}<span class="od-product-row__badge-bonus">GRATIS</span>{% endif %}</span>
+                            <div class="od-product-row__name-row">
+                                <span class="od-product-row__name">{{ item.product_name }}{% if item.is_full_set %}<span class="od-product-row__badge od-product-row__badge--full-set"><svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1H2zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/></svg>PEŁNY SET</span>{% endif %}{% if item.is_bonus %}<span class="od-product-row__badge od-product-row__badge--bonus"><svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M3 2.5a2.5 2.5 0 0 1 5 0 2.5 2.5 0 0 1 5 0v.006c0 .07 0 .27-.038.494H15a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H1a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1h2.038A2.968 2.968 0 0 1 3 2.506V2.5zm1.068.5H7v-.5a1.5 1.5 0 1 0-3 0c0 .085.002.274.045.43a.522.522 0 0 0 .023.07zM9 3h2.932l.023-.07c.043-.156.045-.345.045-.43a1.5 1.5 0 0 0-3 0V3zM1 6v8a1 1 0 0 0 1 1h5.5V6H1zm8.5 0V15H14a1 1 0 0 0 1-1V6H9.5z"/></svg>GRATIS</span>{% endif %}</span>
+                                {%- if has_set_sections -%}
+                                <span class="od-product-row__mobile-badges">
+                                    {% if item.is_set_fulfilled is not none %}
+                                        {% if item.is_set_fulfilled %}
+                                        <span class="od-set-badge od-set-badge--ok" title="Złapany">✓</span>
+                                        {% else %}
+                                        <span class="od-set-badge od-set-badge--fail" title="Poza setem">✗</span>
+                                        {% endif %}
+                                    {% elif item.is_full_set %}
+                                        <span class="od-set-badge od-set-badge--prob od-set-badge--full" title="Komplet setu - gwarantowany">100%</span>
+                                    {% elif set_probabilities.get(item.id) %}
+                                        {% set prob = set_probabilities[item.id] %}
+                                        <span class="od-set-badge od-set-badge--set-num" title="{{ prob.set_name }}">Set {{ prob.set_number }}</span>
+                                        <span class="od-set-badge od-set-badge--prob" title="{{ "%.1f"|format(prob.probability) }}%">{{ "%.0f"|format(prob.probability) }}%</span>
+                                    {% elif item.set_number %}
+                                        <span class="od-set-badge od-set-badge--set-num" title="Set {{ item.set_number }}">Set {{ item.set_number }}</span>
+                                    {% else %}
+                                        <span class="od-set-badge od-set-badge--na">—</span>
+                                    {% endif %}
+                                </span>
+                                {%- endif -%}
+                            </div>
                             {% if item.product_sku or item.product_ean %}
                             <span class="od-product-row__codes">
                                 {% if item.product_sku %}SKU: {{ item.product_sku }}{% endif %}
@@ -171,6 +194,11 @@
                                 {% if item.product_ean %}EAN: {{ item.product_ean }}{% endif %}
                             </span>
                             {% endif %}
+                            <div class="od-product-row__mobile-values">
+                                <span class="od-mobile-val"><span class="od-mobile-val__label">Ilość:</span> {{ item.quantity }}</span>
+                                <span class="od-mobile-val"><span class="od-mobile-val__label">Cena:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} PLN{% endif %}</span>
+                                <span class="od-mobile-val od-mobile-val--total"><span class="od-mobile-val__label">Wartość:</span> {% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.total) }} PLN{% endif %}</span>
+                            </div>
                         </div>
                         {% if has_set_sections %}
                         <span class="od-product-row__set">
