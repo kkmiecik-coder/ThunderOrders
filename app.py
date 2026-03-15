@@ -115,6 +115,11 @@ def create_app(config_name=None):
             response.headers['Service-Worker-Allowed'] = '/'
         return response
 
+    # Testowy endpoint Sentry (do usunięcia po weryfikacji)
+    @app.route('/debug-sentry')
+    def debug_sentry():
+        division_by_zero = 1 / 0
+
     return app
 
 
