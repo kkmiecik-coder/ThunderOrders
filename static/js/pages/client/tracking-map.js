@@ -350,11 +350,11 @@
             if (activePoints.length < 2) return;
 
             var isPlane = vehicleType === 'plane';
-            var size = isPlane ? 28 : 24;
-            var svgSize = isPlane ? 22 : 18;
+            var size = isPlane ? 28 : 28;
+            var svgSize = isPlane ? 22 : 22;
             var svgPath = isPlane
                 ? 'M21 16v-2l-8-5V3.5A1.5 1.5 0 0 0 11.5 2 1.5 1.5 0 0 0 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z'
-                : 'M18 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM9 18.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zM19.5 9.5h-2.8L15.3 6H3v2h2v7H3v2h4.2a3 3 0 0 1 5.6 0h2.4a3 3 0 0 1 5.6 0H22v-4.5l-2.5-3zM15 9h4l1.67 2H15V9z';
+                : 'M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z';
 
             var html = '<div class="tm-traveler-inner" style="width:' + size + 'px;height:' + size + 'px;">'
                 + '<svg viewBox="0 0 24 24" class="tm-traveler-svg" width="' + svgSize + '" height="' + svgSize + '">'
@@ -441,7 +441,6 @@
         L.marker(KOREA, { icon: makeIcon('tm-marker-korea') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">Seoul, Korea</div><div class="tm-popup__detail">Proxy zakupowe</div>', { className: 'tm-popup' });
 
-        // Dobra (Urząd Celny)
         L.marker(CUSTOMS, { icon: makeIcon('tm-marker-customs') }).addTo(map)
             .bindPopup('<div class="tm-popup__title">Urząd Celny — Dobra k. Łodzi</div><div class="tm-popup__detail">Odprawa celna</div>', { className: 'tm-popup' });
 
@@ -454,17 +453,36 @@
                 .bindPopup('<div class="tm-popup__title">Adres dostawy</div><div class="tm-popup__detail">' + shippingCity + '</div>', { className: 'tm-popup' });
         }
 
-        // No static "current position" marker — the traveling dot handles this
-
         // Auto-zoom: fit to active segment, or zoom to current step point
         var activeSegs = getActiveSegmentPoints();
         if (activeSegs.active.length > 1) {
-            // Traveling — fit to active route segment
             map.fitBounds(L.latLngBounds(activeSegs.active).pad(0.15));
         } else {
-            // Stationary — zoom to current step location
             map.setView(stepCoords[currentStepIdx], stepZooms[currentStepIdx]);
         }
+
+        // ===== CENTER BUTTON =====
+        function centerOnActive() {
+            var segs = getActiveSegmentPoints();
+            if (segs.active.length > 1) {
+                map.flyToBounds(L.latLngBounds(segs.active).pad(0.15), { duration: 1 });
+            } else {
+                map.flyTo(stepCoords[currentStepIdx], stepZooms[currentStepIdx], { duration: 1 });
+            }
+        }
+
+        var CenterControl = L.Control.extend({
+            options: { position: 'topleft' },
+            onAdd: function() {
+                var btn = L.DomUtil.create('div', 'tm-center-btn');
+                btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+                btn.title = 'Wycentruj mapę';
+                L.DomEvent.disableClickPropagation(btn);
+                L.DomEvent.on(btn, 'click', centerOnActive);
+                return btn;
+            }
+        });
+        new CenterControl().addTo(map);
 
         // ===== DISTANCE =====
         var segments = getActiveSegmentPoints();

@@ -346,6 +346,42 @@
     color: rgba(240, 147, 251, 0.5) !important;
 }
 
+/* Center button */
+.tm-center-btn {
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+    transition: background 0.2s;
+}
+
+.tm-center-btn svg {
+    fill: var(--text-primary);
+}
+
+.tm-center-btn:hover {
+    background: rgba(240, 240, 240, 0.95);
+}
+
+[data-theme="dark"] .tm-center-btn {
+    background: rgba(15, 15, 20, 0.9);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .tm-center-btn svg {
+    fill: #f093fb;
+}
+
+[data-theme="dark"] .tm-center-btn:hover {
+    background: rgba(30, 30, 40, 0.95);
+}
+
 /* ===================================================================
    CUSTOM MARKERS
    =================================================================== */
@@ -357,9 +393,11 @@
 
 .tm-marker-current {
     width: 16px; height: 16px; border-radius: 50%;
+    box-sizing: border-box;
     background: #f5576c; border: 3px solid rgba(245, 87, 108, 0.4);
     box-shadow: 0 0 16px rgba(245, 87, 108, 0.5);
     animation: tmPulse 2s ease-in-out infinite;
+    transform-origin: center center;
 }
 
 @keyframes tmPulse {
