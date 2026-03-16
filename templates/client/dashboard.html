@@ -973,8 +973,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 badgesEl.innerHTML = '<div style="font-size:12px;opacity:0.5;">Brak zdobytych odznak</div>';
             } else {
                 var badgesHtml = recent.map(function(a) {
-                    var icon = a.icon_filename
-                        ? '<img src="/static/uploads/achievements/' + a.icon_filename + '" style="width:36px;height:36px;object-fit:contain;">'
+                    var icon = a.has_icon
+                        ? '<img src="/static/uploads/achievements/' + a.slug + '@256.png" style="width:36px;height:36px;object-fit:contain;">'
                         : '&#127942;';
                     return '<div class="widget-badge">'
                         + '<div class="widget-badge-icon badge-icon ' + a.rarity + '">' + icon + '</div>'

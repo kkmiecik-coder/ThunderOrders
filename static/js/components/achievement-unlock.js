@@ -98,8 +98,8 @@ window.AchievementUnlock = (function() {
         var overlay = document.createElement('div');
         overlay.className = 'auo auo--' + rarity;
 
-        var iconSrc = a.icon_filename
-            ? '/static/uploads/achievements/' + a.icon_filename
+        var iconSrc = a.has_icon
+            ? '/static/uploads/achievements/' + a.slug + '@256.png'
             : null;
         var iconHTML = iconSrc
             ? '<img src="' + iconSrc + '" alt="' + a.name + '">'
@@ -195,7 +195,8 @@ window.AchievementUnlock = (function() {
             html += '<div class="auo__ring auo__ring--1"></div><div class="auo__ring auo__ring--2"></div>';
         }
         if (rarity === 'legendary') html += '<div class="auo__ring auo__ring--3"></div>';
-        html += '<div class="auo__icon">' + iconHTML + '</div></div>';
+        var iconClass = iconSrc ? 'auo__icon auo__icon--has-image' : 'auo__icon';
+        html += '<div class="' + iconClass + '">' + iconHTML + '</div></div>';
 
         html += '<div class="auo__name">' + a.name + '</div>';
         html += '<div class="auo__desc">' + a.description + '</div>';
@@ -507,6 +508,8 @@ window.AchievementUnlock = (function() {
     '@keyframes auo-iglow-leg{0%,100%{box-shadow:0 0 60px rgba(255,200,50,0.3),0 0 120px rgba(255,200,50,0.1)}50%{box-shadow:0 0 80px rgba(255,200,50,0.5),0 0 150px rgba(255,200,50,0.2)}}',
 
     '.auo__icon img{width:64px;height:64px;object-fit:contain}',
+    '.auo__icon--has-image{border:none;background:transparent;box-shadow:none}',
+    '.auo__icon--has-image img{width:105px;height:105px}',
     '.auo__icon-emoji{font-size:56px;line-height:1}',
 
     /* Spinning rings */
@@ -577,7 +580,7 @@ window.AchievementUnlock = (function() {
     '.auo__btn--close:hover{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:rgba(255,255,255,0.8)}',
 
     /* ============ RESPONSIVE ============ */
-    '@media(max-width:480px){.auo__card{padding:36px 20px 28px;max-width:320px;border-radius:20px}.auo__icon-wrap{width:100px;height:100px}.auo__icon img{width:52px;height:52px}.auo__icon-emoji{font-size:44px}.auo__name{font-size:20px}.auo--legendary .auo__name{font-size:22px}.auo__desc{font-size:13px}.auo__label{font-size:10px;letter-spacing:2px}}'
+    '@media(max-width:480px){.auo__card{padding:36px 20px 28px;max-width:320px;border-radius:20px}.auo__icon-wrap{width:100px;height:100px}.auo__icon img{width:52px;height:52px}.auo__icon--has-image img{width:85px;height:85px}.auo__icon-emoji{font-size:44px}.auo__name{font-size:20px}.auo--legendary .auo__name{font-size:22px}.auo__desc{font-size:13px}.auo__label{font-size:10px;letter-spacing:2px}}'
 
     ].join('\n'); }
 

@@ -1,7 +1,23 @@
+import os
+
+from flask import current_app
 from extensions import db
 from modules.achievements.models import Achievement, UserAchievement, AchievementStat
 from modules.achievements.checkers import get_metric_value
 from modules.auth.models import User, get_local_now
+
+# Cache: slug -> bool (file exists on disk)
+_icon_cache = {}
+
+
+def has_achievement_icon(slug):
+    """Check if an achievement icon file exists on disk (cached)."""
+    if slug in _icon_cache:
+        return _icon_cache[slug]
+    upload_dir = os.path.join(current_app.static_folder, 'uploads', 'achievements')
+    exists = os.path.isfile(os.path.join(upload_dir, f'{slug}@256.png'))
+    _icon_cache[slug] = exists
+    return exists
 
 
 # Maps event types to the metrics that should be checked
@@ -204,7 +220,7 @@ class AchievementService:
                 'description': a.description,
                 'category': a.category,
                 'rarity': a.rarity,
-                'icon_filename': a.icon_filename,
+                'has_icon': has_achievement_icon(a.slug),
                 'tier': a.tier,
                 'tier_group': a.tier_group,
                 'unlocked': ua is not None,

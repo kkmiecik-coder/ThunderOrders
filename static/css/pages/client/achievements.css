@@ -323,6 +323,18 @@
     object-fit: contain;
 }
 
+/* Custom image icon — no ring, larger */
+.achievement-card .badge-icon.has-image {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.achievement-card .badge-icon.has-image img {
+    width: 58px;
+    height: 58px;
+}
+
 .achievement-card .badge-name {
     font-size: 12px;
     font-weight: 600;
@@ -385,8 +397,16 @@
     box-shadow: 0 0 16px var(--r-glow);
 }
 
+.achievement-card.unlocked .badge-icon.has-image {
+    box-shadow: none;
+}
+
 .achievement-card.unlocked .badge-icon.legendary {
     box-shadow: 0 0 20px rgba(255, 200, 50, 0.25);
+}
+
+.achievement-card.unlocked .badge-icon.legendary.has-image {
+    box-shadow: none;
 }
 
 /* === Rarity Tag (on card) === */
@@ -865,6 +885,18 @@
     object-fit: contain;
 }
 
+/* Custom image in spotlight — no ring, larger */
+.badge-spotlight__icon.has-image {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+}
+
+.badge-spotlight__icon.has-image img {
+    width: 110px;
+    height: 110px;
+}
+
 /* === Spotlight Content (staggered entry) === */
 .badge-spotlight__name {
     font-size: 24px;
@@ -1331,6 +1363,11 @@
         height: 30px;
     }
 
+    .achievement-card .badge-icon.has-image img {
+        width: 46px;
+        height: 46px;
+    }
+
     .achievement-card .badge-name {
         font-size: 11px;
     }
@@ -1364,6 +1401,11 @@
     .badge-spotlight__icon img {
         width: 52px;
         height: 52px;
+    }
+
+    .badge-spotlight__icon.has-image img {
+        width: 80px;
+        height: 80px;
     }
 
     .badge-spotlight__name {

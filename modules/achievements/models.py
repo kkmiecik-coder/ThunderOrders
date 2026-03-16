@@ -18,7 +18,6 @@ class Achievement(db.Model):
         db.Enum('common', 'rare', 'epic', 'legendary', name='achievement_rarity'),
         nullable=False
     )
-    icon_filename = db.Column(db.String(120), nullable=True)
     tier = db.Column(db.Integer, nullable=True)
     tier_group = db.Column(db.String(60), nullable=True, index=True)
     trigger_type = db.Column(

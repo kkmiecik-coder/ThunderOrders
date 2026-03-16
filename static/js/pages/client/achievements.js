@@ -115,8 +115,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function buildCard(a, isLocked, index) {
         var delay = Math.min(index * 0.04, 0.8);
-        var iconSrc = a.icon_filename
-            ? '/static/uploads/achievements/' + a.icon_filename
+        var iconSrc = a.has_icon
+            ? '/static/uploads/achievements/' + a.slug + '@256.png'
             : '';
         var iconContent = isLocked
             ? '<span>&#128274;</span>'
@@ -142,8 +142,9 @@ document.addEventListener('DOMContentLoaded', function() {
         var safeData = encodeURIComponent(JSON.stringify(a));
         var stateClass = isLocked ? 'locked' : 'unlocked';
 
+        var hasImageClass = (!isLocked && iconSrc) ? ' has-image' : '';
         return '<div class="achievement-card ' + stateClass + '" data-rarity="' + a.rarity + '" data-ach="' + safeData + '" style="--enter-delay:' + delay + 's">'
-            + '<div class="badge-icon ' + a.rarity + '">' + iconContent + '</div>'
+            + '<div class="badge-icon ' + a.rarity + hasImageClass + '">' + iconContent + '</div>'
             + '<div class="badge-name">' + escapeHtml(a.name) + '</div>'
             + rarityLabel
             + statHtml
@@ -319,8 +320,9 @@ document.addEventListener('DOMContentLoaded', function() {
         var iconEl = document.getElementById('badge-detail-icon');
         iconEl.className = 'badge-spotlight__icon';
 
-        if (a.unlocked && a.icon_filename) {
-            iconEl.innerHTML = '<img src="/static/uploads/achievements/' + a.icon_filename + '">';
+        if (a.unlocked && a.has_icon) {
+            iconEl.classList.add('has-image');
+            iconEl.innerHTML = '<img src="/static/uploads/achievements/' + a.slug + '@256.png">';
         } else if (a.unlocked) {
             iconEl.innerHTML = '<span style="font-size:52px;">&#127942;</span>';
         } else {
@@ -502,8 +504,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var rarityLabel = RARITY_LABELS[a.rarity] || a.rarity;
 
         var pad = 100;
-        var iconSrc = a.icon_filename
-            ? '/static/uploads/achievements/' + a.icon_filename
+        var iconSrc = a.has_icon
+            ? '/static/uploads/achievements/' + a.slug + '@256.png'
             : '';
         var iconHtml = iconSrc
             ? '<img src="' + iconSrc + '" style="width:120px;height:120px;object-fit:contain;">'

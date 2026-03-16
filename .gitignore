@@ -20,3 +20,5 @@ qr-test.svg
 static/cache/
 *.xlsx
 ~$*
+achievements_all_prompts.txt
+achievements_firefly_prompt.txt

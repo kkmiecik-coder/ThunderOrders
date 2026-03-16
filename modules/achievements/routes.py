@@ -2,7 +2,7 @@
 from flask import render_template, request, jsonify, send_file
 from flask_login import login_required, current_user
 from modules.achievements import achievements_bp
-from modules.achievements.services import AchievementService
+from modules.achievements.services import AchievementService, has_achievement_icon
 
 service = AchievementService()
 
@@ -28,7 +28,7 @@ def api_unseen():
                 'name': ua.achievement.name,
                 'description': ua.achievement.description,
                 'rarity': ua.achievement.rarity,
-                'icon_filename': ua.achievement.icon_filename,
+                'has_icon': has_achievement_icon(ua.achievement.slug),
                 'category': ua.achievement.category,
                 'tier': ua.achievement.tier,
                 'stat_percentage': ua.achievement.stat.percentage if ua.achievement.stat else 0,
