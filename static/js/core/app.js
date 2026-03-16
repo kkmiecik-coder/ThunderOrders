@@ -387,6 +387,41 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// ==========================================
+// Maintenance Mode Toggle
+// ==========================================
+(function() {
+  var btn = document.getElementById('maintenanceToggleBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    var isActive = btn.classList.contains('active');
+    var action = isActive ? 'wyłączyć' : 'włączyć';
+    if (!confirm('Czy na pewno chcesz ' + action + ' tryb konserwacji?')) return;
+
+    fetch('/api/maintenance/toggle', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': _getCsrf()
+      }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success) {
+        btn.classList.toggle('active', data.enabled);
+        if (window.showToast) window.showToast(data.message, 'success');
+      } else {
+        if (window.showToast) window.showToast(data.error || 'Błąd', 'error');
+      }
+    })
+    .catch(function() {
+      if (window.showToast) window.showToast('Nie udało się zmienić trybu konserwacji', 'error');
+    });
+  });
+})();
+
 // Expose functions globally for debugging
 window.ThunderOrders = {
   toggleSidebar,

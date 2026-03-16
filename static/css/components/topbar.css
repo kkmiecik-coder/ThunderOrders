@@ -1790,4 +1790,74 @@
   .notif-popup-mobile {
     display: flex;
   }
+
+  .maintenance-toggle-wrapper {
+    display: none;
+  }
+}
+
+/* ============================================
+   Maintenance Mode Toggle (desktop only)
+   ============================================ */
+
+.maintenance-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.maintenance-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.maintenance-toggle-btn:hover {
+  border-color: rgba(245, 87, 108, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.maintenance-toggle-btn.active {
+  border-color: rgba(245, 87, 108, 0.5);
+  background: rgba(245, 87, 108, 0.1);
+  color: #f5576c;
+}
+
+.maintenance-toggle-label {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .maintenance-toggle-label {
+    display: inline;
+  }
+}
+
+.maintenance-toggle-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.maintenance-toggle-btn.active .maintenance-toggle-dot {
+  background: #f5576c;
+  box-shadow: 0 0 8px rgba(245, 87, 108, 0.6);
+  animation: maintenancePulse 2s ease-in-out infinite;
+}
+
+@keyframes maintenancePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }

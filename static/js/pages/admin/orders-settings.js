@@ -1139,4 +1139,56 @@ function initCustomSelects() {
             });
         }
     });
+
+    // ==========================================
+    // Maintenance Mode Settings
+    // ==========================================
+    var maintenanceToggle = document.getElementById('maintenanceModeToggle');
+    var saveMaintenanceBtn = document.getElementById('saveMaintenanceSettings');
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrf = csrfMeta ? csrfMeta.content : '';
+
+    if (maintenanceToggle) {
+        maintenanceToggle.addEventListener('change', function() {
+            var action = this.checked ? 'włączyć' : 'wyłączyć';
+            if (!confirm('Czy na pewno chcesz ' + action + ' tryb konserwacji?')) {
+                this.checked = !this.checked;
+                return;
+            }
+            fetch('/api/maintenance/toggle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf }
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    if (window.showToast) window.showToast(data.message, 'success');
+                    // Zaktualizuj toggle w topbarze
+                    var topbarBtn = document.getElementById('maintenanceToggleBtn');
+                    if (topbarBtn) topbarBtn.classList.toggle('active', data.enabled);
+                }
+            });
+        });
+    }
+
+    if (saveMaintenanceBtn) {
+        saveMaintenanceBtn.addEventListener('click', function() {
+            var message = document.getElementById('maintenanceMessage').value;
+            var eta = document.getElementById('maintenanceEta').value;
+
+            fetch('/api/maintenance/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+                body: JSON.stringify({ message: message, eta: eta })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    if (window.showToast) window.showToast(data.message, 'success');
+                } else {
+                    if (window.showToast) window.showToast(data.error || 'Błąd', 'error');
+                }
+            });
+        });
+    }
 }

@@ -46,6 +46,14 @@
                 </svg>
                 <span class="tab-label">Powiadomienia email</span>
             </button>
+            {% if current_user.role == 'admin' %}
+            <button class="settings-tab" data-tab="maintenance">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Konserwacja</span>
+            </button>
+            {% endif %}
         </div>
 
         <!-- Tab Content -->
@@ -716,6 +724,57 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Tab: Konserwacja -->
+            {% if current_user.role == 'admin' %}
+            <div class="tab-panel" id="tab-maintenance">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Tryb konserwacji</h3>
+                    </div>
+                    <div class="maintenance-settings">
+                        <div class="maintenance-toggle-row">
+                            <div>
+                                <strong>Tryb konserwacji</strong>
+                                <p style="color: var(--gray-500); font-size: 13px; margin: 4px 0 0;">
+                                    Po włączeniu klienci zobaczą stronę "Przerwa techniczna". Admini i moderatorzy mają normalny dostęp.
+                                </p>
+                            </div>
+                            <label class="email-toggle-switch">
+                                <input type="checkbox" id="maintenanceModeToggle" {% if maintenance_enabled %}checked{% endif %}>
+                                <span class="email-toggle-slider"></span>
+                            </label>
+                        </div>
+
+                        <div style="margin-top: 1.5rem;">
+                            <label style="font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px;">
+                                Komunikat (opcjonalny)
+                            </label>
+                            <textarea id="maintenanceMessage" rows="3"
+                                      class="form-input"
+                                      placeholder="Strona w przerwie technicznej. Wrócimy wkrótce!"
+                                      style="width: 100%; resize: vertical;">{{ maintenance_message or '' }}</textarea>
+                        </div>
+
+                        <div style="margin-top: 1rem;">
+                            <label style="font-weight: 600; font-size: 14px; display: block; margin-bottom: 6px;">
+                                Planowany czas powrotu (opcjonalny)
+                            </label>
+                            <input type="datetime-local" id="maintenanceEta"
+                                   class="form-input"
+                                   value="{{ maintenance_eta or '' }}"
+                                   style="width: auto;">
+                        </div>
+
+                        <div style="margin-top: 1.5rem;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="saveMaintenanceSettings">
+                                Zapisz ustawienia
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
         </div>
     </div>

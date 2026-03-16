@@ -129,6 +129,51 @@ def get_exchange_rate_api():
         }), 500
 
 
+@api_bp.route('/maintenance/toggle', methods=['POST'])
+@login_required
+@role_required('admin')
+def maintenance_toggle():
+    """Toggle trybu konserwacji (tylko admin)."""
+    from modules.auth.models import Settings
+
+    current = Settings.get_value('maintenance_mode', False)
+    new_value = not current
+    Settings.set_value('maintenance_mode', str(new_value).lower(), updated_by=current_user.id, type='boolean')
+
+    # Reset cache żeby zmiana była widoczna natychmiast
+    from flask import current_app
+    if hasattr(current_app, 'maintenance_cache'):
+        current_app.maintenance_cache['checked_at'] = 0
+
+    return jsonify({
+        'success': True,
+        'enabled': new_value,
+        'message': f'Tryb konserwacji {"włączony" if new_value else "wyłączony"}.'
+    })
+
+
+@api_bp.route('/maintenance/settings', methods=['POST'])
+@login_required
+@role_required('admin')
+def maintenance_settings():
+    """Zapisz ustawienia trybu konserwacji (komunikat, ETA)."""
+    from modules.auth.models import Settings
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Brak danych.'}), 400
+
+    message = (data.get('message') or '').strip()
+    eta = (data.get('eta') or '').strip()
+
+    Settings.set_value('maintenance_message', message, updated_by=current_user.id, type='string',
+                       description='Custom komunikat na stronie konserwacji')
+    Settings.set_value('maintenance_eta', eta, updated_by=current_user.id, type='string',
+                       description='Planowany czas powrotu (ISO datetime)')
+
+    return jsonify({'success': True, 'message': 'Ustawienia zapisane.'})
+
+
 @api_bp.route('/health', methods=['GET'])
 def health_check():
     """

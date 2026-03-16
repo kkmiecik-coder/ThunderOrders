@@ -1879,6 +1879,9 @@ def settings():
         ocr_enabled=ocr_enabled,
         ocr_auto_approve_threshold=ocr_auto_approve_threshold,
         ocr_suggest_threshold=ocr_suggest_threshold,
+        maintenance_enabled=Settings.get_value('maintenance_mode', False),
+        maintenance_message=Settings.get_value('maintenance_message', ''),
+        maintenance_eta=Settings.get_value('maintenance_eta', ''),
         page_title='Ustawienia zamówień'
     )
 

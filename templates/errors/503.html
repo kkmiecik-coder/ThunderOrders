@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pl" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Przerwa techniczna - ThunderOrders</title>
+    <link rel="icon" type="image/x-icon" href="/static/img/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/pages/auth/auth-scene.css">
+    <link rel="stylesheet" href="/static/css/pages/auth/auth-unified.css">
+    <style>
+        body { margin: 0; padding: 0; }
+
+        /* Rotating gradient border via JS-driven angle */
+        .maintenance-box {
+            position: relative;
+            border-radius: 24px;
+            padding: 2px;
+            background: conic-gradient(from var(--border-angle, 0deg), #f093fb, #f5576c, #7b2cbf, #9d4edd, #f093fb);
+        }
+
+        .maintenance-box .auth-container {
+            position: relative;
+            border: none;
+            animation: none;
+            border-radius: 22px;
+            background: #12122a;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .maintenance-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0 0 0.75rem;
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .maintenance-message {
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.6;
+            margin: 0 0 1.5rem;
+        }
+
+        .maintenance-eta {
+            display: inline-flex;
+            gap: 1rem;
+            padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(240, 147, 251, 0.15);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 0.5rem;
+        }
+
+        .eta-unit { text-align: center; }
+
+        .eta-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #f093fb;
+            display: block;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .eta-label {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .maintenance-footer {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        @media (max-width: 480px) {
+            .maintenance-eta { gap: 0.75rem; padding: 0.75rem 1.25rem; }
+            .eta-value { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body class="auth-scene-body">
+    <div class="scene auth-scene">
+        <!-- Tło identyczne jak strona logowania -->
+        <canvas id="particleCanvas"></canvas>
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="star"></div>
+        <div class="stage-glow"></div>
+
+        <div class="auth-center">
+            <!-- Logo nad boxem (jak na stronie logowania) -->
+            <a href="/">
+                <img src="/static/img/icons/logo-full.svg" alt="ThunderOrders" class="countdown-logo">
+            </a>
+
+            <!-- Glass container z obracającym się gradientem -->
+            <div class="maintenance-box">
+            <div class="auth-container" style="max-width: none; text-align: center; padding: 2.5rem;">
+                <h1 class="maintenance-title">Zaraz wracamy!</h1>
+
+                <p class="maintenance-message">
+                    {% if maintenance_message %}
+                        {{ maintenance_message }}
+                    {% else %}
+                        Nasz zespół pracuje za kulisami, żeby wszystko działało jeszcze lepiej.<br>
+                        Wrócimy szybciej niż nowy comeback!
+                    {% endif %}
+                </p>
+
+                {% if maintenance_eta %}
+                <div class="maintenance-eta" id="etaCountdown" data-eta="{{ maintenance_eta }}">
+                    <div class="eta-unit">
+                        <span class="eta-value" id="etaHours">--</span>
+                        <span class="eta-label">godz</span>
+                    </div>
+                    <div class="eta-unit">
+                        <span class="eta-value" id="etaMinutes">--</span>
+                        <span class="eta-label">min</span>
+                    </div>
+                    <div class="eta-unit">
+                        <span class="eta-value" id="etaSeconds">--</span>
+                        <span class="eta-label">sek</span>
+                    </div>
+                </div>
+                {% endif %}
+
+                <p class="maintenance-footer">thunderorders.cloud</p>
+            </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Particle animation (identyczna jak strona logowania) -->
+    <script src="/static/js/pages/auth/auth-particles.js"></script>
+
+    <!-- Rotating border animation -->
+    <script>
+        (function() {
+            var box = document.querySelector('.maintenance-box');
+            if (!box) return;
+            var angle = 0;
+            function spin() {
+                angle = (angle + 0.5) % 360;
+                box.style.background = 'conic-gradient(from ' + angle + 'deg, #f093fb, #f5576c, #7b2cbf, #9d4edd, #f093fb)';
+                requestAnimationFrame(spin);
+            }
+            spin();
+        })();
+    </script>
+
+    {% if maintenance_eta %}
+    <script>
+        (function() {
+            var eta = document.getElementById('etaCountdown');
+            if (!eta) return;
+            var target = new Date(eta.dataset.eta).getTime();
+            var retryDelays = [1, 5, 30, 60, 120]; // sekundy między próbami po upływie ETA
+            var retryIndex = 0;
+            var expired = false;
+
+            function update() {
+                var now = Date.now();
+                var diff = Math.max(0, target - now);
+
+                if (diff > 0) {
+                    // Countdown aktywny
+                    var h = Math.floor(diff / 3600000);
+                    var m = Math.floor((diff % 3600000) / 60000);
+                    var s = Math.floor((diff % 60000) / 1000);
+                    document.getElementById('etaHours').textContent = String(h).padStart(2, '0');
+                    document.getElementById('etaMinutes').textContent = String(m).padStart(2, '0');
+                    document.getElementById('etaSeconds').textContent = String(s).padStart(2, '0');
+                    setTimeout(update, 1000);
+                } else if (!expired) {
+                    // Czas upłynął — pierwsza próba
+                    expired = true;
+                    document.getElementById('etaHours').textContent = '00';
+                    document.getElementById('etaMinutes').textContent = '00';
+                    document.getElementById('etaSeconds').textContent = '00';
+                    tryRefresh();
+                }
+            }
+
+            function tryRefresh() {
+                fetch(window.location.href, { method: 'HEAD' })
+                    .then(function(r) {
+                        if (r.status !== 503) {
+                            // Strona wróciła
+                            location.reload();
+                        } else {
+                            // Nadal konserwacja — czekaj i próbuj dalej
+                            scheduleRetry();
+                        }
+                    })
+                    .catch(function() {
+                        scheduleRetry();
+                    });
+            }
+
+            function scheduleRetry() {
+                var delay = retryDelays[Math.min(retryIndex, retryDelays.length - 1)];
+                retryIndex++;
+                if (retryIndex <= retryDelays.length) {
+                    setTimeout(tryRefresh, delay * 1000);
+                } else {
+                    // Przekroczono wszystkie próby — pokaż komunikat bez reloadu
+                    eta.style.display = 'none';
+                    var msg = document.querySelector('.maintenance-message');
+                    if (msg) msg.textContent = 'Prace trwają dłużej niż planowano. Spróbuj ponownie za kilka minut.';
+                }
+            }
+
+            update();
+        })();
+    </script>
+    {% endif %}
+</body>
+</html>

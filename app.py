@@ -102,6 +102,51 @@ def create_app(config_name=None):
         else:
             sentry_sdk.set_user(None)
 
+    # Maintenance mode check (cache dostępny globalnie przez app.maintenance_cache)
+    app.maintenance_cache = {'enabled': False, 'checked_at': 0}
+
+    @app.before_request
+    def check_maintenance_mode():
+        import time
+        from flask_login import current_user
+        from flask import g
+
+        # Cache na 10 sekund (nie bije w DB na każdym requeście)
+        now = time.time()
+        if now - app.maintenance_cache['checked_at'] > 10:
+            from modules.auth.models import Settings
+            app.maintenance_cache['enabled'] = Settings.get_value('maintenance_mode', False)
+            app.maintenance_cache['checked_at'] = now
+
+        g.maintenance_mode = app.maintenance_cache['enabled']
+
+        if not app.maintenance_cache['enabled']:
+            return None
+
+        # Przepuść statyczne pliki i auth endpointy
+        path = request.path
+        if (path.startswith('/static/') or
+            path in ('/auth/login', '/auth/logout') or
+            path.startswith('/auth/callback')):
+            return None
+
+        # Przepuść adminów i moderatorów
+        if current_user.is_authenticated and current_user.role in ('admin', 'mod'):
+            return None
+
+        # Blokuj — AJAX/API → JSON, reszta → HTML
+        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            from modules.auth.models import Settings
+            msg = Settings.get_value('maintenance_message', '') or 'Strona w przerwie technicznej. Wrócimy wkrótce!'
+            return jsonify({'maintenance': True, 'message': msg}), 503
+
+        from modules.auth.models import Settings
+        msg = Settings.get_value('maintenance_message', '')
+        eta = Settings.get_value('maintenance_eta', '')
+        return render_template('errors/503.html',
+                               maintenance_message=msg,
+                               maintenance_eta=eta), 503
+
     # Security headers
     @app.after_request
     def set_security_headers(response):
@@ -640,10 +685,12 @@ def register_context_processors(app):
             """Pomocnicza funkcja do pobierania aktywnych metod płatności"""
             return PaymentMethod.get_active()
 
+        from flask import g
         return {
             'app_name': 'ThunderOrders',
             'app_version': '1.0.0-MVP',
             'get_active_payment_methods': get_active_payment_methods,
+            'maintenance_mode': getattr(g, 'maintenance_mode', False),
         }
 
 
