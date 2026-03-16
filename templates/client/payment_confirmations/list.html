@@ -82,7 +82,9 @@
                 <div class="pc-card-products">
                     {% for item in order.sorted_items %}
                     <div class="pc-product-item">
-                        {% if item.is_full_set %}
+                        {% if item.is_full_set and item.product and item.product.primary_image %}
+                        <img src="{{ item.product_image_url }}" alt="" class="pc-product-thumb" loading="lazy">
+                        {% elif item.is_full_set %}
                         <div class="pc-product-thumb pc-product-thumb-icon" style="background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);">✨</div>
                         {% elif item.is_custom %}
                         <div class="pc-product-thumb pc-product-thumb-icon" style="background: linear-gradient(135deg, #FF8500 0%, #FF6D00 100%);">📦</div>
@@ -90,7 +92,7 @@
                         <img src="{{ item.product_image_url }}" alt="" class="pc-product-thumb" loading="lazy">
                         {% endif %}
                         <div class="pc-product-info">
-                            <span class="pc-product-name">{{ item.quantity }}× {{ item.product_name }}{% if item.is_bonus %}<span class="pc-badge-bonus">GRATIS</span>{% endif %}</span>
+                            <span class="pc-product-name">{{ item.quantity }}× {{ item.product_name }}{% if item.is_full_set %}<span class="pc-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="pc-badge-bonus">GRATIS</span>{% endif %}</span>
                             <span class="pc-product-price">{{ "%.2f"|format(item.price) }} zł/szt</span>
                         </div>
                     </div>
