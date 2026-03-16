@@ -119,6 +119,11 @@ class User(UserMixin, db.Model):
         nullable=True,
         comment='Zgoda na cookies analityczne (Google Analytics). NULL=nie podjęto decyzji, TRUE=zgoda, FALSE=odmowa'
     )
+    analytics_consent_date = db.Column(
+        db.DateTime,
+        nullable=True,
+        comment='Data ostatniej zmiany zgody analitycznej (do ponownego pytania po 14 dniach od odmowy)'
+    )
 
     # Avatar
     avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
@@ -388,6 +393,20 @@ class User(UserMixin, db.Model):
     # ============================================
     # Helper Methods
     # ============================================
+
+    @property
+    def should_show_cookie_banner(self):
+        """Czy pokazać baner cookie: brak decyzji lub odmowa starsza niż 14 dni"""
+        if self.analytics_consent is None:
+            return True
+        if self.analytics_consent is True:
+            return False
+        # Odmowa — sprawdź czy minęło 14 dni
+        if self.analytics_consent_date:
+            from datetime import datetime, timedelta
+            return datetime.now() - self.analytics_consent_date > timedelta(days=14)
+        # Odmowa bez daty (stare dane) — pokaż baner
+        return True
 
     @property
     def full_name(self):

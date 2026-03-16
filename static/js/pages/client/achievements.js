@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var iconContent = isLocked
             ? '<span>&#128274;</span>'
             : (iconSrc
-                ? '<img src="' + iconSrc + '" alt="">'
+                ? '<div class="coin-wrap"><img src="' + iconSrc + '" alt=""><div class="coin-reflect"></div></div>'
                 : '<span>&#127942;</span>');
 
         var progressHtml = '';
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (a.unlocked && a.has_icon) {
             iconEl.classList.add('has-image');
-            iconEl.innerHTML = '<img src="/static/uploads/achievements/' + a.slug + '@256.png">';
+            iconEl.innerHTML = '<div class="coin-wrap"><img src="/static/uploads/achievements/' + a.slug + '@256.png"><div class="coin-reflect"></div></div>';
         } else if (a.unlocked) {
             iconEl.innerHTML = '<span style="font-size:52px;">&#127942;</span>';
         } else {
@@ -508,7 +508,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ? '/static/uploads/achievements/' + a.slug + '@256.png'
             : '';
         var iconHtml = iconSrc
-            ? '<img src="' + iconSrc + '" style="width:120px;height:120px;object-fit:contain;">'
+            ? '<img src="' + iconSrc + '" style="width:172px;height:172px;object-fit:contain;">'
             : '<span style="font-size:90px;line-height:1;">&#127942;</span>';
 
         var statHtml = a.stat_percentage > 0

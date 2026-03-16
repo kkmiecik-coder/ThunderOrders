@@ -633,6 +633,27 @@ def send_new_exclusive_page_email(user_email, user_name, page_name, page_url):
     )
 
 
+def send_account_deactivated_email(user_email, user_name, reason=''):
+    """
+    Wysyła email informujący klienta o dezaktywacji konta.
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        reason (str): Powód dezaktywacji (opcjonalny)
+
+    Returns:
+        bool: True jeśli email został wysłany
+    """
+    return send_email(
+        to=user_email,
+        subject='Konto dezaktywowane - ThunderOrders',
+        template='account_deactivated',
+        user_name=user_name,
+        reason=reason
+    )
+
+
 def send_packing_photo_email(user_email, user_name, order_number, photo_path):
     """
     Wysyła email ze zdjęciem spakowanej paczki do klienta.

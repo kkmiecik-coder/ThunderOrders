@@ -328,12 +328,35 @@
     border: none;
     background: transparent;
     box-shadow: none;
+    perspective: 400px;
 }
 
 .achievement-card .badge-icon.has-image img {
     width: 58px;
     height: 58px;
 }
+
+/* Coin wrap — container for img + reflect */
+.coin-wrap {
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    overflow: hidden;
+    width: 58px;
+    height: 58px;
+}
+
+.coin-wrap img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Reflect — hidden by default */
+.coin-reflect {
+    display: none;
+}
+
 
 .achievement-card .badge-name {
     font-size: 12px;
@@ -890,12 +913,20 @@
     border: none;
     background: transparent;
     box-shadow: none;
+    perspective: 600px;
 }
 
 .badge-spotlight__icon.has-image img {
     width: 110px;
     height: 110px;
 }
+
+.badge-spotlight__icon.has-image .coin-wrap {
+    width: 110px;
+    height: 110px;
+    overflow: hidden;
+}
+
 
 /* === Spotlight Content (staggered entry) === */
 .badge-spotlight__name {

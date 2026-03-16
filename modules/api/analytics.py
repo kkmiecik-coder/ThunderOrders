@@ -5,6 +5,7 @@ Endpoint do zarządzania zgodą na cookies analityczne (RODO-compliant)
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from extensions import db
+from datetime import datetime
 
 analytics_bp = Blueprint('analytics_api', __name__, url_prefix='/api')
 
@@ -61,8 +62,9 @@ def update_analytics_consent():
                 'error': 'Pole "consent" musi być typu boolean (true/false)'
             }), 400
 
-        # Zapisz zgodę
+        # Zapisz zgodę i datę
         current_user.analytics_consent = consent
+        current_user.analytics_consent_date = datetime.now()
         db.session.commit()
 
         message = 'Zgoda na cookies została zapisana' if consent else 'Zgoda na cookies została wycofana'

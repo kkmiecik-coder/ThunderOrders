@@ -11,6 +11,7 @@ from modules.auth.models import User
 from modules.orders.models import ShippingRequest
 from extensions import db
 from utils.decorators import role_required
+from utils.email_sender import send_account_deactivated_email
 
 
 @admin_bp.route('/clients')
@@ -234,8 +235,9 @@ def client_deactivate(id):
         client.deactivate(reason, current_user.id)
         db.session.commit()
 
-        # TODO: Wysłać email do klienta o dezaktywacji
-        # send_deactivation_email(client, reason)
+        # Wyślij email do klienta o dezaktywacji
+        if client.email:
+            send_account_deactivated_email(client.email, client.first_name or client.full_name, reason)
 
         return jsonify({
             'success': True,

@@ -253,8 +253,8 @@ def generate_share_image(achievement, fmt='1:1', unlocked_at=None, stat_percenta
     if os.path.exists(icon_path):
         try:
             icon = Image.open(icon_path).convert('RGBA')
-            icon = icon.resize((120, 120), Image.LANCZOS)
-            img.paste(icon, (cx - 60, icon_cy - 60), icon)
+            icon = icon.resize((172, 172), Image.LANCZOS)
+            img.paste(icon, (cx - 86, icon_cy - 86), icon)
         except Exception:
             pass
 

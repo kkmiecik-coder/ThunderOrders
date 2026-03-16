@@ -30,21 +30,16 @@
 
         // Sprawdź zgodę użytkownika
         {% if current_user.is_authenticated %}
-            // Zalogowany użytkownik
             {% if current_user.analytics_consent %}
-                // Ma zgodę → Ładuj GA4 od razu
                 loadGoogleAnalytics();
-            {% else %}
-                // Nie ma zgody → Pokaż banner
+            {% elif current_user.should_show_cookie_banner %}
                 window.showCookieBanner = true;
             {% endif %}
         {% else %}
-            // Gość → Sprawdź localStorage
             const consent = localStorage.getItem('analytics_consent');
             if (consent === 'accepted') {
                 loadGoogleAnalytics();
             } else if (consent !== 'rejected') {
-                // Nie podjął decyzji → Pokaż banner
                 window.showCookieBanner = true;
             }
         {% endif %}
