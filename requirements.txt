@@ -86,6 +86,7 @@ ua-parser==1.0.1
 ua-parser-builtins==0.18.0.post1
 urllib3==2.5.0
 user-agents==2.2.0
+fpdf2==2.8.4
 weasyprint==66.0
 webencodings==0.5.1
 Werkzeug==3.0.1

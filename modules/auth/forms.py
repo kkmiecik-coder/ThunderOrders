@@ -78,6 +78,10 @@ class RegisterForm(FlaskForm):
         render_kw={'placeholder': 'Wpisz hasło ponownie'}
     )
 
+    marketing_consent = BooleanField(
+        'Chcę otrzymywać informacje o nowych dropach i dostępności produktów'
+    )
+
     submit = SubmitField('Zarejestruj się')
 
     def validate_email(self, field):

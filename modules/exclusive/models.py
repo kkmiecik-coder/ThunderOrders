@@ -293,15 +293,18 @@ class ExclusivePage(db.Model):
             from modules.auth.models import User
             from utils.email_manager import EmailManager
 
-            clients = User.query.filter_by(role='client', is_active=True).all()
-            if clients:
-                sent = EmailManager.notify_new_exclusive_page(self, clients)
+            # Email tylko do klientów z marketing_consent (RODO)
+            clients_marketing = User.query.filter_by(role='client', is_active=True, marketing_consent=True).all()
+            if clients_marketing:
+                sent = EmailManager.notify_new_exclusive_page(self, clients_marketing)
                 current_app.logger.info(
-                    f"Exclusive page '{self.name}' activated: sent notification to {sent} clients"
+                    f"Exclusive page '{self.name}' activated: sent email to {sent}/{len(clients_marketing)} clients (marketing consent)"
                 )
-                # Push notifications
+            # Push notifications do wszystkich aktywnych klientów (kontrolowane przez NotificationPreference)
+            all_clients = User.query.filter_by(role='client', is_active=True).all()
+            if all_clients:
                 from utils.push_manager import PushManager
-                client_ids = [c.id for c in clients]
+                client_ids = [c.id for c in all_clients]
                 PushManager.notify_new_exclusive_page(self, client_ids)
             self.notify_clients_on_publish = False  # Reset toggle po wysłaniu
         except Exception as e:

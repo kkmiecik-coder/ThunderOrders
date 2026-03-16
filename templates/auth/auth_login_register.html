@@ -165,6 +165,14 @@
                                                 {% endif %}
                                             </div>
 
+                                            <div class="marketing-consent-wrapper">
+                                                <label class="marketing-consent-label">
+                                                    <input type="checkbox" name="marketing_consent" id="marketingConsent" value="y">
+                                                    <span>Chcę otrzymywać informacje o nowych dropach i dostępności produktów</span>
+                                                </label>
+                                                <p class="marketing-consent-note">Bez spamu, bez newsletterów — tylko info o nowych dropach, które Cię interesują.</p>
+                                            </div>
+
                                             {% if config.CF_TURNSTILE_SITE_KEY %}
                                             <div class="cf-turnstile" data-sitekey="{{ config.CF_TURNSTILE_SITE_KEY }}" data-theme="dark"></div>
                                             {% endif %}

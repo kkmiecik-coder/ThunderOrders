@@ -506,6 +506,42 @@ def register_cli_commands(app):
         results = service.backfill_all()
         click.echo(f'Backfill complete: {results["unlocked"]} achievements unlocked for {results["users"]} users.')
 
+    @app.cli.command('process-account-deletions')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl konta do anonimizacji, nie wykonuj')
+    def process_account_deletions(dry_run):
+        """Anonimizuje konta z żądaniem usunięcia starszym niż 30 dni (RODO art. 17)."""
+        from modules.auth.models import User
+        from datetime import datetime, timedelta
+
+        cutoff = datetime.now() - timedelta(days=30)
+
+        pending = User.query.filter(
+            User.deletion_requested_at.isnot(None),
+            User.deletion_requested_at < cutoff,
+            ~User.email.endswith('@thunderorders.local')
+        ).all()
+
+        click.echo(f'Znaleziono {len(pending)} kont do anonimizacji (cooling period > 30 dni)')
+
+        if not pending:
+            click.echo('Brak kont do przetworzenia.')
+            return
+
+        for user in pending:
+            click.echo(f'  #{user.id} — żądanie z {user.deletion_requested_at.strftime("%d.%m.%Y")}', nl=False)
+            if dry_run:
+                click.echo(' [DRY RUN — pominięto]')
+            else:
+                try:
+                    user.anonymize()
+                    db.session.commit()
+                    click.echo(' — zanonimizowano')
+                except Exception as e:
+                    db.session.rollback()
+                    click.echo(f' — BŁĄD: {e}')
+
+        click.echo(f'\nGotowe.')
+
 
 def register_error_handlers(app):
     """Rejestruje handlery dla błędów HTTP"""

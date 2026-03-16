@@ -90,8 +90,8 @@
 
 {% block body_content %}
 <div class="privacy-policy-container">
-    <h1>📋 Polityka Prywatności</h1>
-    <p class="last-updated"><strong>Data ostatniej aktualizacji:</strong> 28 grudnia 2025</p>
+    <h1>Polityka Prywatności</h1>
+    <p class="last-updated"><strong>Data ostatniej aktualizacji:</strong> 16 marca 2026</p>
 
     <h2>1. Wprowadzenie</h2>
     <p>
@@ -104,23 +104,73 @@
 
     <h2>2. Rodzaje zbieranych danych</h2>
     <p>W ramach świadczenia usług zbieramy następujące dane:</p>
+
+    <h3>2.1. Dane rejestracyjne i profilowe</h3>
     <ul>
-        <li><strong>Dane rejestracyjne:</strong> imię, nazwisko, adres email, numer telefonu (opcjonalnie)</li>
-        <li><strong>Dane zamówień:</strong> historia zamówień, produkty, adresy wysyłki</li>
-        <li><strong>Dane techniczne:</strong> adres IP, typ przeglądarki, system operacyjny (anonimizowane przez Google Analytics)</li>
-        <li><strong>Pliki cookie:</strong> pliki cookie analityczne (Google Analytics) - tylko za zgodą użytkownika</li>
+        <li><strong>Dane konta:</strong> imię, nazwisko, adres email, numer telefonu</li>
+        <li><strong>Dane logowania:</strong> hasło (przechowywane w formie zaszyfrowanej), identyfikatory OAuth (Google, Facebook) w przypadku logowania przez zewnętrzne serwisy</li>
+        <li><strong>Preferencje:</strong> wybrany avatar, ustawienia trybu ciemnego/jasnego</li>
+    </ul>
+
+    <h3>2.2. Dane zamówień i płatności</h3>
+    <ul>
+        <li><strong>Historia zamówień:</strong> numery zamówień, zamówione produkty, kwoty, statusy</li>
+        <li><strong>Adresy wysyłki:</strong> imię i nazwisko odbiorcy, adres, kod pocztowy, miasto, województwo, kraj, dane punktu odbioru</li>
+        <li><strong>Potwierdzenia płatności:</strong> przesłane pliki (zdjęcia, PDF) jako dowód wpłaty</li>
+    </ul>
+
+    <h3>2.3. Kolekcja użytkownika</h3>
+    <ul>
+        <li><strong>Przedmioty w kolekcji:</strong> nazwy, wartości rynkowe, notatki, źródło pozyskania</li>
+        <li><strong>Zdjęcia kolekcji:</strong> przesłane obrazy przedmiotów</li>
+        <li><strong>Udostępnianie publiczne:</strong> użytkownik może dobrowolnie udostępnić swoją kolekcję publicznie za pomocą unikalnego linku</li>
+    </ul>
+
+    <h3>2.4. Osiągnięcia i aktywność</h3>
+    <ul>
+        <li><strong>System osiągnięć:</strong> odblokowane osiągnięcia, daty odblokowania, informacja o udostępnieniu</li>
+        <li><strong>Statystyki aktywności:</strong> liczba logowań, seria logowań, data ostatniego logowania</li>
+    </ul>
+
+    <h3>2.5. Powiadomienia push</h3>
+    <ul>
+        <li><strong>Dane subskrypcji:</strong> endpoint przeglądarki, klucze szyfrowania (p256dh, auth) niezbędne do dostarczania powiadomień</li>
+        <li><strong>Nazwa urządzenia:</strong> informacja o urządzeniu, na którym zapisano subskrypcję</li>
+        <li><strong>Preferencje powiadomień:</strong> jakie rodzaje powiadomień użytkownik chce otrzymywać (zmiany statusu zamówień, płatności, wysyłki, nowe strony Exclusive)</li>
+    </ul>
+
+    <h3>2.6. Dane techniczne</h3>
+    <ul>
+        <li><strong>Logi aktywności:</strong> adres IP, typ przeglądarki (user-agent), wykonane akcje w systemie (np. logowanie, zmiana zamówienia)</li>
+        <li><strong>Pliki cookie:</strong> sesyjne (niezbędne do działania) oraz analityczne (Google Analytics — tylko za zgodą)</li>
+    </ul>
+
+    <h3>2.7. Ankiety i opinie</h3>
+    <ul>
+        <li><strong>Odpowiedzi na ankiety:</strong> oceny, komentarze, wybrane opcje</li>
+        <li><strong>Ankiety mogą być anonimowe</strong> — w takim przypadku odpowiedzi nie są powiązane z kontem użytkownika</li>
     </ul>
 
     <h2>3. Cel przetwarzania danych</h2>
     <p>Dane osobowe przetwarzane są w następujących celach:</p>
     <ul>
-        <li>Realizacja zamówień i świadczenie usług</li>
-        <li>Komunikacja z użytkownikiem (powiadomienia email, komentarze do zamówień)</li>
-        <li>Analiza ruchu na stronie i poprawa jakości usług (Google Analytics - tylko za zgodą)</li>
-        <li>Wypełnianie obowiązków prawnych (rachunkowość, podatki)</li>
+        <li><strong>Realizacja zamówień:</strong> obsługa zamówień, wysyłka, śledzenie przesyłek, weryfikacja płatności</li>
+        <li><strong>Komunikacja:</strong> powiadomienia email o statusach zamówień, powiadomienia push, komentarze do zamówień</li>
+        <li><strong>Funkcjonalności platformy:</strong> kolekcja przedmiotów, system osiągnięć, personalizacja profilu (avatary)</li>
+        <li><strong>Analiza i poprawa usług:</strong> Google Analytics (tylko za zgodą), ankiety satysfakcji</li>
+        <li><strong>Bezpieczeństwo:</strong> logi aktywności w celu wykrywania nieautoryzowanego dostępu i ochrony kont użytkowników</li>
+        <li><strong>Obowiązki prawne:</strong> rachunkowość, podatki, odpowiedź na żądania organów państwowych</li>
     </ul>
 
-    <h2>4. Google Analytics (Pliki Cookie)</h2>
+    <h2>4. Podstawy prawne przetwarzania (RODO art. 6)</h2>
+    <ul>
+        <li><strong>Wykonanie umowy (art. 6 ust. 1 lit. b):</strong> przetwarzanie danych zamówień, płatności, wysyłki</li>
+        <li><strong>Zgoda (art. 6 ust. 1 lit. a):</strong> pliki cookie analityczne (Google Analytics), powiadomienia push</li>
+        <li><strong>Prawnie uzasadniony interes (art. 6 ust. 1 lit. f):</strong> logi aktywności, bezpieczeństwo systemu</li>
+        <li><strong>Obowiązek prawny (art. 6 ust. 1 lit. c):</strong> przechowywanie danych zamówień wymagane ustawą o rachunkowości</li>
+    </ul>
+
+    <h2>5. Google Analytics (Pliki Cookie)</h2>
     <p>
         Nasza strona używa <strong>Google Analytics 4</strong> w celu analizy ruchu i poprawy jakości usług.
     </p>
@@ -143,7 +193,7 @@
     <h3>Twoja zgoda:</h3>
     <p>
         Google Analytics uruchamia się <strong>tylko po uzyskaniu Twojej zgody</strong> poprzez kliknięcie przycisku
-        "Akceptuję" w banerze cookie. Możesz wycofać zgodę w każdej chwili w Ustawieniach profilu.
+        "Akceptuję" w banerze cookie. Jeśli odrzucisz cookies, baner pojawi się ponownie po 14 dniach — możesz zmienić zdanie lub ponownie odrzucić.
     </p>
 
     <h3>Więcej informacji:</h3>
@@ -153,74 +203,115 @@
         <li><a href="https://tools.google.com/dlpage/gaoptout" target="_blank">Rozszerzenie do blokowania Google Analytics</a></li>
     </ul>
 
-    <h2>5. Udostępnianie danych osobowych</h2>
+    <h2>6. Powiadomienia push i email</h2>
+    <h3>Powiadomienia push:</h3>
+    <p>
+        Możesz dobrowolnie włączyć powiadomienia push w przeglądarce. Wymagają one zapisania danych
+        subskrypcji (endpoint, klucze szyfrowania) na naszych serwerach. Możesz wyłączyć powiadomienia
+        w dowolnym momencie w ustawieniach przeglądarki lub w panelu użytkownika.
+    </p>
+    <h3>Powiadomienia email:</h3>
+    <p>
+        Wysyłamy emaile transakcyjne związane z Twoim kontem i zamówieniami (potwierdzenia zamówień,
+        zmiany statusów, informacje o płatnościach, śledzenie przesyłek). Emaile transakcyjne są
+        niezbędne do realizacji usługi i nie wymagają osobnej zgody marketingowej.
+    </p>
+
+    <h2>7. Udostępnianie danych osobowych</h2>
     <p>Dane osobowe mogą być udostępniane następującym podmiotom:</p>
     <ul>
         <li><strong>Google Analytics:</strong> Anonimowe dane analityczne (tylko za zgodą)</li>
-        <li><strong>Dostawcy płatności:</strong> W celu realizacji płatności (jeśli dotyczy)</li>
-        <li><strong>Firmy kurierskie:</strong> W celu realizacji wysyłki zamówień</li>
+        <li><strong>Google / Facebook:</strong> Wyłącznie w zakresie uwierzytelniania OAuth (logowanie), jeśli korzystasz z tej opcji</li>
+        <li><strong>Firmy kurierskie:</strong> Imię, nazwisko i adres dostawy — w celu realizacji wysyłki zamówień</li>
         <li><strong>Organy państwowe:</strong> W przypadku obowiązków prawnych (np. kontrola podatkowa)</li>
     </ul>
     <p><strong>Nie sprzedajemy</strong> Twoich danych osobowych podmiotom trzecim.</p>
 
-    <h2>6. Twoje prawa (RODO)</h2>
+    <h2>8. Twoje prawa (RODO)</h2>
     <p>Zgodnie z RODO (Rozporządzenie o Ochronie Danych Osobowych) masz prawo do:</p>
     <ul>
-        <li><strong>Dostępu do danych:</strong> Możesz poprosić o kopię swoich danych osobowych</li>
-        <li><strong>Poprawiania danych:</strong> Możesz zmienić swoje dane w Ustawieniach profilu</li>
-        <li><strong>Usunięcia danych:</strong> Możesz poprosić o usunięcie swojego konta (prawo do bycia zapomnianym)</li>
-        <li><strong>Ograniczenia przetwarzania:</strong> Możesz poprosić o ograniczenie przetwarzania danych</li>
-        <li><strong>Przenoszenia danych:</strong> Możesz poprosić o przeniesienie danych do innego dostawcy</li>
-        <li><strong>Sprzeciwu:</strong> Możesz wycofać zgodę na przetwarzanie danych w dowolnym momencie</li>
+        <li><strong>Dostępu do danych (art. 15):</strong> Możesz poprosić o kopię swoich danych osobowych</li>
+        <li><strong>Poprawiania danych (art. 16):</strong> Możesz zmienić swoje dane w Ustawieniach profilu</li>
+        <li><strong>Usunięcia danych (art. 17):</strong> Możesz poprosić o usunięcie swojego konta (prawo do bycia zapomnianym) — dane zostaną zanonimizowane, z wyjątkiem danych wymaganych przez prawo</li>
+        <li><strong>Ograniczenia przetwarzania (art. 18):</strong> Możesz poprosić o ograniczenie przetwarzania danych</li>
+        <li><strong>Przenoszenia danych (art. 20):</strong> Możesz poprosić o eksport swoich danych w formacie maszynowym</li>
+        <li><strong>Sprzeciwu (art. 21):</strong> Możesz wycofać zgodę na przetwarzanie danych w dowolnym momencie</li>
     </ul>
+    <p>
+        W celu realizacji powyższych praw skontaktuj się z nami przez email podany w sekcji Kontakt.
+    </p>
 
-    <h2>7. Wycofanie zgody na cookies</h2>
+    <h2>9. Wycofanie zgody na cookies</h2>
     <p>
         Zgodę na pliki cookie analityczne (Google Analytics) możesz wycofać w każdej chwili:
     </p>
     <ol>
         <li>Zaloguj się na swoje konto</li>
-        <li>Przejdź do: <strong><a href="{{ url_for('profile.index') }}">Mój profil</a> → Prywatność</strong></li>
+        <li>Przejdź do: <strong><a href="{{ url_for('profile.index') }}">Mój profil</a> &rarr; Prywatność</strong></li>
         <li>Wyłącz przełącznik: <strong>"Cookies analityczne (Google Analytics)"</strong></li>
     </ol>
     <p>Po wycofaniu zgody Google Analytics przestanie zbierać dane o Twoich odwiedzinach.</p>
 
-    <h2>8. Bezpieczeństwo danych</h2>
+    <h2>10. Dezaktywacja i usunięcie konta</h2>
+    <p>
+        Administrator może dezaktywować konto użytkownika — w takim przypadku zostaniesz poinformowany
+        drogą mailową z podaniem powodu dezaktywacji. Dezaktywacja oznacza brak możliwości logowania,
+        ale Twoje dane i historia zamówień zostają zachowane.
+    </p>
+    <p>
+        W przypadku usunięcia konta Twoje dane osobowe (imię, nazwisko, email, telefon, adresy) zostaną
+        zanonimizowane. Dane zamówień są przechowywane zgodnie z obowiązkami prawnymi (patrz: Okres przechowywania danych).
+    </p>
+
+    <h2>11. Bezpieczeństwo danych</h2>
     <p>Stosujemy następujące środki bezpieczeństwa:</p>
     <ul>
         <li><strong>Szyfrowanie SSL/TLS:</strong> Wszystkie dane przesyłane przez HTTPS</li>
         <li><strong>Hashowanie haseł:</strong> Hasła są hashowane (pbkdf2:sha256) i nigdy nie przechowujemy ich w postaci jawnej</li>
         <li><strong>Regularne backupy:</strong> Codzienne kopie zapasowe bazy danych</li>
         <li><strong>Ograniczony dostęp:</strong> Dostęp do danych mają tylko upoważnione osoby</li>
+        <li><strong>Logi aktywności:</strong> Monitorowanie dostępu do systemu w celu wykrywania zagrożeń</li>
+        <li><strong>Szyfrowanie powiadomień push:</strong> Dane subskrypcji push szyfrowane kluczami VAPID</li>
     </ul>
 
-    <h2>9. Okres przechowywania danych</h2>
+    <h2>12. Okres przechowywania danych</h2>
     <ul>
         <li><strong>Dane użytkowników:</strong> Przez cały czas korzystania z usługi + 3 lata po usunięciu konta (obowiązki podatkowe)</li>
         <li><strong>Dane zamówień:</strong> 10 lat (zgodnie z ustawą o rachunkowości)</li>
-        <li><strong>Logi systemowe:</strong> 30 dni</li>
+        <li><strong>Potwierdzenia płatności:</strong> Przez czas trwania zamówienia + okres archiwizacji</li>
+        <li><strong>Kolekcja użytkownika:</strong> Do momentu usunięcia przez użytkownika lub usunięcia konta</li>
+        <li><strong>Osiągnięcia:</strong> Do momentu usunięcia konta</li>
+        <li><strong>Subskrypcje push:</strong> Do momentu wypisania się lub usunięcia konta</li>
+        <li><strong>Logi aktywności:</strong> 30 dni</li>
         <li><strong>Google Analytics:</strong> 14 miesięcy (domyślnie GA4)</li>
+        <li><strong>Odpowiedzi na ankiety:</strong> Bezterminowo (mogą być anonimowe)</li>
     </ul>
 
-    <h2>10. Zmiany w Polityce Prywatności</h2>
+    <h2>13. Pliki cookie</h2>
+    <p>Nasza strona wykorzystuje następujące pliki cookie:</p>
+    <ul>
+        <li><strong>Cookie sesyjne (niezbędne):</strong> utrzymanie sesji logowania, token CSRF — nie wymagają zgody</li>
+        <li><strong>Cookie analityczne (Google Analytics):</strong> analiza ruchu na stronie — wymagają zgody użytkownika</li>
+    </ul>
+
+    <h2>14. Zmiany w Polityce Prywatności</h2>
     <p>
         Zastrzegamy sobie prawo do wprowadzania zmian w niniejszej Polityce Prywatności.
         O wszelkich zmianach poinformujemy użytkowników poprzez email lub powiadomienie na stronie.
     </p>
 
-    <h2>11. Kontakt</h2>
+    <h2>15. Kontakt</h2>
     <p>W razie pytań dotyczących przetwarzania danych osobowych, skontaktuj się z nami:</p>
     <ul>
         <li><strong>Osoba kontaktowa:</strong> Karolina Burza</li>
-        <li><strong>Email:</strong> <a href="mailto:karolinaburza@gmail.com">karolinaburza@gmail.com</a></li>
-        <li><strong>Adres:</strong> ThunderOrders, Polska</li>
+        <li><strong>Email:</strong> <a href="mailto:burzowe.zamowienia@gmail.com">burzowe.zamowienia@gmail.com</a></li>
     </ul>
 
     <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border-color);">
 
     <p style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">
-        Ostatnia aktualizacja: 28 grudnia 2025<br>
-        <a href="{{ url_for('index') }}">← Wróć do strony głównej</a>
+        Ostatnia aktualizacja: 16 marca 2026<br>
+        <a href="{{ url_for('index') }}">&larr; Wróć do strony głównej</a>
     </p>
 </div>
 {% endblock %}

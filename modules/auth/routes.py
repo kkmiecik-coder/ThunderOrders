@@ -312,12 +312,14 @@ def register():
                                    login_form=login_form, register_form=form, mode='register')
 
         # Stwórz nowego użytkownika (tylko email + hasło)
+        marketing_consent = request.form.get('marketing_consent') == 'y'
         user = User(
             email=email,
             role='client',
             is_active=True,
             email_verified=False,
-            profile_completed=False
+            profile_completed=False,
+            marketing_consent=marketing_consent
         )
 
         # Ustaw hasło (zahashowane)

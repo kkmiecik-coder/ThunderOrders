@@ -73,8 +73,29 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
                 continue
         else:
             email = subscription.guest_email
+            user = None
 
         if not email:
+            continue
+
+        # Sprawdź marketing_consent dla zalogowanych użytkowników (RODO)
+        if user and not user.marketing_consent:
+            # Brak zgody marketingowej — pomiń email, ale push może lecieć (kontrolowany przez NotificationPreference)
+            if subscription.user_id:
+                try:
+                    from utils.push_manager import PushManager
+                    PushManager._fire_and_forget(
+                        user_id=subscription.user_id,
+                        title=f'Produkt znów dostępny!',
+                        body=f'{product.name} - {page.name}',
+                        url=exclusive_page_url,
+                        tag=f'back-in-stock-{product_id}',
+                        notification_type='new_exclusive_pages'
+                    )
+                except Exception:
+                    pass
+            subscription.notified = True
+            subscription.notified_at = get_local_now()
             continue
 
         try:

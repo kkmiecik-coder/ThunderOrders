@@ -589,6 +589,131 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-6);
+  padding: var(--space-4) 0;
+}
+
+.privacy-item + .privacy-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.privacy-item .btn {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* Profile page buttons — glassmorphism style */
+.profile-card .btn.btn-primary,
+.profile-card .btn-export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(240, 147, 251, 0.25);
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.profile-card .btn.btn-primary:hover,
+.profile-card .btn-export:hover {
+  background: rgba(240, 147, 251, 0.15);
+  border-color: rgba(240, 147, 251, 0.4);
+  box-shadow: none;
+}
+
+.push-section .btn.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(240, 147, 251, 0.25);
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: none;
+}
+
+.push-section .btn.btn-primary:hover {
+  background: rgba(240, 147, 251, 0.15);
+  border-color: rgba(240, 147, 251, 0.4);
+  box-shadow: none;
+}
+
+/* Danger Zone Card */
+.profile-card.danger-zone {
+  grid-column: 1 / -1;
+  background: rgba(245, 87, 108, 0.05);
+  border: 1px solid rgba(245, 87, 108, 0.2);
+}
+
+.profile-card.danger-zone .profile-card-header {
+  border-bottom-color: rgba(245, 87, 108, 0.15);
+}
+
+.profile-card.danger-zone .profile-card-header h2 {
+  color: #f5576c;
+}
+
+/* Delete Account Button */
+.btn-delete-account {
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f5576c;
+  background: rgba(245, 87, 108, 0.08);
+  border: 1px solid rgba(245, 87, 108, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-account:hover {
+  background: rgba(245, 87, 108, 0.15);
+  border-color: rgba(245, 87, 108, 0.4);
+}
+
+/* Delete Confirm Button (in modal) */
+.btn-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  background: #f5576c;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-confirm:hover {
+  background: #e04458;
+}
+
+.btn-delete-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .privacy-info {

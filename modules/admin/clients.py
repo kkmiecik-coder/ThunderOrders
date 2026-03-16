@@ -271,6 +271,35 @@ def client_reactivate(id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@admin_bp.route('/clients/<int:id>/anonymize', methods=['POST'])
+@login_required
+@role_required('admin')
+def client_anonymize(id):
+    """
+    Anonimizacja danych klienta (RODO art. 17).
+    POST /admin/clients/<id>/anonymize
+    """
+    client = User.query.get_or_404(id)
+
+    if client.is_admin():
+        return jsonify({'success': False, 'error': 'Nie można anonimizować konta administratora.'}), 400
+
+    if client.is_anonymized:
+        return jsonify({'success': False, 'error': 'To konto zostało już zanonimizowane.'}), 400
+
+    try:
+        client.anonymize()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Dane klienta #{id} zostały zanonimizowane (RODO art. 17).'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/clients/<int:id>/delete', methods=['POST'])
 @login_required
 @role_required('admin')

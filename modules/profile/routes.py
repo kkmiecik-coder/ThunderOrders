@@ -149,6 +149,78 @@ def change_password():
 
 
 # ============================================
+# RODO Account Deletion (art. 17)
+# ============================================
+
+@profile_bp.route('/request-deletion', methods=['POST'])
+@login_required
+def request_deletion():
+    """
+    Żądanie usunięcia konta (RODO art. 17).
+    Konto dezaktywowane z 30-dniowym cooling period.
+    POST /profile/request-deletion
+    """
+    from flask_login import logout_user
+    from utils.email_sender import send_account_deletion_requested_email
+
+    password = request.form.get('password', '')
+
+    if not current_user.check_password(password):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe hasło.'}), 400
+
+    if current_user.is_admin():
+        return jsonify({'success': False, 'error': 'Konto administratora nie może być usunięte w ten sposób.'}), 400
+
+    try:
+        current_user.request_deletion()
+        db.session.commit()
+
+        # Wyślij email potwierdzający
+        if current_user.email:
+            send_account_deletion_requested_email(
+                current_user.email,
+                current_user.first_name or current_user.full_name
+            )
+
+        # Wyloguj użytkownika
+        logout_user()
+
+        return jsonify({
+            'success': True,
+            'message': 'Twoje konto zostało dezaktywowane. Dane zostaną usunięte po 30 dniach. Jeśli zmienisz zdanie, skontaktuj się z nami.'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Wystąpił błąd: {str(e)}'}), 500
+
+
+# ============================================
+# RODO Data Export (art. 20)
+# ============================================
+
+@profile_bp.route('/export-data')
+@login_required
+def export_data():
+    """
+    Eksport danych użytkownika do PDF (RODO art. 20)
+    GET /profile/export-data
+    """
+    from flask import make_response
+    from utils.data_export import generate_user_data_pdf
+    from datetime import datetime
+
+    pdf_bytes = generate_user_data_pdf(current_user)
+
+    response = make_response(pdf_bytes)
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = (
+        f'attachment; filename=ThunderOrders_dane_{current_user.id}_{datetime.now().strftime("%Y%m%d")}.pdf'
+    )
+    return response
+
+
+# ============================================
 # Avatar Management Routes (Admin only)
 # ============================================
 

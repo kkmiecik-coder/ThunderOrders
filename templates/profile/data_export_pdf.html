@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+            @bottom-center {
+                content: "Strona " counter(page) " z " counter(pages);
+                font-size: 9px;
+                color: #999;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            font-size: 11px;
+            line-height: 1.5;
+            color: #212121;
+        }
+
+        h1 {
+            font-size: 22px;
+            color: #240046;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            font-size: 15px;
+            color: #240046;
+            border-bottom: 2px solid #CE93D8;
+            padding-bottom: 4px;
+            margin-top: 25px;
+            margin-bottom: 10px;
+        }
+
+        h3 {
+            font-size: 12px;
+            color: #7B2CBF;
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10px;
+        }
+
+        th {
+            background-color: #F3E5F5;
+            color: #240046;
+            text-align: left;
+            padding: 6px 8px;
+            font-weight: 600;
+            border: 1px solid #E0E0E0;
+        }
+
+        td {
+            padding: 5px 8px;
+            border: 1px solid #E0E0E0;
+            vertical-align: top;
+        }
+
+        tr:nth-child(even) {
+            background-color: #FAFAFA;
+        }
+
+        .field-label {
+            font-weight: 600;
+            color: #555;
+            width: 180px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 4px 12px;
+            margin-bottom: 15px;
+        }
+
+        .info-grid dt {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .info-grid dd {
+            margin: 0;
+        }
+
+        .empty-note {
+            color: #999;
+            font-style: italic;
+            margin: 5px 0 15px;
+        }
+
+        .footer {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #E0E0E0;
+            font-size: 9px;
+            color: #999;
+            text-align: center;
+        }
+
+        .consent-yes { color: #2E7D32; font-weight: 600; }
+        .consent-no { color: #C62828; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <h1>Eksport danych osobowych</h1>
+    <p class="subtitle">
+        ThunderOrders &mdash; wygenerowano {{ export_date.strftime('%d.%m.%Y o %H:%M') }}<br>
+        Zgodnie z art. 20 RODO (prawo do przenoszenia danych)
+    </p>
+
+    <!-- ==================== DANE KONTA ==================== -->
+    <h2>1. Dane konta</h2>
+    <dl class="info-grid">
+        <dt>ID konta</dt>
+        <dd>{{ user.id }}</dd>
+
+        <dt>Email</dt>
+        <dd>{{ user.email }}</dd>
+
+        <dt>Imię</dt>
+        <dd>{{ user.first_name or '—' }}</dd>
+
+        <dt>Nazwisko</dt>
+        <dd>{{ user.last_name or '—' }}</dd>
+
+        <dt>Telefon</dt>
+        <dd>{{ user.phone or '—' }}</dd>
+
+        <dt>Rola</dt>
+        <dd>{{ user.role }}</dd>
+
+        <dt>Konto aktywne</dt>
+        <dd>{{ 'Tak' if user.is_active else 'Nie' }}</dd>
+
+        <dt>Email zweryfikowany</dt>
+        <dd>{{ 'Tak' if user.email_verified else 'Nie' }}</dd>
+
+        <dt>Konto Google</dt>
+        <dd>{{ 'Połączone' if user.google_id else 'Nie' }}</dd>
+
+        <dt>Konto Facebook</dt>
+        <dd>{{ 'Połączone' if user.facebook_id else 'Nie' }}</dd>
+
+        <dt>Data rejestracji</dt>
+        <dd>{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else '—' }}</dd>
+
+        <dt>Ostatnie logowanie</dt>
+        <dd>{{ user.last_login.strftime('%d.%m.%Y %H:%M') if user.last_login else '—' }}</dd>
+
+        <dt>Liczba logowań</dt>
+        <dd>{{ user.login_count or 0 }}</dd>
+
+        <dt>Tryb ciemny</dt>
+        <dd>{{ 'Włączony' if user.dark_mode_enabled else 'Wyłączony' }}</dd>
+    </dl>
+
+    <!-- ==================== ZGODY ==================== -->
+    <h2>2. Zgody</h2>
+    <dl class="info-grid">
+        <dt>Cookies analityczne (GA4)</dt>
+        <dd>
+            {% if user.analytics_consent is none %}
+                Nie podjęto decyzji
+            {% elif user.analytics_consent %}
+                <span class="consent-yes">Wyrażona</span>
+            {% else %}
+                <span class="consent-no">Odrzucona</span>
+                {% if user.analytics_consent_date %}
+                    ({{ user.analytics_consent_date.strftime('%d.%m.%Y') }})
+                {% endif %}
+            {% endif %}
+        </dd>
+
+        <dt>Komunikacja marketingowa</dt>
+        <dd>
+            {% if user.marketing_consent %}
+                <span class="consent-yes">Wyrażona</span>
+            {% else %}
+                <span class="consent-no">Brak zgody</span>
+            {% endif %}
+        </dd>
+    </dl>
+
+    {% if notif_prefs %}
+    <h3>Preferencje powiadomień push</h3>
+    <dl class="info-grid">
+        <dt>Zmiany statusu zamówień</dt>
+        <dd>{{ 'Tak' if notif_prefs.order_status_changes else 'Nie' }}</dd>
+        <dt>Aktualizacje płatności</dt>
+        <dd>{{ 'Tak' if notif_prefs.payment_updates else 'Nie' }}</dd>
+        <dt>Aktualizacje wysyłek</dt>
+        <dd>{{ 'Tak' if notif_prefs.shipping_updates else 'Nie' }}</dd>
+        <dt>Nowe strony Exclusive</dt>
+        <dd>{{ 'Tak' if notif_prefs.new_exclusive_pages else 'Nie' }}</dd>
+        <dt>Dodanie kosztów</dt>
+        <dd>{{ 'Tak' if notif_prefs.cost_added else 'Nie' }}</dd>
+        <dt>Powiadomienia admina</dt>
+        <dd>{{ 'Tak' if notif_prefs.admin_alerts else 'Nie' }}</dd>
+    </dl>
+    {% endif %}
+
+    <!-- ==================== ADRESY WYSYŁKI ==================== -->
+    <h2>3. Adresy wysyłki</h2>
+    {% if addresses %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nazwa</th>
+                <th>Typ</th>
+                <th>Adres</th>
+                <th>Domyślny</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for addr in addresses %}
+            <tr>
+                <td>{{ addr.name or '—' }}</td>
+                <td>{{ 'Adres domowy' if addr.address_type == 'home' else 'Punkt odbioru' }}</td>
+                <td>
+                    {% if addr.address_type == 'home' %}
+                        {{ addr.shipping_name or '' }}, {{ addr.shipping_address or '' }}, {{ addr.shipping_postal_code or '' }} {{ addr.shipping_city or '' }}
+                    {% else %}
+                        {{ addr.pickup_courier or '' }} — {{ addr.pickup_address or '' }}, {{ addr.pickup_postal_code or '' }} {{ addr.pickup_city or '' }}
+                    {% endif %}
+                </td>
+                <td>{{ 'Tak' if addr.is_default else 'Nie' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Brak zapisanych adresów wysyłki.</p>
+    {% endif %}
+
+    <!-- ==================== ZAMÓWIENIA ==================== -->
+    <h2>4. Zamówienia ({{ orders|length }})</h2>
+    {% if orders %}
+    <table>
+        <thead>
+            <tr>
+                <th>Numer</th>
+                <th>Data</th>
+                <th>Status</th>
+                <th>Produkty</th>
+                <th>Kwota</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td>{{ order.order_number }}</td>
+                <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else '—' }}</td>
+                <td>{{ order.status_display_name if order.status_display_name else order.status }}</td>
+                <td>
+                    {% for item in order.items %}
+                        {{ item.product.name if item.product else 'Produkt usunięty' }} x{{ item.quantity }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                </td>
+                <td>{{ '%.2f'|format(order.total_amount or 0) }} PLN</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Brak zamówień.</p>
+    {% endif %}
+
+    <!-- ==================== ZLECENIA WYSYŁKI ==================== -->
+    <h2>5. Zlecenia wysyłki ({{ shipping_requests|length }})</h2>
+    {% if shipping_requests %}
+    <table>
+        <thead>
+            <tr>
+                <th>Numer</th>
+                <th>Data</th>
+                <th>Status</th>
+                <th>Metoda dostawy</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sr in shipping_requests %}
+            <tr>
+                <td>{{ sr.request_number }}</td>
+                <td>{{ sr.created_at.strftime('%d.%m.%Y') if sr.created_at else '—' }}</td>
+                <td>{{ sr.status }}</td>
+                <td>{{ sr.delivery_method or '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Brak zleceń wysyłki.</p>
+    {% endif %}
+
+    <!-- ==================== KOLEKCJA ==================== -->
+    <h2>6. Kolekcja ({{ collection_items|length }})</h2>
+    {% if collection_items %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nazwa</th>
+                <th>Wartość rynkowa</th>
+                <th>Źródło</th>
+                <th>Publiczny</th>
+                <th>Data dodania</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in collection_items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ '%.2f PLN'|format(item.market_price) if item.market_price else '—' }}</td>
+                <td>{{ item.source or '—' }}</td>
+                <td>{{ 'Tak' if item.is_public else 'Nie' }}</td>
+                <td>{{ item.created_at.strftime('%d.%m.%Y') if item.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Brak przedmiotów w kolekcji.</p>
+    {% endif %}
+
+    <!-- ==================== OSIĄGNIĘCIA ==================== -->
+    <h2>7. Osiągnięcia ({{ user_achievements|length }})</h2>
+    {% if user_achievements %}
+    <table>
+        <thead>
+            <tr>
+                <th>Nazwa</th>
+                <th>Kategoria</th>
+                <th>Rzadkość</th>
+                <th>Data odblokowania</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ua, achievement in user_achievements %}
+            <tr>
+                <td>{{ achievement.name }}</td>
+                <td>{{ achievement.category or '—' }}</td>
+                <td>{{ achievement.rarity or '—' }}</td>
+                <td>{{ ua.unlocked_at.strftime('%d.%m.%Y') if ua.unlocked_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Brak odblokowanych osiągnięć.</p>
+    {% endif %}
+
+    <!-- ==================== KOMENTARZE ==================== -->
+    <h2>8. Komentarze do zamówień ({{ comments|length }})</h2>
+    {% if comments %}
+    <table>
+        <thead>
+            <tr>
+                <th>Zamówienie</th>
+                <th>Treść</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for comment in comments %}
+            <tr>
+                <td>{{ comment.order.order_number if comment.order else '—' }}</td>
+                <td>{{ comment.body }}</td>
+                <td>{{ comment.created_at.strftime('%d.%m.%Y %H:%M') if comment.created_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="empty-note">Brak komentarzy.</p>
+    {% endif %}
+
+    <!-- ==================== FOOTER ==================== -->
+    <div class="footer">
+        ThunderOrders &mdash; thunderorders.cloud<br>
+        Dokument wygenerowany automatycznie w ramach realizacji prawa do przenoszenia danych (RODO art. 20).<br>
+        W razie pytań: burzowe.zamowienia@gmail.com
+    </div>
+</body>
+</html>

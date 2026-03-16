@@ -633,6 +633,18 @@ def send_new_exclusive_page_email(user_email, user_name, page_name, page_url):
     )
 
 
+def send_account_deletion_requested_email(user_email, user_name):
+    """
+    Wysyła email potwierdzający żądanie usunięcia konta (RODO art. 17).
+    """
+    return send_email(
+        to=user_email,
+        subject='Żądanie usunięcia konta - ThunderOrders',
+        template='account_deletion_requested',
+        user_name=user_name
+    )
+
+
 def send_account_deactivated_email(user_email, user_name, reason=''):
     """
     Wysyła email informujący klienta o dezaktywacji konta.

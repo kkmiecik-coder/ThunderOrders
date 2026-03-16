@@ -86,6 +86,11 @@ class User(UserMixin, db.Model):
     deactivation_reason = db.Column(db.Text)
     deactivated_at = db.Column(db.DateTime)
     deactivated_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    deletion_requested_at = db.Column(
+        db.DateTime,
+        nullable=True,
+        comment='Data żądania usunięcia konta (RODO art. 17). Po 30 dniach dane zostaną zanonimizowane.'
+    )
 
     # Verification & Reset Tokens (legacy - kept for backward compatibility)
     email_verification_token = db.Column(db.String(255), index=True)
@@ -123,6 +128,13 @@ class User(UserMixin, db.Model):
         db.DateTime,
         nullable=True,
         comment='Data ostatniej zmiany zgody analitycznej (do ponownego pytania po 14 dniach od odmowy)'
+    )
+    marketing_consent = db.Column(
+        db.Boolean,
+        default=False,
+        nullable=False,
+        server_default='0',
+        comment='Zgoda na komunikację marketingową (nowe dropy, back-in-stock, broadcasty). Wymagana przez RODO.'
     )
 
     # Avatar
@@ -409,6 +421,24 @@ class User(UserMixin, db.Model):
         return True
 
     @property
+    def is_deletion_pending(self):
+        """Czy konto czeka na usunięcie (w cooling period 30 dni)"""
+        return self.deletion_requested_at is not None and not self.email.endswith('@thunderorders.local')
+
+    @property
+    def is_anonymized(self):
+        """Czy konto zostało już zanonimizowane"""
+        return self.email.endswith('@thunderorders.local')
+
+    @property
+    def deletion_ready(self):
+        """Czy minęło 30 dni od żądania usunięcia i można anonimizować"""
+        if not self.deletion_requested_at:
+            return False
+        from datetime import datetime, timedelta
+        return datetime.now() - self.deletion_requested_at > timedelta(days=30)
+
+    @property
     def full_name(self):
         """Zwraca pełne imię i nazwisko (null-safe, fallback na email)"""
         first = self.first_name or ''
@@ -481,6 +511,74 @@ class User(UserMixin, db.Model):
         self.deactivation_reason = None
         self.deactivated_at = None
         self.deactivated_by = None
+        self.deletion_requested_at = None
+
+    def request_deletion(self):
+        """
+        Klient żąda usunięcia konta (RODO art. 17).
+        Konto zostaje dezaktywowane z 30-dniowym cooling period.
+        Po 30 dniach dane zostaną zanonimizowane.
+        """
+        self.is_active = False
+        self.deletion_requested_at = get_local_now()
+        self.deactivation_reason = 'Żądanie usunięcia konta (RODO art. 17)'
+
+    def anonymize(self):
+        """
+        Anonimizacja danych osobowych (RODO art. 17).
+        Zamówienia zachowane (prawo rachunkowe), dane osobowe usunięte.
+        """
+        from modules.client.models import CollectionItem, CollectionItemImage
+        from modules.notifications.models import Notification, PushSubscription, NotificationPreference
+        from modules.achievements.models import UserAchievement
+        import os
+
+        user_id = self.id
+
+        # 1. Anonimizacja PII w modelu User
+        self.email = f'deleted_user_{user_id}@thunderorders.local'
+        self.first_name = None
+        self.last_name = None
+        self.phone = None
+        self.password_hash = None
+        self.google_id = None
+        self.facebook_id = None
+        self.avatar_id = None
+        self.analytics_consent = None
+        self.analytics_consent_date = None
+        self.marketing_consent = False
+        self.login_count = 0
+        self.login_streak = 0
+        self.last_login = None
+        self.last_login_date = None
+        self.dark_mode_enabled = False
+        self.sidebar_collapsed = False
+        self.is_active = False
+        self.email_verified = False
+        self.profile_completed = False
+        self.deactivation_reason = 'Konto usunięte (RODO art. 17)'
+
+        # 2. Usunięcie kolekcji + plików z dysku
+        collection_items = CollectionItem.query.filter_by(user_id=user_id).all()
+        for item in collection_items:
+            for img in item.images:
+                # Usuń pliki z dysku
+                for path_attr in ['path_original', 'path_compressed']:
+                    path = getattr(img, path_attr, None)
+                    if path:
+                        full_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '..', 'static', path)
+                        if os.path.exists(full_path):
+                            try:
+                                os.remove(full_path)
+                            except OSError:
+                                pass
+            db.session.delete(item)
+
+        # 3. Zamówienia — user_id → NULL (zachowujemy dla rachunkowości)
+        from modules.orders.models import Order, OrderComment, ShippingRequest
+        Order.query.filter_by(user_id=user_id).update({'user_id': None})
+        OrderComment.query.filter_by(user_id=user_id).update({'user_id': None})
+        ShippingRequest.query.filter_by(user_id=user_id).update({'user_id': None})
 
     # ============================================
     # Class Methods

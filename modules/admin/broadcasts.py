@@ -183,9 +183,18 @@ def broadcasts_delete(broadcast_id):
 
 
 def _resolve_target_users(target_type, target_data):
-    """Resolve list of user IDs based on target type."""
+    """Resolve list of user IDs based on target type.
+    Broadcasts are marketing — only users with marketing_consent=True receive them (RODO).
+    Admins/mods always receive broadcasts regardless of consent.
+    """
     if target_type == 'all':
-        users = User.query.filter_by(is_active=True).with_entities(User.id).all()
+        users = User.query.filter(
+            User.is_active == True,
+            db.or_(
+                User.marketing_consent == True,
+                User.role.in_(['admin', 'mod'])
+            )
+        ).with_entities(User.id).all()
         return [u.id for u in users]
 
     elif target_type == 'roles':
@@ -193,14 +202,18 @@ def _resolve_target_users(target_type, target_data):
             return []
         users = User.query.filter(
             User.is_active == True,
-            User.role.in_(target_data)
+            User.role.in_(target_data),
+            db.or_(
+                User.marketing_consent == True,
+                User.role.in_(['admin', 'mod'])
+            )
         ).with_entities(User.id).all()
         return [u.id for u in users]
 
     elif target_type == 'users':
         if not target_data or not isinstance(target_data, list):
             return []
-        # Validate user IDs exist and are active
+        # Specific users — admin explicitly chose them, send regardless of consent
         user_ids = [int(uid) for uid in target_data if str(uid).isdigit()]
         users = User.query.filter(
             User.is_active == True,

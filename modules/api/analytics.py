@@ -1,6 +1,6 @@
 """
-API Module - Analytics Consent
-Endpoint do zarządzania zgodą na cookies analityczne (RODO-compliant)
+API Module - Privacy Consent
+Endpointy do zarządzania zgodami użytkownika (cookies analityczne, marketing) - RODO-compliant
 """
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
@@ -81,3 +81,36 @@ def update_analytics_consent():
             'success': False,
             'error': f'Wystąpił błąd: {str(e)}'
         }), 500
+
+
+@analytics_bp.route('/marketing-consent', methods=['POST'])
+@login_required
+def update_marketing_consent():
+    """
+    Aktualizuj zgodę użytkownika na komunikację marketingową (nowe dropy, back-in-stock, broadcasty).
+    """
+    try:
+        data = request.get_json()
+
+        if data is None:
+            return jsonify({'success': False, 'error': 'Brak danych JSON'}), 400
+
+        consent = data.get('consent')
+
+        if not isinstance(consent, bool):
+            return jsonify({'success': False, 'error': 'Pole "consent" musi być typu boolean'}), 400
+
+        current_user.marketing_consent = consent
+        db.session.commit()
+
+        message = 'Zgoda marketingowa została zapisana' if consent else 'Zgoda marketingowa została wycofana'
+
+        return jsonify({
+            'success': True,
+            'consent': consent,
+            'message': message
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Wystąpił błąd: {str(e)}'}), 500
