@@ -213,7 +213,7 @@
                         </div>
                         <div class="popup-announcement-body" id="previewBody">
                             {% if popup and popup.content %}
-                                {{ popup.content|safe }}
+                                {{ popup.content|sanitize_html|safe }}
                             {% else %}
                                 <p>Treść popupa pojawi się tutaj...</p>
                             {% endif %}

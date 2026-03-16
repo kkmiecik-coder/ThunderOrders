@@ -427,7 +427,7 @@
     {% if page.footer_content %}
     <footer class="page-footer">
         <div class="footer-content">
-            {{ page.footer_content|safe }}
+            {{ page.footer_content|sanitize_html|safe }}
         </div>
     </footer>
     {% endif %}

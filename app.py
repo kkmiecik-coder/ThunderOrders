@@ -14,7 +14,7 @@ if sentry_dsn:
         dsn=sentry_dsn,
         traces_sample_rate=0.2,
         environment=os.getenv('FLASK_ENV', 'production'),
-        send_default_pii=True,
+        send_default_pii=False,
     )
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
@@ -97,8 +97,6 @@ def create_app(config_name=None):
         if current_user.is_authenticated:
             sentry_sdk.set_user({
                 'id': current_user.id,
-                'username': f'{current_user.first_name} {current_user.last_name}',
-                'email': current_user.email,
                 'role': current_user.role,
             })
         else:
@@ -111,6 +109,30 @@ def create_app(config_name=None):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+
+        # HSTS — wymuszaj HTTPS przez 1 rok (tylko w produkcji)
+        if not app.debug:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+        # Content-Security-Policy
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' "
+                "https://www.googletagmanager.com https://www.google-analytics.com "
+                "https://unpkg.com https://challenges.cloudflare.com "
+                "https://cdn.jsdelivr.net https://cdn.socket.io https://cdnjs.cloudflare.com https://cdn.quilljs.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.quilljs.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "img-src 'self' data: blob: https://www.google-analytics.com https://*.googleusercontent.com; "
+            "connect-src 'self' wss://thunderorders.cloud ws://localhost:* "
+                "https://www.google-analytics.com https://analytics.google.com https://challenges.cloudflare.com; "
+            "frame-src https://challenges.cloudflare.com; "
+            "object-src 'none'; "
+            "base-uri 'self'"
+        )
+        response.headers['Content-Security-Policy'] = csp
+
         # Allow Service Worker to control the entire site
         if request.path.endswith('/sw.js'):
             response.headers['Service-Worker-Allowed'] = '/'
@@ -601,6 +623,40 @@ def register_template_filters(app):
     """
     Rejestruje filtry Jinja2 do użycia w szablonach
     """
+
+    @app.template_filter('sanitize_html')
+    def sanitize_html_filter(value):
+        """
+        Sanityzuje HTML — zostawia bezpieczne tagi, usuwa skrypty i eventy.
+        Użycie: {{ content|sanitize_html|safe }}
+        """
+        if not value:
+            return ''
+        import bleach
+        allowed_tags = [
+            'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'a',
+            'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'span', 'div', 'img', 'blockquote', 'hr', 'table', 'thead',
+            'tbody', 'tr', 'th', 'td', 'pre', 'code', 'sup', 'sub',
+        ]
+        allowed_attrs = {
+            'a': ['href', 'title', 'target', 'rel'],
+            'img': ['src', 'alt', 'width', 'height', 'style'],
+            'span': ['style', 'class'],
+            'div': ['style', 'class'],
+            'p': ['style', 'class'],
+            'td': ['style', 'class', 'colspan', 'rowspan'],
+            'th': ['style', 'class', 'colspan', 'rowspan'],
+            'table': ['style', 'class'],
+        }
+        from bleach.css_sanitizer import CSSSanitizer
+        css_sanitizer = CSSSanitizer(allowed_css_properties=[
+            'color', 'background-color', 'font-size', 'font-weight', 'font-style',
+            'text-align', 'text-decoration', 'padding', 'margin', 'border',
+            'width', 'height', 'max-width', 'max-height', 'display',
+        ])
+        return bleach.clean(value, tags=allowed_tags, attributes=allowed_attrs,
+                            css_sanitizer=css_sanitizer, strip=True)
 
     @app.template_filter('to_poland_tz')
     def to_poland_tz_filter(dt):
