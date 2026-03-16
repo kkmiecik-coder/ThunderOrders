@@ -5,7 +5,9 @@ Endpointy autentykacji: login, register, logout, password reset
 
 from flask import render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_user, logout_user, current_user, login_required
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
+import threading
 
 # Import db z extensions.py (unika circular import)
 from extensions import db, csrf, limiter
@@ -22,39 +24,60 @@ from modules.auth.forms import (
 
 
 # =============================================
-# Helper Functions
+# Brute-force Protection (in-memory)
 # =============================================
+
+# Struktura: { "email_or_ip": [datetime, datetime, ...] }
+_login_attempts = defaultdict(list)
+_login_lock = threading.Lock()
+
+# Konfiguracja
+MAX_ATTEMPTS = 5          # Maksymalna liczba nieudanych prób
+LOCKOUT_MINUTES = 15      # Czas blokady w minutach
+ATTEMPT_WINDOW_MINUTES = 15  # Okno czasowe liczenia prób
+
+
+def _cleanup_old_attempts(key):
+    """Usuwa próby starsze niż okno czasowe."""
+    cutoff = datetime.now() - timedelta(minutes=ATTEMPT_WINDOW_MINUTES)
+    _login_attempts[key] = [t for t in _login_attempts[key] if t > cutoff]
+    if not _login_attempts[key]:
+        del _login_attempts[key]
+
 
 def check_login_attempts(email, ip_address):
     """
-    Sprawdza liczbę nieudanych prób logowania (rate limiting)
-    TODO: Implementacja w ETAPIE 2 Task 7
-
-    Args:
-        email (str): Email użytkownika
-        ip_address (str): IP address
+    Sprawdza czy konto/IP jest zablokowane po zbyt wielu nieudanych próbach.
 
     Returns:
         tuple: (is_locked, minutes_until_unlock)
     """
-    # Na razie zwracamy False (brak blokady)
-    # W Task 7 dodamy logikę z tabeli login_attempts
+    with _login_lock:
+        for key in [email.lower(), ip_address]:
+            _cleanup_old_attempts(key)
+            attempts = _login_attempts.get(key, [])
+            if len(attempts) >= MAX_ATTEMPTS:
+                oldest = attempts[0]
+                unlock_at = oldest + timedelta(minutes=LOCKOUT_MINUTES)
+                remaining = (unlock_at - datetime.now()).total_seconds() / 60
+                if remaining > 0:
+                    return True, int(remaining) + 1
     return False, 0
 
 
 def record_login_attempt(email, ip_address, success):
     """
-    Zapisuje próbę logowania do bazy
-    TODO: Implementacja w ETAPIE 2 Task 7
-
-    Args:
-        email (str): Email użytkownika
-        ip_address (str): IP address
-        success (bool): Czy logowanie się powiodło
+    Zapisuje próbę logowania. Przy sukcesie czyści historię.
     """
-    # Na razie nic nie robimy
-    # W Task 7 dodamy zapis do tabeli login_attempts
-    pass
+    with _login_lock:
+        if success:
+            # Wyczyść próby po udanym logowaniu
+            _login_attempts.pop(email.lower(), None)
+            _login_attempts.pop(ip_address, None)
+        else:
+            now = datetime.now()
+            _login_attempts[email.lower()].append(now)
+            _login_attempts[ip_address].append(now)
 
 
 from utils.email_manager import EmailManager

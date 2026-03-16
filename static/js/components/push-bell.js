@@ -4,6 +4,10 @@
 (function () {
     'use strict';
 
+    // CSRF token for POST requests
+    var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    var csrfToken = csrfMeta ? csrfMeta.content : '';
+
     // === DOM Elements (desktop) ===
     var bellBtn = document.getElementById('pushBellBtn');
     var badge = document.getElementById('notifBadge');
@@ -386,7 +390,7 @@
         fetch('/notifications/mark-read', {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
             body: JSON.stringify({ ids: ids })
         })
         .then(function (r) { return r.json(); })
@@ -400,7 +404,7 @@
         fetch('/notifications/mark-all-read', {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -424,7 +428,7 @@
         fetch('/notifications/delete', {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
             body: JSON.stringify({ id: id })
         })
         .then(function (r) { return r.json(); })
@@ -471,9 +475,14 @@
         seenUnreadIds.forEach(function (id) { allSeenIds.push(id); });
         mobileSeenUnreadIds.forEach(function (id) { allSeenIds.push(id); });
         if (allSeenIds.length === 0) return;
-        // Use sendBeacon for reliability during page unload
-        var data = JSON.stringify({ ids: allSeenIds });
-        navigator.sendBeacon('/notifications/mark-read', new Blob([data], { type: 'application/json' }));
+        // Use fetch with keepalive for reliability during page unload (sendBeacon can't send CSRF headers)
+        fetch('/notifications/mark-read', {
+            method: 'POST',
+            credentials: 'same-origin',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ ids: allSeenIds })
+        });
     });
 
     // === Push status ===

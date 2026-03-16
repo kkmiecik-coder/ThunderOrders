@@ -53,7 +53,8 @@ def create_app(config_name=None):
     csrf.init_app(app)
     executor.init_app(app)
     limiter.init_app(app)
-    socketio.init_app(app, async_mode='eventlet', cors_allowed_origins='*')
+    socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', ['https://thunderorders.cloud', 'http://localhost:5001'])
+    socketio.init_app(app, async_mode='eventlet', cors_allowed_origins=socketio_origins)
 
     # OAuth (Google, Facebook login)
     from utils.oauth import init_oauth
@@ -148,24 +149,20 @@ def register_blueprints(app):
     app.register_blueprint(orders_bp)
 
     # Exclusive module (publiczne strony zamówień pre-order)
-    # CSRF exempt dla API endpoints rezerwacji (reserve, release, extend, restore, availability)
+    # CSRF exempt per-endpoint (reserve, release, extend, restore, place-order, subscribe-notification)
     from modules.exclusive import exclusive_bp
-    csrf.exempt(exclusive_bp)
     app.register_blueprint(exclusive_bp)
 
-    # API module (CSRF exempt for AJAX requests)
+    # API module (AJAX requests — JS sends X-CSRFToken header from meta tag)
     from modules.api import api_bp
-    csrf.exempt(api_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
 
-    # Analytics API (CSRF exempt for consent updates)
+    # Analytics API (JS sends X-CSRFToken header)
     from modules.api.analytics import analytics_bp
-    csrf.exempt(analytics_bp)
     app.register_blueprint(analytics_bp)
 
-    # Imports module (CSRF exempt for file uploads)
+    # Imports module (JS sends X-CSRFToken header)
     from modules.imports import imports_bp
-    csrf.exempt(imports_bp)
     app.register_blueprint(imports_bp)
 
     # Public module (strony publiczne bez logowania - kolekcja, QR upload)
@@ -185,18 +182,16 @@ def register_blueprints(app):
     from modules.feedback import feedback_bp
     app.register_blueprint(feedback_bp)
 
-    # Notifications module (push subscriptions & preferences)
+    # Notifications module (CSRF exempt per-endpoint: subscribe, unsubscribe)
     from modules.notifications import notifications_bp
-    csrf.exempt(notifications_bp)
     app.register_blueprint(notifications_bp, url_prefix='/notifications')
 
     # Tracking module (QR campaign tracking & analytics)
     from modules.tracking import tracking_bp
     app.register_blueprint(tracking_bp)
 
-    # Achievements module
+    # Achievements module (JS sends X-CSRFToken header)
     from modules.achievements import achievements_bp
-    csrf.exempt(achievements_bp)
     app.register_blueprint(achievements_bp, url_prefix='/achievements')
 
     # Service Worker served from root scope

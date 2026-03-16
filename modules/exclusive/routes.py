@@ -5,7 +5,7 @@ Publiczne endpointy dla stron ekskluzywnych zamówień
 
 from flask import render_template, abort, redirect, url_for, request, jsonify, session
 from flask_login import login_required, current_user
-from extensions import db, limiter
+from extensions import db, limiter, csrf
 from . import exclusive_bp
 from .models import ExclusivePage
 from modules.products.models import Product, VariantGroup
@@ -239,6 +239,7 @@ def check_status(token):
 # ============================================
 
 @exclusive_bp.route('/<token>/reserve', methods=['POST'])
+@csrf.exempt
 @limiter.limit("120 per minute")
 def reserve(token):
     """Reserve product"""
@@ -336,6 +337,7 @@ def reserve(token):
 
 
 @exclusive_bp.route('/<token>/release', methods=['POST'])
+@csrf.exempt
 @limiter.limit("120 per minute")
 def release(token):
     """Release product"""
@@ -440,6 +442,7 @@ def availability(token):
 
 
 @exclusive_bp.route('/<token>/extend', methods=['POST'])
+@csrf.exempt
 @limiter.limit("20 per minute")
 def extend(token):
     """Extend reservation"""
@@ -467,6 +470,7 @@ def extend(token):
 
 
 @exclusive_bp.route('/<token>/restore', methods=['POST'])
+@csrf.exempt
 @limiter.limit("10 per minute")
 def restore(token):
     """Restore reservation from localStorage"""
@@ -530,6 +534,7 @@ def restore(token):
 # ============================================
 
 @exclusive_bp.route('/<token>/place-order', methods=['POST'])
+@csrf.exempt
 @limiter.limit("5 per minute")
 def place_order(token):
     """
@@ -584,6 +589,7 @@ def place_order(token):
 # ============================================
 
 @exclusive_bp.route('/<token>/subscribe-notification', methods=['POST'])
+@csrf.exempt
 def subscribe_notification(token):
     """
     Zapisuje użytkownika na powiadomienie o dostępności produktu.

@@ -5,7 +5,7 @@ Notification API endpoints for push subscriptions, preferences, and notification
 from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
 
-from extensions import db
+from extensions import db, csrf
 from . import notifications_bp
 from .models import PushSubscription, NotificationPreference, Notification
 
@@ -20,6 +20,7 @@ def vapid_public_key():
 
 
 @notifications_bp.route('/subscribe', methods=['POST'])
+@csrf.exempt
 @login_required
 def subscribe():
     """Save a push subscription for the current user."""
@@ -63,6 +64,7 @@ def subscribe():
 
 
 @notifications_bp.route('/unsubscribe', methods=['POST'])
+@csrf.exempt
 @login_required
 def unsubscribe():
     """Deactivate a push subscription."""

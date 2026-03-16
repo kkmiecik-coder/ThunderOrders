@@ -125,12 +125,18 @@ function updateContentPadding() {
   }
 }
 
+function _getCsrf() {
+  var m = document.querySelector('meta[name="csrf-token"]');
+  return m ? m.content : '';
+}
+
 async function saveSidebarState(collapsed) {
   try {
     await fetch('/api/preferences/sidebar', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRFToken': _getCsrf(),
       },
       body: JSON.stringify({ collapsed }),
     });
@@ -167,6 +173,7 @@ async function saveDarkModeState(enabled) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRFToken': _getCsrf(),
       },
       body: JSON.stringify({ enabled }),
     });
