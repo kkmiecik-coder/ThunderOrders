@@ -31,7 +31,7 @@ class Config:
     PERMANENT_SESSION_LIFETIME = int(os.getenv('SESSION_LIFETIME', 604800))  # 7 dni
 
     # Remember Me Cookie (Flask-Login)
-    REMEMBER_COOKIE_DURATION = 30 * 24 * 3600  # 30 dni
+    REMEMBER_COOKIE_DURATION = 14 * 24 * 3600  # 14 dni
     REMEMBER_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_SAMESITE = 'Lax'
 

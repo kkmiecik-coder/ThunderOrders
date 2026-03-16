@@ -580,6 +580,34 @@ def register_error_handlers(app):
         db.session.rollback()  # Rollback na wypadek błędu bazy danych
         return render_template('errors/500.html'), 500
 
+    @app.after_request
+    def sanitize_error_responses(response):
+        """
+        W produkcji ukrywa szczegóły błędów w JSON responses (500).
+        Zapobiega wyciekowi informacji o systemie (ścieżki, SQL, stack trace).
+        W development zostawia szczegóły dla debugowania.
+        """
+        if app.debug or response.status_code < 500:
+            return response
+        if response.content_type and 'application/json' in response.content_type:
+            try:
+                import json
+                data = json.loads(response.get_data(as_text=True))
+                changed = False
+                for key in ('error', 'message'):
+                    if key in data and isinstance(data[key], str):
+                        # Loguj oryginalny błąd
+                        original = data[key]
+                        if original and original not in ('Wystąpił błąd serwera.', 'Wystąpił błąd.'):
+                            app.logger.error(f'API error (sanitized): {original}')
+                            data[key] = 'Wystąpił błąd serwera.'
+                            changed = True
+                if changed:
+                    response.set_data(json.dumps(data, ensure_ascii=False))
+            except (ValueError, TypeError):
+                pass
+        return response
+
 
 def register_context_processors(app):
     """
