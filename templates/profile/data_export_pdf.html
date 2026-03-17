@@ -288,7 +288,7 @@
                 <th>Numer</th>
                 <th>Data</th>
                 <th>Status</th>
-                <th>Metoda dostawy</th>
+                <th>Typ adresu</th>
             </tr>
         </thead>
         <tbody>
@@ -297,7 +297,7 @@
                 <td>{{ sr.request_number }}</td>
                 <td>{{ sr.created_at.strftime('%d.%m.%Y') if sr.created_at else '—' }}</td>
                 <td>{{ sr.status }}</td>
-                <td>{{ sr.delivery_method or '—' }}</td>
+                <td>{{ sr.address_type or '—' }}</td>
             </tr>
             {% endfor %}
         </tbody>
