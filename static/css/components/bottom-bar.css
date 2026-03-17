@@ -35,7 +35,8 @@
 
     .main-content {
         padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
-        padding-top: var(--space-4) !important;
+        padding-top: 16px !important;
+        margin-top: 0 !important;
     }
 
     /* --- Bottom Bar --- */
