@@ -1,0 +1,145 @@
+<!-- PWA Bottom Bar - Admin -->
+{% if current_user.is_authenticated %}
+<nav class="pwa-bottom-bar" id="pwaBottomBar" role="navigation" aria-label="Nawigacja główna" aria-hidden="true">
+    <a href="{{ url_for('admin.dashboard') }}"
+       class="pwa-bar-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
+        <img src="{{ url_for('static', filename='img/icons/dashboard.svg') }}" alt="" class="pwa-bar-icon">
+        <span class="pwa-bar-label">Dashboard</span>
+    </a>
+
+    <button class="pwa-bar-item {% if request.endpoint and (request.endpoint.startswith('orders.') or request.endpoint == 'admin.payment_confirmations_list' or request.endpoint == 'admin.exclusive_list' or request.endpoint == 'admin.exclusive_edit') %}active{% endif %}"
+            data-sheet="admin-orders" aria-label="Zamówienia">
+        <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="" class="pwa-bar-icon">
+        <span class="pwa-bar-label">Zamówienia</span>
+    </button>
+
+    <button class="pwa-bar-item" id="pwaSearchBtn" aria-label="Szukaj">
+        <svg class="pwa-bar-icon pwa-bar-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <span class="pwa-bar-label">Szukaj</span>
+    </button>
+
+    <button class="pwa-bar-item {% if request.endpoint in ['products.list_products', 'products.stock_orders', 'products.warehouse_settings'] %}active{% endif %}"
+            data-sheet="admin-warehouse" aria-label="Magazyn">
+        <img src="{{ url_for('static', filename='img/icons/warehouse.svg') }}" alt="" class="pwa-bar-icon">
+        <span class="pwa-bar-label">Magazyn</span>
+    </button>
+
+    <button class="pwa-bar-item" id="pwaMoreBtn" aria-label="Więcej" data-sheet="admin-more">
+        <svg class="pwa-bar-icon pwa-bar-icon-svg" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="5" r="2"></circle>
+            <circle cx="12" cy="12" r="2"></circle>
+            <circle cx="12" cy="19" r="2"></circle>
+        </svg>
+        <span class="pwa-bar-label">Więcej</span>
+        <span class="pwa-bar-badge" id="pwaMoreBadge" style="display:none;">0</span>
+    </button>
+</nav>
+
+<!-- Sheet: Zamówienia sub-menu -->
+<template id="pwaSheetAdminOrders">
+    <ul class="pwa-sheet-list">
+        <li><a href="{{ url_for('orders.admin_list') }}" class="pwa-sheet-item {% if request.endpoint == 'orders.admin_list' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Lista zamówień</span>
+        </a></li>
+        <li><a href="{{ url_for('orders.wms_dashboard') }}" class="pwa-sheet-item {% if request.endpoint and 'wms' in request.endpoint %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/truck.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>WMS / Wysyłka</span>
+        </a></li>
+        <li><a href="{{ url_for('admin.payment_confirmations_list') }}" class="pwa-sheet-item {% if request.endpoint == 'admin.payment_confirmations_list' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/payment.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Potwierdzenia płatności</span>
+        </a></li>
+        <li><a href="{{ url_for('admin.exclusive_list') }}" class="pwa-sheet-item {% if request.endpoint == 'admin.exclusive_list' or request.endpoint == 'admin.exclusive_edit' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/exclusive.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Exclusive</span>
+        </a></li>
+        <li><a href="{{ url_for('orders.settings') }}" class="pwa-sheet-item {% if request.endpoint == 'orders.settings' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Ustawienia</span>
+        </a></li>
+    </ul>
+</template>
+
+<!-- Sheet: Magazyn sub-menu -->
+<template id="pwaSheetAdminWarehouse">
+    <ul class="pwa-sheet-list">
+        <li><a href="{{ url_for('products.list_products') }}" class="pwa-sheet-item {% if request.endpoint == 'products.list_products' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/products.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Lista produktów</span>
+        </a></li>
+        <li><a href="{{ url_for('products.stock_orders') }}" class="pwa-sheet-item {% if request.endpoint == 'products.stock_orders' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/warehouse.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Zamówienia produktów</span>
+        </a></li>
+        <li><a href="{{ url_for('products.warehouse_settings') }}" class="pwa-sheet-item {% if request.endpoint == 'products.warehouse_settings' %}active{% endif %}">
+            <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="" class="pwa-sheet-icon">
+            <span>Ustawienia</span>
+        </a></li>
+    </ul>
+</template>
+
+<!-- Sheet: Więcej -->
+<template id="pwaSheetAdminMore">
+    <ul class="pwa-sheet-list">
+        <li>
+            <a href="{{ url_for('notifications.notification_center') }}" class="pwa-sheet-item">
+                <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Powiadomienia</span>
+                <span class="pwa-sheet-badge" id="pwaSheetNotifBadge" style="display:none;">0</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('admin.clients_list') }}" class="pwa-sheet-item {% if request.endpoint and 'client' in request.endpoint %}active{% endif %}">
+                <img src="{{ url_for('static', filename='img/icons/clients.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Użytkownicy</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('admin.statistics') }}" class="pwa-sheet-item {% if request.endpoint and 'statistics' in request.endpoint %}active{% endif %}">
+                <img src="{{ url_for('static', filename='img/icons/dashboard.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Statystyki</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('admin.tasks_list') }}" class="pwa-sheet-item {% if request.endpoint and 'task' in request.endpoint %}active{% endif %}">
+                <img src="{{ url_for('static', filename='img/icons/tasks.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Moje zadania</span>
+            </a>
+        </li>
+        <li class="pwa-sheet-accordion">
+            <button class="pwa-sheet-item pwa-sheet-accordion-toggle">
+                <img src="{{ url_for('static', filename='img/icons/feedback.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Komunikacja</span>
+                <svg class="pwa-sheet-chevron" viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </button>
+            <ul class="pwa-sheet-subitems">
+                <li><a href="{{ url_for('feedback.admin_list') }}" class="pwa-sheet-item pwa-sheet-subitem">Feedback</a></li>
+                <li><a href="{{ url_for('admin.popups_list') }}" class="pwa-sheet-item pwa-sheet-subitem">Popupy</a></li>
+                <li><a href="{{ url_for('admin.broadcasts_list') }}" class="pwa-sheet-item pwa-sheet-subitem">Powiadomienia</a></li>
+                <li><a href="{{ url_for('tracking.qr_campaigns_list') }}" class="pwa-sheet-item pwa-sheet-subitem">QR Tracking</a></li>
+            </ul>
+        </li>
+        <li class="pwa-sheet-divider"></li>
+        <li>
+            <a href="{{ url_for('profile.index') }}" class="pwa-sheet-item">
+                <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Profil</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('auth.logout') }}" class="pwa-sheet-item pwa-sheet-item-danger">
+                <img src="{{ url_for('static', filename='img/icons/logout.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Wyloguj się</span>
+            </a>
+        </li>
+    </ul>
+</template>
+{% endif %}
+
+{% include 'components/bottom_sheet.html' %}
