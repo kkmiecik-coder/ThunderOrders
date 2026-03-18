@@ -100,58 +100,40 @@
                     <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
                     <a href="{{ url_for('orders.admin_list') }}" class="widget-link">Zobacz wszystkie →</a>
                 </div>
-                <div class="widget-body widget-body-table">
+                <div class="widget-body">
                     {% if recent_orders.visible|length > 0 %}
-                        <table class="recent-orders-table">
-                            <thead>
-                                <tr>
-                                    <th>Numer</th>
-                                    <th>Klient</th>
-                                    <th>Status</th>
-                                    <th class="text-right">Kwota</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recentOrdersTableBody">
-                                {# Visible orders #}
-                                {% for order in recent_orders.visible %}
-                                <tr onclick="window.location.href='{{ url_for('orders.admin_detail', order_id=order.id) }}'" style="cursor: pointer;">
-                                    <td>
-                                        <span class="order-number-link">{{ order.order_number }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="order-client">{{ order.customer_name }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
-                                            {{ order.status_display_name }}
-                                        </span>
-                                    </td>
-                                    <td class="text-right">
-                                        <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                                {# Buffer orders (hidden, will be shown on "load more") #}
-                                {% for order in recent_orders.buffer %}
-                                <tr class="orders-buffered" style="display: none;" onclick="window.location.href='{{ url_for('orders.admin_detail', order_id=order.id) }}'">
-                                    <td>
-                                        <span class="order-number-link">{{ order.order_number }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="order-client">{{ order.customer_name }}</span>
-                                    </td>
-                                    <td>
-                                        <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
-                                            {{ order.status_display_name }}
-                                        </span>
-                                    </td>
-                                    <td class="text-right">
-                                        <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                        <div class="order-cards" id="recentOrdersCards">
+                            {# Visible orders #}
+                            {% for order in recent_orders.visible %}
+                            <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-card">
+                                <div class="order-card-top">
+                                    <span class="order-number-link">{{ order.order_number }}</span>
+                                    <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                        {{ order.status_display_name }}
+                                    </span>
+                                </div>
+                                <div class="order-card-bottom">
+                                    <span class="order-client">{{ order.customer_name }}</span>
+                                    <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                </div>
+                            </a>
+                            {% endfor %}
+                            {# Buffer orders (hidden, will be shown on "load more") #}
+                            {% for order in recent_orders.buffer %}
+                            <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-card orders-buffered" style="display: none;">
+                                <div class="order-card-top">
+                                    <span class="order-number-link">{{ order.order_number }}</span>
+                                    <span class="order-status" style="background-color: {{ order.status_badge_color }}; color: white;">
+                                        {{ order.status_display_name }}
+                                    </span>
+                                </div>
+                                <div class="order-card-bottom">
+                                    <span class="order-client">{{ order.customer_name }}</span>
+                                    <span class="order-amount">{{ "%.2f"|format(order.effective_grand_total) }} PLN</span>
+                                </div>
+                            </a>
+                            {% endfor %}
+                        </div>
                         {% if recent_orders.remaining > 0 %}
                             <div class="orders-show-more" id="ordersShowMore">
                                 <button type="button" class="show-more-btn" id="ordersLoadMoreBtn"
@@ -261,111 +243,104 @@
                     <h2 class="widget-title">✨ Strony Exclusive</h2>
                     <a href="{{ url_for('admin.exclusive_list') }}" class="widget-link">Zarządzaj →</a>
                 </div>
-                <div class="widget-body widget-body-table">
+                <div class="widget-body">
                     {% if exclusive_pages.visible|length > 0 %}
-                        <table class="exclusive-table">
-                            <thead>
-                                <tr>
-                                    <th>Nazwa</th>
-                                    <th>Status</th>
-                                    <th>Start</th>
-                                    <th>Koniec</th>
-                                    <th class="th-copy">Link</th>
-                                </tr>
-                            </thead>
-                            <tbody id="exclusiveTableBody">
-                                {# Visible pages #}
-                                {% for page in exclusive_pages.visible %}
-                                <tr onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'" style="cursor: pointer;">
-                                    <td>
-                                        <span class="exclusive-name">{{ page.name }}</span>
-                                    </td>
-                                    <td>
-                                        {% if page.status == 'ended' and page.is_fully_closed %}
-                                            <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
-                                        {% elif page.status == 'ended' %}
-                                            <span class="exclusive-status exclusive-status-ended">Zakończona</span>
-                                        {% else %}
-                                            <span class="exclusive-status exclusive-status-{{ page.status }}">
-                                                {% if page.status == 'draft' %}Draft
-                                                {% elif page.status == 'scheduled' %}Zaplanowana
-                                                {% elif page.status == 'active' %}Aktywna
-                                                {% elif page.status == 'paused' %}Wstrzymana
-                                                {% endif %}
-                                            </span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
+                        <div class="exclusive-cards" id="exclusiveCards">
+                            {# Visible pages #}
+                            {% for page in exclusive_pages.visible %}
+                            <div class="exclusive-card" onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'">
+                                <div class="exclusive-card-top">
+                                    <span class="exclusive-name">{{ page.name }}</span>
+                                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('{{ page.token }}', this);" title="Kopiuj link">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="exclusive-card-middle">
+                                    {% if page.status == 'ended' and page.is_fully_closed %}
+                                        <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                    {% elif page.status == 'ended' %}
+                                        <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                    {% else %}
+                                        <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                            {% if page.status == 'draft' %}Draft
+                                            {% elif page.status == 'scheduled' %}Zaplanowana
+                                            {% elif page.status == 'active' %}Aktywna
+                                            {% elif page.status == 'paused' %}Wstrzymana
+                                            {% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="exclusive-card-bottom">
+                                    <div class="exclusive-card-date">
+                                        <span class="exclusive-date-label">Start:</span>
                                         {% if page.starts_at %}
                                             <span class="exclusive-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
                                             <span class="exclusive-no-date">—</span>
                                         {% endif %}
-                                    </td>
-                                    <td>
+                                    </div>
+                                    <div class="exclusive-card-date">
+                                        <span class="exclusive-date-label">Koniec:</span>
                                         {% if page.ends_at %}
                                             <span class="exclusive-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
                                             <span class="exclusive-no-date">—</span>
                                         {% endif %}
-                                    </td>
-                                    <td class="td-copy">
-                                        <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('{{ page.token }}', this);" title="Kopiuj link">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                                            </svg>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                                {# Buffer pages (hidden, will be shown on "load more") #}
-                                {% for page in exclusive_pages.buffer %}
-                                <tr class="exclusive-buffered" style="display: none;" onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'">
-                                    <td>
-                                        <span class="exclusive-name">{{ page.name }}</span>
-                                    </td>
-                                    <td>
-                                        {% if page.status == 'ended' and page.is_fully_closed %}
-                                            <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
-                                        {% elif page.status == 'ended' %}
-                                            <span class="exclusive-status exclusive-status-ended">Zakończona</span>
-                                        {% else %}
-                                            <span class="exclusive-status exclusive-status-{{ page.status }}">
-                                                {% if page.status == 'draft' %}Draft
-                                                {% elif page.status == 'scheduled' %}Zaplanowana
-                                                {% elif page.status == 'active' %}Aktywna
-                                                {% elif page.status == 'paused' %}Wstrzymana
-                                                {% endif %}
-                                            </span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {# Buffer pages (hidden, will be shown on "load more") #}
+                            {% for page in exclusive_pages.buffer %}
+                            <div class="exclusive-card exclusive-buffered" style="display: none;" onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'">
+                                <div class="exclusive-card-top">
+                                    <span class="exclusive-name">{{ page.name }}</span>
+                                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('{{ page.token }}', this);" title="Kopiuj link">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="exclusive-card-middle">
+                                    {% if page.status == 'ended' and page.is_fully_closed %}
+                                        <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                    {% elif page.status == 'ended' %}
+                                        <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                    {% else %}
+                                        <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                            {% if page.status == 'draft' %}Draft
+                                            {% elif page.status == 'scheduled' %}Zaplanowana
+                                            {% elif page.status == 'active' %}Aktywna
+                                            {% elif page.status == 'paused' %}Wstrzymana
+                                            {% endif %}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                                <div class="exclusive-card-bottom">
+                                    <div class="exclusive-card-date">
+                                        <span class="exclusive-date-label">Start:</span>
                                         {% if page.starts_at %}
                                             <span class="exclusive-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
                                             <span class="exclusive-no-date">—</span>
                                         {% endif %}
-                                    </td>
-                                    <td>
+                                    </div>
+                                    <div class="exclusive-card-date">
+                                        <span class="exclusive-date-label">Koniec:</span>
                                         {% if page.ends_at %}
                                             <span class="exclusive-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
                                             <span class="exclusive-no-date">—</span>
                                         {% endif %}
-                                    </td>
-                                    <td class="td-copy">
-                                        <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('{{ page.token }}', this);" title="Kopiuj link">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                                            </svg>
-                                        </button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                         {% if exclusive_pages.remaining > 0 %}
                             <div class="exclusive-show-more" id="exclusiveShowMore">
                                 <button type="button" class="show-more-btn" id="exclusiveLoadMoreBtn"
@@ -662,31 +637,41 @@ function openTaskPreview(taskId) {
 // ====================================
 (function() {
     const loadMoreBtn = document.getElementById('exclusiveLoadMoreBtn');
-    const tableBody = document.getElementById('exclusiveTableBody');
+    const cardsContainer = document.getElementById('exclusiveCards');
     const showMoreContainer = document.getElementById('exclusiveShowMore');
 
-    if (!loadMoreBtn || !tableBody) return;
+    if (!loadMoreBtn || !cardsContainer) return;
 
     let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
     let isLoading = false;
 
-    // Create row HTML from page data
-    function createRowHTML(page) {
+    // Create card HTML from page data
+    function createCardHTML(page) {
         return `
-            <tr onclick="window.location.href='${page.edit_url}'" style="cursor: pointer;">
-                <td><span class="exclusive-name">${page.name}</span></td>
-                <td><span class="exclusive-status exclusive-status-${page.status_class}">${page.status_text}</span></td>
-                <td>${page.starts_at ? `<span class="exclusive-date">${page.starts_at}</span>` : '<span class="exclusive-no-date">—</span>'}</td>
-                <td>${page.ends_at ? `<span class="exclusive-date">${page.ends_at}</span>` : '<span class="exclusive-no-date">—</span>'}</td>
-                <td class="td-copy">
+            <div class="exclusive-card exclusive-buffered" style="display: none;" onclick="window.location.href='${page.edit_url}'">
+                <div class="exclusive-card-top">
+                    <span class="exclusive-name">${page.name}</span>
                     <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('${page.token}', this);" title="Kopiuj link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                         </svg>
                     </button>
-                </td>
-            </tr>
+                </div>
+                <div class="exclusive-card-middle">
+                    <span class="exclusive-status exclusive-status-${page.status_class}">${page.status_text}</span>
+                </div>
+                <div class="exclusive-card-bottom">
+                    <div class="exclusive-card-date">
+                        <span class="exclusive-date-label">Start:</span>
+                        ${page.starts_at ? `<span class="exclusive-date">${page.starts_at}</span>` : '<span class="exclusive-no-date">—</span>'}
+                    </div>
+                    <div class="exclusive-card-date">
+                        <span class="exclusive-date-label">Koniec:</span>
+                        ${page.ends_at ? `<span class="exclusive-date">${page.ends_at}</span>` : '<span class="exclusive-no-date">—</span>'}
+                    </div>
+                </div>
+            </div>
         `;
     }
 
@@ -718,14 +703,14 @@ function openTaskPreview(taskId) {
 
         if (isLoading) return;
 
-        // 1. Show buffered rows first
-        const bufferedRows = tableBody.querySelectorAll('.exclusive-buffered');
+        // 1. Show buffered cards first
+        const bufferedCards = cardsContainer.querySelectorAll('.exclusive-buffered');
         let shownFromBuffer = 0;
 
-        bufferedRows.forEach((row, index) => {
-            if (index < 5 && row.style.display === 'none') {
-                row.style.display = '';
-                row.classList.remove('exclusive-buffered');
+        bufferedCards.forEach((card, index) => {
+            if (index < 5 && card.style.display === 'none') {
+                card.style.display = '';
+                card.classList.remove('exclusive-buffered');
                 shownFromBuffer++;
             }
         });
@@ -733,7 +718,7 @@ function openTaskPreview(taskId) {
         // Calculate new remaining
         let remaining = parseInt(loadMoreBtn.dataset.remaining) - shownFromBuffer;
 
-        // 2. If we showed buffered rows, fetch more for the buffer in background
+        // 2. If we showed buffered cards, fetch more for the buffer in background
         if (shownFromBuffer > 0 && remaining > 0) {
             isLoading = true;
             loadMoreBtn.textContent = 'Ładowanie...';
@@ -741,29 +726,26 @@ function openTaskPreview(taskId) {
             const data = await fetchMorePages(currentOffset, 5);
 
             if (data && data.success && data.pages.length > 0) {
-                // Add new rows as buffered (hidden)
+                // Add new cards as buffered (hidden)
                 data.pages.forEach(page => {
-                    const rowHTML = createRowHTML(page);
+                    const cardHTML = createCardHTML(page);
                     const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = rowHTML;
-                    const newRow = tempDiv.firstElementChild;
-                    newRow.classList.add('exclusive-buffered');
-                    newRow.style.display = 'none';
-                    tableBody.appendChild(newRow);
+                    tempDiv.innerHTML = cardHTML;
+                    const newCard = tempDiv.firstElementChild;
+                    cardsContainer.appendChild(newCard);
                 });
 
                 currentOffset += data.pages.length;
-                remaining = data.remaining + (data.pages.length > 0 ? data.pages.length : 0);
-                remaining = Math.max(0, parseInt(loadMoreBtn.dataset.total) - tableBody.querySelectorAll('tr:not([style*="display: none"])').length);
+                remaining = Math.max(0, parseInt(loadMoreBtn.dataset.total) - cardsContainer.querySelectorAll('.exclusive-card:not([style*="display: none"])').length);
             }
 
             isLoading = false;
         }
 
-        // Recalculate remaining based on actual visible rows
-        const visibleRows = tableBody.querySelectorAll('tr:not([style*="display: none"])').length;
+        // Recalculate remaining based on actual visible cards
+        const visibleCards = cardsContainer.querySelectorAll('.exclusive-card:not([style*="display: none"])').length;
         const total = parseInt(loadMoreBtn.dataset.total);
-        remaining = Math.max(0, total - visibleRows);
+        remaining = Math.max(0, total - visibleCards);
 
         updateButtonText(remaining);
     });
@@ -815,33 +797,29 @@ function openTaskPreview(taskId) {
 // ====================================
 (function() {
     const loadMoreBtn = document.getElementById('ordersLoadMoreBtn');
-    const tableBody = document.getElementById('recentOrdersTableBody');
+    const cardsContainer = document.getElementById('recentOrdersCards');
     const showMoreContainer = document.getElementById('ordersShowMore');
 
-    if (!loadMoreBtn || !tableBody) return;
+    if (!loadMoreBtn || !cardsContainer) return;
 
     let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
     let isLoading = false;
 
-    // Create row HTML from order data
-    function createRowHTML(order) {
+    // Create card HTML from order data
+    function createCardHTML(order) {
         return `
-            <tr onclick="window.location.href='${order.detail_url}'" style="cursor: pointer;">
-                <td>
+            <a href="${order.detail_url}" class="order-card orders-buffered" style="display: none;">
+                <div class="order-card-top">
                     <span class="order-number-link">${order.order_number}</span>
-                </td>
-                <td>
-                    <span class="order-client">${order.customer_name}</span>
-                </td>
-                <td>
                     <span class="order-status" style="background-color: ${order.status_badge_color}; color: white;">
                         ${order.status_display_name}
                     </span>
-                </td>
-                <td class="text-right">
+                </div>
+                <div class="order-card-bottom">
+                    <span class="order-client">${order.customer_name}</span>
                     <span class="order-amount">${order.effective_grand_total.toFixed(2)} PLN</span>
-                </td>
-            </tr>
+                </div>
+            </a>
         `;
     }
 
@@ -873,14 +851,14 @@ function openTaskPreview(taskId) {
 
         if (isLoading) return;
 
-        // 1. Show buffered rows first
-        const bufferedRows = tableBody.querySelectorAll('.orders-buffered');
+        // 1. Show buffered cards first
+        const bufferedCards = cardsContainer.querySelectorAll('.orders-buffered');
         let shownFromBuffer = 0;
 
-        bufferedRows.forEach((row, index) => {
-            if (index < 5 && row.style.display === 'none') {
-                row.style.display = '';
-                row.classList.remove('orders-buffered');
+        bufferedCards.forEach((card, index) => {
+            if (index < 5 && card.style.display === 'none') {
+                card.style.display = '';
+                card.classList.remove('orders-buffered');
                 shownFromBuffer++;
             }
         });
@@ -888,7 +866,7 @@ function openTaskPreview(taskId) {
         // Calculate new remaining
         let remaining = parseInt(loadMoreBtn.dataset.remaining) - shownFromBuffer;
 
-        // 2. If we showed buffered rows, fetch more for the buffer in background
+        // 2. If we showed buffered cards, fetch more for the buffer in background
         if (shownFromBuffer > 0 && remaining > 0) {
             isLoading = true;
             loadMoreBtn.textContent = 'Ładowanie...';
@@ -896,15 +874,13 @@ function openTaskPreview(taskId) {
             const data = await fetchMoreOrders(currentOffset, 5);
 
             if (data && data.success && data.orders.length > 0) {
-                // Add new rows as buffered (hidden)
+                // Add new cards as buffered (hidden)
                 data.orders.forEach(order => {
-                    const rowHTML = createRowHTML(order);
-                    const tempTable = document.createElement('table');
-                    tempTable.innerHTML = `<tbody>${rowHTML}</tbody>`;
-                    const newRow = tempTable.querySelector('tr');
-                    newRow.classList.add('orders-buffered');
-                    newRow.style.display = 'none';
-                    tableBody.appendChild(newRow);
+                    const cardHTML = createCardHTML(order);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = cardHTML;
+                    const newCard = tempDiv.firstElementChild;
+                    cardsContainer.appendChild(newCard);
                 });
 
                 currentOffset += data.orders.length;
@@ -913,10 +889,10 @@ function openTaskPreview(taskId) {
             isLoading = false;
         }
 
-        // Recalculate remaining based on actual visible rows
-        const visibleRows = tableBody.querySelectorAll('tr:not([style*="display: none"])').length;
+        // Recalculate remaining based on actual visible cards
+        const visibleCards = cardsContainer.querySelectorAll('.order-card:not([style*="display: none"])').length;
         const total = parseInt(loadMoreBtn.dataset.total);
-        remaining = Math.max(0, total - visibleRows);
+        remaining = Math.max(0, total - visibleCards);
 
         updateButtonText(remaining);
     });
