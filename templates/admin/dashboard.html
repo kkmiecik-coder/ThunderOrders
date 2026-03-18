@@ -173,53 +173,39 @@
                     <h2 class="widget-title">✅ Moje TODO</h2>
                     <button class="widget-link" onclick="openTaskModal()">+ Dodaj</button>
                 </div>
-                <div class="widget-body widget-body-table">
+                <div class="widget-body">
                     {% if tasks.recent_tasks|length > 0 %}
-                        <table class="todo-table">
-                            <thead>
-                                <tr>
-                                    <th>Zadanie</th>
-                                    <th>Priorytet</th>
-                                    <th>Termin</th>
-                                    <th class="text-center">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for task in tasks.recent_tasks %}
-                                <tr onclick="openTaskPreview({{ task.id }})" style="cursor: pointer;" class="todo-row-status-{{ task.status }}">
-                                    <td>
-                                        <span class="todo-name{% if task.status == 'completed' %} todo-completed{% endif %}">
-                                            {{ task.name }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <span class="todo-priority todo-priority-{{ task.priority }}">
-                                            {% if task.priority == 'high' %}Pilne{% elif task.priority == 'medium' %}Średni{% else %}Niski{% endif %}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {% if task.due_date %}
-                                            <span class="todo-date{% if task.is_overdue() %} todo-overdue{% endif %}">
-                                                {% if task.is_overdue() %}⚠️ {% endif %}{{ task.due_date|format_date('%d.%m.%Y') }}
-                                            </span>
-                                        {% else %}
-                                            <span class="todo-no-date">—</span>
+                        <div class="todo-cards">
+                            {% for task in tasks.recent_tasks %}
+                            <div class="todo-card todo-card-status-{{ task.status }}" onclick="openTaskPreview({{ task.id }})">
+                                <div class="todo-card-top">
+                                    <span class="todo-name{% if task.status == 'completed' %} todo-completed{% endif %}">
+                                        {{ task.name }}
+                                    </span>
+                                    <span class="todo-status-badge todo-status-badge-{{ task.status }}">
+                                        {% if task.status == 'pending' %}Do zrobienia
+                                        {% elif task.status == 'in_progress' %}W trakcie
+                                        {% elif task.status == 'completed' %}✓ Gotowe
                                         {% endif %}
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="todo-status-badge todo-status-badge-{{ task.status }}">
-                                            {% if task.status == 'pending' %}Do zrobienia
-                                            {% elif task.status == 'in_progress' %}W trakcie
-                                            {% elif task.status == 'completed' %}✓ Gotowe
-                                            {% endif %}
+                                    </span>
+                                </div>
+                                <div class="todo-card-bottom">
+                                    <span class="todo-priority todo-priority-{{ task.priority }}">
+                                        {% if task.priority == 'high' %}Pilne{% elif task.priority == 'medium' %}Średni{% else %}Niski{% endif %}
+                                    </span>
+                                    {% if task.due_date %}
+                                        <span class="todo-date{% if task.is_overdue() %} todo-overdue{% endif %}">
+                                            {% if task.is_overdue() %}⚠️ {% endif %}{{ task.due_date|format_date('%d.%m.%Y') }}
                                         </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                    {% else %}
+                                        <span class="todo-no-date">—</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
                         {% if tasks.total > 5 %}
-                            <div style="padding: var(--space-4);">
+                            <div class="todo-view-all">
                                 <a href="{{ url_for('admin.tasks_list') }}" class="view-all-link">
                                     Zobacz wszystkie ({{ tasks.total }}) →
                                 </a>

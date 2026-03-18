@@ -400,54 +400,58 @@
 }
 
 /* ====================================
-   TODO TABLE (Moje TODO Widget)
+   TODO CARDS (Moje TODO Widget)
    ==================================== */
-.todo-table {
-    width: 100%;
-    border-collapse: collapse;
+.todo-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.todo-table thead {
+.todo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
     background: var(--gray-50);
-    border-bottom: 2px solid var(--gray-200);
-    transition: background 0.5s ease, border-color 0.5s ease;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 3px solid var(--gray-300);
 }
 
-.todo-table th {
-    padding: var(--space-3) var(--space-4);
-    text-align: left;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--gray-600);
-    transition: color 0.5s ease;
-}
-
-.todo-table th.text-center {
-    text-align: center;
-}
-
-.todo-table tbody tr {
-    border-bottom: 1px solid var(--gray-100);
-    transition: background 0.2s ease, border-color 0.5s ease;
-}
-
-.todo-table tbody tr:hover {
+.todo-card:hover {
+    border-color: var(--kpop-purple);
     background: var(--kpop-light);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
 }
 
-.todo-table tbody tr:last-child {
-    border-bottom: none;
+.todo-card-status-pending {
+    border-left-color: var(--gray-400);
 }
 
-.todo-table td {
-    padding: var(--space-3) var(--space-4);
-    font-size: 0.875rem;
+.todo-card-status-in_progress {
+    border-left-color: #3B82F6;
 }
 
-.todo-table td.text-center {
-    text-align: center;
+.todo-card-status-completed {
+    border-left-color: #10B981;
+}
+
+.todo-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.todo-card-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .todo-name {
@@ -463,9 +467,9 @@
 
 .todo-priority {
     display: inline-block;
-    padding: 4px 10px;
+    padding: 3px 10px;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
     transition: background 0.5s ease, color 0.5s ease;
@@ -477,6 +481,7 @@
 
 .todo-date {
     color: var(--gray-600);
+    font-size: 0.8rem;
     transition: color 0.5s ease;
 }
 
@@ -491,11 +496,12 @@
 
 .todo-status-badge {
     display: inline-block;
-    padding: 4px 12px;
+    padding: 3px 10px;
     border-radius: 8px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
+    white-space: nowrap;
     transition: background 0.5s ease, color 0.5s ease;
 }
 
@@ -512,6 +518,10 @@
 .todo-status-badge-completed {
     background: #D1FAE5;
     color: #065F46;
+}
+
+.todo-view-all {
+    padding: var(--space-4);
 }
 
 /* Row color indicators (subtle left border) */
@@ -776,22 +786,16 @@
     color: #f0f0f0;
 }
 
-/* Dark mode todo table */
-[data-theme="dark"] .todo-table thead {
-    background: rgba(255, 255, 255, 0.03);
-    border-bottom-color: rgba(240, 147, 251, 0.15);
+/* Dark mode todo cards */
+[data-theme="dark"] .todo-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.12);
 }
 
-[data-theme="dark"] .todo-table th {
-    color: rgba(255, 255, 255, 0.6);
-}
-
-[data-theme="dark"] .todo-table tbody tr {
-    border-bottom-color: rgba(240, 147, 251, 0.08);
-}
-
-[data-theme="dark"] .todo-table tbody tr:hover {
+[data-theme="dark"] .todo-card:hover {
     background: rgba(240, 147, 251, 0.08);
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 2px 12px rgba(240, 147, 251, 0.1);
 }
 
 [data-theme="dark"] .todo-name {
@@ -846,16 +850,16 @@
     color: #4ade80;
 }
 
-/* Dark mode row indicators */
-[data-theme="dark"] .todo-row-status-pending {
+/* Dark mode card left border indicators */
+[data-theme="dark"] .todo-card-status-pending {
     border-left-color: rgba(255, 255, 255, 0.3);
 }
 
-[data-theme="dark"] .todo-row-status-in_progress {
+[data-theme="dark"] .todo-card-status-in_progress {
     border-left-color: #f093fb;
 }
 
-[data-theme="dark"] .todo-row-status-completed {
+[data-theme="dark"] .todo-card-status-completed {
     border-left-color: #4ade80;
 }
 
