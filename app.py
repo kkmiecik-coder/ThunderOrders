@@ -293,7 +293,7 @@ def register_blueprints(app):
         from flask_login import current_user
         from datetime import datetime
 
-        LAUNCH_DATE = datetime(2026, 3, 18, 1, 0, 0)
+        LAUNCH_DATE = datetime(2026, 3, 17, 0, 0, 0)
 
         if datetime.now() < LAUNCH_DATE:
             return render_template('public/countdown.html')
