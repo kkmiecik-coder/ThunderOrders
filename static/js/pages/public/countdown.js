@@ -7,7 +7,7 @@
     // ==========================================
     // Countdown Timer (per-digit crossfade)
     // ==========================================
-    var TARGET = new Date('2026-03-28T20:00:00').getTime();
+    var TARGET = new Date('2026-03-18T01:00:00').getTime();
 
     function updateValue(id, value) {
         var container = document.getElementById(id);
