@@ -1,5 +1,7 @@
-import eventlet
-eventlet.monkey_patch()
+import sys
+if sys.platform != 'darwin':
+    import eventlet
+    eventlet.monkey_patch()
 
 import os
 import logging
