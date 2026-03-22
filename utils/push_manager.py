@@ -428,7 +428,7 @@ class PushManager:
 
         from flask import url_for
         app = current_app._get_current_object()
-        url = url_for('orders.admin_shipping_requests', _external=True)
+        url = url_for('orders.admin_shipping_requests_list', _external=True)
         request_number = shipping_request.request_number
         user_name = shipping_request.user.full_name if shipping_request.user else "Klient"
         request_id = shipping_request.id
