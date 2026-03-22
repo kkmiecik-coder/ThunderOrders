@@ -7,8 +7,18 @@ from flask import render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from modules.admin import admin_bp
-from modules.auth.models import User
-from modules.orders.models import ShippingRequest
+from modules.auth.models import User, Settings
+from modules.orders.models import (
+    ShippingRequest, Order, OrderComment, OrderRefund, OrderShipment,
+    OrderItem, PaymentConfirmation
+)
+from modules.admin.models import AdminTaskAssignment, AdminTaskComment, ActivityLog, AdminTask
+from modules.client.models import (
+    CollectionItem, PublicCollectionConfig, CollectionUploadSession
+)
+from modules.feedback.models import FeedbackSurvey, FeedbackResponse
+from modules.exclusive.models import ExclusivePage, ExclusiveReservation
+from modules.tracking.models import QRCampaign
 from extensions import db
 from utils.decorators import role_required
 from utils.email_sender import send_account_deactivated_email
@@ -320,9 +330,36 @@ def client_delete(id):
 
     try:
         client_name = client.full_name
+        uid = client.id
 
-        # Nullify user_id on shipping requests to preserve history
-        ShippingRequest.query.filter_by(user_id=client.id).update({'user_id': None})
+        # --- Nullify nullable FK references to preserve history ---
+        ShippingRequest.query.filter_by(user_id=uid).update({'user_id': None})
+        Order.query.filter_by(user_id=uid).update({'user_id': None})
+        Order.query.filter_by(packed_by=uid).update({'packed_by': None})
+        OrderComment.query.filter_by(user_id=uid).update({'user_id': None})
+        OrderItem.query.filter_by(picked_by=uid).update({'picked_by': None})
+        OrderShipment.query.filter_by(created_by=uid).update({'created_by': None})
+        PaymentConfirmation.query.filter_by(user_id=uid).update({'user_id': None})
+        ActivityLog.query.filter_by(user_id=uid).update({'user_id': None})
+        FeedbackResponse.query.filter_by(user_id=uid).update({'user_id': None})
+        ExclusiveReservation.query.filter_by(user_id=uid).update({'user_id': None})
+        ExclusivePage.query.filter_by(closed_by_id=uid).update({'closed_by_id': None})
+        User.query.filter_by(deactivated_by=uid).update({'deactivated_by': None})
+        Settings.query.filter_by(updated_by=uid).update({'updated_by': None})
+
+        # --- Reassign NOT NULL FK references (admin-created entities) ---
+        AdminTask.query.filter_by(created_by=uid).update({'created_by': current_user.id})
+        OrderRefund.query.filter_by(created_by=uid).update({'created_by': current_user.id})
+        FeedbackSurvey.query.filter_by(created_by=uid).update({'created_by': current_user.id})
+        ExclusivePage.query.filter_by(created_by=uid).update({'created_by': current_user.id})
+        QRCampaign.query.filter_by(created_by=uid).update({'created_by': current_user.id})
+
+        # --- Delete client-owned data ---
+        AdminTaskAssignment.query.filter_by(user_id=uid).delete()
+        AdminTaskComment.query.filter_by(user_id=uid).delete()
+        CollectionUploadSession.query.filter_by(user_id=uid).delete()
+        PublicCollectionConfig.query.filter_by(user_id=uid).delete()
+        CollectionItem.query.filter_by(user_id=uid).delete()
 
         db.session.delete(client)
         db.session.commit()
