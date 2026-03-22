@@ -1173,10 +1173,15 @@ window.toggleOrderItems = function(orderId, totalItems) {
         });
     }
 
+    var qrPollInterval = null;
+
     function connectPaymentSocket(sessionToken) {
         if (paymentSocket) {
             paymentSocket.disconnect();
         }
+
+        // Start HTTP polling as fallback (Socket.IO may not work cross-worker)
+        startQrPolling(sessionToken);
 
         try {
             console.log('[PaymentQR] Connecting Socket.IO...');
@@ -1199,11 +1204,40 @@ window.toggleOrderItems = function(orderId, totalItems) {
             paymentSocket.on('payment_photo_uploaded', function(data) {
                 console.log('[PaymentQR] Received payment_photo_uploaded event:', data);
                 if (data.session_token === sessionToken) {
+                    stopQrPolling();
                     onQrPhotoUploaded(data.filename);
                 }
             });
         } catch (e) {
             console.error('Socket.IO unavailable:', e);
+        }
+    }
+
+    function startQrPolling(sessionToken) {
+        stopQrPolling();
+        console.log('[PaymentQR] Starting HTTP polling fallback');
+        qrPollInterval = setInterval(function() {
+            fetch('/client/payment-confirmations/qr-session/' + sessionToken + '/status')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.success && data.status === 'uploaded' && data.filename) {
+                        console.log('[PaymentQR] Poll detected upload:', data.filename);
+                        stopQrPolling();
+                        onQrPhotoUploaded(data.filename);
+                    } else if (data.success && data.status === 'expired') {
+                        stopQrPolling();
+                        showToast('Sesja QR wygasła', 'error');
+                        cancelPaymentQr();
+                    }
+                })
+                .catch(function() {});
+        }, 3000);
+    }
+
+    function stopQrPolling() {
+        if (qrPollInterval) {
+            clearInterval(qrPollInterval);
+            qrPollInterval = null;
         }
     }
 
@@ -1249,6 +1283,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
     function cancelPaymentQr() {
         currentQrSessionToken = null;
         qrUploadedFilename = null;
+        stopQrPolling();
 
         // Hide QR, show button + upload form again
         var qrDisplay = document.getElementById('pc-qr-display');
@@ -1276,6 +1311,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
     function resetQrState() {
         currentQrSessionToken = null;
         qrUploadedFilename = null;
+        stopQrPolling();
 
         var qrDisplay = document.getElementById('pc-qr-display');
         var qrBtn = document.getElementById('pc-qr-btn');

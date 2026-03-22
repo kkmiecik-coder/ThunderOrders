@@ -102,6 +102,31 @@ def payment_qr_session_create():
         return jsonify({'success': False, 'message': 'Wystąpił błąd'}), 500
 
 
+@client_bp.route('/payment-confirmations/qr-session/<session_token>/status')
+@login_required
+def payment_qr_session_status(session_token):
+    """Polling endpoint - check if mobile upload completed."""
+    session = PaymentUploadSession.query.filter_by(
+        session_token=session_token,
+        user_id=current_user.id
+    ).first()
+
+    if not session:
+        return jsonify({'success': False, 'message': 'Sesja nie znaleziona'}), 404
+
+    if session.is_expired:
+        return jsonify({'success': True, 'status': 'expired'})
+
+    if session.status == 'uploaded' and session.uploaded_filename:
+        return jsonify({
+            'success': True,
+            'status': 'uploaded',
+            'filename': session.uploaded_filename
+        })
+
+    return jsonify({'success': True, 'status': 'waiting'})
+
+
 @client_bp.route('/payment-confirmations/qr-preview/<session_token>')
 @login_required
 def payment_qr_preview(session_token):
