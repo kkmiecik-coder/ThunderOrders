@@ -11,7 +11,7 @@ Zawiera logikę całkowitego zamykania stron Exclusive:
 from datetime import datetime
 from collections import defaultdict
 from decimal import Decimal
-from flask import current_app
+from flask import current_app, url_for
 from extensions import db
 from modules.exclusive.models import ExclusivePage, ExclusiveSection, ExclusiveSetItem
 from modules.orders.models import Order, OrderItem
@@ -1261,11 +1261,12 @@ def send_closure_emails(page_id):
     """
     Wysyła emaile do wszystkich klientów z podsumowaniem ich zamówień.
     ROZSZERZONE: Dodaje informacje finansowe i dane do przelewu.
+    Używa batch sendingu (jedno połączenie SMTP) żeby uniknąć rate limitów.
 
     Args:
         page_id: ID strony Exclusive
     """
-    from utils.email_manager import EmailManager
+    from utils.email_sender import prepare_email, send_email_batch
     from utils.push_manager import PushManager
     from modules.payments.models import PaymentMethod
     from decimal import Decimal
@@ -1278,6 +1279,8 @@ def send_closure_emails(page_id):
 
     # Pobierz aktywne metody płatności
     payment_methods_raw = PaymentMethod.get_active()
+
+    email_messages = []
 
     for order in orders:
         if not order.customer_email:
@@ -1349,12 +1352,38 @@ def send_closure_emails(page_id):
                 'additional_info': additional
             })
 
-        EmailManager.notify_exclusive_closure(
-            order, page, items,
-            fulfilled_items=fulfilled_items,
+        # Przygotuj URL do uploadu płatności
+        upload_payment_url = url_for('orders.client_detail',
+                                     order_id=order.id,
+                                     _external=True) + '?action=upload_payment'
+
+        # Przygotuj email (bez wysyłania)
+        msg = prepare_email(
+            to=order.customer_email,
+            subject=f'Podsumowanie zamówienia - {page.name} - ThunderOrders',
+            template='exclusive_closure',
+            customer_name=order.customer_name,
+            page_name=page.name,
+            items=items,
+            fulfilled_items=[{
+                'product_name': fi.product_name,
+                'quantity': fi.fulfilled_quantity if fi.fulfilled_quantity is not None else fi.quantity,
+                'price': float(fi.price) if fi.price else 0.0,
+            } for fi in fulfilled_items],
             fulfilled_total=fulfilled_total,
             shipping_cost=shipping_cost,
             grand_total=grand_total,
-            payment_methods=payment_methods
+            order_number=order.order_number,
+            payment_methods=payment_methods,
+            upload_payment_url=upload_payment_url
         )
+        if msg:
+            email_messages.append(msg)
+
+        # Push notification (nie wymaga SMTP)
         PushManager.notify_exclusive_closure(order, grand_total=grand_total)
+
+    # Wyślij wszystkie emaile batch'em (jedno połączenie SMTP)
+    if email_messages:
+        current_app.logger.info(f"Sending {len(email_messages)} closure emails in batch for page {page_id}")
+        send_email_batch(email_messages)

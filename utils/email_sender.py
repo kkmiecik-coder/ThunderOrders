@@ -31,6 +31,37 @@ def send_async_email(app, msg):
         logger.error(f"[EMAIL-THREAD] FAILED to={recipient}, subject='{subject}', took={elapsed:.2f}s, error={type(e).__name__}: {e}")
 
 
+def send_async_email_batch(app, messages):
+    """Wysyła wiele emaili w jednym wątku, reużywając połączenie SMTP"""
+    import smtplib
+    total = len(messages)
+    logger.info(f"[EMAIL-BATCH] Starting batch send of {total} emails")
+    start_time = time.time()
+    sent = 0
+    failed = 0
+
+    try:
+        with app.app_context():
+            with mail.connect() as conn:
+                for i, msg in enumerate(messages):
+                    recipient = msg.recipients[0] if msg.recipients else 'unknown'
+                    try:
+                        conn.send(msg)
+                        sent += 1
+                        logger.info(f"[EMAIL-BATCH] {i+1}/{total} SUCCESS to={recipient}")
+                    except Exception as e:
+                        failed += 1
+                        logger.error(f"[EMAIL-BATCH] {i+1}/{total} FAILED to={recipient}, error={type(e).__name__}: {e}")
+                    # Small delay between emails to avoid SMTP rate limits
+                    if i < total - 1:
+                        time.sleep(0.5)
+    except Exception as e:
+        logger.error(f"[EMAIL-BATCH] Connection error: {type(e).__name__}: {e}")
+
+    elapsed = time.time() - start_time
+    logger.info(f"[EMAIL-BATCH] Batch complete: {sent} sent, {failed} failed, took={elapsed:.2f}s")
+
+
 def send_email(to, subject, template, **kwargs):
     """
     Wysyła email z templatem HTML
@@ -90,6 +121,68 @@ def send_email(to, subject, template, **kwargs):
     except Exception as e:
         logger.error(f"[EMAIL] Preparation FAILED to={to}, subject='{subject}', error={type(e).__name__}: {e}")
         return False
+
+
+def prepare_email(to, subject, template, **kwargs):
+    """
+    Przygotowuje obiekt Message bez wysyłania.
+    Używane przez send_email_batch() do batch'owego wysyłania.
+
+    Returns:
+        Message lub None w przypadku błędu
+    """
+    app = current_app._get_current_object()
+
+    msg = Message(
+        subject=subject,
+        recipients=[to],
+        sender=app.config['MAIL_DEFAULT_SENDER']
+    )
+
+    try:
+        msg.html = render_template(f'emails/{template}.html', **kwargs)
+
+        try:
+            msg.body = render_template(f'emails/{template}.txt', **kwargs)
+        except:
+            msg.body = f"Sprawdź email w kliencie obsługującym HTML."
+
+        logo_path = os.path.join(app.root_path, 'static', 'img', 'icons', 'logo-full-black-email.png')
+        if os.path.exists(logo_path):
+            with app.open_resource(logo_path, 'rb') as fp:
+                msg.attach(
+                    filename='logo.png',
+                    content_type='image/png',
+                    data=fp.read(),
+                    disposition='inline',
+                    headers=[('Content-ID', '<logo@thunderorders>')],
+                )
+
+        return msg
+
+    except Exception as e:
+        logger.error(f"[EMAIL] Prepare FAILED to={to}, subject='{subject}', error={type(e).__name__}: {e}")
+        return None
+
+
+def send_email_batch(messages):
+    """
+    Wysyła listę przygotowanych Message w jednym wątku z jednym połączeniem SMTP.
+
+    Args:
+        messages (list): Lista obiektów Message (z prepare_email())
+    """
+    messages = [m for m in messages if m is not None]
+    if not messages:
+        return
+
+    app = current_app._get_current_object()
+    logger.info(f"[EMAIL-BATCH] Queuing batch of {len(messages)} emails")
+    Thread(
+        target=send_async_email_batch,
+        args=(app, messages),
+        name="email-batch"
+    ).start()
 
 
 def send_verification_email(user_email, verification_token, user_name):

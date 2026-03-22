@@ -15,7 +15,7 @@ import threading
 from flask import request as flask_request
 from flask_socketio import join_room, leave_room, emit
 
-from extensions import socketio
+from extensions import socketio, db
 
 # =============================================
 # STRUKTURY TRACKINGU POŁĄCZEŃ
@@ -88,8 +88,9 @@ def _get_visitor_counts(page_id):
             exclusive_page_id=page_id
         ).count()
     except Exception as e:
+        db.session.rollback()
         import logging
-        logging.getLogger(__name__).error(f"Visitor counts reservation query failed: {e}")
+        logging.getLogger(__name__).warning(f"Visitor counts reservation query failed: {e}")
 
     return counts
 

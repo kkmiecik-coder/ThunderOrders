@@ -26,16 +26,29 @@ def cleanup_expired_reservations(page_id, auto_commit=True):
     Returns:
         int: Liczba usuniętych rezerwacji
     """
-    now = int(time.time())
-    deleted = ExclusiveReservation.query.filter(
-        ExclusiveReservation.exclusive_page_id == page_id,
-        ExclusiveReservation.expires_at < now
-    ).delete()
-    if auto_commit:
-        db.session.commit()
-    else:
-        db.session.flush()
-    return deleted
+    import logging
+    logger = logging.getLogger(__name__)
+
+    for attempt in range(3):
+        try:
+            now = int(time.time())
+            deleted = ExclusiveReservation.query.filter(
+                ExclusiveReservation.exclusive_page_id == page_id,
+                ExclusiveReservation.expires_at < now
+            ).delete()
+            if auto_commit:
+                db.session.commit()
+            else:
+                db.session.flush()
+            return deleted
+        except Exception as e:
+            db.session.rollback()
+            if 'Deadlock' in str(e) and attempt < 2:
+                logger.warning(f"Deadlock on cleanup attempt {attempt + 1}, retrying...")
+                time.sleep(0.1 * (attempt + 1))
+                continue
+            raise
+    return 0
 
 
 def get_first_reservation_time(session_id, page_id):
