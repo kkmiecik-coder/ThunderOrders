@@ -952,7 +952,7 @@ def get_live_summary(page_id, include_financials=True):
 
     # Aktywne rezerwacje per product (ilości + imiona do tooltipów) — jedno zapytanie
     import time as _time
-    from modules.users.models import User
+    from modules.auth.models import User
     now_ts = int(_time.time())
     active_reservations_by_product = {}
     reservation_customers_by_product = {}
