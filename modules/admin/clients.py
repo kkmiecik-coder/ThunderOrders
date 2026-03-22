@@ -19,6 +19,9 @@ from modules.client.models import (
 from modules.feedback.models import FeedbackSurvey, FeedbackResponse
 from modules.exclusive.models import ExclusivePage, ExclusiveReservation
 from modules.tracking.models import QRCampaign
+from modules.achievements.models import UserAchievement
+from modules.notifications.models import Notification, PushSubscription, NotificationPreference
+from modules.imports.models import CsvImport
 from extensions import db
 from utils.decorators import role_required
 from utils.email_sender import send_account_deactivated_email
@@ -354,6 +357,11 @@ def client_delete(id):
         QRCampaign.query.filter_by(created_by=uid).update({'created_by': current_user.id})
 
         # --- Delete client-owned data ---
+        UserAchievement.query.filter_by(user_id=uid).delete()
+        Notification.query.filter_by(user_id=uid).delete()
+        PushSubscription.query.filter_by(user_id=uid).delete()
+        NotificationPreference.query.filter_by(user_id=uid).delete()
+        CsvImport.query.filter_by(user_id=uid).delete()
         AdminTaskAssignment.query.filter_by(user_id=uid).delete()
         AdminTaskComment.query.filter_by(user_id=uid).delete()
         CollectionUploadSession.query.filter_by(user_id=uid).delete()
