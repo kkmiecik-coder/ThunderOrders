@@ -823,6 +823,7 @@ function initializeSocketIO() {
     // Reservations update (triggered by reserve/release actions)
     socket.on('reservations_update', function (data) {
         var byProduct = data.by_product || {};
+        var customersByProduct = data.customers_by_product || {};
 
         // Update reservation badges in sets matrix
         if (window.LIVE_SETS) {
@@ -832,6 +833,7 @@ function initializeSocketIO() {
                 for (var p = 0; p < set.products.length; p++) {
                     var pid = set.products[p].product_id;
                     set.products[p].reserved = byProduct[pid] || 0;
+                    set.products[p].reserved_customers = customersByProduct[String(pid)] || [];
                 }
             }
             renderSetsMatrix(window.LIVE_SETS);

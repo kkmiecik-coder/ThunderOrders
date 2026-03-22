@@ -924,24 +924,33 @@ def emit_reservations_update(page_id):
     import time as _time
     from extensions import db
     from modules.exclusive.models import ExclusiveReservation
+    from modules.auth.models import User
 
     now_ts = int(_time.time())
     reservations = {}
+    customers_by_product = {}
     rows = db.session.query(
         ExclusiveReservation.product_id,
-        db.func.sum(ExclusiveReservation.quantity)
-    ).filter(
+        ExclusiveReservation.quantity,
+        User.first_name,
+        User.last_name
+    ).outerjoin(User, ExclusiveReservation.user_id == User.id).filter(
         ExclusiveReservation.exclusive_page_id == page_id,
         ExclusiveReservation.expires_at > now_ts
-    ).group_by(ExclusiveReservation.product_id).all()
+    ).all()
 
-    for pid, qty in rows:
-        reservations[pid] = int(qty)
+    for pid, qty, first_name, last_name in rows:
+        reservations[pid] = reservations.get(pid, 0) + int(qty)
+        if pid not in customers_by_product:
+            customers_by_product[pid] = []
+        name = f"{first_name or ''} {last_name or ''}".strip() or 'Anonim'
+        customers_by_product[pid].append(name)
 
     total = sum(reservations.values())
 
     admin_room = _get_admin_room(page_id)
     socketio.emit('reservations_update', {
         'by_product': reservations,
+        'customers_by_product': {str(k): v for k, v in customers_by_product.items()},
         'total': total,
     }, to=admin_room)
