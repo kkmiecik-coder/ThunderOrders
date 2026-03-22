@@ -125,22 +125,33 @@ class EmailManager:
     def send_verification_code(user, code):
         """
         Wysyła email z 6-cyfrowym kodem weryfikacyjnym.
+        Wysyłka SYNCHRONICZNA - czeka na potwierdzenie SMTP.
 
         Args:
             user: obiekt User
             code (str): 6-cyfrowy kod weryfikacyjny
+
+        Returns:
+            bool: True jeśli email został wysłany, False w przypadku błędu
         """
-        from utils.email_sender import send_verification_code_email
+        from utils.email_sender import send_email_sync
 
         try:
-            send_verification_code_email(
-                user_email=user.email,
-                verification_code=code,
-                user_name=user.first_name
+            result = send_email_sync(
+                to=user.email,
+                subject='Twój kod weryfikacyjny - ThunderOrders',
+                template='verification_code',
+                user_name=user.first_name,
+                verification_code=code
             )
-            current_app.logger.info(f"Verification code sent to {user.email}")
+            if result:
+                current_app.logger.info(f"Verification code sent to {user.email}")
+            else:
+                current_app.logger.error(f"Verification code SMTP failed for {user.email}")
+            return result
         except Exception as e:
             current_app.logger.error(f"Failed to send verification code to {user.email}: {e}")
+            return False
 
     @staticmethod
     def send_verification_link(user):
@@ -185,21 +196,34 @@ class EmailManager:
     def send_password_reset(user):
         """
         Wysyła email z linkiem do resetu hasła.
+        Wysyłka SYNCHRONICZNA - czeka na potwierdzenie SMTP.
 
         Args:
             user: obiekt User (musi mieć password_reset_token)
+
+        Returns:
+            bool: True jeśli email został wysłany
         """
-        from utils.email_sender import send_password_reset_email
+        from utils.email_sender import send_email_sync
+        from flask import url_for
 
         try:
-            send_password_reset_email(
-                user_email=user.email,
-                reset_token=user.password_reset_token,
-                user_name=user.first_name
+            reset_url = url_for('auth.reset_password', token=user.password_reset_token, _external=True)
+            result = send_email_sync(
+                to=user.email,
+                subject='Reset hasła - ThunderOrders',
+                template='reset_password',
+                user_name=user.first_name,
+                reset_url=reset_url
             )
-            current_app.logger.info(f"Password reset email sent to {user.email}")
+            if result:
+                current_app.logger.info(f"Password reset email sent to {user.email}")
+            else:
+                current_app.logger.error(f"Password reset SMTP failed for {user.email}")
+            return result
         except Exception as e:
             current_app.logger.error(f"Failed to send password reset email to {user.email}: {e}")
+            return False
 
     # ========================================
     # ORDER EMAILS

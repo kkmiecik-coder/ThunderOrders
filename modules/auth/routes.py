@@ -356,16 +356,19 @@ def register():
             db.session.add(user)
             db.session.commit()
 
-            # Wyślij email z kodem weryfikacyjnym
-            EmailManager.send_verification_code(user, code)
+            # Wyślij email z kodem weryfikacyjnym (synchronicznie)
+            email_sent = EmailManager.send_verification_code(user, code)
 
             if is_ajax:
-                return jsonify({
+                response_data = {
                     'success': True,
                     'token': session_token,
                     'email': email,
                     'seconds_remaining': 60
-                })
+                }
+                if not email_sent:
+                    response_data['email_warning'] = 'Konto utworzone, ale wystąpił problem z wysłaniem kodu. Użyj przycisku "Wyślij ponownie".'
+                return jsonify(response_data)
 
             # Przekieruj na stronę weryfikacji kodem
             return redirect(url_for('auth.verify_email_code', token=session_token))
@@ -646,14 +649,20 @@ def resend_verification_code(token):
     db.session.commit()
 
     if new_code:
-        # Wyślij email z nowym kodem
-        EmailManager.send_verification_code(user, new_code)
+        # Wyślij email z nowym kodem (synchronicznie)
+        email_sent = EmailManager.send_verification_code(user, new_code)
 
-        return jsonify({
-            'success': True,
-            'message': 'Nowy kod został wysłany na Twój email.',
-            'seconds_remaining': 60
-        })
+        if email_sent:
+            return jsonify({
+                'success': True,
+                'message': 'Nowy kod został wysłany na Twój email.',
+                'seconds_remaining': 60
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Nie udało się wysłać kodu email. Sprawdź adres email i spróbuj ponownie.'
+            }), 500
 
     return jsonify({
         'success': False,

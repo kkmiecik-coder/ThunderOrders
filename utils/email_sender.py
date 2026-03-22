@@ -123,6 +123,54 @@ def send_email(to, subject, template, **kwargs):
         return False
 
 
+def send_email_sync(to, subject, template, **kwargs):
+    """
+    Wysyła email SYNCHRONICZNIE - czeka na wynik SMTP.
+    Używaj dla krytycznych maili (weryfikacja, reset hasła) gdzie musimy
+    wiedzieć czy email dotarł do serwera SMTP.
+
+    Returns:
+        bool: True jeśli SMTP przyjął email, False w przypadku błędu
+    """
+    app = current_app._get_current_object()
+
+    msg = Message(
+        subject=subject,
+        recipients=[to],
+        sender=app.config['MAIL_DEFAULT_SENDER']
+    )
+
+    try:
+        msg.html = render_template(f'emails/{template}.html', **kwargs)
+
+        try:
+            msg.body = render_template(f'emails/{template}.txt', **kwargs)
+        except Exception:
+            msg.body = "Sprawdź email w kliencie obsługującym HTML."
+
+        logo_path = os.path.join(app.root_path, 'static', 'img', 'icons', 'logo-full-black-email.png')
+        if os.path.exists(logo_path):
+            with app.open_resource(logo_path, 'rb') as fp:
+                msg.attach(
+                    filename='logo.png',
+                    content_type='image/png',
+                    data=fp.read(),
+                    disposition='inline',
+                    headers=[('Content-ID', '<logo@thunderorders>')],
+                )
+
+        logger.info(f"[EMAIL-SYNC] Sending to={to}, subject='{subject}'")
+        start_time = time.time()
+        mail.send(msg)
+        elapsed = time.time() - start_time
+        logger.info(f"[EMAIL-SYNC] SUCCESS to={to}, took={elapsed:.2f}s")
+        return True
+
+    except Exception as e:
+        logger.error(f"[EMAIL-SYNC] FAILED to={to}, subject='{subject}', error={type(e).__name__}: {e}")
+        return False
+
+
 def prepare_email(to, subject, template, **kwargs):
     """
     Przygotowuje obiekt Message bez wysyłania.
