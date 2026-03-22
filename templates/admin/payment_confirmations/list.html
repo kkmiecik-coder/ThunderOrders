@@ -273,6 +273,10 @@
                         <img src="{{ first.proof_url }}" alt="Dowód" class="pc-thumbnail">
                     {% endif %}
                 </div>
+                {% else %}
+                <div class="pc-card-thumbnail">
+                    <div class="pc-thumbnail pc-thumbnail-deleted">Usunięto</div>
+                </div>
                 {% endif %}
             </div>
 

@@ -609,6 +609,64 @@ def register_cli_commands(app):
 
         click.echo(f'\nGotowe.')
 
+    @app.cli.command('cleanup-payment-proofs')
+    @click.option('--days', default=30, help='Usuwaj pliki starsze niż N dni od zatwierdzenia')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl pliki do usunięcia, nie usuwaj')
+    def cleanup_payment_proofs(days, dry_run):
+        """Usuwa pliki potwierdzeń płatności zatwierdzonych ponad N dni temu (domyślnie 30)."""
+        import os
+        from modules.orders.models import PaymentConfirmation, get_local_now
+        from datetime import timedelta
+
+        cutoff = get_local_now() - timedelta(days=days)
+        upload_folder = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'uploads', 'payment_confirmations'
+        )
+
+        confirmations = PaymentConfirmation.query.filter(
+            PaymentConfirmation.status == 'approved',
+            PaymentConfirmation.updated_at < cutoff,
+            PaymentConfirmation.proof_file.isnot(None)
+        ).all()
+
+        click.echo(f'Znaleziono {len(confirmations)} potwierdzeń starszych niż {days} dni')
+
+        deleted_count = 0
+        skipped_count = 0
+        freed_bytes = 0
+
+        for pc in confirmations:
+            filepath = os.path.join(upload_folder, pc.proof_file)
+
+            if not os.path.exists(filepath):
+                skipped_count += 1
+                continue
+
+            file_size = os.path.getsize(filepath)
+
+            if dry_run:
+                click.echo(f'  [DRY RUN] {pc.proof_file} ({file_size / 1024:.1f} KB) — zamówienie #{pc.order_id}')
+                deleted_count += 1
+                freed_bytes += file_size
+                continue
+
+            try:
+                os.remove(filepath)
+                pc.proof_file = None
+                deleted_count += 1
+                freed_bytes += file_size
+            except OSError as e:
+                click.echo(f'  BŁĄD: {pc.proof_file} — {e}')
+                skipped_count += 1
+
+        if not dry_run:
+            db.session.commit()
+
+        prefix = '[DRY RUN] ' if dry_run else ''
+        click.echo(f'\n{prefix}Gotowe. Usunięto: {deleted_count} plików ({freed_bytes / 1024 / 1024:.2f} MB), '
+                   f'Pominięto: {skipped_count}')
+
 
 def register_error_handlers(app):
     """Rejestruje handlery dla błędów HTTP"""
