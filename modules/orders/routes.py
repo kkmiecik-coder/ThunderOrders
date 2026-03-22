@@ -1625,11 +1625,14 @@ def client_list():
     # Get statuses for filter dropdown
     statuses = OrderStatus.query.filter_by(is_active=True).order_by(OrderStatus.sort_order).all()
 
+    filter_args = {k: v for k, v in request.args.items() if k != 'page'}
+
     return render_template(
         'client/orders/list.html',
         orders=pagination,
         statuses=statuses,
-        page_title='Moje zamówienia'
+        page_title='Moje zamówienia',
+        filter_args=filter_args
     )
 
 
