@@ -183,13 +183,17 @@ def admin_list():
             'count': count
         })
 
+    # Filter args without 'page' to avoid duplicate in pagination url_for
+    filter_args = {k: v for k, v in request.args.items() if k != 'page'}
+
     return render_template(
         'admin/orders/list.html',
         orders=pagination,
         filter_form=filter_form,
         statuses_with_counts=statuses_with_counts,
         total_orders_count=total_count,
-        page_title='Zamówienia'
+        page_title='Zamówienia',
+        filter_args=filter_args
     )
 
 

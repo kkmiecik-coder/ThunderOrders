@@ -672,7 +672,7 @@
             </div>
             <div class="pagination-controls">
                 {% if orders.has_prev %}
-                <a href="{{ url_for('orders.admin_list', page=orders.prev_num, **request.args) }}"
+                <a href="{{ url_for('orders.admin_list', page=orders.prev_num, **filter_args) }}"
                    class="pagination-btn">
                     « Poprzednia
                 </a>
@@ -680,7 +680,7 @@
 
                 {% for page_num in orders.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                     {% if page_num %}
-                        <a href="{{ url_for('orders.admin_list', page=page_num, **request.args) }}"
+                        <a href="{{ url_for('orders.admin_list', page=page_num, **filter_args) }}"
                            class="pagination-btn {% if page_num == orders.page %}active{% endif %}">
                             {{ page_num }}
                         </a>
@@ -690,7 +690,7 @@
                 {% endfor %}
 
                 {% if orders.has_next %}
-                <a href="{{ url_for('orders.admin_list', page=orders.next_num, **request.args) }}"
+                <a href="{{ url_for('orders.admin_list', page=orders.next_num, **filter_args) }}"
                    class="pagination-btn">
                     Następna »
                 </a>
