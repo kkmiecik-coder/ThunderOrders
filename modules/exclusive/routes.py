@@ -71,6 +71,7 @@ def _build_bonuses_config(page, sections):
                 'max_available': bonus.max_available,
                 'when_exhausted': bonus.when_exhausted,
                 'count_full_set': bonus.count_full_set,
+                'repeatable': bonus.repeatable,
                 'already_claimed': int(already_claimed),
                 'is_exhausted': is_exhausted,
                 'required_products': [],

@@ -793,6 +793,7 @@ function collectPageData() {
                     max_available: parseInt(bonusEl.querySelector('.bonus-max-available')?.value) || null,
                     when_exhausted: bonusEl.querySelector('.bonus-when-exhausted')?.value || 'hide',
                     count_full_set: bonusEl.querySelector('.bonus-count-full-set')?.checked || false,
+                    repeatable: bonusEl.querySelector('.bonus-repeatable')?.checked || false,
                     is_active: bonusEl.querySelector('.bonus-is-active')?.checked ?? true,
                     required_products: [],
                 };
@@ -1900,6 +1901,10 @@ function addSetBonus(btn) {
             <label class="bonus-option">
                 <input type="checkbox" class="bonus-count-full-set" onchange="markDirty()">
                 Pełny set liczy się do progu
+            </label>
+            <label class="bonus-option">
+                <input type="checkbox" class="bonus-repeatable" onchange="markDirty()">
+                Wielokrotny próg
             </label>
             <div class="bonus-option">
                 <label>Po wyczerpaniu:</label>

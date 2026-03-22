@@ -2955,19 +2955,22 @@ function evaluateBonuses() {
                 const progress = Math.min(100, (sectionTotal / threshold) * 100);
                 const isUnlocked = sectionTotal >= threshold;
 
-                if (isUnlocked) earned = 1;
+                if (isUnlocked) {
+                    earned = bonus.repeatable ? Math.floor(sectionTotal / threshold) : 1;
+                }
                 if (bonus.max_available !== null) {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }
 
                 const remaining = Math.max(0, threshold - sectionTotal);
+                const earnedLabel = earned > 1 ? ` x${earned}` : '';
                 bonusHtml += `
                     <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''}" data-bonus-id="${bonus.id}">
                         <div class="bonus-coupon-icon-area">
                             <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : '🎁'}</span>
                         </div>
                         <div class="bonus-coupon-body">
-                            <div class="bonus-coupon-title">${bonus.bonus_product_name}</div>
+                            <div class="bonus-coupon-title">${bonus.bonus_product_name}${earnedLabel}</div>
                             ${isUnlocked
                                 ? `<div class="bonus-coupon-status">
                                        <span class="bonus-coupon-check">✓</span>
@@ -2989,19 +2992,22 @@ function evaluateBonuses() {
                 const progress = Math.min(100, (sectionQty / threshold) * 100);
                 const isUnlocked = sectionQty >= threshold;
 
-                if (isUnlocked) earned = 1;
+                if (isUnlocked) {
+                    earned = bonus.repeatable ? Math.floor(sectionQty / threshold) : 1;
+                }
                 if (bonus.max_available !== null) {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }
 
                 const remaining = Math.max(0, threshold - sectionQty);
+                const earnedLabelQty = earned > 1 ? ` x${earned}` : '';
                 bonusHtml += `
                     <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''}" data-bonus-id="${bonus.id}">
                         <div class="bonus-coupon-icon-area">
                             <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : '🎁'}</span>
                         </div>
                         <div class="bonus-coupon-body">
-                            <div class="bonus-coupon-title">${bonus.bonus_product_name}</div>
+                            <div class="bonus-coupon-title">${bonus.bonus_product_name}${earnedLabelQty}</div>
                             ${isUnlocked
                                 ? `<div class="bonus-coupon-status">
                                        <span class="bonus-coupon-check">✓</span>

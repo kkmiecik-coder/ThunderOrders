@@ -655,6 +655,10 @@
                                                 <input type="checkbox" class="bonus-count-full-set" {% if bonus.count_full_set %}checked{% endif %} onchange="markDirty()">
                                                 Pełny set liczy się do progu
                                             </label>
+                                            <label class="bonus-option">
+                                                <input type="checkbox" class="bonus-repeatable" {% if bonus.repeatable %}checked{% endif %} onchange="markDirty()">
+                                                Wielokrotny próg
+                                            </label>
                                             <div class="bonus-option">
                                                 <label>Po wyczerpaniu:</label>
                                                 <select class="form-select bonus-when-exhausted" onchange="markDirty()">

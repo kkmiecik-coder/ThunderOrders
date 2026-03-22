@@ -724,6 +724,7 @@ class ExclusiveSetBonus(db.Model):
         nullable=False
     )
     count_full_set = db.Column(db.Boolean, default=False)
+    repeatable = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     sort_order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=get_local_now)

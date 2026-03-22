@@ -315,7 +315,10 @@ def place_exclusive_order(page, session_id, order_note=None, full_set_items=None
                 if bonus.count_full_set:
                     section_total += sum(float(item.total) for item in section_full_set_items)
                 if section_total >= float(bonus.threshold_value):
-                    bonus_earned = 1
+                    if bonus.repeatable:
+                        bonus_earned = int(section_total // float(bonus.threshold_value))
+                    else:
+                        bonus_earned = 1
 
             elif bonus.trigger_type == 'quantity_threshold':
                 if bonus.threshold_value is None or int(bonus.threshold_value) <= 0:
@@ -324,7 +327,10 @@ def place_exclusive_order(page, session_id, order_note=None, full_set_items=None
                 if bonus.count_full_set:
                     section_qty += full_set_qty
                 if section_qty >= int(bonus.threshold_value):
-                    bonus_earned = 1
+                    if bonus.repeatable:
+                        bonus_earned = section_qty // int(bonus.threshold_value)
+                    else:
+                        bonus_earned = 1
 
             # Apply limit
             if bonus.max_available is not None:

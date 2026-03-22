@@ -476,6 +476,7 @@ def _update_set_bonuses(section, bonuses_data):
             max_available=max_available,
             when_exhausted=bonus_data.get('when_exhausted', 'hide'),
             count_full_set=bool(bonus_data.get('count_full_set', False)),
+            repeatable=bool(bonus_data.get('repeatable', False)),
             is_active=bool(bonus_data.get('is_active', True)),
             sort_order=idx,
         )
@@ -925,6 +926,7 @@ def exclusive_duplicate(page_id):
                     max_available=bonus.max_available,
                     when_exhausted=bonus.when_exhausted,
                     count_full_set=bonus.count_full_set,
+                    repeatable=bonus.repeatable,
                     is_active=bonus.is_active,
                     sort_order=bonus.sort_order,
                 )
