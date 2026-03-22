@@ -1835,6 +1835,9 @@ async function removeProductFromCart(productId) {
             }
 
             updateCart();
+            if (cart.length === 0) {
+                hideReservationHeader();
+            }
             return;
         }
     }
@@ -1856,7 +1859,13 @@ async function removeProductFromCart(productId) {
 
     // Zwolnienie rezerwacji — SocketIO lub HTTP fallback
     input.value = 0;
+    optimisticUpdateAvailability(productId, +currentQty);
     updateCart();
+    saveToLocalStorage();
+
+    if (cart.length === 0) {
+        hideReservationHeader();
+    }
 
     if (isSocketReady()) {
         window.exclusiveSocket.emit('release_product', {
