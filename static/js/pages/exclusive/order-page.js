@@ -710,6 +710,13 @@ async function submitOrder() {
             body: JSON.stringify(requestData)
         });
 
+        if (response.status === 429) {
+            alert('Zbyt wiele prób złożenia zamówienia. Poczekaj chwilę i spróbuj ponownie.');
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            return;
+        }
+
         const data = await response.json();
 
         if (data.success) {

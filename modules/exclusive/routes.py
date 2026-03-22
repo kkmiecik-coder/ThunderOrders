@@ -6,6 +6,7 @@ Publiczne endpointy dla stron ekskluzywnych zamówień
 from flask import render_template, abort, redirect, url_for, request, jsonify, session
 from flask_login import login_required, current_user
 from extensions import db, limiter, csrf
+from flask_limiter.util import get_remote_address
 from . import exclusive_bp
 from .models import ExclusivePage
 from modules.products.models import Product, VariantGroup
@@ -535,7 +536,7 @@ def restore(token):
 
 @exclusive_bp.route('/<token>/place-order', methods=['POST'])
 @csrf.exempt
-@limiter.limit("5 per minute")
+@limiter.limit("15 per minute", key_func=lambda: current_user.id if current_user.is_authenticated else get_remote_address())
 def place_order(token):
     """
     Place an order from exclusive page
