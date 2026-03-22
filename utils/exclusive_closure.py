@@ -950,24 +950,13 @@ def get_live_summary(page_id, include_financials=True):
         exclusive_page_id=page_id
     ).count()
 
-    # Aktywne rezerwacje per product (do macierzy setów)
+    # Aktywne rezerwacje per product (ilości + imiona do tooltipów) — jedno zapytanie
     import time as _time
+    from modules.users.models import User
     now_ts = int(_time.time())
     active_reservations_by_product = {}
-    active_res_rows = db.session.query(
-        ExclusiveReservation.product_id,
-        db.func.sum(ExclusiveReservation.quantity)
-    ).filter(
-        ExclusiveReservation.exclusive_page_id == page_id,
-        ExclusiveReservation.expires_at > now_ts
-    ).group_by(ExclusiveReservation.product_id).all()
-    for pid, qty in active_res_rows:
-        active_reservations_by_product[pid] = int(qty)
-
-    # Rezerwujący per product (imiona do tooltipów)
-    from modules.users.models import User
     reservation_customers_by_product = {}
-    active_res_details = db.session.query(
+    active_res_rows = db.session.query(
         ExclusiveReservation.product_id,
         ExclusiveReservation.quantity,
         User.first_name,
@@ -976,7 +965,8 @@ def get_live_summary(page_id, include_financials=True):
         ExclusiveReservation.exclusive_page_id == page_id,
         ExclusiveReservation.expires_at > now_ts
     ).all()
-    for pid, qty, first_name, last_name in active_res_details:
+    for pid, qty, first_name, last_name in active_res_rows:
+        active_reservations_by_product[pid] = active_reservations_by_product.get(pid, 0) + int(qty)
         if pid not in reservation_customers_by_product:
             reservation_customers_by_product[pid] = []
         name = f"{first_name or ''} {last_name or ''}".strip() or 'Anonim'
