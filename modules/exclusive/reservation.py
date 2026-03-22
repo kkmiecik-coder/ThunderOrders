@@ -11,8 +11,8 @@ from modules.products.models import Product
 from extensions import db
 
 # Stałe
-RESERVATION_DURATION = 300  # 5 minut w sekundach
-EXTENSION_DURATION = 120    # 2 minuty w sekundach
+RESERVATION_DURATION = 120  # 2 minuty w sekundach
+EXTENSION_DURATION = 60     # 1 minuta w sekundach
 
 
 def cleanup_expired_reservations(page_id, auto_commit=True):
@@ -319,7 +319,7 @@ def release_product(session_id, page_id, product_id, quantity):
 
 def extend_reservation(session_id, page_id):
     """
-    Przedłuża rezerwację o 2 minuty (jednokrotnie)
+    Przedłuża rezerwację o 1 minutę (jednokrotnie)
 
     Args:
         session_id: UUID sesji

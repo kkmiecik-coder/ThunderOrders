@@ -1526,7 +1526,7 @@ function showReservationHeader() {
 
     const extendBtn = document.getElementById('extendBtn');
     extendBtn.disabled = true;
-    extendBtn.textContent = reservationState.extended ? 'Przedłużono' : 'Przedłuż +2 min';
+    extendBtn.textContent = reservationState.extended ? 'Przedłużono' : 'Przedłuż +1 min';
 
     startCountdown();
 }
@@ -1576,7 +1576,7 @@ function updateReservationTimer() {
 
     const extendBtn = document.getElementById('extendBtn');
     const extendTooltip = document.getElementById('extendTooltip');
-    const canExtend = !reservationState.extended && diff < 120;
+    const canExtend = !reservationState.extended && diff < 60;
     extendBtn.disabled = !canExtend;
 
     if (reservationState.extended) {
@@ -1584,17 +1584,17 @@ function updateReservationTimer() {
         if (extendTooltip) {
             extendTooltip.textContent = 'Rezerwację można przedłużyć tylko raz';
         }
-    } else if (diff >= 120) {
-        extendBtn.textContent = 'Przedłuż +2 min';
+    } else if (diff >= 60) {
+        extendBtn.textContent = 'Przedłuż +1 min';
         if (extendTooltip) {
-            extendTooltip.textContent = 'Możesz przedłużyć gdy zostanie < 2 min';
+            extendTooltip.textContent = 'Możesz przedłużyć gdy zostanie < 1 min';
         }
     } else {
-        extendBtn.textContent = 'Przedłuż +2 min';
+        extendBtn.textContent = 'Przedłuż +1 min';
     }
 
     const header = document.getElementById('reservationHeader');
-    if (diff < 120) {
+    if (diff < 60) {
         header.classList.add('reservation-warning');
     } else {
         header.classList.remove('reservation-warning');

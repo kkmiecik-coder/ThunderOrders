@@ -543,8 +543,8 @@ class ExclusiveReservation(db.Model):
     Rezerwacja produktu na stronie exclusive
 
     System rezerwacji:
-    - 10 minut od dodania PIERWSZEGO produktu
-    - Możliwość przedłużenia o 2 minuty (jednokrotnie)
+    - 2 minuty od dodania PIERWSZEGO produktu
+    - Możliwość przedłużenia o 1 minutę (jednokrotnie)
     - First-come-first-served (atomic operations)
     - Lazy cleanup (bez cron jobs)
     """
