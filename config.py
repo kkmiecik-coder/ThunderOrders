@@ -107,7 +107,7 @@ class ProductionConfig(Config):
 
     # Zwiększone bezpieczeństwo
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Strict'
+    SESSION_COOKIE_SAMESITE = 'Lax'  # 'Lax' wymagany dla OAuth (redirect z Google/Facebook)
 
     # Wymagaj silniejszego SECRET_KEY w produkcji
     @classmethod
