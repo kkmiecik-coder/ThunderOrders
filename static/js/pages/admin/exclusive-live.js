@@ -561,7 +561,9 @@ function renderSetsMatrix(setsData) {
                 html += '<td class="matrix-product-col">';
                 html += '<span>' + escapeHtml(prod.product_name) + '</span>';
                 if (prod.reserved && prod.reserved > 0) {
-                    html += '<span class="slot-reserved-badge" title="W rezerwacji: ' + prod.reserved + '">' + reservedSvg + prod.reserved + '</span>';
+                    var resCustomers = (prod.reserved_customers && prod.reserved_customers.length > 0) ? prod.reserved_customers.join(', ') : '';
+                    var resTitle = resCustomers || ('W rezerwacji: ' + prod.reserved);
+                    html += '<span class="slot-reserved-badge" data-tooltip="' + escapeHtml(resTitle) + '">' + reservedSvg + prod.reserved + '</span>';
                 }
                 html += '</td>';
 
@@ -602,7 +604,9 @@ function renderSetsMatrix(setsData) {
                 html += '<span class="full-set-count">' + fullSetProd.total_ordered + '</span>';
                 html += '<span class="full-set-unit">szt. sprzedanych</span>';
                 if (fullSetProd.reserved && fullSetProd.reserved > 0) {
-                    html += '<span class="slot-reserved-badge" title="W rezerwacji: ' + fullSetProd.reserved + '">' + reservedSvg + fullSetProd.reserved + '</span>';
+                    var fsResCustomers = (fullSetProd.reserved_customers && fullSetProd.reserved_customers.length > 0) ? fullSetProd.reserved_customers.join(', ') : '';
+                    var fsResTitle = fsResCustomers || ('W rezerwacji: ' + fullSetProd.reserved);
+                    html += '<span class="slot-reserved-badge" data-tooltip="' + escapeHtml(fsResTitle) + '">' + reservedSvg + fullSetProd.reserved + '</span>';
                 }
                 html += '</div>';
             }

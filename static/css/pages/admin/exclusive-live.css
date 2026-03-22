@@ -593,11 +593,13 @@
 }
 
 .slot-reserved-badge {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 3px;
     margin-left: 8px;
     padding: 2px 6px;
+    cursor: pointer;
     border-radius: 4px;
     font-size: 10px;
     font-weight: 600;
@@ -608,6 +610,45 @@
 
 .slot-reserved-badge svg {
     flex-shrink: 0;
+}
+
+.slot-reserved-badge::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #1e293b;
+    color: #f8fafc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+.slot-reserved-badge::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #1e293b;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+.slot-reserved-badge:hover::after,
+.slot-reserved-badge:hover::before {
+    opacity: 1;
 }
 
 .slot-check-new {
@@ -1067,6 +1108,8 @@
 [data-theme="dark"] .slot-first-name { color: #fff; }
 [data-theme="dark"] .slot-last-name { color: rgba(255, 255, 255, 0.5); }
 [data-theme="dark"] .slot-reserved-badge { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+[data-theme="dark"] .slot-reserved-badge::after { background: #f8fafc; color: #1e293b; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+[data-theme="dark"] .slot-reserved-badge::before { border-top-color: #f8fafc; }
 [data-theme="dark"] .full-set-summary { border-top-color: rgba(240, 147, 251, 0.1); color: rgba(255, 255, 255, 0.5); }
 [data-theme="dark"] .full-set-count { color: rgba(255, 255, 255, 0.8); }
 [data-theme="dark"] .set-total-summary { background: rgba(157, 78, 221, 0.08); border-top-color: rgba(240, 147, 251, 0.15); color: #ffffff; }

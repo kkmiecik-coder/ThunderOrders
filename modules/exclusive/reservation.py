@@ -242,6 +242,13 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
                 ip_addr = ''
                 user_agent = ''
 
+            # Pobierz user_id z current_user (jeśli zalogowany)
+            try:
+                from flask_login import current_user as _cu
+                _user_id = _cu.id if _cu and _cu.is_authenticated else None
+            except (RuntimeError, AttributeError):
+                _user_id = None
+
             user_reservation = ExclusiveReservation(
                 session_id=session_id,
                 exclusive_page_id=page_id,
@@ -249,6 +256,7 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None)
                 quantity=quantity,
                 reserved_at=first_reserved_at,
                 expires_at=expires_at,
+                user_id=_user_id,
                 ip_address=ip_addr,
                 user_agent=user_agent
             )

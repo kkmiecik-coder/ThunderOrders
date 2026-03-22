@@ -964,6 +964,24 @@ def get_live_summary(page_id, include_financials=True):
     for pid, qty in active_res_rows:
         active_reservations_by_product[pid] = int(qty)
 
+    # Rezerwujący per product (imiona do tooltipów)
+    from modules.users.models import User
+    reservation_customers_by_product = {}
+    active_res_details = db.session.query(
+        ExclusiveReservation.product_id,
+        ExclusiveReservation.quantity,
+        User.first_name,
+        User.last_name
+    ).outerjoin(User, ExclusiveReservation.user_id == User.id).filter(
+        ExclusiveReservation.exclusive_page_id == page_id,
+        ExclusiveReservation.expires_at > now_ts
+    ).all()
+    for pid, qty, first_name, last_name in active_res_details:
+        if pid not in reservation_customers_by_product:
+            reservation_customers_by_product[pid] = []
+        name = f"{first_name or ''} {last_name or ''}".strip() or 'Anonim'
+        reservation_customers_by_product[pid].append(name)
+
     # Sety — macierz slotów (ordered vs available)
     sets_info = []
     set_sections = page.sections.filter_by(section_type='set').all()
@@ -1057,6 +1075,7 @@ def get_live_summary(page_id, include_financials=True):
                     'quantity_per_set': item.quantity_per_set,
                     'total_ordered': ordered_qty,
                     'reserved': reserved_qty,
+                    'reserved_customers': reservation_customers_by_product.get(product.id, []),
                     'slots': slots,
                     'is_full_set': False,
                 })
@@ -1084,6 +1103,7 @@ def get_live_summary(page_id, include_financials=True):
                 'quantity_per_set': 1,
                 'total_ordered': full_set_qty,
                 'reserved': full_set_reserved,
+                'reserved_customers': reservation_customers_by_product.get(section.set_product_id, []),
                 'slots': [{'filled': full_set_qty > 0, 'customer': None}],
                 'is_full_set': True,
             })

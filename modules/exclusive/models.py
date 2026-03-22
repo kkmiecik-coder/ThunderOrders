@@ -558,6 +558,7 @@ class ExclusiveReservation(db.Model):
     reserved_at = db.Column(db.BigInteger, nullable=False)  # UNIX timestamp (seconds)
     expires_at = db.Column(db.BigInteger, nullable=False, index=True)  # UNIX timestamp (seconds)
     extended = db.Column(db.Boolean, default=False)  # Czy przedłużono
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.String(500))
     created_at = db.Column(db.BigInteger, default=lambda: int(__import__('time').time()))
@@ -565,6 +566,7 @@ class ExclusiveReservation(db.Model):
     # Relationships
     page = db.relationship('ExclusivePage', backref=db.backref('reservations', lazy='dynamic', passive_deletes=True))
     product = db.relationship('Product', backref=db.backref('exclusive_reservations', lazy='dynamic', passive_deletes=True))
+    user = db.relationship('User', foreign_keys=[user_id])
 
     # Unique constraint - session can reserve same product on different pages
     __table_args__ = (
