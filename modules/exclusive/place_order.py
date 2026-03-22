@@ -107,6 +107,9 @@ def place_exclusive_order(page, session_id, order_note=None, full_set_items=None
         exclusive_page_id=page.id
     ).all()
 
+    # Filter full set items to only those with quantity > 0
+    full_set_items = [fs for fs in full_set_items if fs.get('product_id') and fs.get('quantity', 0) > 0]
+
     # Check if there are any items to order (reservations OR full set items)
     if not reservations and not full_set_items:
         return False, {'error': 'no_reservations', 'message': 'Brak produktów w koszyku'}
