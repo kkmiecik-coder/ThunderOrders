@@ -10,7 +10,7 @@ from modules.admin import admin_bp
 from modules.auth.models import User, Settings
 from modules.orders.models import (
     ShippingRequest, Order, OrderComment, OrderRefund, OrderShipment,
-    OrderItem, PaymentConfirmation
+    OrderItem
 )
 from modules.admin.models import AdminTaskAssignment, AdminTaskComment, ActivityLog, AdminTask
 from modules.client.models import (
@@ -339,7 +339,6 @@ def client_delete(id):
         OrderComment.query.filter_by(user_id=uid).update({'user_id': None})
         OrderItem.query.filter_by(picked_by=uid).update({'picked_by': None})
         OrderShipment.query.filter_by(created_by=uid).update({'created_by': None})
-        PaymentConfirmation.query.filter_by(user_id=uid).update({'user_id': None})
         ActivityLog.query.filter_by(user_id=uid).update({'user_id': None})
         FeedbackResponse.query.filter_by(user_id=uid).update({'user_id': None})
         ExclusiveReservation.query.filter_by(user_id=uid).update({'user_id': None})
