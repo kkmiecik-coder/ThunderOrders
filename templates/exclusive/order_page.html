@@ -306,7 +306,7 @@
                                         <div class="full-set-controls">
                                             <div class="quantity-control full-set-quantity">
                                                 <button type="button" class="qty-btn qty-minus" onclick="decreaseFullSet(this)">-</button>
-                                                <input type="number" class="qty-input full-set-qty-input" value="0" min="0" data-section-id="{{ section.id }}" onchange="updateFullSetQty(this)">
+                                                <input type="number" class="qty-input full-set-qty-input" value="0" min="0" max="5" data-section-id="{{ section.id }}" onchange="updateFullSetQty(this)">
                                                 <button type="button" class="qty-btn qty-plus full-set-plus-btn" onclick="increaseFullSet(this)">+</button>
                                             </div>
                                         </div>

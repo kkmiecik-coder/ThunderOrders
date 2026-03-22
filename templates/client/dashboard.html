@@ -415,15 +415,19 @@
     </div>
 
     <!-- Achievements Widget -->
-    <div class="achievements-widget" id="achievements-widget">
-        <div class="widget-header">
-            <h3>Moje odznaki</h3>
-            <a href="{{ url_for('achievements.gallery') }}" class="widget-link">Zobacz wszystkie &rarr;</a>
+    <div class="dashboard-section" id="achievements-widget">
+        <div class="widget">
+            <div class="widget-header">
+                <h2 class="widget-title">Moje odznaki</h2>
+                <a href="{{ url_for('achievements.gallery') }}" class="widget-link">Zobacz wszystkie &rarr;</a>
+            </div>
+            <div class="widget-body">
+                <div class="widget-badges" id="widget-badges">
+                    <div style="font-size:12px;opacity:0.5;">Ładowanie...</div>
+                </div>
+                <div class="widget-stats" id="widget-stats"></div>
+            </div>
         </div>
-        <div class="widget-badges" id="widget-badges">
-            <div style="font-size:12px;opacity:0.5;">Ładowanie...</div>
-        </div>
-        <div class="widget-stats" id="widget-stats"></div>
     </div>
 </div>
 {% endblock %}

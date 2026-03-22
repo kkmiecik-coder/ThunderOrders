@@ -1934,6 +1934,12 @@ function increaseFullSet(btn) {
     const setPrice = parseFloat(fullSetSection.dataset.setPrice);
 
     let val = parseInt(input.value) || 0;
+    const maxFullSets = 5;
+
+    if (val >= maxFullSets) {
+        if (window.Toast) window.Toast.show('Maksymalnie ' + maxFullSets + ' pełnych setów w jednym zamówieniu', 'warning');
+        return;
+    }
 
     // IMMEDIATE UI update
     input.value = val + 1;
@@ -1952,8 +1958,6 @@ function increaseFullSet(btn) {
 
     updateCart();
     saveToLocalStorage();
-
-    // Full sets are unlimited — no reservation needed
 }
 
 function decreaseFullSet(btn) {
@@ -2003,7 +2007,12 @@ function updateFullSetQty(input) {
     const oldVal = oldCartItem ? oldCartItem.qty : 0;
 
     let val = parseInt(input.value) || 0;
+    const maxFullSets = 5;
     if (val < 0) val = 0;
+    if (val > maxFullSets) {
+        val = maxFullSets;
+        if (window.Toast) window.Toast.show('Maksymalnie ' + maxFullSets + ' pełnych setów w jednym zamówieniu', 'warning');
+    }
     input.value = val;
 
     const delta = val - oldVal;
