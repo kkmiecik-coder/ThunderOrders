@@ -680,7 +680,8 @@ def handle_reserve_product(data):
             page_id=page_id,
             product_id=product_id,
             quantity=quantity,
-            section_max=section_max
+            section_max=section_max,
+            user_id=client.get('user_id')
         )
 
         if success:

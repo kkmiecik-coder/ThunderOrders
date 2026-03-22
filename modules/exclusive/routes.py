@@ -323,7 +323,8 @@ def reserve(token):
         page_id=page.id,
         product_id=product_id,
         quantity=quantity,
-        section_max=section_max
+        section_max=section_max,
+        user_id=current_user.id
     )
 
     if success:
