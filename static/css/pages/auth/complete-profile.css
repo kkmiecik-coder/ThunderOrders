@@ -11,6 +11,14 @@
     max-width: 560px;
 }
 
+.complete-profile-container .auth-form {
+    gap: 1rem;
+}
+
+.complete-profile-container .checkbox-label {
+    text-align: left;
+}
+
 /* ============================================
    Step Indicator
    ============================================ */
