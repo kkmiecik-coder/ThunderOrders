@@ -1,0 +1,83 @@
+{% extends "client/base_client.html" %}
+
+{% macro tip(text) %}
+<div class="help-tip">
+    <svg class="help-tip__icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M9 21c0 .5.4 1 1 1h4c.6 0 1-.5 1-1v-1H9v1zm3-19C8.1 2 5 5.1 5 9c0 2.4 1.2 4.5 3 5.7V17c0 .5.4 1 1 1h6c.6 0 1-.5 1-1v-2.3c1.8-1.3 3-3.4 3-5.7 0-3.9-3.1-7-7-7z" fill="currentColor"/>
+    </svg>
+    <span>{{ text }}</span>
+</div>
+{% endmacro %}
+
+{% macro warning(text) %}
+<div class="help-warning">
+    <svg class="help-warning__icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" fill="currentColor"/>
+    </svg>
+    <span>{{ text }}</span>
+</div>
+{% endmacro %}
+
+{% macro screenshot(alt, src='') %}
+{% if src %}
+<div class="help-screenshot">
+    <img src="{{ url_for('static', filename='img/help/' ~ src) }}" alt="{{ alt }}">
+</div>
+{% else %}
+<div class="help-screenshot help-screenshot--placeholder">
+    <svg class="help-screenshot__camera" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/>
+        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+    </svg>
+    <span class="help-screenshot__alt">{{ alt }}</span>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block title %}{{ article.title }} - Pomoc - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/help.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="help-page">
+    <a href="{{ url_for('client.help_index') }}" class="help-breadcrumb">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 010 .708L5.707 8l5.647 5.646a.5.5 0 01-.708.708l-6-6a.5.5 0 010-.708l6-6a.5.5 0 01.708 0z"/>
+        </svg>
+        <span>{{ category.name }}</span>
+    </a>
+
+    <h1 class="help-article-title">{% block article_title %}{{ article.title }}{% endblock %}</h1>
+    <p class="help-article-date">Ostatnia aktualizacja: marzec 2026</p>
+
+    <div class="help-article-card">
+        {% block article_content %}{% endblock %}
+    </div>
+
+    <nav class="help-nav">
+        {% if prev_article %}
+        <a href="{{ url_for('client.help_article', slug=prev_article.slug) }}" class="help-nav__link help-nav__link--prev">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 010 .708L5.707 8l5.647 5.646a.5.5 0 01-.708.708l-6-6a.5.5 0 010-.708l6-6a.5.5 0 01.708 0z"/>
+            </svg>
+            <span>{{ prev_article.title }}</span>
+        </a>
+        {% else %}
+        <span></span>
+        {% endif %}
+
+        {% if next_article %}
+        <a href="{{ url_for('client.help_article', slug=next_article.slug) }}" class="help-nav__link help-nav__link--next">
+            <span>{{ next_article.title }}</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 01.708 0l6 6a.5.5 0 010 .708l-6 6a.5.5 0 01-.708-.708L10.293 8 4.646 2.354a.5.5 0 010-.708z"/>
+            </svg>
+        </a>
+        {% else %}
+        <span></span>
+        {% endif %}
+    </nav>
+</div>
+{% endblock %}

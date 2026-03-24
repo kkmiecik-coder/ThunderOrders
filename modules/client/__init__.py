@@ -25,3 +25,4 @@ from modules.client import payment_confirmations
 from modules.client import collection
 from modules.client import payment_upload_sessions
 from modules.client import payment_socket_events
+from modules.client import help

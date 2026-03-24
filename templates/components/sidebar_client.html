@@ -81,6 +81,15 @@
                     </li>
                 </ul>
             </li>
+
+            <li class="sidebar-item">
+                <a href="{{ url_for('client.help_index') }}"
+                   class="sidebar-link {% if request.endpoint and 'help' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Pomoc">
+                    <img src="{{ url_for('static', filename='img/icons/help.svg') }}" alt="Pomoc" class="sidebar-icon">
+                    <span class="sidebar-text">Pomoc</span>
+                </a>
+            </li>
         </ul>
     </nav>
 </aside>

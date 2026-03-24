@@ -1,0 +1,38 @@
+{% extends "client/base_client.html" %}
+
+{% block title %}Pomoc - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/help.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="help-page">
+    <div class="help-header">
+        <h1 class="help-header__title">Pomoc</h1>
+        <p class="help-header__subtitle">Znajdź odpowiedzi na najczęstsze pytania</p>
+    </div>
+
+    {% for category in categories %}
+    <div class="help-category">
+        <div class="help-category__header">
+            <img src="{{ url_for('static', filename='img/icons/' ~ category.icon ~ '.svg') }}"
+                 alt="{{ category.name }}"
+                 class="help-category__icon">
+            <h2 class="help-category__name">{{ category.name }}</h2>
+        </div>
+
+        <div class="help-category__card">
+            {% for article in category.articles %}
+            <a href="{{ url_for('client.help_article', slug=article.slug) }}" class="help-article-link">
+                <span class="help-article-link__title">{{ article.title }}</span>
+                <svg class="help-article-link__chevron" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 01.708 0l6 6a.5.5 0 010 .708l-6 6a.5.5 0 01-.708-.708L10.293 8 4.646 2.354a.5.5 0 010-.708z"/>
+                </svg>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

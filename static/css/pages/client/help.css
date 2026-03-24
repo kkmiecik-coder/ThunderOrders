@@ -1,0 +1,458 @@
+/* ==========================================================================
+   Help Center - Index & Article Pages
+   ========================================================================== */
+
+/* ---------- Page Container ---------- */
+.help-page {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 48px;
+}
+
+/* ---------- Page Header ---------- */
+.help-header {
+    margin-bottom: 32px;
+}
+
+.help-header__title {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    color: #1a1a2e;
+}
+
+.help-header__subtitle {
+    font-size: 14px;
+    color: #888;
+    margin: 0;
+}
+
+/* ---------- Category ---------- */
+.help-category {
+    margin-bottom: 28px;
+}
+
+.help-category__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.help-category__icon {
+    width: 20px;
+    height: 20px;
+    opacity: 0.55;
+}
+
+.help-category__name {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+    margin: 0;
+}
+
+/* ---------- Category Card ---------- */
+.help-category__card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+    overflow: hidden;
+}
+
+/* ---------- Article Link ---------- */
+.help-article-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    text-decoration: none;
+    color: #333;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.15s ease;
+}
+
+.help-article-link:last-child {
+    border-bottom: none;
+}
+
+.help-article-link:hover {
+    background: #f9f9fb;
+}
+
+.help-article-link__title {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.help-article-link__chevron {
+    flex-shrink: 0;
+    opacity: 0.3;
+    color: #333;
+    margin-left: 12px;
+    transition: opacity 0.15s ease;
+}
+
+.help-article-link:hover .help-article-link__chevron {
+    opacity: 0.6;
+}
+
+/* ==========================================================================
+   Article Page
+   ========================================================================== */
+
+/* ---------- Breadcrumb ---------- */
+.help-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #7c3aed;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    margin-bottom: 16px;
+    transition: opacity 0.15s ease;
+}
+
+.help-breadcrumb:hover {
+    opacity: 0.75;
+}
+
+/* ---------- Article Title ---------- */
+.help-article-title {
+    font-size: 26px;
+    font-weight: 800;
+    margin: 0;
+    color: #1a1a2e;
+}
+
+/* ---------- Article Date ---------- */
+.help-article-date {
+    font-size: 13px;
+    color: #999;
+    margin: 8px 0 32px;
+}
+
+/* ---------- Article Card ---------- */
+.help-article-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e8e8e8;
+    padding: 32px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.help-article-card h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    color: #1a1a2e;
+}
+
+.help-article-card h2:first-child {
+    margin-top: 0;
+}
+
+.help-article-card p {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #555;
+    margin: 0 0 14px;
+}
+
+.help-article-card ul,
+.help-article-card ol {
+    font-size: 14px;
+    line-height: 1.7;
+    color: #555;
+    margin: 0 0 14px;
+    padding-left: 24px;
+}
+
+.help-article-card li {
+    margin-bottom: 6px;
+}
+
+.help-article-card strong {
+    color: #333;
+    font-weight: 600;
+}
+
+.help-article-card code {
+    background: #f4f4f5;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #7c3aed;
+}
+
+/* ---------- Tip Box ---------- */
+.help-tip {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #166534;
+}
+
+.help-tip__icon {
+    flex-shrink: 0;
+    color: #22c55e;
+    margin-top: 1px;
+}
+
+/* ---------- Warning Box ---------- */
+.help-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin: 18px 0;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #92400e;
+}
+
+.help-warning__icon {
+    flex-shrink: 0;
+    color: #f59e0b;
+    margin-top: 1px;
+}
+
+/* ---------- Screenshot ---------- */
+.help-screenshot {
+    margin: 18px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #e8e8e8;
+    background: #fafafa;
+}
+
+.help-screenshot img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 11px;
+}
+
+.help-screenshot--placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 10px;
+}
+
+.help-screenshot__camera {
+    opacity: 0.2;
+}
+
+.help-screenshot__alt {
+    font-size: 13px;
+    color: #aaa;
+    text-align: center;
+}
+
+/* ---------- Prev / Next Navigation ---------- */
+.help-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 28px;
+    gap: 16px;
+}
+
+.help-nav__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #7c3aed;
+    text-decoration: none;
+    transition: opacity 0.15s ease;
+}
+
+.help-nav__link:hover {
+    opacity: 0.75;
+}
+
+.help-nav__link--next {
+    margin-left: auto;
+    text-align: right;
+}
+
+/* ==========================================================================
+   Dark Mode
+   ========================================================================== */
+
+[data-theme="dark"] .help-header__title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .help-header__subtitle {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .help-category__icon {
+    opacity: 0.6;
+    filter: brightness(0) invert(1);
+}
+
+[data-theme="dark"] .help-category__name {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .help-category__card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .help-article-link {
+    color: #ffffff;
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .help-article-link:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .help-article-link__chevron {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .help-article-link:hover .help-article-link__chevron {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Article page - dark */
+[data-theme="dark"] .help-breadcrumb {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .help-article-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .help-article-date {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .help-article-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .help-article-card h2 {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .help-article-card p {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .help-article-card ul,
+[data-theme="dark"] .help-article-card ol {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .help-article-card strong {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .help-article-card code {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f093fb;
+}
+
+/* Tip - dark */
+[data-theme="dark"] .help-tip {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.25);
+    color: #86efac;
+}
+
+[data-theme="dark"] .help-tip__icon {
+    color: #4ade80;
+}
+
+/* Warning - dark */
+[data-theme="dark"] .help-warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.25);
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .help-warning__icon {
+    color: #fbbf24;
+}
+
+/* Screenshot - dark */
+[data-theme="dark"] .help-screenshot {
+    border-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="dark"] .help-screenshot__camera {
+    opacity: 0.3;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .help-screenshot__alt {
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* Nav - dark */
+[data-theme="dark"] .help-nav__link {
+    color: #f093fb;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .help-page {
+        padding: 16px 12px 40px;
+    }
+
+    .help-header__title {
+        font-size: 24px;
+    }
+
+    .help-article-title {
+        font-size: 22px;
+    }
+
+    .help-article-card {
+        padding: 20px 16px;
+        border-radius: 12px;
+    }
+
+    .help-article-link {
+        padding: 12px 16px;
+    }
+
+    .help-nav {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .help-nav__link--next {
+        margin-left: 0;
+        text-align: left;
+    }
+}
