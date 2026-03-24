@@ -51,6 +51,9 @@
                         <button class="notif-mark-all-btn" id="notifMarkAllBtn" title="Oznacz wszystko jako przeczytane" style="display:none;">
                             <img src="{{ url_for('static', filename='img/icons/check-circle.svg') }}" alt="Oznacz">
                         </button>
+                        <button class="notif-clear-all-btn" id="notifClearAllBtn" title="Usuń wszystkie powiadomienia" style="display:none;">
+                            <img src="{{ url_for('static', filename='img/icons/trash.svg') }}" alt="Usuń wszystkie">
+                        </button>
                         <a href="{{ url_for('profile.index') }}#push" class="notif-settings-link" title="Ustawienia powiadomień">
                             <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="Ustawienia">
                         </a>
@@ -199,6 +202,9 @@
         <span class="mobile-notif-title">Powiadomienia</span>
         <button class="mobile-notif-mark-all" id="mobileMarkAllBtn" title="Oznacz wszystko jako przeczytane" style="display:none;">
             <img src="{{ url_for('static', filename='img/icons/check-circle.svg') }}" alt="Oznacz wszystkie">
+        </button>
+        <button class="mobile-notif-clear-all" id="mobileClearAllBtn" title="Usuń wszystkie powiadomienia" style="display:none;">
+            <img src="{{ url_for('static', filename='img/icons/trash.svg') }}" alt="Usuń wszystkie">
         </button>
     </div>
     <div class="mobile-notif-list" id="mobileNotifList">

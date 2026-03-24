@@ -142,7 +142,7 @@
 
     // Listen for force-show from health check (Scenario B: localStorage cleared, backend has subs)
     window.addEventListener('push-force-banner', function () {
-        // Bypass cooldown and show immediately
+        if (isDismissed()) return;
         if (Notification.permission === 'denied') return;
         PN.isSubscribed().then(function (subscribed) {
             if (!subscribed) {

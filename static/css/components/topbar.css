@@ -375,6 +375,7 @@
 }
 
 .notif-mark-all-btn,
+.notif-clear-all-btn,
 .notif-settings-link {
     display: flex;
     align-items: center;
@@ -390,11 +391,13 @@
 }
 
 .notif-mark-all-btn:hover,
+.notif-clear-all-btn:hover,
 .notif-settings-link:hover {
     background: var(--bg-secondary);
 }
 
 .notif-mark-all-btn img,
+.notif-clear-all-btn img,
 .notif-settings-link img {
     width: 16px;
     height: 16px;
@@ -402,12 +405,14 @@
 }
 
 [data-theme="dark"] .notif-mark-all-btn img,
+[data-theme="dark"] .notif-clear-all-btn img,
 [data-theme="dark"] .notif-settings-link img {
     filter: brightness(0) invert(1);
     opacity: 0.6;
 }
 
 [data-theme="dark"] .notif-mark-all-btn:hover,
+[data-theme="dark"] .notif-clear-all-btn:hover,
 [data-theme="dark"] .notif-settings-link:hover {
     background: rgba(255, 255, 255, 0.08);
 }
@@ -794,7 +799,8 @@
     flex: 1;
 }
 
-.mobile-notif-mark-all {
+.mobile-notif-mark-all,
+.mobile-notif-clear-all {
     width: 36px;
     height: 36px;
     display: flex;
@@ -806,7 +812,8 @@
     cursor: pointer;
 }
 
-.mobile-notif-mark-all img {
+.mobile-notif-mark-all img,
+.mobile-notif-clear-all img {
     width: 20px;
     height: 20px;
     opacity: 0.7;
@@ -958,7 +965,8 @@
     color: #ffffff;
 }
 
-[data-theme="dark"] .mobile-notif-mark-all img {
+[data-theme="dark"] .mobile-notif-mark-all img,
+[data-theme="dark"] .mobile-notif-clear-all img {
     filter: brightness(0) invert(1);
     opacity: 0.8;
 }
