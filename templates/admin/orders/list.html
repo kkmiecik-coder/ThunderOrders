@@ -366,9 +366,14 @@
             <!-- Header: Checkbox + Number + Amount -->
             <div class="admin-card-header">
                 <input type="checkbox" class="order-checkbox order-card-checkbox" value="{{ order.id }}" aria-label="Zaznacz zamówienie {{ order.order_number }}">
-                <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="admin-card-number">
-                    {{ order.order_number }}
-                </a>
+                <div class="admin-card-number-wrap">
+                    <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="admin-card-number">
+                        {{ order.order_number }}
+                    </a>
+                    {% if order.custom_name %}
+                    <span class="admin-card-custom-name">{{ order.custom_name }}</span>
+                    {% endif %}
+                </div>
                 <div class="admin-card-amount">{{ "%.2f"|format(order.total_amount) }} zł</div>
             </div>
 
@@ -444,6 +449,9 @@
                         <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number-link">
                             {{ order.order_number }}
                         </a>
+                        {% if order.custom_name %}
+                        <span class="admin-order-custom-name">{{ order.custom_name }}</span>
+                        {% endif %}
                     </td>
 
                     <!-- Klient z flagą i źródłem -->

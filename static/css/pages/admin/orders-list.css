@@ -3591,3 +3591,42 @@
         max-height: calc(100vh - 200px);
     }
 }
+
+/* ===================================================================
+   CUSTOM NAME — Admin Orders
+   =================================================================== */
+
+/* Desktop table */
+.admin-order-custom-name {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--text-tertiary, #888);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+[data-theme="dark"] .admin-order-custom-name {
+    color: rgba(255,255,255,0.45);
+}
+
+/* Mobile cards */
+.admin-card-number-wrap {
+    flex: 1;
+    min-width: 0;
+}
+.admin-card-custom-name {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+[data-theme="light"] .admin-card-custom-name {
+    color: var(--text-tertiary, #888);
+}

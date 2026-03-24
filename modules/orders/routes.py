@@ -125,6 +125,7 @@ def admin_list():
         query = query.join(Order.user, isouter=True).filter(
             or_(
                 Order.order_number.like(search_term),
+                Order.custom_name.like(search_term),
                 db.func.concat(User.first_name, ' ', User.last_name).like(search_term),
                 User.email.like(search_term)
             )
@@ -1594,9 +1595,14 @@ def client_list():
         end_date = datetime.strptime(date_to, '%Y-%m-%d') + timedelta(days=1)
         query = query.filter(Order.created_at < end_date)
 
-    # Search filter (by order number)
+    # Search filter (by order number or custom name)
     if search_query:
-        query = query.filter(Order.order_number.ilike(f'%{search_query}%'))
+        query = query.filter(
+            or_(
+                Order.order_number.ilike(f'%{search_query}%'),
+                Order.custom_name.ilike(f'%{search_query}%')
+            )
+        )
 
     # Payment status filter
     if payment_status_filter:
@@ -1798,6 +1804,27 @@ def client_detail(order_id):
         page_title=f'Zamówienie {order.order_number}'
     )
 
+
+
+@orders_bp.route('/client/orders/<int:order_id>/custom-name', methods=['POST'])
+@login_required
+def update_custom_name(order_id):
+    """Update custom name for an order (AJAX)."""
+    order = Order.query.get_or_404(order_id)
+
+    if order.user_id != current_user.id:
+        return jsonify({'success': False, 'error': 'Brak dostępu'}), 403
+
+    data = request.get_json(silent=True) or {}
+    custom_name = (data.get('custom_name') or '').strip()
+
+    if len(custom_name) > 50:
+        return jsonify({'success': False, 'error': 'Nazwa może mieć maksymalnie 50 znaków'}), 400
+
+    order.custom_name = custom_name if custom_name else None
+    db.session.commit()
+
+    return jsonify({'success': True, 'custom_name': order.custom_name})
 
 
 # ====================

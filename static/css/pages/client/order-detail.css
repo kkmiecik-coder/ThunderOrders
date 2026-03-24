@@ -1371,3 +1371,179 @@
         border-radius: 12px;
     }
 }
+
+/* ===================================================================
+   CUSTOM NAME — Hero, Sidebar, Popover
+   =================================================================== */
+
+/* Hero custom name */
+.od-hero__custom-name {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--text-sm);
+    font-weight: 300;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] .od-hero__custom-name {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+/* Sidebar — custom name row */
+.od-custom-name {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.od-custom-name__text {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-theme="dark"] .od-custom-name__text {
+    color: #fff;
+}
+
+.od-custom-name__edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    border-radius: 4px;
+    transition: color .15s, background .15s;
+}
+.od-custom-name__edit:hover {
+    color: var(--purple-400);
+    background: rgba(90, 24, 154, 0.06);
+}
+[data-theme="dark"] .od-custom-name__edit {
+    color: rgba(255,255,255,0.4);
+}
+[data-theme="dark"] .od-custom-name__edit:hover {
+    color: #f093fb;
+    background: rgba(240,147,251,0.1);
+}
+
+.od-custom-name__add {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    background: var(--white, #fff);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all .15s;
+}
+.od-custom-name__add:hover {
+    border-color: var(--purple-400);
+    color: var(--purple-400);
+}
+[data-theme="dark"] .od-custom-name__add {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(240,147,251,0.2);
+    color: rgba(255,255,255,0.6);
+}
+[data-theme="dark"] .od-custom-name__add:hover {
+    border-color: #f093fb;
+    color: #f093fb;
+}
+
+/* Popover */
+.od-custom-name-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 100;
+    background: var(--white, #fff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 10px;
+    min-width: 220px;
+    animation: od-pop-in .15s ease-out;
+}
+@keyframes od-pop-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+[data-theme="dark"] .od-custom-name-popover {
+    background: rgba(30,20,40,0.95);
+    border-color: rgba(240,147,251,0.25);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    backdrop-filter: blur(16px);
+}
+
+.od-custom-name-popover__input {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: var(--text-sm);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    background: var(--white, #fff);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color .15s;
+    box-sizing: border-box;
+}
+.od-custom-name-popover__input:focus {
+    border-color: var(--purple-400);
+}
+[data-theme="dark"] .od-custom-name-popover__input {
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(240,147,251,0.2);
+    color: #fff;
+}
+[data-theme="dark"] .od-custom-name-popover__input:focus {
+    border-color: #f093fb;
+}
+
+.od-custom-name-popover__actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.od-custom-name-popover__btn {
+    flex: 1;
+    padding: 5px 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity .15s;
+}
+.od-custom-name-popover__btn:hover { opacity: 0.85; }
+
+.od-custom-name-popover__btn--save {
+    background: var(--purple-400, #7c3aed);
+    color: #fff;
+}
+[data-theme="dark"] .od-custom-name-popover__btn--save {
+    background: linear-gradient(135deg, #f093fb, #f5576c);
+}
+
+.od-custom-name-popover__btn--cancel {
+    background: transparent;
+    border: 1px solid var(--border-color, #e0e0e0);
+    color: var(--text-secondary);
+}
+[data-theme="dark"] .od-custom-name-popover__btn--cancel {
+    border-color: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.6);
+}

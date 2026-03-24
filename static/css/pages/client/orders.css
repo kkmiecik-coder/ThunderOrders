@@ -1779,3 +1779,60 @@
 [data-theme="dark"] .text-outside-set {
     color: #EF5350 !important;
 }
+
+/* ===================================================================
+   CUSTOM NAME — Orders List (Desktop + Mobile)
+   =================================================================== */
+
+/* Desktop table */
+.order-custom-name-link {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--purple-400, #5A189A);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.order-custom-name-link:hover {
+    color: var(--orange-300, #7B2CBF);
+    text-decoration: underline;
+}
+[data-theme="dark"] .order-custom-name-link {
+    color: #f093fb;
+}
+[data-theme="dark"] .order-custom-name-link:hover {
+    color: #f5576c;
+}
+
+.order-number-link--secondary {
+    font-size: 0.75rem !important;
+    font-weight: 400 !important;
+    opacity: 0.65;
+}
+
+/* Mobile cards */
+.card-order-custom-name {
+    display: block;
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f093fb;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.card-order-custom-name:hover {
+    color: #f5576c;
+    text-decoration: underline;
+}
+[data-theme="light"] .card-order-custom-name {
+    color: #5A189A;
+}
+[data-theme="light"] .card-order-custom-name:hover {
+    color: #7B2CBF;
+}
+
+.card-order-number--secondary {
+    display: block;
+    font-size: 0.8rem !important;
+    font-weight: 400 !important;
+    opacity: 0.55;
+}

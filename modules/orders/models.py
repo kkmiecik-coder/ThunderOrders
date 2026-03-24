@@ -211,6 +211,9 @@ class Order(db.Model):
     pickup_postal_code = db.Column(db.String(10), nullable=True)  # Kod pocztowy punktu
     pickup_city = db.Column(db.String(100), nullable=True)  # Miasto punktu
 
+    # Custom name (client-defined alias)
+    custom_name = db.Column(db.String(50), nullable=True)
+
     # Notes
     notes = db.Column(db.Text, nullable=True)  # Client notes
     admin_notes = db.Column(db.Text, nullable=True)  # Internal admin notes

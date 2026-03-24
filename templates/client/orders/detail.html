@@ -21,6 +21,9 @@
         </div>
         <div class="od-hero__body">
             <h1 class="od-hero__number">{{ order.order_number }}</h1>
+            {% if order.custom_name %}
+            <span class="od-hero__custom-name" id="hero-custom-name">{{ order.custom_name }}</span>
+            {% endif %}
             {% if order.is_exclusive and order.exclusive_page %}
             <span class="od-hero__page">{{ order.exclusive_page.name }}</span>
             {% endif %}
@@ -525,6 +528,21 @@
                     <div class="od-dl__item">
                         <dt>Numer</dt>
                         <dd class="od-mono">{{ order.order_number }}</dd>
+                    </div>
+                    <div class="od-dl__item">
+                        <dt>Nazwa własna</dt>
+                        <dd>
+                            <div class="od-custom-name" id="custom-name-container" data-order-id="{{ order.id }}">
+                                {% if order.custom_name %}
+                                <span class="od-custom-name__text" id="custom-name-text">{{ order.custom_name }}</span>
+                                <button type="button" class="od-custom-name__edit" id="custom-name-edit-btn" title="Edytuj nazwę">
+                                    <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                </button>
+                                {% else %}
+                                <button type="button" class="od-custom-name__add" id="custom-name-add-btn">Dodaj</button>
+                                {% endif %}
+                            </div>
+                        </dd>
                     </div>
                     <div class="od-dl__item">
                         <dt>Status</dt>

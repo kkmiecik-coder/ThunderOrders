@@ -134,9 +134,14 @@
                 <!-- Header: Number + Amount -->
                 <div class="card-header">
                     <div>
+                        {% if order.custom_name %}
+                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="card-order-custom-name">{{ order.custom_name }}</a>
+                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="card-order-number card-order-number--secondary">{{ order.order_number }}</a>
+                        {% else %}
                         <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="card-order-number">
                             {{ order.order_number }}
                         </a>
+                        {% endif %}
                     </div>
                     <div class="card-amount">{{ "%.2f"|format(order.total_amount) }} zł</div>
                 </div>
@@ -218,9 +223,14 @@
                 <tr data-order-id="{{ order.id }}">
                     <!-- Kolumna 1: Numer zamówienia -->
                     <td class="col-number" data-label="Numer">
+                        {% if order.custom_name %}
+                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-custom-name-link">{{ order.custom_name }}</a>
+                        <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link order-number-link--secondary">{{ order.order_number }}</a>
+                        {% else %}
                         <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link">
                             {{ order.order_number }}
                         </a>
+                        {% endif %}
                     </td>
 
                     <!-- Kolumna 2: Przedmioty (max 3 + toggle) -->
