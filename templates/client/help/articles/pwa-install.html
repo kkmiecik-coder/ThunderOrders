@@ -1,0 +1,40 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Czym jest aplikacja ThunderOrders?</h2>
+<p>ThunderOrders działa jako <strong>aplikacja webowa (PWA)</strong> — możesz ją zainstalować na telefonie bezpośrednio z przeglądarki, bez pobierania ze sklepu. Po instalacji działa jak zwykła aplikacja — ma własną ikonę na ekranie głównym i wyświetla powiadomienia push.</p>
+
+<h2>Instalacja na iPhone (iOS)</h2>
+<ol>
+    <li>Otwórz stronę <strong>thunderorders.cloud</strong> w przeglądarce <strong>Safari</strong></li>
+    <li>Kliknij ikonę <strong>udostępniania</strong> (kwadrat ze strzałką w górę) na dole ekranu</li>
+    <li>Przewiń listę opcji i wybierz <strong>„Dodaj do ekranu początkowego"</strong></li>
+    <li>Potwierdź klikając <strong>„Dodaj"</strong></li>
+</ol>
+
+{{ warning('Na iOS instalacja jest możliwa wyłącznie przez Safari. Inne przeglądarki (Chrome, Firefox) nie obsługują tej funkcji na iPhone.') }}
+
+{{ screenshot('Instalacja PWA na iOS — krok po kroku') }}
+
+<h2>Instalacja na Androidzie</h2>
+<ol>
+    <li>Otwórz stronę <strong>thunderorders.cloud</strong> w przeglądarce <strong>Chrome</strong></li>
+    <li>Kliknij ikonę <strong>trzech kropek</strong> (menu) w prawym górnym rogu</li>
+    <li>Wybierz <strong>„Zainstaluj aplikację"</strong> lub <strong>„Dodaj do ekranu głównego"</strong></li>
+    <li>Potwierdź instalację</li>
+</ol>
+<p>Na niektórych urządzeniach z Androidem może pojawić się automatyczny baner z propozycją instalacji na dole ekranu — wystarczy kliknąć <strong>„Zainstaluj"</strong>.</p>
+
+{{ screenshot('Instalacja PWA na Androidzie') }}
+
+<h2>Co daje zainstalowana aplikacja?</h2>
+<ul>
+    <li><strong>Ikona na ekranie głównym</strong> — szybki dostęp bez otwierania przeglądarki</li>
+    <li><strong>Tryb pełnoekranowy</strong> — aplikacja otwiera się bez paska adresu przeglądarki</li>
+    <li><strong>Powiadomienia push</strong> — otrzymujesz powiadomienia na ekranie blokady i w centrum powiadomień, tak jak w natywnych aplikacjach</li>
+</ul>
+
+{{ tip('Po zainstalowaniu aplikacji włącz powiadomienia push, aby być na bieżąco ze statusami zamówień i nowymi sprzedażami Exclusive.') }}
+
+{% endblock %}

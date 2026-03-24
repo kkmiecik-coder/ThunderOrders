@@ -1,0 +1,60 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Centrum powiadomień</h2>
+<p>W prawym górnym rogu ekranu znajdziesz <strong>ikonę dzwoneczka</strong> — to Twoje centrum powiadomień. Kliknij w nią, aby zobaczyć listę wszystkich powiadomień.</p>
+<p>Każde powiadomienie zawiera tytuł, treść oraz czas otrzymania. Nieprzeczytane powiadomienia oznaczone są kropką, a ich liczba wyświetla się na ikonce dzwoneczka.</p>
+
+{{ screenshot('Centrum powiadomień z listą powiadomień') }}
+
+<p>Dostępne akcje:</p>
+<ul>
+    <li><strong>Kliknij powiadomienie</strong> — otworzysz powiązaną stronę (np. szczegóły zamówienia) i oznaczysz je jako przeczytane</li>
+    <li><strong>Oznacz wszystko jako przeczytane</strong> — ikona znacznika w nagłówku</li>
+    <li><strong>Usuń wszystkie</strong> — ikona kosza w nagłówku</li>
+    <li><strong>Usuń pojedyncze</strong> — przycisk × na wybranym powiadomieniu</li>
+</ul>
+
+{{ tip('Powiadomienia są automatycznie usuwane po 30 dniach.') }}
+
+<h2>Powiadomienia push</h2>
+<p>Powiadomienia push wyświetlają się bezpośrednio na Twoim urządzeniu — nawet gdy nie masz otwartej strony ThunderOrders. Dzięki nim natychmiast dowiesz się o ważnych zmianach w zamówieniach.</p>
+<p>Aby je włączyć:</p>
+<ol>
+    <li>Przy pierwszej wizycie zobaczysz baner z propozycją włączenia powiadomień — kliknij <strong>„Włącz"</strong></li>
+    <li>Przeglądarka poprosi o zgodę — kliknij <strong>„Zezwól"</strong></li>
+</ol>
+<p>Powiadomienia push możesz też włączyć lub wyłączyć w dowolnym momencie w <strong>Ustawieniach profilu</strong> w sekcji „Powiadomienia Push".</p>
+
+<h2>Kategorie powiadomień</h2>
+<p>W ustawieniach profilu możesz wybrać, o czym chcesz być informowany. Dostępne kategorie:</p>
+<ul>
+    <li><strong>Zmiany statusu zamówień</strong> — gdy Twoje zamówienie zmieni status</li>
+    <li><strong>Aktualizacje płatności</strong> — zatwierdzenie lub odrzucenie potwierdzenia płatności</li>
+    <li><strong>Status wysyłki</strong> — zmiany w zleceniach wysyłki, numer śledzenia</li>
+    <li><strong>Nowe strony Exclusive</strong> — powiadomienie o nowej sprzedaży</li>
+    <li><strong>Nowe koszty zamówień</strong> — dodanie kosztu wysyłki proxy, cła lub dostawy krajowej</li>
+</ul>
+
+{{ screenshot('Ustawienia kategorii powiadomień w profilu') }}
+
+<h2>Powiadomienia w aplikacji na telefon</h2>
+<p>Jeśli zainstalujesz ThunderOrders jako aplikację na telefonie, powiadomienia push będą wyświetlać się tak samo jak w natywnych aplikacjach — na ekranie blokady i w centrum powiadomień systemu.</p>
+
+{{ tip('Dowiedz się jak zainstalować aplikację na telefonie: <a href="/client/help/pwa-install" class="help-tip-btn">Czytam →</a>') }}
+
+<h2>Powiadomienia e-mail</h2>
+<p>Oprócz powiadomień push i w aplikacji, otrzymujesz również <strong>wiadomości e-mail</strong> o kluczowych zdarzeniach:</p>
+<ul>
+    <li>Potwierdzenie złożenia zamówienia</li>
+    <li>Zmiana statusu zamówienia</li>
+    <li>Zatwierdzenie lub odrzucenie płatności</li>
+    <li>Dodanie nowego kosztu do zamówienia</li>
+    <li>Nadanie numeru śledzenia przesyłki</li>
+    <li>Przypomnienie o niezapłaconych etapach</li>
+    <li>Zamknięcie strony Exclusive z podsumowaniem zamówienia</li>
+</ul>
+<p>E-maile wysyłane są automatycznie na adres powiązany z Twoim kontem.</p>
+
+{% endblock %}

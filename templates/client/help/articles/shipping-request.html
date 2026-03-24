@@ -1,0 +1,56 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Kiedy mogę zlecić wysyłkę?</h2>
+<p>Zlecenie wysyłki możesz utworzyć, gdy Twoje zamówienia mają status <strong>„Dostarczone do GOM"</strong> (czyli dotarły do naszego magazynu). Zamówienia w innych statusach lub już przypisane do innego zlecenia nie pojawią się na liście.</p>
+<p>Musisz mieć również <strong>co najmniej jeden zapisany adres dostawy</strong>. Jeśli go nie masz, dodaj go wcześniej w zakładce Wysyłka → Adresy dostaw.</p>
+
+<h2>Jak utworzyć zlecenie?</h2>
+<p>Zlecenie wysyłki możesz utworzyć z dwóch miejsc:</p>
+<ul>
+    <li><strong>Wysyłka → Zlecenia</strong> — kliknij przycisk „Zleć wysyłkę"</li>
+    <li><strong>Szczegóły zamówienia</strong> — w sekcji wysyłki znajdziesz odnośnik do zlecenia</li>
+</ul>
+<p>W obu przypadkach otworzy się kreator składający się z dwóch kroków:</p>
+
+<h2>Krok 1: Wybierz zamówienia</h2>
+<p>Zobaczysz listę zamówień gotowych do wysyłki. Przy każdym zamówieniu wyświetlany jest numer, data, zawartość (produkty z miniaturami) oraz kwota.</p>
+<ul>
+    <li>Zaznacz zamówienia, które chcesz wysłać — możesz wybrać jedno lub kilka</li>
+    <li>Użyj opcji <strong>„Zaznacz wszystkie"</strong>, aby wybrać wszystkie dostępne zamówienia</li>
+</ul>
+
+{{ tip('Możesz zgrupować kilka zamówień w jedno zlecenie wysyłki — zostaną wysłane razem na ten sam adres.') }}
+
+{{ screenshot('Kreator zlecenia — wybór zamówień') }}
+
+<h2>Krok 2: Wybierz adres dostawy</h2>
+<p>Wybierz adres z listy zapisanych adresów. Po wybraniu zobaczysz <strong>podgląd pełnych danych adresowych</strong>, abyś mógł upewnić się, że wszystko się zgadza.</p>
+<p>Adres domyślny pojawia się na początku listy.</p>
+
+{{ screenshot('Kreator zlecenia — wybór adresu z podglądem') }}
+
+<h2>Potwierdzenie i wysłanie</h2>
+<p>Po wybraniu zamówień i adresu kliknij <strong>„Zleć wysyłkę"</strong>. Zlecenie zostanie utworzone i otrzymasz potwierdzenie e-mailem. Nowe zlecenie pojawi się na liście z unikalnym numerem (np. <code>WYS/000001</code>).</p>
+
+<h2>Co widzę na liście zleceń?</h2>
+<p>Każde zlecenie wyświetlane jest jako karta z informacjami:</p>
+<ul>
+    <li><strong>Numer zlecenia</strong> — np. WYS/000001</li>
+    <li><strong>Status</strong> — aktualny etap realizacji (kolorowa etykieta)</li>
+    <li><strong>Zamówienia</strong> — numery zamówień przypisanych do zlecenia</li>
+    <li><strong>Adres dostawy</strong> — skrócony widok wybranego adresu</li>
+    <li><strong>Koszt wysyłki</strong> — kwota w PLN lub „Oczekuje", jeśli nie została jeszcze wyceniona</li>
+    <li><strong>Numer śledzenia</strong> — link do śledzenia przesyłki (gdy dostępny)</li>
+    <li><strong>Data utworzenia</strong></li>
+</ul>
+
+{{ screenshot('Lista zleceń wysyłki') }}
+
+<h2>Anulowanie zlecenia</h2>
+<p>Zlecenie możesz anulować <strong>tylko na początkowym etapie</strong> — zanim administrator wyceni koszt wysyłki lub nada paczkę. Jeśli zlecenie jest już w trakcie realizacji, przycisk anulowania będzie nieaktywny.</p>
+
+{{ warning('Po anulowaniu zlecenia Twoje zamówienia wrócą do puli dostępnych — możesz utworzyć nowe zlecenie lub zgrupować je razem z innymi zamówieniami.') }}
+
+{% endblock %}

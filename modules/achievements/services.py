@@ -241,13 +241,22 @@ class AchievementService:
 
         achievements = Achievement.query.filter_by(is_active=True).all()
         for a in achievements:
-            unlocked_count = UserAchievement.query.filter_by(achievement_id=a.id).count()
+            unlocked_count = (
+                UserAchievement.query
+                .join(User, UserAchievement.user_id == User.id)
+                .filter(
+                    UserAchievement.achievement_id == a.id,
+                    User.is_active == True,
+                    User.role == 'client',
+                )
+                .count()
+            )
             stat = AchievementStat.query.filter_by(achievement_id=a.id).first()
             if not stat:
                 stat = AchievementStat(achievement_id=a.id)
                 db.session.add(stat)
             stat.total_unlocked = unlocked_count
-            stat.percentage = round((unlocked_count / total_clients) * 100, 1)
+            stat.percentage = min(round((unlocked_count / total_clients) * 100, 1), 100.0)
 
         db.session.commit()
 

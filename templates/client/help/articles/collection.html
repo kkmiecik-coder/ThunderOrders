@@ -1,0 +1,78 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Czym jest Moja Kolekcja?</h2>
+<p>Moja Kolekcja to Twoja osobista galeria przedmiotów kolekcjonerskich. Przedmioty mogą trafiać do kolekcji na dwa sposoby:</p>
+<ul>
+    <li><strong>Automatycznie z zamówień</strong> — gdy zamówienie otrzyma status „Dostarczone", produkty z niego automatycznie pojawią się w kolekcji z etykietą „Z zamówienia"</li>
+    <li><strong>Ręcznie</strong> — możesz sam dodać dowolny przedmiot klikając przycisk „Dodaj przedmiot"</li>
+</ul>
+
+{{ screenshot('Widok kolekcji z przedmiotami') }}
+
+<h2>Dodawanie przedmiotu ręcznie</h2>
+<p>Kliknij przycisk <strong>„Dodaj przedmiot"</strong> i uzupełnij dane:</p>
+<ul>
+    <li><strong>Nazwa</strong> — wymagana</li>
+    <li><strong>Cena rynkowa</strong> — opcjonalna, w PLN</li>
+    <li><strong>Notatki</strong> — opcjonalne, do 1000 znaków</li>
+    <li><strong>Zdjęcia</strong> — opcjonalne, maksymalnie 3 zdjęcia na przedmiot</li>
+</ul>
+<p>Zdjęcia możesz dodać z komputera lub przez <strong>kod QR</strong> — zeskanuj go telefonem, aby przesłać zdjęcia bezpośrednio z aparatu.</p>
+
+<h2>Tryby wyświetlania</h2>
+<p>Kolekcja oferuje trzy tryby widoku:</p>
+<ul>
+    <li><strong>Karuzela</strong> — duży podgląd slajdów z nawigacją lewo/prawo</li>
+    <li><strong>Siatka</strong> — karty ułożone w wierszach</li>
+    <li><strong>Lista</strong> — tabela ze zdjęciem, nazwą, źródłem, ceną i datą</li>
+</ul>
+<p>Możesz również wyszukiwać przedmioty po nazwie oraz sortować kolekcję (najnowsze, najstarsze, alfabetycznie, według ceny).</p>
+
+<h2>Edycja i zarządzanie</h2>
+<p>Przy każdym przedmiocie masz dostępne akcje:</p>
+<ul>
+    <li><strong>Edytuj</strong> — zmień nazwę, cenę, notatki lub zarządzaj zdjęciami (dodaj, usuń, ustaw główne)</li>
+    <li><strong>Usuń</strong> — trwale usuwa przedmiot z kolekcji</li>
+    <li><strong>Pokaż/ukryj publicznie</strong> — zdecyduj, czy przedmiot ma być widoczny na publicznej stronie kolekcji</li>
+</ul>
+
+<h2>Ustawienia kolekcji</h2>
+<p>Kliknij ikonę ustawień, aby otworzyć panel konfiguracji kolekcji. Dostępne opcje:</p>
+
+<p><strong>Statystyki</strong> — wybierz, które statystyki mają być widoczne na stronie:</p>
+<ul>
+    <li>Liczba przedmiotów</li>
+    <li>Łączna wartość</li>
+</ul>
+
+<p><strong>Widok listy</strong> — wybierz widoczne kolumny w trybie listy:</p>
+<ul>
+    <li>Zdjęcie</li>
+    <li>Źródło</li>
+    <li>Cena rynkowa</li>
+    <li>Data dodania</li>
+</ul>
+
+<p><strong>Widok siatki</strong> — dostosuj liczbę kolumn w trybie siatki (automatycznie lub stała liczba).</p>
+
+{{ screenshot('Modal ustawień kolekcji') }}
+
+<h2>Publiczna strona kolekcji</h2>
+<p>Możesz udostępnić swoją kolekcję innym osobom — bez konieczności logowania. W ustawieniach kolekcji możesz:</p>
+<ul>
+    <li><strong>Wygenerować publiczny link</strong> — unikalny adres URL, który możesz skopiować i wysłać</li>
+    <li><strong>Włączyć/wyłączyć dostęp</strong> — gdy wyłączysz, link przestanie działać</li>
+    <li><strong>Pokazać lub ukryć ceny</strong> — zdecyduj, czy odwiedzający widzą wartość przedmiotów</li>
+    <li><strong>Wybrać widoczne przedmioty</strong> — przełącznikiem przy każdym przedmiocie lub „Zaznacz wszystko"</li>
+</ul>
+
+<h2>Statystyki</h2>
+<p>Na górze strony kolekcji wyświetlane są podsumowania:</p>
+<ul>
+    <li><strong>Liczba przedmiotów</strong> w kolekcji</li>
+    <li><strong>Łączna wartość</strong> kolekcji w PLN (na podstawie uzupełnionych cen rynkowych)</li>
+</ul>
+
+{% endblock %}

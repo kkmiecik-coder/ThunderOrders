@@ -17,9 +17,8 @@ HELP_CATEGORIES = [
         'icon': 'orders',
         'articles': [
             {'slug': 'exclusive-pages', 'title': 'Jak działają strony Exclusive'},
-            {'slug': 'place-order', 'title': 'Jak złożyć zamówienie'},
+            {'slug': 'place-order', 'title': 'Jak złożyć zamówienie Exclusive'},
             {'slug': 'order-statuses', 'title': 'Statusy zamówień — co oznaczają'},
-            {'slug': 'custom-name', 'title': 'Nazwa własna zamówienia'},
         ]
     },
     {
@@ -47,7 +46,7 @@ HELP_CATEGORIES = [
         'icon': 'user',
         'articles': [
             {'slug': 'profile', 'title': 'Ustawienia profilu'},
-            {'slug': 'push-notifications', 'title': 'Powiadomienia push'},
+            {'slug': 'push-notifications', 'title': 'Powiadomienia'},
             {'slug': 'collection', 'title': 'Moja kolekcja'},
             {'slug': 'achievements', 'title': 'Osiągnięcia'},
             {'slug': 'pwa-install', 'title': 'Aplikacja na telefon'},

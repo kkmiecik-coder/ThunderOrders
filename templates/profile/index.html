@@ -59,7 +59,7 @@
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="first_name">Imię</label>
+                                <label for="first_name">Imię <span class="required-asterisk" style="color: #ef4444; margin-left: 2px;">*</span></label>
                                 <input type="text"
                                        id="first_name"
                                        name="first_name"
@@ -68,7 +68,7 @@
                                        maxlength="100">
                             </div>
                             <div class="form-group">
-                                <label for="last_name">Nazwisko</label>
+                                <label for="last_name">Nazwisko <span class="required-asterisk" style="color: #ef4444; margin-left: 2px;">*</span></label>
                                 <input type="text"
                                        id="last_name"
                                        name="last_name"
@@ -84,13 +84,14 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="phone">Telefon</label>
+                            <label for="phone">Telefon <span class="required-asterisk" style="color: #ef4444; margin-left: 2px;">*</span></label>
                             <input type="tel"
                                    id="phone"
                                    name="phone"
                                    value="{{ current_user.phone or '' }}"
                                    maxlength="16"
-                                   placeholder="+48 123 456 789">
+                                   placeholder="+48 123 456 789"
+                                   required>
                         </div>
 
                         <div class="form-actions">
@@ -108,7 +109,7 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <div class="form-group">
-                            <label for="current_password">Obecne hasło</label>
+                            <label for="current_password">Obecne hasło <span class="required-asterisk" style="color: #ef4444; margin-left: 2px;">*</span></label>
                             <input type="password"
                                    id="current_password"
                                    name="current_password"
@@ -118,7 +119,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="new_password">Nowe hasło</label>
+                            <label for="new_password">Nowe hasło <span class="required-asterisk" style="color: #ef4444; margin-left: 2px;">*</span></label>
                             <input type="password"
                                    id="new_password"
                                    name="new_password"
@@ -147,7 +148,7 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="confirm_password">Potwierdź nowe hasło</label>
+                            <label for="confirm_password">Potwierdź nowe hasło <span class="required-asterisk" style="color: #ef4444; margin-left: 2px;">*</span></label>
                             <input type="password"
                                    id="confirm_password"
                                    name="confirm_password"

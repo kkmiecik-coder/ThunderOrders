@@ -1,0 +1,45 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Jak czytać statusy?</h2>
+<p>Każde zamówienie ma przypisany <strong>status</strong>, który informuje o aktualnym etapie realizacji. Status wyświetla się jako kolorowa etykieta na liście zamówień oraz na stronie szczegółów zamówienia.</p>
+
+<h2>Lista statusów</h2>
+
+<p><strong style="color: #3b82f6;">● Nowe</strong></p>
+<p>Zamówienie zostało złożone i czeka na potwierdzenie przez administrację.</p>
+
+<p><strong style="color: #f59e0b;">● Oczekujące</strong></p>
+<p>Zamówienie zostało potwierdzone i oczekuje na dalsze przetwarzanie — np. realizację płatności lub zamówienie produktów u dostawcy.</p>
+
+<p><strong style="color: #10b981;">● Dostarczone do Proxy</strong></p>
+<p>Produkty dotarły do magazynu proxy w Korei Południowej i są gotowe do wysyłki międzynarodowej.</p>
+
+<p><strong style="color: #f97316;">● W drodze do Polski</strong></p>
+<p>Przesyłka jest w transporcie międzynarodowym z Korei do Polski.</p>
+
+<p><strong style="color: #8b5cf6;">● Urząd Celny</strong></p>
+<p>Przesyłka przechodzi odprawę celną w Polsce.</p>
+
+<p><strong style="color: #059669;">● Dostarczone do GOM</strong></p>
+<p>Produkty dotarły do naszego magazynu w Polsce. Na tym etapie możesz zlecić wysyłkę do siebie.</p>
+
+<p><strong style="color: #10b981;">● Spakowane</strong></p>
+<p>Twoje zamówienie zostało spakowane i jest gotowe do nadania.</p>
+
+<p><strong style="color: #f97316;">● Wysłane</strong></p>
+<p>Paczka została nadana i jest w drodze do Ciebie. Na stronie szczegółów zamówienia pojawi się numer śledzenia przesyłki.</p>
+
+<p><strong style="color: #10b981;">● Dostarczone</strong></p>
+<p>Zamówienie zostało doręczone. Produkty automatycznie trafią do Twojej kolekcji.</p>
+
+<p><strong style="color: #dc2626;">● Anulowane</strong></p>
+<p>Zamówienie zostało anulowane.</p>
+
+<h2>Śledzenie na mapie</h2>
+<p>Od momentu zamówienia produktów w Korei na stronie szczegółów zamówienia pojawia się <strong>interaktywna mapa</strong> z osią czasu pokazującą, na jakim etapie znajduje się Twoja przesyłka.</p>
+
+{{ tip('Więcej o śledzeniu przesyłki przeczytasz tutaj: <a href="/client/help/tracking" class="help-tip-btn">Czytam →</a>') }}
+
+{% endblock %}

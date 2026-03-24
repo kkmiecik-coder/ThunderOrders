@@ -1,0 +1,56 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Gdzie przesyłam potwierdzenie?</h2>
+<p>Potwierdzenie płatności możesz przesłać z dwóch miejsc:</p>
+<ul>
+    <li><strong>Strona szczegółów zamówienia</strong> — w sekcji „Płatność" kliknij przycisk „Wgraj"</li>
+    <li><strong>Zakładka Potwierdzenia</strong> — dedykowana strona z listą zamówień wymagających płatności</li>
+</ul>
+
+{{ screenshot('Sekcja płatności na stronie szczegółów zamówienia') }}
+
+<h2>Jak wygląda proces?</h2>
+<p>Po kliknięciu przycisku otworzy się kreator w trzech krokach:</p>
+
+<h2>Krok 1: Wybierz zamówienia</h2>
+<p>Wybierz zamówienia, za które chcesz przesłać potwierdzenie płatności. Możesz wybrać jedno lub kilka zamówień jednocześnie.</p>
+
+<h2>Krok 2: Wybierz etapy do opłacenia</h2>
+<p>Zaznacz, za które etapy płatności przesyłasz potwierdzenie. Możesz opłacić jeden lub kilka etapów jednocześnie.</p>
+
+<h2>Krok 3: Prześlij potwierdzenie</h2>
+<p>Zobaczysz dane do przelewu oraz łączną kwotę do zapłaty. Prześlij plik z potwierdzeniem:</p>
+<ul>
+    <li><strong>Formaty:</strong> JPG, PNG lub PDF</li>
+    <li><strong>Maksymalny rozmiar:</strong> 5 MB</li>
+    <li><strong>Metody:</strong> przeciągnij i upuść plik lub wybierz z dysku</li>
+</ul>
+<p>Na telefonie możesz również skorzystać z <strong>kodu QR</strong> — zeskanuj go aparatem, aby przesłać zdjęcie potwierdzenia bezpośrednio z telefonu.</p>
+
+{{ screenshot('Kreator przesyłania potwierdzenia płatności') }}
+
+<h2>Co dzieje się po przesłaniu?</h2>
+<p>Po przesłaniu pliku status etapu zmieni się na <strong>„Weryfikacja"</strong>.</p>
+
+{{ warning('Każde potwierdzenie przechodzi przez automatyczny system weryfikacji w celu sprawdzenia autentyczności dokumentu, zanim zostanie przekazane do administracji.') }}
+
+<p>Nasz zespół dokonuje ostatecznej weryfikacji i:</p>
+<ul>
+    <li><strong>Zatwierdzi</strong> — status zmieni się na „Opłacone"</li>
+    <li><strong>Odrzuci</strong> — zobaczysz powód odrzucenia i możesz przesłać potwierdzenie ponownie</li>
+</ul>
+<p>O decyzji zostaniesz powiadomiony mailem i powiadomieniem push.</p>
+
+{{ tip('Możesz przesłać jedno potwierdzenie dla kilku zamówień i etapów jednocześnie — np. jeden przelew za produkty z trzech zamówień.') }}
+
+<h2>Statusy potwierdzenia</h2>
+<ul>
+    <li><strong>Oczekuje</strong> — potwierdzenie nie zostało jeszcze przesłane</li>
+    <li><strong>Weryfikacja</strong> — plik przesłany, czeka na sprawdzenie</li>
+    <li><strong>Opłacone</strong> — płatność zatwierdzona</li>
+    <li><strong>Odrzucone</strong> — płatność odrzucona, możesz przesłać ponownie</li>
+</ul>
+
+{% endblock %}

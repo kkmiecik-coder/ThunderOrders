@@ -1,0 +1,55 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Jak wygląda proces zamawiania?</h2>
+<p>Zamówienia w ThunderOrders składasz przez strony sprzedażowe Exclusive. Poniżej znajdziesz opis całego procesu krok po kroku.</p>
+
+{{ tip('Jeśli nie wiesz czym są strony Exclusive, przeczytaj najpierw: <a href="/client/help/exclusive-pages" class="help-tip-btn">Czytam →</a>') }}
+
+<h2>1. Przeglądanie produktów</h2>
+<p>Na stronie sprzedażowej zobaczysz wszystkie dostępne produkty. Mogą być pogrupowane w sekcje:</p>
+<ul>
+    <li><strong>Pojedyncze produkty</strong> — z ceną i kontrolkami ilości (+/−)</li>
+    <li><strong>Zestawy (sety)</strong> — gotowe pakiety, które możesz kupić jako całość</li>
+</ul>
+<p>Przy każdym produkcie widzisz aktualną dostępność, która aktualizuje się na żywo.</p>
+
+{{ screenshot('Strona sprzedażowa z produktami i kontrolkami ilości') }}
+
+<h2>2. Dodawanie do koszyka</h2>
+<p>Aby dodać produkt, użyj przycisków <strong>+</strong> i <strong>−</strong>. Koszyk aktualizuje się automatycznie — na dole ekranu (na telefonie) lub w panelu bocznym (na komputerze) zobaczysz podsumowanie:</p>
+<ul>
+    <li>Liczbę wybranych produktów</li>
+    <li>Łączną kwotę zamówienia</li>
+</ul>
+<p>Po dodaniu pierwszego produktu uruchomi się <strong>timer rezerwacji</strong> — Twoje produkty są zarezerwowane na określony czas. Więcej o rezerwacjach znajdziesz w artykule o stronach Exclusive.</p>
+
+<h2>3. Bonusy (gratisy)</h2>
+<p>Niektóre zestawy oferują <strong>darmowe produkty</strong>, które odblokowują się automatycznie po spełnieniu warunków — np. zakup określonej liczby produktów lub przekroczenie progu kwotowego. Bonusy zostaną dodane do zamówienia automatycznie.</p>
+
+<h2>4. Składanie zamówienia</h2>
+<p>Gdy będziesz gotowy, kliknij przycisk <strong>„Złóż zamówienie"</strong>. Przed złożeniem możesz dodać opcjonalną <strong>notatkę</strong> do zamówienia (np. pozdrowić naszą administrację ❤️).</p>
+
+{{ screenshot('Podsumowanie koszyka z przyciskiem złożenia zamówienia') }}
+
+<h2>5. Potwierdzenie</h2>
+<p>Po złożeniu zamówienia zostaniesz przeniesiony na <strong>stronę potwierdzenia</strong>, gdzie zobaczysz numer zamówienia. Otrzymasz również powiadomienie e-mail z potwierdzeniem.</p>
+<p>Twoje zamówienie pojawi się na liście w zakładce <strong>Moje zamówienia</strong>.</p>
+
+{{ warning('Złożenie zamówienia <u>nie oznacza</u> jeszcze jego realizacji. Po zakończeniu sprzedaży zostaniesz poinformowany, które produkty mają skompletowany set i czy zamówienie zostanie zrealizowane.') }}
+
+<h2>Nazwa własna zamówienia</h2>
+<p>Po złożeniu zamówienia możesz nadać mu <strong>własną nazwę</strong> — np. „Prezent dla Ani" lub „Korea marzec". Ułatwia to orientację, gdy masz wiele zamówień.</p>
+<p>Aby dodać lub zmienić nazwę:</p>
+<ol>
+    <li>Otwórz <strong>szczegóły zamówienia</strong></li>
+    <li>W sekcji „Szczegóły" obok numeru znajdziesz wiersz <strong>„Nazwa własna"</strong></li>
+    <li>Kliknij <strong>„Dodaj"</strong> (lub ikonę ołówka, jeśli nazwa już istnieje)</li>
+    <li>Wpisz nazwę i kliknij <strong>„Zapisz"</strong></li>
+</ol>
+<p>Nazwa własna wyświetla się na liście zamówień nad numerem zamówienia oraz w nagłówku strony szczegółów.</p>
+
+{{ screenshot('Dodawanie nazwy własnej zamówienia') }}
+
+{% endblock %}

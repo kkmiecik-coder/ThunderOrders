@@ -1,0 +1,57 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Gdzie znajdę swoje adresy?</h2>
+<p>Przejdź do zakładki <strong>Wysyłka → Adresy dostaw</strong> w menu bocznym. Zobaczysz listę zapisanych adresów w formie kart. Jeśli nie masz jeszcze żadnego adresu, wyświetli się komunikat z przyciskiem do dodania pierwszego.</p>
+
+{{ screenshot('Lista adresów dostawy') }}
+
+<h2>Dodawanie nowego adresu</h2>
+<p>Kliknij przycisk <strong>„Dodaj adres"</strong>, aby otworzyć kreator. Proces składa się z kilku kroków:</p>
+
+<h2>Krok 1: Wybierz typ dostawy</h2>
+<p>Na początku wybierasz sposób dostawy:</p>
+<ul>
+    <li><strong>Automat paczkowy</strong> — Paczkomat InPost lub Orlen Paczka</li>
+    <li><strong>Adres domowy</strong> — dostawa kurierem pod wskazany adres</li>
+</ul>
+
+{{ screenshot('Wybór typu dostawy') }}
+
+<h2>Krok 2: Uzupełnij dane</h2>
+
+<p><strong>Dla automatu paczkowego:</strong></p>
+<ul>
+    <li>Wybierz kuriera (Paczkomat InPost lub Orlen Paczka)</li>
+    <li>Wpisz <strong>kod automatu</strong> (np. WAW01M dla InPost)</li>
+    <li>Uzupełnij adres automatu, kod pocztowy i miasto</li>
+    <li>Opcjonalnie nadaj własną nazwę adresu (np. „Paczkomat przy pracy")</li>
+</ul>
+
+{{ tip('Nie znasz kodu automatu? Na stronie znajdziesz link do wyszukiwarki automatów danego kuriera.') }}
+
+<p><strong>Dla adresu domowego:</strong></p>
+<ul>
+    <li>Wpisz <strong>imię i nazwisko odbiorcy</strong></li>
+    <li>Podaj ulicę i numer, kod pocztowy, miasto</li>
+    <li>Opcjonalnie wybierz województwo</li>
+    <li>Możesz nadać własną nazwę (np. „Dom", „Biuro", „Mama")</li>
+</ul>
+
+<h2>Krok 3: Podsumowanie i zapis</h2>
+<p>Sprawdź wprowadzone dane. Możesz też zaznaczyć opcję <strong>„Ustaw jako domyślny adres"</strong> — dzięki temu ten adres będzie automatycznie podpowiadany przy tworzeniu zleceń wysyłki.</p>
+<p>Kliknij <strong>„Zapisz"</strong>, aby dodać adres do listy.</p>
+
+<h2>Adres domyślny</h2>
+<p>Możesz mieć <strong>jeden adres domyślny</strong>. Wyróżnia się on pomarańczową ramką i etykietą „Domyślny".</p>
+<p>Aby zmienić domyślny adres, kliknij przycisk <strong>„Ustaw domyślny"</strong> na wybranej karcie adresu.</p>
+
+{{ screenshot('Karta adresu z oznaczeniem domyślnego') }}
+
+<h2>Usuwanie adresu</h2>
+<p>Aby usunąć adres, kliknij przycisk <strong>„Usuń"</strong> na karcie adresu i potwierdź decyzję. Usunięcie adresu nie wpływa na wcześniej utworzone zlecenia wysyłki — dane adresowe są kopiowane do zlecenia w momencie jego tworzenia.</p>
+
+{{ tip('Jeśli chcesz zmienić dane adresu, usuń go i dodaj ponownie z poprawnymi danymi.') }}
+
+{% endblock %}

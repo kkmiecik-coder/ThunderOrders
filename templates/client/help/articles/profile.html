@@ -1,0 +1,62 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Profil</h2>
+<p>W tej sekcji możesz edytować swoje dane osobowe:</p>
+<ul>
+    <li><strong>Avatar</strong> — kliknij „Zmień" lub „Wybierz", aby wybrać avatar z dostępnych serii</li>
+    <li><strong>Imię i nazwisko</strong> — pola tekstowe, wymagane</li>
+    <li><strong>Email</strong> — wyświetlany, ale nie można go zmienić</li>
+    <li><strong>Telefon</strong> — wymagany, w formacie międzynarodowym (np. +48 123 456 789)</li>
+</ul>
+<p>Po wprowadzeniu zmian kliknij <strong>„Zapisz zmiany"</strong>.</p>
+
+{{ screenshot('Sekcja profilu z danymi osobowymi i avatarem') }}
+
+<h2>Zmiana hasła</h2>
+<p>Aby zmienić hasło:</p>
+<ol>
+    <li>Wpisz <strong>obecne hasło</strong></li>
+    <li>Wpisz <strong>nowe hasło</strong> — musi spełniać wymagania:
+        <ul>
+            <li>Minimum 8 znaków</li>
+            <li>Co najmniej jedna wielka litera</li>
+            <li>Co najmniej jedna mała litera</li>
+            <li>Co najmniej jedna cyfra</li>
+        </ul>
+    </li>
+    <li>Potwierdź nowe hasło</li>
+    <li>Kliknij <strong>„Zmień hasło"</strong></li>
+</ol>
+<p>Przy wpisywaniu nowego hasła zobaczysz podpowiedzi informujące, które wymagania zostały spełnione.</p>
+
+<h2>Prywatność</h2>
+<p>W sekcji prywatności zarządzasz swoimi zgodami:</p>
+<ul>
+    <li><strong>Cookies analityczne (Google Analytics)</strong> — włącz lub wyłącz zbieranie anonimowych danych o korzystaniu z aplikacji</li>
+    <li><strong>Komunikacja marketingowa</strong> — włącz lub wyłącz powiadomienia o nowych dropach i dostępności produktów</li>
+    <li><strong>Pobierz kopię swoich danych</strong> — zgodnie z RODO (art. 20) możesz pobrać plik PDF ze wszystkimi przechowywanymi danymi osobowymi</li>
+</ul>
+
+<h2>Informacje o koncie</h2>
+<p>Sekcja wyświetlająca informacje o Twoim koncie — nie można ich edytować:</p>
+<ul>
+    <li><strong>Rola</strong> — Klient, Moderator lub Administrator</li>
+    <li><strong>Status konta</strong> — Aktywne lub Nieaktywne</li>
+    <li><strong>Email zweryfikowany</strong> — czy adres email został potwierdzony</li>
+    <li><strong>Data rejestracji</strong></li>
+    <li><strong>Ostatnie logowanie</strong></li>
+</ul>
+
+<h2>Strefa zagrożenia</h2>
+<p>Na samym dole strony znajdziesz opcję <strong>usunięcia konta</strong>. Po kliknięciu musisz potwierdzić decyzję wpisując swoje hasło.</p>
+<ul>
+    <li>Konto zostanie dezaktywowane z <strong>30-dniowym okresem karencji</strong></li>
+    <li>W ciągu 30 dni możesz anulować usunięcie kontaktując się z nami</li>
+    <li>Historia zamówień zostaje zachowana w formie zanonimizowanej</li>
+</ul>
+
+{{ warning('Usunięcie konta jest nieodwracalne po upływie 30 dni. Upewnij się, że nie masz aktywnych zamówień.') }}
+
+{% endblock %}

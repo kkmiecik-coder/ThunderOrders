@@ -1,0 +1,41 @@
+{% extends "client/help/base_article.html" %}
+
+{% block article_content %}
+
+<h2>Gdzie znajdę śledzenie przesyłki?</h2>
+<p>Sekcja śledzenia pojawia się na stronie <strong>szczegółów zamówienia</strong>, gdy Twoje zamówienie jest w trakcie realizacji — od momentu zamówienia produktów w Korei aż do dostarczenia do Ciebie.</p>
+
+{{ screenshot('Mapa śledzenia na stronie szczegółów zamówienia') }}
+
+<h2>Mapa i etapy przesyłki</h2>
+<p>Na stronie szczegółów zamówienia zobaczysz <strong>interaktywną mapę</strong> z zaznaczoną trasą przesyłki oraz <strong>oś czasu</strong> z kolejnymi etapami:</p>
+<ol>
+    <li><strong>Zamówiono w Korei</strong> — produkty zostały zamówione u dostawcy</li>
+    <li><strong>Dostarczone do Proxy</strong> — produkty dotarły do magazynu proxy w Seulu</li>
+    <li><strong>W drodze do Polski</strong> — przesyłka jest w transporcie międzynarodowym</li>
+    <li><strong>Urząd Celny</strong> — przesyłka przechodzi odprawę celną</li>
+    <li><strong>Dostarczone do GOM</strong> — produkty dotarły do naszego magazynu w Polsce</li>
+    <li><strong>Spakowane</strong> — Twoje zamówienie zostało spakowane do wysyłki</li>
+    <li><strong>Wysłane do klienta</strong> — paczka jest w drodze do Ciebie</li>
+    <li><strong>Dostarczone</strong> — przesyłka została doręczona</li>
+</ol>
+<p>Każdy etap oznaczony jest jednym z trzech stanów:</p>
+<ul>
+    <li><strong>Zielony znacznik</strong> — etap zakończony, z datą realizacji</li>
+    <li><strong>Pulsujący punkt</strong> — aktualny etap, „W trakcie"</li>
+    <li><strong>Szary numer</strong> — etap oczekujący</li>
+</ul>
+
+{{ tip('Kliknij w dowolny etap na osi czasu, aby przybliżyć mapę do odpowiedniego punktu na trasie.') }}
+
+<h2>Animacja na mapie</h2>
+<p>Gdy przesyłka jest w aktywnym transporcie, na mapie zobaczysz animację pojazdu przemieszczającego się na aktywnym odcinku trasy — samolot dla transportu międzynarodowego lub furgonetkę dla krajowej dostawy.</p>
+
+<h2>Numer śledzenia przesyłki</h2>
+<p>Gdy paczka zostanie nadana przez kuriera, na stronie szczegółów zamówienia pojawi się <strong>numer śledzenia</strong> wraz z nazwą kuriera. Klikając w numer lub przycisk <strong>„Śledź przesyłkę"</strong>, zostaniesz przeniesiony na stronę kuriera, gdzie możesz śledzić paczkę w czasie rzeczywistym.</p>
+{{ screenshot('Karta przesyłki z numerem śledzenia i przyciskiem') }}
+
+<h2>Śledzenie w zleceniu wysyłki</h2>
+<p>Numer śledzenia i status przesyłki znajdziesz również na karcie zlecenia wysyłki w zakładce <strong>Wysyłka → Zlecenia</strong>. Jeśli numer nie został jeszcze przypisany, zobaczysz informację „Wkrótce".</p>
+
+{% endblock %}
