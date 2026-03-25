@@ -1,0 +1,156 @@
+/**
+ * ThunderOrders - Error Pages Style
+ * Used with auth-scene background (particles, orbs, stars)
+ */
+
+/* ============================================
+   GLASS CONTAINER (like 503 maintenance-box)
+   ============================================ */
+
+.error-box {
+    position: relative;
+    border-radius: 24px;
+    padding: 2px;
+    background: conic-gradient(from 0deg, #f093fb, #f5576c, #7b2cbf, #9d4edd, #f093fb);
+}
+
+.error-glass {
+    position: relative;
+    border: none;
+    border-radius: 22px;
+    background: #12122a;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    padding: 2.5rem;
+    text-align: center;
+}
+
+/* ============================================
+   ERROR CODE (big number)
+   ============================================ */
+
+.error-code {
+    font-size: 7rem;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 20px rgba(240, 147, 251, 0.3));
+    animation: errorCodePulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes errorCodePulse {
+    0% { filter: drop-shadow(0 0 20px rgba(240, 147, 251, 0.3)); }
+    100% { filter: drop-shadow(0 0 30px rgba(245, 87, 108, 0.4)); }
+}
+
+/* ============================================
+   TITLE & MESSAGE
+   ============================================ */
+
+.error-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0.75rem 0 0.5rem;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.error-message {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
+    margin: 0 0 1.5rem;
+}
+
+.error-joke {
+    font-size: 0.85rem;
+    color: rgba(240, 147, 251, 0.7);
+    font-style: italic;
+    margin: 0.25rem 0 1.5rem;
+    line-height: 1.5;
+}
+
+/* ============================================
+   BUTTON (gradient like login submit)
+   ============================================ */
+
+.error-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 2rem;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border: none;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.error-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(240, 147, 251, 0.4);
+    color: #fff;
+}
+
+.error-btn:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   FOOTER TEXT
+   ============================================ */
+
+.error-footer {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 480px) {
+    .error-glass {
+        padding: 2rem 1.5rem;
+    }
+
+    .error-code {
+        font-size: 5rem;
+    }
+
+    .error-title {
+        font-size: 1.25rem;
+    }
+
+    .error-btn {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    .error-code {
+        animation: none;
+    }
+
+    .error-box {
+        background: linear-gradient(135deg, #f093fb, #f5576c);
+    }
+}
