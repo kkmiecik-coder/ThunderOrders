@@ -726,28 +726,109 @@
         justify-content: center;
     }
 
-    .status-list-header {
-        display: none;
+    /* ======================== */
+    /* Mobile Card Layout       */
+    /* ======================== */
+
+    /* Hide table headers on mobile */
+    .status-list-header,
+    .statuses-list .status-list-header,
+    .wms-statuses-list .status-list-header,
+    .shipping-request-statuses-list .status-list-header,
+    .payment-method-list-header {
+        display: none !important;
     }
 
-    .status-list-item {
-        grid-template-columns: 1fr;
+    /* --- Status cards (order statuses, WMS, shipping request) --- */
+    .statuses-list .status-list-item,
+    .wms-statuses-list .status-list-item,
+    .shipping-request-statuses-list .status-list-item {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         gap: var(--space-2);
         padding: var(--space-3);
+        border-radius: var(--radius-md);
+        margin-bottom: var(--space-2);
+        border: 1px solid var(--border-primary);
     }
 
     .status-col-name {
+        flex: 1 1 100%;
+        display: flex;
+        align-items: center;
         font-weight: var(--font-medium);
     }
 
-    .status-col-active,
+    .status-col-picked,
+    .status-col-initial {
+        display: flex;
+        align-items: center;
+        gap: var(--space-1);
+    }
+
+    .status-col-picked::before {
+        content: 'Zebrane:';
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+        margin-right: var(--space-1);
+    }
+
+    .status-col-initial::before {
+        content: 'Początkowy:';
+        font-size: var(--text-xs);
+        color: var(--text-tertiary);
+        margin-right: var(--space-1);
+    }
+
+    .status-col-active {
+        display: flex;
+        align-items: center;
+    }
+
     .status-col-actions {
-        justify-content: flex-start;
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
     }
 
     .drag-handle {
         margin-right: 8px;
         padding: 4px;
+    }
+
+    /* --- Payment method cards --- */
+    .payment-method-list-item {
+        display: flex !important;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+        grid-template-columns: none !important;
+        padding: var(--space-3) !important;
+    }
+
+    .payment-method-col-name {
+        flex: 1 1 100%;
+    }
+
+    .payment-method-col-account {
+        flex: 1 1 100%;
+        margin-bottom: var(--space-1);
+    }
+
+    .payment-method-col-account code {
+        font-size: 11px;
+        word-break: break-all;
+    }
+
+    .payment-method-col-status {
+        display: flex;
+        align-items: center;
+    }
+
+    .payment-method-col-actions {
+        margin-left: auto;
     }
 
     /* Closure status cards */
