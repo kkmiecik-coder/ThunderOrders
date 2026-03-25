@@ -49,7 +49,7 @@ ACHIEVEMENTS = [
         'sort_order': 5,
     },
     {
-        'slug': 'orders-100', 'name': 'Centurion',
+        'slug': 'orders-100', 'name': 'Sto razy tak!',
         'description': 'Złóż 100 zamówień',
         'category': 'orders', 'rarity': 'legendary',
         'trigger_type': 'event',
@@ -143,7 +143,7 @@ ACHIEVEMENTS = [
         'sort_order': 16,
     },
     {
-        'slug': 'collection-public', 'name': 'Kurator',
+        'slug': 'collection-public', 'name': 'Chwalipięta',
         'description': 'Udostępnij swoją kolekcję publicznie',
         'category': 'collection', 'rarity': 'rare',
         'trigger_type': 'event',
@@ -266,7 +266,7 @@ ACHIEVEMENTS = [
         'sort_order': 29,
     },
     {
-        'slug': 'exclusive-5', 'name': 'Drop addict',
+        'slug': 'exclusive-5', 'name': 'Drop? Biorę!',
         'description': 'Weź udział w 5 dropach',
         'category': 'exclusive', 'rarity': 'rare',
         'tier': 2, 'tier_group': 'exclusive-count',
@@ -355,7 +355,7 @@ ACHIEVEMENTS = [
         'sort_order': 40,
     },
     {
-        'slug': 'spent-5000', 'name': 'Big spender',
+        'slug': 'spent-5000', 'name': 'Portfel płacze',
         'description': 'Wydaj łącznie 5000 zł',
         'category': 'financial', 'rarity': 'epic',
         'tier': 4, 'tier_group': 'total-spent',
@@ -364,7 +364,7 @@ ACHIEVEMENTS = [
         'sort_order': 41,
     },
     {
-        'slug': 'spent-10000', 'name': 'Krezus',
+        'slug': 'spent-10000', 'name': 'Sponsor ThunderOrders',
         'description': 'Wydaj łącznie 10 000 zł',
         'category': 'financial', 'rarity': 'legendary',
         'trigger_type': 'event',

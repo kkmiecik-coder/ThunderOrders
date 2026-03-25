@@ -2,7 +2,8 @@
 /venv
 .env
 .env
-/static/uploads
+/static/uploads/*
+!/static/uploads/achievements/
 /uploads/payment_confirmations
 /docs
 /*.md
