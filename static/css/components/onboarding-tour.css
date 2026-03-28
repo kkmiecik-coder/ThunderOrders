@@ -369,8 +369,20 @@
 /* ----------------------------------------------------------
    10. Sidebar tour restart button
    ---------------------------------------------------------- */
+/* Make sidebar-nav flex so margin-top:auto pushes button to bottom */
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+}
+
 .sidebar-tour-restart {
-    padding: 4px 8px;
+    padding: 12px 16px;
+    margin-top: auto;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .sidebar-tour-restart {
+    border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-tour-btn {

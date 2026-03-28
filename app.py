@@ -172,7 +172,7 @@ def create_app(config_name=None):
                 "https://www.googletagmanager.com https://www.google-analytics.com "
                 "https://unpkg.com https://challenges.cloudflare.com "
                 "https://cdn.jsdelivr.net https://cdn.socket.io https://cdnjs.cloudflare.com https://cdn.quilljs.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.quilljs.com https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.quilljs.com https://unpkg.com https://cdn.jsdelivr.net; "
             "font-src 'self' https://fonts.gstatic.com; "
             "img-src 'self' data: blob: https://www.google-analytics.com https://*.googleusercontent.com https://*.basemaps.cartocdn.com; "
             "connect-src 'self' wss://thunderorders.cloud ws://localhost:* "
