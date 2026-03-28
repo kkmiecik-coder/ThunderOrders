@@ -1449,6 +1449,41 @@ a.metric-card-clickable.metric-card-info:hover {
     box-shadow: 0 0 18px rgba(245, 183, 43, 0.25);
 }
 
+/* "+X więcej" badge link */
+.widget-badge-more {
+    text-decoration: none;
+    color: inherit;
+}
+
+.widget-badge-more .widget-badge-icon {
+    border: 2px dashed #c0c0c0;
+    background: rgba(0, 0, 0, 0.03);
+    font-size: 14px;
+    font-weight: 700;
+    color: #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.widget-badge-more:hover .widget-badge-icon {
+    border-color: #f093fb;
+    color: #f093fb;
+    background: rgba(240, 147, 251, 0.05);
+}
+
+[data-theme="dark"] .widget-badge-more .widget-badge-icon {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .widget-badge-more:hover .widget-badge-icon {
+    border-color: rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+    background: rgba(240, 147, 251, 0.08);
+}
+
 /* ==========================================
    SET MATRIX MODAL
    ========================================== */
