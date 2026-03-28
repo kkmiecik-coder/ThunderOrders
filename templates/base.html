@@ -89,7 +89,7 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}" {% if show_tour %}data-show-tour="true"{% endif %}>
     <!-- Login Preloader (overlay) -->
     <div id="login-preloader" class="login-preloader">
         <div class="login-preloader-bg">
