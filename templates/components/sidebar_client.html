@@ -38,24 +38,6 @@
                 </a>
             </li>
 
-            <li class="sidebar-item">
-                <a href="{{ url_for('client.collection_list') }}"
-                   class="sidebar-link {% if request.endpoint and 'collection' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Moja Kolekcja">
-                    <img src="{{ url_for('static', filename='img/icons/collection.svg') }}" alt="Moja Kolekcja" class="sidebar-icon">
-                    <span class="sidebar-text">Moja Kolekcja</span>
-                </a>
-            </li>
-
-            <li class="sidebar-item">
-                <a href="{{ url_for('achievements.gallery') }}"
-                   class="sidebar-link {% if request.endpoint and 'achievements' in request.endpoint %}active{% endif %}"
-                   data-tooltip="Osiągnięcia">
-                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Osiągnięcia" class="sidebar-icon">
-                    <span class="sidebar-text">Osiągnięcia</span>
-                </a>
-            </li>
-
             <li class="sidebar-item sidebar-category {% if request.endpoint and 'shipping' in request.endpoint %}expanded{% endif %}">
                 <div class="sidebar-category-header" onclick="toggleSidebarCategory(this)">
                     <div class="sidebar-category-main">
@@ -83,6 +65,24 @@
             </li>
 
             <li class="sidebar-item">
+                <a href="{{ url_for('client.collection_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'collection' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Moja Kolekcja">
+                    <img src="{{ url_for('static', filename='img/icons/collection.svg') }}" alt="Moja Kolekcja" class="sidebar-icon">
+                    <span class="sidebar-text">Moja Kolekcja</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
+                <a href="{{ url_for('achievements.gallery') }}"
+                   class="sidebar-link {% if request.endpoint and 'achievements' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Osiągnięcia">
+                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Osiągnięcia" class="sidebar-icon">
+                    <span class="sidebar-text">Osiągnięcia</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
                 <a href="{{ url_for('client.help_index') }}"
                    class="sidebar-link {% if request.endpoint and 'help' in request.endpoint %}active{% endif %}"
                    data-tooltip="Pomoc">
@@ -91,5 +91,13 @@
                 </a>
             </li>
         </ul>
+
+        <!-- Tour restart button -->
+        <div class="sidebar-tour-restart">
+            <button type="button" class="sidebar-tour-btn" id="restartTourBtn" data-tooltip="Powtórz przewodnik">
+                <img src="{{ url_for('static', filename='img/icons/help.svg') }}" alt="Przewodnik" class="sidebar-icon">
+                <span class="sidebar-text">Powtórz przewodnik</span>
+            </button>
+        </div>
     </nav>
 </aside>
