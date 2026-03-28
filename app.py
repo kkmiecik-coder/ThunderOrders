@@ -266,6 +266,10 @@ def register_blueprints(app):
     from modules.achievements import achievements_bp
     app.register_blueprint(achievements_bp, url_prefix='/achievements')
 
+    # Deploy webhook (GitHub auto-deploy)
+    from modules.deploy import deploy_bp
+    app.register_blueprint(deploy_bp)
+
     # Service Worker served from root scope
     @app.route('/sw.js')
     def service_worker():
