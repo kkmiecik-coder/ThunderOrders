@@ -59,7 +59,7 @@ def github_webhook():
 
     with open(log_file, 'a') as log:
         subprocess.Popen(
-            ['bash', deploy_script],
+            ['/bin/bash', deploy_script],
             stdout=log,
             stderr=log,
             cwd=os.path.dirname(deploy_script),
