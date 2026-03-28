@@ -116,6 +116,7 @@ class User(UserMixin, db.Model):
     # User Preferences
     dark_mode_enabled = db.Column(db.Boolean, default=False)
     sidebar_collapsed = db.Column(db.Boolean, default=False)
+    has_seen_tour = db.Column(db.Boolean, default=False)
 
     # Privacy & Analytics
     analytics_consent = db.Column(
