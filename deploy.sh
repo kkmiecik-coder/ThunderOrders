@@ -2,6 +2,8 @@
 # ThunderOrders Auto-Deploy Script
 # Called by GitHub webhook after push to main
 
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
 LOCK_FILE="/tmp/thunderorders-deploy.lock"
 APP_DIR="/var/www/ThunderOrders"
 LOG_PREFIX="[DEPLOY $(date '+%Y-%m-%d %H:%M:%S')]"
