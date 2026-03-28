@@ -47,13 +47,13 @@ def github_webhook():
         return jsonify({'status': 'ignored', 'message': f'Push to {ref}, not main'}), 200
 
     # Run deploy script in background
-    deploy_script = os.path.join(current_app.root_path, '..', 'deploy.sh')
-    deploy_script = os.path.abspath(deploy_script)
+    project_root = os.path.abspath(os.path.join(current_app.root_path, '..', '..'))
+    deploy_script = os.path.join(project_root, 'deploy.sh')
 
     if not os.path.isfile(deploy_script):
         return jsonify({'status': 'error', 'message': 'Deploy script not found'}), 500
 
-    log_dir = os.path.join(current_app.root_path, '..', 'logs')
+    log_dir = os.path.join(project_root, 'logs')
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, 'deploy.log')
 
