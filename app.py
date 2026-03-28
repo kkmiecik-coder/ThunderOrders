@@ -266,9 +266,10 @@ def register_blueprints(app):
     from modules.achievements import achievements_bp
     app.register_blueprint(achievements_bp, url_prefix='/achievements')
 
-    # Deploy webhook (GitHub auto-deploy)
+    # Deploy webhook (GitHub auto-deploy) - exempt from CSRF (uses HMAC signature)
     from modules.deploy import deploy_bp
     app.register_blueprint(deploy_bp)
+    csrf.exempt(deploy_bp)
 
     # Service Worker served from root scope
     @app.route('/sw.js')
