@@ -9,8 +9,8 @@
     // CONFIGURATION
     // -------------------------------------------------------------------------
 
+    // Progress bar sections (Intro and Finish are fullscreen — not shown in progress bar)
     var SECTIONS = [
-        { name: 'Intro', steps: ['welcome'] },
         { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'recent-orders', 'badges'] },
         { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
         { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'finish'] }
@@ -179,33 +179,33 @@
             {
                 id: 'metrics',
                 attachTo: { element: '.dashboard-metrics', on: 'bottom' },
-                title: '📊 Twoje zamówienia w pigułce',
+                title: 'Twoje zamówienia w pigułce',
                 text: 'Tu masz wszystko jak na dłoni — ile zamówień leci, ile dostarczonych, a ile czeka na kasę 💰'
             },
             {
                 id: 'exclusive',
                 attachTo: { element: '#exclusiveWidget', on: 'bottom' },
-                title: '⭐ Strony Exclusive',
+                title: 'Strony Exclusive',
                 text: 'Aktywne oferty Exclusive — nie trwają wiecznie, lepiej nie przegap! 🔥',
                 skipWhen: function() { return !document.querySelector('#exclusiveWidget'); }
             },
             {
                 id: 'matrix',
                 attachTo: { element: '.exclusive-matrix-btn', on: 'bottom' },
-                title: '🧩 Macierz seta',
+                title: 'Macierz seta',
                 text: 'Sprawdź postęp w secie — jak kolekcjonowanie Pokémonów 😄',
                 skipWhen: function() { return !document.querySelector('.exclusive-matrix-btn'); }
             },
             {
                 id: 'recent-orders',
                 attachTo: { element: '.widget-orders', on: 'top' },
-                title: '📋 Ostatnie zamówienia',
+                title: 'Ostatnie zamówienia',
                 text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️'
             },
             {
                 id: 'badges',
                 attachTo: { element: '#achievements-widget', on: 'top' },
-                title: '🏆 Moje odznaki',
+                title: 'Moje odznaki',
                 text: 'Twoje trofea! Za każde osiągnięcie dostajesz odznakę. Zbierasz je wszystkie? 🎖️'
             },
 
@@ -216,14 +216,14 @@
                     element: function() { return isMobile() ? '#mobileSearchBtn' : '#globalSearchBtn'; },
                     on: 'bottom'
                 },
-                title: '🔍 Wyszukiwarka',
+                title: 'Wyszukiwarka',
                 text: 'Szukasz czegoś konkretnego? Wpisz tutaj i znajdź zamówienie, produkt, cokolwiek 🕵️',
                 beforeShowFn: function() { closeSidebarIfMobile(); }
             },
             {
                 id: 'facebook',
                 attachTo: { element: '.topbar-fb-btn', on: 'bottom' },
-                title: '👥 Grupa na Facebooku',
+                title: 'Grupa na Facebooku',
                 text: 'Tu nas znajdziesz na Facebooku — wpadaj, gadamy o nowościach i dropach 💬',
                 skipWhen: function() { return isMobile(); }
             },
@@ -233,13 +233,13 @@
                     element: function() { return isMobile() ? '#mobilePushBtn' : '.push-bell-wrapper'; },
                     on: 'bottom'
                 },
-                title: '🔔 Powiadomienia',
+                title: 'Powiadomienia',
                 text: 'Dzwoneczek = Twój najlepszy kumpel 🔔 Włącz powiadomienia, a nic Ci nie umknie. Pro tip: zainstaluj aplikację (Dodaj do ekranu głównego) i miej powiadomienia push na żywo — jak SMS, tylko lepiej! 📱'
             },
             {
                 id: 'profile',
                 attachTo: { element: '.topbar-user-dropdown', on: 'bottom-end' },
-                title: '👤 Mój Profil',
+                title: 'Mój Profil',
                 text: 'Tu zarządzasz sobą 😎 Profil, tryb ciemny dla nocnych marków 🌙 i wylogowanie',
                 skipWhen: function() { return isMobile(); }
             },
@@ -248,7 +248,7 @@
             {
                 id: 'nav-dashboard',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(1) .sidebar-link', on: 'right' },
-                title: '🏠 Dashboard',
+                title: 'Dashboard',
                 text: 'Zawsze wracasz tutaj — Twoja baza wypadowa. Jak ekran główny, tylko lepszy 🏡',
                 beforeShowFn: function() { openSidebarIfNeeded(); },
                 noScroll: true
@@ -256,35 +256,35 @@
             {
                 id: 'nav-orders',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(2) .sidebar-link', on: 'right' },
-                title: '🛒 Moje zamówienia',
+                title: 'Moje zamówienia',
                 text: 'Centrum dowodzenia — wszystkie zamówienia, filtry, statusy. Tu się dzieje magia 🚀',
                 noScroll: true
             },
             {
                 id: 'nav-confirmations',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(3) .sidebar-link', on: 'right' },
-                title: '✅ Potwierdzenia',
+                title: 'Potwierdzenia',
                 text: 'Tu potwierdzasz płatności i dostawy. Żeby było czysto i jasno kto co zapłacił 🧾',
                 noScroll: true
             },
             {
                 id: 'nav-shipping',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(4) .sidebar-category-header', on: 'right' },
-                title: '🚚 Wysyłka',
+                title: 'Wysyłka',
                 text: 'Tu zlecasz wysyłki i zarządzasz adresami dostawy. Dwa w jednym — Zlecenia i Adresy 📬',
                 noScroll: true
             },
             {
                 id: 'nav-collection',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(5) .sidebar-link', on: 'right' },
-                title: '📦 Moja Kolekcja',
+                title: 'Moja Kolekcja',
                 text: 'Twoja półka z trofeami — wszystkie produkty które już masz. Flex guaranteed 💎',
                 noScroll: true
             },
             {
                 id: 'nav-achievements',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(6) .sidebar-link', on: 'right' },
-                title: '🎯 Osiągnięcia',
+                title: 'Osiągnięcia',
                 text: 'Odznaki, levele, progressy — dla tych co lubią zbierać 100% 🎮',
                 noScroll: true
             },
@@ -315,7 +315,10 @@
                 cancelIcon: { enabled: false },
                 scrollTo: { behavior: 'smooth', block: 'center' },
                 modalOverlayOpeningPadding: 8,
-                modalOverlayOpeningRadius: 12
+                modalOverlayOpeningRadius: 12,
+                popperOptions: {
+                    modifiers: [{ name: 'offset', options: { offset: [0, 20] } }]
+                }
             }
         });
 
@@ -409,7 +412,7 @@
 
                             // Skip button
                             var skipBtn = document.createElement('button');
-                            skipBtn.textContent = 'Pomiń';
+                            skipBtn.textContent = 'Zamknij';
                             skipBtn.className = 'tour-btn tour-btn-skip';
                             skipBtn.addEventListener('click', function() { completeTour(tour); });
                             footer.appendChild(skipBtn);
@@ -486,7 +489,17 @@
         try { localFallback = localStorage.getItem('thunderorders_tour_seen') === '1'; } catch(e) {}
 
         if (shouldShow && !localFallback) {
-            setTimeout(function() { window.ThunderTour.start(); }, 500);
+            // Wait for popups to finish before starting tour
+            document.addEventListener('popups-all-closed', function() {
+                setTimeout(function() { window.ThunderTour.start(); }, 500);
+            }, { once: true });
+
+            // Fallback: if no popups system or it never fires, start after 5s
+            setTimeout(function() {
+                if (typeof Shepherd !== 'undefined' && !Shepherd.activeTour) {
+                    window.ThunderTour.start();
+                }
+            }, 5000);
         }
 
         var restartBtn = document.getElementById('restartTourBtn');

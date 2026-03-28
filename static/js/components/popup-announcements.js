@@ -115,7 +115,11 @@
 
                         if (popupsQueue.length > 0) {
                             showNextPopup();
+                        } else {
+                            document.dispatchEvent(new CustomEvent('popups-all-closed'));
                         }
+                    } else {
+                        document.dispatchEvent(new CustomEvent('popups-all-closed'));
                     }
                 }
             })
@@ -255,6 +259,9 @@
             // Pokaż następny popup jeśli jest w kolejce
             if (popupsQueue.length > 0) {
                 setTimeout(showNextPopup, 300);
+            } else {
+                // Notify other components (e.g. onboarding tour) that all popups are done
+                document.dispatchEvent(new CustomEvent('popups-all-closed'));
             }
         });
     }
