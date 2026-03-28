@@ -47,7 +47,7 @@ def github_webhook():
         return jsonify({'status': 'ignored', 'message': f'Push to {ref}, not main'}), 200
 
     # Run deploy script in background
-    project_root = os.path.abspath(os.path.join(current_app.root_path, '..', '..'))
+    project_root = current_app.root_path
     deploy_script = os.path.join(project_root, 'deploy.sh')
 
     if not os.path.isfile(deploy_script):
