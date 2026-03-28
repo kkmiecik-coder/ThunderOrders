@@ -3,7 +3,7 @@
  * Cache First for static assets, Network First for HTML, Network Only for API
  */
 
-const CACHE_VERSION = 'thunderorders-v3';
+const CACHE_VERSION = 'thunderorders-v4';
 const STATIC_CACHE = CACHE_VERSION + '-static';
 const PAGES_CACHE = CACHE_VERSION + '-pages';
 
@@ -50,6 +50,9 @@ self.addEventListener('fetch', event => {
 
     // Network Only for API calls
     if (url.pathname.startsWith('/api/')) return;
+
+    // Skip vendor JS/CSS (large files, let browser handle caching)
+    if (url.pathname.includes('/vendor/')) return;
 
     // Cache First for static assets (/static/)
     if (url.pathname.startsWith('/static/')) {
