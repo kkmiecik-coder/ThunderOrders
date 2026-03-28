@@ -315,10 +315,7 @@
                 cancelIcon: { enabled: false },
                 scrollTo: { behavior: 'smooth', block: 'center' },
                 modalOverlayOpeningPadding: 8,
-                modalOverlayOpeningRadius: 12,
-                popperOptions: {
-                    modifiers: [{ name: 'offset', options: { offset: [0, 20] } }]
-                }
+                modalOverlayOpeningRadius: 12
             }
         });
 
