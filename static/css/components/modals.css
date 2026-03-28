@@ -2598,3 +2598,103 @@
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
+/* ==========================================
+   CLIENT MATRIX MODAL - Chrome & States
+   (moved from dashboard.css per modal centralisation rule)
+   ========================================== */
+
+/* Modal sizing override for matrix */
+.client-matrix-modal {
+    max-width: 900px;
+    width: 95%;
+}
+
+.client-matrix-modal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.client-matrix-modal .modal-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary, #212121);
+    margin: 0;
+}
+
+.client-matrix-modal .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--text-secondary, #757575);
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.client-matrix-modal .modal-close:hover {
+    color: var(--text-primary, #212121);
+}
+
+.client-matrix-modal .modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    max-height: calc(90vh - 60px);
+}
+
+/* Loading & error states */
+.matrix-loading,
+.matrix-error,
+.matrix-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px 20px;
+    color: var(--text-secondary, #757575);
+    font-size: 0.9rem;
+}
+
+.matrix-loading .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-color, #e0e0e0);
+    border-top-color: #7B2CBF;
+    border-radius: 50%;
+    animation: matrix-spin 0.6s linear infinite;
+}
+
+@keyframes matrix-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Dark mode */
+[data-theme="dark"] .client-matrix-modal .modal-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .client-matrix-modal .modal-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .client-matrix-modal .modal-close {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .client-matrix-modal .modal-close:hover {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .matrix-loading,
+[data-theme="dark"] .matrix-error,
+[data-theme="dark"] .matrix-empty {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .matrix-loading .spinner {
+    border-color: rgba(255, 255, 255, 0.1);
+    border-top-color: #c084fc;
+}
+

@@ -1448,3 +1448,372 @@ a.metric-card-clickable.metric-card-info:hover {
 [data-theme="dark"] .widget-badge-icon.legendary {
     box-shadow: 0 0 18px rgba(245, 183, 43, 0.25);
 }
+
+/* ==========================================
+   SET MATRIX MODAL
+   ========================================== */
+
+/* Matrix button in exclusive table/cards */
+.exclusive-matrix-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--card-border, #e0e0e0);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary, #757575);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.exclusive-matrix-btn:hover {
+    color: #7B2CBF;
+    border-color: #7B2CBF;
+    background: rgba(123, 44, 191, 0.05);
+}
+
+/* Actions wrapper (table + cards) */
+.exclusive-card-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Matrix grid & cards (scoped to modal) */
+.client-matrix-modal .sets-matrix-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.client-matrix-modal .set-matrix-card {
+    background: var(--bg-primary, #ffffff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.client-matrix-modal .set-matrix-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    background: var(--bg-secondary, #f9f9f9);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.client-matrix-modal .set-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.client-matrix-modal .set-image {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.client-matrix-modal .set-info { flex: 1; min-width: 0; }
+
+/* Legend */
+.client-matrix-modal .set-header-legend {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.client-matrix-modal .legend-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary, #757575);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.client-matrix-modal .legend-items {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+}
+
+.client-matrix-modal .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-secondary, #757575);
+    white-space: nowrap;
+}
+
+.client-matrix-modal .legend-item svg {
+    width: 18px;
+    height: 18px;
+}
+
+.client-matrix-modal .legend-item .slot-check-own {
+    stroke-width: 0;
+}
+
+.client-matrix-modal .set-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary, #212121);
+    margin: 0 0 4px 0;
+}
+
+.client-matrix-modal .set-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary, #757575);
+    font-weight: 500;
+}
+
+.client-matrix-modal .set-matrix-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.client-matrix-modal .set-matrix-table {
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    width: 100%;
+}
+
+.client-matrix-modal .set-matrix-table th,
+.client-matrix-modal .set-matrix-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.client-matrix-modal .set-matrix-table thead th {
+    font-weight: 500;
+    color: var(--text-secondary, #757575);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.client-matrix-modal .set-matrix-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.client-matrix-modal .matrix-product-col {
+    text-align: left;
+    color: var(--text-primary, #212121);
+    white-space: nowrap;
+}
+
+.client-matrix-modal .matrix-slot-col {
+    width: 60px;
+    min-width: 60px;
+    border-left: 1px solid var(--border-color, #e0e0e0);
+}
+
+.client-matrix-modal .matrix-locked-col {
+    background: rgba(0, 0, 0, 0.03);
+    border-left: 2px dashed var(--border-color, #e0e0e0);
+}
+
+/* Slot icons */
+.client-matrix-modal .slot-check {
+    color: #10b981;
+    vertical-align: middle;
+}
+
+.client-matrix-modal .slot-lock {
+    color: var(--text-secondary, #757575);
+    opacity: 0.4;
+    vertical-align: middle;
+}
+
+/* Own purchase - purple checkmark (slightly larger & bolder) */
+.client-matrix-modal .slot-check-own {
+    color: #7B2CBF;
+    vertical-align: middle;
+    width: 20px;
+    height: 20px;
+    stroke: #7B2CBF;
+    stroke-width: 0.8px;
+}
+
+.client-matrix-modal .slot-check-own-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.client-matrix-modal .slot-check-own-wrap::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #7B2CBF;
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(123, 44, 191, 0.3);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+.client-matrix-modal .slot-check-own-wrap::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #7B2CBF;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 10;
+}
+
+.client-matrix-modal .slot-check-own-wrap:hover::after,
+.client-matrix-modal .slot-check-own-wrap:hover::before {
+    opacity: 1;
+}
+
+/* Summary sections */
+.client-matrix-modal .full-set-summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 0.75rem;
+    color: var(--text-secondary, #757575);
+    border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.client-matrix-modal .full-set-label { font-size: 0.75rem; color: var(--text-secondary, #757575); }
+.client-matrix-modal .full-set-count { font-weight: 600; color: var(--text-primary, #212121); }
+.client-matrix-modal .full-set-unit { color: var(--text-secondary, #757575); }
+
+.client-matrix-modal .set-total-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    font-size: 0.8rem;
+    color: var(--text-secondary, #757575);
+    border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.client-matrix-modal .set-total-count {
+    font-weight: 700;
+    color: var(--text-primary, #212121);
+}
+
+.client-matrix-modal .set-total-detail {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #757575);
+}
+
+.client-matrix-modal .item-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.client-matrix-modal .item-badge-set {
+    background: rgba(123, 44, 191, 0.1);
+    color: #7B2CBF;
+}
+
+/* ==========================================
+   SET MATRIX MODAL - DARK MODE
+   ========================================== */
+[data-theme="dark"] .exclusive-matrix-btn {
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .exclusive-matrix-btn:hover {
+    color: #f093fb;
+    border-color: rgba(240, 147, 251, 0.4);
+    background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .client-matrix-modal .set-matrix-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .client-matrix-modal .set-matrix-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .client-matrix-modal .set-name { color: #ffffff; }
+[data-theme="dark"] .client-matrix-modal .set-count { color: rgba(255, 255, 255, 0.6); }
+[data-theme="dark"] .client-matrix-modal .legend-label { color: rgba(255, 255, 255, 0.4); }
+[data-theme="dark"] .client-matrix-modal .legend-item { color: rgba(255, 255, 255, 0.5); }
+
+[data-theme="dark"] .client-matrix-modal .set-matrix-table th,
+[data-theme="dark"] .client-matrix-modal .set-matrix-table td {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .client-matrix-modal .set-matrix-table thead th {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .client-matrix-modal .matrix-product-col { color: #ffffff; }
+
+[data-theme="dark"] .client-matrix-modal .matrix-slot-col {
+    border-left-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .client-matrix-modal .matrix-locked-col {
+    background: rgba(255, 255, 255, 0.03);
+    border-left-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .client-matrix-modal .slot-check { color: #34d399; }
+[data-theme="dark"] .client-matrix-modal .slot-check-own { color: #c084fc; stroke: #c084fc; }
+
+[data-theme="dark"] .client-matrix-modal .slot-check-own-wrap::after {
+    background: #9333ea;
+    box-shadow: 0 2px 8px rgba(147, 51, 234, 0.4);
+}
+
+[data-theme="dark"] .client-matrix-modal .slot-check-own-wrap::before {
+    border-top-color: #9333ea;
+}
+
+[data-theme="dark"] .client-matrix-modal .full-set-summary,
+[data-theme="dark"] .client-matrix-modal .set-total-summary {
+    border-top-color: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .client-matrix-modal .full-set-count,
+[data-theme="dark"] .client-matrix-modal .set-total-count { color: #ffffff; }
+
+[data-theme="dark"] .client-matrix-modal .item-badge-set {
+    background: rgba(192, 132, 252, 0.15);
+    color: #c084fc;
+}

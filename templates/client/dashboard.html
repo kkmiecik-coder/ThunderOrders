@@ -82,7 +82,7 @@
                             <th>Nazwa</th>
                             <th>Status</th>
                             <th>Czas</th>
-                            <th class="text-center">Link</th>
+                            <th>Akcje</th>
                         </tr>
                     </thead>
                     <tbody id="exclusiveTableBody">
@@ -116,7 +116,15 @@
                                       data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                                 </span>
                             </td>
-                            <td class="text-center">
+                            <td>
+                                <div class="exclusive-card-actions">
+                                {% if page._has_sets %}
+                                <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                    </svg>
+                                </button>
+                                {% endif %}
                                 {% if page.status == 'ended' and page.is_fully_closed %}
                                 <a class="exclusive-action-btn" disabled aria-disabled="true">
                                     Otwórz →
@@ -126,6 +134,7 @@
                                     Otwórz →
                                 </a>
                                 {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -159,7 +168,15 @@
                                       data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                                 </span>
                             </td>
-                            <td class="text-center">
+                            <td>
+                                <div class="exclusive-card-actions">
+                                {% if page._has_sets %}
+                                <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                    </svg>
+                                </button>
+                                {% endif %}
                                 {% if page.status == 'ended' and page.is_fully_closed %}
                                 <a class="exclusive-action-btn" disabled aria-disabled="true">
                                     Otwórz →
@@ -169,6 +186,7 @@
                                     Otwórz →
                                 </a>
                                 {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -204,6 +222,14 @@
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
+                            <div class="exclusive-card-actions">
+                            {% if page._has_sets %}
+                            <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                </svg>
+                            </button>
+                            {% endif %}
                             {% if page.status == 'ended' and page.is_fully_closed %}
                             <a class="exclusive-action-btn" disabled aria-disabled="true">
                                 Otwórz →
@@ -213,6 +239,7 @@
                                 Otwórz →
                             </a>
                             {% endif %}
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -243,6 +270,14 @@
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
+                            <div class="exclusive-card-actions">
+                            {% if page._has_sets %}
+                            <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                </svg>
+                            </button>
+                            {% endif %}
                             {% if page.status == 'ended' and page.is_fully_closed %}
                             <a class="exclusive-action-btn" disabled aria-disabled="true">
                                 Otwórz →
@@ -252,6 +287,7 @@
                                 Otwórz →
                             </a>
                             {% endif %}
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -426,6 +462,22 @@
                     <div style="font-size:12px;opacity:0.5;">Ładowanie...</div>
                 </div>
                 <div class="widget-stats" id="widget-stats"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Set Matrix Modal -->
+    <div id="setMatrixModal" class="modal-overlay">
+        <div class="modal-content client-matrix-modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="matrixModalTitle">Macierz setów</h3>
+                <button type="button" class="modal-close" id="matrixModalClose">&times;</button>
+            </div>
+            <div class="modal-body" id="matrixModalBody">
+                <div class="matrix-loading">
+                    <div class="spinner"></div>
+                    <span>Ładowanie macierzy...</span>
+                </div>
             </div>
         </div>
     </div>
@@ -652,6 +704,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 ? `<a class="exclusive-action-btn" disabled aria-disabled="true">Otwórz →</a>`
                 : `<a href="${page.page_url}" class="exclusive-action-btn" target="_blank">Otwórz →</a>`;
 
+            const matrixBtnHTML = page.has_sets
+                ? `<button type="button" class="exclusive-matrix-btn" data-page-id="${page.id}" title="Macierz setów">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                    </svg>
+                </button>`
+                : '';
+
             return `
                 <tr>
                     <td><span class="exclusive-name">${page.name}</span></td>
@@ -663,8 +723,11 @@ document.addEventListener('DOMContentLoaded', function() {
                               data-ends="${page.ends_at || ''}">
                         </span>
                     </td>
-                    <td class="text-center">
-                        ${buttonHTML}
+                    <td>
+                        <div class="exclusive-card-actions">
+                            ${matrixBtnHTML}
+                            ${buttonHTML}
+                        </div>
                     </td>
                 </tr>
             `;
@@ -679,6 +742,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 ? `<a class="exclusive-action-btn" disabled aria-disabled="true">Otwórz →</a>`
                 : `<a href="${page.page_url}" class="exclusive-action-btn" target="_blank">Otwórz →</a>`;
 
+            const matrixBtnHTML = page.has_sets
+                ? `<button type="button" class="exclusive-matrix-btn" data-page-id="${page.id}" title="Macierz setów">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                    </svg>
+                </button>`
+                : '';
+
             return `
                 <div class="exclusive-card">
                     <div class="exclusive-card-header">
@@ -691,7 +762,10 @@ document.addEventListener('DOMContentLoaded', function() {
                               data-starts="${page.starts_at || ''}"
                               data-ends="${page.ends_at || ''}">
                         </span>
-                        ${buttonHTML}
+                        <div class="exclusive-card-actions">
+                            ${matrixBtnHTML}
+                            ${buttonHTML}
+                        </div>
                     </div>
                 </div>
             `;
@@ -805,6 +879,145 @@ document.addEventListener('DOMContentLoaded', function() {
 
             updateButtonText(remaining);
         });
+    })();
+
+    // ====================================
+    // SET MATRIX MODAL
+    // ====================================
+    (function() {
+        const modal = document.getElementById('setMatrixModal');
+        const modalTitle = document.getElementById('matrixModalTitle');
+        const modalBody = document.getElementById('matrixModalBody');
+        const modalClose = document.getElementById('matrixModalClose');
+
+        if (!modal) return;
+
+        // Open modal on button click (event delegation for dynamic buttons)
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.exclusive-matrix-btn');
+            if (!btn) return;
+
+            const pageId = btn.dataset.pageId;
+            openMatrixModal(pageId);
+        });
+
+        // Close modal
+        modalClose.addEventListener('click', closeMatrixModal);
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeMatrixModal();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && modal.classList.contains('active')) closeMatrixModal();
+        });
+
+        function openMatrixModal(pageId) {
+            modal.classList.add('active');
+            modalBody.innerHTML = '<div class="matrix-loading"><div class="spinner"></div><span>Ładowanie macierzy...</span></div>';
+
+            fetch(`/client/api/exclusive/${pageId}/matrix`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        modalBody.innerHTML = '<div class="matrix-error">Nie udało się załadować danych</div>';
+                        return;
+                    }
+                    modalTitle.textContent = `Macierz setów — ${data.page_name}`;
+                    renderMatrix(data.sets);
+                })
+                .catch(() => {
+                    modalBody.innerHTML = '<div class="matrix-error">Błąd połączenia z serwerem</div>';
+                });
+        }
+
+        function closeMatrixModal() {
+            modal.classList.remove('active');
+        }
+
+        function renderMatrix(sets) {
+            if (!sets || sets.length === 0) {
+                modalBody.innerHTML = '<div class="matrix-empty">Brak setów na tej stronie</div>';
+                return;
+            }
+
+            let html = '<div class="sets-matrix-grid">';
+            sets.forEach(set => {
+                html += renderSetCard(set);
+            });
+            html += '</div>';
+            modalBody.innerHTML = html;
+        }
+
+        function renderSetCard(set) {
+            const products = set.products.filter(p => !p.is_full_set);
+            const fullSetProduct = set.products.find(p => p.is_full_set);
+
+            let html = '<div class="set-matrix-card">';
+
+            // Header
+            html += '<div class="set-matrix-header">';
+            html += '<div class="set-header-left">';
+            if (set.set_image) {
+                html += `<img src="${set.set_image}" alt="${set.set_name}" class="set-image">`;
+            }
+            html += '<div class="set-info">';
+            html += `<h3 class="set-name">${set.set_name}</h3>`;
+            if (set.has_limit) {
+                html += `<span class="set-count">${set.ordered_sets} / ${set.set_max_sets} kompletnych setów</span>`;
+            } else {
+                html += `<span class="set-count">${set.ordered_sets} kompletnych setów (bez limitu)</span>`;
+            }
+            html += '</div></div>';
+            html += '<div class="set-header-legend">';
+            html += '<span class="legend-label">Legenda:</span>';
+            html += '<div class="legend-items">';
+            html += '<div class="legend-item"><svg class="slot-check" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg><span>Zakupione</span></div>';
+            html += '<div class="legend-item"><svg class="slot-check-own" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg><span>Twój zakup</span></div>';
+            if (set.has_limit) {
+                html += '<div class="legend-item"><svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg><span>Zablokowany</span></div>';
+            }
+            html += '</div></div>';
+            html += '</div>';
+
+            // Table
+            if (products.length > 0) {
+                html += '<div class="set-matrix-table-wrap"><table class="set-matrix-table"><thead><tr>';
+                html += '<th class="matrix-product-col">Produkt</th>';
+                for (let i = 0; i < set.set_max_sets; i++) {
+                    const colClass = (set.has_limit && i === set.set_max_sets - 1) ? 'matrix-slot-col matrix-locked-col text-center' : 'matrix-slot-col text-center';
+                    html += `<th class="${colClass}">Set ${i + 1}</th>`;
+                }
+                html += '</tr></thead><tbody>';
+
+                products.forEach(product => {
+                    html += '<tr>';
+                    html += `<td class="matrix-product-col"><span>${product.product_name}</span></td>`;
+                    product.slots.forEach((slot, idx) => {
+                        const colClass = (set.has_limit && idx === set.set_max_sets - 1) ? 'matrix-slot-col matrix-locked-col text-center' : 'matrix-slot-col text-center';
+                        html += `<td class="${colClass}">`;
+                        const isLocked = set.has_limit && idx === set.set_max_sets - 1;
+                        if (slot.filled) {
+                            if (slot.is_own) {
+                                html += `<span class="slot-check-own-wrap" data-tooltip="${slot.customer}">`;
+                                html += '<svg class="slot-check-own" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
+                                html += '</span>';
+                            } else {
+                                html += '<svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
+                            }
+                        } else if (isLocked) {
+                            html += '<svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>';
+                        }
+                        html += '</td>';
+                    });
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table></div>';
+
+            }
+
+            html += '</div>';
+            return html;
+        }
     })();
 
     // ====================================

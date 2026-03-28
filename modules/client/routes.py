@@ -7,9 +7,9 @@ import json
 from flask import render_template, request, jsonify, url_for
 from flask_login import login_required, current_user
 from extensions import db
-from modules.orders.models import Order, ShippingRequestOrder
-from modules.auth.models import Settings
-from modules.exclusive.models import ExclusivePage
+from modules.orders.models import Order, OrderItem, ShippingRequestOrder
+from modules.auth.models import Settings, User
+from modules.exclusive.models import ExclusivePage, ExclusiveSection
 from sqlalchemy import func as sql_func, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -132,6 +132,10 @@ def dashboard():
         return 99
 
     exclusive_pages_all.sort(key=get_sort_priority)
+
+    # Pre-compute has_sets for each page
+    for page in exclusive_pages_all:
+        page._has_sets = len(page.get_set_sections()) > 0
 
     exclusive_pages = {
         'visible': exclusive_pages_all[:5],  # First 5 visible
@@ -372,6 +376,7 @@ def get_exclusive_pages():
             'is_important': page.status in ['active', 'scheduled'],
             'starts_at': page.starts_at.isoformat() if page.starts_at else None,
             'ends_at': page.ends_at.isoformat() if page.ends_at else None,
+            'has_sets': len(page.get_set_sections()) > 0,
             'page_url': url_for('exclusive.order_page', token=page.token)
         })
 
@@ -381,4 +386,156 @@ def get_exclusive_pages():
         'has_more': has_more,
         'remaining': remaining,
         'total': len(exclusive_pages_all)
+    })
+
+
+@client_bp.route('/api/exclusive/<int:page_id>/matrix')
+@login_required
+def get_exclusive_matrix(page_id):
+    """
+    API endpoint zwracający macierz setów dla strony exclusive.
+    Dane prywatne: inne osoby jako anonimowe fajeczki,
+    własne zakupy jako fioletowe fajeczki z imieniem.
+    """
+    page = ExclusivePage.query.get(page_id)
+    if not page or page.status == 'draft':
+        return jsonify({'success': False, 'error': 'Nie znaleziono strony'}), 404
+
+    set_sections = page.get_set_sections()
+    if not set_sections:
+        return jsonify({'success': True, 'page_name': page.name, 'sets': []})
+
+    current_user_name = f"{current_user.first_name or ''} {current_user.last_name or ''}".strip() or current_user.email
+
+    sets_data = []
+    for section in set_sections:
+        set_items = section.get_set_items_ordered()
+        max_sets = section.set_max_sets or 0
+
+        # Collect all product IDs in this set
+        all_product_ids = []
+        for item in set_items:
+            for product in item.get_products():
+                all_product_ids.append(product.id)
+
+        # Build slot map: {product_id: {slot_number: user_id}}
+        slot_user_map = {}
+        slot_counter = {}
+        if all_product_ids:
+            customer_rows = db.session.query(
+                OrderItem.product_id,
+                OrderItem.quantity,
+                Order.user_id
+            ).join(Order, OrderItem.order_id == Order.id).filter(
+                Order.exclusive_page_id == page_id,
+                Order.status != 'anulowane',
+                OrderItem.product_id.in_(all_product_ids),
+                OrderItem.is_bonus != True,
+            ).order_by(OrderItem.id.asc()).all()
+
+            for pid, qty, uid in customer_rows:
+                if pid not in slot_user_map:
+                    slot_user_map[pid] = {}
+                if pid not in slot_counter:
+                    slot_counter[pid] = 1
+                for _ in range(qty):
+                    slot_user_map[pid][slot_counter[pid]] = uid
+                    slot_counter[pid] += 1
+
+        # Compute ordered quantities per product (derived from slot_counter)
+        product_ordered_qtys = {}
+        for pid in all_product_ids:
+            product_ordered_qtys[pid] = (slot_counter.get(pid, 1) - 1) if pid in slot_counter else 0
+
+        # Effective max sets
+        if max_sets > 0:
+            effective_max_sets = max_sets
+        else:
+            effective_max_sets = max(product_ordered_qtys.values()) if product_ordered_qtys else 0
+
+        products_data = []
+        for item in set_items:
+            for product in item.get_products():
+                ordered_qty = product_ordered_qtys[product.id]
+                product_slots = slot_user_map.get(product.id, {})
+
+                slots = []
+                if effective_max_sets > 0:
+                    for i in range(effective_max_sets):
+                        slot_num = i + 1
+                        filled = i < ordered_qty
+                        slot_uid = product_slots.get(slot_num)
+                        is_own = filled and slot_uid == current_user.id
+                        slots.append({
+                            'filled': filled,
+                            'is_own': is_own,
+                            'customer': current_user_name if is_own else None,
+                        })
+
+                products_data.append({
+                    'product_name': product.name,
+                    'is_full_set': False,
+                    'total_ordered': ordered_qty,
+                    'slots': slots,
+                })
+
+        # Full set product row
+        if section.set_product_id and section.set_product:
+            full_set_qty = db.session.query(
+                db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+            ).filter(
+                OrderItem.product_id == section.set_product_id,
+                OrderItem.is_bonus != True,
+                OrderItem.order_id.in_(
+                    db.session.query(Order.id).filter(
+                        Order.exclusive_page_id == page_id,
+                        Order.status != 'anulowane'
+                    )
+                )
+            ).scalar()
+            full_set_qty = int(full_set_qty)
+
+            products_data.append({
+                'product_name': section.set_product.name,
+                'is_full_set': True,
+                'total_ordered': full_set_qty,
+                'slots': [{'filled': full_set_qty > 0, 'is_own': False, 'customer': None}],
+            })
+
+        # Compute complete sets
+        non_full_set = [p for p in products_data if not p['is_full_set']]
+        if non_full_set:
+            per_set_qtys = []
+            for item in set_items:
+                for product in item.get_products():
+                    matching = [p for p in non_full_set if p['product_name'] == product.name]
+                    if matching and item.quantity_per_set > 0:
+                        per_set_qtys.append(matching[0]['total_ordered'] // item.quantity_per_set)
+            ordered_sets = min(per_set_qtys) if per_set_qtys else 0
+        else:
+            ordered_sets = 0
+
+        full_set_entries = [p for p in products_data if p['is_full_set']]
+        full_set_sold = full_set_entries[0]['total_ordered'] if full_set_entries else 0
+
+        # Set image URL
+        set_image_url = None
+        if section.set_image:
+            set_image_url = url_for('static', filename=section.set_image)
+
+        sets_data.append({
+            'set_name': section.set_name or 'Bez nazwy',
+            'set_image': set_image_url,
+            'ordered_sets': ordered_sets,
+            'set_max_sets': effective_max_sets,
+            'has_limit': max_sets > 0,
+            'total_sets_sold': ordered_sets + full_set_sold,
+            'full_set_sold': full_set_sold,
+            'products': products_data,
+        })
+
+    return jsonify({
+        'success': True,
+        'page_name': page.name,
+        'sets': sets_data,
     })
