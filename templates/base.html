@@ -81,7 +81,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/cookie-banner.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/global-search.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/components/bottom-bar.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/components/onboarding-tour.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 
     <!-- HTMX -->
@@ -89,7 +88,7 @@
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" {% if show_tour %}data-show-tour="true"{% endif %}>
+<body class="{% block body_class %}{% endblock %}" {% if show_tour|default(false) %}data-show-tour="true"{% endif %}>
     <!-- Login Preloader (overlay) -->
     <div id="login-preloader" class="login-preloader">
         <div class="login-preloader-bg">

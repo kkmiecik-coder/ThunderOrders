@@ -78,13 +78,17 @@
 
     function completeTour(tour) {
         tour.complete();
+        // Mark tour as seen via backend
         fetch('/client/tour-completed', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             }
-        }).catch(function() { /* silent fail */ });
+        }).catch(function() {
+            // Fallback: store in localStorage so tour doesn't repeat on network failure
+            try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
+        });
     }
 
     function getCSRFToken() {
@@ -354,21 +358,35 @@
             } else {
                 // Regular popover steps
                 var attachConfig = def.attachTo;
+                // Keep string/object selectors as-is; resolve functions in beforeShowPromise
                 if (attachConfig && typeof attachConfig.element === 'function') {
-                    var elemFn = attachConfig.element;
-                    attachConfig = { element: elemFn(), on: attachConfig.on };
+                    // Store function ref, resolve lazily before each show
+                    stepConfig._elemFn = attachConfig.element;
+                    stepConfig._elemOn = attachConfig.on;
+                    attachConfig = { element: attachConfig.element(), on: attachConfig.on };
                 }
                 stepConfig.attachTo = attachConfig;
                 stepConfig.scrollTo = def.noScroll ? false : { behavior: 'smooth', block: 'center' };
 
-                if (def.beforeShowFn) {
+                // beforeShowPromise: run beforeShowFn + re-resolve dynamic elements
+                (function(currentDef, currentStepConfig) {
                     stepConfig.beforeShowPromise = function() {
                         return new Promise(function(resolve) {
-                            def.beforeShowFn();
-                            setTimeout(resolve, 200);
+                            if (currentDef.beforeShowFn) currentDef.beforeShowFn();
+                            // Re-resolve dynamic element selector
+                            if (currentStepConfig._elemFn) {
+                                var el = currentStepConfig._elemFn();
+                                if (el) {
+                                    var step = tour.steps.find(function(s) { return s.id === currentDef.id; });
+                                    if (step) {
+                                        step.updateStepOptions({ attachTo: { element: el, on: currentStepConfig._elemOn } });
+                                    }
+                                }
+                            }
+                            setTimeout(resolve, currentDef.beforeShowFn ? 200 : 50);
                         });
                     };
-                }
+                })(def, stepConfig);
 
                 // Custom rendering in when.show
                 (function(currentDef, currentIsLast) {
@@ -381,14 +399,6 @@
                             if (!el) return;
                             var content = el.querySelector('.shepherd-content');
                             if (!content) return;
-
-                            // Re-resolve dynamic attachTo
-                            if (currentDef.attachTo && typeof currentDef.attachTo.element === 'function') {
-                                var resolved = currentDef.attachTo.element();
-                                if (resolved) {
-                                    step.updateStepOptions({ attachTo: { element: resolved, on: currentDef.attachTo.on } });
-                                }
-                            }
 
                             content.innerHTML =
                                 makeHeader(currentDef.id, currentDef.title, tour) +
@@ -471,7 +481,11 @@
 
     // Auto-start + restart button
     document.addEventListener('DOMContentLoaded', function() {
-        if (document.body.getAttribute('data-show-tour') === 'true') {
+        var shouldShow = document.body.getAttribute('data-show-tour') === 'true';
+        var localFallback = false;
+        try { localFallback = localStorage.getItem('thunderorders_tour_seen') === '1'; } catch(e) {}
+
+        if (shouldShow && !localFallback) {
             setTimeout(function() { window.ThunderTour.start(); }, 500);
         }
 

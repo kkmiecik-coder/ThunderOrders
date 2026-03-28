@@ -546,6 +546,8 @@ def get_exclusive_matrix(page_id):
 @login_required
 def tour_completed():
     """Mark onboarding tour as completed for current user"""
+    if current_user.role != 'client':
+        return jsonify({'success': False}), 403
     current_user.has_seen_tour = True
     db.session.commit()
     return jsonify({'success': True})
