@@ -1,0 +1,440 @@
+/* ============================================================
+   Onboarding Tour Styles — light + dark mode
+   Overrides Shepherd.js default styles completely.
+   Custom header/body/footer are rendered via JS.
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   1. Shepherd overlay
+   ---------------------------------------------------------- */
+.shepherd-modal-overlay-container {
+    z-index: 9998;
+    fill: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .shepherd-modal-overlay-container {
+    fill: rgba(0, 0, 0, 0.6);
+}
+
+/* ----------------------------------------------------------
+   2. Shepherd element (popover) — desktop
+   ---------------------------------------------------------- */
+.shepherd-element {
+    z-index: 9999;
+    max-width: 420px;
+    border-radius: 16px;
+    background: #ffffff;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow:
+        0 0 0 1px rgba(99, 102, 241, 0.1),
+        0 8px 32px rgba(0, 0, 0, 0.12),
+        0 0 60px rgba(99, 102, 241, 0.15);
+    overflow: hidden;
+    animation: tourPopoverIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+[data-theme="dark"] .shepherd-element {
+    background: #1a1a2e;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    box-shadow:
+        0 0 0 1px rgba(99, 102, 241, 0.15),
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 60px rgba(99, 102, 241, 0.25);
+}
+
+@keyframes tourPopoverIn {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ----------------------------------------------------------
+   3. Shepherd arrow
+   ---------------------------------------------------------- */
+.shepherd-arrow::before {
+    background: linear-gradient(135deg, #6366f1, #a855f7) !important;
+}
+
+/* ----------------------------------------------------------
+   4. Popover header
+   ---------------------------------------------------------- */
+.tour-header {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+    padding: 20px 20px 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+.tour-header::after {
+    content: '';
+    position: absolute;
+    top: -30px;
+    right: -30px;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+}
+
+.tour-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.7);
+    margin: 0 0 4px;
+}
+
+.tour-step-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 14px;
+    line-height: 1.3;
+}
+
+/* ----------------------------------------------------------
+   5. Progress bar
+   ---------------------------------------------------------- */
+.tour-progress {
+    display: flex;
+    gap: 4px;
+}
+
+.tour-progress-segment {
+    flex: 1;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.25);
+    overflow: hidden;
+}
+
+.tour-progress-fill {
+    height: 100%;
+    width: 0;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+    transition: width 0.4s ease;
+}
+
+/* ----------------------------------------------------------
+   6. Popover body
+   ---------------------------------------------------------- */
+.tour-body {
+    padding: 18px 20px;
+}
+
+.tour-text {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #424242;
+    margin: 0;
+}
+
+[data-theme="dark"] .tour-text {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* ----------------------------------------------------------
+   7. Footer / buttons
+   ---------------------------------------------------------- */
+.tour-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px 18px;
+}
+
+.tour-btn {
+    padding: 8px 20px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+    line-height: 1.4;
+}
+
+.tour-btn-skip {
+    background: transparent;
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    color: #6366f1;
+    margin-right: auto;
+}
+
+.tour-btn-skip:hover {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+[data-theme="dark"] .tour-btn-skip {
+    border-color: rgba(139, 92, 246, 0.4);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .tour-btn-skip:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.tour-btn-next {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #ffffff;
+    box-shadow:
+        0 4px 14px rgba(99, 102, 241, 0.4),
+        0 0 20px rgba(139, 92, 246, 0.2);
+}
+
+.tour-btn-next:hover {
+    transform: translateY(-1px);
+    box-shadow:
+        0 6px 20px rgba(99, 102, 241, 0.5),
+        0 0 30px rgba(139, 92, 246, 0.3);
+}
+
+.tour-btn-next:active {
+    transform: translateY(0);
+}
+
+/* ----------------------------------------------------------
+   8. Fullscreen steps
+   ---------------------------------------------------------- */
+.tour-fullscreen-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, #1a1a3e 0%, #0f0c29 100%);
+    padding: 32px 24px;
+    text-align: center;
+    animation: tourFullscreenIn 0.4s ease both;
+}
+
+@keyframes tourFullscreenIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.tour-fullscreen-emoji {
+    font-size: 64px;
+    line-height: 1;
+    margin-bottom: 20px;
+    display: block;
+}
+
+.tour-fullscreen-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0 0 14px;
+    line-height: 1.2;
+}
+
+.tour-fullscreen-text {
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.7);
+    max-width: 480px;
+    margin: 0 0 32px;
+}
+
+.tour-fullscreen-btn {
+    padding: 14px 36px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #a855f7);
+    color: #ffffff;
+    box-shadow:
+        0 6px 24px rgba(99, 102, 241, 0.5),
+        0 0 40px rgba(139, 92, 246, 0.3);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tour-fullscreen-btn:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        0 10px 32px rgba(99, 102, 241, 0.6),
+        0 0 60px rgba(139, 92, 246, 0.4);
+}
+
+.tour-fullscreen-btn:active {
+    transform: translateY(0);
+}
+
+/* ----------------------------------------------------------
+   9. Mobile bottom-sheet
+   ---------------------------------------------------------- */
+@media (max-width: 768px) {
+    .shepherd-element {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        top: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 20px 20px 0 0;
+        transform: none !important;
+        animation: tourSheetIn 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
+    }
+
+    .shepherd-arrow {
+        display: none !important;
+    }
+
+    /* Drag handle via pseudo-element on tour-header */
+    .tour-header::before {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.4);
+        margin: 0 auto 14px;
+    }
+
+    @keyframes tourSheetIn {
+        from {
+            opacity: 0;
+            transform: translateY(100%) !important;
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) !important;
+        }
+    }
+
+    .tour-footer {
+        gap: 8px;
+        padding: 0 16px 20px;
+    }
+
+    .tour-btn {
+        flex: 1;
+        padding: 12px 16px;
+        font-size: 14px;
+        min-height: 44px;
+        border-radius: 12px;
+        text-align: center;
+    }
+
+    .tour-btn-skip {
+        margin-right: 0;
+    }
+
+    .tour-header {
+        padding: 14px 16px 14px;
+    }
+
+    .tour-body {
+        padding: 14px 16px;
+    }
+
+    /* Fullscreen content adjustments */
+    .tour-fullscreen-emoji {
+        font-size: 48px;
+        margin-bottom: 14px;
+    }
+
+    .tour-fullscreen-title {
+        font-size: 22px;
+    }
+
+    .tour-fullscreen-text {
+        font-size: 14px;
+    }
+
+    .tour-fullscreen-btn {
+        width: 100%;
+        max-width: 360px;
+    }
+}
+
+/* ----------------------------------------------------------
+   10. Sidebar tour restart button
+   ---------------------------------------------------------- */
+.sidebar-tour-restart {
+    padding: 4px 8px;
+}
+
+.sidebar-tour-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: transparent;
+    border: 1.5px dashed rgba(99, 102, 241, 0.4);
+    color: #6366f1;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    text-align: left;
+}
+
+.sidebar-tour-btn:hover {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.6);
+}
+
+[data-theme="dark"] .sidebar-tour-btn {
+    border-color: rgba(139, 92, 246, 0.35);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .sidebar-tour-btn:hover {
+    background: rgba(99, 102, 241, 0.12);
+    border-color: rgba(139, 92, 246, 0.55);
+}
+
+/* Purple tint for sidebar icon */
+.sidebar-tour-btn .sidebar-icon {
+    filter: invert(40%) sepia(80%) saturate(500%) hue-rotate(215deg) brightness(100%);
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+[data-theme="dark"] .sidebar-tour-btn .sidebar-icon {
+    filter: invert(70%) sepia(50%) saturate(400%) hue-rotate(220deg) brightness(110%);
+}
+
+/* Collapsed sidebar: center icon, hide text */
+.sidebar-collapsed .sidebar-tour-btn {
+    justify-content: center;
+    padding: 9px;
+}
+
+.sidebar-collapsed .sidebar-tour-btn .sidebar-tour-label {
+    display: none;
+}
+
+/* ----------------------------------------------------------
+   11. Hide default Shepherd elements
+       (we render our own header/body/footer via JS)
+   ---------------------------------------------------------- */
+.shepherd-header,
+.shepherd-title,
+.shepherd-text,
+.shepherd-footer,
+.shepherd-cancel-icon {
+    display: none !important;
+}
