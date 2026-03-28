@@ -3,7 +3,7 @@
 {% block title %}Dashboard Klienta - ThunderOrders{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/shepherd.js@12/dist/css/shepherd.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/vendor/shepherd.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/components/onboarding-tour.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/dashboard.css') }}">
 {% endblock %}
@@ -1212,6 +1212,6 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
 });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/shepherd.js@12/dist/shepherd.min.js"></script>
+<script src="{{ url_for('static', filename='js/vendor/shepherd.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/onboarding-tour.js') }}"></script>
 {% endblock %}
