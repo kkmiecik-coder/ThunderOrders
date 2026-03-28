@@ -159,7 +159,8 @@ def dashboard():
         },
         recent_orders=recent_orders,
         chart_data=chart_data,
-        exclusive_pages=exclusive_pages
+        exclusive_pages=exclusive_pages,
+        show_tour=not current_user.has_seen_tour
     )
 
 
@@ -539,3 +540,12 @@ def get_exclusive_matrix(page_id):
         'page_name': page.name,
         'sets': sets_data,
     })
+
+
+@client_bp.route('/tour-completed', methods=['POST'])
+@login_required
+def tour_completed():
+    """Mark onboarding tour as completed for current user"""
+    current_user.has_seen_tour = True
+    db.session.commit()
+    return jsonify({'success': True})
