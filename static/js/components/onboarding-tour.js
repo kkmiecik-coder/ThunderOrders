@@ -208,7 +208,7 @@
                 id: 'recent-orders',
                 attachTo: { element: '#recentOrdersWidget', on: 'top' },
                 title: 'Ostatnie zamówienia',
-                text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️'
+                text: 'Twoje ostatnie zamówienia ze statusami. Kliknij w dowolne, żeby zobaczyć szczegóły 👀'
             },
             {
                 id: 'badges',
