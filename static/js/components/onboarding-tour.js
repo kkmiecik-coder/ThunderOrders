@@ -301,7 +301,7 @@
                 id: 'nav-help',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(7) .sidebar-link', on: 'right' },
                 title: 'Pomoc',
-                text: 'Masz pytanie? Tu znajdziesz odpowiedzi, poradniki i kontakt z supportem. Nie bój się pytać! 🤝',
+                text: 'Nie wiesz jak coś działa? Tu masz poradniki — zamówienia, płatności, wysyłka, konto. Wszystko opisane krok po kroku 📖',
                 noScroll: true
             },
 
