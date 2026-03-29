@@ -214,7 +214,7 @@
                 id: 'badges',
                 attachTo: { element: '#achievements-widget', on: 'bottom' },
                 title: 'Moje odznaki',
-                text: 'Twoje trofea! Za każde osiągnięcie dostajesz odznakę. Zbierasz je wszystkie? 🎖️'
+                text: 'Twoje trofea! Za każde osiągnięcie dostajesz odznakę. Zbierzesz je wszystkie? 👀'
             },
 
             // --- SECTION: Topbar ---
