@@ -312,7 +312,7 @@
                 fullscreenConfig: {
                     emoji: '🎊',
                     title: 'Gotowe!',
-                    text: 'To tyle! Jesteś gotowy na zakupy 🛒 Przewodnik znajdziesz na dole menu gdybyś chciał powtórkę. Powodzenia! 💪',
+                    text: 'To tyle! Jesteś gotowy na zakupy 🛒 Przycisk "Przewodnik" na dashboardzie pozwoli Ci powtórzyć ten tour. Powodzenia! 💪',
                     btnText: 'Zamknij 🎉'
                 },
                 beforeShowFn: function() { closeSidebarIfMobile(); }
