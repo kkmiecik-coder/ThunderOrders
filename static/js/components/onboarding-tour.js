@@ -194,7 +194,7 @@
                 id: 'matrix',
                 attachTo: { element: '.exclusive-matrix-btn', on: 'bottom' },
                 title: 'Macierz seta',
-                text: 'Tu sprawdzisz które produkty z seta już masz, które zostały sclaimowane przez innych, a które jeszcze są wolne 🎯',
+                text: 'Tu sprawdzisz, które produkty z seta już masz, które zostały sclaimowane przez innych, a które jeszcze są wolne 🎯',
                 skipWhen: function() { return !document.querySelector('.exclusive-matrix-btn'); }
             },
             {
