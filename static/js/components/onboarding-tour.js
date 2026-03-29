@@ -528,8 +528,13 @@
     // PUBLIC API
     // -------------------------------------------------------------------------
 
+    function isPhone() {
+        return window.innerWidth < 768;
+    }
+
     window.ThunderTour = {
         start: function() {
+            if (isPhone()) return;
             if (typeof Shepherd === 'undefined') {
                 console.warn('Shepherd.js not loaded');
                 return;
