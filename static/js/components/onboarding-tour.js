@@ -181,7 +181,7 @@
                 id: 'metrics',
                 attachTo: { element: '.dashboard-metrics', on: 'bottom' },
                 title: 'Twoje zamówienia w pigułce',
-                text: 'Tu masz wszystko jak na dłoni — ile zamówień leci, ile dostarczonych, a ile czeka na kasę 💰'
+                text: 'Tu masz wszystko jak na dłoni — ile zamówień leci, ile dostarczonych, a ile czeka na Twój przelew 💰'
             },
             {
                 id: 'exclusive',
