@@ -305,13 +305,13 @@
     .shepherd-element {
         position: fixed !important;
         bottom: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
+        left: 50% !important;
+        right: auto !important;
         top: auto !important;
-        width: 100% !important;
-        max-width: 100% !important;
+        transform: translateX(-50%) !important;
+        width: calc(100% - 32px) !important;
+        max-width: 420px !important;
         border-radius: 20px 20px 0 0;
-        transform: none !important;
         animation: tourSheetIn 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
     }
 
