@@ -206,13 +206,13 @@
             },
             {
                 id: 'recent-orders',
-                attachTo: { element: '.widget-orders', on: 'top' },
+                attachTo: { element: '#recentOrdersWidget .widget-header', on: 'bottom' },
                 title: 'Ostatnie zamówienia',
                 text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️'
             },
             {
                 id: 'badges',
-                attachTo: { element: '#achievements-widget', on: 'top' },
+                attachTo: { element: '#achievements-widget .widget-header', on: 'bottom' },
                 title: 'Moje odznaki',
                 text: 'Twoje trofea! Za każde osiągnięcie dostajesz odznakę. Zbierasz je wszystkie? 🎖️'
             },
