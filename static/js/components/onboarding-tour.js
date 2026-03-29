@@ -286,7 +286,7 @@
                 id: 'nav-collection',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(5) .sidebar-link', on: 'right' },
                 title: 'Moja Kolekcja',
-                text: 'Twoja półka z trofeami — wszystkie produkty, które już masz 💎',
+                text: 'Twoja półka z trofeami — wszystkie produkty, które już masz 💎 P.S. Jak coś u nas kupisz, to się tu pojawia z automatu. Tacy nowocześni jesteśmy :D',
                 noScroll: true
             },
             {
