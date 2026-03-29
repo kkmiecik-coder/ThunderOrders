@@ -210,12 +210,12 @@
                 title: 'Ostatnie zamówienia',
                 text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️',
                 beforeShowFn: function() {
-                    var el = document.getElementById('recentOrdersWidget');
-                    if (el) el.style.height = 'fit-content';
+                    var section = document.querySelector('#recentOrdersWidget').closest('.dashboard-section');
+                    if (section) section.style.alignSelf = 'start';
                 },
                 afterHideFn: function() {
-                    var el = document.getElementById('recentOrdersWidget');
-                    if (el) el.style.height = '';
+                    var section = document.querySelector('#recentOrdersWidget').closest('.dashboard-section');
+                    if (section) section.style.alignSelf = '';
                 }
             },
             {
