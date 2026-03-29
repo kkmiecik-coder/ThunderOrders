@@ -286,7 +286,7 @@
                 id: 'nav-collection',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(5) .sidebar-link', on: 'right' },
                 title: 'Moja Kolekcja',
-                text: 'Twoja półka z trofeami — wszystkie produkty które już masz. Flex guaranteed 💎',
+                text: 'Twoja półka z trofeami — wszystkie produkty, które już masz 💎',
                 noScroll: true
             },
             {
