@@ -16,17 +16,6 @@
     fill: rgba(0, 0, 0, 1);
 }
 
-/* Blur page content when tour is active (not the popover itself) */
-.shepherd-modal-is-open #mainContent {
-    filter: blur(4px);
-    transition: filter 0.3s ease;
-}
-
-.shepherd-modal-is-open .topbar,
-.shepherd-modal-is-open .mobile-navbar {
-    filter: blur(4px);
-    transition: filter 0.3s ease;
-}
 
 /* ----------------------------------------------------------
    2. Shepherd element (popover) — desktop
