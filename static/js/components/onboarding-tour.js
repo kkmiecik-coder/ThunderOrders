@@ -437,7 +437,7 @@
                             var currentIndex = tour.steps.indexOf(tour.getCurrentStep());
                             if (currentIndex > 1) {
                                 var backBtn = document.createElement('button');
-                                backBtn.textContent = '← Wstecz';
+                                backBtn.textContent = '←';
                                 backBtn.className = 'tour-btn tour-btn-back';
                                 backBtn.addEventListener('click', function() { tour.back(); });
                                 footer.appendChild(backBtn);
