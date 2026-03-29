@@ -194,7 +194,7 @@
                 id: 'matrix',
                 attachTo: { element: '.exclusive-matrix-btn', on: 'bottom' },
                 title: 'Macierz seta',
-                text: 'Sprawdź postęp w secie — jak kolekcjonowanie Pokémonów 😄',
+                text: 'Tu sprawdzisz które produkty z seta już masz, a które jeszcze czekają na sclaimowanie. Kompletuj set i zbieraj je wszystkie! 💪',
                 skipWhen: function() { return !document.querySelector('.exclusive-matrix-btn'); }
             },
             {
