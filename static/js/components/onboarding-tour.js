@@ -423,12 +423,22 @@
 
                             var footer = content.querySelector('.tour-footer');
 
-                            // Skip button
+                            // Close button
                             var skipBtn = document.createElement('button');
                             skipBtn.textContent = 'Zamknij';
                             skipBtn.className = 'tour-btn tour-btn-skip';
                             skipBtn.addEventListener('click', function() { completeTour(tour); });
                             footer.appendChild(skipBtn);
+
+                            // Back button (not on first regular step)
+                            var currentIndex = tour.steps.indexOf(tour.getCurrentStep());
+                            if (currentIndex > 1) {
+                                var backBtn = document.createElement('button');
+                                backBtn.textContent = '← Wstecz';
+                                backBtn.className = 'tour-btn tour-btn-back';
+                                backBtn.addEventListener('click', function() { tour.back(); });
+                                footer.appendChild(backBtn);
+                            }
 
                             // Next button
                             var nextBtn = document.createElement('button');

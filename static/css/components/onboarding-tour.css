@@ -185,6 +185,25 @@
     background: rgba(99, 102, 241, 0.1);
 }
 
+.tour-btn-back {
+    background: transparent;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    color: #6366f1;
+}
+
+.tour-btn-back:hover {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+[data-theme="dark"] .tour-btn-back {
+    border-color: rgba(139, 92, 246, 0.3);
+    color: #a78bfa;
+}
+
+[data-theme="dark"] .tour-btn-back:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
 .tour-btn-next {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     color: #ffffff;
