@@ -171,7 +171,7 @@
                 fullscreenConfig: {
                     emoji: '🎉',
                     title: 'Witaj w ThunderOrders!',
-                    text: 'Cześć! Zaraz pokażę Ci co tu mamy. Spokojnie — krócej niż robienie kawy ☕',
+                    text: 'Cześć! Zaraz pokażę Ci co tu mamy. Spokojnie, skończymy szybciej niż nowy Comeback wpadnie 🔥',
                     btnText: 'Zaczynamy! 🚀'
                 }
             },
