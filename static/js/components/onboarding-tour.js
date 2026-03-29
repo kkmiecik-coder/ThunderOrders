@@ -208,15 +208,7 @@
                 id: 'recent-orders',
                 attachTo: { element: '#recentOrdersWidget', on: 'top' },
                 title: 'Ostatnie zamówienia',
-                text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️',
-                beforeShowFn: function() {
-                    var section = document.querySelector('#recentOrdersWidget').closest('.dashboard-section');
-                    if (section) section.style.alignSelf = 'start';
-                },
-                afterHideFn: function() {
-                    var section = document.querySelector('#recentOrdersWidget').closest('.dashboard-section');
-                    if (section) section.style.alignSelf = '';
-                }
+                text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️'
             },
             {
                 id: 'badges',
