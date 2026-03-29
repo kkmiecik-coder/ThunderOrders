@@ -344,11 +344,12 @@
     .tour-footer {
         gap: 8px;
         padding: 0 16px 16px;
+        justify-content: center;
     }
 
     .tour-btn {
-        flex: 1;
-        padding: 10px 12px;
+        flex: none;
+        padding: 10px 20px;
         font-size: 13px;
         min-height: 44px;
         border-radius: 10px;
@@ -356,7 +357,7 @@
     }
 
     .tour-btn-back {
-        flex: 0 0 44px;
+        padding: 10px 14px;
     }
 
     .tour-btn-skip {
