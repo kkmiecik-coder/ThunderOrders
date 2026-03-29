@@ -11,9 +11,9 @@
 
     // Progress bar sections (Intro and Finish are fullscreen — not shown in progress bar)
     var SECTIONS = [
-        { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'recent-orders', 'badges'] },
+        { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'exclusive-open', 'recent-orders', 'badges'] },
         { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
-        { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'finish'] }
+        { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'nav-help', 'finish'] }
     ];
 
     // -------------------------------------------------------------------------
@@ -198,6 +198,13 @@
                 skipWhen: function() { return !document.querySelector('.exclusive-matrix-btn'); }
             },
             {
+                id: 'exclusive-open',
+                attachTo: { element: '.exclusive-action-btn', on: 'bottom' },
+                title: 'Otwórz stronę Exclusive',
+                text: 'Kliknij tutaj żeby przejść na stronę Exclusive i złożyć zamówienie. To Twoja brama do limitowanych produktów! 🚪',
+                skipWhen: function() { return !document.querySelector('.exclusive-action-btn'); }
+            },
+            {
                 id: 'recent-orders',
                 attachTo: { element: '.widget-orders', on: 'top' },
                 title: 'Ostatnie zamówienia',
@@ -287,6 +294,14 @@
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(6) .sidebar-link', on: 'right' },
                 title: 'Osiągnięcia',
                 text: 'Odznaki, levele, progressy — dla tych co lubią zbierać 100% 🎮',
+                noScroll: true
+            },
+
+            {
+                id: 'nav-help',
+                attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(7) .sidebar-link', on: 'right' },
+                title: 'Pomoc',
+                text: 'Masz pytanie? Tu znajdziesz odpowiedzi, poradniki i kontakt z supportem. Nie bój się pytać! 🤝',
                 noScroll: true
             },
 
