@@ -206,9 +206,17 @@
             },
             {
                 id: 'recent-orders',
-                attachTo: { element: '#recentOrdersWidget', on: 'bottom' },
+                attachTo: { element: '#recentOrdersWidget', on: 'top' },
                 title: 'Ostatnie zamówienia',
-                text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️'
+                text: 'Ostatnie zamówienia ze statusami. Klik i szczegóły — bez szukania po szufladach 🗂️',
+                beforeShowFn: function() {
+                    var el = document.getElementById('recentOrdersWidget');
+                    if (el) el.style.height = 'fit-content';
+                },
+                afterHideFn: function() {
+                    var el = document.getElementById('recentOrdersWidget');
+                    if (el) el.style.height = '';
+                }
             },
             {
                 id: 'badges',
@@ -407,6 +415,9 @@
                 // Custom rendering in when.show
                 (function(currentDef, currentIsLast) {
                     stepConfig.when = {
+                        hide: function() {
+                            if (currentDef.afterHideFn) currentDef.afterHideFn();
+                        },
                         show: function() {
                             removeFullscreen();
                             var step = tour.getCurrentStep();
