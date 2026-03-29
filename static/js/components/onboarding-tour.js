@@ -10,15 +10,29 @@
     // -------------------------------------------------------------------------
 
     // Progress bar sections (Intro and Finish are fullscreen — not shown in progress bar)
-    var SECTIONS = [
-        { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'exclusive-open', 'recent-orders', 'badges'] },
-        { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
-        { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'nav-help', 'finish'] }
-    ];
+    function getSections() {
+        if (isPWA()) {
+            return [
+                { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'exclusive-open', 'recent-orders', 'badges'] },
+                { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
+                { name: 'Menu', steps: ['pwa-bottom-bar', 'finish'] }
+            ];
+        }
+        return [
+            { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'exclusive-open', 'recent-orders', 'badges'] },
+            { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
+            { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'nav-help', 'finish'] }
+        ];
+    }
 
     // -------------------------------------------------------------------------
     // HELPERS
     // -------------------------------------------------------------------------
+
+    function isPWA() {
+        return window.matchMedia('(display-mode: standalone)').matches ||
+               window.navigator.standalone === true;
+    }
 
     function isMobile() {
         return window.matchMedia('(max-width: 768px)').matches;
@@ -37,8 +51,9 @@
         var currentIdx = activeIds.indexOf(stepId);
         var runningIdx = 0;
 
-        for (var s = 0; s < SECTIONS.length; s++) {
-            var sec = SECTIONS[s];
+        var sections = getSections();
+        for (var s = 0; s < sections.length; s++) {
+            var sec = sections[s];
             var activeInSection = sec.steps.filter(function(id) { return activeIds.indexOf(id) !== -1; });
             var count = activeInSection.length;
             var fillPercent = 0;
@@ -252,56 +267,72 @@
                 skipWhen: function() { return isMobile(); }
             },
 
-            // --- SECTION: Menu (Sidebar) ---
+            // --- SECTION: Menu (Sidebar — skipped on PWA) ---
             {
                 id: 'nav-dashboard',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(1) .sidebar-link', on: 'right' },
                 title: 'Dashboard',
                 text: 'Zawsze wracasz tutaj — Twoja baza wypadowa. Jak ekran główny, tylko lepszy 🏡',
                 beforeShowFn: function() { openSidebarIfNeeded(); },
-                noScroll: true
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
             },
             {
                 id: 'nav-orders',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(2) .sidebar-link', on: 'right' },
                 title: 'Moje zamówienia',
                 text: 'Centrum dowodzenia — wszystkie zamówienia, filtry, statusy. Tu się dzieje magia 🚀',
-                noScroll: true
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
             },
             {
                 id: 'nav-confirmations',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(3) .sidebar-link', on: 'right' },
                 title: 'Potwierdzenia',
                 text: 'Tu potwierdzasz płatności i dostawy. Żeby było czysto i jasno kto co zapłacił 🧾',
-                noScroll: true
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
             },
             {
                 id: 'nav-shipping',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(4) .sidebar-category-header', on: 'right' },
                 title: 'Wysyłka',
                 text: 'Tu zlecasz wysyłki i zarządzasz adresami dostawy. Dwa w jednym — Zlecenia i Adresy 📬',
-                noScroll: true
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
             },
             {
                 id: 'nav-collection',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(5) .sidebar-link', on: 'right' },
                 title: 'Moja Kolekcja',
                 text: 'Twoja półka z trofeami — wszystkie produkty, które już masz 💎 P.S. Jak coś u nas kupisz, to się tu pojawia z automatu. Tacy nowocześni jesteśmy 😁',
-                noScroll: true
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
             },
             {
                 id: 'nav-achievements',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(6) .sidebar-link', on: 'right' },
                 title: 'Osiągnięcia',
                 text: 'Odznaki, levele, progressy — możesz też udostępniać swoje osiągnięcia w socialach 📲',
-                noScroll: true
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
             },
-
             {
                 id: 'nav-help',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(7) .sidebar-link', on: 'right' },
                 title: 'Pomoc',
                 text: 'Nie wiesz jak coś działa? Tu masz poradniki — zamówienia, płatności, wysyłka, konto. Wszystko opisane krok po kroku 📖',
+                noScroll: true,
+                skipWhen: function() { return isPWA(); }
+            },
+
+            // --- PWA: Bottom bar step (only on PWA) ---
+            {
+                id: 'pwa-bottom-bar',
+                attachTo: { element: '#pwaBottomBar', on: 'top' },
+                title: 'Menu nawigacji',
+                text: 'Tu masz szybki dostęp do najważniejszych sekcji — zamówienia, potwierdzenia i więcej. Kliknij "Więcej" żeby zobaczyć resztę opcji 📱',
+                skipWhen: function() { return !isPWA(); },
                 noScroll: true
             },
 
