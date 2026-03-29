@@ -9,11 +9,17 @@
    ---------------------------------------------------------- */
 .shepherd-modal-overlay-container {
     z-index: 9998;
-    fill: rgba(0, 0, 0, 0.4);
+    fill: rgba(0, 0, 0, 0.6);
 }
 
 [data-theme="dark"] .shepherd-modal-overlay-container {
-    fill: rgba(0, 0, 0, 0.6);
+    fill: rgba(0, 0, 0, 0.75);
+}
+
+/* Blur background content when tour is active */
+.shepherd-modal-is-open .main-content,
+.shepherd-modal-is-open .client-dashboard {
+    filter: blur(3px);
 }
 
 /* ----------------------------------------------------------
