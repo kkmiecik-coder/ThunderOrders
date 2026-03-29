@@ -13,7 +13,7 @@
 }
 
 [data-theme="dark"] .shepherd-modal-overlay-container {
-    fill: rgba(0, 0, 0, 0.75);
+    fill: rgba(0, 0, 0, 1);
 }
 
 /* Blur background content when tour is active */
