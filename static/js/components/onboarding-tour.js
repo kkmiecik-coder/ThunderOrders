@@ -232,7 +232,7 @@
                 id: 'facebook',
                 attachTo: { element: '.topbar-fb-btn', on: 'bottom' },
                 title: 'Grupa na Facebooku',
-                text: 'Tu nas znajdziesz na Facebooku — wpadaj, gadamy o nowościach i dropach 💬',
+                text: 'Szybki skrót do naszej grupy na Facebooku. Tam znajdziesz najnowsze informacje — sprzedaż odbywa się już tutaj, na stronie 🛒',
                 skipWhen: function() { return isMobile(); }
             },
             {
