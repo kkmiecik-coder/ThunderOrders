@@ -293,7 +293,7 @@
                 id: 'nav-achievements',
                 attachTo: { element: '.sidebar-menu .sidebar-item:nth-child(6) .sidebar-link', on: 'right' },
                 title: 'Osiągnięcia',
-                text: 'Odznaki, levele, progressy — dla tych co lubią zbierać 100% 🎮',
+                text: 'Odznaki, levele, progressy — możesz też udostępniać swoje osiągnięcia w socialach 📲',
                 noScroll: true
             },
 
