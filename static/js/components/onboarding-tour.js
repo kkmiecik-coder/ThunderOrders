@@ -157,6 +157,11 @@
         if (shepherdEl) shepherdEl.style.display = '';
     }
 
+    function removeBlurOverlay() {
+        var el = document.getElementById('tourBlurOverlay');
+        if (el) el.remove();
+    }
+
     // -------------------------------------------------------------------------
     // STEP DEFINITIONS
     // -------------------------------------------------------------------------
@@ -434,9 +439,19 @@
             tour.addStep(stepConfig);
         });
 
+        // Add blur overlay when tour starts
+        tour.on('start', function() {
+            if (!document.getElementById('tourBlurOverlay')) {
+                var blurEl = document.createElement('div');
+                blurEl.className = 'tour-blur-overlay';
+                blurEl.id = 'tourBlurOverlay';
+                document.body.appendChild(blurEl);
+            }
+        });
+
         // Cleanup on complete/cancel
-        tour.on('complete', function() { removeFullscreen(); });
-        tour.on('cancel', function() { removeFullscreen(); });
+        tour.on('complete', function() { removeFullscreen(); removeBlurOverlay(); });
+        tour.on('cancel', function() { removeFullscreen(); removeBlurOverlay(); });
 
         // Responsive swap
         setupResponsiveSwap(tour);

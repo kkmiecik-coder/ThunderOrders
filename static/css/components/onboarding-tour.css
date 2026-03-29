@@ -16,10 +16,14 @@
     fill: rgba(0, 0, 0, 1);
 }
 
-/* Blur background content when tour is active */
-.shepherd-modal-is-open .main-content,
-.shepherd-modal-is-open .client-dashboard {
-    filter: blur(3px);
+/* Blur overlay — sits behind Shepherd SVG, adds backdrop blur */
+.tour-blur-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9997;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    pointer-events: none;
 }
 
 /* ----------------------------------------------------------
