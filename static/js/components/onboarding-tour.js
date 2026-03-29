@@ -187,7 +187,7 @@
                 id: 'exclusive',
                 attachTo: { element: '#exclusiveWidget', on: 'bottom' },
                 title: 'Strony Exclusive',
-                text: 'Aktywne oferty Exclusive — nie trwają wiecznie, lepiej nie przegap! 🔥',
+                text: 'Aktywne oferty Exclusive — nie trwają wiecznie, lepiej nie przegap! 🔥 Jak działają strony Exclusive? Dowiesz się w sekcji Pomoc, o której opowiem za chwilę 😉',
                 skipWhen: function() { return !document.querySelector('#exclusiveWidget'); }
             },
             {
