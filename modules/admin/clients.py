@@ -17,7 +17,7 @@ from modules.client.models import (
     CollectionItem, PublicCollectionConfig, CollectionUploadSession
 )
 from modules.feedback.models import FeedbackSurvey, FeedbackResponse
-from modules.exclusive.models import ExclusivePage, ExclusiveReservation
+from modules.offers.models import OfferPage, OfferReservation
 from modules.tracking.models import QRCampaign
 from modules.achievements.models import UserAchievement
 from modules.notifications.models import Notification, PushSubscription, NotificationPreference
@@ -344,8 +344,8 @@ def client_delete(id):
         OrderShipment.query.filter_by(created_by=uid).update({'created_by': None})
         ActivityLog.query.filter_by(user_id=uid).update({'user_id': None})
         FeedbackResponse.query.filter_by(user_id=uid).update({'user_id': None})
-        ExclusiveReservation.query.filter_by(user_id=uid).update({'user_id': None})
-        ExclusivePage.query.filter_by(closed_by_id=uid).update({'closed_by_id': None})
+        OfferReservation.query.filter_by(user_id=uid).update({'user_id': None})
+        OfferPage.query.filter_by(closed_by_id=uid).update({'closed_by_id': None})
         User.query.filter_by(deactivated_by=uid).update({'deactivated_by': None})
         Settings.query.filter_by(updated_by=uid).update({'updated_by': None})
 
@@ -353,7 +353,7 @@ def client_delete(id):
         AdminTask.query.filter_by(created_by=uid).update({'created_by': current_user.id})
         OrderRefund.query.filter_by(created_by=uid).update({'created_by': current_user.id})
         FeedbackSurvey.query.filter_by(created_by=uid).update({'created_by': current_user.id})
-        ExclusivePage.query.filter_by(created_by=uid).update({'created_by': current_user.id})
+        OfferPage.query.filter_by(created_by=uid).update({'created_by': current_user.id})
         QRCampaign.query.filter_by(created_by=uid).update({'created_by': current_user.id})
 
         # --- Delete client-owned data ---

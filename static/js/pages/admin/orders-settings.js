@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // ================================================
-    // Exclusive Closure Settings - Custom Dropdowns
+    // Offer Closure Settings - Custom Dropdowns
     // ================================================
     initCustomSelects();
 
@@ -1067,7 +1067,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * Initialize custom dropdown selects for exclusive closure settings
+ * Initialize custom dropdown selects for offer closure settings
  */
 function initCustomSelects() {
     const customSelects = document.querySelectorAll('.custom-select');

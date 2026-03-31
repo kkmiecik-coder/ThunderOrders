@@ -13,13 +13,13 @@
     function getSections() {
         if (isPWA()) {
             return [
-                { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'exclusive-open', 'recent-orders', 'badges'] },
+                { name: 'Dashboard', steps: ['metrics', 'offers', 'matrix', 'offer-open', 'recent-orders', 'badges'] },
                 { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
                 { name: 'Menu', steps: ['pwa-bottom-bar', 'finish'] }
             ];
         }
         return [
-            { name: 'Dashboard', steps: ['metrics', 'exclusive', 'matrix', 'exclusive-open', 'recent-orders', 'badges'] },
+            { name: 'Dashboard', steps: ['metrics', 'offers', 'matrix', 'offer-open', 'recent-orders', 'badges'] },
             { name: 'Topbar', steps: ['search', 'facebook', 'notifications', 'profile'] },
             { name: 'Menu', steps: ['nav-dashboard', 'nav-orders', 'nav-confirmations', 'nav-shipping', 'nav-collection', 'nav-achievements', 'nav-help', 'finish'] }
         ];
@@ -199,25 +199,25 @@
                 text: 'Tu masz wszystko jak na dłoni — ile zamówień leci, ile dostarczonych, a ile czeka na Twój przelew 💰'
             },
             {
-                id: 'exclusive',
-                attachTo: { element: '#exclusiveWidget', on: 'bottom' },
-                title: 'Strony Exclusive',
-                text: 'Aktywne oferty Exclusive — nie trwają wiecznie, lepiej nie przegap! 🔥 Jak działają strony Exclusive? Dowiesz się w sekcji Pomoc, o której opowiem za chwilę 😉',
-                skipWhen: function() { return !document.querySelector('#exclusiveWidget'); }
+                id: 'offers',
+                attachTo: { element: '#offersWidget', on: 'bottom' },
+                title: 'Strony Ofert',
+                text: 'Aktywne oferty — nie trwają wiecznie, lepiej nie przegap! 🔥 Jak działają strony ofert? Dowiesz się w sekcji Pomoc, o której opowiem za chwilę 😉',
+                skipWhen: function() { return !document.querySelector('#offersWidget'); }
             },
             {
                 id: 'matrix',
-                attachTo: { element: '.exclusive-matrix-btn', on: 'bottom' },
+                attachTo: { element: '.offer-matrix-btn', on: 'bottom' },
                 title: 'Macierz seta',
                 text: 'Tu sprawdzisz, które produkty z seta już masz, które zostały sclaimowane przez innych, a które jeszcze są wolne 🎯',
-                skipWhen: function() { return !document.querySelector('.exclusive-matrix-btn'); }
+                skipWhen: function() { return !document.querySelector('.offer-matrix-btn'); }
             },
             {
-                id: 'exclusive-open',
-                attachTo: { element: '.exclusive-action-btn', on: 'bottom' },
-                title: 'Otwórz stronę Exclusive',
-                text: 'Kliknij tutaj żeby przejść na stronę Exclusive i złożyć zamówienie. To Twoja brama do limitowanych produktów! 🚪',
-                skipWhen: function() { return !document.querySelector('.exclusive-action-btn'); }
+                id: 'offer-open',
+                attachTo: { element: '.offer-action-btn', on: 'bottom' },
+                title: 'Otwórz stronę oferty',
+                text: 'Kliknij tutaj żeby przejść na stronę oferty i złożyć zamówienie. To Twoja brama do limitowanych produktów! 🚪',
+                skipWhen: function() { return !document.querySelector('.offer-action-btn'); }
             },
             {
                 id: 'recent-orders',

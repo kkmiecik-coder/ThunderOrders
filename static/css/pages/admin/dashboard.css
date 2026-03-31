@@ -892,13 +892,13 @@
 /* ====================================
    EXCLUSIVE PAGES CARDS
    ==================================== */
-.exclusive-cards {
+.offer-cards {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
-.exclusive-card {
+.offer-card {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -910,39 +910,39 @@
     transition: all 0.2s ease;
 }
 
-.exclusive-card:hover {
+.offer-card:hover {
     border-color: var(--kpop-purple);
     background: var(--kpop-light);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(139, 92, 246, 0.1);
 }
 
-.exclusive-card-top {
+.offer-card-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
 }
 
-.exclusive-card-middle {
+.offer-card-middle {
     display: flex;
     align-items: center;
 }
 
-.exclusive-card-bottom {
+.offer-card-bottom {
     display: flex;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
 }
 
-.exclusive-card-date {
+.offer-card-date {
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.exclusive-date-label {
+.offer-date-label {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--gray-500);
@@ -950,28 +950,28 @@
     transition: color 0.5s ease;
 }
 
-.exclusive-name {
+.offer-name {
     font-weight: 600;
     color: var(--gray-800);
     transition: color 0.5s ease;
 }
 
-.exclusive-card:hover .exclusive-name {
+.offer-card:hover .offer-name {
     color: var(--kpop-purple);
 }
 
-.exclusive-date {
+.offer-date {
     color: var(--gray-600);
     font-size: 0.8rem;
     transition: color 0.5s ease;
 }
 
-.exclusive-no-date {
+.offer-no-date {
     color: var(--gray-400);
 }
 
 /* Exclusive Status Badges */
-.exclusive-status {
+.offer-status {
     display: inline-block;
     padding: 3px 10px;
     border-radius: 6px;
@@ -981,38 +981,38 @@
     transition: background 0.5s ease, color 0.5s ease;
 }
 
-.exclusive-status-draft {
+.offer-status-draft {
     background: #E5E7EB;
     color: #4B5563;
 }
 
-.exclusive-status-scheduled {
+.offer-status-scheduled {
     background: #DBEAFE;
     color: #1E40AF;
 }
 
-.exclusive-status-active {
+.offer-status-active {
     background: #D1FAE5;
     color: #065F46;
 }
 
-.exclusive-status-paused {
+.offer-status-paused {
     background: #FEF3C7;
     color: #92400E;
 }
 
-.exclusive-status-ended {
+.offer-status-ended {
     background: #F3F4F6;
     color: #6B7280;
 }
 
-.exclusive-status-closed {
+.offer-status-closed {
     background: rgba(139, 92, 246, 0.1);
     color: #8b5cf6;
 }
 
 /* Show More Button */
-.exclusive-show-more,
+.offer-show-more,
 .orders-show-more {
     padding: var(--space-3) var(--space-4);
     text-align: center;
@@ -1074,64 +1074,64 @@
 /* ====================================
    DARK MODE - EXCLUSIVE PAGES
    ==================================== */
-[data-theme="dark"] .exclusive-card {
+[data-theme="dark"] .offer-card {
     background: rgba(255, 255, 255, 0.04);
     border-color: rgba(240, 147, 251, 0.12);
 }
 
-[data-theme="dark"] .exclusive-card:hover {
+[data-theme="dark"] .offer-card:hover {
     background: rgba(240, 147, 251, 0.08);
     border-color: rgba(240, 147, 251, 0.3);
     box-shadow: 0 2px 12px rgba(240, 147, 251, 0.1);
 }
 
-[data-theme="dark"] .exclusive-name {
+[data-theme="dark"] .offer-name {
     color: #f0f0f0;
 }
 
-[data-theme="dark"] .exclusive-card:hover .exclusive-name {
+[data-theme="dark"] .offer-card:hover .offer-name {
     color: #f093fb;
 }
 
-[data-theme="dark"] .exclusive-date {
+[data-theme="dark"] .offer-date {
     color: rgba(255, 255, 255, 0.5);
 }
 
-[data-theme="dark"] .exclusive-date-label {
+[data-theme="dark"] .offer-date-label {
     color: rgba(255, 255, 255, 0.4);
 }
 
-[data-theme="dark"] .exclusive-no-date {
+[data-theme="dark"] .offer-no-date {
     color: rgba(255, 255, 255, 0.3);
 }
 
 /* Dark mode status badges */
-[data-theme="dark"] .exclusive-status-draft {
+[data-theme="dark"] .offer-status-draft {
     background: rgba(156, 163, 175, 0.2);
     color: #9CA3AF;
 }
 
-[data-theme="dark"] .exclusive-status-scheduled {
+[data-theme="dark"] .offer-status-scheduled {
     background: rgba(79, 172, 254, 0.2);
     color: #4facfe;
 }
 
-[data-theme="dark"] .exclusive-status-active {
+[data-theme="dark"] .offer-status-active {
     background: rgba(74, 222, 128, 0.2);
     color: #4ade80;
 }
 
-[data-theme="dark"] .exclusive-status-paused {
+[data-theme="dark"] .offer-status-paused {
     background: rgba(251, 191, 36, 0.2);
     color: #fbbf24;
 }
 
-[data-theme="dark"] .exclusive-status-ended {
+[data-theme="dark"] .offer-status-ended {
     background: rgba(156, 163, 175, 0.15);
     color: rgba(255, 255, 255, 0.5);
 }
 
-[data-theme="dark"] .exclusive-status-closed {
+[data-theme="dark"] .offer-status-closed {
     background: rgba(139, 92, 246, 0.15);
     color: #a78bfa;
 }
@@ -1151,7 +1151,7 @@
     color: #4ade80;
 }
 
-[data-theme="dark"] .exclusive-show-more,
+[data-theme="dark"] .offer-show-more,
 [data-theme="dark"] .orders-show-more {
     border-top-color: rgba(240, 147, 251, 0.08);
 }

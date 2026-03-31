@@ -7,7 +7,7 @@
         <span class="pwa-bar-label">Dashboard</span>
     </a>
 
-    <button class="pwa-bar-item {% if request.endpoint and (request.endpoint.startswith('orders.') or request.endpoint == 'admin.payment_confirmations_list' or request.endpoint == 'admin.exclusive_list' or request.endpoint == 'admin.exclusive_edit') %}active{% endif %}"
+    <button class="pwa-bar-item {% if request.endpoint and (request.endpoint.startswith('orders.') or request.endpoint == 'admin.payment_confirmations_list' or request.endpoint == 'admin.offers_list' or request.endpoint == 'admin.offers_edit') %}active{% endif %}"
             data-sheet="admin-orders" aria-label="Zamówienia">
         <img src="{{ url_for('static', filename='img/icons/orders.svg') }}" alt="" class="pwa-bar-icon">
         <span class="pwa-bar-label">Zamówienia</span>
@@ -53,9 +53,9 @@
             <img src="{{ url_for('static', filename='img/icons/payment.svg') }}" alt="" class="pwa-sheet-icon">
             <span>Potwierdzenia płatności</span>
         </a></li>
-        <li><a href="{{ url_for('admin.exclusive_list') }}" class="pwa-sheet-item {% if request.endpoint == 'admin.exclusive_list' or request.endpoint == 'admin.exclusive_edit' %}active{% endif %}">
+        <li><a href="{{ url_for('admin.offers_list') }}" class="pwa-sheet-item {% if request.endpoint == 'admin.offers_list' or request.endpoint == 'admin.offers_edit' %}active{% endif %}">
             <img src="{{ url_for('static', filename='img/icons/exclusive.svg') }}" alt="" class="pwa-sheet-icon">
-            <span>Exclusive</span>
+            <span>Strony sprzedaży</span>
         </a></li>
         <li><a href="{{ url_for('orders.settings') }}" class="pwa-sheet-item {% if request.endpoint == 'orders.settings' %}active{% endif %}">
             <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="" class="pwa-sheet-icon">

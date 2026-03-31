@@ -22,7 +22,7 @@
         zamowienia: '/admin/statistics/api/orders',
         produkty: '/admin/statistics/api/products',
         klienci: '/admin/statistics/api/clients',
-        exclusive: '/admin/statistics/api/exclusive',
+        offers: '/admin/statistics/api/offers',
         wysylka: '/admin/statistics/api/shipping',
         proxy: '/admin/statistics/api/proxy'
     };
@@ -152,7 +152,7 @@
             case 'zamowienia': renderOrders(data); break;
             case 'produkty': renderProducts(data); break;
             case 'klienci': renderClients(data); break;
-            case 'exclusive': renderExclusive(data); break;
+            case 'offers': renderOffers(data); break;
             case 'wysylka': renderShipping(data); break;
             case 'proxy': renderProxy(data); break;
         }
@@ -330,11 +330,11 @@
     }
 
     // ========================================
-    // Tab: Exclusive
+    // Tab: Offers
     // ========================================
 
-    function renderExclusive(data) {
-        var panel = document.getElementById('tab-exclusive');
+    function renderOffers(data) {
+        var panel = document.getElementById('tab-offers');
         var html = '';
 
         // KPI
@@ -343,8 +343,8 @@
         // Wykres słupkowy: przychód per strona
         if (data.charts && data.charts.bar_revenue && data.charts.bar_revenue.labels.length > 0) {
             html += '<div class="stats-widget">';
-            html += '<h3 class="stats-widget-title">Przychod per strona Exclusive</h3>';
-            html += '<div class="stats-chart-container"><canvas id="chart-exclusive-bar"></canvas></div>';
+            html += '<h3 class="stats-widget-title">Przychod per strona Offer</h3>';
+            html += '<div class="stats-chart-container"><canvas id="chart-offers-bar"></canvas></div>';
             html += '</div>';
         }
 
@@ -356,7 +356,7 @@
         panel.innerHTML = html;
 
         if (data.charts && data.charts.bar_revenue && data.charts.bar_revenue.labels.length > 0) {
-            createHorizontalBarChart('chart-exclusive-bar', data.charts.bar_revenue, ' PLN');
+            createHorizontalBarChart('chart-offers-bar', data.charts.bar_revenue, ' PLN');
         }
     }
 

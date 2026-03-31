@@ -355,7 +355,7 @@
                                 <span class="product-name">
                                     {{ item.product_name }}
                                     {% if item.is_full_set %}
-                                    <span class="product-badge product-badge-full-set" title="Pełny set z exclusive">
+                                    <span class="product-badge product-badge-full-set" title="Pełny set ze strony sprzedaży">
                                         <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
                                             <path d="M2 1a1 1 0 0 0-1 1v4.586a1 1 0 0 0 .293.707l7 7a1 1 0 0 0 1.414 0l4.586-4.586a1 1 0 0 0 0-1.414l-7-7A1 1 0 0 0 6.586 1H2zm4 3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
                                         </svg>
@@ -504,8 +504,8 @@
         <!-- Order Summary Box -->
         <div class="order-summary-box">
             <div class="order-summary-inner">
-                {% if order.is_exclusive %}
-                {# --- EXCLUSIVE ORDER SUMMARY --- #}
+                {% if order.is_offer %}
+                {# --- OFFER ORDER SUMMARY --- #}
                 <div class="summary-row">
                     <span class="summary-label">Produkty:</span>
                     <span class="summary-value">{{ "%.2f"|format(order.effective_total) }} PLN</span>
@@ -1016,7 +1016,7 @@
                     {% endif %}
                 </div>
 
-                {% if order.is_exclusive %}
+                {% if order.is_offer %}
                 {# --- Row: Dostawa Proxy (only 4-stage) --- #}
                 {% if order.payment_stages == 4 %}
                 {% set s2_status = order.stage_2_status %}
@@ -1091,7 +1091,7 @@
                     {% endif %}
                 </div>
 
-                {# --- Total (exclusive) --- #}
+                {# --- Total (offer) --- #}
                 {% set remaining =
                     (order.effective_total if order.product_payment_status != 'approved' else 0)
                     + (order.proxy_shipping_total if (order.payment_stages == 4 and order.stage_2_status != 'approved' and order.proxy_shipping_total > 0) else 0)
@@ -1104,7 +1104,7 @@
                 </div>
 
                 {% else %}
-                {# --- Non-exclusive: Dostawa row --- #}
+                {# --- Non-offer: Dostawa row --- #}
                 <div class="admin-pay__row">
                     <span class="admin-pay__label">Dostawa</span>
                     <span class="admin-pay__amount">
@@ -1116,7 +1116,7 @@
                     </span>
                 </div>
 
-                {# --- Total (non-exclusive) --- #}
+                {# --- Total (non-offer) --- #}
                 {% set remaining_ne =
                     (order.effective_total if order.product_payment_status != 'approved' else 0)
                     + ((order.shipping_cost) if (order.shipping_cost and order.shipping_cost > 0) else 0)
@@ -1134,19 +1134,19 @@
                 </div>
                 {% endif %}
 
-                {% if order.is_exclusive and order.payment_stages == 4 and s2_status == 'rejected' and s2_conf and s2_conf.rejection_reason %}
+                {% if order.is_offer and order.payment_stages == 4 and s2_status == 'rejected' and s2_conf and s2_conf.rejection_reason %}
                 <div class="admin-pay__alert">
                     <strong>Dostawa Proxy — odrzucono:</strong> {{ s2_conf.rejection_reason }}
                 </div>
                 {% endif %}
 
-                {% if order.is_exclusive and s3_status == 'rejected' and s3_conf and s3_conf.rejection_reason %}
+                {% if order.is_offer and s3_status == 'rejected' and s3_conf and s3_conf.rejection_reason %}
                 <div class="admin-pay__alert">
                     <strong>CŁO/VAT — odrzucono:</strong> {{ s3_conf.rejection_reason }}
                 </div>
                 {% endif %}
 
-                {% if order.is_exclusive and s4_status == 'rejected' and s4_conf and s4_conf.rejection_reason %}
+                {% if order.is_offer and s4_status == 'rejected' and s4_conf and s4_conf.rejection_reason %}
                 <div class="admin-pay__alert">
                     <strong>Dostawa PL — odrzucono:</strong> {{ s4_conf.rejection_reason }}
                 </div>
@@ -1486,10 +1486,10 @@
                                     {% if event.new_value.amount %} ({{ event.new_value.amount }} PLN){% endif %}
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}
                                 </span>
-                                {% elif event.action == 'exclusive_closure_fulfillment' %}
+                                {% elif event.action == 'offer_closure_fulfillment' %}
                                 <span class="history-icon">📊</span>
                                 <span class="history-text">
-                                    Rozliczenie exclusive
+                                    Rozliczenie strony sprzedaży
                                     {% if event.new_value.total_items %} — {{ event.new_value.fulfilled_items }}/{{ event.new_value.total_items }} produktów{% endif %}
                                     {% if event.new_value.new_total_amount is not none %}, kwota: {{ event.new_value.new_total_amount }} PLN{% endif %}
                                     {% if event.user %}<span class="history-user">przez {{ event.user.full_name }}</span>{% endif %}

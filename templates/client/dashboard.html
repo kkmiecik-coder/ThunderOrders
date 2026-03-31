@@ -70,16 +70,16 @@
         </a>
     </div>
 
-    <!-- Exclusive Pages Widget -->
-    {% if exclusive_pages.visible|length > 0 %}
-    <div class="exclusive-widget-container">
-        <div class="widget widget-exclusive" id="exclusiveWidget">
+    <!-- Offers Pages Widget -->
+    {% if offer_pages.visible|length > 0 %}
+    <div class="offer-widget-container">
+        <div class="widget widget-offers" id="offersWidget">
             <div class="widget-header">
-                <h2 class="widget-title">✨ Strony Exclusive</h2>
+                <h2 class="widget-title">✨ Strony sprzedaży</h2>
             </div>
             <div class="widget-body widget-body-table">
                 <!-- Desktop: Table view -->
-                <table class="exclusive-table exclusive-desktop">
+                <table class="offer-table offer-desktop">
                     <thead>
                         <tr>
                             <th>Nazwa</th>
@@ -88,24 +88,24 @@
                             <th>Akcje</th>
                         </tr>
                     </thead>
-                    <tbody id="exclusiveTableBody">
+                    <tbody id="offersTableBody">
                         {# Visible pages #}
-                        {% for page in exclusive_pages.visible %}
+                        {% for page in offer_pages.visible %}
                         <tr>
                             <td>
-                                <span class="exclusive-name">{{ page.name }}</span>
+                                <span class="offer-name">{{ page.name }}</span>
                             </td>
                             <td>
                                 {% if page.status == 'active' %}
-                                    <span class="exclusive-status exclusive-status-live">
+                                    <span class="offer-status offer-status-live">
                                         <span class="live-dot"></span>LIVE
                                     </span>
                                 {% elif page.status == 'ended' and page.is_fully_closed %}
-                                    <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                    <span class="offer-status offer-status-closed">Zamknięta</span>
                                 {% elif page.status == 'ended' %}
-                                    <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                    <span class="offer-status offer-status-ended">Zakończona</span>
                                 {% else %}
-                                    <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                    <span class="offer-status offer-status-{{ page.status }}">
                                         {% if page.status == 'scheduled' %}Zaplanowana
                                         {% elif page.status == 'paused' %}Wstrzymana
                                         {% endif %}
@@ -113,27 +113,27 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                                <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
                                       data-status="{{ page.status }}"
                                       data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                       data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                                 </span>
                             </td>
                             <td>
-                                <div class="exclusive-card-actions">
+                                <div class="offer-card-actions">
                                 {% if page._has_sets %}
-                                <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                                <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                                     </svg>
                                 </button>
                                 {% endif %}
                                 {% if page.status == 'ended' and page.is_fully_closed %}
-                                <a class="exclusive-action-btn" disabled aria-disabled="true">
+                                <a class="offer-action-btn" disabled aria-disabled="true">
                                     Otwórz →
                                 </a>
                                 {% else %}
-                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
+                                <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
                                     Otwórz →
                                 </a>
                                 {% endif %}
@@ -142,22 +142,22 @@
                         </tr>
                         {% endfor %}
                         {# Buffer pages (hidden) #}
-                        {% for page in exclusive_pages.buffer %}
-                        <tr class="exclusive-buffered" style="display: none;">
+                        {% for page in offer_pages.buffer %}
+                        <tr class="offer-buffered" style="display: none;">
                             <td>
-                                <span class="exclusive-name">{{ page.name }}</span>
+                                <span class="offer-name">{{ page.name }}</span>
                             </td>
                             <td>
                                 {% if page.status == 'active' %}
-                                    <span class="exclusive-status exclusive-status-live">
+                                    <span class="offer-status offer-status-live">
                                         <span class="live-dot"></span>LIVE
                                     </span>
                                 {% elif page.status == 'ended' and page.is_fully_closed %}
-                                    <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                    <span class="offer-status offer-status-closed">Zamknięta</span>
                                 {% elif page.status == 'ended' %}
-                                    <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                    <span class="offer-status offer-status-ended">Zakończona</span>
                                 {% else %}
-                                    <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                    <span class="offer-status offer-status-{{ page.status }}">
                                         {% if page.status == 'scheduled' %}Zaplanowana
                                         {% elif page.status == 'paused' %}Wstrzymana
                                         {% endif %}
@@ -165,27 +165,27 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                                <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
                                       data-status="{{ page.status }}"
                                       data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                       data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                                 </span>
                             </td>
                             <td>
-                                <div class="exclusive-card-actions">
+                                <div class="offer-card-actions">
                                 {% if page._has_sets %}
-                                <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                                <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                                     </svg>
                                 </button>
                                 {% endif %}
                                 {% if page.status == 'ended' and page.is_fully_closed %}
-                                <a class="exclusive-action-btn" disabled aria-disabled="true">
+                                <a class="offer-action-btn" disabled aria-disabled="true">
                                     Otwórz →
                                 </a>
                                 {% else %}
-                                <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
+                                <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
                                     Otwórz →
                                 </a>
                                 {% endif %}
@@ -197,48 +197,48 @@
                 </table>
 
                 <!-- Mobile: Cards view -->
-                <div class="exclusive-cards exclusive-mobile" id="exclusiveCardsBody">
+                <div class="offer-cards offer-mobile" id="offersCardsBody">
                     {# Visible pages #}
-                    {% for page in exclusive_pages.visible %}
-                    <div class="exclusive-card">
-                        <div class="exclusive-card-header">
-                            <span class="exclusive-name">{{ page.name }}</span>
+                    {% for page in offer_pages.visible %}
+                    <div class="offer-card">
+                        <div class="offer-card-header">
+                            <span class="offer-name">{{ page.name }}</span>
                             {% if page.status == 'active' %}
-                                <span class="exclusive-status exclusive-status-live">
+                                <span class="offer-status offer-status-live">
                                     <span class="live-dot"></span>LIVE
                                 </span>
                             {% elif page.status == 'ended' and page.is_fully_closed %}
-                                <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                <span class="offer-status offer-status-closed">Zamknięta</span>
                             {% elif page.status == 'ended' %}
-                                <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                <span class="offer-status offer-status-ended">Zakończona</span>
                             {% else %}
-                                <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                <span class="offer-status offer-status-{{ page.status }}">
                                     {% if page.status == 'scheduled' %}Zaplanowana
                                     {% elif page.status == 'paused' %}Wstrzymana
                                     {% endif %}
                                 </span>
                             {% endif %}
                         </div>
-                        <div class="exclusive-card-footer">
-                            <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                        <div class="offer-card-footer">
+                            <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
                                   data-status="{{ page.status }}"
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
-                            <div class="exclusive-card-actions">
+                            <div class="offer-card-actions">
                             {% if page._has_sets %}
-                            <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                            <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                                 </svg>
                             </button>
                             {% endif %}
                             {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="exclusive-action-btn" disabled aria-disabled="true">
+                            <a class="offer-action-btn" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
                             {% else %}
-                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
+                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
                                 Otwórz →
                             </a>
                             {% endif %}
@@ -247,46 +247,46 @@
                     </div>
                     {% endfor %}
                     {# Buffer pages (hidden) #}
-                    {% for page in exclusive_pages.buffer %}
-                    <div class="exclusive-card exclusive-buffered" style="display: none;">
-                        <div class="exclusive-card-header">
-                            <span class="exclusive-name">{{ page.name }}</span>
+                    {% for page in offer_pages.buffer %}
+                    <div class="offer-card offer-buffered" style="display: none;">
+                        <div class="offer-card-header">
+                            <span class="offer-name">{{ page.name }}</span>
                             {% if page.status == 'active' %}
-                                <span class="exclusive-status exclusive-status-live">
+                                <span class="offer-status offer-status-live">
                                     <span class="live-dot"></span>LIVE
                                 </span>
                             {% elif page.status == 'ended' and page.is_fully_closed %}
-                                <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                <span class="offer-status offer-status-closed">Zamknięta</span>
                             {% elif page.status == 'ended' %}
-                                <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                <span class="offer-status offer-status-ended">Zakończona</span>
                             {% else %}
-                                <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                <span class="offer-status offer-status-{{ page.status }}">
                                     {% if page.status == 'scheduled' %}Zaplanowana
                                     {% elif page.status == 'paused' %}Wstrzymana
                                     {% endif %}
                                 </span>
                             {% endif %}
                         </div>
-                        <div class="exclusive-card-footer">
-                            <span class="exclusive-timing{% if page.status in ['active', 'scheduled'] %} exclusive-timing-important{% endif %}"
+                        <div class="offer-card-footer">
+                            <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
                                   data-status="{{ page.status }}"
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
-                            <div class="exclusive-card-actions">
+                            <div class="offer-card-actions">
                             {% if page._has_sets %}
-                            <button type="button" class="exclusive-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
+                            <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                     <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                                 </svg>
                             </button>
                             {% endif %}
                             {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="exclusive-action-btn" disabled aria-disabled="true">
+                            <a class="offer-action-btn" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
                             {% else %}
-                            <a href="{{ url_for('exclusive.order_page', token=page.token) }}" class="exclusive-action-btn" target="_blank">
+                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
                                 Otwórz →
                             </a>
                             {% endif %}
@@ -296,14 +296,14 @@
                     {% endfor %}
                 </div>
 
-                {% if exclusive_pages.remaining > 0 %}
-                <div class="exclusive-show-more" id="exclusiveShowMore">
-                    <button type="button" class="show-more-btn" id="exclusiveLoadMoreBtn"
-                            data-visible="{{ exclusive_pages.visible|length }}"
-                            data-buffer="{{ exclusive_pages.buffer|length }}"
-                            data-total="{{ exclusive_pages.total }}"
-                            data-remaining="{{ exclusive_pages.remaining }}">
-                        Pokaż {{ [exclusive_pages.remaining, 5]|min }} więcej →
+                {% if offer_pages.remaining > 0 %}
+                <div class="offer-show-more" id="offersShowMore">
+                    <button type="button" class="show-more-btn" id="offersLoadMoreBtn"
+                            data-visible="{{ offer_pages.visible|length }}"
+                            data-buffer="{{ offer_pages.buffer|length }}"
+                            data-total="{{ offer_pages.total }}"
+                            data-remaining="{{ offer_pages.remaining }}">
+                        Pokaż {{ [offer_pages.remaining, 5]|min }} więcej →
                     </button>
                 </div>
                 {% endif %}
@@ -604,8 +604,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // ====================================
     // EXCLUSIVE PAGES - DYNAMIC TIMING
     // ====================================
-    function updateExclusiveTimings() {
-        const timingElements = document.querySelectorAll('.exclusive-timing');
+    function updateOfferTimings() {
+        const timingElements = document.querySelectorAll('.offer-timing');
         const now = new Date();
 
         timingElements.forEach(el => {
@@ -680,17 +680,17 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Initial update and refresh every minute
-    updateExclusiveTimings();
-    setInterval(updateExclusiveTimings, 60000);
+    updateOfferTimings();
+    setInterval(updateOfferTimings, 60000);
 
     // ====================================
     // EXCLUSIVE PAGES - LAZY LOADING
     // ====================================
     (function() {
-        const loadMoreBtn = document.getElementById('exclusiveLoadMoreBtn');
-        const tableBody = document.getElementById('exclusiveTableBody');
-        const cardsBody = document.getElementById('exclusiveCardsBody');
-        const showMoreContainer = document.getElementById('exclusiveShowMore');
+        const loadMoreBtn = document.getElementById('offersLoadMoreBtn');
+        const tableBody = document.getElementById('offersTableBody');
+        const cardsBody = document.getElementById('offersCardsBody');
+        const showMoreContainer = document.getElementById('offersShowMore');
 
         if (!loadMoreBtn) return;
 
@@ -700,14 +700,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create table row HTML from page data
         function createTableRowHTML(page) {
             const statusHTML = getStatusHTML(page);
-            const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' exclusive-timing-important' : '';
+            const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' offer-timing-important' : '';
             const isDisabled = page.status_class === 'closed';
             const buttonHTML = isDisabled
-                ? `<a class="exclusive-action-btn" disabled aria-disabled="true">Otwórz →</a>`
-                : `<a href="${page.page_url}" class="exclusive-action-btn" target="_blank">Otwórz →</a>`;
+                ? `<a class="offer-action-btn" disabled aria-disabled="true">Otwórz →</a>`
+                : `<a href="${page.page_url}" class="offer-action-btn" target="_blank">Otwórz →</a>`;
 
             const matrixBtnHTML = page.has_sets
-                ? `<button type="button" class="exclusive-matrix-btn" data-page-id="${page.id}" title="Macierz setów">
+                ? `<button type="button" class="offer-matrix-btn" data-page-id="${page.id}" title="Macierz setów">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                     </svg>
@@ -716,17 +716,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
             return `
                 <tr>
-                    <td><span class="exclusive-name">${page.name}</span></td>
+                    <td><span class="offer-name">${page.name}</span></td>
                     <td>${statusHTML}</td>
                     <td>
-                        <span class="exclusive-timing${timingClass}"
+                        <span class="offer-timing${timingClass}"
                               data-status="${page.status}"
                               data-starts="${page.starts_at || ''}"
                               data-ends="${page.ends_at || ''}">
                         </span>
                     </td>
                     <td>
-                        <div class="exclusive-card-actions">
+                        <div class="offer-card-actions">
                             ${matrixBtnHTML}
                             ${buttonHTML}
                         </div>
@@ -738,14 +738,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // Create card HTML from page data
         function createCardHTML(page) {
             const statusHTML = getStatusHTML(page);
-            const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' exclusive-timing-important' : '';
+            const timingClass = page.status === 'active' || page.status === 'scheduled' ? ' offer-timing-important' : '';
             const isDisabled = page.status_class === 'closed';
             const buttonHTML = isDisabled
-                ? `<a class="exclusive-action-btn" disabled aria-disabled="true">Otwórz →</a>`
-                : `<a href="${page.page_url}" class="exclusive-action-btn" target="_blank">Otwórz →</a>`;
+                ? `<a class="offer-action-btn" disabled aria-disabled="true">Otwórz →</a>`
+                : `<a href="${page.page_url}" class="offer-action-btn" target="_blank">Otwórz →</a>`;
 
             const matrixBtnHTML = page.has_sets
-                ? `<button type="button" class="exclusive-matrix-btn" data-page-id="${page.id}" title="Macierz setów">
+                ? `<button type="button" class="offer-matrix-btn" data-page-id="${page.id}" title="Macierz setów">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
                     </svg>
@@ -753,18 +753,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 : '';
 
             return `
-                <div class="exclusive-card">
-                    <div class="exclusive-card-header">
-                        <span class="exclusive-name">${page.name}</span>
+                <div class="offer-card">
+                    <div class="offer-card-header">
+                        <span class="offer-name">${page.name}</span>
                         ${statusHTML}
                     </div>
-                    <div class="exclusive-card-footer">
-                        <span class="exclusive-timing${timingClass}"
+                    <div class="offer-card-footer">
+                        <span class="offer-timing${timingClass}"
                               data-status="${page.status}"
                               data-starts="${page.starts_at || ''}"
                               data-ends="${page.ends_at || ''}">
                         </span>
-                        <div class="exclusive-card-actions">
+                        <div class="offer-card-actions">
                             ${matrixBtnHTML}
                             ${buttonHTML}
                         </div>
@@ -776,19 +776,19 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get status badge HTML
         function getStatusHTML(page) {
             if (page.is_live) {
-                return '<span class="exclusive-status exclusive-status-live"><span class="live-dot"></span>LIVE</span>';
+                return '<span class="offer-status offer-status-live"><span class="live-dot"></span>LIVE</span>';
             }
-            return `<span class="exclusive-status exclusive-status-${page.status_class}">${page.status_text}</span>`;
+            return `<span class="offer-status offer-status-${page.status_class}">${page.status_text}</span>`;
         }
 
         // Fetch more pages from API
         async function fetchMorePages(offset, limit = 5) {
             try {
-                const response = await fetch(`/client/api/exclusive-pages?offset=${offset}&limit=${limit}`);
+                const response = await fetch(`/client/api/offer-pages?offset=${offset}&limit=${limit}`);
                 const data = await response.json();
                 return data;
             } catch (error) {
-                console.error('Error fetching exclusive pages:', error);
+                console.error('Error fetching offer pages:', error);
                 return null;
             }
         }
@@ -810,14 +810,14 @@ document.addEventListener('DOMContentLoaded', function() {
             if (isLoading) return;
 
             // 1. Show buffered items first (both table rows and cards)
-            const bufferedRows = tableBody ? tableBody.querySelectorAll('.exclusive-buffered') : [];
-            const bufferedCards = cardsBody ? cardsBody.querySelectorAll('.exclusive-buffered') : [];
+            const bufferedRows = tableBody ? tableBody.querySelectorAll('.offer-buffered') : [];
+            const bufferedCards = cardsBody ? cardsBody.querySelectorAll('.offer-buffered') : [];
             let shownFromBuffer = 0;
 
             bufferedRows.forEach((row, index) => {
                 if (index < 5 && row.style.display === 'none') {
                     row.style.display = '';
-                    row.classList.remove('exclusive-buffered');
+                    row.classList.remove('offer-buffered');
                     shownFromBuffer++;
                 }
             });
@@ -825,7 +825,7 @@ document.addEventListener('DOMContentLoaded', function() {
             bufferedCards.forEach((card, index) => {
                 if (index < 5 && card.style.display === 'none') {
                     card.style.display = '';
-                    card.classList.remove('exclusive-buffered');
+                    card.classList.remove('offer-buffered');
                 }
             });
 
@@ -848,7 +848,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             const tempDiv = document.createElement('div');
                             tempDiv.innerHTML = rowHTML;
                             const newRow = tempDiv.firstElementChild;
-                            newRow.classList.add('exclusive-buffered');
+                            newRow.classList.add('offer-buffered');
                             newRow.style.display = 'none';
                             tableBody.appendChild(newRow);
                         }
@@ -859,7 +859,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             const tempDiv = document.createElement('div');
                             tempDiv.innerHTML = cardHTML;
                             const newCard = tempDiv.firstElementChild;
-                            newCard.classList.add('exclusive-buffered');
+                            newCard.classList.add('offer-buffered');
                             newCard.style.display = 'none';
                             cardsBody.appendChild(newCard);
                         }
@@ -868,7 +868,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     currentOffset += data.pages.length;
 
                     // Update timing displays for newly added elements
-                    updateExclusiveTimings();
+                    updateOfferTimings();
                 }
 
                 isLoading = false;
@@ -896,7 +896,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Open modal on button click (event delegation for dynamic buttons)
         document.addEventListener('click', function(e) {
-            const btn = e.target.closest('.exclusive-matrix-btn');
+            const btn = e.target.closest('.offer-matrix-btn');
             if (!btn) return;
 
             const pageId = btn.dataset.pageId;
@@ -916,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.add('active');
             modalBody.innerHTML = '<div class="matrix-loading"><div class="spinner"></div><span>Ładowanie macierzy...</span></div>';
 
-            fetch(`/client/api/exclusive/${pageId}/matrix`)
+            fetch(`/client/api/offers/${pageId}/matrix`)
                 .then(r => r.json())
                 .then(data => {
                     if (!data.success) {

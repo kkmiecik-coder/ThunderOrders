@@ -70,7 +70,7 @@ ORDER_ACTION_CONFIG = {
     'order_packed': {'label': 'Zamówienie spakowane', 'icon': '📦'},
     'proxy_shipping_distributed': {'label': 'Naliczono koszt wysyłki proxy', 'icon': '🚢'},
     'customs_vat_distributed': {'label': 'Naliczono cło/VAT', 'icon': '🏛️'},
-    'exclusive_closure_fulfillment': {'label': 'Rozliczenie zamknięcia exclusive', 'icon': '📊'},
+    'offer_closure_fulfillment': {'label': 'Rozliczenie zamknięcia offer', 'icon': '📊'},
 }
 
 # Mapowanie etapów płatności na polskie nazwy
@@ -490,12 +490,12 @@ def admin_detail(order_id):
         from modules.orders.wms_models import WmsSessionOrder
         wms_session_order = WmsSessionOrder.query.filter_by(order_id=order.id).first()
 
-    # Set probability for live exclusive sales (per order item, using stored set_number)
+    # Set probability for live offer sales (per order item, using stored set_number)
     set_probabilities = {}
-    if order.is_exclusive and order.exclusive_page_id:
-        page_obj = order.exclusive_page
+    if order.order_type == 'exclusive' and order.offer_page_id:
+        page_obj = order.offer_page
         if page_obj and not page_obj.is_fully_closed:
-            from modules.exclusive.reservation import get_set_probabilities
+            from modules.offers.reservation import get_set_probabilities
             set_probabilities = get_set_probabilities(order)
 
     return render_template(
@@ -1716,7 +1716,7 @@ def client_detail(order_id):
             if amount:
                 history_item['action_label'] = f"{config['label']} ({amount} PLN)"
 
-        elif log.action == 'exclusive_closure_fulfillment':
+        elif log.action == 'offer_closure_fulfillment':
             fulfilled = new_value_data.get('fulfilled_items', 0)
             total = new_value_data.get('total_items', 0)
             new_total = new_value_data.get('new_total_amount')
@@ -1730,19 +1730,19 @@ def client_detail(order_id):
 
         order_history.append(history_item)
 
-    # Set probability for live exclusive sales
+    # Set probability for live offer sales
     set_probabilities = {}
     has_set_sections = False
-    if order.is_exclusive and order.exclusive_page_id:
-        page_obj = order.exclusive_page
+    if order.order_type == 'exclusive' and order.offer_page_id:
+        page_obj = order.offer_page
         if page_obj:
-            from modules.exclusive.models import ExclusiveSection
-            has_set_sections = ExclusiveSection.query.filter_by(
-                exclusive_page_id=order.exclusive_page_id,
+            from modules.offers.models import OfferSection
+            has_set_sections = OfferSection.query.filter_by(
+                offer_page_id=order.offer_page_id,
                 section_type='set'
             ).first() is not None
             if not page_obj.is_fully_closed:
-                from modules.exclusive.reservation import get_set_probabilities
+                from modules.offers.reservation import get_set_probabilities
                 set_probabilities = get_set_probabilities(order)
 
     # --- Tracking map data ---
@@ -1836,7 +1836,7 @@ def update_custom_name(order_id):
 @role_required('admin')
 def settings():
     """
-    Orders settings page - manage statuses, WMS statuses, payment methods, and exclusive closure settings.
+    Orders settings page - manage statuses, WMS statuses, payment methods, and offer closure settings.
     Only accessible to admins.
     """
     from modules.payments.models import PaymentMethod
@@ -1851,15 +1851,15 @@ def settings():
     # Load all payment methods
     payment_methods = PaymentMethod.query.order_by(PaymentMethod.sort_order, PaymentMethod.name).all()
 
-    # Load exclusive closure settings
+    # Load offer closure settings
     def get_setting_value(key, default):
         setting = Settings.query.filter_by(key=key).first()
         return setting.value if setting else default
 
-    exclusive_closure_settings = {
-        'fully_fulfilled': get_setting_value('exclusive_closure_status_fully_fulfilled', 'oczekujace'),
-        'partially_fulfilled': get_setting_value('exclusive_closure_status_partially_fulfilled', 'oczekujace'),
-        'not_fulfilled': get_setting_value('exclusive_closure_status_not_fulfilled', 'anulowane')
+    offer_closure_settings = {
+        'fully_fulfilled': get_setting_value('offer_closure_status_fully_fulfilled', 'oczekujace'),
+        'partially_fulfilled': get_setting_value('offer_closure_status_partially_fulfilled', 'oczekujace'),
+        'not_fulfilled': get_setting_value('offer_closure_status_not_fulfilled', 'anulowane')
     }
 
     # Load shipping request statuses
@@ -1903,7 +1903,7 @@ def settings():
         statuses=statuses,
         wms_statuses=wms_statuses,
         payment_methods=payment_methods,
-        exclusive_closure_settings=exclusive_closure_settings,
+        offer_closure_settings=offer_closure_settings,
         shipping_request_statuses=shipping_request_statuses,
         shipping_request_allowed_statuses=shipping_request_allowed_statuses,
         shipping_request_default_status=shipping_request_default_status,
@@ -1959,21 +1959,21 @@ def update_ocr_settings():
     return redirect(url_for('orders.settings') + '#tab-payment-methods')
 
 
-@orders_bp.route('/admin/orders/settings/exclusive-closure', methods=['POST'])
+@orders_bp.route('/admin/orders/settings/offer-closure', methods=['POST'])
 @login_required
 @role_required('admin')
-def update_exclusive_closure_settings():
+def update_offer_closure_settings():
     """
-    Update exclusive closure settings - configure automatic status changes after exclusive page closure.
+    Update offer closure settings - configure automatic status changes after offer page closure.
     Only accessible to admins.
     """
     from modules.auth.models import Settings
 
     try:
         # Get form data
-        status_fully = request.form.get('exclusive_closure_status_fully_fulfilled', '').strip()
-        status_partially = request.form.get('exclusive_closure_status_partially_fulfilled', '').strip()
-        status_not = request.form.get('exclusive_closure_status_not_fulfilled', '').strip()
+        status_fully = request.form.get('offer_closure_status_fully_fulfilled', '').strip()
+        status_partially = request.form.get('offer_closure_status_partially_fulfilled', '').strip()
+        status_not = request.form.get('offer_closure_status_not_fulfilled', '').strip()
 
         # Validate required fields
         if not status_fully or not status_partially or not status_not:
@@ -2011,9 +2011,9 @@ def update_exclusive_closure_settings():
                 )
                 db.session.add(setting)
 
-        update_or_create_setting('exclusive_closure_status_fully_fulfilled', status_fully)
-        update_or_create_setting('exclusive_closure_status_partially_fulfilled', status_partially)
-        update_or_create_setting('exclusive_closure_status_not_fulfilled', status_not)
+        update_or_create_setting('offer_closure_status_fully_fulfilled', status_fully)
+        update_or_create_setting('offer_closure_status_partially_fulfilled', status_partially)
+        update_or_create_setting('offer_closure_status_not_fulfilled', status_not)
 
         db.session.commit()
 
@@ -2033,7 +2033,7 @@ def update_exclusive_closure_settings():
         )
 
         flash('Ustawienia zostały zapisane', 'success')
-        return redirect(url_for('orders.settings') + '#tab-exclusive-closure')
+        return redirect(url_for('orders.settings') + '#tab-offer-closure')
 
     except Exception as e:
         db.session.rollback()
@@ -2061,8 +2061,8 @@ def update_email_notification_settings():
         'notify_tracking_added', 'notify_packing_photo', 'notify_order_cancelled',
         'notify_cost_added', 'notify_payment_approved', 'notify_payment_rejected',
         'notify_payment_reminder', 'notify_shipping_request_created',
-        'notify_shipping_status_change', 'notify_exclusive_closure',
-        'notify_new_exclusive_page', 'notify_back_in_stock',
+        'notify_shipping_status_change', 'notify_offer_closure',
+        'notify_new_offer_page', 'notify_back_in_stock',
         'notify_admin_new_order', 'notify_admin_payment_uploaded',
     }
 

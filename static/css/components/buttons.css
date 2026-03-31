@@ -668,7 +668,7 @@
    DASHBOARD BUTTONS (Exclusive & Show More)
    ============================================ */
 
-/* Exclusive buttons now use .exclusive-action-btn with custom styling in dashboard.css */
+/* Offer action buttons now use .offer-action-btn with custom styling in dashboard.css */
 
 /* Show More Button - Tertiary text-based style */
 .show-more-btn {

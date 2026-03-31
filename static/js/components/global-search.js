@@ -13,7 +13,7 @@
     order: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h12M2 4v9a1 1 0 001 1h10a1 1 0 001-1V4M6 4V2h4v2M6 7h4"/></svg>',
     product: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M2 6h12M6 6v8"/></svg>',
     client: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-2.5 2.7-4.5 6-4.5s6 2 6 4.5"/></svg>',
-    exclusive: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg>',
+    offers: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.8 3.8 14l.8-4.7L1.2 6l4.7-.7z"/></svg>',
     proxy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8h14M1 4h14M1 12h14"/><circle cx="12" cy="8" r="2"/></svg>',
     shipping: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h9v7H1zM10 6h3l2 3v3h-5"/><circle cx="4" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/></svg>',
     nav: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 3l6 5-6 5"/></svg>',
@@ -27,7 +27,7 @@
     orders: 'Zamówienia',
     products: 'Produkty',
     clients: 'Klienci',
-    exclusive: 'Exclusive',
+    offers: 'Oferty',
     proxy_orders: 'Proxy Orders',
     poland_orders: 'Poland Orders',
     shipping_requests: 'Zlecenia wysyłki'
@@ -38,7 +38,7 @@
     orders: ICONS.order,
     products: ICONS.product,
     clients: ICONS.client,
-    exclusive: ICONS.exclusive,
+    offers: ICONS.offers,
     proxy_orders: ICONS.proxy,
     poland_orders: ICONS.proxy,
     shipping_requests: ICONS.shipping
@@ -321,7 +321,7 @@
   function renderResults(results, query, container) {
     allItems = [];
     var html = '';
-    var categoryOrder = ['navigation', 'orders', 'products', 'clients', 'exclusive', 'proxy_orders', 'poland_orders', 'shipping_requests'];
+    var categoryOrder = ['navigation', 'orders', 'products', 'clients', 'offers', 'proxy_orders', 'poland_orders', 'shipping_requests'];
 
     categoryOrder.forEach(function(category) {
       if (!results[category] || results[category].length === 0) return;

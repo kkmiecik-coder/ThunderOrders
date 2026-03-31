@@ -220,10 +220,10 @@ def register_blueprints(app):
     from modules.orders import orders_bp
     app.register_blueprint(orders_bp)
 
-    # Exclusive module (publiczne strony zamówień pre-order)
+    # Offers module (publiczne strony sprzedaży — exclusive, pre-order)
     # CSRF exempt per-endpoint (reserve, release, extend, restore, place-order, subscribe-notification)
-    from modules.exclusive import exclusive_bp
-    app.register_blueprint(exclusive_bp)
+    from modules.offers import offers_bp
+    app.register_blueprint(offers_bp)
 
     # API module (AJAX requests — JS sends X-CSRFToken header from meta tag)
     from modules.api import api_bp
@@ -465,17 +465,17 @@ def register_cli_commands(app):
     @app.cli.command('backfill-set-numbers')
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl bez zapisywania')
     def backfill_set_numbers(dry_run):
-        """Uzupełnia set_number i set_section_id dla istniejących zamówień exclusive."""
+        """Uzupełnia set_number i set_section_id dla istniejących zamówień ze stron sprzedaży."""
         from modules.orders.models import Order, OrderItem
-        from modules.exclusive.models import ExclusiveSection, ExclusivePage
+        from modules.offers.models import OfferSection, OfferPage
         from sqlalchemy import func as sql_func
 
-        pages = ExclusivePage.query.all()
+        pages = OfferPage.query.all()
         total_updated = 0
 
         for page in pages:
-            set_sections = ExclusiveSection.query.filter_by(
-                exclusive_page_id=page.id, section_type='set'
+            set_sections = OfferSection.query.filter_by(
+                offer_page_id=page.id, section_type='set'
             ).all()
             if not set_sections:
                 continue
@@ -493,7 +493,7 @@ def register_cli_commands(app):
 
             # Get all orders for this page chronologically
             orders = Order.query.filter_by(
-                exclusive_page_id=page.id
+                offer_page_id=page.id
             ).filter(Order.status != 'anulowane').order_by(Order.created_at.asc()).all()
 
             # Track cumulative ordered quantities

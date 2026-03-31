@@ -12,7 +12,7 @@ from modules.auth.models import User
 from modules.admin.models import AdminTask
 from modules.orders.models import Order, OrderItem
 from modules.products.models import Product
-from modules.exclusive.models import ExclusivePage
+from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, cast, Date, extract
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -201,11 +201,11 @@ def dashboard():
         'recent_tasks': user_tasks[:5]
     }
 
-    # 8. Exclusive pages (admin sees all)
-    exclusive_pages_all = ExclusivePage.query.all()
+    # 8. Offer pages (admin sees all)
+    offer_pages_all = OfferPage.query.all()
 
     # Update status for each page (check dates)
-    for page in exclusive_pages_all:
+    for page in offer_pages_all:
         page.check_and_update_status()
 
     # Sort by priority: 1. active (LIVE), 2. scheduled, 3. ended (not closed), 4. closed, 5. paused, 6. draft
@@ -224,13 +224,13 @@ def dashboard():
             return 5
         return 99
 
-    exclusive_pages_all.sort(key=get_sort_priority)
+    offer_pages_all.sort(key=get_sort_priority)
 
-    exclusive_pages = {
-        'visible': exclusive_pages_all[:5],  # First 5 visible
-        'buffer': exclusive_pages_all[5:10],  # Next 5 in buffer (hidden)
-        'total': len(exclusive_pages_all),
-        'remaining': max(0, len(exclusive_pages_all) - 5)  # Remaining after visible
+    offer_pages = {
+        'visible': offer_pages_all[:5],  # First 5 visible
+        'buffer': offer_pages_all[5:10],  # Next 5 in buffer (hidden)
+        'total': len(offer_pages_all),
+        'remaining': max(0, len(offer_pages_all) - 5)  # Remaining after visible
     }
 
     # 9. Pending payment confirmations count
@@ -247,7 +247,7 @@ def dashboard():
         sales_chart=sales_chart,
         top_products=top_products,
         tasks=tasks,
-        exclusive_pages=exclusive_pages,
+        offer_pages=offer_pages,
         pending_payment_confirmations=pending_payment_confirmations
     )
 
@@ -476,12 +476,12 @@ def get_recent_orders():
     })
 
 
-@admin_bp.route('/dashboard/exclusive-pages')
+@admin_bp.route('/dashboard/offer-pages')
 @login_required
 @role_required('admin', 'mod')
-def get_exclusive_pages():
+def get_offer_pages():
     """
-    API endpoint zwracający strony exclusive z paginacją
+    API endpoint zwracający strony ofertowe z paginacją
 
     Query params:
     - offset: od której strony zacząć (domyślnie 0)
@@ -493,10 +493,10 @@ def get_exclusive_pages():
     limit = request.args.get('limit', 5, type=int)
 
     # Pobierz wszystkie strony
-    exclusive_pages_all = ExclusivePage.query.all()
+    offer_pages_all = OfferPage.query.all()
 
     # Update status for each page
-    for page in exclusive_pages_all:
+    for page in offer_pages_all:
         page.check_and_update_status()
 
     # Sort by priority
@@ -515,12 +515,12 @@ def get_exclusive_pages():
             return 5
         return 99
 
-    exclusive_pages_all.sort(key=get_sort_priority)
+    offer_pages_all.sort(key=get_sort_priority)
 
     # Paginacja
-    pages_slice = exclusive_pages_all[offset:offset + limit]
-    has_more = len(exclusive_pages_all) > offset + limit
-    remaining = max(0, len(exclusive_pages_all) - offset - limit)
+    pages_slice = offer_pages_all[offset:offset + limit]
+    has_more = len(offer_pages_all) > offset + limit
+    remaining = max(0, len(offer_pages_all) - offset - limit)
 
     # Serialize pages
     pages_data = []
@@ -557,7 +557,7 @@ def get_exclusive_pages():
             'status_text': status_text,
             'starts_at': page.starts_at.strftime('%d.%m.%Y %H:%M') if page.starts_at else None,
             'ends_at': page.ends_at.strftime('%d.%m.%Y %H:%M') if page.ends_at else None,
-            'edit_url': url_for('admin.exclusive_edit', page_id=page.id)
+            'edit_url': url_for('admin.offers_edit', page_id=page.id)
         })
 
     return jsonify({
@@ -565,5 +565,5 @@ def get_exclusive_pages():
         'pages': pages_data,
         'has_more': has_more,
         'remaining': remaining,
-        'total': len(exclusive_pages_all)
+        'total': len(offer_pages_all)
     })

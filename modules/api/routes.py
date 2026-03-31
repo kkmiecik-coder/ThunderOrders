@@ -475,7 +475,7 @@ def create_client():
 def global_search():
     """
     Global search endpoint with role-based results.
-    Admin/Mod: orders, products, clients, exclusive, proxy/poland orders, shipping requests, navigation.
+    Admin/Mod: orders, products, clients, offers, proxy/poland orders, shipping requests, navigation.
     Client: own orders, own shipping requests, navigation.
 
     Query params:
@@ -487,7 +487,7 @@ def global_search():
     from flask import url_for
     from modules.orders.models import Order, ShippingRequest
     from modules.products.models import Product, ProxyOrder, PolandOrder
-    from modules.exclusive.models import ExclusivePage
+    from modules.offers.models import OfferPage
     from modules.auth.models import User
 
     query = request.args.get('q', '').strip()
@@ -639,27 +639,27 @@ def global_search():
                     })
                 results['clients'] = client_results
 
-            # Exclusive Pages
-            exclusives = ExclusivePage.query.filter(
+            # Offer Pages
+            offer_pages = OfferPage.query.filter(
                 db.or_(
-                    ExclusivePage.name.ilike(f'%{query}%'),
-                    ExclusivePage.token.ilike(f'%{query}%')
+                    OfferPage.name.ilike(f'%{query}%'),
+                    OfferPage.token.ilike(f'%{query}%')
                 )
-            ).order_by(ExclusivePage.created_at.desc()).limit(limit_per_category).all()
+            ).order_by(OfferPage.created_at.desc()).limit(limit_per_category).all()
 
-            if exclusives:
+            if offer_pages:
                 exc_results = []
-                for ep in exclusives:
-                    badge_info = _get_exclusive_badge(ep.status)
+                for ep in offer_pages:
+                    badge_info = _get_offer_badge(ep.status)
                     exc_results.append({
                         'title': ep.name,
                         'subtitle': f'Token: {ep.token}',
-                        'url': url_for('admin.exclusive_edit', page_id=ep.id),
+                        'url': url_for('admin.offers_edit', page_id=ep.id),
                         'badge': badge_info.get('label', ''),
                         'badge_bg': badge_info.get('bg', ''),
                         'badge_color': badge_info.get('color', '')
                     })
-                results['exclusive'] = exc_results
+                results['offers'] = exc_results
 
             # Proxy Orders
             proxy_orders = ProxyOrder.query.filter(
@@ -713,7 +713,7 @@ def _get_navigation_items(is_admin):
             {'title': 'Lista zamówień', 'subtitle': 'Zamówienia', 'url': url_for('orders.admin_list'), 'keywords': ['zamówienia', 'orders', 'zamowienia']},
             {'title': 'Zlecenia wysyłki', 'subtitle': 'Zamówienia', 'url': url_for('orders.admin_shipping_requests_list'), 'keywords': ['wysyłka', 'shipping', 'zlecenia', 'wyslane']},
             {'title': 'Potwierdzenia płatności', 'subtitle': 'Zamówienia', 'url': url_for('admin.payment_confirmations_list'), 'keywords': ['platnosci', 'płatności', 'payment']},
-            {'title': 'Exclusive', 'subtitle': 'Zamówienia', 'url': url_for('admin.exclusive_list'), 'keywords': ['exclusive', 'ekskluzywne']},
+            {'title': 'Strony sprzedaży', 'subtitle': 'Zamówienia', 'url': url_for('admin.offers_list'), 'keywords': ['offers', 'oferty', 'strony sprzedaży']},
             {'title': 'Ustawienia zamówień', 'subtitle': 'Zamówienia', 'url': url_for('orders.settings'), 'keywords': ['ustawienia', 'settings']},
             {'title': 'Lista produktów', 'subtitle': 'Magazyn', 'url': url_for('products.list_products'), 'keywords': ['produkty', 'products', 'magazyn', 'warehouse']},
             {'title': 'Zamówienia produktów', 'subtitle': 'Magazyn', 'url': url_for('products.stock_orders'), 'keywords': ['proxy', 'stock', 'zamówienia produktów', 'korea']},
@@ -860,8 +860,8 @@ def popup_action(popup_id):
         }), 500
 
 
-def _get_exclusive_badge(status):
-    """Returns badge info for exclusive page status."""
+def _get_offer_badge(status):
+    """Returns badge info for offer page status."""
     badges = {
         'draft': {'label': 'Draft', 'bg': '#6b7280', 'color': '#fff'},
         'scheduled': {'label': 'Scheduled', 'bg': '#3b82f6', 'color': '#fff'},

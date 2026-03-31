@@ -316,7 +316,7 @@ def send_password_reset_email(user_email, reset_token, user_name):
     )
 
 
-def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_exclusive=False, payment_stages=None):
+def send_order_confirmation_email(user_email, user_name, order_number, order_total, order_items, is_offer=False, payment_stages=None):
     """
     Wysyła potwierdzenie zamówienia do klienta
 
@@ -326,7 +326,7 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_number (str): Numer zamówienia (np. ST/00000001)
         order_total (float): Łączna kwota zamówienia
         order_items (list): Lista produktów w zamówieniu
-        is_exclusive (bool): Czy zamówienie exclusive
+        is_offer (bool): Czy zamówienie ze strony sprzedaży
         payment_stages (int): Liczba etapów płatności (3 lub 4)
     """
     return send_email(
@@ -337,7 +337,7 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
         order_number=order_number,
         order_total=order_total,
         order_items=order_items,
-        is_exclusive=is_exclusive,
+        is_offer=is_offer,
         payment_stages=payment_stages
     )
 
@@ -364,12 +364,12 @@ def send_order_status_change_email(user_email, user_name, order_number, old_stat
     )
 
 
-def send_exclusive_closure_email(customer_email, customer_name, page_name, items,
+def send_offer_closure_email(customer_email, customer_name, page_name, items,
                                 fulfilled_items=None, fulfilled_total=0, shipping_cost=0,
                                 grand_total=0, order_number='', payment_methods=None,
                                 upload_payment_url=''):
     """
-    Wysyła email z podsumowaniem zamówienia po zamknięciu strony Exclusive.
+    Wysyła email z podsumowaniem zamówienia po zamknięciu strony sprzedaży.
 
     Email zawiera listę wszystkich produktów z informacją:
     - Zostanie zamówiony (produkt załapał się do kompletu)
@@ -379,7 +379,7 @@ def send_exclusive_closure_email(customer_email, customer_name, page_name, items
     Args:
         customer_email (str): Email klienta
         customer_name (str): Imię klienta
-        page_name (str): Nazwa strony Exclusive
+        page_name (str): Nazwa strony sprzedaży
         items (list): Lista słowników z kluczami:
             - product_name (str): Nazwa produktu
             - quantity (int): Zamówiona ilość
@@ -395,7 +395,7 @@ def send_exclusive_closure_email(customer_email, customer_name, page_name, items
     return send_email(
         to=customer_email,
         subject=f'Podsumowanie zamówienia - {page_name} - ThunderOrders',
-        template='exclusive_closure',
+        template='offer_closure',
         customer_name=customer_name,
         page_name=page_name,
         items=items,
@@ -412,13 +412,13 @@ def send_exclusive_closure_email(customer_email, customer_name, page_name, items
 def send_order_cancelled_email(user_email, user_name, order_number, page_name,
                                cancelled_items, reason=''):
     """
-    Wysyła email o anulowaniu zamówienia exclusive.
+    Wysyła email o anulowaniu zamówienia.
 
     Args:
         user_email: Email odbiorcy
         user_name: Imię odbiorcy
         order_number: Numer zamówienia (np. EX/00000123)
-        page_name: Nazwa strony Exclusive
+        page_name: Nazwa strony sprzedaży
         cancelled_items: Lista dict z kluczami: name, quantity, image_url
         reason: Powód anulowania (opcjonalny)
 
@@ -526,14 +526,14 @@ def send_admin_new_order_email(admin_email, customer_name, customer_email,
                                order_number, page_name, items,
                                order_total, order_detail_url, created_at):
     """
-    Wysyła email do admina o nowym zamówieniu exclusive.
+    Wysyła email do admina o nowym zamówieniu ze strony sprzedaży.
 
     Args:
         admin_email (str): Email admina
         customer_name (str): Imię klienta
         customer_email (str): Email klienta
         order_number (str): Numer zamówienia
-        page_name (str): Nazwa strony Exclusive
+        page_name (str): Nazwa strony sprzedaży
         items (list): Lista dict z product_name, quantity, price, total
         order_total (float): Suma zamówienia
         order_detail_url (str): URL do szczegółów zamówienia (admin)
@@ -588,16 +588,16 @@ def send_order_completed_email(user_email, user_name, order_number, order_items,
     )
 
 
-def send_back_in_stock_email(email, product_name, product_image_url, exclusive_page_name, exclusive_page_url):
+def send_back_in_stock_email(email, product_name, product_image_url, offer_page_name, offer_page_url):
     """
-    Wysyła powiadomienie o powrocie produktu do dostępności na stronie Exclusive.
+    Wysyła powiadomienie o powrocie produktu do dostępności na stronie sprzedaży.
 
     Args:
         email (str): Email odbiorcy
         product_name (str): Nazwa produktu
         product_image_url (str): URL do zdjęcia produktu (lub None)
-        exclusive_page_name (str): Nazwa strony Exclusive
-        exclusive_page_url (str): URL do strony Exclusive
+        offer_page_name (str): Nazwa strony sprzedaży
+        offer_page_url (str): URL do strony sprzedaży
 
     Returns:
         bool: True jeśli email został wysłany
@@ -608,8 +608,8 @@ def send_back_in_stock_email(email, product_name, product_image_url, exclusive_p
         template='back_in_stock',
         product_name=product_name,
         product_image_url=product_image_url,
-        exclusive_page_name=exclusive_page_name,
-        exclusive_page_url=exclusive_page_url
+        offer_page_name=offer_page_name,
+        offer_page_url=offer_page_url
     )
 
 
@@ -754,20 +754,20 @@ def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stag
     )
 
 
-def send_new_exclusive_page_email(user_email, user_name, page_name, page_url):
+def send_new_offer_page_email(user_email, user_name, page_name, page_url):
     """
-    Wysyła email z powiadomieniem o nowej stronie Exclusive (nowy drop).
+    Wysyła email z powiadomieniem o nowej stronie sprzedaży (nowy drop).
 
     Args:
         user_email (str): Email klienta
         user_name (str): Imię klienta
-        page_name (str): Nazwa strony Exclusive
-        page_url (str): URL do strony Exclusive
+        page_name (str): Nazwa strony sprzedaży
+        page_url (str): URL do strony sprzedaży
     """
     return send_email(
         to=user_email,
         subject=f'Nowy drop: {page_name} - ThunderOrders',
-        template='new_exclusive_page',
+        template='new_offer_page',
         user_name=user_name,
         page_name=page_name,
         page_url=page_url

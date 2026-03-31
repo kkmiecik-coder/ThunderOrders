@@ -70,7 +70,7 @@
         order_status_changes: 'img/icons/check-circle.svg',
         payment_updates: 'img/icons/payment.svg',
         shipping_updates: 'img/icons/truck.svg',
-        new_exclusive_pages: 'img/icons/exclusive.svg',
+        new_offer_pages: 'img/icons/offers.svg',
         cost_added: 'img/icons/payment-pending.svg',
         admin_alerts: 'img/icons/bell.svg'
     };

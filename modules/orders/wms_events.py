@@ -386,13 +386,13 @@ def handle_disconnect():
     """
     sid = flask_request.sid
 
-    # Handle exclusive visitor disconnect (visitor counting for LIVE dashboard)
+    # Handle offer visitor disconnect (visitor counting for LIVE dashboard)
     try:
-        from modules.exclusive.socket_events import handle_exclusive_disconnect
-        handle_exclusive_disconnect(sid)
+        from modules.offers.socket_events import handle_offer_disconnect
+        handle_offer_disconnect(sid)
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error(f"Exclusive disconnect cleanup failed for {sid}: {e}")
+        logging.getLogger(__name__).error(f"Offer disconnect cleanup failed for {sid}: {e}")
 
     client = connected_clients.pop(sid, None)
     if not client:

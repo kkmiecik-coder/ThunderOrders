@@ -2669,7 +2669,7 @@ def _update_client_orders_on_polska_ordered():
     )
 
     client_orders = Order.query.filter(
-        Order.is_exclusive == True,
+        Order.offer_page_id.isnot(None),
         or_(
             and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace'])),
             and_(Order.payment_stages == 4, Order.status == 'dostarczone_proxy')
@@ -3136,7 +3136,7 @@ def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
 
     # Znajdź exclusive zamówienia klientów z pasującymi produktami (nie anulowane)
     client_orders = Order.query.filter(
-        Order.is_exclusive == True,
+        Order.offer_page_id.isnot(None),
         Order.status != 'anulowane'
     ).all()
 
@@ -3198,7 +3198,7 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
 
     # Znajdź exclusive zamówienia klientów (nie anulowane)
     client_orders = Order.query.filter(
-        Order.is_exclusive == True,
+        Order.offer_page_id.isnot(None),
         Order.status != 'anulowane'
     ).all()
 

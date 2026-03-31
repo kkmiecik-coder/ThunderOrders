@@ -237,7 +237,7 @@ function getQuestionTemplate(type) {
 
     if (type === 'section_header') {
         bodyContent = `
-            <input type="text" class="form-input question-content" placeholder="Nagłówek sekcji (np. Sekcja 1: Zamówienia Exclusive)">
+            <input type="text" class="form-input question-content" placeholder="Nagłówek sekcji (np. Sekcja 1: Zamówienia Oferty)">
         `;
     } else if (type === 'text') {
         bodyContent = `

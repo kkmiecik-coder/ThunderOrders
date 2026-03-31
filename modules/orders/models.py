@@ -4,7 +4,7 @@ Orders Module - Database Models
 
 Models for orders management:
 - OrderStatus: Lookup table for order statuses
-- OrderType: Lookup table for order types (Pre-order, On-hand, Exclusive)
+- OrderType: Lookup table for order types (Pre-order, On-hand, Offer)
 - Order: Main order model
 - OrderItem: Order line items (products in order)
 - OrderComment: Comments/messages for orders (admin <-> client communication)
@@ -12,7 +12,7 @@ Models for orders management:
 - ShippingRequestStatus: Lookup table for shipping request statuses
 - ShippingRequest: Shipping request model (groups orders for shipment)
 - ShippingRequestOrder: Junction table between ShippingRequest and Order
-- PaymentConfirmation: Potwierdzenia płatności dla zamówień Exclusive
+- PaymentConfirmation: Potwierdzenia płatności dla zamówień Offer
 """
 
 from datetime import datetime, timezone, timedelta
@@ -89,7 +89,7 @@ class OrderStatus(db.Model):
 class OrderType(db.Model):
     """
     Order type lookup table.
-    Types: Pre-order (PO), On-hand (OH), Exclusive (EX)
+    Types: Pre-order (PO), On-hand (OH), Offer (EX)
     """
     __tablename__ = 'order_types'
 
@@ -181,12 +181,11 @@ class Order(db.Model):
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
     payment_method = db.Column(db.String(50), nullable=True)  # przelew, pobranie, gotowka, blik
 
-    # Exclusive order fields
-    is_exclusive = db.Column(db.Boolean, default=False)
-    exclusive_page_id = db.Column(db.Integer, db.ForeignKey('exclusive_pages.id', ondelete='SET NULL'), nullable=True)
-    exclusive_page = db.relationship('ExclusivePage', back_populates='orders')
-    exclusive_page_name = db.Column(db.String(200), nullable=True)  # Preserved page name for history
-    payment_stages = db.Column(db.Integer, nullable=True)  # Dziedziczone z ExclusivePage (2 lub 3)
+    # Offer page order fields
+    offer_page_id = db.Column(db.Integer, db.ForeignKey('offer_pages.id', ondelete='SET NULL'), nullable=True)
+    offer_page = db.relationship('OfferPage', back_populates='orders')
+    offer_page_name = db.Column(db.String(200), nullable=True)  # Preserved page name for history
+    payment_stages = db.Column(db.Integer, nullable=True)  # Dziedziczone z OfferPage (2 lub 3)
 
     # Shipping request
     shipping_requested = db.Column(db.Boolean, default=False)
@@ -281,12 +280,12 @@ class Order(db.Model):
 
     @property
     def type_display_name(self):
-        """Returns formatted type name. For exclusive orders, includes page name."""
-        if self.is_exclusive:
-            if self.exclusive_page:
-                return f"Exclusive - {self.exclusive_page.name}"
-            elif self.exclusive_page_name:
-                return f"Exclusive - {self.exclusive_page_name}"
+        """Returns formatted type name. For offer orders, includes page name."""
+        if self.order_type == 'exclusive':
+            if self.offer_page:
+                return f"Exclusive - {self.offer_page.name}"
+            elif self.offer_page_name:
+                return f"Exclusive - {self.offer_page_name}"
             return "Exclusive"
         if self.type_rel:
             return self.type_rel.name
@@ -454,12 +453,12 @@ class Order(db.Model):
 
     @property
     def order_source_display(self):
-        """Returns order source for display (Exclusive page name or order type)"""
-        if self.is_exclusive:
-            if self.exclusive_page:
-                return f"Exclusive: {self.exclusive_page.name}"
-            elif self.exclusive_page_name:
-                return f"Exclusive: {self.exclusive_page_name} (usunięta)"
+        """Returns order source for display (Offer page name or order type)"""
+        if self.order_type == 'exclusive':
+            if self.offer_page:
+                return f"Exclusive: {self.offer_page.name}"
+            elif self.offer_page_name:
+                return f"Exclusive: {self.offer_page_name} (usunięta)"
             return "Exclusive"
         if self.type_rel:
             return self.type_rel.name
@@ -595,7 +594,7 @@ class Order(db.Model):
     def recalculate_total_amount(self):
         """
         Przelicza total_amount na podstawie aktualnych order_items.
-        Używane po closure exclusive (gdy items są zerowane/splitowane).
+        Używane po closure offer (gdy items są zerowane/splitowane).
 
         Returns:
             Decimal: Nowa wartość total_amount
@@ -645,8 +644,8 @@ class Order(db.Model):
         paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
         grand = self.grand_total
 
-        # Zamówienia exclusive z etapami płatności
-        if self.is_exclusive and self.payment_stages:
+        # Zamówienia offer z etapami płatności
+        if self.order_type == 'exclusive' and self.payment_stages:
             stages_info = []
             statuses = []
 
@@ -706,7 +705,7 @@ class Order(db.Model):
                 return {'css_class': 'warning', 'tooltip': tooltip}
             return {'css_class': 'inactive', 'tooltip': tooltip}
 
-        # Zamówienia standardowe (nie-exclusive)
+        # Zamówienia standardowe (nie-offer)
         payment_method = self.payment_method_display
         shipping = self.shipping_cost or Decimal('0.00')
         tooltip = f"Op\u0142acone: {paid}/{grand} z\u0142 ({int(paid / grand * 100) if grand > 0 else 0}%) | Metoda: {payment_method} | Wysy\u0142ka: {shipping} z\u0142"
@@ -917,7 +916,7 @@ class OrderItem(db.Model):
     custom_name = db.Column(db.String(255), nullable=True)  # Custom product name
     custom_sku = db.Column(db.String(100), nullable=True)   # Optional custom SKU
     is_custom = db.Column(db.Boolean, default=False)        # Flag: True = custom product (no product_id)
-    is_full_set = db.Column(db.Boolean, default=False)      # Flag: True = full set from exclusive page
+    is_full_set = db.Column(db.Boolean, default=False)      # Flag: True = full set from offer page
 
     # Order details
     quantity = db.Column(db.Integer, nullable=False, default=1)
@@ -931,12 +930,12 @@ class OrderItem(db.Model):
     picked_at = db.Column(db.DateTime, nullable=True)
     picked_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
-    # Exclusive set fulfillment fields
+    # Offer set fulfillment fields
     # NULL = nie dotyczy setu (produkt pojedynczy lub variant_group)
     # True = produkt został przydzielony (zmieścił się w komplecie)
     # False = produkt przepadł (nie zmieścił się w komplecie)
     is_set_fulfilled = db.Column(db.Boolean, nullable=True)
-    set_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='SET NULL'), nullable=True)
+    set_section_id = db.Column(db.Integer, db.ForeignKey('offer_sections.id', ondelete='SET NULL'), nullable=True)
     set_number = db.Column(db.Integer, nullable=True)  # Which set this item belongs to (1-based, e.g. Set 1, Set 2...)
     # Ilość zrealizowana w secie (dla częściowego zrealizowania)
     # NULL = nie dotyczy setu
@@ -947,7 +946,7 @@ class OrderItem(db.Model):
 
     # Bonus (gratis) fields
     is_bonus = db.Column(db.Boolean, default=False, nullable=False)
-    bonus_source_section_id = db.Column(db.Integer, db.ForeignKey('exclusive_sections.id', ondelete='SET NULL'), nullable=True)
+    bonus_source_section_id = db.Column(db.Integer, db.ForeignKey('offer_sections.id', ondelete='SET NULL'), nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=get_local_now)
@@ -957,8 +956,8 @@ class OrderItem(db.Model):
     product = db.relationship('Product', back_populates='order_items')
     picker = db.relationship('User', foreign_keys=[picked_by])
     wms_status_rel = db.relationship('WmsStatus', back_populates='order_items', foreign_keys=[wms_status])
-    set_section = db.relationship('ExclusiveSection', foreign_keys=[set_section_id])
-    bonus_source_section = db.relationship('ExclusiveSection', foreign_keys=[bonus_source_section_id])
+    set_section = db.relationship('OfferSection', foreign_keys=[set_section_id])
+    bonus_source_section = db.relationship('OfferSection', foreign_keys=[bonus_source_section_id])
 
     def __repr__(self):
         return f'<OrderItem {self.id} - Order {self.order_id}>'
@@ -1396,7 +1395,7 @@ class ShippingRequestOrder(db.Model):
 
 class PaymentConfirmation(db.Model):
     """
-    Potwierdzenia płatności dla zamówień Exclusive.
+    Potwierdzenia płatności dla zamówień Offer.
     Wieloetapowy system płatności (produkt, wysyłka KR, cło/VAT, wysyłka PL).
     Jeden plik może być przypisany do wielu zamówień.
     """

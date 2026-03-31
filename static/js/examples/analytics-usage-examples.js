@@ -78,7 +78,7 @@ document.getElementById('submit-order-btn').addEventListener('click', function()
                     data.order_number,    // np. 'ST/00000123'
                     data.total_amount,    // np. 450.00
                     data.items_count,     // np. 3
-                    'standard'            // typ: 'standard' lub 'exclusive'
+                    'standard'            // typ: 'standard' lub 'offer'
                 );
             }
 
@@ -89,8 +89,8 @@ document.getElementById('submit-order-btn').addEventListener('click', function()
 });
 
 // ====================================================================
-// PRZYKŁAD 3: Tracking zamówienia Exclusive (Guest Order)
-// Lokalizacja: static/js/pages/exclusive/order-page.js
+// PRZYKŁAD 3: Tracking zamówienia Offer (Guest Order)
+// Lokalizacja: static/js/pages/offers/order-page.js
 // ====================================================================
 
 // Po złożeniu zamówienia przez gościa
@@ -112,13 +112,13 @@ document.getElementById('guest-order-form').addEventListener('submit', function(
     });
 });
 
-// Track wyświetlenia strony Exclusive (zaraz po załadowaniu)
+// Track wyświetlenia strony Offer (zaraz po załadowaniu)
 document.addEventListener('DOMContentLoaded', function() {
-    const exclusiveToken = document.body.dataset.exclusiveToken;
-    const exclusiveName = document.body.dataset.exclusiveName;
+    const offerToken = document.body.dataset.offerToken;
+    const offerName = document.body.dataset.offerName;
 
-    if (exclusiveToken && typeof window.trackExclusivePageView === 'function') {
-        window.trackExclusivePageView(exclusiveToken, exclusiveName);
+    if (offerToken && typeof window.trackOfferPageView === 'function') {
+        window.trackOfferPageView(offerToken, offerName);
     }
 });
 

@@ -12,7 +12,7 @@ from extensions import db
 from modules.auth.models import User
 from modules.orders.models import Order, OrderItem, OrderShipment, ShippingRequest, ShippingRequestOrder, PaymentConfirmation
 from modules.products.models import Product, ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem
-from modules.exclusive.models import ExclusivePage
+from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, asc, case
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -516,27 +516,27 @@ def statistics_clients():
 
 
 # ========================================
-# API: Exclusive
+# API: Offers
 # ========================================
 
 @admin_bp.route('/statistics/api/exclusive')
 @login_required
 @role_required('admin', 'mod')
 def statistics_exclusive():
-    """Dane dla zakładki Exclusive."""
+    """Dane dla zakładki Strony sprzedaży."""
     # KPI
-    total_pages = ExclusivePage.query.count()
-    active_pages = ExclusivePage.query.filter_by(status='active').count()
+    total_pages = OfferPage.query.count()
+    active_pages = OfferPage.query.filter_by(status='active').count()
 
-    total_exclusive_revenue = db.session.query(
+    total_offer_revenue = db.session.query(
         func.coalesce(func.sum(Order.total_amount), 0)
     ).filter(
-        Order.is_exclusive == True,
+        Order.offer_page_id.isnot(None),
         Order.status != 'anulowane'
     ).scalar() or Decimal('0')
 
     # Tabela: porównanie stron
-    pages = ExclusivePage.query.all()
+    pages = OfferPage.query.all()
     pages_rows = []
     chart_labels = []
     chart_values = []
@@ -594,13 +594,13 @@ def statistics_exclusive():
         'kpis': [
             {'label': 'Łącznie stron', 'value': str(total_pages), 'raw': total_pages},
             {'label': 'Aktywnych', 'value': str(active_pages), 'raw': active_pages},
-            {'label': 'Łączny przychód Exclusive', 'value': _format_currency(total_exclusive_revenue), 'raw': float(total_exclusive_revenue)},
+            {'label': 'Łączny przychód ze stron sprzedaży', 'value': _format_currency(total_offer_revenue), 'raw': float(total_offer_revenue)},
         ],
         'charts': {
             'bar_revenue': {'labels': chart_labels, 'values': chart_values}
         },
         'tables': [{
-            'title': 'Porównanie stron Exclusive',
+            'title': 'Porównanie stron sprzedaży',
             'headers': ['Nazwa', 'Status', 'Zamówień', 'Przychód', 'Śr. wartość'],
             'rows': pages_rows
         }]

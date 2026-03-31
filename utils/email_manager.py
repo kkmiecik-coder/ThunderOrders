@@ -20,8 +20,8 @@ REJESTR EMAILI:
         - notify_order_confirmation(order)        -> potwierdzenie złożenia zamówienia
         - notify_status_change(order, old_status, new_status) -> zmiana statusu
 
-    EXCLUSIVE:
-        - notify_exclusive_closure(order, page, items, ...) -> podsumowanie po zamknięciu
+    OFFER:
+        - notify_offer_closure(order, page, items, ...) -> podsumowanie po zamknięciu
         - notify_order_cancelled(order, page, cancelled_items, reason) -> anulowanie
         - notify_back_in_stock(email, product, page_name, page_url) -> powrót produktu
 
@@ -36,7 +36,7 @@ REJESTR EMAILI:
 
     ADMIN:
         - notify_admin_payment_uploaded(order, stage_names) -> nowe potwierdzenie płatności
-        - notify_admin_new_order(order) -> nowe zamówienie exclusive
+        - notify_admin_new_order(order) -> nowe zamówienie offer
 """
 
 import time
@@ -265,7 +265,7 @@ class EmailManager:
                 order_number=order.order_number,
                 order_total=float(order.total_amount),
                 order_items=order_items,
-                is_exclusive=order.is_exclusive,
+                is_offer_page=order.offer_page_id is not None,
                 payment_stages=order.payment_stages
             )
             current_app.logger.info(f"Order confirmation email sent for {order.order_number} to {email}")
@@ -458,20 +458,20 @@ class EmailManager:
             current_app.logger.error(f"Failed to send tracking email for {order.order_number}: {e}")
 
     # ========================================
-    # EXCLUSIVE EMAILS
+    # OFFER EMAILS
     # ========================================
 
     @staticmethod
-    def notify_exclusive_closure(order, page, items, fulfilled_items=None,
+    def notify_offer_closure(order, page, items, fulfilled_items=None,
                                  fulfilled_total=0, shipping_cost=0, grand_total=0,
                                  payment_methods=None):
         """
-        Wysyła email z podsumowaniem zamówienia po zamknięciu strony Exclusive.
+        Wysyła email z podsumowaniem zamówienia po zamknięciu strony Offer.
         Automatycznie rozwiązuje email klienta i generuje URL do uploadu płatności.
 
         Args:
             order: obiekt Order
-            page: obiekt ExclusivePage
+            page: obiekt OfferPage
             items (list): lista dict z kluczami product_name, quantity, is_fulfilled
             fulfilled_items (list): lista zrealizowanych produktów
             fulfilled_total (float): suma zrealizowanych
@@ -479,11 +479,11 @@ class EmailManager:
             grand_total (float): suma całkowita
             payment_methods (list): lista metod płatności
         """
-        if not EmailManager.is_email_enabled('notify_exclusive_closure'):
-            current_app.logger.info("Email notification 'notify_exclusive_closure' is disabled, skipping")
+        if not EmailManager.is_email_enabled('notify_offer_closure'):
+            current_app.logger.info("Email notification 'notify_offer_closure' is disabled, skipping")
             return
 
-        from utils.email_sender import send_exclusive_closure_email
+        from utils.email_sender import send_offer_closure_email
 
         email = order.customer_email
         if not email:
@@ -495,7 +495,7 @@ class EmailManager:
                                      _external=True) + '?action=upload_payment'
 
         try:
-            send_exclusive_closure_email(
+            send_offer_closure_email(
                 customer_email=email,
                 customer_name=order.customer_name,
                 page_name=page.name,
@@ -508,19 +508,19 @@ class EmailManager:
                 payment_methods=payment_methods or [],
                 upload_payment_url=upload_payment_url
             )
-            current_app.logger.info(f"Exclusive closure email sent for {order.order_number} to {email}")
+            current_app.logger.info(f"Offer closure email sent for {order.order_number} to {email}")
         except Exception as e:
             current_app.logger.error(f"Failed to send closure email for {order.order_number}: {e}")
 
     @staticmethod
     def notify_order_cancelled(order, page, cancelled_items, reason=''):
         """
-        Wysyła email o anulowaniu zamówienia exclusive.
+        Wysyła email o anulowaniu zamówienia offer.
         Automatycznie rozwiązuje email klienta.
 
         Args:
             order: obiekt Order
-            page: obiekt ExclusivePage
+            page: obiekt OfferPage
             cancelled_items (list): lista dict z name, quantity, image_url
             reason (str): powód anulowania
         """
@@ -550,16 +550,16 @@ class EmailManager:
 
     @staticmethod
     def notify_back_in_stock(email, product_name, product_image_url,
-                             exclusive_page_name, exclusive_page_url):
+                             offer_page_name, offer_page_url):
         """
-        Wysyła powiadomienie o powrocie produktu do dostępności na stronie Exclusive.
+        Wysyła powiadomienie o powrocie produktu do dostępności na stronie Offer.
 
         Args:
             email (str): email odbiorcy (z subskrypcji)
             product_name (str): nazwa produktu
             product_image_url (str): URL do zdjęcia produktu
-            exclusive_page_name (str): nazwa strony Exclusive
-            exclusive_page_url (str): URL do strony Exclusive
+            offer_page_name (str): nazwa strony Offer
+            offer_page_url (str): URL do strony Offer
 
         Returns:
             bool: True jeśli wysłano
@@ -578,8 +578,8 @@ class EmailManager:
                 email=email,
                 product_name=product_name,
                 product_image_url=product_image_url,
-                exclusive_page_name=exclusive_page_name,
-                exclusive_page_url=exclusive_page_url
+                offer_page_name=offer_page_name,
+                offer_page_url=offer_page_url
             )
             if result:
                 current_app.logger.info(f"Back in stock email sent to {email} for {product_name}")
@@ -589,21 +589,21 @@ class EmailManager:
             return False
 
     @staticmethod
-    def notify_new_exclusive_page(page, clients):
+    def notify_new_offer_page(page, clients):
         """
-        Wysyła email o nowej stronie Exclusive do listy klientów.
+        Wysyła email o nowej stronie Offer do listy klientów.
 
         Args:
-            page: obiekt ExclusivePage
+            page: obiekt OfferPage
             clients: lista obiektów User z rolą 'client'
         """
-        if not EmailManager.is_email_enabled('notify_new_exclusive_page'):
-            current_app.logger.info("Email notification 'notify_new_exclusive_page' is disabled, skipping")
+        if not EmailManager.is_email_enabled('notify_new_offer_page'):
+            current_app.logger.info("Email notification 'notify_new_offer_page' is disabled, skipping")
             return 0
 
-        from utils.email_sender import send_new_exclusive_page_email
+        from utils.email_sender import send_new_offer_page_email
 
-        page_url = url_for('exclusive.order_page', token=page.token, _external=True)
+        page_url = url_for('offers.order_page', token=page.token, _external=True)
         sent_count = 0
 
         for client in clients:
@@ -614,7 +614,7 @@ class EmailManager:
             name = client.first_name or 'Kliencie'
 
             try:
-                send_new_exclusive_page_email(
+                send_new_offer_page_email(
                     user_email=email,
                     user_name=name,
                     page_name=page.name,
@@ -622,9 +622,9 @@ class EmailManager:
                 )
                 sent_count += 1
             except Exception as e:
-                current_app.logger.error(f"Failed to send new exclusive page email to {email}: {e}")
+                current_app.logger.error(f"Failed to send new offer page email to {email}: {e}")
 
-        current_app.logger.info(f"New exclusive page emails sent: {sent_count}/{len(clients)} for '{page.name}'")
+        current_app.logger.info(f"New offer page emails sent: {sent_count}/{len(clients)} for '{page.name}'")
         return sent_count
 
     # ========================================
@@ -848,7 +848,7 @@ class EmailManager:
     @staticmethod
     def notify_admin_new_order(order):
         """
-        Wysyła email do adminów o nowym zamówieniu exclusive.
+        Wysyła email do adminów o nowym zamówieniu offer.
 
         Args:
             order: obiekt Order
@@ -873,7 +873,7 @@ class EmailManager:
             'total': float(item.total)
         } for item in order.items]
 
-        page_name = order.exclusive_page.name if order.exclusive_page else (order.exclusive_page_name or 'Exclusive')
+        page_name = order.offer_page.name if order.offer_page else (order.offer_page_name or 'Offer')
         created_at = order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else ''
         order_total = float(order.total_amount or 0)
 

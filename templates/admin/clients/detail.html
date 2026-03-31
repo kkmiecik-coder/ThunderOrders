@@ -242,7 +242,7 @@
                                         <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-number-link">
                                             {{ order.order_number }}
                                         </a>
-                                        {% if order.is_exclusive %}
+                                        {% if order.is_offer %}
                                         <span class="order-type-badge exclusive" title="Zamówienie Exclusive">EX</span>
                                         {% endif %}
                                     </td>

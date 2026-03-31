@@ -105,9 +105,9 @@ def _set_col_widths(ws, widths):
 # Main: Exclusive Closure Excel (multi-sheet)
 # ============================================
 
-def generate_exclusive_closure_excel(page, summary):
+def generate_offer_closure_excel(page, summary):
     """
-    Generates a multi-sheet Excel file for a closed Exclusive page.
+    Generates a multi-sheet Excel file for a closed Offer page.
 
     Sheets:
         1. Przegląd   - Key metrics, top products, sets breakdown
@@ -115,7 +115,7 @@ def generate_exclusive_closure_excel(page, summary):
         3. Zamówienia  - Order details (one row per order item)
 
     Args:
-        page: ExclusivePage model object
+        page: OfferPage model object
         summary: Dict from get_page_summary(include_financials=True)
 
     Returns:
@@ -577,9 +577,9 @@ def _build_orders_sheet(wb, summary, s):
 # Live Dashboard Excel (multi-sheet)
 # ============================================
 
-def generate_exclusive_live_excel(page, summary):
+def generate_offer_live_excel(page, summary):
     """
-    Generates a multi-sheet Excel file for LIVE Exclusive dashboard.
+    Generates a multi-sheet Excel file for LIVE Offer dashboard.
 
     Sheets:
         1. Przegląd   - Key metrics, top products, sets matrix with customer names
@@ -587,7 +587,7 @@ def generate_exclusive_live_excel(page, summary):
         3. Zamówienia  - Order details (one row per order item)
 
     Args:
-        page: ExclusivePage model object
+        page: OfferPage model object
         summary: Dict from get_live_summary(include_financials=True)
 
     Returns:
@@ -1108,7 +1108,7 @@ def generate_orders_excel(orders, filename_prefix="zamowienia"):
         ws.cell(row=idx + 1, column=5, value=phone or "-")
 
         ws.cell(row=idx + 1, column=6, value=order.status_display)
-        ws.cell(row=idx + 1, column=7, value="Exclusive" if order.is_exclusive else "Standard")
+        ws.cell(row=idx + 1, column=7, value="Exclusive" if order.offer_page_id else "Standard")
         ws.cell(row=idx + 1, column=8, value=order.created_at.strftime('%d.%m.%Y %H:%M'))
         ws.cell(row=idx + 1, column=9, value=float(order.total_amount) if order.total_amount else 0)
 

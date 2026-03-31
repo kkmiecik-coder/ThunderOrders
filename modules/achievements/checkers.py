@@ -132,7 +132,7 @@ def _exclusive_orders(user, config, context):
     from modules.orders.models import Order
     count = Order.query.filter(
         Order.user_id == user.id,
-        Order.is_exclusive == True  # noqa: E712
+        Order.offer_page_id.isnot(None)  # noqa: E712
     ).count()
     return (count, count >= config['threshold'])
 
@@ -141,7 +141,7 @@ def _distinct_exclusive_pages(user, config, context):
     from modules.orders.models import Order
     count = db.session.query(db.func.count(db.func.distinct(Order.exclusive_page_id))).filter(
         Order.user_id == user.id,
-        Order.is_exclusive == True,  # noqa: E712
+        Order.offer_page_id.isnot(None),  # noqa: E712
         Order.exclusive_page_id.isnot(None)
     ).scalar()
     return (count, count >= config['threshold'])

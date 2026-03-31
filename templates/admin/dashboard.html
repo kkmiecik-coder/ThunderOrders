@@ -223,34 +223,34 @@
                 </div>
             </div>
 
-            <!-- Exclusive Pages Widget -->
-            <div class="widget widget-exclusive" id="exclusiveWidget">
+            <!-- Offers Pages Widget -->
+            <div class="widget widget-offers" id="offersWidget">
                 <div class="widget-header">
-                    <h2 class="widget-title">✨ Strony Exclusive</h2>
-                    <a href="{{ url_for('admin.exclusive_list') }}" class="widget-link">Zarządzaj →</a>
+                    <h2 class="widget-title">✨ Strony sprzedaży</h2>
+                    <a href="{{ url_for('admin.offers_list') }}" class="widget-link">Zarządzaj →</a>
                 </div>
                 <div class="widget-body">
-                    {% if exclusive_pages.visible|length > 0 %}
-                        <div class="exclusive-cards" id="exclusiveCards">
+                    {% if offer_pages.visible|length > 0 %}
+                        <div class="offer-cards" id="offersCards">
                             {# Visible pages #}
-                            {% for page in exclusive_pages.visible %}
-                            <div class="exclusive-card" onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'">
-                                <div class="exclusive-card-top">
-                                    <span class="exclusive-name">{{ page.name }}</span>
-                                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('{{ page.token }}', this);" title="Kopiuj link">
+                            {% for page in offer_pages.visible %}
+                            <div class="offer-card" onclick="window.location.href='{{ url_for('admin.offers_edit', page_id=page.id) }}'">
+                                <div class="offer-card-top">
+                                    <span class="offer-name">{{ page.name }}</span>
+                                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyOfferLink('{{ page.token }}', this);" title="Kopiuj link">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                                         </svg>
                                     </button>
                                 </div>
-                                <div class="exclusive-card-middle">
+                                <div class="offer-card-middle">
                                     {% if page.status == 'ended' and page.is_fully_closed %}
-                                        <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                        <span class="offer-status offer-status-closed">Zamknięta</span>
                                     {% elif page.status == 'ended' %}
-                                        <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                        <span class="offer-status offer-status-ended">Zakończona</span>
                                     {% else %}
-                                        <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                        <span class="offer-status offer-status-{{ page.status }}">
                                             {% if page.status == 'draft' %}Draft
                                             {% elif page.status == 'scheduled' %}Zaplanowana
                                             {% elif page.status == 'active' %}Aktywna
@@ -259,45 +259,45 @@
                                         </span>
                                     {% endif %}
                                 </div>
-                                <div class="exclusive-card-bottom">
-                                    <div class="exclusive-card-date">
-                                        <span class="exclusive-date-label">Start:</span>
+                                <div class="offer-card-bottom">
+                                    <div class="offer-card-date">
+                                        <span class="offer-date-label">Start:</span>
                                         {% if page.starts_at %}
-                                            <span class="exclusive-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                            <span class="offer-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
-                                            <span class="exclusive-no-date">—</span>
+                                            <span class="offer-no-date">—</span>
                                         {% endif %}
                                     </div>
-                                    <div class="exclusive-card-date">
-                                        <span class="exclusive-date-label">Koniec:</span>
+                                    <div class="offer-card-date">
+                                        <span class="offer-date-label">Koniec:</span>
                                         {% if page.ends_at %}
-                                            <span class="exclusive-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                            <span class="offer-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
-                                            <span class="exclusive-no-date">—</span>
+                                            <span class="offer-no-date">—</span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
                             {# Buffer pages (hidden, will be shown on "load more") #}
-                            {% for page in exclusive_pages.buffer %}
-                            <div class="exclusive-card exclusive-buffered" style="display: none;" onclick="window.location.href='{{ url_for('admin.exclusive_edit', page_id=page.id) }}'">
-                                <div class="exclusive-card-top">
-                                    <span class="exclusive-name">{{ page.name }}</span>
-                                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('{{ page.token }}', this);" title="Kopiuj link">
+                            {% for page in offer_pages.buffer %}
+                            <div class="offer-card offer-buffered" style="display: none;" onclick="window.location.href='{{ url_for('admin.offers_edit', page_id=page.id) }}'">
+                                <div class="offer-card-top">
+                                    <span class="offer-name">{{ page.name }}</span>
+                                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyOfferLink('{{ page.token }}', this);" title="Kopiuj link">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                                         </svg>
                                     </button>
                                 </div>
-                                <div class="exclusive-card-middle">
+                                <div class="offer-card-middle">
                                     {% if page.status == 'ended' and page.is_fully_closed %}
-                                        <span class="exclusive-status exclusive-status-closed">Zamknięta</span>
+                                        <span class="offer-status offer-status-closed">Zamknięta</span>
                                     {% elif page.status == 'ended' %}
-                                        <span class="exclusive-status exclusive-status-ended">Zakończona</span>
+                                        <span class="offer-status offer-status-ended">Zakończona</span>
                                     {% else %}
-                                        <span class="exclusive-status exclusive-status-{{ page.status }}">
+                                        <span class="offer-status offer-status-{{ page.status }}">
                                             {% if page.status == 'draft' %}Draft
                                             {% elif page.status == 'scheduled' %}Zaplanowana
                                             {% elif page.status == 'active' %}Aktywna
@@ -306,43 +306,43 @@
                                         </span>
                                     {% endif %}
                                 </div>
-                                <div class="exclusive-card-bottom">
-                                    <div class="exclusive-card-date">
-                                        <span class="exclusive-date-label">Start:</span>
+                                <div class="offer-card-bottom">
+                                    <div class="offer-card-date">
+                                        <span class="offer-date-label">Start:</span>
                                         {% if page.starts_at %}
-                                            <span class="exclusive-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                            <span class="offer-date">{{ page.starts_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
-                                            <span class="exclusive-no-date">—</span>
+                                            <span class="offer-no-date">—</span>
                                         {% endif %}
                                     </div>
-                                    <div class="exclusive-card-date">
-                                        <span class="exclusive-date-label">Koniec:</span>
+                                    <div class="offer-card-date">
+                                        <span class="offer-date-label">Koniec:</span>
                                         {% if page.ends_at %}
-                                            <span class="exclusive-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
+                                            <span class="offer-date">{{ page.ends_at|format_date('%d.%m.%Y %H:%M') }}</span>
                                         {% else %}
-                                            <span class="exclusive-no-date">—</span>
+                                            <span class="offer-no-date">—</span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                             {% endfor %}
                         </div>
-                        {% if exclusive_pages.remaining > 0 %}
-                            <div class="exclusive-show-more" id="exclusiveShowMore">
-                                <button type="button" class="show-more-btn" id="exclusiveLoadMoreBtn"
-                                        data-visible="{{ exclusive_pages.visible|length }}"
-                                        data-buffer="{{ exclusive_pages.buffer|length }}"
-                                        data-total="{{ exclusive_pages.total }}"
-                                        data-remaining="{{ exclusive_pages.remaining }}">
-                                    Pokaż {{ [exclusive_pages.remaining, 5]|min }} więcej →
+                        {% if offer_pages.remaining > 0 %}
+                            <div class="offer-show-more" id="offersShowMore">
+                                <button type="button" class="show-more-btn" id="offersLoadMoreBtn"
+                                        data-visible="{{ offer_pages.visible|length }}"
+                                        data-buffer="{{ offer_pages.buffer|length }}"
+                                        data-total="{{ offer_pages.total }}"
+                                        data-remaining="{{ offer_pages.remaining }}">
+                                    Pokaż {{ [offer_pages.remaining, 5]|min }} więcej →
                                 </button>
                             </div>
                         {% endif %}
                     {% else %}
                         <div class="empty-state">
                             <p class="empty-icon">✨</p>
-                            <p class="empty-text">Brak stron Exclusive</p>
-                            <a href="{{ url_for('admin.exclusive_list') }}" class="btn-kpop btn-kpop-secondary">
+                            <p class="empty-text">Brak stron sprzedaży</p>
+                            <a href="{{ url_for('admin.offers_list') }}" class="btn-kpop btn-kpop-secondary">
                                 Utwórz pierwszą
                             </a>
                         </div>
@@ -622,9 +622,9 @@ function openTaskPreview(taskId) {
 // EXCLUSIVE PAGES - LAZY LOADING
 // ====================================
 (function() {
-    const loadMoreBtn = document.getElementById('exclusiveLoadMoreBtn');
-    const cardsContainer = document.getElementById('exclusiveCards');
-    const showMoreContainer = document.getElementById('exclusiveShowMore');
+    const loadMoreBtn = document.getElementById('offersLoadMoreBtn');
+    const cardsContainer = document.getElementById('offersCards');
+    const showMoreContainer = document.getElementById('offersShowMore');
 
     if (!loadMoreBtn || !cardsContainer) return;
 
@@ -634,27 +634,27 @@ function openTaskPreview(taskId) {
     // Create card HTML from page data
     function createCardHTML(page) {
         return `
-            <div class="exclusive-card exclusive-buffered" style="display: none;" onclick="window.location.href='${page.edit_url}'">
-                <div class="exclusive-card-top">
-                    <span class="exclusive-name">${page.name}</span>
-                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyExclusiveLink('${page.token}', this);" title="Kopiuj link">
+            <div class="offer-card offer-buffered" style="display: none;" onclick="window.location.href='${page.edit_url}'">
+                <div class="offer-card-top">
+                    <span class="offer-name">${page.name}</span>
+                    <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyOfferLink('${page.token}', this);" title="Kopiuj link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
                             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
                         </svg>
                     </button>
                 </div>
-                <div class="exclusive-card-middle">
-                    <span class="exclusive-status exclusive-status-${page.status_class}">${page.status_text}</span>
+                <div class="offer-card-middle">
+                    <span class="offer-status offer-status-${page.status_class}">${page.status_text}</span>
                 </div>
-                <div class="exclusive-card-bottom">
-                    <div class="exclusive-card-date">
-                        <span class="exclusive-date-label">Start:</span>
-                        ${page.starts_at ? `<span class="exclusive-date">${page.starts_at}</span>` : '<span class="exclusive-no-date">—</span>'}
+                <div class="offer-card-bottom">
+                    <div class="offer-card-date">
+                        <span class="offer-date-label">Start:</span>
+                        ${page.starts_at ? `<span class="offer-date">${page.starts_at}</span>` : '<span class="offer-no-date">—</span>'}
                     </div>
-                    <div class="exclusive-card-date">
-                        <span class="exclusive-date-label">Koniec:</span>
-                        ${page.ends_at ? `<span class="exclusive-date">${page.ends_at}</span>` : '<span class="exclusive-no-date">—</span>'}
+                    <div class="offer-card-date">
+                        <span class="offer-date-label">Koniec:</span>
+                        ${page.ends_at ? `<span class="offer-date">${page.ends_at}</span>` : '<span class="offer-no-date">—</span>'}
                     </div>
                 </div>
             </div>
@@ -664,11 +664,11 @@ function openTaskPreview(taskId) {
     // Fetch more pages from API
     async function fetchMorePages(offset, limit = 5) {
         try {
-            const response = await fetch(`/admin/dashboard/exclusive-pages?offset=${offset}&limit=${limit}`);
+            const response = await fetch(`/admin/dashboard/offer-pages?offset=${offset}&limit=${limit}`);
             const data = await response.json();
             return data;
         } catch (error) {
-            console.error('Error fetching exclusive pages:', error);
+            console.error('Error fetching offer pages:', error);
             return null;
         }
     }
@@ -690,13 +690,13 @@ function openTaskPreview(taskId) {
         if (isLoading) return;
 
         // 1. Show buffered cards first
-        const bufferedCards = cardsContainer.querySelectorAll('.exclusive-buffered');
+        const bufferedCards = cardsContainer.querySelectorAll('.offer-buffered');
         let shownFromBuffer = 0;
 
         bufferedCards.forEach((card, index) => {
             if (index < 5 && card.style.display === 'none') {
                 card.style.display = '';
-                card.classList.remove('exclusive-buffered');
+                card.classList.remove('offer-buffered');
                 shownFromBuffer++;
             }
         });
@@ -722,14 +722,14 @@ function openTaskPreview(taskId) {
                 });
 
                 currentOffset += data.pages.length;
-                remaining = Math.max(0, parseInt(loadMoreBtn.dataset.total) - cardsContainer.querySelectorAll('.exclusive-card:not([style*="display: none"])').length);
+                remaining = Math.max(0, parseInt(loadMoreBtn.dataset.total) - cardsContainer.querySelectorAll('.offer-card:not([style*="display: none"])').length);
             }
 
             isLoading = false;
         }
 
         // Recalculate remaining based on actual visible cards
-        const visibleCards = cardsContainer.querySelectorAll('.exclusive-card:not([style*="display: none"])').length;
+        const visibleCards = cardsContainer.querySelectorAll('.offer-card:not([style*="display: none"])').length;
         const total = parseInt(loadMoreBtn.dataset.total);
         remaining = Math.max(0, total - visibleCards);
 
@@ -742,10 +742,10 @@ function openTaskPreview(taskId) {
 // ====================================
 (function() {
     // Copy link function
-    window.copyExclusiveLink = async function(token, btn) {
+    window.copyOfferLink = async function(token, btn) {
         if (!token) return;
 
-        const url = `${window.location.origin}/exclusive/${token}`;
+        const url = `${window.location.origin}/offers/${token}`;
 
         try {
             await navigator.clipboard.writeText(url);

@@ -57,8 +57,8 @@
                        class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
                         On-hand
                     </a>
-                    <a href="{{ url_for('orders.admin_list', order_type='exclusive') }}"
-                       class="filter-btn {% if request.args.get('order_type') == 'exclusive' %}active{% endif %}">
+                    <a href="{{ url_for('orders.admin_list', order_type='offer') }}"
+                       class="filter-btn {% if request.args.get('order_type') == 'offer' %}active{% endif %}">
                         Exclusive
                     </a>
                 </div>
@@ -229,7 +229,7 @@
                 <span>Typ:
                     {% if request.args.get('order_type') == 'pre_order' %}Pre-order
                     {% elif request.args.get('order_type') == 'on_hand' %}On-hand
-                    {% elif request.args.get('order_type') == 'exclusive' %}Exclusive
+                    {% elif request.args.get('order_type') == 'offer' %}Exclusive
                     {% else %}{{ request.args.get('order_type') | e }}{% endif %}
                 </span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -20,7 +20,7 @@ def check_profile_completed():
 from modules.admin import routes
 from modules.admin import clients
 from modules.admin import tasks
-from modules.admin import exclusive
+from modules.admin import offers
 from modules.admin import models  # Admin tasks models
 from modules.admin import payment_confirmations  # Payment confirmations admin
 from modules.admin import statistics  # Statistics page

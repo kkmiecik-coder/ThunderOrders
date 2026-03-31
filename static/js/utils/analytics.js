@@ -25,7 +25,7 @@ function trackEvent(eventName, eventParams = {}) {
  * @param {string} orderNumber - Numer zamówienia (np. "ST/00000123")
  * @param {number} totalAmount - Łączna kwota zamówienia (PLN)
  * @param {number} itemsCount - Liczba produktów w zamówieniu
- * @param {string} orderType - Typ zamówienia ('standard' lub 'exclusive')
+ * @param {string} orderType - Typ zamówienia ('standard' lub 'offer')
  */
 function trackOrderPlaced(orderNumber, totalAmount, itemsCount, orderType = 'standard') {
     trackEvent('purchase', {
@@ -97,14 +97,14 @@ function trackButtonClick(buttonName, location = 'unknown') {
 }
 
 /**
- * Track wyświetlenia strony Exclusive
- * @param {string} exclusiveToken - Token strony exclusive
- * @param {string} exclusiveName - Nazwa strony exclusive
+ * Track wyświetlenia strony Offer
+ * @param {string} offerToken - Token strony offer
+ * @param {string} offerName - Nazwa strony offer
  */
-function trackExclusivePageView(exclusiveToken, exclusiveName) {
-    trackEvent('view_exclusive_page', {
-        exclusive_token: exclusiveToken,
-        exclusive_name: exclusiveName
+function trackOfferPageView(offerToken, offerName) {
+    trackEvent('view_offer_page', {
+        offer_token: offerToken,
+        offer_name: offerName
     });
 }
 
@@ -136,6 +136,6 @@ window.trackUserLogin = trackUserLogin;
 window.trackAddToCart = trackAddToCart;
 window.trackFormSubmit = trackFormSubmit;
 window.trackButtonClick = trackButtonClick;
-window.trackExclusivePageView = trackExclusivePageView;
+window.trackOfferPageView = trackOfferPageView;
 window.trackShippingRequested = trackShippingRequested;
 window.trackSearch = trackSearch;

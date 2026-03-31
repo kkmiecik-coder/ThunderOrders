@@ -9,7 +9,7 @@ from flask_login import login_required, current_user
 from extensions import db
 from modules.orders.models import Order, OrderItem, ShippingRequestOrder
 from modules.auth.models import Settings, User
-from modules.exclusive.models import ExclusivePage, ExclusiveSection
+from modules.offers.models import OfferPage, OfferSection
 from sqlalchemy import func as sql_func, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -108,13 +108,13 @@ def dashboard():
         chart_data['labels'].append(date_str)
         chart_data['values'].append(orders_dict.get(date_str, 0))
 
-    # 6. Exclusive pages (client sees all except drafts)
-    exclusive_pages_all = ExclusivePage.query.filter(
-        ExclusivePage.status != 'draft'
+    # 6. Offer pages (client sees all except drafts)
+    offer_pages_all = OfferPage.query.filter(
+        OfferPage.status != 'draft'
     ).all()
 
     # Update status for each page (check dates)
-    for page in exclusive_pages_all:
+    for page in offer_pages_all:
         page.check_and_update_status()
 
     # Sort by priority: 1. active (LIVE), 2. scheduled, 3. ended (not closed), 4. closed, 5. paused
@@ -131,17 +131,17 @@ def dashboard():
             return 4
         return 99
 
-    exclusive_pages_all.sort(key=get_sort_priority)
+    offer_pages_all.sort(key=get_sort_priority)
 
     # Pre-compute has_sets for each page
-    for page in exclusive_pages_all:
+    for page in offer_pages_all:
         page._has_sets = len(page.get_set_sections()) > 0
 
-    exclusive_pages = {
-        'visible': exclusive_pages_all[:5],  # First 5 visible
-        'buffer': exclusive_pages_all[5:10],  # Next 5 in buffer (hidden)
-        'total': len(exclusive_pages_all),
-        'remaining': max(0, len(exclusive_pages_all) - 5)
+    offer_pages = {
+        'visible': offer_pages_all[:5],  # First 5 visible
+        'buffer': offer_pages_all[5:10],  # Next 5 in buffer (hidden)
+        'total': len(offer_pages_all),
+        'remaining': max(0, len(offer_pages_all) - 5)
     }
 
     return render_template(
@@ -159,7 +159,7 @@ def dashboard():
         },
         recent_orders=recent_orders,
         chart_data=chart_data,
-        exclusive_pages=exclusive_pages,
+        offer_pages=offer_pages,
         show_tour=not current_user.has_seen_tour
     )
 
@@ -291,11 +291,11 @@ def get_recent_orders():
     })
 
 
-@client_bp.route('/api/exclusive-pages')
+@client_bp.route('/api/offer-pages')
 @login_required
-def get_exclusive_pages():
+def get_offer_pages():
     """
-    API endpoint zwracający strony exclusive z paginacją dla klienta
+    API endpoint zwracający strony ofertowe z paginacją dla klienta
 
     Query params:
     - offset: od której strony zacząć (domyślnie 0)
@@ -309,12 +309,12 @@ def get_exclusive_pages():
     limit = request.args.get('limit', 5, type=int)
 
     # Pobierz wszystkie strony (bez drafts)
-    exclusive_pages_all = ExclusivePage.query.filter(
-        ExclusivePage.status != 'draft'
+    offer_pages_all = OfferPage.query.filter(
+        OfferPage.status != 'draft'
     ).all()
 
     # Update status for each page
-    for page in exclusive_pages_all:
+    for page in offer_pages_all:
         page.check_and_update_status()
 
     # Sort by priority
@@ -331,12 +331,12 @@ def get_exclusive_pages():
             return 4
         return 99
 
-    exclusive_pages_all.sort(key=get_sort_priority)
+    offer_pages_all.sort(key=get_sort_priority)
 
     # Paginacja
-    pages_slice = exclusive_pages_all[offset:offset + limit]
-    has_more = len(exclusive_pages_all) > offset + limit
-    remaining = max(0, len(exclusive_pages_all) - offset - limit)
+    pages_slice = offer_pages_all[offset:offset + limit]
+    has_more = len(offer_pages_all) > offset + limit
+    remaining = max(0, len(offer_pages_all) - offset - limit)
 
     # Serialize pages
     pages_data = []
@@ -378,7 +378,7 @@ def get_exclusive_pages():
             'starts_at': page.starts_at.isoformat() if page.starts_at else None,
             'ends_at': page.ends_at.isoformat() if page.ends_at else None,
             'has_sets': len(page.get_set_sections()) > 0,
-            'page_url': url_for('exclusive.order_page', token=page.token)
+            'page_url': url_for('offers.order_page', token=page.token)
         })
 
     return jsonify({
@@ -386,19 +386,19 @@ def get_exclusive_pages():
         'pages': pages_data,
         'has_more': has_more,
         'remaining': remaining,
-        'total': len(exclusive_pages_all)
+        'total': len(offer_pages_all)
     })
 
 
-@client_bp.route('/api/exclusive/<int:page_id>/matrix')
+@client_bp.route('/api/offers/<int:page_id>/matrix')
 @login_required
-def get_exclusive_matrix(page_id):
+def get_offer_matrix(page_id):
     """
-    API endpoint zwracający macierz setów dla strony exclusive.
+    API endpoint zwracający macierz setów dla strony ofertowej.
     Dane prywatne: inne osoby jako anonimowe fajeczki,
     własne zakupy jako fioletowe fajeczki z imieniem.
     """
-    page = ExclusivePage.query.get(page_id)
+    page = OfferPage.query.get(page_id)
     if not page or page.status == 'draft':
         return jsonify({'success': False, 'error': 'Nie znaleziono strony'}), 404
 

@@ -16,8 +16,8 @@ HELP_CATEGORIES = [
         'name': 'Zamówienia',
         'icon': 'orders',
         'articles': [
-            {'slug': 'exclusive-pages', 'title': 'Jak działają strony Exclusive'},
-            {'slug': 'place-order', 'title': 'Jak złożyć zamówienie Exclusive'},
+            {'slug': 'offer-pages', 'title': 'Jak działają strony sprzedaży'},
+            {'slug': 'place-order', 'title': 'Jak złożyć zamówienie'},
             {'slug': 'order-statuses', 'title': 'Statusy zamówień — co oznaczają'},
         ]
     },
@@ -27,7 +27,7 @@ HELP_CATEGORIES = [
         'icon': 'payment',
         'articles': [
             {'slug': 'payment-confirmation', 'title': 'Jak przesłać potwierdzenie płatności'},
-            {'slug': 'payment-stages', 'title': 'Etapy płatności (zamówienia exclusive)'},
+            {'slug': 'payment-stages', 'title': 'Etapy płatności'},
         ]
     },
     {

@@ -1,6 +1,6 @@
 """
 Client Payment Confirmations Module - Routes
-Endpointy uploadu i zarządzania potwierdzeniami płatności dla zamówień Exclusive.
+Endpointy uploadu i zarządzania potwierdzeniami płatności dla zamówień ze stron sprzedaży.
 """
 
 import os
@@ -68,7 +68,7 @@ def save_payment_proof_file(file):
 @login_required
 def payment_confirmations():
     """
-    Panel potwierdzeń płatności - lista zamówień Exclusive wymagających potwierdzenia.
+    Panel potwierdzeń płatności - lista zamówień ze stron sprzedaży wymagających potwierdzenia.
     Zakładki: active (domyślna) i archive.
     """
     from datetime import timedelta
@@ -89,10 +89,10 @@ def payment_confirmations():
         'spakowane',
     ]
 
-    # Zamówienia Exclusive użytkownika w dozwolonych statusach
+    # Zamówienia ze stron sprzedaży użytkownika w dozwolonych statusach
     all_orders = Order.query.filter(
         Order.user_id == current_user.id,
-        Order.is_exclusive == True,
+        Order.offer_page_id.isnot(None),
         Order.status.in_(allowed_statuses)
     ).order_by(Order.created_at.desc()).all()
 

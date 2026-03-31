@@ -24,8 +24,8 @@
             {% if order.custom_name %}
             <span class="od-hero__custom-name" id="hero-custom-name">{{ order.custom_name }}</span>
             {% endif %}
-            {% if order.is_exclusive and order.exclusive_page %}
-            <span class="od-hero__page">{{ order.exclusive_page.name }}</span>
+            {% if order.is_offer and order.offer_page %}
+            <span class="od-hero__page">{{ order.offer_page.name }}</span>
             {% endif %}
         </div>
     </div>
@@ -234,7 +234,7 @@
                 <!-- Summary -->
                 <div class="od-summary">
                     <div class="od-summary__inner">
-                    {% if order.is_exclusive %}
+                    {% if order.is_offer %}
                     <div class="od-summary__row">
                         <span>Produkty</span>
                         <span>{{ "%.2f"|format(order.effective_total) }} PLN</span>
@@ -326,9 +326,9 @@
                 {% set pc_status = order.product_payment_status %}
                 {% set confirm_url = url_for('client.payment_confirmations') ~ '?preselect=' ~ order.id %}
                 {% set has_uploadable = order.can_upload_product_payment
-                    or (order.is_exclusive and order.payment_stages == 4 and order.can_upload_stage_2)
-                    or (order.is_exclusive and order.can_upload_stage_3)
-                    or (order.is_exclusive and order.can_upload_stage_4) %}
+                    or (order.is_offer and order.payment_stages == 4 and order.can_upload_stage_2)
+                    or (order.is_offer and order.can_upload_stage_3)
+                    or (order.is_offer and order.can_upload_stage_4) %}
                 <section class="od-section od-pay">
                     <div class="od-section__head">
                         <h2>Płatności</h2>
@@ -349,7 +349,7 @@
                         <span class="od-pay__amount">{{ "%.2f"|format(order.effective_total) }} PLN</span>
                     </div>
 
-                    {% if order.is_exclusive %}
+                    {% if order.is_offer %}
                     {# --- Row: Dostawa Proxy (only 4-stage) --- #}
                     {% if order.payment_stages == 4 %}
                     {% set s2_status = order.stage_2_status %}
@@ -406,7 +406,7 @@
                         </span>
                     </div>
 
-                    {# --- Total (exclusive) --- #}
+                    {# --- Total (offer) --- #}
                     {% set remaining =
                         (order.effective_total if order.product_payment_status != 'approved' else 0)
                         + (order.proxy_shipping_total if (order.payment_stages == 4 and order.stage_2_status != 'approved' and order.proxy_shipping_total > 0) else 0)
@@ -419,7 +419,7 @@
                     </div>
 
                     {% else %}
-                    {# --- Non-exclusive: Dostawa row --- #}
+                    {# --- Non-offer: Dostawa row --- #}
                     <div class="od-pay__row">
                         <span>Dostawa</span>
                         <span class="od-pay__amount">
@@ -431,7 +431,7 @@
                         </span>
                     </div>
 
-                    {# --- Total (non-exclusive) --- #}
+                    {# --- Total (non-offer) --- #}
                     {% set remaining_ne =
                         (order.effective_total if order.product_payment_status != 'approved' else 0)
                         + ((order.shipping_cost) if (order.shipping_cost and order.shipping_cost > 0) else 0)
@@ -450,21 +450,21 @@
                     {% endif %}
 
                     {# --- Rejection alert E2 (Dostawa Proxy) --- #}
-                    {% if order.is_exclusive and order.payment_stages == 4 and s2_status == 'rejected' and order.stage_2_confirmation and order.stage_2_confirmation.rejection_reason %}
+                    {% if order.is_offer and order.payment_stages == 4 and s2_status == 'rejected' and order.stage_2_confirmation and order.stage_2_confirmation.rejection_reason %}
                     <div class="od-alert od-alert--error">
                         <strong>Dostawa Proxy — odrzucono:</strong> {{ order.stage_2_confirmation.rejection_reason }}
                     </div>
                     {% endif %}
 
                     {# --- Rejection alert E3 (CŁO/VAT) --- #}
-                    {% if order.is_exclusive and s3_status == 'rejected' and order.stage_3_confirmation and order.stage_3_confirmation.rejection_reason %}
+                    {% if order.is_offer and s3_status == 'rejected' and order.stage_3_confirmation and order.stage_3_confirmation.rejection_reason %}
                     <div class="od-alert od-alert--error">
                         <strong>CŁO/VAT — odrzucono:</strong> {{ order.stage_3_confirmation.rejection_reason }}
                     </div>
                     {% endif %}
 
                     {# --- Rejection alert E4 (Dostawa PL) --- #}
-                    {% if order.is_exclusive and s4_status == 'rejected' and order.stage_4_confirmation and order.stage_4_confirmation.rejection_reason %}
+                    {% if order.is_offer and s4_status == 'rejected' and order.stage_4_confirmation and order.stage_4_confirmation.rejection_reason %}
                     <div class="od-alert od-alert--error">
                         <strong>Dostawa PL — odrzucono:</strong> {{ order.stage_4_confirmation.rejection_reason }}
                     </div>

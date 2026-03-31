@@ -11,7 +11,7 @@ NOTIFICATION TYPES (mapped to NotificationPreference fields):
     order_status_changes  - order status changed
     payment_updates       - payment approved/rejected
     shipping_updates      - shipping request status changed
-    new_exclusive_pages   - new exclusive page available
+    new_offer_pages       - new offer page available
     cost_added            - new cost added to order
     admin_alerts          - admin: new order, payment uploaded
 """
@@ -348,12 +348,12 @@ class PushManager:
         )
 
     # ========================================
-    # EXCLUSIVE CLOSURE
+    # OFFER CLOSURE
     # ========================================
 
     @staticmethod
-    def notify_exclusive_closure(order, grand_total=None):
-        """Push notification about exclusive page closure settlement."""
+    def notify_offer_closure(order, grand_total=None):
+        """Push notification about offer page closure settlement."""
         user_id = order.user_id
         if not user_id:
             return
@@ -450,16 +450,16 @@ class PushManager:
         thread.start()
 
     # ========================================
-    # EXCLUSIVE
+    # OFFER PAGES
     # ========================================
 
     @staticmethod
-    def notify_new_exclusive_page(page, user_ids):
-        """Push notification about new exclusive page to multiple users."""
+    def notify_new_offer_page(page, user_ids):
+        """Push notification about new offer page to multiple users."""
         from flask import url_for
 
         app = current_app._get_current_object()
-        page_url = url_for('exclusive.order_page', token=page.token, _external=True)
+        page_url = url_for('offers.order_page', token=page.token, _external=True)
         page_name = page.name
         page_id = page.id
 
@@ -468,11 +468,11 @@ class PushManager:
                 for uid in user_ids:
                     PushManager.send_to_user(
                         user_id=uid,
-                        title='Nowa strona Exclusive!',
+                        title='Nowa strona sprzedaży!',
                         body=page_name,
                         url=page_url,
-                        tag=f'exclusive-page-{page_id}',
-                        notification_type='new_exclusive_pages'
+                        tag=f'offer-page-{page_id}',
+                        notification_type='new_offer_pages'
                     )
 
         thread = threading.Thread(target=_send_all)
@@ -485,7 +485,7 @@ class PushManager:
 
     @staticmethod
     def notify_admin_new_order(order, admin_ids=None):
-        """Push notification to admins about a new exclusive order."""
+        """Push notification to admins about a new order."""
         if not admin_ids:
             from modules.auth.models import User
             admins = User.query.filter_by(role='admin').all()
