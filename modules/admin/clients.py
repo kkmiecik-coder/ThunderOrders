@@ -22,6 +22,7 @@ from modules.tracking.models import QRCampaign
 from modules.achievements.models import UserAchievement
 from modules.notifications.models import Notification, PushSubscription, NotificationPreference
 from modules.imports.models import CsvImport
+from modules.client.payment_upload_sessions import PaymentUploadSession
 from extensions import db
 from utils.decorators import role_required
 from utils.email_sender import send_account_deactivated_email
@@ -367,6 +368,7 @@ def client_delete(id):
         CollectionUploadSession.query.filter_by(user_id=uid).delete()
         PublicCollectionConfig.query.filter_by(user_id=uid).delete()
         CollectionItem.query.filter_by(user_id=uid).delete()
+        PaymentUploadSession.query.filter_by(user_id=uid).delete()
 
         db.session.delete(client)
         db.session.commit()

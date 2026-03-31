@@ -83,6 +83,7 @@
                     <thead>
                         <tr>
                             <th>Nazwa</th>
+                            <th>Typ</th>
                             <th>Status</th>
                             <th>Czas</th>
                             <th>Akcje</th>
@@ -94,6 +95,11 @@
                         <tr>
                             <td>
                                 <span class="offer-name">{{ page.name }}</span>
+                            </td>
+                            <td>
+                                <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                    {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
+                                </span>
                             </td>
                             <td>
                                 {% if page.status == 'active' %}
@@ -146,6 +152,11 @@
                         <tr class="offer-buffered" style="display: none;">
                             <td>
                                 <span class="offer-name">{{ page.name }}</span>
+                            </td>
+                            <td>
+                                <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                    {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
+                                </span>
                             </td>
                             <td>
                                 {% if page.status == 'active' %}
@@ -203,6 +214,9 @@
                     <div class="offer-card">
                         <div class="offer-card-header">
                             <span class="offer-name">{{ page.name }}</span>
+                            <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
+                            </span>
                             {% if page.status == 'active' %}
                                 <span class="offer-status offer-status-live">
                                     <span class="live-dot"></span>LIVE
@@ -251,6 +265,9 @@
                     <div class="offer-card offer-buffered" style="display: none;">
                         <div class="offer-card-header">
                             <span class="offer-name">{{ page.name }}</span>
+                            <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
+                            </span>
                             {% if page.status == 'active' %}
                                 <span class="offer-status offer-status-live">
                                     <span class="live-dot"></span>LIVE
@@ -717,6 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return `
                 <tr>
                     <td><span class="offer-name">${page.name}</span></td>
+                    <td><span class="offer-type-badge offer-type-${page.page_type || 'exclusive'}">${page.page_type === 'preorder' ? 'Pre-order' : 'Exclusive'}</span></td>
                     <td>${statusHTML}</td>
                     <td>
                         <span class="offer-timing${timingClass}"
@@ -756,6 +774,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="offer-card">
                     <div class="offer-card-header">
                         <span class="offer-name">${page.name}</span>
+                        <span class="offer-type-badge offer-type-${page.page_type || 'exclusive'}">${page.page_type === 'preorder' ? 'Pre-order' : 'Exclusive'}</span>
                         ${statusHTML}
                     </div>
                     <div class="offer-card-footer">

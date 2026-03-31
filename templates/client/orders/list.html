@@ -142,6 +142,11 @@
                             {{ order.order_number }}
                         </a>
                         {% endif %}
+                        {% if order.offer_page_id %}
+                        <span class="offer-type-badge offer-type-{{ order.offer_page.page_type if order.offer_page else 'exclusive' }}">
+                            {% if order.offer_page and order.offer_page.page_type == 'preorder' %}Pre-order{% else %}Exclusive{% endif %}
+                        </span>
+                        {% endif %}
                     </div>
                     <div class="card-amount">{{ "%.2f"|format(order.total_amount) }} zł</div>
                 </div>
@@ -230,6 +235,11 @@
                         <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-number-link">
                             {{ order.order_number }}
                         </a>
+                        {% endif %}
+                        {% if order.offer_page_id %}
+                        <span class="offer-type-badge offer-type-{{ order.offer_page.page_type if order.offer_page else 'exclusive' }}">
+                            {% if order.offer_page and order.offer_page.page_type == 'preorder' %}Pre-order{% else %}Exclusive{% endif %}
+                        </span>
                         {% endif %}
                     </td>
 

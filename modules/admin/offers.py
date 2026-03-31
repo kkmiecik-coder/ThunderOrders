@@ -23,32 +23,40 @@ import json
 @login_required
 @admin_required
 def offers_list():
-    """Lista wszystkich stron offers"""
-    from modules.orders.models import OrderStatus
-    from modules.auth.models import Settings
-
+    """Lista wszystkich stron sprzedaży"""
     pages = OfferPage.query.order_by(OfferPage.created_at.desc()).all()
 
     # Automatyczna aktualizacja statusów (scheduled->active, active->ended)
     for page in pages:
         page.check_and_update_status()
 
-    # Get statuses for settings form
+    return render_template(
+        'admin/offers/list.html',
+        title='Strony sprzedaży',
+        pages=pages
+    )
+
+
+@admin_bp.route('/offers/settings')
+@login_required
+@admin_required
+def offers_settings():
+    """Ustawienia stron sprzedaży"""
+    from modules.orders.models import OrderStatus
+    from modules.auth.models import Settings
+
     statuses = OrderStatus.query.filter_by(is_active=True).all()
 
-    # Helper function to get setting value
     def get_setting_value(key, default):
         setting = Settings.query.filter_by(key=key).first()
         return setting.value if setting else default
 
-    # Get offers closure settings
     offers_closure_settings = {
         'fully_fulfilled': get_setting_value('offers_closure_status_fully_fulfilled', 'oczekujace'),
         'partially_fulfilled': get_setting_value('offers_closure_status_partially_fulfilled', 'oczekujace'),
         'not_fulfilled': get_setting_value('offers_closure_status_not_fulfilled', 'anulowane')
     }
 
-    # Get auto-increase global settings
     auto_increase_settings = {
         'enabled': get_setting_value('auto_increase_enabled', 'false') == 'true',
         'product_threshold': int(get_setting_value('auto_increase_product_threshold', '100')),
@@ -57,9 +65,8 @@ def offers_list():
     }
 
     return render_template(
-        'admin/offers/list.html',
-        title='Strony Offers',
-        pages=pages,
+        'admin/offers/settings.html',
+        title='Ustawienia stron sprzedaży',
         statuses=statuses,
         offers_closure_settings=offers_closure_settings,
         auto_increase_settings=auto_increase_settings
@@ -1133,7 +1140,7 @@ def update_offers_closure_settings():
     # Validate
     if not all([fully_fulfilled, partially_fulfilled, not_fulfilled]):
         flash('Wszystkie statusy muszą być wybrane.', 'error')
-        return redirect(url_for('admin.offers_list'))
+        return redirect(url_for('admin.offers_settings'))
 
     # Helper function to set setting value
     def set_setting_value(key, value):
@@ -1164,7 +1171,7 @@ def update_offers_closure_settings():
     )
 
     flash('Ustawienia automatycznego przenoszenia zostały zaktualizowane.', 'success')
-    return redirect(url_for('admin.offers_list'))
+    return redirect(url_for('admin.offers_settings'))
 
 
 # ============================================

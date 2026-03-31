@@ -370,6 +370,7 @@ def get_offer_pages():
         pages_data.append({
             'id': page.id,
             'name': page.name,
+            'page_type': page.page_type,
             'status': page.status,
             'status_class': status_class,
             'status_text': status_text,
@@ -428,7 +429,7 @@ def get_offer_matrix(page_id):
                 OrderItem.quantity,
                 Order.user_id
             ).join(Order, OrderItem.order_id == Order.id).filter(
-                Order.exclusive_page_id == page_id,
+                Order.offer_page_id == page_id,
                 Order.status != 'anulowane',
                 OrderItem.product_id.in_(all_product_ids),
                 OrderItem.is_bonus != True,
@@ -489,7 +490,7 @@ def get_offer_matrix(page_id):
                 OrderItem.is_bonus != True,
                 OrderItem.order_id.in_(
                     db.session.query(Order.id).filter(
-                        Order.exclusive_page_id == page_id,
+                        Order.offer_page_id == page_id,
                         Order.status != 'anulowane'
                     )
                 )

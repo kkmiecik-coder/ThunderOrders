@@ -1023,6 +1023,27 @@ a.metric-card-clickable.metric-card-info:hover {
 
 /* Link Button - uses .offer-action-btn defined below */
 
+/* Offer Type Badges */
+.offer-type-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.offer-type-exclusive {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.offer-type-preorder {
+    background: #E0E7FF;
+    color: #3730A3;
+}
+
 /* Show More */
 .offer-show-more {
     padding: var(--space-3) var(--space-4);
@@ -1057,6 +1078,16 @@ a.metric-card-clickable.metric-card-info:hover {
 
 [data-theme="dark"] .offer-name {
     color: #f0f0f0;
+}
+
+[data-theme="dark"] .offer-type-exclusive {
+    background: rgba(251, 191, 36, 0.15);
+    color: #FCD34D;
+}
+
+[data-theme="dark"] .offer-type-preorder {
+    background: rgba(129, 140, 248, 0.15);
+    color: #A5B4FC;
 }
 
 [data-theme="dark"] .offer-date {

@@ -1836,3 +1836,35 @@
     font-weight: 400 !important;
     opacity: 0.55;
 }
+
+/* Offer Type Badge (under order number) */
+.offer-type-badge {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.offer-type-exclusive {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.offer-type-preorder {
+    background: #E0E7FF;
+    color: #3730A3;
+}
+
+[data-theme="dark"] .offer-type-exclusive {
+    background: rgba(251, 191, 36, 0.15);
+    color: #FCD34D;
+}
+
+[data-theme="dark"] .offer-type-preorder {
+    background: rgba(129, 140, 248, 0.15);
+    color: #A5B4FC;
+}

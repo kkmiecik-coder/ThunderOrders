@@ -291,11 +291,9 @@ function initializeDeleteForm() {
  * Show toast notification
  */
 function showToast(message, type = 'info') {
-    // Reuse global toast function if available
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
+    if (window.Toast && typeof window.Toast.show === 'function') {
+        window.Toast.show(message, type);
     } else {
-        // Fallback: simple alert
         alert(message);
     }
 }

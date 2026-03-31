@@ -1,246 +1,270 @@
-<div class="settings-container">
-    <!-- Left Sidebar Menu -->
-    <div class="settings-tabs">
-        <button class="settings-tab active" data-tab="offer-closure">
-            <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="14 2 18 6 14 10"/>
-                <line x1="2" y1="6" x2="18" y2="6"/>
-                <polyline points="6 18 2 14 6 10"/>
-                <line x1="18" y1="14" x2="2" y2="14"/>
-            </svg>
-            <span class="tab-label">Przenoszenie zamówień</span>
-        </button>
-        <button class="settings-tab" data-tab="auto-increase">
-            <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="10 18 10 11"/>
-                <polyline points="6 15 10 11 14 15"/>
-                <polyline points="10 10 10 3"/>
-                <polyline points="6 7 10 3 14 7"/>
-            </svg>
-            <span class="tab-label">Auto-zwiększanie max</span>
-        </button>
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Ustawienia stron sprzedaży{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/offer-list.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="offer-page">
+    <!-- Header -->
+    <div class="page-header">
+        <div class="header-left">
+            <h1>Ustawienia stron sprzedaży</h1>
+            <p class="header-subtitle">Konfiguracja zamknięcia sprzedaży i auto-zwiększania</p>
+        </div>
     </div>
 
-    <!-- Right Content Panel -->
-    <div class="settings-content">
-        <!-- Tab: Offer Closure Settings -->
-        <div class="tab-panel active" id="tab-offer-closure">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Automatyczne przenoszenie zamówień</h3>
-                    <p class="settings-description">
-                        Skonfiguruj statusy dla zamówień po zamknięciu strony sprzedaży, w zależności od stopnia realizacji.
-                    </p>
-                </div>
-
-                <form id="offer-closure-form" method="POST" action="{{ url_for('admin.update_offers_closure_settings') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                    <!-- Compact Settings List -->
-                    <div class="closure-settings-list">
-
-                        <!-- Setting 1: Fully Fulfilled -->
-                        <div class="closure-setting-row">
-                            <div class="setting-info">
-                                <h4>Całkowicie zrealizowane</h4>
-                                <p>100% produktów w zamówieniu</p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="setting-label">Przenieś na status:</label>
-                                <div class="custom-select" data-name="offer_closure_status_fully_fulfilled">
-                                    <div class="custom-select-trigger">
-                                        <span class="custom-select-value">
-                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.fully_fulfilled)|first %}
-                                            {% if selected_status %}
-                                                <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
-                                            {% else %}
-                                                -- Wybierz status --
-                                            {% endif %}
-                                        </span>
-                                        <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                            <path d="M2 4l4 4 4-4z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="custom-select-dropdown">
-                                        {% for status in statuses %}
-                                            <div class="custom-select-option" data-value="{{ status.slug }}">
-                                                <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                <input type="hidden" name="offer_closure_status_fully_fulfilled" id="status-fully-fulfilled" value="{{ offers_closure_settings.fully_fulfilled }}" required>
-                            </div>
-                        </div>
-
-                        <!-- Setting 2: Partially Fulfilled -->
-                        <div class="closure-setting-row">
-                            <div class="setting-info">
-                                <h4>Częściowo zrealizowane</h4>
-                                <p>Część produktów w zamówieniu</p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="setting-label">Przenieś na status:</label>
-                                <div class="custom-select" data-name="offer_closure_status_partially_fulfilled">
-                                    <div class="custom-select-trigger">
-                                        <span class="custom-select-value">
-                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.partially_fulfilled)|first %}
-                                            {% if selected_status %}
-                                                <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
-                                            {% else %}
-                                                -- Wybierz status --
-                                            {% endif %}
-                                        </span>
-                                        <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                            <path d="M2 4l4 4 4-4z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="custom-select-dropdown">
-                                        {% for status in statuses %}
-                                            <div class="custom-select-option" data-value="{{ status.slug }}">
-                                                <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                <input type="hidden" name="offer_closure_status_partially_fulfilled" id="status-partially-fulfilled" value="{{ offers_closure_settings.partially_fulfilled }}" required>
-                            </div>
-                        </div>
-
-                        <!-- Setting 3: Not Fulfilled -->
-                        <div class="closure-setting-row">
-                            <div class="setting-info">
-                                <h4>Niezrealizowane</h4>
-                                <p>0% produktów w zamówieniu</p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="setting-label">Przenieś na status:</label>
-                                <div class="custom-select" data-name="offer_closure_status_not_fulfilled">
-                                    <div class="custom-select-trigger">
-                                        <span class="custom-select-value">
-                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.not_fulfilled)|first %}
-                                            {% if selected_status %}
-                                                <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
-                                            {% else %}
-                                                -- Wybierz status --
-                                            {% endif %}
-                                        </span>
-                                        <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
-                                            <path d="M2 4l4 4 4-4z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="custom-select-dropdown">
-                                        {% for status in statuses %}
-                                            <div class="custom-select-option" data-value="{{ status.slug }}">
-                                                <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                <input type="hidden" name="offer_closure_status_not_fulfilled" id="status-not-fulfilled" value="{{ offers_closure_settings.not_fulfilled }}" required>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <!-- Save Button -->
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
-                            </svg>
-                            Zapisz ustawienia
-                        </button>
-                    </div>
-                </form>
-            </div>
+    <div class="settings-container">
+        <!-- Left Sidebar Menu -->
+        <div class="settings-tabs">
+            <button class="settings-tab active" data-tab="offer-closure">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="14 2 18 6 14 10"/>
+                    <line x1="2" y1="6" x2="18" y2="6"/>
+                    <polyline points="6 18 2 14 6 10"/>
+                    <line x1="18" y1="14" x2="2" y2="14"/>
+                </svg>
+                <span class="tab-label">Przenoszenie zamówień</span>
+            </button>
+            <button class="settings-tab" data-tab="auto-increase">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="10 18 10 11"/>
+                    <polyline points="6 15 10 11 14 15"/>
+                    <polyline points="10 10 10 3"/>
+                    <polyline points="6 7 10 3 14 7"/>
+                </svg>
+                <span class="tab-label">Auto-zwiększanie max</span>
+            </button>
         </div>
 
-        <!-- Tab: Auto-increase Settings -->
-        <div class="tab-panel" id="tab-auto-increase">
-            <div class="settings-card">
-                <div class="card-header">
-                    <h3>Auto-zwiększanie max</h3>
-                    <p class="settings-description">
-                        Automatyczne zwiększanie maksymalnej ilości produktów w sekcjach "set" na podstawie osiągniętych progów sprzedaży.
-                        <strong>Ustawienia globalne dla wszystkich stron sprzedaży.</strong>
-                    </p>
+        <!-- Right Content Panel -->
+        <div class="settings-content">
+            <!-- Tab: Offer Closure Settings -->
+            <div class="tab-panel active" id="tab-offer-closure">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Automatyczne przenoszenie zamówień</h3>
+                        <p class="settings-description">
+                            Skonfiguruj statusy dla zamówień po zamknięciu strony sprzedaży, w zależności od stopnia realizacji.
+                        </p>
+                    </div>
+
+                    <form id="offer-closure-form" method="POST" action="{{ url_for('admin.update_offers_closure_settings') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Compact Settings List -->
+                        <div class="closure-settings-list">
+
+                            <!-- Setting 1: Fully Fulfilled -->
+                            <div class="closure-setting-row">
+                                <div class="setting-info">
+                                    <h4>Całkowicie zrealizowane</h4>
+                                    <p>100% produktów w zamówieniu</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="setting-label">Przenieś na status:</label>
+                                    <div class="custom-select" data-name="offers_closure_status_fully_fulfilled">
+                                        <div class="custom-select-trigger">
+                                            <span class="custom-select-value">
+                                                {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.fully_fulfilled)|first %}
+                                                {% if selected_status %}
+                                                    <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
+                                                {% else %}
+                                                    -- Wybierz status --
+                                                {% endif %}
+                                            </span>
+                                            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                <path d="M2 4l4 4 4-4z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="custom-select-dropdown">
+                                            {% for status in statuses %}
+                                                <div class="custom-select-option" data-value="{{ status.slug }}">
+                                                    <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="offers_closure_status_fully_fulfilled" id="status-fully-fulfilled" value="{{ offers_closure_settings.fully_fulfilled }}" required>
+                                </div>
+                            </div>
+
+                            <!-- Setting 2: Partially Fulfilled -->
+                            <div class="closure-setting-row">
+                                <div class="setting-info">
+                                    <h4>Częściowo zrealizowane</h4>
+                                    <p>Część produktów w zamówieniu</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="setting-label">Przenieś na status:</label>
+                                    <div class="custom-select" data-name="offers_closure_status_partially_fulfilled">
+                                        <div class="custom-select-trigger">
+                                            <span class="custom-select-value">
+                                                {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.partially_fulfilled)|first %}
+                                                {% if selected_status %}
+                                                    <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
+                                                {% else %}
+                                                    -- Wybierz status --
+                                                {% endif %}
+                                            </span>
+                                            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                <path d="M2 4l4 4 4-4z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="custom-select-dropdown">
+                                            {% for status in statuses %}
+                                                <div class="custom-select-option" data-value="{{ status.slug }}">
+                                                    <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="offers_closure_status_partially_fulfilled" id="status-partially-fulfilled" value="{{ offers_closure_settings.partially_fulfilled }}" required>
+                                </div>
+                            </div>
+
+                            <!-- Setting 3: Not Fulfilled -->
+                            <div class="closure-setting-row">
+                                <div class="setting-info">
+                                    <h4>Niezrealizowane</h4>
+                                    <p>0% produktów w zamówieniu</p>
+                                </div>
+                                <div class="setting-control">
+                                    <label class="setting-label">Przenieś na status:</label>
+                                    <div class="custom-select" data-name="offers_closure_status_not_fulfilled">
+                                        <div class="custom-select-trigger">
+                                            <span class="custom-select-value">
+                                                {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.not_fulfilled)|first %}
+                                                {% if selected_status %}
+                                                    <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
+                                                {% else %}
+                                                    -- Wybierz status --
+                                                {% endif %}
+                                            </span>
+                                            <svg class="custom-select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                                <path d="M2 4l4 4 4-4z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="custom-select-dropdown">
+                                            {% for status in statuses %}
+                                                <div class="custom-select-option" data-value="{{ status.slug }}">
+                                                    <span class="badge" style="background-color: {{ status.badge_color }};">{{ status.name }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="offers_closure_status_not_fulfilled" id="status-not-fulfilled" value="{{ offers_closure_settings.not_fulfilled }}" required>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Save Button -->
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
+                                </svg>
+                                Zapisz ustawienia
+                            </button>
+                        </div>
+                    </form>
                 </div>
+            </div>
 
-                <form id="auto-increase-form" method="POST" action="{{ url_for('admin.update_global_auto_increase_settings') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-
-                    <!-- Enable Checkbox (top) -->
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox"
-                                   id="auto_increase_enabled"
-                                   name="auto_increase_enabled"
-                                   value="true"
-                                   {% if auto_increase_settings.enabled %}checked{% endif %}>
-                            <span class="checkbox-text">Włącz auto-zwiększanie max</span>
-                        </label>
+            <!-- Tab: Auto-increase Settings -->
+            <div class="tab-panel" id="tab-auto-increase">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Auto-zwiększanie max</h3>
+                        <p class="settings-description">
+                            Automatyczne zwiększanie maksymalnej ilości produktów w sekcjach "set" na podstawie osiągniętych progów sprzedaży.
+                            <strong>Ustawienia globalne dla wszystkich stron sprzedaży.</strong>
+                        </p>
                     </div>
 
-                    <!-- 3 Configuration Fields -->
-                    <div class="auto-increase-fields">
-                        <div class="form-group">
-                            <label for="auto_increase_product_threshold">Próg wyprzedania produktu (%)</label>
-                            <input type="number"
-                                   id="auto_increase_product_threshold"
-                                   name="auto_increase_product_threshold"
-                                   value="{{ auto_increase_settings.product_threshold|int or 100 }}"
-                                   min="0"
-                                   max="100"
-                                   step="1"
-                                   placeholder="100"
-                                   required>
-                            <small class="helper-text">Jaki % max musi się wyprzedać dla pojedynczego produktu</small>
+                    <form id="auto-increase-form" method="POST" action="{{ url_for('admin.update_global_auto_increase_settings') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <!-- Enable Checkbox (top) -->
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox"
+                                       id="auto_increase_enabled"
+                                       name="auto_increase_enabled"
+                                       value="true"
+                                       {% if auto_increase_settings.enabled %}checked{% endif %}>
+                                <span class="checkbox-text">Włącz auto-zwiększanie max</span>
+                            </label>
                         </div>
 
-                        <div class="form-group">
-                            <label for="auto_increase_set_threshold">Próg wyprzedanych produktów w secie (%)</label>
-                            <input type="number"
-                                   id="auto_increase_set_threshold"
-                                   name="auto_increase_set_threshold"
-                                   value="{{ auto_increase_settings.set_threshold|int or 50 }}"
-                                   min="0"
-                                   max="100"
-                                   step="1"
-                                   placeholder="50"
-                                   required>
-                            <small class="helper-text">Jaki % produktów w secie musi osiągnąć próg wyprzedania</small>
+                        <!-- 3 Configuration Fields -->
+                        <div class="auto-increase-fields">
+                            <div class="form-group">
+                                <label for="auto_increase_product_threshold">Próg wyprzedania produktu (%)</label>
+                                <input type="number"
+                                       id="auto_increase_product_threshold"
+                                       name="auto_increase_product_threshold"
+                                       value="{{ auto_increase_settings.product_threshold|int or 100 }}"
+                                       min="0"
+                                       max="100"
+                                       step="1"
+                                       placeholder="100"
+                                       required>
+                                <small class="helper-text">Jaki % max musi się wyprzedać dla pojedynczego produktu</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="auto_increase_set_threshold">Próg wyprzedanych produktów w secie (%)</label>
+                                <input type="number"
+                                       id="auto_increase_set_threshold"
+                                       name="auto_increase_set_threshold"
+                                       value="{{ auto_increase_settings.set_threshold|int or 50 }}"
+                                       min="0"
+                                       max="100"
+                                       step="1"
+                                       placeholder="50"
+                                       required>
+                                <small class="helper-text">Jaki % produktów w secie musi osiągnąć próg wyprzedania</small>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="auto_increase_amount">Zwiększenie max o (szt.)</label>
+                                <input type="number"
+                                       id="auto_increase_amount"
+                                       name="auto_increase_amount"
+                                       value="{{ auto_increase_settings.amount or 1 }}"
+                                       min="1"
+                                       placeholder="1"
+                                       required>
+                                <small class="helper-text">O ile zwiększyć maksymalną ilość dla wszystkich produktów w secie</small>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="auto_increase_amount">Zwiększenie max o (szt.)</label>
-                            <input type="number"
-                                   id="auto_increase_amount"
-                                   name="auto_increase_amount"
-                                   value="{{ auto_increase_settings.amount or 1 }}"
-                                   min="1"
-                                   placeholder="1"
-                                   required>
-                            <small class="helper-text">O ile zwiększyć maksymalną ilość dla wszystkich produktów w secie</small>
+                        <!-- Example Box -->
+                        <div class="example-box">
+                            <strong>Przykład:</strong> Jeśli 50% produktów wyprzeda się w 100%, zwiększ max wszystkich o 1 szt.
                         </div>
-                    </div>
 
-                    <!-- Example Box -->
-                    <div class="example-box">
-                        <strong>Przykład:</strong> Jeśli 50% produktów wyprzeda się w 100%, zwiększ max wszystkich o 1 szt.
-                    </div>
-
-                    <!-- Save Button (disabled until change) -->
-                    <div class="form-actions">
-                        <button type="submit" id="save_auto_increase_btn" class="btn btn-primary" disabled>
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
-                            </svg>
-                            Zapisz ustawienia
-                        </button>
-                    </div>
-                </form>
+                        <!-- Save Button (disabled until change) -->
+                        <div class="form-actions">
+                            <button type="submit" id="save_auto_increase_btn" class="btn btn-primary" disabled>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/>
+                                </svg>
+                                Zapisz ustawienia
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/offer-list.js') }}"></script>
+{% endblock %}

@@ -5,7 +5,7 @@
 
 /* Page Layout */
 .offer-page {
-    /* Padding removed - now on individual tab panels */
+    padding: var(--space-6);
 }
 
 /* Header */
