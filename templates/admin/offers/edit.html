@@ -264,6 +264,7 @@
                             {% elif section.section_type == 'product' %}Produkt
                             {% elif section.section_type == 'set' %}Set produktów
                             {% elif section.section_type == 'variant_group' %}Grupa wariantowa
+                            {% elif section.section_type == 'bonus' %}Bonus (gratis)
                             {% endif %}
                         </span>
                         <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
@@ -734,6 +735,97 @@
                                 {% else %}
                                 <p class="variant-info-text text-muted">Wybierz grupę wariantową aby zobaczyć produkty</p>
                                 {% endif %}
+                            </div>
+                        </div>
+                        {% elif section.section_type == 'bonus' %}
+                        {% set bonus = section.bonuses.first() %}
+                        <div class="standalone-bonus-section">
+                            <div class="bonus-columns">
+                                <div class="bonus-col bonus-col-left">
+                                    <div class="bonus-block-label">Warunek</div>
+                                    <div class="bonus-field">
+                                        <label>Typ warunku</label>
+                                        <select class="form-select bonus-trigger-type" onchange="toggleBonusTriggerFields(this); markDirty()">
+                                            <option value="buy_products" {% if bonus and bonus.trigger_type == 'buy_products' %}selected{% endif %}>Kup produkty</option>
+                                            <option value="price_threshold" {% if bonus and bonus.trigger_type == 'price_threshold' %}selected{% endif %}>Próg kwoty</option>
+                                            <option value="quantity_threshold" {% if bonus and bonus.trigger_type == 'quantity_threshold' %}selected{% endif %}>Próg ilości</option>
+                                        </select>
+                                    </div>
+                                    <div class="bonus-field bonus-threshold-row" style="display: {% if bonus and bonus.trigger_type in ('price_threshold', 'quantity_threshold') %}block{% else %}none{% endif %};">
+                                        <label>Wartość progu</label>
+                                        <input type="number" class="form-input bonus-threshold-value" value="{{ bonus.threshold_value or '' if bonus else '' }}" step="0.01" min="0" onchange="markDirty()">
+                                    </div>
+                                    <div class="bonus-required-products" style="display: {% if not bonus or bonus.trigger_type == 'buy_products' %}block{% else %}none{% endif %};">
+                                        <label>Wymagane produkty <small>(wszystkie)</small></label>
+                                        <div class="bonus-required-list">
+                                            {% if bonus %}
+                                            {% for rp in bonus.required_products %}
+                                            <div class="bonus-required-item">
+                                                <select class="form-select bonus-req-product" onchange="markDirty()">
+                                                    <option value="">Wybierz...</option>
+                                                    {% for product in products %}
+                                                    <option value="{{ product.id }}" {% if rp.product_id == product.id %}selected{% endif %}>{{ product.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <input type="number" class="form-input bonus-req-min-qty" value="{{ rp.min_quantity }}" min="1" onchange="markDirty()">
+                                                <button type="button" class="btn-remove-req-product" onclick="removeBonusRequiredProduct(this)">
+                                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                                                </button>
+                                            </div>
+                                            {% endfor %}
+                                            {% endif %}
+                                        </div>
+                                        <button type="button" class="btn-add-req-product" onclick="addBonusRequiredProduct(this)">+ Dodaj wymagany produkt</button>
+                                    </div>
+                                </div>
+                                <div class="bonus-col bonus-col-right">
+                                    <div class="bonus-block-label">Nagroda</div>
+                                    <div class="bonus-field">
+                                        <label>Produkt gratisowy <span style="color: red;">*</span></label>
+                                        <div class="bonus-product-search-wrapper">
+                                            <input type="text" class="form-input bonus-product-search"
+                                                   placeholder="Szukaj produktu (nazwa lub SKU)..."
+                                                   value="{% if bonus and bonus.bonus_product %}{{ bonus.bonus_product.name }}{% endif %}"
+                                                   oninput="searchBonusProduct(this)"
+                                                   onfocus="searchBonusProduct(this)"
+                                                   autocomplete="off">
+                                            <input type="hidden" class="bonus-product-id" value="{{ bonus.bonus_product_id or '' if bonus else '' }}">
+                                            {% if bonus and bonus.bonus_product %}
+                                            <div class="bonus-product-selected">
+                                                <span class="bonus-product-selected-name">{{ bonus.bonus_product.name }}</span>
+                                                <button type="button" class="bonus-product-clear" onclick="clearBonusProduct(this)">&times;</button>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="bonus-field-row">
+                                        <div class="bonus-field bonus-field-wide">
+                                            <label>Ilość</label>
+                                            <input type="number" class="form-input bonus-quantity" value="{{ bonus.bonus_quantity if bonus else 1 }}" min="1" onchange="markDirty()">
+                                        </div>
+                                        <div class="bonus-field bonus-field-wide">
+                                            <label>Limit</label>
+                                            <input type="number" class="form-input bonus-max-available" value="{{ bonus.max_available or '' if bonus else '' }}" min="1" placeholder="Bez" onchange="markDirty()">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bonus-options-row">
+                                <label class="bonus-option">
+                                    <input type="checkbox" class="bonus-repeatable" {% if bonus and bonus.repeatable %}checked{% endif %} onchange="markDirty()">
+                                    Wielokrotny próg
+                                </label>
+                                <div class="bonus-option">
+                                    <label>Po wyczerpaniu:</label>
+                                    <select class="form-select bonus-when-exhausted" onchange="markDirty()">
+                                        <option value="hide" {% if not bonus or bonus.when_exhausted == 'hide' %}selected{% endif %}>Ukryj</option>
+                                        <option value="show_exhausted" {% if bonus and bonus.when_exhausted == 'show_exhausted' %}selected{% endif %}>Pokaż jako wyczerpany</option>
+                                    </select>
+                                </div>
+                                <label class="bonus-option">
+                                    <input type="checkbox" class="bonus-is-active" {% if not bonus or bonus.is_active %}checked{% endif %} onchange="markDirty()">
+                                    Aktywny
+                                </label>
                             </div>
                         </div>
                         {% endif %}

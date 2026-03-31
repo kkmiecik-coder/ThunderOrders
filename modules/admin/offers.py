@@ -323,6 +323,24 @@ def _validate_section_data(section_data):
                 if not threshold or float(threshold) <= 0:
                     return False, 'Bonus progowy musi mieć wartość progu większą od 0'
 
+    # Walidacja standalone bonus section
+    if section_type == 'bonus':
+        bonus_product_id = section_data.get('bonus_product_id')
+        trigger_type = section_data.get('bonus_trigger_type', 'buy_products')
+
+        if not bonus_product_id:
+            return False, 'Sekcja Bonus musi mieć wybrany produkt gratisowy'
+
+        if trigger_type == 'buy_products':
+            required = section_data.get('bonus_required_products', [])
+            if not required or not any(rp.get('product_id') for rp in required):
+                return False, 'Bonus typu "Kup produkty" musi mieć co najmniej 1 wymagany produkt'
+
+        elif trigger_type in ('price_threshold', 'quantity_threshold'):
+            threshold = section_data.get('bonus_threshold_value')
+            if not threshold or float(threshold) <= 0:
+                return False, 'Bonus progowy musi mieć wartość progu większą od 0'
+
     return True, None
 
 
@@ -396,6 +414,10 @@ def _update_sections(page, sections_data):
         # Obsługa gratisów (bonusów) w secie
         if section.section_type == 'set' and 'bonuses' in section_data:
             _update_set_bonuses(section, section_data['bonuses'])
+
+        # Obsługa standalone bonusu (sekcja typu 'bonus')
+        if section.section_type == 'bonus':
+            _update_standalone_bonus(section, section_data)
 
         # Zapisz zmiany limitów do późniejszego sprawdzenia powiadomień
         if section_type in ['product', 'variant_group']:
@@ -508,6 +530,71 @@ def _update_set_bonuses(section, bonuses_data):
                         min_quantity=max(1, int(rp_data.get('min_quantity', 1))),
                     )
                     db.session.add(rp)
+
+
+def _update_standalone_bonus(section, section_data):
+    """
+    Aktualizuje standalone bonus (sekcja typu 'bonus').
+    Jeden OfferSetBonus record na sekcję.
+
+    Args:
+        section: OfferSection object (type='bonus')
+        section_data: Dane sekcji z frontendu
+    """
+    # Usuń istniejące bonusy i utwórz na nowo
+    existing_bonuses = OfferSetBonus.query.filter_by(section_id=section.id).all()
+    for bonus in existing_bonuses:
+        db.session.delete(bonus)
+
+    bonus_product_id = section_data.get('bonus_product_id')
+    trigger_type = section_data.get('bonus_trigger_type', 'buy_products')
+
+    if not bonus_product_id or not trigger_type:
+        return
+
+    threshold_value = section_data.get('bonus_threshold_value')
+    if threshold_value is not None:
+        try:
+            threshold_value = float(threshold_value)
+        except (ValueError, TypeError):
+            threshold_value = None
+
+    max_available = section_data.get('bonus_max_available')
+    if max_available is not None:
+        try:
+            max_available = int(max_available)
+            if max_available <= 0:
+                max_available = None
+        except (ValueError, TypeError):
+            max_available = None
+
+    bonus = OfferSetBonus(
+        section_id=section.id,
+        trigger_type=trigger_type,
+        threshold_value=threshold_value,
+        bonus_product_id=int(bonus_product_id),
+        bonus_quantity=max(1, int(section_data.get('bonus_quantity', 1))),
+        max_available=max_available,
+        when_exhausted=section_data.get('bonus_when_exhausted', 'hide'),
+        count_full_set=False,
+        repeatable=bool(section_data.get('bonus_repeatable', False)),
+        is_active=bool(section_data.get('bonus_is_active', True)),
+        sort_order=0,
+    )
+    db.session.add(bonus)
+    db.session.flush()
+
+    # Dodaj wymagane produkty (tylko dla buy_products)
+    if trigger_type == 'buy_products':
+        for rp_data in section_data.get('bonus_required_products', []):
+            rp_product_id = rp_data.get('product_id')
+            if rp_product_id:
+                rp = OfferBonusRequiredProduct(
+                    bonus_id=bonus.id,
+                    product_id=int(rp_product_id),
+                    min_quantity=max(1, int(rp_data.get('min_quantity', 1))),
+                )
+                db.session.add(rp)
 
 
 def _send_notifications_for_limit_changes(page_id, limit_changes):

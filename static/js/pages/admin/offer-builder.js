@@ -537,6 +537,91 @@ function getSectionTemplate(type) {
                 </div>
             </div>
         `,
+        bonus: `
+            <div class="section-card" data-section-type="bonus">
+                <div class="section-header">
+                    <div class="section-drag-handle">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                        </svg>
+                    </div>
+                    <span class="section-type-label">Bonus (gratis)</span>
+                    <button type="button" class="btn-delete-section" onclick="deleteSection(this)">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="section-body">
+                    <div class="standalone-bonus-section">
+                        <div class="bonus-columns">
+                            <div class="bonus-col bonus-col-left">
+                                <div class="bonus-block-label">Warunek</div>
+                                <div class="bonus-field">
+                                    <label>Typ warunku</label>
+                                    <select class="form-select bonus-trigger-type" onchange="toggleBonusTriggerFields(this); markDirty()">
+                                        <option value="buy_products">Kup produkty</option>
+                                        <option value="price_threshold">Próg kwoty</option>
+                                        <option value="quantity_threshold">Próg ilości</option>
+                                    </select>
+                                </div>
+                                <div class="bonus-field bonus-threshold-row" style="display: none;">
+                                    <label>Wartość progu</label>
+                                    <input type="number" class="form-input bonus-threshold-value" step="0.01" min="0" onchange="markDirty()">
+                                </div>
+                                <div class="bonus-required-products">
+                                    <label>Wymagane produkty <small>(wszystkie)</small></label>
+                                    <div class="bonus-required-list"></div>
+                                    <button type="button" class="btn-add-req-product" onclick="addBonusRequiredProduct(this)">+ Dodaj wymagany produkt</button>
+                                </div>
+                            </div>
+                            <div class="bonus-col bonus-col-right">
+                                <div class="bonus-block-label">Nagroda</div>
+                                <div class="bonus-field">
+                                    <label>Produkt gratisowy <span style="color: red;">*</span></label>
+                                    <div class="bonus-product-search-wrapper">
+                                        <input type="text" class="form-input bonus-product-search"
+                                               placeholder="Szukaj produktu (nazwa lub SKU)..."
+                                               oninput="searchBonusProduct(this)"
+                                               onfocus="searchBonusProduct(this)"
+                                               autocomplete="off">
+                                        <input type="hidden" class="bonus-product-id" value="">
+                                    </div>
+                                </div>
+                                <div class="bonus-field-row">
+                                    <div class="bonus-field bonus-field-wide">
+                                        <label>Ilość</label>
+                                        <input type="number" class="form-input bonus-quantity" value="1" min="1" onchange="markDirty()">
+                                    </div>
+                                    <div class="bonus-field bonus-field-wide">
+                                        <label>Limit</label>
+                                        <input type="number" class="form-input bonus-max-available" min="1" placeholder="Bez" onchange="markDirty()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bonus-options-row">
+                            <label class="bonus-option">
+                                <input type="checkbox" class="bonus-repeatable" onchange="markDirty()">
+                                Wielokrotny próg
+                            </label>
+                            <div class="bonus-option">
+                                <label>Po wyczerpaniu:</label>
+                                <select class="form-select bonus-when-exhausted" onchange="markDirty()">
+                                    <option value="hide">Ukryj</option>
+                                    <option value="show_exhausted">Pokaż jako wyczerpany</option>
+                                </select>
+                            </div>
+                            <label class="bonus-option">
+                                <input type="checkbox" class="bonus-is-active" checked onchange="markDirty()">
+                                Aktywny
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `,
         variant_group: `
             <div class="section-card" data-section-type="variant_group">
                 <div class="section-header">
@@ -817,6 +902,27 @@ function collectPageData() {
             const maxQtyInput = section.querySelector('.max-qty-value');
             const maxVal = maxQtyInput ? parseInt(maxQtyInput.value) : 0;
             sectionData.max_quantity = maxVal > 0 ? maxVal : null;
+        } else if (type === 'bonus') {
+            sectionData.bonus_trigger_type = section.querySelector('.bonus-trigger-type')?.value || 'buy_products';
+            sectionData.bonus_threshold_value = parseFloat(section.querySelector('.bonus-threshold-value')?.value) || null;
+            sectionData.bonus_product_id = parseInt(section.querySelector('.bonus-product-id')?.value) || null;
+            sectionData.bonus_quantity = parseInt(section.querySelector('.bonus-quantity')?.value) || 1;
+            sectionData.bonus_max_available = parseInt(section.querySelector('.bonus-max-available')?.value) || null;
+            sectionData.bonus_when_exhausted = section.querySelector('.bonus-when-exhausted')?.value || 'hide';
+            sectionData.bonus_repeatable = section.querySelector('.bonus-repeatable')?.checked || false;
+            sectionData.bonus_is_active = section.querySelector('.bonus-is-active')?.checked ?? true;
+
+            // Required products (for buy_products trigger)
+            sectionData.bonus_required_products = [];
+            section.querySelectorAll('.bonus-required-item').forEach((rpEl) => {
+                const rpProductId = parseInt(rpEl.querySelector('.bonus-req-product')?.value) || null;
+                if (rpProductId) {
+                    sectionData.bonus_required_products.push({
+                        product_id: rpProductId,
+                        min_quantity: parseInt(rpEl.querySelector('.bonus-req-min-qty')?.value) || 1,
+                    });
+                }
+            });
         }
 
         data.sections.push(sectionData);
@@ -2093,6 +2199,21 @@ function onBonusTriggerTypeChange(select) {
         thresholdField.style.display = 'block';
         requiredProducts.style.display = 'none';
     }
+}
+
+/**
+ * Toggle threshold / required products fields for standalone bonus sections
+ */
+function toggleBonusTriggerFields(select) {
+    const card = select.closest('.section-card[data-section-type="bonus"]');
+    if (!card) return; // not a standalone bonus section
+    const thresholdRow = card.querySelector('.bonus-threshold-row');
+    const requiredRow = card.querySelector('.bonus-required-products');
+    const triggerType = select.value;
+
+    if (thresholdRow) thresholdRow.style.display = (triggerType === 'price_threshold' || triggerType === 'quantity_threshold') ? '' : 'none';
+    if (requiredRow) requiredRow.style.display = triggerType === 'buy_products' ? '' : 'none';
+    markDirty();
 }
 
 /**
