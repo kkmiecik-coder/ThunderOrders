@@ -586,6 +586,13 @@
     height: 16px;
 }
 
+.qrt-btn-icon.qrt-btn-warning:hover {
+    color: #d97706;
+    border-color: #d97706;
+    background: rgba(217, 119, 6, 0.06);
+    box-shadow: 0 2px 8px rgba(217, 119, 6, 0.12);
+}
+
 .qrt-btn-icon.qrt-btn-danger:hover {
     color: #dc2626;
     border-color: #dc2626;
@@ -1021,6 +1028,13 @@
     color: #f093fb;
     border-color: rgba(240, 147, 251, 0.3);
     box-shadow: 0 2px 12px rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .qrt-btn-icon.qrt-btn-warning:hover {
+    background: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.3);
+    box-shadow: 0 2px 12px rgba(251, 191, 36, 0.15);
 }
 
 [data-theme="dark"] .qrt-btn-icon.qrt-btn-danger:hover {

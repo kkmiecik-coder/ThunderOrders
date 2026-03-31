@@ -127,6 +127,54 @@
     // Delete campaign (with confirmation)
     // ========================================
 
+    // ========================================
+    // Reset visits (with confirmation, AJAX)
+    // ========================================
+
+    window.resetVisits = function (id, name, count) {
+        if (count === 0) {
+            if (window.Toast) {
+                window.Toast.show('Kampania "' + name + '" nie ma żadnych wizyt.', 'info');
+            }
+            return;
+        }
+
+        if (!confirm('Czy na pewno chcesz usunąć wszystkie wizyty (' + count + ') kampanii "' + name + '"?\nTa operacja jest nieodwracalna.')) {
+            return;
+        }
+
+        fetch('/admin/qr-tracking/' + id + '/reset-visits', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data.success) {
+                if (window.Toast) {
+                    window.Toast.show(data.message, 'success');
+                }
+                // Reload page to update visit counts
+                setTimeout(function () { location.reload(); }, 800);
+            } else {
+                if (window.Toast) {
+                    window.Toast.show(data.error || 'Wystąpił błąd', 'error');
+                }
+            }
+        })
+        .catch(function () {
+            if (window.Toast) {
+                window.Toast.show('Błąd połączenia z serwerem', 'error');
+            }
+        });
+    };
+
+    // ========================================
+    // Delete campaign (with confirmation)
+    // ========================================
+
     window.deleteCampaign = function (id, name) {
         if (!confirm('Czy na pewno chcesz usunąć kampanię "' + name + '"?\nTa operacja jest nieodwracalna.')) {
             return;
