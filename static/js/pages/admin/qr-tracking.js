@@ -286,13 +286,36 @@
         var colors = getChartColors();
         var ctx = canvas.getContext('2d');
 
-        var labels = timelineData.map(function (d) { return d.date; });
         var totalValues = timelineData.map(function (d) { return d.total; });
         var uniqueValues = timelineData.map(function (d) { return d.unique; });
 
         // Determine granularity for scroll width
         var granularityEl = document.getElementById('filter-granularity');
         var granularity = granularityEl ? granularityEl.value : 'daily';
+
+        // Format labels based on granularity
+        var labels;
+        if (granularity === 'hourly') {
+            // Check if all entries are from the same day
+            var dates = {};
+            timelineData.forEach(function (d) {
+                var day = d.date.substring(0, 10);
+                dates[day] = true;
+            });
+            var dayCount = Object.keys(dates).length;
+            if (dayCount === 1) {
+                // Single day - show only hours
+                labels = timelineData.map(function (d) { return d.date.substring(11); });
+            } else {
+                // Multiple days - show short date + hour
+                labels = timelineData.map(function (d) {
+                    return d.date.substring(5, 10) + ' ' + d.date.substring(11);
+                });
+            }
+        } else {
+            labels = timelineData.map(function (d) { return d.date; });
+        }
+
         var scrollInner = document.getElementById('timeline-scroll-inner');
         var scrollWrapper = document.getElementById('timeline-scroll-wrapper');
 
@@ -644,6 +667,15 @@
         var campaignIdInput = document.getElementById('campaign-id');
         if (campaignIdInput) {
             loadStats();
+
+            // Auto-refresh on filter change
+            var filterIds = ['filter-date-from', 'filter-date-to', 'filter-granularity'];
+            filterIds.forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', loadStats);
+                }
+            });
         }
 
         // Init theme observer for chart color switching

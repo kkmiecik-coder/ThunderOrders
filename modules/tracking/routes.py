@@ -348,6 +348,21 @@ def qr_campaign_api_stats(campaign_id):
         if v.is_unique:
             timeline[key]['unique'] += 1
 
+    # Fill in missing slots for hourly/daily so chart shows full range
+    if granularity == 'hourly' and (date_from_str or date_to_str):
+        try:
+            fill_start = datetime.strptime(date_from_str, '%Y-%m-%d') if date_from_str else None
+            fill_end = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1) if date_to_str else None
+            if fill_start and fill_end:
+                cursor = fill_start
+                while cursor < fill_end:
+                    key = cursor.strftime('%Y-%m-%d %H:00')
+                    if key not in timeline:
+                        timeline[key] = {'total': 0, 'unique': 0}
+                    cursor += timedelta(hours=1)
+        except ValueError:
+            pass
+
     timeline_data = [
         {'date': k, 'total': v['total'], 'unique': v['unique']}
         for k, v in sorted(timeline.items())
