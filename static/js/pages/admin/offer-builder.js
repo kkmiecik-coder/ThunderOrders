@@ -1997,7 +1997,8 @@ function searchBonusProduct(input) {
     _positionBonusDropdown(input);
 
     _bonusSearchTimeout = setTimeout(() => {
-        fetch(`/admin/offers/api/products?q=${encodeURIComponent(query)}`)
+        const pageType = document.querySelector('.builder-page')?.dataset?.pageType || 'exclusive';
+        fetch(`/admin/offers/api/products?q=${encodeURIComponent(query)}&page_type=${pageType}`)
             .then(r => r.json())
             .then(products => {
                 if (!products.length) {

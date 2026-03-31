@@ -61,6 +61,9 @@
                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="offer-card-title">
                     {{ page.name }}
                 </a>
+                <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                    {% if page.page_type == 'exclusive' %}Exclusive{% else %}Pre-order{% endif %}
+                </span>
                 {% if page.status == 'draft' %}
                 <span class="status-badge status-draft">Draft</span>
                 {% elif page.status == 'scheduled' %}
@@ -183,6 +186,7 @@
                 <thead>
                     <tr>
                         <th>Nazwa</th>
+                        <th>Typ</th>
                         <th>Status</th>
                         <th>Rozpoczęcie</th>
                         <th>Zakończenie</th>
@@ -206,6 +210,11 @@
                                     </svg>
                                 </button>
                             </div>
+                        </td>
+                        <td>
+                            <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                {% if page.page_type == 'exclusive' %}Exclusive{% else %}Pre-order{% endif %}
+                            </span>
                         </td>
                         <td>
                             {% if page.status == 'draft' %}
@@ -387,6 +396,27 @@
         <form action="{{ url_for('admin.offers_create') }}" method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Typ strony <span class="required">*</span></label>
+                    <div class="page-type-selector">
+                        <label class="page-type-option page-type-option--active">
+                            <input type="radio" name="page_type" value="exclusive" checked>
+                            <div class="page-type-card">
+                                <span class="page-type-icon">⭐</span>
+                                <span class="page-type-name">Exclusive</span>
+                                <span class="page-type-desc">Sprzedaż setów z kompletowaniem</span>
+                            </div>
+                        </label>
+                        <label class="page-type-option">
+                            <input type="radio" name="page_type" value="preorder">
+                            <div class="page-type-card">
+                                <span class="page-type-icon">📦</span>
+                                <span class="page-type-name">Pre-order</span>
+                                <span class="page-type-desc">Sprzedaż pojedynczych produktów</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
                 <div class="form-group">
                     <label for="pageName" class="form-label">Nazwa strony <span class="required">*</span></label>
                     <input type="text" id="pageName" name="name" class="form-control"

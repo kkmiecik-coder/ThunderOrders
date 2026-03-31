@@ -68,6 +68,20 @@
     color: var(--text-primary);
 }
 
+.topbar-center .offer-type-badge {
+    padding: var(--space-1) var(--space-3);
+    border-radius: 4px;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
+    text-transform: uppercase;
+}
+
+.offer-type-exclusive { background: #FEF3C7; color: #92400E; }
+.offer-type-preorder { background: #E0E7FF; color: #3730A3; }
+
+[data-theme="dark"] .offer-type-exclusive { background: rgba(251, 191, 36, 0.15); color: #FCD34D; }
+[data-theme="dark"] .offer-type-preorder { background: rgba(129, 140, 248, 0.15); color: #A5B4FC; }
+
 .status-indicator {
     padding: var(--space-1) var(--space-3);
     border-radius: 4px;

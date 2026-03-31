@@ -237,6 +237,9 @@
                             <div class="offer-card" onclick="window.location.href='{{ url_for('admin.offers_edit', page_id=page.id) }}'">
                                 <div class="offer-card-top">
                                     <span class="offer-name">{{ page.name }}</span>
+                                    <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                        {% if page.page_type == 'exclusive' %}Exclusive{% else %}Pre-order{% endif %}
+                                    </span>
                                     <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyOfferLink('{{ page.token }}', this);" title="Kopiuj link">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -284,6 +287,9 @@
                             <div class="offer-card offer-buffered" style="display: none;" onclick="window.location.href='{{ url_for('admin.offers_edit', page_id=page.id) }}'">
                                 <div class="offer-card-top">
                                     <span class="offer-name">{{ page.name }}</span>
+                                    <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                                        {% if page.page_type == 'exclusive' %}Exclusive{% else %}Pre-order{% endif %}
+                                    </span>
                                     <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyOfferLink('{{ page.token }}', this);" title="Kopiuj link">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
@@ -637,6 +643,7 @@ function openTaskPreview(taskId) {
             <div class="offer-card offer-buffered" style="display: none;" onclick="window.location.href='${page.edit_url}'">
                 <div class="offer-card-top">
                     <span class="offer-name">${page.name}</span>
+                    <span class="offer-type-badge offer-type-${page.page_type || 'exclusive'}">${page.page_type === 'preorder' ? 'Pre-order' : 'Exclusive'}</span>
                     <button type="button" class="copy-link-btn" onclick="event.stopPropagation(); copyOfferLink('${page.token}', this);" title="Kopiuj link">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>

@@ -551,6 +551,7 @@ def get_offer_pages():
         pages_data.append({
             'id': page.id,
             'name': page.name,
+            'page_type': page.page_type,
             'token': page.token,
             'status': page.status,
             'status_class': status_class,

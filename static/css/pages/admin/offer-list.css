@@ -446,6 +446,97 @@
     box-shadow: 0 8px 20px rgba(244, 67, 54, 0.4);
 }
 
+/* Page Type Selector */
+.page-type-selector {
+    display: flex;
+    gap: 12px;
+}
+
+.page-type-option {
+    flex: 1;
+    cursor: pointer;
+}
+
+.page-type-option input[type="radio"] {
+    display: none;
+}
+
+.page-type-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 12px;
+    border: 2px solid var(--gray-200, #e5e7eb);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.page-type-option input:checked + .page-type-card {
+    border-color: #8338EC;
+    background: rgba(131, 56, 236, 0.05);
+    box-shadow: 0 0 0 1px #8338EC;
+}
+
+.page-type-card:hover {
+    border-color: #8338EC;
+}
+
+.page-type-icon {
+    font-size: 1.5rem;
+}
+
+.page-type-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.page-type-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary, #6b7280);
+}
+
+[data-theme="dark"] .page-type-card {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .page-type-option input:checked + .page-type-card {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.08);
+    box-shadow: 0 0 0 1px #f093fb;
+}
+
+[data-theme="dark"] .page-type-card:hover {
+    border-color: rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .page-type-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .page-type-desc {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+/* Offer Type Badge */
+.offer-type-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.offer-type-exclusive { background: #FEF3C7; color: #92400E; }
+.offer-type-preorder { background: #E0E7FF; color: #3730A3; }
+
+[data-theme="dark"] .offer-type-exclusive { background: rgba(251, 191, 36, 0.15); color: #FCD34D; }
+[data-theme="dark"] .offer-type-preorder { background: rgba(129, 140, 248, 0.15); color: #A5B4FC; }
+
 /* Modal buttons override */
 .modal-overlay .btn {
     padding: 12px 24px;

@@ -370,7 +370,7 @@ class OfferSection(db.Model):
 
     # Typ sekcji
     section_type = db.Column(
-        db.Enum('heading', 'paragraph', 'product', 'set', 'variant_group', name='offer_section_type'),
+        db.Enum('heading', 'paragraph', 'product', 'set', 'variant_group', 'bonus', name='offer_section_type'),
         nullable=False
     )
     sort_order = db.Column(db.Integer, default=0)
@@ -434,6 +434,10 @@ class OfferSection(db.Model):
     @property
     def is_variant_group(self):
         return self.section_type == 'variant_group'
+
+    @property
+    def is_bonus(self):
+        return self.section_type == 'bonus'
 
     @property
     def is_content_section(self):

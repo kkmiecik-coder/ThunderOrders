@@ -83,10 +83,15 @@ def offers_settings():
 def offers_create():
     """Tworzy nową stronę offers (z modalu)"""
     name = request.form.get('name', '').strip()
+    page_type = request.form.get('page_type', 'exclusive')
     starts_at_str = request.form.get('starts_at', '').strip()
     ends_at_str = request.form.get('ends_at', '').strip()
 
     # Walidacja
+    if page_type not in ('exclusive', 'preorder'):
+        flash('Nieprawidłowy typ strony.', 'error')
+        return redirect(url_for('admin.offers_list'))
+
     if not name:
         flash('Nazwa strony jest wymagana.', 'error')
         return redirect(url_for('admin.offers_list'))
@@ -117,6 +122,7 @@ def offers_create():
     # Tworzenie strony
     page = OfferPage(
         name=name,
+        page_type=page_type,
         token=OfferPage.generate_token(),
         status='draft',
         starts_at=starts_at,
@@ -143,8 +149,9 @@ def offers_edit(page_id):
     page = OfferPage.query.get_or_404(page_id)
     sections = page.get_sections_ordered()
 
-    # Pobierz tylko produkty typu "Offers"
-    offers_type = ProductType.query.filter_by(slug='exclusive').first()
+    # Pobierz produkty odpowiedniego typu
+    type_slug = 'exclusive' if page.page_type == 'exclusive' else 'pre-order'
+    offers_type = ProductType.query.filter_by(slug=type_slug).first()
     if offers_type:
         products = Product.query.filter_by(
             is_active=True,
@@ -695,11 +702,13 @@ def offers_delete(page_id):
 @login_required
 @admin_required
 def offers_api_products():
-    """Zwraca listę produktów typu Offers do selecta (AJAX)"""
+    """Zwraca listę produktów do selecta (AJAX), filtrowane po page_type"""
     query = request.args.get('q', '').strip()
+    page_type = request.args.get('page_type', 'exclusive')
 
-    # Pobierz tylko produkty typu "Offers"
-    offers_type = ProductType.query.filter_by(slug='exclusive').first()
+    # Filtruj po odpowiednim typie produktu
+    type_slug = 'exclusive' if page_type == 'exclusive' else 'pre-order'
+    offers_type = ProductType.query.filter_by(slug=type_slug).first()
     if not offers_type:
         return jsonify([])
 
@@ -735,10 +744,12 @@ def offers_api_products():
 @login_required
 @admin_required
 def offers_api_variant_groups():
-    """Zwraca listę grup wariantowych z produktami typu Offers (AJAX)"""
+    """Zwraca listę grup wariantowych z produktami odpowiedniego typu (AJAX)"""
     from sqlalchemy import and_
 
-    offers_type = ProductType.query.filter_by(slug='exclusive').first()
+    page_type = request.args.get('page_type', 'exclusive')
+    type_slug = 'exclusive' if page_type == 'exclusive' else 'pre-order'
+    offers_type = ProductType.query.filter_by(slug=type_slug).first()
     if not offers_type:
         return jsonify([])
 
@@ -782,10 +793,12 @@ def offers_api_variant_groups():
 @login_required
 @admin_required
 def offers_api_variant_group(group_id):
-    """Zwraca pojedynczą grupę wariantową z produktami typu Offers (AJAX)"""
+    """Zwraca pojedynczą grupę wariantową z produktami odpowiedniego typu (AJAX)"""
     from sqlalchemy import and_
 
-    offers_type = ProductType.query.filter_by(slug='exclusive').first()
+    page_type = request.args.get('page_type', 'exclusive')
+    type_slug = 'exclusive' if page_type == 'exclusive' else 'pre-order'
+    offers_type = ProductType.query.filter_by(slug=type_slug).first()
     if not offers_type:
         return jsonify({'error': 'Typ Offers nie istnieje'}), 404
 
