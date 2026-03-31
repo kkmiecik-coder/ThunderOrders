@@ -29,7 +29,30 @@ def upgrade():
     op.rename_table('exclusive_set_bonus_required_products', 'offer_bonus_required_products')
 
     # ===========================================
-    # 2. Add page_type column to offer_pages
+    # 2. Rename exclusive_page_id columns inside renamed tables
+    # ===========================================
+    op.alter_column('offer_sections', 'exclusive_page_id',
+                    new_column_name='offer_page_id',
+                    existing_type=sa.Integer(),
+                    existing_nullable=False)
+
+    op.alter_column('offer_reservations', 'exclusive_page_id',
+                    new_column_name='offer_page_id',
+                    existing_type=sa.Integer(),
+                    existing_nullable=False)
+
+    op.alter_column('offer_auto_increase_log', 'exclusive_page_id',
+                    new_column_name='offer_page_id',
+                    existing_type=sa.Integer(),
+                    existing_nullable=False)
+
+    op.alter_column('offer_product_notifications', 'exclusive_page_id',
+                    new_column_name='offer_page_id',
+                    existing_type=sa.Integer(),
+                    existing_nullable=False)
+
+    # ===========================================
+    # 3. Add page_type column to offer_pages
     # ===========================================
     op.add_column('offer_pages', sa.Column(
         'page_type',
