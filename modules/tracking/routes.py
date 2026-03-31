@@ -307,20 +307,33 @@ def qr_campaign_api_stats(campaign_id):
     date_to_str = request.args.get('date_to')
     granularity = request.args.get('granularity', 'daily')
 
-    # Bazowe zapytanie
+    # Calculate query padding for -1/+1 range on daily/weekly/monthly
+    query_pad_before = timedelta(0)
+    query_pad_after = timedelta(0)
+    if granularity == 'daily':
+        query_pad_before = timedelta(days=1)
+        query_pad_after = timedelta(days=1)
+    elif granularity == 'weekly':
+        query_pad_before = timedelta(weeks=1, days=6)  # +6 for weekday alignment
+        query_pad_after = timedelta(weeks=1, days=6)
+    elif granularity == 'monthly':
+        query_pad_before = timedelta(days=31)
+        query_pad_after = timedelta(days=31)
+
+    # Bazowe zapytanie - extended range to include padding data
     query = QRVisit.query.filter_by(campaign_id=campaign.id)
 
     if date_from_str:
         try:
             date_from = datetime.strptime(date_from_str, '%Y-%m-%d')
-            query = query.filter(QRVisit.visited_at >= date_from)
+            query = query.filter(QRVisit.visited_at >= date_from - query_pad_before)
         except ValueError:
             pass
 
     if date_to_str:
         try:
             date_to = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
-            query = query.filter(QRVisit.visited_at < date_to)
+            query = query.filter(QRVisit.visited_at < date_to + query_pad_after)
         except ValueError:
             pass
 
