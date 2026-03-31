@@ -50,7 +50,7 @@
                                 <div class="custom-select" data-name="offer_closure_status_fully_fulfilled">
                                     <div class="custom-select-trigger">
                                         <span class="custom-select-value">
-                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offer_closure_settings.fully_fulfilled)|first %}
+                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.fully_fulfilled)|first %}
                                             {% if selected_status %}
                                                 <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
                                             {% else %}
@@ -69,7 +69,7 @@
                                         {% endfor %}
                                     </div>
                                 </div>
-                                <input type="hidden" name="offer_closure_status_fully_fulfilled" id="status-fully-fulfilled" value="{{ offer_closure_settings.fully_fulfilled }}" required>
+                                <input type="hidden" name="offer_closure_status_fully_fulfilled" id="status-fully-fulfilled" value="{{ offers_closure_settings.fully_fulfilled }}" required>
                             </div>
                         </div>
 
@@ -84,7 +84,7 @@
                                 <div class="custom-select" data-name="offer_closure_status_partially_fulfilled">
                                     <div class="custom-select-trigger">
                                         <span class="custom-select-value">
-                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offer_closure_settings.partially_fulfilled)|first %}
+                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.partially_fulfilled)|first %}
                                             {% if selected_status %}
                                                 <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
                                             {% else %}
@@ -103,7 +103,7 @@
                                         {% endfor %}
                                     </div>
                                 </div>
-                                <input type="hidden" name="offer_closure_status_partially_fulfilled" id="status-partially-fulfilled" value="{{ offer_closure_settings.partially_fulfilled }}" required>
+                                <input type="hidden" name="offer_closure_status_partially_fulfilled" id="status-partially-fulfilled" value="{{ offers_closure_settings.partially_fulfilled }}" required>
                             </div>
                         </div>
 
@@ -118,7 +118,7 @@
                                 <div class="custom-select" data-name="offer_closure_status_not_fulfilled">
                                     <div class="custom-select-trigger">
                                         <span class="custom-select-value">
-                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offer_closure_settings.not_fulfilled)|first %}
+                                            {% set selected_status = statuses|selectattr('slug', 'equalto', offers_closure_settings.not_fulfilled)|first %}
                                             {% if selected_status %}
                                                 <span class="badge" style="background-color: {{ selected_status.badge_color }};">{{ selected_status.name }}</span>
                                             {% else %}
@@ -137,7 +137,7 @@
                                         {% endfor %}
                                     </div>
                                 </div>
-                                <input type="hidden" name="offer_closure_status_not_fulfilled" id="status-not-fulfilled" value="{{ offer_closure_settings.not_fulfilled }}" required>
+                                <input type="hidden" name="offer_closure_status_not_fulfilled" id="status-not-fulfilled" value="{{ offers_closure_settings.not_fulfilled }}" required>
                             </div>
                         </div>
 
