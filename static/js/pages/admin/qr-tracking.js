@@ -295,7 +295,8 @@
 
         // Format labels based on granularity
         var labels;
-        if (granularity === 'hourly') {
+        var isDetailed = (granularity === 'hourly' || granularity === 'minutely');
+        if (isDetailed) {
             // Check if all entries are from the same day
             var dates = {};
             timelineData.forEach(function (d) {
@@ -304,10 +305,10 @@
             });
             var dayCount = Object.keys(dates).length;
             if (dayCount === 1) {
-                // Single day - show only hours
+                // Single day - show only time part (HH:00 or HH:MM)
                 labels = timelineData.map(function (d) { return d.date.substring(11); });
             } else {
-                // Multiple days - show short date + hour
+                // Multiple days - show short date + time
                 labels = timelineData.map(function (d) {
                     return d.date.substring(5, 10) + ' ' + d.date.substring(11);
                 });
@@ -319,9 +320,9 @@
         var scrollInner = document.getElementById('timeline-scroll-inner');
         var scrollWrapper = document.getElementById('timeline-scroll-wrapper');
 
-        // Calculate minimum width: more data points = wider chart for hourly
-        var minPointWidth = granularity === 'hourly' ? 40 : 50;
-        var needsScroll = labels.length > 20 && (granularity === 'hourly' || granularity === 'daily');
+        // Calculate scroll width based on data density
+        var minPointWidth = granularity === 'minutely' ? 20 : (granularity === 'hourly' ? 40 : 50);
+        var needsScroll = isDetailed && labels.length > 20;
         var calculatedWidth = labels.length * minPointWidth;
         var wrapperWidth = scrollWrapper ? scrollWrapper.clientWidth : 800;
 
@@ -351,11 +352,11 @@
                         borderWidth: 2.5,
                         fill: true,
                         tension: 0.4,
-                        pointRadius: labels.length > 60 ? 0 : 4,
+                        pointRadius: labels.length > 100 ? 0 : (labels.length > 40 ? 2 : 4),
                         pointHoverRadius: 6,
                         pointBackgroundColor: colors.lineColor,
                         pointBorderColor: colors.pointBorderColor,
-                        pointBorderWidth: 2
+                        pointBorderWidth: labels.length > 100 ? 0 : 2
                     },
                     {
                         label: 'Unikalne',
@@ -365,7 +366,7 @@
                         borderWidth: 2,
                         fill: true,
                         tension: 0.4,
-                        pointRadius: labels.length > 60 ? 0 : 3,
+                        pointRadius: labels.length > 100 ? 0 : (labels.length > 40 ? 1.5 : 3),
                         pointHoverRadius: 5,
                         pointBackgroundColor: colors.lineColorSecondary,
                         pointBorderColor: colors.pointBorderColor,
@@ -409,8 +410,10 @@
                         ticks: {
                             color: colors.textColor,
                             maxTicksLimit: needsScroll ? labels.length : 15,
-                            maxRotation: granularity === 'hourly' ? 90 : 45,
-                            font: { size: granularity === 'hourly' ? 10 : 12 }
+                            maxRotation: isDetailed ? 90 : 45,
+                            font: { size: isDetailed ? 10 : 12 },
+                            autoSkip: granularity === 'minutely',
+                            autoSkipPadding: granularity === 'minutely' ? 8 : 3
                         },
                         grid: { display: false }
                     }
