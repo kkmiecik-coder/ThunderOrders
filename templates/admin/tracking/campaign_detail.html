@@ -123,7 +123,8 @@
         <div class="qrt-filter-group">
             <label class="qrt-filter-label" for="filter-granularity">Granulacja</label>
             <select id="filter-granularity" class="qrt-filter-input">
-                <option value="daily">Dziennie</option>
+                <option value="hourly">Godzinowo</option>
+                <option value="daily" selected>Dziennie</option>
                 <option value="weekly">Tygodniowo</option>
                 <option value="monthly">Miesięcznie</option>
             </select>
@@ -146,8 +147,10 @@
                 <h3 class="qrt-widget-title">Wizyty w czasie</h3>
             </div>
             <div class="qrt-widget-body">
-                <div class="qrt-chart-container">
-                    <canvas id="chart-timeline"></canvas>
+                <div class="qrt-chart-scroll-wrapper" id="timeline-scroll-wrapper">
+                    <div class="qrt-chart-scroll-inner" id="timeline-scroll-inner">
+                        <canvas id="chart-timeline"></canvas>
+                    </div>
                 </div>
             </div>
         </div>

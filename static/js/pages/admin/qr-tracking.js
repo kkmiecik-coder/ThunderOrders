@@ -290,6 +290,31 @@
         var totalValues = timelineData.map(function (d) { return d.total; });
         var uniqueValues = timelineData.map(function (d) { return d.unique; });
 
+        // Determine granularity for scroll width
+        var granularityEl = document.getElementById('filter-granularity');
+        var granularity = granularityEl ? granularityEl.value : 'daily';
+        var scrollInner = document.getElementById('timeline-scroll-inner');
+        var scrollWrapper = document.getElementById('timeline-scroll-wrapper');
+
+        // Calculate minimum width: more data points = wider chart for hourly
+        var minPointWidth = granularity === 'hourly' ? 40 : 50;
+        var needsScroll = labels.length > 20 && (granularity === 'hourly' || granularity === 'daily');
+        var calculatedWidth = labels.length * minPointWidth;
+        var wrapperWidth = scrollWrapper ? scrollWrapper.clientWidth : 800;
+
+        if (scrollInner) {
+            if (needsScroll && calculatedWidth > wrapperWidth) {
+                scrollInner.style.width = calculatedWidth + 'px';
+                canvas.style.width = calculatedWidth + 'px';
+                canvas.width = calculatedWidth;
+            } else {
+                scrollInner.style.width = '100%';
+                canvas.style.width = '100%';
+            }
+        }
+
+        var useResponsive = !(needsScroll && calculatedWidth > wrapperWidth);
+
         charts['chart-timeline'] = new Chart(ctx, {
             type: 'line',
             data: {
@@ -327,7 +352,7 @@
                 ]
             },
             options: {
-                responsive: true,
+                responsive: useResponsive,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
@@ -360,8 +385,9 @@
                     x: {
                         ticks: {
                             color: colors.textColor,
-                            maxTicksLimit: 15,
-                            maxRotation: 45
+                            maxTicksLimit: needsScroll ? labels.length : 15,
+                            maxRotation: granularity === 'hourly' ? 90 : 45,
+                            font: { size: granularity === 'hourly' ? 10 : 12 }
                         },
                         grid: { display: false }
                     }

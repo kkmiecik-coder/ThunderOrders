@@ -331,7 +331,9 @@ def qr_campaign_api_stats(campaign_id):
     for v in visits:
         if not v.visited_at:
             continue
-        if granularity == 'monthly':
+        if granularity == 'hourly':
+            key = v.visited_at.strftime('%Y-%m-%d %H:00')
+        elif granularity == 'monthly':
             key = v.visited_at.strftime('%Y-%m')
         elif granularity == 'weekly':
             # Początek tygodnia (poniedziałek)
