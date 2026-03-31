@@ -225,6 +225,7 @@
                     renderTimelineChart(data.timeline);
                     renderDoughnutChart('chart-devices', 'devices', data.devices);
                     renderDoughnutChart('chart-browsers', 'browsers', data.browsers);
+                    renderDoughnutChart('chart-os', 'os', data.os);
                     renderBarChart(data.countries);
                     loadRecentVisits(campaignId);
                 }
@@ -466,7 +467,7 @@
                             color: colors.textColor,
                             padding: 12,
                             usePointStyle: true,
-                            pointStyleWidth: 8,
+                            pointStyle: 'circle',
                             font: { size: 12 }
                         }
                     },

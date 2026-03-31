@@ -400,7 +400,7 @@
 
 .qrt-charts-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: var(--space-5);
     margin-bottom: var(--space-5);
 }
@@ -1170,6 +1170,10 @@
 
 @media (max-width: 1024px) {
     .qrt-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .qrt-charts-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }

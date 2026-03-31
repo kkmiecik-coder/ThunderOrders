@@ -392,6 +392,17 @@ def qr_campaign_api_stats(campaign_id):
         for k, v in sorted(browsers.items(), key=lambda x: x[1], reverse=True)
     ]
 
+    # --- Operating Systems ---
+    os_stats = {}
+    for v in visits:
+        os_name = v.os or 'Nieznany'
+        os_stats[os_name] = os_stats.get(os_name, 0) + 1
+
+    os_data = [
+        {'name': k, 'count': v}
+        for k, v in sorted(os_stats.items(), key=lambda x: x[1], reverse=True)
+    ]
+
     # --- Countries ---
     countries = {}
     for v in visits:
@@ -410,6 +421,7 @@ def qr_campaign_api_stats(campaign_id):
         'timeline': timeline_data,
         'devices': devices_data,
         'browsers': browsers_data,
+        'os': os_data,
         'countries': countries_data,
     })
 
