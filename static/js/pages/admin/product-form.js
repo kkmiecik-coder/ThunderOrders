@@ -1083,7 +1083,7 @@ function initProductTypeToggle() {
                 toggleSlider.style.left = '4px';
             } else if (typeSlug === 'on-hand') {
                 toggleSlider.style.left = 'calc(33.333% + 1px)';
-            } else if (typeSlug === 'offer') {
+            } else if (typeSlug === 'exclusive') {
                 toggleSlider.style.left = 'calc(66.666% - 2px)';
             }
         });
@@ -1103,7 +1103,7 @@ function initProductTypeToggle() {
             toggleSlider.style.left = '4px';
         } else if (typeSlug === 'on-hand') {
             toggleSlider.style.left = 'calc(33.333% + 1px)';
-        } else if (typeSlug === 'offer') {
+        } else if (typeSlug === 'exclusive') {
             toggleSlider.style.left = 'calc(66.666% - 2px)';
         }
     }

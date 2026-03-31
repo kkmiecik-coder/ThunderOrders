@@ -751,14 +751,14 @@ window.offerToken = '{{ page.token }}';
 window.offerName = '{{ page.name }}';
 
 // URLs
-window.placeOrderUrl = '/offers/{{ page.token }}/place-order';
-window.thankYouUrl = '/offers/{{ page.token }}/thank-you';
-window.reserveProductUrl = '/offers/{{ page.token }}/reserve';
-window.releaseProductUrl = '/offers/{{ page.token }}/release';
-window.restoreReservationUrl = '/offers/{{ page.token }}/restore';
-window.extendReservationUrl = '/offers/{{ page.token }}/extend';
-window.subscribeNotificationUrl = '/offers/{{ page.token }}/subscribe-notification';
-window.statusCheckUrl = '/offers/{{ page.token }}/status';
+window.placeOrderUrl = '/offer/{{ page.token }}/place-order';
+window.thankYouUrl = '/offer/{{ page.token }}/thank-you';
+window.reserveProductUrl = '/offer/{{ page.token }}/reserve';
+window.releaseProductUrl = '/offer/{{ page.token }}/release';
+window.restoreReservationUrl = '/offer/{{ page.token }}/restore';
+window.extendReservationUrl = '/offer/{{ page.token }}/extend';
+window.subscribeNotificationUrl = '/offer/{{ page.token }}/subscribe-notification';
+window.statusCheckUrl = '/offer/{{ page.token }}/status';
 
 // Initial ends_at value (can be null)
 window.initialEndsAt = {{ page.ends_at.isoformat()|tojson if page.ends_at else 'null' }};
@@ -772,7 +772,7 @@ window.getAvailabilityCheckUrl = function() {
             sessionId = JSON.parse(stored).sessionId || '';
         } catch (e) {}
     }
-    return `/offers/{{ page.token }}/availability?session_id=${sessionId}`;
+    return `/offer/{{ page.token }}/availability?session_id=${sessionId}`;
 };
 
 // Storage keys

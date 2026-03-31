@@ -22,7 +22,7 @@
         zamowienia: '/admin/statistics/api/orders',
         produkty: '/admin/statistics/api/products',
         klienci: '/admin/statistics/api/clients',
-        offers: '/admin/statistics/api/offers',
+        offers: '/admin/statistics/api/exclusive',
         wysylka: '/admin/statistics/api/shipping',
         proxy: '/admin/statistics/api/proxy'
     };

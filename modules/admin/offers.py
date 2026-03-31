@@ -137,7 +137,7 @@ def offers_edit(page_id):
     sections = page.get_sections_ordered()
 
     # Pobierz tylko produkty typu "Offers"
-    offers_type = ProductType.query.filter_by(slug='offers').first()
+    offers_type = ProductType.query.filter_by(slug='exclusive').first()
     if offers_type:
         products = Product.query.filter_by(
             is_active=True,
@@ -287,8 +287,8 @@ def _validate_section_data(section_data):
                 return False, 'Wybrany produkt nie istnieje'
 
             # Sprawdź typ produktu
-            if product.product_type and product.product_type.slug != 'offers':
-                return False, 'Produkt-komplet musi być typu Offers'
+            if product.product_type and product.product_type.slug != 'exclusive':
+                return False, 'Produkt-komplet musi być typu Exclusive'
 
     # Walidacja bonusow w secie
     if section_type == 'set' and 'bonuses' in section_data:
@@ -488,7 +488,7 @@ def _update_set_bonuses(section, bonuses_data):
             for rp_data in bonus_data.get('required_products', []):
                 rp_product_id = rp_data.get('product_id')
                 if rp_product_id:
-                    rp = OfferSetBonusRequiredProduct(
+                    rp = OfferBonusRequiredProduct(
                         bonus_id=bonus.id,
                         product_id=int(rp_product_id),
                         min_quantity=max(1, int(rp_data.get('min_quantity', 1))),
@@ -692,7 +692,7 @@ def offers_api_products():
     query = request.args.get('q', '').strip()
 
     # Pobierz tylko produkty typu "Offers"
-    offers_type = ProductType.query.filter_by(slug='offers').first()
+    offers_type = ProductType.query.filter_by(slug='exclusive').first()
     if not offers_type:
         return jsonify([])
 
@@ -731,7 +731,7 @@ def offers_api_variant_groups():
     """Zwraca listę grup wariantowych z produktami typu Offers (AJAX)"""
     from sqlalchemy import and_
 
-    offers_type = ProductType.query.filter_by(slug='offers').first()
+    offers_type = ProductType.query.filter_by(slug='exclusive').first()
     if not offers_type:
         return jsonify([])
 
@@ -778,7 +778,7 @@ def offers_api_variant_group(group_id):
     """Zwraca pojedynczą grupę wariantową z produktami typu Offers (AJAX)"""
     from sqlalchemy import and_
 
-    offers_type = ProductType.query.filter_by(slug='offers').first()
+    offers_type = ProductType.query.filter_by(slug='exclusive').first()
     if not offers_type:
         return jsonify({'error': 'Typ Offers nie istnieje'}), 404
 
@@ -935,7 +935,7 @@ def offers_duplicate(page_id):
 
                 # Kopiuj wymagane produkty
                 for rp in bonus.required_products:
-                    new_rp = OfferSetBonusRequiredProduct(
+                    new_rp = OfferBonusRequiredProduct(
                         bonus_id=new_bonus.id,
                         product_id=rp.product_id,
                         min_quantity=rp.min_quantity,
