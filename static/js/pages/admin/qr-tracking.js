@@ -322,7 +322,7 @@
         var scrollWrapper = document.getElementById('timeline-scroll-wrapper');
 
         // Calculate scroll width based on data density
-        var minPointWidth = granularity === 'minutely' ? 20 : (granularity === 'hourly' ? 40 : 50);
+        var minPointWidth = granularity === 'minutely' ? 5 : (granularity === 'hourly' ? 40 : 50);
         var needsScroll = isDetailed && labels.length > 20;
         var calculatedWidth = labels.length * minPointWidth;
         var wrapperWidth = scrollWrapper ? scrollWrapper.clientWidth : 800;

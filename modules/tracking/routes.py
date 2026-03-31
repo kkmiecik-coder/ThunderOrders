@@ -354,10 +354,17 @@ def qr_campaign_api_stats(campaign_id):
         try:
             fill_start = datetime.strptime(date_from_str, '%Y-%m-%d')
             fill_end = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+
+            if granularity == 'minutely' and timeline:
+                # For minutely: only fill between first and last visit (not entire day)
+                sorted_keys = sorted(timeline.keys())
+                fill_start = datetime.strptime(sorted_keys[0], '%Y-%m-%d %H:%M')
+                fill_end = datetime.strptime(sorted_keys[-1], '%Y-%m-%d %H:%M')
+
             step = timedelta(minutes=1) if granularity == 'minutely' else timedelta(hours=1)
             fmt = '%Y-%m-%d %H:%M' if granularity == 'minutely' else '%Y-%m-%d %H:00'
             cursor = fill_start
-            while cursor < fill_end:
+            while cursor <= fill_end:
                 key = cursor.strftime(fmt)
                 if key not in timeline:
                     timeline[key] = {'total': 0, 'unique': 0}
