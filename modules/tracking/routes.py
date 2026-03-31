@@ -350,25 +350,70 @@ def qr_campaign_api_stats(campaign_id):
             timeline[key]['unique'] += 1
 
     # Fill missing slots so chart shows full continuous range
-    if granularity in ('hourly', 'minutely') and date_from_str and date_to_str:
+    if date_from_str and date_to_str:
         try:
             fill_start = datetime.strptime(date_from_str, '%Y-%m-%d')
-            fill_end = datetime.strptime(date_to_str, '%Y-%m-%d') + timedelta(days=1)
+            fill_end = datetime.strptime(date_to_str, '%Y-%m-%d')
 
-            if granularity == 'minutely' and timeline:
-                # For minutely: only fill between first and last visit (not entire day)
-                sorted_keys = sorted(timeline.keys())
-                fill_start = datetime.strptime(sorted_keys[0], '%Y-%m-%d %H:%M')
-                fill_end = datetime.strptime(sorted_keys[-1], '%Y-%m-%d %H:%M')
+            if granularity == 'minutely':
+                # Only fill between first and last visit
+                if timeline:
+                    sorted_keys = sorted(timeline.keys())
+                    fill_start = datetime.strptime(sorted_keys[0], '%Y-%m-%d %H:%M')
+                    fill_end = datetime.strptime(sorted_keys[-1], '%Y-%m-%d %H:%M')
+                step = timedelta(minutes=1)
+                fmt = '%Y-%m-%d %H:%M'
+            elif granularity == 'hourly':
+                fill_end = fill_end + timedelta(days=1)
+                step = timedelta(hours=1)
+                fmt = '%Y-%m-%d %H:00'
+            elif granularity == 'daily':
+                fill_start = fill_start - timedelta(days=1)
+                fill_end = fill_end + timedelta(days=1)
+                step = timedelta(days=1)
+                fmt = '%Y-%m-%d'
+            elif granularity == 'weekly':
+                # -1/+1 week, aligned to Monday
+                fill_start = fill_start - timedelta(days=fill_start.weekday()) - timedelta(weeks=1)
+                fill_end_monday = fill_end - timedelta(days=fill_end.weekday())
+                fill_end = fill_end_monday + timedelta(weeks=1)
+                step = timedelta(weeks=1)
+                fmt = '%Y-%m-%d'
+            elif granularity == 'monthly':
+                # -1 month
+                if fill_start.month == 1:
+                    fill_start = fill_start.replace(year=fill_start.year - 1, month=12, day=1)
+                else:
+                    fill_start = fill_start.replace(month=fill_start.month - 1, day=1)
+                # +1 month
+                if fill_end.month == 12:
+                    fill_end = fill_end.replace(year=fill_end.year + 1, month=1, day=1)
+                else:
+                    fill_end = fill_end.replace(month=fill_end.month + 1, day=1)
+                # Generate month keys manually
+                cursor = fill_start
+                while cursor <= fill_end:
+                    key = cursor.strftime('%Y-%m')
+                    if key not in timeline:
+                        timeline[key] = {'total': 0, 'unique': 0}
+                    # Advance to next month
+                    if cursor.month == 12:
+                        cursor = cursor.replace(year=cursor.year + 1, month=1)
+                    else:
+                        cursor = cursor.replace(month=cursor.month + 1)
+                step = None  # Already handled
+                fmt = None
+            else:
+                step = None
+                fmt = None
 
-            step = timedelta(minutes=1) if granularity == 'minutely' else timedelta(hours=1)
-            fmt = '%Y-%m-%d %H:%M' if granularity == 'minutely' else '%Y-%m-%d %H:00'
-            cursor = fill_start
-            while cursor <= fill_end:
-                key = cursor.strftime(fmt)
-                if key not in timeline:
-                    timeline[key] = {'total': 0, 'unique': 0}
-                cursor += step
+            if step and fmt:
+                cursor = fill_start
+                while cursor <= fill_end:
+                    key = cursor.strftime(fmt)
+                    if key not in timeline:
+                        timeline[key] = {'total': 0, 'unique': 0}
+                    cursor += step
         except ValueError:
             pass
 
