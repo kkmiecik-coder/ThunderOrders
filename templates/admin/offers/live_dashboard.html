@@ -20,6 +20,9 @@
         </div>
         <div class="topbar-center">
             <h1>{{ page.name }}</h1>
+            <span class="offer-type-badge offer-type-{{ page.page_type }}">
+                {% if page.page_type == 'exclusive' %}Exclusive{% else %}Pre-order{% endif %}
+            </span>
             <span class="live-indicator">
                 <span class="live-dot"></span>
                 LIVE
@@ -241,6 +244,7 @@
                     </div>
                 </div>
 
+                {% if page.page_type != 'preorder' %}
                 <div class="stat-card" id="statReservations">
                     <div class="stat-icon stat-icon-reservations">
                         <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor">
@@ -253,6 +257,7 @@
                         <span class="stat-label">Aktywne rezerwacje</span>
                     </div>
                 </div>
+                {% endif %}
             </div>
 
             <!-- Orders Chart -->
