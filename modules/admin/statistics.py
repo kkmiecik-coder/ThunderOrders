@@ -519,7 +519,7 @@ def statistics_clients():
 # API: Offers
 # ========================================
 
-@admin_bp.route('/statistics/api/exclusive')
+@admin_bp.route('/statistics/api/offers')
 @login_required
 @role_required('admin', 'mod')
 def statistics_exclusive():

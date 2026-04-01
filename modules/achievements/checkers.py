@@ -128,20 +128,21 @@ def _time_since_page_visit(user, config, context):
         return (0, False)
 
 
-def _exclusive_orders(user, config, context):
+def _offer_orders(user, config, context):
+    """Liczba zamówień ze stron sprzedaży (exclusive + preorder)"""
     from modules.orders.models import Order
     count = Order.query.filter(
         Order.user_id == user.id,
-        Order.offer_page_id.isnot(None)  # noqa: E712
+        Order.offer_page_id.isnot(None)
     ).count()
     return (count, count >= config['threshold'])
 
 
 def _distinct_offer_pages(user, config, context):
+    """Liczba unikalnych stron sprzedaży na których użytkownik złożył zamówienie"""
     from modules.orders.models import Order
     count = db.session.query(db.func.count(db.func.distinct(Order.offer_page_id))).filter(
         Order.user_id == user.id,
-        Order.offer_page_id.isnot(None),  # noqa: E712
         Order.offer_page_id.isnot(None)
     ).scalar()
     return (count, count >= config['threshold'])
@@ -211,7 +212,8 @@ METRIC_EVALUATORS = {
     'orders_in_weekend': _orders_in_weekend,
     'time_since_drop': _time_since_drop,
     'time_since_page_visit': _time_since_page_visit,
-    'exclusive_orders': _exclusive_orders,
+    'exclusive_orders': _offer_orders,  # backward compat alias
+    'offer_orders': _offer_orders,
     'distinct_offer_pages': _distinct_offer_pages,
     'profile_completed': _profile_completed,
     'email_verified': _email_verified,

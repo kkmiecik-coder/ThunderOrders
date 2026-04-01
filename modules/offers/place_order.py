@@ -705,7 +705,19 @@ def place_preorder_order(page, cart_items, order_note=None):
     except Exception:
         pass
 
-    # 8. Return success
+    # 8. Check achievements
+    try:
+        from modules.achievements.services import AchievementService
+        AchievementService().check_event(current_user, 'order_placed', {
+            'items_count': total_items_count,
+            'total_amount': float(order.total_amount),
+            'is_offer': True,
+            'offer_page_starts_at': page.starts_at,
+        })
+    except Exception:
+        pass
+
+    # 9. Return success
     return True, {
         'order_id': order.id,
         'order_number': order.order_number,
