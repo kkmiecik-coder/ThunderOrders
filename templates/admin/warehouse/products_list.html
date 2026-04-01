@@ -533,6 +533,10 @@
     <div class="bulk-toolbar-content">
         <span class="selected-count" id="productsSelectedCount">0 zaznaczonych</span>
         <div class="bulk-actions">
+            <button class="btn-bulk" onclick="massEditProducts()">
+                <i class="fas fa-edit"></i>
+                <span>Edytuj masowo</span>
+            </button>
             <button class="btn-bulk" onclick="activateProducts()" title="Aktywuj produkty">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -805,6 +809,19 @@ function getSelectedProductIds() {
     // Otherwise, use checked checkboxes on current page
     const checkboxes = document.querySelectorAll('.product-checkbox:checked');
     return Array.from(checkboxes).map(cb => parseInt(cb.value));
+}
+
+// Open Mass Edit in new tab
+function massEditProducts() {
+    const ids = getSelectedProductIds();
+    if (!ids || ids.length === 0) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('Nie wybrano produktów.', 'error');
+        }
+        return;
+    }
+    const url = `/mass-edit?ids=${ids.join(',')}`;
+    window.open(url, '_blank');
 }
 
 // Activate Products
