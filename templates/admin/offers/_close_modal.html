@@ -12,43 +12,43 @@
                 </svg>
                 <div>
                     <strong>Ta operacja jest nieodwracalna!</strong>
-                    {% if page.page_type == 'preorder' %}
-                    <p>Po zamknięciu nie będzie możliwości wznowienia sprzedaży.</p>
-                    {% else %}
-                    <p>Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.</p>
-                    {% endif %}
+                    <p id="closeWarningText">Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.</p>
                 </div>
             </div>
 
             <p>Zamykasz stronę: <strong id="closePageName"></strong></p>
 
-            {% if page.page_type == 'preorder' %}
-            <p class="modal-info">
-                Zamknięcie wykona następujące operacje:
-            </p>
-            <ul class="modal-list">
-                <li>Zmiana statusu strony na zamkniętą</li>
-                <li>Klienci nie będą mogli składać nowych zamówień</li>
-                <li>Istniejące zamówienia pozostaną bez zmian</li>
-            </ul>
-            {% else %}
-            <p class="modal-info">
-                Zamknięcie wykona następujące operacje:
-            </p>
-            <ul class="modal-list">
-                <li>Algorytm alokacji produktów w setach (pierwsi zamawiający dostają produkty)</li>
-                <li>Oznaczenie zamówień jako zrealizowane/niezrealizowane</li>
-                <li>Automatyczne przeniesienie zamówień do statusów zgodnie z konfiguracją w ustawieniach</li>
-                <li>Generowanie podsumowania sprzedaży</li>
-            </ul>
+            <!-- Exclusive info -->
+            <div id="closeInfoExclusive">
+                <p class="modal-info">
+                    Zamknięcie wykona następujące operacje:
+                </p>
+                <ul class="modal-list">
+                    <li>Algorytm alokacji produktów w setach (pierwsi zamawiający dostają produkty)</li>
+                    <li>Oznaczenie zamówień jako zrealizowane/niezrealizowane</li>
+                    <li>Automatyczne przeniesienie zamówień do statusów zgodnie z konfiguracją w ustawieniach</li>
+                    <li>Generowanie podsumowania sprzedaży</li>
+                </ul>
 
-            <div class="form-group" style="margin-top: 20px;">
-                <label class="checkbox-label">
-                    <input type="checkbox" id="sendEmailsCheckbox" checked>
-                    <span>Wyślij emaile do wszystkich klientów z informacją o statusie ich produktów</span>
-                </label>
+                <div class="form-group" style="margin-top: 20px;">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="sendEmailsCheckbox" checked>
+                        <span>Wyślij emaile do wszystkich klientów z informacją o statusie ich produktów</span>
+                    </label>
+                </div>
             </div>
-            {% endif %}
+
+            <!-- Preorder info -->
+            <div id="closeInfoPreorder" style="display: none;">
+                <p class="modal-info">
+                    Zamknięcie wykona następujące operacje:
+                </p>
+                <ul class="modal-list">
+                    <li>Zmiana statusu strony na zamkniętą</li>
+                    <li>Klienci nie będą mogli składać nowych zamówień</li>
+                    <li>Istniejące zamówienia pozostaną bez zmian</li>
+                </ul>
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeCloseModal()">Anuluj</button>
