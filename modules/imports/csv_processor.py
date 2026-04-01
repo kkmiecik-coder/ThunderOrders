@@ -37,6 +37,7 @@ COLUMN_MAPPING = {
     'waga': 'weight',
     'dostawca': 'supplier_id',
     'tagi': 'tags',
+    'rozmiary': 'sizes',
     'opis': 'description',
     'aktywny': 'is_active',
     'grupa_wariantow': 'variant_group',
@@ -61,6 +62,7 @@ COLUMN_MAPPING = {
     'supplier': 'supplier_id',
     'supplier_id': 'supplier_id',
     'tags': 'tags',
+    'sizes': 'sizes',
     'description': 'description',
     'is_active': 'is_active',
     'variant_group': 'variant_group',
@@ -241,6 +243,9 @@ def create_product(data):
     # Extract tags (many-to-many)
     tags = data.pop('tags', [])
 
+    # Extract sizes (many-to-many)
+    sizes = data.pop('sizes', [])
+
     # Extract variant_group (many-to-many)
     variant_group = data.pop('_variant_group_obj', None)
 
@@ -267,6 +272,11 @@ def create_product(data):
         for tag in tags:
             product.tags.append(tag)
 
+    # Add sizes
+    if sizes:
+        for size in sizes:
+            product.sizes.append(size)
+
     # Add variant group
     if variant_group:
         product.variant_groups.append(variant_group)
@@ -288,6 +298,9 @@ def update_product(product, data, skip_empty_values=True):
     """
     # Extract tags (many-to-many)
     tags = data.pop('tags', None)
+
+    # Extract sizes (many-to-many)
+    sizes = data.pop('sizes', None)
 
     # Extract variant_group (many-to-many)
     variant_group = data.pop('_variant_group_obj', None)
@@ -325,6 +338,15 @@ def update_product(product, data, skip_empty_values=True):
             product.tags = []  # Clear existing tags
             for tag in tags:
                 product.tags.append(tag)
+
+    # Update sizes if provided (only if not None)
+    if sizes is not None:
+        if skip_empty_values and len(sizes) == 0:
+            pass
+        else:
+            product.sizes = []
+            for size in sizes:
+                product.sizes.append(size)
 
     # Update variant group if provided
     if variant_group is not None:

@@ -65,6 +65,15 @@ def validate_product_data(data):
             tag_objects.append(tag)
         data['tags'] = tag_objects
 
+    # Validate sizes (match by ID or name, create if missing)
+    if 'sizes' in data and data['sizes']:
+        size_names = [s.strip() for s in str(data['sizes']).split(',') if s.strip()]
+        size_objects = []
+        for size_name in size_names:
+            size = match_or_create_size(size_name)
+            size_objects.append(size)
+        data['sizes'] = size_objects
+
     # Validate variant_group (match by ID or name, create if missing)
     if 'variant_group' in data:
         if data['variant_group']:  # Only create if value is not empty
@@ -262,6 +271,37 @@ def match_or_create_tag(value):
     db.session.flush()
 
     return tag
+
+
+def match_or_create_size(value):
+    """
+    Match size by ID or name, create new if not exists
+    """
+    from extensions import db
+    from modules.products.models import Size
+
+    if not value:
+        return None
+
+    # Try match by ID
+    if str(value).isdigit():
+        size = Size.query.get(int(value))
+        if size:
+            return size
+
+    # Try match by name (case-insensitive)
+    value_str = str(value).strip()
+    size = Size.query.filter(Size.name.ilike(value_str)).first()
+
+    if size:
+        return size
+
+    # Create new size
+    size = Size(name=value_str)
+    db.session.add(size)
+    db.session.flush()
+
+    return size
 
 
 def match_or_create_manufacturer(value):

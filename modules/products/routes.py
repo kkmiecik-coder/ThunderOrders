@@ -1087,7 +1087,7 @@ def bulk_export_csv():
             'id', 'nazwa', 'sku', 'ean', 'kategoria', 'producent', 'seria',
             'typ_produktu', 'cena_sprzedazy', 'cena_zakupu', 'cena_zakupu_pln',
             'waluta_zakupu', 'marza', 'ilosc', 'dlugosc', 'szerokosc',
-            'wysokosc', 'waga', 'dostawca', 'tagi', 'opis', 'aktywny',
+            'wysokosc', 'waga', 'dostawca', 'tagi', 'rozmiary', 'opis', 'aktywny',
             'grupa_wariantow'
         ]
 
@@ -1126,6 +1126,7 @@ def bulk_export_csv():
                 fmt_decimal(p.weight),
                 p.supplier.name if p.supplier else '',
                 ','.join(tag.name for tag in p.tags) if p.tags else '',
+                ','.join(s.name for s in p.sizes) if p.sizes else '',
                 p.description or '',
                 'true' if p.is_active else 'false',
                 ','.join(vg.name for vg in p.variant_groups) if p.variant_groups else '',
