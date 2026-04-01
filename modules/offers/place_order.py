@@ -559,7 +559,7 @@ def place_preorder_order(page, cart_items, order_note=None):
             product_id=product.id,
             quantity=quantity,
             price=Decimal(str(price)),
-            total_price=item_total
+            total=item_total
         )
         db.session.add(order_item)
 
@@ -625,7 +625,7 @@ def place_preorder_order(page, cart_items, order_note=None):
                 product_id=bonus.bonus_product_id,
                 quantity=bonus.bonus_quantity * earned,
                 price=Decimal('0.00'),
-                total_price=Decimal('0.00'),
+                total=Decimal('0.00'),
                 is_bonus=True,
                 bonus_source_section_id=section.id
             )
