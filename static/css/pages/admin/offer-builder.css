@@ -1036,15 +1036,20 @@
     padding: var(--space-2);
     text-align: center;
     transition: box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
 }
 
 .variant-product-item:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.variant-product-item img {
-    width: 60px;
-    height: 60px;
+.variant-product-item > img {
+    width: 100%;
+    aspect-ratio: 1;
     object-fit: cover;
     border-radius: 6px;
 }
