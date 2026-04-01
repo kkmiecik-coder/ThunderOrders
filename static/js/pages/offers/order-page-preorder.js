@@ -309,14 +309,18 @@ async function handleLogin(e) {
     if (errorEl) errorEl.style.display = 'none';
 
     try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
         const response = await fetch('/auth/login', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({ email, password })
+            body: new URLSearchParams({
+                'email': email,
+                'password': password,
+                'remember_me': 'on'
+            })
         });
         const data = await response.json();
 
