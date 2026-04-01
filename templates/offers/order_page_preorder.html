@@ -546,11 +546,7 @@ window.bonusesConfig = {{ bonuses_config_json|safe }};
 
 // Redirect URL after order
 {% if current_user.is_authenticated %}
-    {% if current_user.role in ['admin', 'mod'] %}
-window.redirectAfterOrderUrl = '/admin/dashboard';
-    {% else %}
-window.redirectAfterOrderUrl = '/client/dashboard';
-    {% endif %}
+window.redirectAfterOrderUrl = '{{ url_for("orders.client_list") }}';
 {% else %}
 window.redirectAfterOrderUrl = '#';
 {% endif %}
