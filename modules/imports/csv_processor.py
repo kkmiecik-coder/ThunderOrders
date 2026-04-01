@@ -23,10 +23,13 @@ COLUMN_MAPPING = {
     'kategoria': 'category_id',
     'producent': 'manufacturer',
     'seria': 'series',
+    'typ_produktu': 'product_type',
     'cena': 'sale_price',
     'cena_sprzedazy': 'sale_price',
     'cena_zakupu': 'purchase_price',
+    'cena_zakupu_pln': 'purchase_price_pln',
     'waluta_zakupu': 'purchase_currency',
+    'marza': 'margin',
     'ilosc': 'quantity',
     'dlugosc': 'length',
     'szerokosc': 'width',
@@ -41,19 +44,22 @@ COLUMN_MAPPING = {
     # English
     'name': 'name',
     'category': 'category_id',
-    'category_id': 'category_id',  # Direct field name
+    'category_id': 'category_id',
     'manufacturer': 'manufacturer',
     'series': 'series',
+    'product_type': 'product_type',
     'sale_price': 'sale_price',
     'purchase_price': 'purchase_price',
+    'purchase_price_pln': 'purchase_price_pln',
     'purchase_currency': 'purchase_currency',
+    'margin': 'margin',
     'quantity': 'quantity',
     'length': 'length',
     'width': 'width',
     'height': 'height',
     'weight': 'weight',
     'supplier': 'supplier_id',
-    'supplier_id': 'supplier_id',  # Direct field name
+    'supplier_id': 'supplier_id',
     'tags': 'tags',
     'description': 'description',
     'is_active': 'is_active',
@@ -91,8 +97,6 @@ def auto_map_columns(csv_columns):
     Returns:
         Dictionary {csv_col: product_field}
     """
-    print(f"[AUTO MAP] Input columns ({len(csv_columns)}): {csv_columns}")
-
     mapping = {}
     for col in csv_columns:
         col_lower = col.lower().strip()
@@ -100,9 +104,6 @@ def auto_map_columns(csv_columns):
             mapping[col] = COLUMN_MAPPING[col_lower]
         else:
             mapping[col] = None  # Skip column
-
-    print(f"[AUTO MAP] Output mapping ({len(mapping)}): {list(mapping.keys())}")
-    print(f"[AUTO MAP] Mapped fields: {list(mapping.values())}")
 
     return mapping
 
@@ -244,27 +245,17 @@ def create_product(data):
     variant_group = data.pop('_variant_group_obj', None)
 
     # Clean foreign key fields - convert empty strings to None
-    if 'category_id' in data and (not data['category_id'] or data['category_id'] == ''):
-        data['category_id'] = None
-    if 'supplier_id' in data and (not data['supplier_id'] or data['supplier_id'] == ''):
-        data['supplier_id'] = None
+    for fk_field in ['category_id', 'supplier_id', 'manufacturer_id', 'series_id', 'product_type_id']:
+        if fk_field in data and (not data[fk_field] or data[fk_field] == ''):
+            data[fk_field] = None
 
     # Convert string IDs to integers
-    if 'category_id' in data and data['category_id'] is not None:
-        try:
-            data['category_id'] = int(data['category_id'])
-        except (ValueError, TypeError):
-            data['category_id'] = None
-    if 'supplier_id' in data and data['supplier_id'] is not None:
-        try:
-            data['supplier_id'] = int(data['supplier_id'])
-        except (ValueError, TypeError):
-            data['supplier_id'] = None
-
-    # Debug: Print data types
-    print(f"[DEBUG] Creating product with data types:")
-    for key, value in data.items():
-        print(f"  {key}: {type(value).__name__} = {repr(value)[:100]}")
+    for fk_field in ['category_id', 'supplier_id', 'manufacturer_id', 'series_id', 'product_type_id']:
+        if fk_field in data and data[fk_field] is not None:
+            try:
+                data[fk_field] = int(data[fk_field])
+            except (ValueError, TypeError):
+                data[fk_field] = None
 
     # Create product
     product = Product(**data)
@@ -273,14 +264,11 @@ def create_product(data):
 
     # Add tags
     if tags:
-        print(f"[DEBUG] Adding {len(tags)} tags to product")
         for tag in tags:
-            print(f"  Tag: {type(tag).__name__} = {repr(tag)}")
             product.tags.append(tag)
 
     # Add variant group
     if variant_group:
-        print(f"[DEBUG] Adding variant group: {variant_group.name}")
         product.variant_groups.append(variant_group)
 
     return product
@@ -305,22 +293,17 @@ def update_product(product, data, skip_empty_values=True):
     variant_group = data.pop('_variant_group_obj', None)
 
     # Clean foreign key fields - convert empty strings to None
-    if 'category_id' in data and (not data['category_id'] or data['category_id'] == ''):
-        data['category_id'] = None
-    if 'supplier_id' in data and (not data['supplier_id'] or data['supplier_id'] == ''):
-        data['supplier_id'] = None
+    for fk_field in ['category_id', 'supplier_id', 'manufacturer_id', 'series_id', 'product_type_id']:
+        if fk_field in data and (not data[fk_field] or data[fk_field] == ''):
+            data[fk_field] = None
 
     # Convert string IDs to integers
-    if 'category_id' in data and data['category_id'] is not None:
-        try:
-            data['category_id'] = int(data['category_id'])
-        except (ValueError, TypeError):
-            data['category_id'] = None
-    if 'supplier_id' in data and data['supplier_id'] is not None:
-        try:
-            data['supplier_id'] = int(data['supplier_id'])
-        except (ValueError, TypeError):
-            data['supplier_id'] = None
+    for fk_field in ['category_id', 'supplier_id', 'manufacturer_id', 'series_id', 'product_type_id']:
+        if fk_field in data and data[fk_field] is not None:
+            try:
+                data[fk_field] = int(data[fk_field])
+            except (ValueError, TypeError):
+                data[fk_field] = None
 
     # Update fields
     for key, value in data.items():
@@ -414,6 +397,7 @@ def _process_csv_import_internal(import_id):
             batch_count = 0
 
             for idx, row in enumerate(reader, start=1):
+                row_dict = None
                 try:
                     # Skip empty rows
                     if not row or all(not cell.strip() for cell in row):
@@ -425,38 +409,40 @@ def _process_csv_import_internal(import_id):
 
                     row_dict = dict(zip(csv_columns, row))
 
-                    # Map to product data
-                    product_data = map_row_to_product(row_dict, csv_import.column_mapping)
+                    # Use savepoint so a failed row rollbacks cleanly
+                    # without affecting other rows in the batch
+                    with db.session.begin_nested():
+                        # Map to product data
+                        product_data = map_row_to_product(row_dict, csv_import.column_mapping)
 
-                    # Validate
-                    errors = validate_product_data(product_data)
-                    if errors:
-                        raise ValueError('; '.join(errors))
+                        # Validate
+                        errors = validate_product_data(product_data)
+                        if errors:
+                            raise ValueError('; '.join(errors))
 
-                    # Match existing product (if match_column set)
-                    product = match_product(product_data, csv_import.match_column)
+                        # Match existing product (if match_column set)
+                        product = match_product(product_data, csv_import.match_column)
 
-                    if product:
-                        # Update existing
-                        print(f"[CSV Import] Updating product: {product.name} (ID: {product.id})")
-                        update_product(product, product_data, skip_empty_values=csv_import.skip_empty_values)
-                    else:
-                        # Create new
-                        print(f"[CSV Import] Creating product: {product_data.get('name')}")
-                        product = create_product(product_data)
+                        if product:
+                            # Update existing
+                            update_product(product, product_data, skip_empty_values=csv_import.skip_empty_values)
+                        else:
+                            # Create new
+                            product = create_product(product_data)
 
                     csv_import.successful_rows += 1
 
                 except Exception as e:
-                    # Print full traceback for debugging
+                    # Savepoint automatically rolled back — no partial data left
                     import traceback
-                    print(f"[CSV Import] Full traceback for row {idx}:")
+                    print(f"[CSV Import] Error on row {idx}: {str(e)}")
                     traceback.print_exc()
-                    # Log error
+
+                    # Log error with row details
                     error_entry = {
                         'row': idx,
                         'error': str(e),
-                        'data': row_dict if 'row_dict' in locals() else dict(zip(csv_columns, row))
+                        'data': row_dict if row_dict else dict(zip(csv_columns, row))
                     }
 
                     if csv_import.error_log is None:
@@ -468,8 +454,6 @@ def _process_csv_import_internal(import_id):
                     csv_import.error_log = current_errors
 
                     csv_import.failed_rows += 1
-
-                    print(f"[CSV Import] Error on row {idx}: {str(e)}")
 
                 # Update progress
                 csv_import.processed_rows = idx

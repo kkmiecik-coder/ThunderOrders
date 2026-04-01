@@ -2,7 +2,8 @@
 CSV Import Validators
 Functions for validating product data during CSV import
 """
-from modules.products.models import Category, Tag, Supplier, Manufacturer, ProductSeries, VariantGroup
+import re
+from modules.products.models import Category, Tag, Supplier, Manufacturer, ProductSeries, ProductType, VariantGroup
 
 
 def validate_product_data(data):
@@ -21,31 +22,39 @@ def validate_product_data(data):
     if not data.get('name') or not str(data.get('name')).strip():
         errors.append("Nazwa produktu jest wymagana")
 
-    # Validate category (match by ID or name)
+    # Validate category (match by ID or name, create if not exists)
     if 'category_id' in data and data['category_id']:
-        category = match_category(data['category_id'])
-        if not category:
-            errors.append(f"Kategoria '{data['category_id']}' nie istnieje")
-        else:
-            data['category_id'] = category.id
+        category = match_or_create_category(data['category_id'])
+        data['category_id'] = category.id
 
-    # Validate supplier (match by ID or name)
+    # Validate supplier (match by ID or name, create if not exists)
     if 'supplier_id' in data and data['supplier_id']:
-        supplier = match_supplier(data['supplier_id'])
-        if not supplier:
-            errors.append(f"Dostawca '{data['supplier_id']}' nie istnieje")
-        else:
-            data['supplier_id'] = supplier.id
+        supplier = match_or_create_supplier(data['supplier_id'])
+        data['supplier_id'] = supplier.id
 
     # Validate manufacturer (match by ID or name, create if not exists)
     if 'manufacturer' in data and data['manufacturer']:
         manufacturer = match_or_create_manufacturer(data['manufacturer'])
-        data['manufacturer'] = manufacturer
+        data['manufacturer_id'] = manufacturer.id
+        del data['manufacturer']
+    elif 'manufacturer' in data:
+        del data['manufacturer']
 
     # Validate series (match by ID or name, create if not exists)
     if 'series' in data and data['series']:
         series = match_or_create_series(data['series'])
-        data['series'] = series
+        data['series_id'] = series.id
+        del data['series']
+    elif 'series' in data:
+        del data['series']
+
+    # Validate product_type (match by ID or name, create if not exists)
+    if 'product_type' in data and data['product_type']:
+        product_type = match_or_create_product_type(data['product_type'])
+        data['product_type_id'] = product_type.id
+        del data['product_type']
+    elif 'product_type' in data:
+        del data['product_type']
 
     # Validate tags (match by ID or name, create if missing)
     if 'tags' in data and data['tags']:
@@ -65,10 +74,15 @@ def validate_product_data(data):
         # Always remove from data so it doesn't get passed to Product constructor
         del data['variant_group']
 
+    # Required: sale_price (NOT NULL in database)
+    if 'sale_price' in data and (data['sale_price'] is None or str(data['sale_price']).strip() == ''):
+        errors.append("Cena sprzedaży jest wymagana")
+
     # Validate numeric fields
     numeric_fields = {
         'sale_price': 'Cena sprzedaży',
         'purchase_price': 'Cena zakupu',
+        'purchase_price_pln': 'Cena zakupu (PLN)',
         'quantity': 'Ilość',
         'length': 'Długość',
         'width': 'Szerokość',
@@ -124,30 +138,94 @@ def validate_product_data(data):
     return errors
 
 
-def match_category(value):
-    """Match category by ID or name (case-insensitive)"""
+def match_or_create_category(value):
+    """Match category by ID or name (case-insensitive), create if not exists"""
+    from extensions import db
+
     if not value:
         return None
 
     # Try match by ID
     if str(value).isdigit():
-        return Category.query.get(int(value))
+        category = Category.query.get(int(value))
+        if category:
+            return category
 
     # Try match by name (case-insensitive)
-    return Category.query.filter(Category.name.ilike(str(value).strip())).first()
+    value_str = str(value).strip()
+    category = Category.query.filter(Category.name.ilike(value_str)).first()
+
+    if category:
+        return category
+
+    # Create new category
+    category = Category(name=value_str)
+    db.session.add(category)
+    db.session.flush()
+
+    return category
 
 
-def match_supplier(value):
-    """Match supplier by ID or name (case-insensitive)"""
+def match_or_create_supplier(value):
+    """Match supplier by ID or name (case-insensitive), create if not exists"""
+    from extensions import db
+
     if not value:
         return None
 
     # Try match by ID
     if str(value).isdigit():
-        return Supplier.query.get(int(value))
+        supplier = Supplier.query.get(int(value))
+        if supplier:
+            return supplier
 
     # Try match by name (case-insensitive)
-    return Supplier.query.filter(Supplier.name.ilike(str(value).strip())).first()
+    value_str = str(value).strip()
+    supplier = Supplier.query.filter(Supplier.name.ilike(value_str)).first()
+
+    if supplier:
+        return supplier
+
+    # Create new supplier
+    supplier = Supplier(name=value_str)
+    db.session.add(supplier)
+    db.session.flush()
+
+    return supplier
+
+
+def match_or_create_product_type(value):
+    """Match product type by ID, slug, or name (case-insensitive), create if not exists"""
+    from extensions import db
+
+    if not value:
+        return None
+
+    # Try match by ID
+    if str(value).isdigit():
+        product_type = ProductType.query.get(int(value))
+        if product_type:
+            return product_type
+
+    value_str = str(value).strip()
+
+    # Try match by slug (exact, lowercase)
+    slug_value = re.sub(r'[^a-z0-9]+', '-', value_str.lower()).strip('-')
+    product_type = ProductType.query.filter_by(slug=slug_value).first()
+    if product_type:
+        return product_type
+
+    # Try match by name (case-insensitive)
+    product_type = ProductType.query.filter(ProductType.name.ilike(value_str)).first()
+    if product_type:
+        return product_type
+
+    # Create new product type with generated slug
+    product_type = ProductType(name=value_str, slug=slug_value)
+    db.session.add(product_type)
+    db.session.flush()
+
+    return product_type
 
 
 def match_or_create_tag(value):
@@ -178,10 +256,10 @@ def match_or_create_tag(value):
     if tag:
         return tag
 
-    # Create new tag - don't flush, will be committed with product
+    # Create new tag
     tag = Tag(name=value_str)
     db.session.add(tag)
-    # Don't flush here - let the main transaction handle it
+    db.session.flush()
 
     return tag
 
@@ -217,6 +295,7 @@ def match_or_create_manufacturer(value):
     # Create new manufacturer
     manufacturer = Manufacturer(name=value_str)
     db.session.add(manufacturer)
+    db.session.flush()
 
     return manufacturer
 
@@ -252,6 +331,7 @@ def match_or_create_series(value):
     # Create new series
     series = ProductSeries(name=value_str)
     db.session.add(series)
+    db.session.flush()
 
     return series
 
@@ -287,5 +367,6 @@ def match_or_create_variant_group(value):
     # Create new variant group
     variant_group = VariantGroup(name=value_str)
     db.session.add(variant_group)
+    db.session.flush()
 
     return variant_group

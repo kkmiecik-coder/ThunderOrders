@@ -25,9 +25,12 @@ const columnNameTranslations = {
     'category_id': 'Kategoria',
     'manufacturer': 'Producent',
     'series': 'Seria produktowa',
+    'product_type': 'Typ produktu',
     'sale_price': 'Cena sprzedaży (PLN)',
     'purchase_price': 'Cena zakupu',
+    'purchase_price_pln': 'Cena zakupu (PLN)',
     'purchase_currency': 'Waluta zakupu',
+    'margin': 'Marża (%)',
     'quantity': 'Ilość w magazynie',
     'length': 'Długość (cm)',
     'width': 'Szerokość (cm)',
@@ -45,10 +48,13 @@ const columnNameTranslations = {
     'kategoria': 'Kategoria',
     'producent': 'Producent',
     'seria': 'Seria produktowa',
+    'typ_produktu': 'Typ produktu',
     'cena': 'Cena sprzedaży (PLN)',
     'cena_sprzedazy': 'Cena sprzedaży (PLN)',
     'cena_zakupu': 'Cena zakupu',
+    'cena_zakupu_pln': 'Cena zakupu (PLN)',
     'waluta_zakupu': 'Waluta zakupu',
+    'marza': 'Marża (%)',
     'ilosc': 'Ilość w magazynie',
     'dlugosc': 'Długość (cm)',
     'szerokosc': 'Szerokość (cm)',
@@ -381,9 +387,12 @@ function getMappingOptions(suggestedField) {
         ['category_id', 'Kategoria'],
         ['manufacturer', 'Producent'],
         ['series', 'Seria'],
+        ['product_type', 'Typ produktu'],
         ['sale_price', 'Cena sprzedaży'],
         ['purchase_price', 'Cena zakupu'],
+        ['purchase_price_pln', 'Cena zakupu (PLN)'],
         ['purchase_currency', 'Waluta'],
+        ['margin', 'Marża (%)'],
         ['quantity', 'Ilość'],
         ['length', 'Długość'],
         ['width', 'Szerokość'],
@@ -589,6 +598,20 @@ function startCsvImport() {
         return;
     }
 
+    // Validate: no duplicate field mappings
+    const fieldValues = Object.values(columnMapping);
+    const seen = {};
+    const duplicates = [];
+    fieldValues.forEach(v => {
+        if (seen[v]) duplicates.push(v);
+        else seen[v] = true;
+    });
+    if (duplicates.length > 0) {
+        const dupNames = [...new Set(duplicates)].map(d => translateColumnName(d)).join(', ');
+        showToast(`Zduplikowane mapowanie pól: ${dupNames}. Każde pole może być przypisane tylko raz.`, 'error');
+        return;
+    }
+
     // Close mapping modal
     closeMappingModal();
 
@@ -778,16 +801,24 @@ function renderImportHistory(imports) {
     html += '<th>Produkty</th>';
     html += '<th>Status</th>';
     html += '<th>Data</th>';
+    html += '<th></th>';
     html += '</tr></thead>';
     html += '<tbody>';
     imports.forEach(imp => {
         const { statusClass, statusText } = getStatus(imp);
-        html += '<tr>';
+        const hasErrors = imp.failed_rows > 0 && imp.error_log && imp.error_log.length > 0;
+        html += `<tr>`;
         html += `<td>${imp.filename}</td>`;
         html += `<td>${imp.successful_rows} / ${imp.total_rows}</td>`;
         html += `<td><span class="status-badge ${statusClass}">${statusText}</span></td>`;
         html += `<td>${formatDate(imp.created_at)}</td>`;
-        html += '</tr>';
+        html += `<td>${hasErrors ? `<button class="btn-error-details" onclick="toggleErrorDetails(${imp.id})">Błędy (${imp.failed_rows})</button>` : ''}</td>`;
+        html += `</tr>`;
+        if (hasErrors) {
+            html += `<tr class="error-details-row" id="error-details-${imp.id}" style="display:none;">`;
+            html += `<td colspan="5">${renderErrorLog(imp.error_log)}</td>`;
+            html += `</tr>`;
+        }
     });
     html += '</tbody></table>';
 
@@ -795,6 +826,7 @@ function renderImportHistory(imports) {
     html += '<div class="import-history-cards">';
     imports.forEach(imp => {
         const { statusClass, statusText } = getStatus(imp);
+        const hasErrors = imp.failed_rows > 0 && imp.error_log && imp.error_log.length > 0;
         html += `<div class="import-history-card">
             <div class="import-card-top">
                 <span class="import-card-filename">${imp.filename}</span>
@@ -804,6 +836,12 @@ function renderImportHistory(imports) {
                 <span class="import-card-count">${imp.successful_rows} / ${imp.total_rows} produktów</span>
                 <span class="import-card-date">${formatDate(imp.created_at)}</span>
             </div>
+            ${hasErrors ? `
+                <button class="btn-error-details" onclick="toggleErrorDetails(${imp.id}, true)">Pokaż błędy (${imp.failed_rows})</button>
+                <div class="error-details-card" id="error-details-card-${imp.id}" style="display:none;">
+                    ${renderErrorLog(imp.error_log)}
+                </div>
+            ` : ''}
         </div>`;
     });
     html += '</div>';
@@ -867,6 +905,62 @@ function showToast(message, type = 'info') {
             document.body.removeChild(toast);
         }, 300);
     }, 4000);
+}
+
+// =============================================
+// ERROR DETAILS
+// =============================================
+
+/**
+ * Render Error Log as HTML table
+ */
+function renderErrorLog(errorLog) {
+    if (!errorLog || errorLog.length === 0) return '';
+
+    let html = '<div class="error-log-container">';
+    html += '<table class="error-log-table">';
+    html += '<thead><tr><th>Wiersz</th><th>Błąd</th><th>Dane</th></tr></thead>';
+    html += '<tbody>';
+    errorLog.forEach(entry => {
+        const rowData = entry.data || {};
+        // Show first 3 non-empty values as context
+        const dataPreview = Object.entries(rowData)
+            .filter(([, v]) => v && String(v).trim())
+            .slice(0, 3)
+            .map(([k, v]) => `${k}: ${String(v).substring(0, 30)}`)
+            .join(', ');
+        html += `<tr>`;
+        html += `<td class="error-row-num">${entry.row}</td>`;
+        html += `<td class="error-message">${escapeHtml(entry.error)}</td>`;
+        html += `<td class="error-data">${escapeHtml(dataPreview)}</td>`;
+        html += `</tr>`;
+    });
+    html += '</tbody></table>';
+    html += '</div>';
+    return html;
+}
+
+/**
+ * Toggle Error Details visibility
+ */
+function toggleErrorDetails(importId, isCard = false) {
+    if (isCard) {
+        const el = document.getElementById(`error-details-card-${importId}`);
+        if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    } else {
+        const el = document.getElementById(`error-details-${importId}`);
+        if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+    }
+}
+
+/**
+ * Escape HTML to prevent XSS
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
 }
 
 console.log('[CSV IMPORT] Module loaded successfully');

@@ -265,7 +265,7 @@ class EmailManager:
                 order_number=order.order_number,
                 order_total=float(order.total_amount),
                 order_items=order_items,
-                is_offer_page=order.offer_page_id is not None,
+                is_offer=order.offer_page_id is not None,
                 payment_stages=order.payment_stages
             )
             current_app.logger.info(f"Order confirmation email sent for {order.order_number} to {email}")

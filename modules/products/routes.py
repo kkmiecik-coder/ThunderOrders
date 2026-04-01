@@ -786,25 +786,44 @@ def bulk_delete():
         return jsonify({'error': 'Nie wybrano żadnych produktów.'}), 400
 
     try:
-        # Check which products are referenced in proxy_order_items
-        products_in_proxy_orders = db.session.query(Product.id).join(
-            ProxyOrderItem, Product.id == ProxyOrderItem.product_id
-        ).filter(Product.id.in_(product_ids)).distinct().all()
+        from modules.orders.models import OrderItem
+        from modules.client.models import CollectionItem
+        from modules.offers.models import OfferSection, OfferSetItem
 
-        products_in_proxy_orders_ids = [p.id for p in products_in_proxy_orders]
+        # Check which products are referenced in any orders (proxy, poland, client)
+        products_in_proxy = set(
+            p.id for p in db.session.query(Product.id).join(
+                ProxyOrderItem, Product.id == ProxyOrderItem.product_id
+            ).filter(Product.id.in_(product_ids)).all()
+        )
 
-        # Products that can be safely deleted (not in proxy orders)
-        products_to_delete = [pid for pid in product_ids if pid not in products_in_proxy_orders_ids]
+        products_in_poland = set(
+            p.id for p in db.session.query(Product.id).join(
+                PolandOrderItem, Product.id == PolandOrderItem.product_id
+            ).filter(Product.id.in_(product_ids)).all()
+        )
 
-        # Products that need soft delete (in proxy orders)
-        products_to_deactivate = products_in_proxy_orders_ids
+        products_in_orders = set(
+            p.id for p in db.session.query(Product.id).join(
+                OrderItem, Product.id == OrderItem.product_id
+            ).filter(Product.id.in_(product_ids)).all()
+        )
+
+        # Products referenced in ANY order → soft delete (deactivate)
+        products_in_any_order = products_in_proxy | products_in_poland | products_in_orders
+
+        # Products that can be safely hard-deleted (not in any order)
+        products_to_delete = [pid for pid in product_ids if pid not in products_in_any_order]
+
+        # Products that need soft delete
+        products_to_deactivate = [pid for pid in product_ids if pid in products_in_any_order]
 
         deleted_count = 0
         deactivated_count = 0
 
-        # Hard delete products not in stock orders
+        # Hard delete products not in any orders
         if products_to_delete:
-            # First, delete associated product images (files + DB records)
+            # Delete associated product images (files + DB records)
             from utils.image_processor import delete_image_files
             images_to_delete = ProductImage.query.filter(
                 ProductImage.product_id.in_(products_to_delete)
@@ -816,9 +835,29 @@ def bulk_delete():
                 except Exception as file_error:
                     current_app.logger.warning(f"Could not delete image files: {str(file_error)}")
 
-            # Delete image records from DB
             ProductImage.query.filter(ProductImage.product_id.in_(products_to_delete)).delete(
                 synchronize_session=False
+            )
+
+            # Delete junction table records
+            db.session.execute(
+                product_tags.delete().where(product_tags.c.product_id.in_(products_to_delete))
+            )
+
+            # Remove from client collections
+            CollectionItem.query.filter(CollectionItem.product_id.in_(products_to_delete)).update(
+                {'product_id': None}, synchronize_session=False
+            )
+
+            # Nullify offer references (offers stay, product reference cleared)
+            OfferSection.query.filter(OfferSection.product_id.in_(products_to_delete)).update(
+                {'product_id': None}, synchronize_session=False
+            )
+            OfferSection.query.filter(OfferSection.set_product_id.in_(products_to_delete)).update(
+                {'set_product_id': None}, synchronize_session=False
+            )
+            OfferSetItem.query.filter(OfferSetItem.product_id.in_(products_to_delete)).update(
+                {'product_id': None}, synchronize_session=False
             )
 
             # Now delete products
@@ -826,7 +865,7 @@ def bulk_delete():
                 synchronize_session=False
             )
 
-        # Soft delete products in stock orders
+        # Soft delete products in orders (deactivate instead of deleting)
         if products_to_deactivate:
             Product.query.filter(Product.id.in_(products_to_deactivate)).update(
                 {'is_active': False},
@@ -841,14 +880,14 @@ def bulk_delete():
             message = Markup(
                 f'Usunięto <strong style="color: #4CAF50;">{deleted_count}</strong> produktów. '
                 f'<strong style="color: #FFC107;">{deactivated_count}</strong> produktów zostało '
-                f'dezaktywowanych (były używane w zamówieniach magazynowych).'
+                f'dezaktywowanych (były używane w zamówieniach).'
             )
         elif deleted_count > 0:
             message = f'Usunięto {deleted_count} produktów.'
         elif deactivated_count > 0:
             message = Markup(
                 f'<strong style="color: #FFC107;">{deactivated_count}</strong> produktów zostało '
-                f'dezaktywowanych (były używane w zamówieniach magazynowych i nie mogą być usunięte).'
+                f'dezaktywowanych (były używane w zamówieniach i nie mogą być usunięte).'
             )
         else:
             message = 'Nie usunięto żadnych produktów.'
