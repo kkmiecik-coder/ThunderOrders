@@ -611,11 +611,15 @@ def place_preorder_order(page, cart_items, order_note=None):
                 else:
                     earned = 1
 
-        # Apply max_available limit
+        # Apply max_available limit (exclude cancelled orders)
         if earned > 0 and bonus.max_available:
-            already_given = db.session.query(db.func.coalesce(db.func.sum(OrderItem.quantity), 0)).filter(
+            from modules.orders.models import Order as OrderModel
+            already_given = db.session.query(db.func.coalesce(db.func.sum(OrderItem.quantity), 0)).join(
+                OrderModel, OrderItem.order_id == OrderModel.id
+            ).filter(
                 OrderItem.bonus_source_section_id == section.id,
-                OrderItem.is_bonus == True
+                OrderItem.is_bonus == True,
+                OrderModel.status != 'anulowane'
             ).scalar()
             earned = min(earned, bonus.max_available - int(already_given))
 
@@ -650,13 +654,54 @@ def place_preorder_order(page, cart_items, order_note=None):
     # Email & push notifications
     try:
         from utils.email_manager import EmailManager
-        EmailManager.send_order_confirmation(order)
+        from utils.push_manager import PushManager
+        EmailManager.notify_order_confirmation(order)
+        PushManager.notify_order_confirmation(order)
+        EmailManager.notify_admin_new_order(order)
+        PushManager.notify_admin_new_order(order)
     except Exception:
         pass
 
+    # SocketIO: emit to live dashboard
     try:
-        from utils.push_manager import PushManager
-        PushManager.notify_admin_new_order(order)
+        from modules.offers.socket_events import emit_new_order, emit_stats_update
+        from utils.offer_closure import get_live_summary
+
+        order_items_list = []
+        for item in order.items:
+            order_items_list.append({
+                'product_name': item.product_name,
+                'quantity': item.quantity,
+                'price': float(item.price),
+                'total': float(item.total),
+                'is_full_set': False,
+                'is_custom': item.is_custom,
+                'is_bonus': item.is_bonus,
+            })
+
+        emit_new_order(page.id, {
+            'id': order.id,
+            'order_number': order.order_number,
+            'customer_name': f'{current_user.first_name} {current_user.last_name}'.strip() or current_user.email,
+            'customer_email': current_user.email,
+            'total_amount': float(order.total_amount),
+            'item_count': total_items_count,
+            'items': order_items_list,
+            'created_at': order.created_at.isoformat() if order.created_at else None,
+        })
+
+        live = get_live_summary(page.id, include_financials=True)
+        emit_stats_update(page.id, {
+            'total_orders': live['total_orders'],
+            'unique_customers': live['unique_customers'],
+            'total_revenue': live.get('total_revenue', 0),
+            'avg_order_value': live.get('avg_order_value', 0),
+            'total_items': live['total_items'],
+            'active_reservations': live['active_reservations'],
+            'sets': live['sets'],
+            'products_aggregated': live['products_aggregated'],
+            'order_timestamps': live.get('order_timestamps', []),
+        })
     except Exception:
         pass
 
