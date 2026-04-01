@@ -31,6 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 initializeTagManagement();
             }
 
+            // Initialize Size Management if sizes tab is active
+            if (activeTab === 'sizes') {
+                initializeSizeManagement();
+            }
+
             // Initialize Series Management if series tab is active
             if (activeTab === 'series') {
                 initializeSeriesManagement();
@@ -51,7 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Form + form actions visibility control
     const formActions = document.querySelector('.form-actions');
     const settingsForm = document.getElementById('settingsForm');
-    const tabsWithoutForm = ['categories', 'tags', 'series', 'manufacturers', 'suppliers'];
+    const tabsWithoutForm = ['categories', 'tags', 'sizes', 'series', 'manufacturers', 'suppliers'];
 
     function toggleFormActions(tabName) {
         const hide = tabsWithoutForm.includes(tabName);
@@ -87,6 +92,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (targetTab === 'tags') {
                 console.log('Tags tab activated, initializing Tag Management...');
                 initializeTagManagement();
+            }
+
+            // Initialize Size Management when Sizes tab is clicked
+            if (targetTab === 'sizes') {
+                console.log('Sizes tab activated, initializing Size Management...');
+                initializeSizeManagement();
             }
 
             // Initialize Series Management when Series tab is clicked
@@ -665,6 +676,209 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     } // End of initializeTagManagement function
+
+    // ==========================================
+    // SIZE MANAGEMENT
+    // ==========================================
+
+    let sizeManagementInitialized = false;
+
+    function initializeSizeManagement() {
+        if (sizeManagementInitialized) return;
+
+        const sizeModal = document.getElementById('size-modal');
+        const sizeForm = document.getElementById('size-form');
+        const sizeIdInput = document.getElementById('size-id');
+        const sizeModalTitle = document.getElementById('size-modal-title');
+
+        if (!sizeModal) return;
+
+        sizeManagementInitialized = true;
+
+        // Open modal for adding size
+        const addSizeBtn = document.getElementById('add-size-btn');
+        if (addSizeBtn) {
+            addSizeBtn.addEventListener('click', function() {
+                openSizeModal();
+            });
+        }
+
+        // Open modal for editing size
+        document.querySelectorAll('.tag-edit[data-size-id]').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const sizeId = this.dataset.sizeId;
+                await openSizeModal(sizeId);
+            });
+        });
+
+        // Delete size
+        document.querySelectorAll('.tag-delete[data-size-id]').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const sizeId = this.dataset.sizeId;
+                if (confirm('Czy na pewno chcesz usunąć ten rozmiar?')) {
+                    await deleteSize(sizeId);
+                }
+            });
+        });
+
+        // Close modal buttons
+        document.getElementById('close-size-modal')?.addEventListener('click', closeSizeModal);
+        document.getElementById('cancel-size-btn')?.addEventListener('click', closeSizeModal);
+
+        // Close modal on overlay click
+        sizeModal?.addEventListener('click', function(e) {
+            if (e.target === sizeModal) closeSizeModal();
+        });
+
+        // Submit form
+        sizeForm?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            await saveSizeForm();
+        });
+
+        async function openSizeModal(sizeId = null) {
+            sizeForm.reset();
+            clearSizeFormErrors();
+
+            if (sizeId) {
+                sizeModalTitle.textContent = 'Edytuj rozmiar';
+                sizeIdInput.value = sizeId;
+
+                try {
+                    const response = await fetch(`/admin/products/sizes/${sizeId}`);
+                    const data = await response.json();
+                    if (data.success) {
+                        document.getElementById('size-name').value = data.size.name;
+                    }
+                } catch (error) {
+                    console.error('Error loading size:', error);
+                    window.showToast('Błąd podczas ładowania rozmiaru', 'error');
+                    return;
+                }
+            } else {
+                sizeModalTitle.textContent = 'Dodaj rozmiar';
+                sizeIdInput.value = '';
+            }
+
+            sizeModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSizeModal() {
+            sizeModal.classList.add('closing');
+            setTimeout(() => {
+                sizeModal.classList.remove('active', 'closing');
+                document.body.style.overflow = '';
+                sizeForm.reset();
+                clearSizeFormErrors();
+            }, 350);
+        }
+
+        async function saveSizeForm() {
+            const sizeId = sizeIdInput.value;
+            const url = sizeId
+                ? `/admin/products/sizes/${sizeId}/edit`
+                : '/admin/products/sizes/create';
+
+            const formData = new FormData(sizeForm);
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    closeSizeModal();
+
+                    if (sizeId) {
+                        // Edit mode - update existing size in DOM
+                        const sizeItem = document.querySelector(`.tag-item[data-size-id="${sizeId}"]`);
+                        if (sizeItem) {
+                            sizeItem.querySelector('.tag-name').textContent = data.size.name;
+                        }
+                    } else {
+                        // Create mode - add new size to DOM
+                        const sizesGrid = document.getElementById('sizes-grid');
+                        const emptyState = sizesGrid.querySelector('.empty-state');
+                        if (emptyState) emptyState.remove();
+
+                        const newSizeHTML = `
+                            <div class="tag-item" data-size-id="${data.size.id}">
+                                <span class="tag-name">${data.size.name}</span>
+                                <div class="tag-actions">
+                                    <button type="button" class="tag-action tag-edit" data-size-id="${data.size.id}">Edytuj</button>
+                                    <button type="button" class="tag-action tag-delete" data-size-id="${data.size.id}">Usuń</button>
+                                </div>
+                            </div>
+                        `;
+
+                        sizesGrid.insertAdjacentHTML('beforeend', newSizeHTML);
+
+                        // Add event listeners to new size buttons
+                        const newSizeItem = sizesGrid.querySelector(`.tag-item[data-size-id="${data.size.id}"]`);
+                        newSizeItem.querySelector('.tag-edit').addEventListener('click', async function() {
+                            await openSizeModal(data.size.id);
+                        });
+                        newSizeItem.querySelector('.tag-delete').addEventListener('click', async function() {
+                            if (confirm('Czy na pewno chcesz usunąć ten rozmiar?')) {
+                                await deleteSize(data.size.id);
+                            }
+                        });
+                    }
+                } else {
+                    if (data.errors) {
+                        Object.keys(data.errors).forEach(field => {
+                            const errorEl = document.getElementById(`error-size-${field}`);
+                            if (errorEl) {
+                                errorEl.textContent = data.errors[field];
+                                errorEl.style.display = 'block';
+                            }
+                        });
+                    } else {
+                        window.showToast(data.message || 'Błąd podczas zapisywania rozmiaru', 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error saving size:', error);
+                window.showToast('Błąd podczas zapisywania rozmiaru', 'error');
+            }
+        }
+
+        async function deleteSize(sizeId) {
+            try {
+                const response = await fetch(`/admin/products/sizes/${sizeId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    window.showToast(data.message, 'success');
+                    const sizeItem = document.querySelector(`.tag-item[data-size-id="${sizeId}"]`);
+                    if (sizeItem) sizeItem.remove();
+                } else {
+                    window.showToast(data.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting size:', error);
+                window.showToast('Błąd podczas usuwania rozmiaru', 'error');
+            }
+        }
+
+        function clearSizeFormErrors() {
+            sizeForm.querySelectorAll('.form-error').forEach(el => {
+                el.textContent = '';
+                el.style.display = 'none';
+            });
+        }
+    } // End of initializeSizeManagement
 
     // ==========================================
     // SERIES MANAGEMENT

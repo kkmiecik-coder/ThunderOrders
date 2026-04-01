@@ -47,6 +47,13 @@
                 <span class="tab-label">Tagi</span>
             </button>
 
+            <button class="settings-tab" data-tab="sizes">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.715-5.349L11 6.477V16h2a1 1 0 110 2H7a1 1 0 110-2h2V6.477L6.237 7.582l1.715 5.349a1 1 0 01-.285 1.05A3.989 3.989 0 015 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.789l1.599.799L9 4.323V3a1 1 0 011-1z" clip-rule="evenodd"/>
+                </svg>
+                <span class="tab-label">Rozmiary</span>
+            </button>
+
             <button class="settings-tab" data-tab="series">
                 <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z"/>
@@ -152,6 +159,39 @@
                             {% else %}
                                 <div class="empty-state">
                                     <p>Brak tagów. Dodaj pierwszy tag.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Sizes -->
+                <div class="tab-panel" id="tab-sizes">
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <h3>Lista rozmiarów</h3>
+                            <button type="button" class="btn btn-secondary btn-sm" id="add-size-btn">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                                </svg>
+                                Dodaj rozmiar
+                            </button>
+                        </div>
+
+                        <div class="tags-grid" id="sizes-grid">
+                            {% if sizes %}
+                                {% for size in sizes %}
+                                    <div class="tag-item" data-size-id="{{ size.id }}">
+                                        <span class="tag-name">{{ size.name }}</span>
+                                        <div class="tag-actions">
+                                            <button type="button" class="tag-action tag-edit" data-size-id="{{ size.id }}">Edytuj</button>
+                                            <button type="button" class="tag-action tag-delete" data-size-id="{{ size.id }}">Usuń</button>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-state">
+                                    <p>Brak rozmiarów. Dodaj pierwszy rozmiar.</p>
                                 </div>
                             {% endif %}
                         </div>
@@ -520,6 +560,34 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="cancel-tag-btn">Anuluj</button>
                 <button type="submit" class="btn btn-primary" id="save-tag-btn">Zapisz</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Size Modal -->
+<div id="size-modal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="size-modal-title">Dodaj rozmiar</h2>
+            <button type="button" class="modal-close" id="close-size-modal">&times;</button>
+        </div>
+
+        <form id="size-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" id="size-id" name="size_id" value="">
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="size-name" class="form-label">Nazwa rozmiaru *</label>
+                    <input type="text" id="size-name" name="name" class="form-control" required placeholder="np. S, M, L, XL, 42, 43...">
+                    <span class="form-error" id="error-size-name"></span>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancel-size-btn">Anuluj</button>
+                <button type="submit" class="btn btn-primary" id="save-size-btn">Zapisz</button>
             </div>
         </form>
     </div>

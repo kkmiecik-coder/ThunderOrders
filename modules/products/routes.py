@@ -15,7 +15,7 @@ from uuid import uuid4
 
 from modules.products import products_bp
 from modules.products.models import (
-    Product, Category, Tag, Supplier, ProductImage, product_tags,
+    Product, Category, Tag, Size, Supplier, ProductImage, product_tags, product_sizes,
     ProxyOrder, ProxyOrderItem,
     PolandOrder, PolandOrderItem,
     Manufacturer, ProductSeries, VariantGroup
@@ -1414,6 +1414,7 @@ def warehouse_settings():
     # Load categories, tags, series, suppliers for display in tabs
     categories = Category.query.order_by(Category.sort_order, Category.name).all()
     tags = Tag.query.order_by(Tag.name).all()
+    sizes = Size.query.order_by(Size.name).all()
     from modules.products.models import ProductSeries, Manufacturer
     series = ProductSeries.query.filter_by(is_active=True).order_by(ProductSeries.name).all()
     manufacturers = Manufacturer.query.filter_by(is_active=True).order_by(Manufacturer.name).all()
@@ -1427,6 +1428,7 @@ def warehouse_settings():
                            form=form,
                            categories=categories,
                            tags=tags,
+                           sizes=sizes,
                            series=series,
                            manufacturers=manufacturers,
                            suppliers=suppliers,
@@ -1693,6 +1695,109 @@ def delete_tag(id):
         db.session.rollback()
         current_app.logger.error(f"Error deleting tag: {str(e)}")
         return jsonify({'success': False, 'message': 'Błąd podczas usuwania taga'}), 500
+
+
+# ==========================================
+# Size Management
+# ==========================================
+
+@products_bp.route('/sizes/create', methods=['POST'])
+@login_required
+@role_required('admin')
+def create_size():
+    """Create new size"""
+    name = request.form.get('name', '').strip()
+    if not name:
+        return jsonify({'success': False, 'errors': {'name': 'Nazwa rozmiaru jest wymagana'}}), 400
+
+    try:
+        existing = Size.query.filter(Size.name.ilike(name)).first()
+        if existing:
+            return jsonify({'success': False, 'errors': {'name': 'Rozmiar o tej nazwie już istnieje'}}), 400
+
+        size = Size(name=name)
+        db.session.add(size)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Rozmiar został dodany',
+            'size': {'id': size.id, 'name': size.name}
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating size: {str(e)}")
+        return jsonify({'success': False, 'message': 'Błąd podczas dodawania rozmiaru'}), 500
+
+
+@products_bp.route('/sizes/<int:id>/edit', methods=['POST'])
+@login_required
+@role_required('admin')
+def edit_size(id):
+    """Edit existing size"""
+    size = Size.query.get_or_404(id)
+    name = request.form.get('name', '').strip()
+    if not name:
+        return jsonify({'success': False, 'errors': {'name': 'Nazwa rozmiaru jest wymagana'}}), 400
+
+    try:
+        existing = Size.query.filter(Size.name.ilike(name), Size.id != id).first()
+        if existing:
+            return jsonify({'success': False, 'errors': {'name': 'Rozmiar o tej nazwie już istnieje'}}), 400
+
+        size.name = name
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Rozmiar został zaktualizowany',
+            'size': {'id': size.id, 'name': size.name}
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating size: {str(e)}")
+        return jsonify({'success': False, 'message': 'Błąd podczas aktualizacji rozmiaru'}), 500
+
+
+@products_bp.route('/sizes/<int:id>', methods=['DELETE'])
+@login_required
+@role_required('admin')
+def delete_size(id):
+    """Delete size"""
+    size = Size.query.get_or_404(id)
+
+    try:
+        products_count = db.session.query(product_sizes).filter_by(size_id=id).count()
+        if products_count > 0:
+            return jsonify({
+                'success': False,
+                'message': f'Nie można usunąć rozmiaru. Jest przypisany do {products_count} produktów.'
+            }), 400
+
+        db.session.delete(size)
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Rozmiar został usunięty'})
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting size: {str(e)}")
+        return jsonify({'success': False, 'message': 'Błąd podczas usuwania rozmiaru'}), 500
+
+
+@products_bp.route('/sizes/<int:id>', methods=['GET'])
+@login_required
+@role_required('admin', 'mod')
+def get_size(id):
+    """Get size details"""
+    size = Size.query.get_or_404(id)
+    return jsonify({
+        'success': True,
+        'size': {
+            'id': size.id,
+            'name': size.name,
+            'product_count': db.session.query(product_sizes).filter_by(size_id=id).count()
+        }
+    })
 
 
 # ==========================================
