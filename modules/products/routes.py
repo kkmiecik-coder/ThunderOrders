@@ -3739,3 +3739,120 @@ def get_product_data(product_id):
             'price': float(product.sale_price) if product.sale_price else 0.0
         }
     })
+
+
+# ==========================================
+# MASS EDIT
+# ==========================================
+
+@products_bp.route('/mass-edit')
+@login_required
+@role_required('admin', 'mod')
+def mass_edit():
+    """Mass edit page — opened from bulk toolbar"""
+    ids_param = request.args.get('ids', '')
+    if not ids_param:
+        flash('Nie wybrano produktów do edycji.', 'error')
+        return redirect(url_for('products.products_list'))
+
+    product_ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+    if not product_ids:
+        flash('Nieprawidłowe ID produktów.', 'error')
+        return redirect(url_for('products.products_list'))
+
+    return render_template('admin/warehouse/mass_edit.html', product_ids=product_ids)
+
+
+@products_bp.route('/mass-edit/data')
+@login_required
+@role_required('admin', 'mod')
+def mass_edit_data():
+    """JSON endpoint — returns product data + select options"""
+    from modules.auth.models import Settings
+
+    ids_param = request.args.get('ids', '')
+    product_ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+
+    products = Product.query.filter(Product.id.in_(product_ids)).all()
+
+    max_images = Settings.get_value('warehouse_image_max_per_product', 10)
+
+    products_data = []
+    for p in products:
+        images = {}
+        for img in p.images.order_by(ProductImage.sort_order).all():
+            images[str(img.sort_order)] = {
+                'id': img.id,
+                'filename': img.filename,
+                'path_compressed': img.path_compressed,
+                'is_primary': img.is_primary
+            }
+
+        products_data.append({
+            'id': p.id,
+            'name': p.name,
+            'sku': p.sku or '',
+            'ean': p.ean or '',
+            'description': p.description or '',
+            'category_id': p.category_id,
+            'manufacturer_id': p.manufacturer_id,
+            'series_id': p.series_id,
+            'product_type_id': p.product_type_id,
+            'supplier_id': p.supplier_id,
+            'sale_price': float(p.sale_price) if p.sale_price else None,
+            'purchase_price': float(p.purchase_price) if p.purchase_price else None,
+            'purchase_currency': p.purchase_currency or 'PLN',
+            'purchase_price_pln': float(p.purchase_price_pln) if p.purchase_price_pln else None,
+            'margin': float(p.margin) if p.margin else None,
+            'quantity': p.quantity or 0,
+            'length': float(p.length) if p.length else None,
+            'width': float(p.width) if p.width else None,
+            'height': float(p.height) if p.height else None,
+            'weight': float(p.weight) if p.weight else None,
+            'is_active': p.is_active,
+            'tags': ','.join([t.name for t in p.tags]) if p.tags else '',
+            'images': images
+        })
+
+    from modules.products.models import Manufacturer, ProductSeries
+    from modules.products.models import Category, Supplier, Tag
+    try:
+        from modules.products.models import ProductType
+        product_types = [{'id': pt.id, 'name': pt.name} for pt in ProductType.query.order_by(ProductType.name).all()]
+    except Exception:
+        product_types = []
+
+    options = {
+        'categories': [{'id': c.id, 'name': c.name} for c in Category.query.order_by(Category.name).all()],
+        'manufacturers': [{'id': m.id, 'name': m.name} for m in Manufacturer.query.order_by(Manufacturer.name).all()],
+        'series': [{'id': s.id, 'name': s.name} for s in ProductSeries.query.order_by(ProductSeries.name).all()],
+        'product_types': product_types,
+        'suppliers': [{'id': s.id, 'name': s.name} for s in Supplier.query.order_by(Supplier.name).all()],
+        'tags': [{'id': t.id, 'name': t.name} for t in Tag.query.order_by(Tag.name).all()],
+        'currencies': ['PLN', 'KRW', 'USD']
+    }
+
+    return jsonify({
+        'success': True,
+        'products': products_data,
+        'options': options,
+        'settings': {
+            'max_images': max_images
+        }
+    })
+
+
+@products_bp.route('/mass-edit/save', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def mass_edit_save():
+    """Save mass-edited products — stub, implemented in Task 2"""
+    return jsonify({'success': False, 'error': 'Not implemented yet'}), 501
+
+
+@products_bp.route('/mass-edit/upload-image', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def mass_edit_upload_image():
+    """Upload image — stub, implemented in Task 2"""
+    return jsonify({'success': False, 'error': 'Not implemented yet'}), 501

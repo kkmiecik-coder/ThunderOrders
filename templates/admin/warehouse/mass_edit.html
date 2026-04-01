@@ -1,0 +1,83 @@
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Masowa edycja produktów{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/mass-edit.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="mass-edit-wrapper" id="massEditWrapper">
+
+    <!-- Stage 1: Column Selection -->
+    <div class="mass-edit-stage" id="stageColumnSelect">
+        <div class="stage-header">
+            <h1>Masowa edycja — {{ product_ids|length }} produktów</h1>
+            <p>Wybierz kolumny które chcesz edytować. ID i Nazwa są zawsze widoczne.</p>
+        </div>
+
+        <div class="column-groups" id="columnGroups">
+            <!-- Rendered by JS -->
+        </div>
+
+        <div class="stage-actions">
+            <a href="{{ url_for('products.products_list') }}" class="btn-cancel">Anuluj</a>
+            <button class="btn-primary" id="btnStartEdit" onclick="startEditing()">Edytuj</button>
+        </div>
+    </div>
+
+    <!-- Stage 2: Loading Overlay -->
+    <div class="mass-edit-overlay hidden" id="loadingOverlay">
+        <div class="loading-modal">
+            <div class="loading-spinner"></div>
+            <p id="loadingText">Wczytywanie produktów...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="loadingProgress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage 3: Edit Grid -->
+    <div class="mass-edit-stage hidden" id="stageEditGrid">
+        <div class="grid-toolbar">
+            <div class="grid-toolbar-left">
+                <h2>Masowa edycja — <span id="productCount">0</span> produktów</h2>
+            </div>
+            <div class="grid-toolbar-right">
+                <a href="{{ url_for('products.products_list') }}" class="btn-cancel">Anuluj</a>
+                <button class="btn-save" id="btnSaveAll" onclick="saveAll()">Zapisz wszystko</button>
+            </div>
+        </div>
+
+        <div class="grid-scroll-container">
+            <div class="grid-header" id="gridHeader">
+                <!-- Rendered by JS -->
+            </div>
+            <div class="grid-body" id="gridBody">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Progress Overlay -->
+    <div class="mass-edit-overlay hidden" id="saveOverlay">
+        <div class="loading-modal">
+            <div class="loading-spinner"></div>
+            <p id="saveText">Zapisywanie produktów...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="saveProgress"></div>
+            </div>
+            <p id="saveDetail" class="save-detail"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const PRODUCT_IDS = {{ product_ids | tojson }};
+    const DATA_URL = "{{ url_for('products.mass_edit_data') }}";
+    const SAVE_URL = "{{ url_for('products.mass_edit_save') }}";
+    const IMAGE_UPLOAD_URL = "{{ url_for('products.mass_edit_upload_image') }}";
+    const PRODUCTS_LIST_URL = "{{ url_for('products.products_list') }}";
+</script>
+<script src="{{ url_for('static', filename='js/pages/admin/mass-edit.js') }}"></script>
+{% endblock %}
