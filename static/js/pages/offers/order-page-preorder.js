@@ -108,17 +108,78 @@ function removeCartItem(productId) {
 // Cart Calculations
 // ============================================
 function getCartTotal() {
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return cart.filter(i => !i.is_bonus).reduce((sum, item) => sum + (item.price * item.quantity), 0);
 }
 
 function getCartItemCount() {
-    return cart.reduce((sum, item) => sum + item.quantity, 0);
+    return cart.filter(i => !i.is_bonus).reduce((sum, item) => sum + item.quantity, 0);
+}
+
+// ============================================
+// Bonus Evaluation
+// ============================================
+function evaluatePreorderBonuses() {
+    // Remove old bonus items
+    cart = cart.filter(i => !i.is_bonus);
+
+    const config = window.bonusesConfig;
+    if (!config || typeof config !== 'object') return;
+
+    const regularItems = cart.filter(i => !i.is_bonus);
+    const totalAmount = regularItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+    const totalQty = regularItems.reduce((sum, i) => sum + i.quantity, 0);
+
+    // Iterate over all bonus sections
+    for (const [sectionId, bonuses] of Object.entries(config)) {
+        for (const bonus of bonuses) {
+            if (bonus.is_exhausted) continue;
+
+            let earned = 0;
+
+            if (bonus.trigger_type === 'buy_products' && bonus.required_products) {
+                const ratios = bonus.required_products.map(rp => {
+                    const bought = regularItems
+                        .filter(i => i.product_id === rp.product_id)
+                        .reduce((s, i) => s + i.quantity, 0);
+                    return rp.min_quantity > 0 ? Math.floor(bought / rp.min_quantity) : bought;
+                });
+                earned = ratios.length > 0 ? Math.min(...ratios) : 0;
+                if (!bonus.repeatable) earned = Math.min(earned, 1);
+
+            } else if (bonus.trigger_type === 'price_threshold' && bonus.threshold_value) {
+                if (totalAmount >= bonus.threshold_value) {
+                    earned = bonus.repeatable ? Math.floor(totalAmount / bonus.threshold_value) : 1;
+                }
+
+            } else if (bonus.trigger_type === 'quantity_threshold' && bonus.threshold_value) {
+                if (totalQty >= bonus.threshold_value) {
+                    earned = bonus.repeatable ? Math.floor(totalQty / bonus.threshold_value) : 1;
+                }
+            }
+
+            // Apply max_available
+            if (earned > 0 && bonus.max_available) {
+                earned = Math.min(earned, bonus.max_available - (bonus.already_claimed || 0));
+            }
+
+            if (earned > 0) {
+                cart.push({
+                    product_id: bonus.bonus_product_id,
+                    name: bonus.bonus_product_name + ' (GRATIS)',
+                    price: 0,
+                    quantity: bonus.bonus_quantity * earned,
+                    is_bonus: true
+                });
+            }
+        }
+    }
 }
 
 // ============================================
 // Cart UI Update
 // ============================================
 function updateCartUI() {
+    evaluatePreorderBonuses();
     const total = getCartTotal();
     const count = getCartItemCount();
 
@@ -148,24 +209,39 @@ function updateCartUI() {
         if (cart.length === 0) {
             cartItemsEl.innerHTML = '<div class="cart-empty"><p>Koszyk jest pusty</p></div>';
         } else {
-            cartItemsEl.innerHTML = cart.map(item => `
-                <div class="cart-item">
-                    <div class="cart-item-info">
-                        <span class="cart-item-name">${escapeHtml(item.name)}</span>
-                        <span class="cart-item-price">${item.price.toFixed(2)} PLN</span>
+            cartItemsEl.innerHTML = cart.map(item => {
+                if (item.is_bonus) {
+                    return `
+                        <div class="cart-item cart-item-bonus">
+                            <div class="cart-item-info">
+                                <span class="cart-item-name">🎁 ${escapeHtml(item.name)}</span>
+                                <span class="cart-item-price">GRATIS</span>
+                            </div>
+                            <div class="cart-item-controls">
+                                <span class="cart-item-qty">${item.quantity} szt.</span>
+                            </div>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="cart-item">
+                        <div class="cart-item-info">
+                            <span class="cart-item-name">${escapeHtml(item.name)}</span>
+                            <span class="cart-item-price">${item.price.toFixed(2)} PLN</span>
+                        </div>
+                        <div class="cart-item-controls">
+                            <button type="button" class="qty-btn qty-minus" onclick="updateCartItemQty(${item.product_id}, -1)">-</button>
+                            <span class="cart-item-qty">${item.quantity}</span>
+                            <button type="button" class="qty-btn qty-plus" onclick="updateCartItemQty(${item.product_id}, 1)">+</button>
+                            <button type="button" class="cart-item-remove" onclick="removeCartItem(${item.product_id})">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
-                    <div class="cart-item-controls">
-                        <button type="button" class="qty-btn qty-minus" onclick="updateCartItemQty(${item.product_id}, -1)">-</button>
-                        <span class="cart-item-qty">${item.quantity}</span>
-                        <button type="button" class="qty-btn qty-plus" onclick="updateCartItemQty(${item.product_id}, 1)">+</button>
-                        <button type="button" class="cart-item-remove" onclick="removeCartItem(${item.product_id})">
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
     }
 }

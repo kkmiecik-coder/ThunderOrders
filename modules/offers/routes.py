@@ -26,7 +26,7 @@ def _build_bonuses_config(page, sections):
     config = {}
 
     for section in sections:
-        if section.section_type != 'set':
+        if section.section_type not in ('set', 'bonus'):
             continue
 
         bonuses = OfferSetBonus.query.filter_by(
