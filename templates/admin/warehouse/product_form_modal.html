@@ -301,9 +301,9 @@
                     {% endfor %}
                 </div>
 
-                <!-- Custom Sizes Input UI (reuses tags CSS classes) -->
-                <div class="tags-input-wrapper">
-                    <div class="tags-selected" id="sizesSelected">
+                <!-- Custom Sizes Input UI -->
+                <div class="sizes-picker-wrapper">
+                    <div class="sizes-selected" id="sizesSelected">
                         <!-- Selected sizes will appear here as badges -->
                     </div>
 
@@ -315,15 +315,15 @@
                            onfocus="showSizesDropdown()"
                            oninput="filterSizes(this.value)">
 
-                    <div class="tags-dropdown" id="sizesDropdown" style="display: none;">
-                        <div class="tags-dropdown-list" id="sizesDropdownList">
+                    <div class="sizes-dropdown-upward" id="sizesDropdown" style="display: none;">
+                        <div class="sizes-badge-grid" id="sizesDropdownList">
                             {% for size_id, size_name in form.sizes.choices %}
-                            <div class="tag-option size-option"
+                            <span class="size-pick-badge size-option"
                                  data-size-id="{{ size_id }}"
                                  data-size-name="{{ size_name }}"
                                  onclick="selectSize('{{ size_id }}', '{{ size_name }}')">
                                 {{ size_name }}
-                            </div>
+                            </span>
                             {% endfor %}
                         </div>
                     </div>

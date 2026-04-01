@@ -632,6 +632,64 @@
 /* ==========================================
    Image Upload Area (Modal)
    ========================================== */
+/* ==========================================
+   Sizes Picker (badge grid, opens upward)
+   ========================================== */
+.sizes-picker-wrapper {
+  position: relative;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  padding: var(--space-2);
+  background: var(--bg-primary);
+  min-height: 44px;
+}
+
+.sizes-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.sizes-dropdown-upward {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: var(--space-1);
+  background: var(--white);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  box-shadow: var(--shadow-lg);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: var(--space-2);
+}
+
+.sizes-badge-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.size-pick-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 16px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.size-pick-badge:hover {
+  background: var(--orange-300);
+  color: var(--white);
+  border-color: var(--orange-300);
+}
+
 .image-upload-area {
   border: 2px dashed var(--border-primary);
   border-radius: 8px;
@@ -1544,6 +1602,38 @@
 
 [data-theme="dark"] .btn-remove-image:hover {
   background: linear-gradient(135deg, #ff6b6b 0%, #f5576c 100%);
+}
+
+/* ==========================================
+   Dark Mode - Sizes Picker
+   ========================================== */
+[data-theme="dark"] .sizes-picker-wrapper {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .sizes-picker-wrapper:focus-within {
+  border-color: #f093fb;
+  box-shadow: 0 0 15px rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .sizes-dropdown-upward {
+  background: rgba(15, 12, 41, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(240, 147, 251, 0.2);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .size-pick-badge {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(240, 147, 251, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .size-pick-badge:hover {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-color: transparent;
+  color: #fff;
 }
 
 /* ==========================================
