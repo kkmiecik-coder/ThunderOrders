@@ -153,6 +153,15 @@ window.removeTag = function(tagId) {
 // ==========================================
 window.selectedSizes = new Set();
 
+// Close sizes dropdown when clicking outside (single global listener)
+document.addEventListener('click', function(e) {
+    const sizesWrapper = document.querySelector('.sizes-picker-wrapper');
+    const dropdown = document.getElementById('sizesDropdown');
+    if (dropdown && sizesWrapper && !sizesWrapper.contains(e.target)) {
+        dropdown.style.display = 'none';
+    }
+});
+
 window.initSizesSystem = function() {
     selectedSizes.clear();
 
@@ -181,14 +190,6 @@ window.initSizesSystem = function() {
         }
     });
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        const sizesWrapper = document.querySelector('.sizes-picker-wrapper');
-        const dropdown = document.getElementById('sizesDropdown');
-        if (sizesWrapper && !sizesWrapper.contains(e.target)) {
-            if (dropdown) dropdown.style.display = 'none';
-        }
-    });
 };
 
 window.showSizesDropdown = function() {
