@@ -1243,23 +1243,6 @@ def warehouse_settings():
         for key, (value, setting_type) in settings_map.items():
             Settings.set_value(key, value, updated_by=current_user.id, type=setting_type)
 
-        # Handle stock order aggregation settings (checkboxes)
-        aggregation_types = request.form.getlist('aggregation_order_types')
-        aggregation_statuses = request.form.getlist('aggregation_order_statuses')
-
-        Settings.set_value(
-            'stock_order_aggregation_types',
-            json.dumps(aggregation_types),
-            updated_by=current_user.id,
-            type='json'
-        )
-        Settings.set_value(
-            'stock_order_aggregation_statuses',
-            json.dumps(aggregation_statuses),
-            updated_by=current_user.id,
-            type='json'
-        )
-
         db.session.commit()
         flash('Ustawienia magazynu zostały zapisane', 'success')
 
@@ -1300,25 +1283,6 @@ def warehouse_settings():
     currency_last_update = Settings.get_value('warehouse_currency_last_update', None)
     currency_last_update_source = Settings.get_value('warehouse_currency_last_update_source', None)
 
-    # Load order types and statuses for stock order aggregation settings
-    order_types = OrderType.query.filter_by(is_active=True).all()
-    order_statuses = OrderStatus.query.filter_by(is_active=True).order_by(OrderStatus.sort_order).all()
-
-    # Load current aggregation settings
-    current_aggregation_types_raw = Settings.get_value('stock_order_aggregation_types', '["pre_order", "exclusive"]')
-    current_aggregation_statuses_raw = Settings.get_value('stock_order_aggregation_statuses', '["nowe"]')
-
-    # Parse JSON (handle both string and already-parsed values)
-    if isinstance(current_aggregation_types_raw, str):
-        current_aggregation_types = json.loads(current_aggregation_types_raw)
-    else:
-        current_aggregation_types = current_aggregation_types_raw or []
-
-    if isinstance(current_aggregation_statuses_raw, str):
-        current_aggregation_statuses = json.loads(current_aggregation_statuses_raw)
-    else:
-        current_aggregation_statuses = current_aggregation_statuses_raw or []
-
     return render_template('admin/warehouse/settings.html',
                            form=form,
                            categories=categories,
@@ -1327,11 +1291,7 @@ def warehouse_settings():
                            manufacturers=manufacturers,
                            suppliers=suppliers,
                            currency_last_update=currency_last_update,
-                           currency_last_update_source=currency_last_update_source,
-                           order_types=order_types,
-                           order_statuses=order_statuses,
-                           current_aggregation_types=current_aggregation_types,
-                           current_aggregation_statuses=current_aggregation_statuses)
+                           currency_last_update_source=currency_last_update_source)
 
 
 # ==========================================
@@ -2039,34 +1999,19 @@ def get_products_to_order():
     """
     Calculate products that need to be ordered based on customer orders.
     Returns list of products with aggregated quantities minus already ordered in ProxyOrders.
+
+    Hardcoded rules:
+    - Exclusive: order_type='exclusive', status='oczekujace', E1 payment approved
+    - Pre-order: order_type='pre_order', status='nowe', E1 payment approved
     """
     from modules.products.models import ProxyOrder, ProxyOrderItem
     from modules.orders.models import Order, OrderItem, PaymentConfirmation
-    from modules.auth.models import Settings
     from sqlalchemy import func
-    import json
-
-    # Load aggregation settings
-    aggregation_types_raw = Settings.get_value('stock_order_aggregation_types', '["pre_order", "exclusive"]')
-    aggregation_statuses_raw = Settings.get_value('stock_order_aggregation_statuses', '["nowe"]')
-
-    # Parse JSON
-    if isinstance(aggregation_types_raw, str):
-        aggregation_types = json.loads(aggregation_types_raw)
-    else:
-        aggregation_types = aggregation_types_raw or []
-
-    if isinstance(aggregation_statuses_raw, str):
-        aggregation_statuses = json.loads(aggregation_statuses_raw)
-    else:
-        aggregation_statuses = aggregation_statuses_raw or []
-
-    if not aggregation_types or not aggregation_statuses:
-        return []
 
     # Step 1: Agregacja produktów z zamówień klientów
     # GROUP BY (product_id, payment_stages) — osobny wiersz per typ płatności
     # Tylko zamówienia z zaakceptowanym E1 (płatność za produkt)
+    # Warunek: (exclusive + oczekujace) OR (pre_order + nowe)
     customer_orders_subq = db.session.query(
         OrderItem.product_id,
         Order.payment_stages,
@@ -2081,8 +2026,10 @@ def get_products_to_order():
             PaymentConfirmation.status == 'approved'
         )
     ).filter(
-        Order.order_type.in_(aggregation_types),
-        Order.status.in_(aggregation_statuses)
+        db.or_(
+            db.and_(Order.order_type == 'exclusive', Order.status == 'oczekujace'),
+            db.and_(Order.order_type == 'pre_order', Order.status == 'nowe')
+        )
     ).group_by(OrderItem.product_id, Order.payment_stages).subquery()
 
     # Step 2: Produkty już zamówione u dostawców (nie anulowane) — per (product_id, order_type)
