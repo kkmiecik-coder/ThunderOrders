@@ -12,12 +12,26 @@
                 </svg>
                 <div>
                     <strong>Ta operacja jest nieodwracalna!</strong>
+                    {% if page.page_type == 'preorder' %}
+                    <p>Po zamknięciu nie będzie możliwości wznowienia sprzedaży.</p>
+                    {% else %}
                     <p>Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.</p>
+                    {% endif %}
                 </div>
             </div>
 
             <p>Zamykasz stronę: <strong id="closePageName"></strong></p>
 
+            {% if page.page_type == 'preorder' %}
+            <p class="modal-info">
+                Zamknięcie wykona następujące operacje:
+            </p>
+            <ul class="modal-list">
+                <li>Zmiana statusu strony na zamkniętą</li>
+                <li>Klienci nie będą mogli składać nowych zamówień</li>
+                <li>Istniejące zamówienia pozostaną bez zmian</li>
+            </ul>
+            {% else %}
             <p class="modal-info">
                 Zamknięcie wykona następujące operacje:
             </p>
@@ -34,6 +48,7 @@
                     <span>Wyślij emaile do wszystkich klientów z informacją o statusie ich produktów</span>
                 </label>
             </div>
+            {% endif %}
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeCloseModal()">Anuluj</button>
