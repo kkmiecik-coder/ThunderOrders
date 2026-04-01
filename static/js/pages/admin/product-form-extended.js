@@ -231,6 +231,8 @@ window.selectSize = function(sizeId, sizeName) {
 
     const searchInput = document.getElementById('sizesSearchInput');
     if (searchInput) searchInput.value = '';
+
+    updateSizesEmptyState();
 };
 
 function addSizeBadge(sizeId, sizeName) {
@@ -259,7 +261,29 @@ window.removeSize = function(sizeId) {
 
     const sizeOption = document.querySelector(`.size-option[data-size-id="${sizeId}"]`);
     if (sizeOption) sizeOption.style.display = 'block';
+
+    updateSizesEmptyState();
 };
+
+function updateSizesEmptyState() {
+    const dropdownList = document.getElementById('sizesDropdownList');
+    if (!dropdownList) return;
+
+    const visibleOptions = dropdownList.querySelectorAll('.size-option:not([style*="display: none"])');
+    let emptyMsg = dropdownList.querySelector('.sizes-empty-msg');
+
+    if (visibleOptions.length === 0) {
+        if (!emptyMsg) {
+            emptyMsg = document.createElement('span');
+            emptyMsg.className = 'sizes-empty-msg';
+            emptyMsg.textContent = 'Nie ma więcej rozmiarów do wyboru';
+            dropdownList.appendChild(emptyMsg);
+        }
+        emptyMsg.style.display = 'block';
+    } else {
+        if (emptyMsg) emptyMsg.style.display = 'none';
+    }
+}
 
 // ==========================================
 // Image Upload System

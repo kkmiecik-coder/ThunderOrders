@@ -690,6 +690,16 @@
   border-color: var(--orange-300);
 }
 
+.sizes-empty-msg {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 8px 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 .image-upload-area {
   border: 2px dashed var(--border-primary);
   border-radius: 8px;
@@ -1634,6 +1644,10 @@
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
   border-color: transparent;
   color: #fff;
+}
+
+[data-theme="dark"] .sizes-empty-msg {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 /* ==========================================
