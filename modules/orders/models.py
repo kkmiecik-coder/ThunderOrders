@@ -644,8 +644,8 @@ class Order(db.Model):
         paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
         grand = self.grand_total
 
-        # Zamówienia offer z etapami płatności
-        if self.order_type == 'exclusive' and self.payment_stages:
+        # Zamówienia offer (exclusive / pre_order) z etapami płatności
+        if self.order_type in ('exclusive', 'pre_order') and self.payment_stages:
             stages_info = []
             statuses = []
 
