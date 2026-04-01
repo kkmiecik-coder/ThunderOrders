@@ -553,8 +553,6 @@ def place_order(token):
     Place an order from offer page
     Requires authenticated user
     """
-    from .place_order import place_offer_order
-
     # Require login
     if not current_user.is_authenticated:
         return jsonify({'success': False, 'error': 'login_required', 'message': 'Musisz się zalogować, aby złożyć zamówienie.'}), 401
@@ -568,20 +566,23 @@ def place_order(token):
         return jsonify({'success': False, 'error': 'page_not_active', 'message': 'Sprzedaż nie jest aktywna'}), 403
 
     data = request.get_json()
-    session_id = data.get('session_id')
     order_note = data.get('order_note')
-    full_set_items = data.get('full_set_items', [])
 
-    if not session_id:
-        return jsonify({'success': False, 'error': 'missing_session_id'}), 400
-
-    # Place order
-    success, result = place_offer_order(
-        page=page,
-        session_id=session_id,
-        order_note=order_note,
-        full_set_items=full_set_items
-    )
+    if page.page_type == 'preorder':
+        # Pre-order: cart_items from localStorage
+        from .place_order import place_preorder_order
+        cart_items = data.get('cart_items', [])
+        if not cart_items:
+            return jsonify({'success': False, 'error': 'empty_cart', 'message': 'Koszyk jest pusty'}), 400
+        success, result = place_preorder_order(page=page, cart_items=cart_items, order_note=order_note)
+    else:
+        # Exclusive: reservation-based
+        from .place_order import place_offer_order
+        session_id = data.get('session_id')
+        full_set_items = data.get('full_set_items', [])
+        if not session_id:
+            return jsonify({'success': False, 'error': 'missing_session_id'}), 400
+        success, result = place_offer_order(page=page, session_id=session_id, order_note=order_note, full_set_items=full_set_items)
 
     if success:
         # Save order data in session for thank_you page

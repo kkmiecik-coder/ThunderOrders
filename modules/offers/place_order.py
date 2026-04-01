@@ -489,3 +489,181 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
         'total_amount': float(order.total_amount),
         'items_count': total_items_count,
     }
+
+
+# ============================================
+# Pre-order: Place Order (no reservations)
+# ============================================
+
+def place_preorder_order(page, cart_items, order_note=None):
+    """
+    Place a pre-order from offer page (no reservations, no limits).
+
+    Args:
+        page (OfferPage): Offer page object (page_type='preorder')
+        cart_items (list): [{'product_id': int, 'quantity': int}, ...]
+        order_note (str, optional): Order note
+
+    Returns:
+        tuple: (success: bool, result: dict)
+    """
+    from modules.products.models import Product
+    from .models import OfferSection, OfferSetBonus, OfferBonusRequiredProduct
+
+    # 1. Validate cart items
+    if not cart_items:
+        return False, {'error': 'empty_cart', 'message': 'Koszyk jest pusty'}
+
+    # Filter valid items
+    cart_items = [item for item in cart_items if item.get('product_id') and item.get('quantity', 0) > 0]
+    if not cart_items:
+        return False, {'error': 'empty_cart', 'message': 'Koszyk jest pusty'}
+
+    # 2. Generate order number
+    try:
+        order_number = generate_order_number('pre_order')
+    except Exception as e:
+        return False, {'error': 'order_number_failed', 'message': str(e)}
+
+    # 3. Create order
+    order = Order(
+        order_number=order_number,
+        order_type='pre_order',
+        user_id=current_user.id,
+        status='nowe',
+        offer_page_id=page.id,
+        offer_page_name=page.name,
+        payment_stages=page.payment_stages,
+        notes=order_note,
+        total_amount=Decimal('0.00')
+    )
+
+    db.session.add(order)
+    db.session.flush()
+
+    # 4. Create order items
+    total_amount = Decimal('0.00')
+    total_items_count = 0
+
+    for item_data in cart_items:
+        product = Product.query.get(item_data['product_id'])
+        if not product:
+            continue
+
+        quantity = int(item_data['quantity'])
+        price = product.sale_price if product.sale_price else product.price
+        item_total = Decimal(str(price)) * quantity
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=product.id,
+            quantity=quantity,
+            price=Decimal(str(price)),
+            total_price=item_total
+        )
+        db.session.add(order_item)
+
+        total_amount += item_total
+        total_items_count += quantity
+
+    # 5. Evaluate bonuses from 'bonus' sections
+    bonus_sections = OfferSection.query.filter_by(
+        offer_page_id=page.id,
+        section_type='bonus'
+    ).all()
+
+    for section in bonus_sections:
+        bonus = OfferSetBonus.query.filter_by(section_id=section.id, is_active=True).first()
+        if not bonus or not bonus.bonus_product_id:
+            continue
+
+        earned = 0
+
+        if bonus.trigger_type == 'buy_products':
+            # Check if customer bought all required products
+            required = OfferBonusRequiredProduct.query.filter_by(bonus_id=bonus.id).all()
+            if required:
+                ratios = []
+                for rp in required:
+                    bought_qty = sum(
+                        item['quantity'] for item in cart_items
+                        if item['product_id'] == rp.product_id
+                    )
+                    if rp.min_quantity > 0:
+                        ratios.append(bought_qty // rp.min_quantity)
+                    else:
+                        ratios.append(bought_qty)
+                earned = min(ratios) if ratios else 0
+                if not bonus.repeatable:
+                    earned = min(earned, 1)
+
+        elif bonus.trigger_type == 'price_threshold':
+            if bonus.threshold_value and float(total_amount) >= float(bonus.threshold_value):
+                if bonus.repeatable:
+                    earned = int(float(total_amount) / float(bonus.threshold_value))
+                else:
+                    earned = 1
+
+        elif bonus.trigger_type == 'quantity_threshold':
+            if bonus.threshold_value and total_items_count >= int(bonus.threshold_value):
+                if bonus.repeatable:
+                    earned = total_items_count // int(bonus.threshold_value)
+                else:
+                    earned = 1
+
+        # Apply max_available limit
+        if earned > 0 and bonus.max_available:
+            already_given = db.session.query(db.func.coalesce(db.func.sum(OrderItem.quantity), 0)).filter(
+                OrderItem.bonus_source_section_id == section.id,
+                OrderItem.is_bonus == True
+            ).scalar()
+            earned = min(earned, bonus.max_available - int(already_given))
+
+        if earned > 0:
+            bonus_item = OrderItem(
+                order_id=order.id,
+                product_id=bonus.bonus_product_id,
+                quantity=bonus.bonus_quantity * earned,
+                price=Decimal('0.00'),
+                total_price=Decimal('0.00'),
+                is_bonus=True,
+                bonus_source_section_id=section.id
+            )
+            db.session.add(bonus_item)
+
+    # 6. Update total
+    order.total_amount = total_amount
+    db.session.commit()
+
+    # 7. Post-order actions
+    try:
+        log_activity(
+            user=current_user,
+            action='order_placed',
+            entity_type='order',
+            entity_id=order.id,
+            new_value=order.order_number,
+        )
+    except Exception:
+        pass
+
+    # Email & push notifications
+    try:
+        from utils.email_manager import EmailManager
+        EmailManager.send_order_confirmation(order)
+    except Exception:
+        pass
+
+    try:
+        from utils.push_manager import PushManager
+        PushManager.notify_admin_new_order(order)
+    except Exception:
+        pass
+
+    # 8. Return success
+    return True, {
+        'order_id': order.id,
+        'order_number': order.order_number,
+        'total_amount': float(order.total_amount),
+        'items_count': total_items_count,
+    }
