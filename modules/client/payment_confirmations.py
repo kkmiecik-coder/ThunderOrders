@@ -81,7 +81,6 @@ def payment_confirmations():
 
     # Dozwolone statusy (te same co w Order.can_upload_product_payment)
     allowed_statuses = [
-        'nowe',
         'oczekujace',
         'dostarczone_proxy',
         'w_drodze_polska',
@@ -91,10 +90,14 @@ def payment_confirmations():
     ]
 
     # Zamówienia ze stron sprzedaży użytkownika w dozwolonych statusach
+    # Pre-order: 'nowe' też dozwolone (klient płaci od razu)
     all_orders = Order.query.filter(
         Order.user_id == current_user.id,
         Order.offer_page_id.isnot(None),
-        Order.status.in_(allowed_statuses)
+        db.or_(
+            Order.status.in_(allowed_statuses),
+            db.and_(Order.order_type == 'pre_order', Order.status == 'nowe')
+        )
     ).order_by(Order.created_at.desc()).all()
 
     # Podział: zamówienia do opłacenia vs w pełni opłacone

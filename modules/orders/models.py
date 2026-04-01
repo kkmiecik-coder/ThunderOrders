@@ -770,7 +770,6 @@ class Order(db.Model):
         Pre-order: 'nowe' jest dozwolone (klient płaci od razu po złożeniu).
         """
         allowed_statuses = [
-            'nowe',
             'oczekujace',
             'dostarczone_proxy',
             'w_drodze_polska',
@@ -779,7 +778,10 @@ class Order(db.Model):
             'spakowane',
         ]
 
-        if self.status not in allowed_statuses:
+        # Pre-order: 'nowe' jest dozwolone (klient płaci od razu)
+        if self.order_type == 'pre_order' and self.status == 'nowe':
+            pass  # allowed
+        elif self.status not in allowed_statuses:
             return False
 
         conf = self.product_payment_confirmation
