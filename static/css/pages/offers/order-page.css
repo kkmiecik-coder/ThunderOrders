@@ -4725,3 +4725,247 @@ body.offer-page-body {
         font-size: 11px;
     }
 }
+
+
+/* ============================================
+   PREORDER PAGE - Add to Cart Button
+   ============================================ */
+.btn-add-to-cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-add-to-cart:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+}
+
+.btn-add-to-cart.added {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    pointer-events: none;
+}
+
+.btn-add-to-cart-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* ============================================
+   PREORDER PAGE - Bonus Info Card
+   ============================================ */
+.bonus-info-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.08), rgba(245, 87, 108, 0.08));
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    border-radius: 12px;
+    margin: 8px 0;
+}
+
+.bonus-info-icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-radius: 12px;
+    color: #fff;
+}
+
+.bonus-info-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.bonus-info-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 4px;
+}
+
+.bonus-info-condition {
+    font-size: 14px;
+    color: #666;
+    margin: 0 0 4px;
+}
+
+.bonus-info-repeatable {
+    font-size: 12px;
+    color: #999;
+}
+
+/* Dark mode - Preorder Add to Cart */
+[data-theme="dark"] .btn-add-to-cart {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-add-to-cart.added {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+/* Dark mode - Bonus Info Card */
+[data-theme="dark"] .bonus-info-card {
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.1), rgba(245, 87, 108, 0.1));
+    border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .bonus-info-title {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .bonus-info-condition {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .bonus-info-repeatable {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ============================================
+   PREORDER PAGE - Cart Item Styles
+   ============================================ */
+.cart-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    gap: 8px;
+}
+
+.cart-item:last-child {
+    border-bottom: none;
+}
+
+.cart-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.cart-item-name {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cart-item-price {
+    display: block;
+    font-size: 12px;
+    color: #888;
+}
+
+.cart-item-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.cart-item-qty {
+    min-width: 24px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.cart-item-remove {
+    background: none;
+    border: none;
+    color: #ccc;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.cart-item-remove:hover {
+    color: #f5576c;
+    background: rgba(245, 87, 108, 0.1);
+}
+
+/* Dark mode - Cart Items */
+[data-theme="dark"] .cart-item {
+    border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .cart-item-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .cart-item-price {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .cart-item-qty {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .cart-item-remove {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .cart-item-remove:hover {
+    color: #f5576c;
+    background: rgba(245, 87, 108, 0.15);
+}
+
+/* Responsive - Preorder */
+@media (max-width: 768px) {
+    .btn-add-to-cart {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+
+    .btn-add-to-cart-sm {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .bonus-info-card {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .bonus-info-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .bonus-info-icon svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    .bonus-info-title {
+        font-size: 14px;
+    }
+
+    .bonus-info-condition {
+        font-size: 13px;
+    }
+}

@@ -158,13 +158,18 @@ def order_page(token):
         return redirect(url_for('offers.countdown_page', page=token))
 
     if page.is_active:
-        # Cleanup wygasłych rezerwacji przy załadowaniu strony
-        from .reservation import cleanup_expired_reservations
-        cleanup_expired_reservations(page.id)
-
         sections = page.get_sections_ordered()
-        bonuses_config = _build_bonuses_config(page, sections)
-        return render_template('offers/order_page.html', page=page, sections=sections, bonuses_config_json=bonuses_config)
+
+        if page.page_type == 'preorder':
+            # Pre-order: no reservations, no cleanup
+            bonuses_config = _build_bonuses_config(page, sections)
+            return render_template('offers/order_page_preorder.html', page=page, sections=sections, bonuses_config_json=bonuses_config)
+        else:
+            # Exclusive: existing logic with reservations
+            from .reservation import cleanup_expired_reservations
+            cleanup_expired_reservations(page.id)
+            bonuses_config = _build_bonuses_config(page, sections)
+            return render_template('offers/order_page.html', page=page, sections=sections, bonuses_config_json=bonuses_config)
 
     if page.is_paused:
         return render_template('offers/paused.html', page=page)
@@ -208,7 +213,11 @@ def preview_page(token):
 
     sections = page.get_sections_ordered()
     bonuses_config = _build_bonuses_config(page, sections)
-    return render_template('offers/order_page.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
+
+    if page.page_type == 'preorder':
+        return render_template('offers/order_page_preorder.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
+    else:
+        return render_template('offers/order_page.html', page=page, sections=sections, preview_mode=True, bonuses_config_json=bonuses_config)
 
 
 @offers_bp.route('/<token>/status')
