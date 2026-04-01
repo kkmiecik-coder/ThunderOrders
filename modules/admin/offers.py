@@ -1090,6 +1090,30 @@ def offers_close_complete(page_id):
             'error': 'Ta strona została już całkowicie zamknięta.'
         }), 400
 
+    # Pre-order: uproszczone zamknięcie (bez kompletowania setów, bez maili)
+    if page.page_type == 'preorder':
+        from modules.offers.models import get_local_now
+        from utils.activity_logger import log_activity
+        page.is_fully_closed = True
+        page.closed_at = get_local_now()
+        page.closed_by_id = current_user.id
+        db.session.commit()
+
+        log_activity(
+            user=current_user,
+            action='offer_closed',
+            entity_type='offer',
+            entity_id=page.id,
+            new_value=page.name,
+        )
+
+        return jsonify({
+            'success': True,
+            'message': 'Strona pre-order została zamknięta.',
+            'redirect': url_for('admin.offers_list')
+        })
+
+    # Exclusive: full closure with set allocation
     # Pobierz opcję wysyłki emaili
     data = request.get_json() or {}
     send_emails = data.get('send_emails', True)

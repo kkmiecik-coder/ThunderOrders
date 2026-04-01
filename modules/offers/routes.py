@@ -485,13 +485,31 @@ def extend(token):
 @csrf.exempt
 @limiter.limit("10 per minute")
 def restore(token):
-    """Restore reservation from localStorage"""
-    from .reservation import cleanup_expired_reservations, get_user_reservation
-    from .models import OfferReservation
-
+    """Restore reservation/cart from localStorage"""
     page = OfferPage.get_by_token(token)
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    # Pre-order: validate cart items exist
+    if page.page_type == 'preorder':
+        from modules.products.models import Product
+        data = request.get_json()
+        cart_items = data.get('cart_items', [])
+        valid_items = []
+        for item in cart_items:
+            product = Product.query.get(item.get('product_id'))
+            if product and product.is_active:
+                valid_items.append({
+                    'product_id': product.id,
+                    'name': product.name,
+                    'price': float(product.sale_price or product.price),
+                    'quantity': item.get('quantity', 1)
+                })
+        return jsonify({'success': True, 'cart_items': valid_items})
+
+    # Exclusive: existing reservation restore logic
+    from .reservation import cleanup_expired_reservations, get_user_reservation
+    from .models import OfferReservation
 
     data = request.get_json()
     session_id = data.get('session_id')
