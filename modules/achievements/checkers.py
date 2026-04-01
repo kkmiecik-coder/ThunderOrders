@@ -106,9 +106,9 @@ def _orders_in_weekend(user, config, context):
 
 
 def _time_since_drop(user, config, context):
-    if not context or 'exclusive_page_starts_at' not in context:
+    if not context or 'offer_page_starts_at' not in context:
         return (0, False)
-    starts_at = context['exclusive_page_starts_at']
+    starts_at = context['offer_page_starts_at']
     if not starts_at:
         return (0, False)
     now = datetime.now()
@@ -137,12 +137,12 @@ def _exclusive_orders(user, config, context):
     return (count, count >= config['threshold'])
 
 
-def _distinct_exclusive_pages(user, config, context):
+def _distinct_offer_pages(user, config, context):
     from modules.orders.models import Order
-    count = db.session.query(db.func.count(db.func.distinct(Order.exclusive_page_id))).filter(
+    count = db.session.query(db.func.count(db.func.distinct(Order.offer_page_id))).filter(
         Order.user_id == user.id,
         Order.offer_page_id.isnot(None),  # noqa: E712
-        Order.exclusive_page_id.isnot(None)
+        Order.offer_page_id.isnot(None)
     ).scalar()
     return (count, count >= config['threshold'])
 
@@ -212,7 +212,7 @@ METRIC_EVALUATORS = {
     'time_since_drop': _time_since_drop,
     'time_since_page_visit': _time_since_page_visit,
     'exclusive_orders': _exclusive_orders,
-    'distinct_exclusive_pages': _distinct_exclusive_pages,
+    'distinct_offer_pages': _distinct_offer_pages,
     'profile_completed': _profile_completed,
     'email_verified': _email_verified,
     'has_avatar': _has_avatar,

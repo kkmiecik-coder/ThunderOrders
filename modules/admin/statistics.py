@@ -543,14 +543,14 @@ def statistics_exclusive():
 
     for page in pages:
         page_orders = Order.query.filter(
-            Order.exclusive_page_id == page.id,
+            Order.offer_page_id == page.id,
             Order.status != 'anulowane'
         )
         orders_count = page_orders.count()
         page_revenue = db.session.query(
             func.coalesce(func.sum(Order.total_amount), 0)
         ).filter(
-            Order.exclusive_page_id == page.id,
+            Order.offer_page_id == page.id,
             Order.status != 'anulowane'
         ).scalar() or Decimal('0')
 
