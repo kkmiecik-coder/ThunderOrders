@@ -220,10 +220,13 @@ class OfferPage(db.Model):
     # ============================================
 
     def publish(self):
-        """Publikuje stronę natychmiast (status = active, usuwa ends_at jeśli w przeszłości)"""
+        """Publikuje stronę natychmiast (status = active, ustawia starts_at jeśli puste)"""
         self.status = 'active'
-        # Usuń datę zakończenia jeśli jest w przeszłości, aby zapobiec automatycznemu zakończeniu
         now = get_local_now()
+        # Ustaw datę rozpoczęcia na teraz jeśli nie była ustawiona
+        if not self.starts_at:
+            self.starts_at = now
+        # Usuń datę zakończenia jeśli jest w przeszłości, aby zapobiec automatycznemu zakończeniu
         if self.ends_at and self.ends_at <= now:
             self.ends_at = None
 

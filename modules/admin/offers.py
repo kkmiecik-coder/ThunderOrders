@@ -983,6 +983,7 @@ def offers_duplicate(page_id):
         description=original.description,
         token=OfferPage.generate_token(),
         status='draft',
+        page_type=original.page_type,
         footer_content=original.footer_content,
         payment_stages=original.payment_stages,
         created_by=current_user.id

@@ -659,6 +659,31 @@ function getSectionTemplate(type) {
                                     <input type="hidden" class="max-qty-value" value="0">
                                 </div>
                             </div>
+                            <!-- Tło grupy wariantowej -->
+                            <div class="vg-image-inline">
+                                <input type="hidden" class="set-image-path" value="">
+                                <div class="vg-image-actions">
+                                    <button type="button" class="btn-upload-image" onclick="this.closest('.vg-image-inline').querySelector('.vg-image-file').click()">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                                        </svg>
+                                        Tło
+                                    </button>
+                                </div>
+                                <input type="file" class="vg-image-file" accept="image/*" onchange="uploadVgImage(this)" style="display:none;">
+                            </div>
+                            <div class="qty-counters-inline">
+                                <div class="qty-counter-group">
+                                    <span class="qty-counter-label">Max</span>
+                                    <div class="qty-counter">
+                                        <button type="button" class="counter-btn counter-plus" onclick="adjustMaxQty(this, 1)">+</button>
+                                        <span class="counter-value" data-value="0">0</span>
+                                        <button type="button" class="counter-btn counter-minus" onclick="adjustMaxQty(this, -1)">−</button>
+                                    </div>
+                                    <input type="hidden" class="max-qty-value" value="0">
+                                </div>
+                            </div>
                         </div>
                         <div class="variant-group-preview">
                             <p class="text-muted">Wybierz grupę wariantową, aby zobaczyć dostępne produkty</p>
@@ -899,6 +924,7 @@ function collectPageData() {
             });
         } else if (type === 'variant_group') {
             sectionData.variant_group_id = parseInt(section.querySelector('.variant-group-select').value) || null;
+            sectionData.set_image = section.querySelector('.set-image-path')?.value || null;
             const maxQtyInput = section.querySelector('.max-qty-value');
             const maxVal = maxQtyInput ? parseInt(maxQtyInput.value) : 0;
             sectionData.max_quantity = maxVal > 0 ? maxVal : null;
@@ -1263,22 +1289,121 @@ async function updateSetVariantGroupProducts(select) {
 }
 
 /**
+ * Upload variant group background image (simple inline version)
+ */
+async function uploadVgImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const container = input.closest('.vg-image-inline');
+    if (!container) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('type', 'set_image');
+        const response = await fetch('/admin/offers/api/upload-image', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': builderConfig.csrfToken },
+            body: formData
+        });
+        const result = await response.json();
+        if (result.success) {
+            container.querySelector('.set-image-path').value = result.path;
+            // Add/update thumbnail
+            let thumb = container.querySelector('.vg-image-thumb');
+            if (!thumb) {
+                thumb = document.createElement('img');
+                thumb.className = 'vg-image-thumb';
+                container.insertBefore(thumb, container.firstChild);
+            }
+            thumb.src = result.url;
+            // Update button text
+            const uploadBtn = container.querySelector('.btn-upload-image');
+            if (uploadBtn) uploadBtn.lastChild.textContent = ' Zmień';
+            // Add remove button if not present
+            const actionsDiv = container.querySelector('.vg-image-actions');
+            if (actionsDiv && !actionsDiv.querySelector('.btn-remove-image')) {
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn-remove-image';
+                removeBtn.onclick = function() { removeVgImage(this); };
+                removeBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>';
+                actionsDiv.appendChild(removeBtn);
+            }
+            markDirty();
+            showToast('Zdjęcie przesłane', 'success');
+        } else {
+            showToast(result.error || 'Błąd przesyłania', 'error');
+        }
+    } catch (e) {
+        showToast('Błąd połączenia', 'error');
+    }
+}
+
+/**
+ * Remove variant group background image
+ */
+function removeVgImage(btn) {
+    const container = btn.closest('.vg-image-inline');
+    if (!container) return;
+    container.querySelector('.set-image-path').value = '';
+    const thumb = container.querySelector('.vg-image-thumb');
+    if (thumb) thumb.remove();
+    btn.remove();
+    const uploadBtn = container.querySelector('.btn-upload-image');
+    if (uploadBtn) uploadBtn.lastChild.textContent = ' Tło';
+    markDirty();
+    showToast('Zdjęcie usunięte', 'info');
+}
+
+/**
+ * Remove set/variant group background image
+ */
+function removeSetImage(btn) {
+    const container = btn.closest('.set-image-section');
+    if (!container) return;
+
+    const hiddenInput = container.querySelector('.set-image-path');
+    const previewEl = container.querySelector('.set-image-preview');
+    const removeBtn = btn;
+
+    if (hiddenInput) hiddenInput.value = '';
+    if (previewEl) previewEl.innerHTML = '';
+    removeBtn.remove();
+
+    // Update upload button text
+    const uploadBtn = container.querySelector('.btn-upload-image');
+    if (uploadBtn) {
+        uploadBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+            </svg>
+            Tło
+        `;
+    }
+    markDirty();
+    showToast('Zdjęcie usunięte', 'info');
+}
+
+/**
  * Upload set image (for new sections)
  */
 async function uploadSetImageNew(input) {
     const file = input.files[0];
     if (!file) return;
 
-    const setSection = input.closest('.set-section');
-    const imagePreviewSection = setSection.querySelector('.set-image-preview-section');
-    const previewImg = imagePreviewSection.querySelector('.set-image-preview');
-    const hiddenInput = input.nextElementSibling;
-    const imageBtn = setSection.querySelector('.btn-set-image');
+    // Universal: works for both .set-section (set) and .set-image-section (variant_group)
+    const imageContainer = input.closest('.set-image-section') || input.closest('.set-section');
+    if (!imageContainer) return;
 
-    // Show loading
-    imagePreviewSection.classList.remove('hidden');
-    previewImg.src = '';
-    previewImg.alt = 'Ładowanie...';
+    const previewEl = imageContainer.querySelector('.set-image-preview');
+    const hiddenInput = imageContainer.querySelector('.set-image-path');
+    const uploadBtn = imageContainer.querySelector('.btn-upload-image') || imageContainer.querySelector('.btn-set-image');
+
+    // Legacy set-section structure
+    const imagePreviewSection = imageContainer.querySelector('.set-image-preview-section');
+    const legacyPreviewImg = imagePreviewSection?.querySelector('.set-image-preview');
 
     try {
         const formData = new FormData();
@@ -1296,23 +1421,57 @@ async function uploadSetImageNew(input) {
         const result = await response.json();
 
         if (result.success) {
-            previewImg.src = result.url;
-            previewImg.alt = 'Tło seta';
-            hiddenInput.value = result.path;
-            // Update button text and add has-image class for purple styling
-            imageBtn.classList.add('has-image');
-            imageBtn.innerHTML = `
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-                    <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
-                </svg>
-                Zmień tło setu
-            `;
+            // Update hidden input
+            if (hiddenInput) hiddenInput.value = result.path;
+
+            // Update preview (new structure: .set-image-preview is a div)
+            if (previewEl && previewEl.tagName !== 'IMG') {
+                previewEl.innerHTML = `<img src="${result.url}" alt="Tło" style="max-width:100%; max-height:200px; object-fit:contain; border-radius:6px;">`;
+            }
+            // Legacy structure: .set-image-preview is an img
+            if (legacyPreviewImg && legacyPreviewImg.tagName === 'IMG') {
+                if (imagePreviewSection) imagePreviewSection.classList.remove('hidden');
+                legacyPreviewImg.src = result.url;
+            }
+
+            // Update button text
+            if (uploadBtn) {
+                if (uploadBtn.classList.contains('btn-set-image')) {
+                    uploadBtn.classList.add('has-image');
+                    uploadBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                        </svg>
+                        Zmień tło setu
+                    `;
+                } else {
+                    uploadBtn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                        </svg>
+                        Zmień zdjęcie
+                    `;
+                }
+            }
+
+            // Add remove button if not present
+            const buttonsContainer = imageContainer.querySelector('.set-image-buttons');
+            if (buttonsContainer && !buttonsContainer.querySelector('.btn-remove-image')) {
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn-remove-image';
+                removeBtn.onclick = function() { removeSetImage(this); };
+                removeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>';
+                buttonsContainer.insertBefore(removeBtn, buttonsContainer.querySelector('.set-image-input'));
+            }
+
             markDirty();
             showToast('Zdjęcie przesłane', 'success');
         } else {
-            imagePreviewSection.classList.add('hidden');
-            previewImg.src = '';
+            if (imagePreviewSection) imagePreviewSection.classList.add('hidden');
+            if (legacyPreviewImg) legacyPreviewImg.src = '';
             showToast(result.error || 'Błąd przesyłania', 'error');
         }
     } catch (error) {
@@ -1353,27 +1512,26 @@ function removeSetImageNew(btn) {
 /**
  * Remove set image (for existing sections)
  */
-function removeSetImage(btn, sectionId) {
+// Legacy removeSetImage with sectionId — redirect to universal version
+function _removeSetImageLegacy(btn, sectionId) {
     const imagePreviewSection = document.getElementById(`setImagePreviewSection-${sectionId}`);
-    const previewImg = document.getElementById(`setImagePreview-${sectionId}`);
     const setSection = btn.closest('.set-section');
+    if (!setSection) return;
     const hiddenInput = setSection.querySelector('.set-image-path');
     const imageBtn = setSection.querySelector('.btn-set-image');
 
-    // Hide the image preview section
-    imagePreviewSection.classList.add('hidden');
-    previewImg.src = '';
-    hiddenInput.value = '';
-
-    // Reset button text and remove purple styling
-    imageBtn.classList.remove('has-image');
-    imageBtn.innerHTML = `
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-            <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
-        </svg>
-        Dodaj tło setu
-    `;
+    if (imagePreviewSection) imagePreviewSection.classList.add('hidden');
+    if (hiddenInput) hiddenInput.value = '';
+    if (imageBtn) {
+        imageBtn.classList.remove('has-image');
+        imageBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+            </svg>
+            Dodaj tło setu
+        `;
+    }
     markDirty();
 }
 

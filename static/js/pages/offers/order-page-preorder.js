@@ -4,6 +4,17 @@
  */
 
 // ============================================
+// Set Image Toggle (shared with exclusive)
+// ============================================
+function toggleSetImage(el) {
+    el.classList.toggle('collapsed');
+    const text = el.querySelector('.expand-text');
+    if (text) {
+        text.textContent = el.classList.contains('collapsed') ? 'Pokaż cały obraz' : 'Zwiń obraz';
+    }
+}
+
+// ============================================
 // Cart State
 // ============================================
 let cart = [];
@@ -53,6 +64,7 @@ function adjustPreorderQty(btn, delta) {
 // ============================================
 function addToPreorderCart(productId, productName, price, btn) {
     const productActions = btn.closest('.product-controls-box') ||
+                           btn.closest('.variant-product-action') ||
                            btn.closest('.variant-product-qty') ||
                            btn.closest('.product-header-controls');
     const qtyInput = productActions ? productActions.querySelector('.qty-input') : null;

@@ -171,15 +171,26 @@
                 {% elif section.is_variant_group %}
                 <section class="section section-variant-group" data-section-id="{{ section.id }}">
                     {% if section.variant_group %}
-                    <div class="variant-group-card">
+                    <div class="variant-group-card {% if section.set_image %}has-image{% endif %}">
                         <div class="set-header">
                             <h3 class="set-name">{{ section.variant_group.name }}</h3>
                         </div>
 
-                        <div class="variant-group-products">
+                        {% if section.set_image %}
+                        <div class="set-background expandable-image collapsed" onclick="toggleSetImage(this)">
+                            <div class="image-wrapper">
+                                <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.variant_group.name }}" onerror="this.closest('.set-background').style.display='none'">
+                            </div>
+                            <div class="expand-overlay">
+                                <span class="expand-text">Pokaż cały obraz</span>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="variant-group-products {% if section.set_image %}variant-products-rows{% endif %}">
                             {% for product in section.get_variant_group_products() %}
                             {% if product.is_active %}
-                            <div class="variant-product" data-product-id="{{ product.id }}">
+                            <div class="variant-product {% if section.set_image %}variant-product-horizontal{% endif %}" data-product-id="{{ product.id }}">
                                 <div class="variant-product-image {% if product.primary_image %}zoomable-image-wrapper{% endif %}" {% if product.primary_image %}onclick="openLightbox(this)"{% endif %}>
                                     {% if product.primary_image %}
                                     <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}"
@@ -205,20 +216,13 @@
                                     <span class="variant-product-name">{{ product.name }}</span>
                                     <span class="variant-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                 </div>
-                                <div class="variant-product-qty">
-                                    <div class="quantity-wrapper">
-                                        <div class="quantity-control quantity-control-sm">
-                                            <button type="button" class="qty-btn qty-minus" onclick="adjustPreorderQty(this, -1)">-</button>
-                                            <input type="number" class="qty-input" value="1" min="1" data-product-id="{{ product.id }}">
-                                            <button type="button" class="qty-btn qty-plus" onclick="adjustPreorderQty(this, 1)">+</button>
-                                        </div>
-                                        <button type="button" class="btn-add-to-cart btn-add-to-cart-sm" onclick="addToPreorderCart({{ product.id }}, '{{ product.name|e }}', {{ product.sale_price }}, this)">
-                                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                                                <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-                                            </svg>
-                                            Dodaj
-                                        </button>
-                                    </div>
+                                <div class="variant-product-action">
+                                    <button type="button" class="btn-add-to-cart btn-add-to-cart-sm" onclick="addToPreorderCart({{ product.id }}, '{{ product.name|e }}', {{ product.sale_price }}, this)">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                                        </svg>
+                                        Dodaj
+                                    </button>
                                 </div>
                             </div>
                             {% endif %}
