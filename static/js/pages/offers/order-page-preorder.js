@@ -271,6 +271,11 @@ async function submitOrder() {
 // ============================================
 // Success / Redirect
 // ============================================
+function closeSuccessAndContinue() {
+    const modal = document.getElementById('successModal');
+    if (modal) modal.classList.remove('active');
+}
+
 function redirectToOrders() {
     if (window.redirectAfterOrderUrl && window.redirectAfterOrderUrl !== '#') {
         window.location.href = window.redirectAfterOrderUrl;
