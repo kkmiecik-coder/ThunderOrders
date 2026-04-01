@@ -767,8 +767,10 @@ class Order(db.Model):
         Czy można wgrać potwierdzenie płatności za produkt.
         Dozwolone statusy obejmują różne etapy realizacji zamówienia,
         aby klient mógł wgrać potwierdzenie nawet jeśli zapomni na etapie 'oczekujace'.
+        Pre-order: 'nowe' jest dozwolone (klient płaci od razu po złożeniu).
         """
         allowed_statuses = [
+            'nowe',
             'oczekujace',
             'dostarczone_proxy',
             'w_drodze_polska',

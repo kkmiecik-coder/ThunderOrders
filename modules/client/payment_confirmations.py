@@ -81,6 +81,7 @@ def payment_confirmations():
 
     # Dozwolone statusy (te same co w Order.can_upload_product_payment)
     allowed_statuses = [
+        'nowe',
         'oczekujace',
         'dostarczone_proxy',
         'w_drodze_polska',
