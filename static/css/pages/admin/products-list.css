@@ -185,6 +185,37 @@
   border-color: #4CAF50;
 }
 
+.btn-search {
+  height: 44px;
+  width: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-search:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+[data-theme="dark"] .btn-search {
+  border-color: rgba(240, 147, 251, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .btn-search:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
 .top-bar-right {
   display: flex;
   align-items: center;
