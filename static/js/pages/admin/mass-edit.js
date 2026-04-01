@@ -39,6 +39,7 @@ const COLUMN_GROUPS = [
             { key: 'ean', label: 'EAN', type: 'text', maxlength: 13, pattern: '^[0-9]{13}$' },
             { key: 'description', label: 'Opis', type: 'textarea' },
             { key: 'tags', label: 'Tagi', type: 'text', placeholder: 'np. kpop, album, bts' },
+            { key: 'sizes', label: 'Rozmiary', type: 'text', placeholder: 'np. S, M, L, XL, 42, 43' },
             { key: 'is_active', label: 'Aktywny', type: 'checkbox' }
         ]
     },

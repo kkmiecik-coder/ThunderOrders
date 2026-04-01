@@ -3940,6 +3940,7 @@ def mass_edit_data():
             'weight': float(p.weight) if p.weight else None,
             'is_active': p.is_active,
             'tags': ','.join([t.name for t in p.tags]) if p.tags else '',
+            'sizes': ','.join([s.name for s in p.sizes]) if p.sizes else '',
             'images': images
         })
 
