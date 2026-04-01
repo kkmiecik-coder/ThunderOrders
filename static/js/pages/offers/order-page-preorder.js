@@ -354,20 +354,8 @@ function togglePasswordVisibility() {
     }
 }
 
-async function handleLogout() {
-    try {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-        await fetch('/auth/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken
-            }
-        });
-        window.location.reload();
-    } catch (e) {
-        window.location.href = '/auth/logout';
-    }
+function handleLogout() {
+    window.location.href = '/auth/logout';
 }
 
 // ============================================
