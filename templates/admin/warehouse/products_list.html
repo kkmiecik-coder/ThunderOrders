@@ -1525,4 +1525,18 @@ initImagePreviewTooltip();
 <script src="{{ url_for('static', filename='js/pages/admin/product-form-extended.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/variant-groups.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/csv-import.js') }}"></script>
+<script>
+// Debounced live search
+(function() {
+    const searchInput = document.querySelector('.toolbar-center .search-input');
+    if (!searchInput) return;
+    let debounceTimer;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            this.closest('form').submit();
+        }, 400);
+    });
+})();
+</script>
 {% endblock %}
