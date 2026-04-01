@@ -4,6 +4,9 @@
 .env
 /static/uploads/*
 !/static/uploads/achievements/
+!/static/uploads/csv/
+/static/uploads/csv/*
+!/static/uploads/csv/templates/
 /uploads/payment_confirmations
 /docs
 /*.md
