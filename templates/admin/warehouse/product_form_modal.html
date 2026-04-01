@@ -140,51 +140,6 @@
             </div>
         </div>
 
-        <!-- Sizes -->
-        <div class="form-row">
-            <div class="form-group full-width">
-                <label class="form-label">Rozmiary produktu</label>
-
-                <!-- Hidden checkboxes for form submission -->
-                <div style="display: none;">
-                    {% for size_id, size_name in form.sizes.choices %}
-                        <input type="checkbox"
-                               name="sizes"
-                               value="{{ size_id }}"
-                               id="size_{{ size_id }}"
-                               {% if form.sizes.data and size_id in form.sizes.data %}checked{% endif %}>
-                    {% endfor %}
-                </div>
-
-                <!-- Custom Sizes Input UI (reuses tags CSS classes) -->
-                <div class="tags-input-wrapper">
-                    <div class="tags-selected" id="sizesSelected">
-                        <!-- Selected sizes will appear here as badges -->
-                    </div>
-
-                    <input type="text"
-                           class="tags-search-input"
-                           id="sizesSearchInput"
-                           placeholder="Szukaj rozmiarów..."
-                           autocomplete="off"
-                           onfocus="showSizesDropdown()"
-                           oninput="filterSizes(this.value)">
-
-                    <div class="tags-dropdown" id="sizesDropdown" style="display: none;">
-                        <div class="tags-dropdown-list" id="sizesDropdownList">
-                            {% for size_id, size_name in form.sizes.choices %}
-                            <div class="tag-option size-option"
-                                 data-size-id="{{ size_id }}"
-                                 data-size-name="{{ size_name }}"
-                                 onclick="selectSize('{{ size_id }}', '{{ size_name }}')">
-                                {{ size_name }}
-                            </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Tab: Sprzedaż i magazyn -->
@@ -326,6 +281,52 @@
                 <div class="input-with-unit">
                     {{ form.weight(class="form-input", placeholder="0") }}
                     <span class="input-unit">kg</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sizes -->
+        <div class="form-row">
+            <div class="form-group full-width">
+                <label class="form-label">Rozmiary produktu</label>
+
+                <!-- Hidden checkboxes for form submission -->
+                <div style="display: none;">
+                    {% for size_id, size_name in form.sizes.choices %}
+                        <input type="checkbox"
+                               name="sizes"
+                               value="{{ size_id }}"
+                               id="size_{{ size_id }}"
+                               {% if form.sizes.data and size_id in form.sizes.data %}checked{% endif %}>
+                    {% endfor %}
+                </div>
+
+                <!-- Custom Sizes Input UI (reuses tags CSS classes) -->
+                <div class="tags-input-wrapper">
+                    <div class="tags-selected" id="sizesSelected">
+                        <!-- Selected sizes will appear here as badges -->
+                    </div>
+
+                    <input type="text"
+                           class="tags-search-input"
+                           id="sizesSearchInput"
+                           placeholder="Szukaj rozmiarów..."
+                           autocomplete="off"
+                           onfocus="showSizesDropdown()"
+                           oninput="filterSizes(this.value)">
+
+                    <div class="tags-dropdown" id="sizesDropdown" style="display: none;">
+                        <div class="tags-dropdown-list" id="sizesDropdownList">
+                            {% for size_id, size_name in form.sizes.choices %}
+                            <div class="tag-option size-option"
+                                 data-size-id="{{ size_id }}"
+                                 data-size-name="{{ size_name }}"
+                                 onclick="selectSize('{{ size_id }}', '{{ size_name }}')">
+                                {{ size_name }}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
