@@ -93,6 +93,18 @@ class Tag(db.Model):
         return f'<Tag {self.name}>'
 
 
+class Size(db.Model):
+    """Product Size"""
+    __tablename__ = 'sizes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+
+    def __repr__(self):
+        return f'<Size {self.name}>'
+
+
 class Manufacturer(db.Model):
     """Product Manufacturer"""
     __tablename__ = 'manufacturers'
@@ -216,6 +228,7 @@ class Product(db.Model):
     supplier = db.relationship('Supplier', back_populates='products')
     images = db.relationship('ProductImage', back_populates='product', lazy='dynamic', cascade='all, delete-orphan')
     tags = db.relationship('Tag', secondary='product_tags', backref='products')
+    sizes = db.relationship('Size', secondary='product_sizes', backref='products')
     variant_groups = db.relationship('VariantGroup', secondary=variant_products, backref='products')
     order_items = db.relationship('OrderItem', back_populates='product', lazy='dynamic')
 
@@ -265,6 +278,14 @@ product_tags = db.Table('product_tags',
     db.Column('product_id', db.Integer, db.ForeignKey('products.id'), nullable=False),
     db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), nullable=False),
     db.UniqueConstraint('product_id', 'tag_id', name='unique_product_tag')
+)
+
+# Junction table for Product-Size many-to-many relationship
+product_sizes = db.Table('product_sizes',
+    db.Column('id', db.Integer, primary_key=True),
+    db.Column('product_id', db.Integer, db.ForeignKey('products.id'), nullable=False),
+    db.Column('size_id', db.Integer, db.ForeignKey('sizes.id'), nullable=False),
+    db.UniqueConstraint('product_id', 'size_id', name='unique_product_size')
 )
 
 
@@ -339,6 +360,9 @@ class ProxyOrderItem(db.Model):
 
     received_quantity = db.Column(db.Integer, default=0)
 
+    # Size selection (snapshot at time of order)
+    selected_size = db.Column(db.String(50), nullable=True)
+
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     # Relationships
@@ -405,6 +429,9 @@ class PolandOrderItem(db.Model):
     # Cło/VAT
     customs_vat_percentage = db.Column(db.Numeric(5, 2), default=0.00)
     customs_vat_amount = db.Column(db.Numeric(10, 2), default=0.00)
+
+    # Size selection (snapshot at time of order)
+    selected_size = db.Column(db.String(50), nullable=True)
 
     created_at = db.Column(db.DateTime, default=get_local_now)
 

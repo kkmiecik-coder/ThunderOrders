@@ -922,6 +922,9 @@ class OrderItem(db.Model):
     is_custom = db.Column(db.Boolean, default=False)        # Flag: True = custom product (no product_id)
     is_full_set = db.Column(db.Boolean, default=False)      # Flag: True = full set from offer page
 
+    # Size selection (snapshot at time of order)
+    selected_size = db.Column(db.String(50), nullable=True)
+
     # Order details
     quantity = db.Column(db.Integer, nullable=False, default=1)
     price = db.Column(db.Numeric(10, 2), nullable=False)  # Price at time of order
@@ -972,6 +975,14 @@ class OrderItem(db.Model):
         if self.custom_name:
             return self.custom_name
         return self.product.name if self.product else 'Unknown Product'
+
+    @property
+    def product_name_with_size(self):
+        """Returns product name with size badge if applicable"""
+        name = self.product_name
+        if self.selected_size:
+            return f"{name} [{self.selected_size}]"
+        return name
 
     @property
     def product_sku(self):
