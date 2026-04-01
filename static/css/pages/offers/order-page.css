@@ -3339,19 +3339,43 @@ body.offer-page-body {
 }
 
 .offer-modal-footer-split {
-    display: flex;
+    flex-direction: row !important;
     gap: 1rem;
     justify-content: center;
+    align-items: center;
 }
 
 .offer-modal-footer-split .offer-btn-secondary {
-    flex: 1;
-    max-width: 140px;
+    flex: none;
+    width: auto;
+    padding: 12px 20px;
+    background: var(--gray-100);
+    color: var(--text-primary);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.offer-modal-footer-split .offer-btn-secondary:hover {
+    background: var(--gray-200);
 }
 
 .offer-modal-footer-split .offer-btn-submit {
-    flex: 1;
-    max-width: 200px;
+    flex: none;
+    width: auto;
+}
+
+[data-theme="dark"] .offer-modal-footer-split .offer-btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .offer-modal-footer-split .offer-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 /* ==========================================
