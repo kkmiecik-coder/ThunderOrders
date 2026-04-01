@@ -236,16 +236,31 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fafafa;
+  background: var(--card-bg);
   border-bottom: 1px solid #e0e0e0;
-  padding: 10px 20px;
-  gap: 20px;
+  padding: 12px 20px;
+  gap: 16px;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar-center {
+  flex: 1;
+  min-width: 0;
+}
+
+.toolbar-center .search-form {
+  display: flex;
+  width: 100%;
+}
+
+.toolbar-center .search-input {
+  width: 100%;
 }
 
 .toolbar-select {
@@ -2001,7 +2016,9 @@
 
 /* Toolbar */
 [data-theme="dark"] .products-toolbar {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(240, 147, 251, 0.15);
 }
 
