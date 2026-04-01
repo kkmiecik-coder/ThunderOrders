@@ -216,13 +216,13 @@ def match_product(data, match_column):
     Returns:
         Product object or None
     """
-    if match_column == 'id' and 'id' in data:
+    if match_column == 'id' and data.get('id'):
         return Product.query.get(int(data['id']))
 
-    elif match_column == 'sku' and 'sku' in data:
+    elif match_column == 'sku' and data.get('sku'):
         return Product.query.filter_by(sku=data['sku']).first()
 
-    elif match_column == 'ean' and 'ean' in data:
+    elif match_column == 'ean' and data.get('ean'):
         return Product.query.filter_by(ean=data['ean']).first()
 
     return None

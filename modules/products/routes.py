@@ -3,11 +3,13 @@ Product Routes
 CRUD operations for products, categories, tags, and suppliers
 """
 
-from flask import render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask import render_template, request, redirect, url_for, flash, jsonify, current_app, Response
 from flask_login import login_required, current_user
 from sqlalchemy import or_
 from werkzeug.utils import secure_filename
 import os
+import io
+import csv
 import shutil
 from uuid import uuid4
 
@@ -1023,6 +1025,92 @@ def bulk_duplicate():
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error duplicating products: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==========================================
+# Bulk Export Products to CSV
+# ==========================================
+@products_bp.route('/bulk-export-csv', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def bulk_export_csv():
+    """Export selected products to CSV file"""
+
+    data = request.get_json()
+    product_ids = data.get('product_ids', [])
+
+    if not product_ids:
+        return jsonify({'error': 'Nie wybrano żadnych produktów.'}), 400
+
+    try:
+        products = Product.query.filter(Product.id.in_(product_ids)).all()
+
+        if not products:
+            return jsonify({'error': 'Nie znaleziono produktów.'}), 404
+
+        # CSV columns matching import format + id
+        columns = [
+            'id', 'nazwa', 'sku', 'ean', 'kategoria', 'producent', 'seria',
+            'typ_produktu', 'cena_sprzedazy', 'cena_zakupu', 'cena_zakupu_pln',
+            'waluta_zakupu', 'marza', 'ilosc', 'dlugosc', 'szerokosc',
+            'wysokosc', 'waga', 'dostawca', 'tagi', 'opis', 'aktywny',
+            'grupa_wariantow'
+        ]
+
+        # Polish locale: semicolon delimiter, comma decimal separator
+        def fmt_decimal(val):
+            """Format Decimal with comma as decimal separator for Polish CSV"""
+            if val is None:
+                return ''
+            return str(val).replace('.', ',')
+
+        output = io.StringIO()
+        # BOM for Excel compatibility
+        output.write('\ufeff')
+        writer = csv.writer(output, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(columns)
+
+        for p in products:
+            writer.writerow([
+                p.id,
+                p.name or '',
+                p.sku or '',
+                p.ean or '',
+                p.category.name if p.category else '',
+                p.manufacturer.name if p.manufacturer else '',
+                p.series.name if p.series else '',
+                p.product_type.name if p.product_type else '',
+                fmt_decimal(p.sale_price),
+                fmt_decimal(p.purchase_price),
+                fmt_decimal(p.purchase_price_pln),
+                p.purchase_currency or '',
+                fmt_decimal(p.margin),
+                p.quantity if p.quantity is not None else '',
+                fmt_decimal(p.length),
+                fmt_decimal(p.width),
+                fmt_decimal(p.height),
+                fmt_decimal(p.weight),
+                p.supplier.name if p.supplier else '',
+                ','.join(tag.name for tag in p.tags) if p.tags else '',
+                p.description or '',
+                'true' if p.is_active else 'false',
+                ','.join(vg.name for vg in p.variant_groups) if p.variant_groups else '',
+            ])
+
+        csv_content = output.getvalue()
+        output.close()
+
+        return Response(
+            csv_content,
+            mimetype='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename=produkty_export_{len(products)}.csv'
+            }
+        )
+
+    except Exception as e:
+        current_app.logger.error(f"Error exporting products to CSV: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 
