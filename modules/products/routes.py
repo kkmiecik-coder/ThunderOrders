@@ -3753,14 +3753,17 @@ def mass_edit():
     ids_param = request.args.get('ids', '')
     if not ids_param:
         flash('Nie wybrano produktów do edycji.', 'error')
-        return redirect(url_for('products.products_list'))
+        return redirect(url_for('products.list_products'))
 
     product_ids = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
     if not product_ids:
         flash('Nieprawidłowe ID produktów.', 'error')
-        return redirect(url_for('products.products_list'))
+        return redirect(url_for('products.list_products'))
 
-    return render_template('admin/warehouse/mass_edit.html', product_ids=product_ids)
+    from modules.auth.models import Settings
+    max_images = Settings.get_value('warehouse_image_max_per_product', 10)
+
+    return render_template('admin/warehouse/mass_edit.html', product_ids=product_ids, max_images=max_images)
 
 
 @products_bp.route('/mass-edit/data')
@@ -4007,6 +4010,34 @@ def mass_edit_upload_image():
             'path_compressed': image_data['path_compressed'],
             'filename': image_data['filename']
         })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@products_bp.route('/mass-edit/delete-image', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def mass_edit_delete_image():
+    """Delete image from a product slot"""
+    from utils.image_processor import delete_image_files
+
+    data = request.get_json()
+    product_id = data.get('product_id')
+    slot = data.get('slot')
+
+    if not product_id or not slot:
+        return jsonify({'success': False, 'error': 'Brak product_id lub slot'}), 400
+
+    try:
+        existing = ProductImage.query.filter_by(product_id=product_id, sort_order=slot).first()
+        if existing:
+            delete_image_files(existing.path_original, existing.path_compressed)
+            db.session.delete(existing)
+            db.session.commit()
+
+        return jsonify({'success': True})
 
     except Exception as e:
         db.session.rollback()

@@ -24,6 +24,12 @@ let selectOptions = {};
 let maxImages = 5;
 let selectedColumns = [];
 let pendingImageUploads = {};
+let pendingImageRemovals = []; // [{productId, slot}]
+
+// Undo/Redo
+const MAX_HISTORY = 50;
+let undoStack = [];
+let redoStack = [];
 
 const COLUMN_GROUPS = [
     {
@@ -32,7 +38,8 @@ const COLUMN_GROUPS = [
             { key: 'sku', label: 'SKU', type: 'text', maxlength: 100 },
             { key: 'ean', label: 'EAN', type: 'text', maxlength: 13, pattern: '^[0-9]{13}$' },
             { key: 'description', label: 'Opis', type: 'textarea' },
-            { key: 'tags', label: 'Tagi', type: 'text', placeholder: 'np. kpop, album, bts' }
+            { key: 'tags', label: 'Tagi', type: 'text', placeholder: 'np. kpop, album, bts' },
+            { key: 'is_active', label: 'Aktywny', type: 'checkbox' }
         ]
     },
     {
@@ -59,23 +66,12 @@ const COLUMN_GROUPS = [
         columns: [
             { key: 'quantity', label: 'Ilość', type: 'number', step: '1', min: '0' },
             { key: 'supplier_id', label: 'Dostawca', type: 'select', optionsKey: 'suppliers', autoCreate: true },
-        ]
-    },
-    {
-        name: 'Wymiary',
-        columns: [
             { key: 'length', label: 'Długość (cm)', type: 'number', step: '0.01', min: '0' },
             { key: 'width', label: 'Szerokość (cm)', type: 'number', step: '0.01', min: '0' },
             { key: 'height', label: 'Wysokość (cm)', type: 'number', step: '0.01', min: '0' },
             { key: 'weight', label: 'Waga (kg)', type: 'number', step: '0.01', min: '0' },
         ]
     },
-    {
-        name: 'Status',
-        columns: [
-            { key: 'is_active', label: 'Aktywny', type: 'checkbox' }
-        ]
-    }
 ];
 
 // =============================================
@@ -84,6 +80,18 @@ const COLUMN_GROUPS = [
 
 document.addEventListener('DOMContentLoaded', function() {
     renderColumnGroups();
+
+    // Undo/Redo keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                redo();
+            } else {
+                undo();
+            }
+        }
+    });
 });
 
 function renderColumnGroups() {
@@ -94,15 +102,18 @@ function renderColumnGroups() {
         html += renderGroupHtml(group, gi);
     });
 
+    const imgCount = typeof INITIAL_MAX_IMAGES !== 'undefined' ? INITIAL_MAX_IMAGES : 10;
+    let imgItems = '';
+    for (let i = 1; i <= imgCount; i++) {
+        imgItems += `<label><input type="checkbox" class="col-checkbox" data-col="image_${i}" data-group="img"> Zdjęcie ${i}</label>`;
+    }
     html += `<div class="column-group">
         <div class="column-group-header" onclick="toggleGroup('img')">
             <input type="checkbox" id="group_img" onchange="toggleGroup('img')">
             <label for="group_img">Zdjęcia</label>
         </div>
         <div class="column-group-items" id="imageColumnsContainer">
-            <label><input type="checkbox" class="col-checkbox" data-col="image_1" data-group="img"> Zdjęcie 1</label>
-            <label><input type="checkbox" class="col-checkbox" data-col="image_2" data-group="img"> Zdjęcie 2</label>
-            <label><input type="checkbox" class="col-checkbox" data-col="image_3" data-group="img"> Zdjęcie 3</label>
+            ${imgItems}
         </div>
     </div>`;
 
@@ -147,7 +158,7 @@ function getSelectedColumns() {
 
         if (key.startsWith('image_')) {
             const slot = parseInt(key.split('_')[1]);
-            cols.push({ key: key, label: `Zdjęcie ${slot}`, type: 'image', slot: slot, width: '64px' });
+            cols.push({ key: key, label: `Zdjęcie ${slot}`, type: 'image', slot: slot, width: '90px' });
             return;
         }
 
@@ -168,6 +179,7 @@ function getSelectedColumns() {
 // =============================================
 
 function startEditing() {
+    // Capture selected columns BEFORE hiding stage 1
     selectedColumns = getSelectedColumns();
 
     if (selectedColumns.length <= 2) {
@@ -192,8 +204,7 @@ function startEditing() {
         selectOptions = data.options;
         maxImages = data.settings.max_images || 5;
 
-        updateImageColumns();
-        selectedColumns = getSelectedColumns();
+        // selectedColumns already captured before fetch — don't overwrite
 
         document.getElementById('loadingProgress').style.width = '100%';
         document.getElementById('loadingText').textContent = 'Gotowe!';
@@ -229,12 +240,11 @@ function updateImageColumns() {
 // =============================================
 
 function renderGrid() {
-    renderGridHeader();
-    renderGridBody();
-}
+    const container = document.getElementById('gridBody');
+    const colCount = selectedColumns.length;
 
-function getGridTemplateColumns() {
-    return selectedColumns.map(col => {
+    // Build one flat grid: header cells + all row cells
+    const colWidths = selectedColumns.map(col => {
         if (col.width) return col.width;
         if (col.type === 'textarea') return '200px';
         if (col.type === 'select') return '160px';
@@ -242,40 +252,36 @@ function getGridTemplateColumns() {
         if (col.type === 'checkbox') return '60px';
         return '130px';
     }).join(' ');
-}
 
-function renderGridHeader() {
-    const header = document.getElementById('gridHeader');
-    const template = getGridTemplateColumns();
-    header.style.gridTemplateColumns = template;
+    // Calculate min-width to ensure horizontal scroll
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = colWidths;
 
     let html = '';
+
+    // Header cells
     selectedColumns.forEach((col, i) => {
         const stickyClass = i === 0 ? 'sticky-col-0' : i === 1 ? 'sticky-col-1' : '';
         html += `<div class="grid-header-cell ${stickyClass}">${col.label}</div>`;
     });
-    header.innerHTML = html;
-}
 
-function renderGridBody() {
-    const body = document.getElementById('gridBody');
-    const template = getGridTemplateColumns();
-    let html = '';
-
+    // Data rows
     productsData.forEach((product, rowIndex) => {
-        html += `<div class="grid-row" id="row-${product.id}" style="grid-template-columns: ${template};">`;
-
+        const oddRow = rowIndex % 2 === 1 ? ' row-alt' : '';
         selectedColumns.forEach((col, colIndex) => {
             const stickyClass = colIndex === 0 ? 'sticky-col-0' : colIndex === 1 ? 'sticky-col-1' : '';
-            html += `<div class="grid-cell ${stickyClass}">`;
+            const rowAttr = colIndex === 0 ? ` data-row-id="${product.id}"` : '';
+            html += `<div class="grid-cell ${stickyClass}${oddRow}"${rowAttr}>`;
             html += renderCellInput(col, product, rowIndex);
             html += '</div>';
         });
-
-        html += '</div>';
     });
 
-    body.innerHTML = html;
+    container.innerHTML = html;
+
+    // Hide the separate header div (we render header inside gridBody now)
+    document.getElementById('gridHeader').style.display = 'none';
+
     attachInputListeners();
 }
 
@@ -355,8 +361,10 @@ function renderImageCell(product, slot) {
     const fileInputId = `img-${pid}-${slot}`;
 
     if (imgData) {
-        return `<div class="image-slot has-image" onclick="document.getElementById('${fileInputId}').click()">
-            <img src="/${imgData.path_compressed}" alt="">
+        const imgSrc = imgData.path_compressed.startsWith('static/') ? '/' + imgData.path_compressed : '/static/' + imgData.path_compressed;
+        return `<div class="image-slot has-image">
+            <img src="${imgSrc}" alt="" onclick="document.getElementById('${fileInputId}').click()">
+            <span class="image-remove" onclick="removeImage(${pid}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
             <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
                    onchange="handleImageSelect(${pid}, ${slot}, this)">
         </div>`;
@@ -376,6 +384,11 @@ function renderImageCell(product, slot) {
 function attachInputListeners() {
     document.querySelectorAll('#gridBody input, #gridBody textarea, #gridBody select').forEach(el => {
         if (el.type === 'file') return;
+
+        // Save undo state when field gets focus (before any edits)
+        el.addEventListener('focus', function() {
+            saveUndoState();
+        });
 
         el.addEventListener('blur', function() {
             validateCell(this);
@@ -399,6 +412,26 @@ function attachInputListeners() {
             }
         });
     });
+}
+
+function saveUndoState() {
+    undoStack.push(JSON.parse(JSON.stringify(productsData)));
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    redoStack = [];
+}
+
+function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(JSON.parse(JSON.stringify(productsData)));
+    productsData = undoStack.pop();
+    renderGrid();
+}
+
+function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(JSON.parse(JSON.stringify(productsData)));
+    productsData = redoStack.pop();
+    renderGrid();
 }
 
 function updateProductData(el) {
@@ -515,15 +548,50 @@ function handleImageSelect(productId, slot, input) {
     if (!pendingImageUploads[productId]) pendingImageUploads[productId] = {};
     pendingImageUploads[productId][slot] = file;
 
+    // Remove from pending removals if it was marked for deletion
+    pendingImageRemovals = pendingImageRemovals.filter(
+        r => !(r.productId === productId && r.slot === slot)
+    );
+
     const reader = new FileReader();
     reader.onload = function(e) {
         const slotDiv = input.parentNode;
         slotDiv.className = 'image-slot has-image';
-        slotDiv.innerHTML = `<img src="${e.target.result}" alt="">
+        slotDiv.innerHTML = `<img src="${e.target.result}" alt="" onclick="document.getElementById('img-${productId}-${slot}').click()">
+            <span class="image-remove" onclick="removeImage(${productId}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
             <input type="file" id="img-${productId}-${slot}" accept="image/*" style="display:none"
                    onchange="handleImageSelect(${productId}, ${slot}, this)">`;
     };
     reader.readAsDataURL(file);
+}
+
+function removeImage(productId, slot, event) {
+    event.stopPropagation();
+
+    // Mark for removal on save
+    if (!pendingImageRemovals.find(r => r.productId === productId && r.slot === slot)) {
+        pendingImageRemovals.push({ productId, slot });
+    }
+
+    // Remove from pending uploads if it was a new file
+    if (pendingImageUploads[productId]) {
+        delete pendingImageUploads[productId][slot];
+    }
+
+    // Remove from local product data
+    const product = productsData.find(p => p.id === productId);
+    if (product && product.images) {
+        delete product.images[String(slot)];
+    }
+
+    // Replace with empty slot
+    const fileInputId = `img-${productId}-${slot}`;
+    const slotDiv = event.target.closest('.image-slot');
+    slotDiv.className = 'image-slot empty';
+    slotDiv.setAttribute('onclick', `document.getElementById('${fileInputId}').click()`);
+    slotDiv.innerHTML = `+
+        <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
+               onchange="handleImageSelect(${productId}, ${slot}, this)">`;
 }
 
 // =============================================
@@ -644,69 +712,108 @@ function saveAll() {
         if (!data.success) throw new Error(data.error || 'Błąd zapisu');
 
         const results = data.results;
-        saveProgress.style.width = '50%';
+        saveProgress.style.width = '30%';
 
-        const imageUploads = [];
-        for (const [pid, slots] of Object.entries(pendingImageUploads)) {
-            for (const [slot, file] of Object.entries(slots)) {
-                imageUploads.push({ productId: parseInt(pid), slot: parseInt(slot), file: file });
+        // Step 2: Delete removed images
+        if (pendingImageRemovals.length > 0) {
+            saveText.textContent = 'Usuwanie zdjęć...';
+        }
+
+        let removeIdx = 0;
+        const processRemovals = () => {
+            if (removeIdx >= pendingImageRemovals.length) {
+                saveProgress.style.width = '50%';
+                processUploads();
+                return;
             }
-        }
 
-        if (imageUploads.length === 0) {
-            finishSave(results);
-            return;
-        }
+            const rem = pendingImageRemovals[removeIdx];
+            saveDetail.textContent = `Usuwanie ${removeIdx + 1} / ${pendingImageRemovals.length}`;
 
-        saveText.textContent = 'Przesyłanie zdjęć...';
-        let uploaded = 0;
+            fetch(IMAGE_DELETE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ product_id: rem.productId, slot: rem.slot })
+            })
+            .then(r => r.json())
+            .then(() => { removeIdx++; processRemovals(); })
+            .catch(() => { removeIdx++; processRemovals(); });
+        };
 
-        const uploadNext = () => {
-            if (uploaded >= imageUploads.length) {
+        // Step 3: Upload new images
+        const processUploads = () => {
+            const imageUploads = [];
+            for (const [pid, slots] of Object.entries(pendingImageUploads)) {
+                for (const [slot, file] of Object.entries(slots)) {
+                    imageUploads.push({ productId: parseInt(pid), slot: parseInt(slot), file: file });
+                }
+            }
+
+            if (imageUploads.length === 0 && pendingImageRemovals.length === 0) {
                 finishSave(results);
                 return;
             }
 
-            const item = imageUploads[uploaded];
-            saveDetail.textContent = `Zdjęcie ${uploaded + 1} / ${imageUploads.length}`;
+            if (imageUploads.length === 0) {
+                finishSave(results);
+                return;
+            }
 
-            const formData = new FormData();
-            formData.append('product_id', item.productId);
-            formData.append('slot', item.slot);
-            formData.append('image', item.file);
+            saveText.textContent = 'Przesyłanie zdjęć...';
+            let uploaded = 0;
 
-            fetch(IMAGE_UPLOAD_URL, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCsrfToken() },
-                body: formData
-            })
-            .then(r => r.json())
-            .then(imgData => {
-                if (!imgData.success) {
+            const uploadNext = () => {
+                if (uploaded >= imageUploads.length) {
+                    finishSave(results);
+                    return;
+                }
+
+                const item = imageUploads[uploaded];
+                saveDetail.textContent = `Zdjęcie ${uploaded + 1} / ${imageUploads.length}`;
+
+                const formData = new FormData();
+                formData.append('product_id', item.productId);
+                formData.append('slot', item.slot);
+                formData.append('image', item.file);
+
+                fetch(IMAGE_UPLOAD_URL, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(imgData => {
+                    if (!imgData.success) {
+                        results.errors.push({
+                            product_id: item.productId,
+                            name: `Zdjęcie ${item.slot}`,
+                            error: imgData.error
+                        });
+                        results.failed++;
+                    }
+                    uploaded++;
+                    saveProgress.style.width = (50 + (uploaded / imageUploads.length) * 50) + '%';
+                    uploadNext();
+                })
+                .catch(err => {
                     results.errors.push({
                         product_id: item.productId,
                         name: `Zdjęcie ${item.slot}`,
-                        error: imgData.error
+                        error: err.message
                     });
                     results.failed++;
-                }
-                uploaded++;
-                saveProgress.style.width = (50 + (uploaded / imageUploads.length) * 50) + '%';
-                uploadNext();
-            })
-            .catch(err => {
-                results.errors.push({
-                    product_id: item.productId,
-                    name: `Zdjęcie ${item.slot}`,
-                    error: err.message
+                    uploaded++;
+                    uploadNext();
                 });
-                results.failed++;
-                uploaded++;
-                uploadNext();
-            });
+            };
+
+            uploadNext();
         };
 
-        uploadNext();
+        processRemovals();
     })
     .catch(err => {
         saveOverlay.classList.add('hidden');
@@ -740,19 +847,29 @@ function finishSave(results) {
 }
 
 function highlightErrors(errors) {
-    document.querySelectorAll('.grid-row.row-error').forEach(r => r.classList.remove('row-error'));
-    document.querySelectorAll('.row-error-banner').forEach(b => b.remove());
+    // Clear previous error highlights
+    document.querySelectorAll('.grid-cell.cell-row-error').forEach(c => c.classList.remove('cell-row-error'));
 
     errors.forEach(err => {
-        const row = document.getElementById(`row-${err.product_id}`);
-        if (row) {
-            row.classList.add('row-error');
-            const banner = document.createElement('div');
-            banner.className = 'row-error-banner';
-            banner.textContent = `${err.name}: ${err.error}`;
-            row.appendChild(banner);
+        // Find all cells for this product and highlight them
+        const cells = document.querySelectorAll(`[data-row-id="${err.product_id}"]`);
+        if (cells.length > 0) {
+            // Highlight the first cell (ID column) of the row
+            const firstCell = cells[0];
+            firstCell.classList.add('cell-row-error');
+            firstCell.title = `${err.name}: ${err.error}`;
         }
+        // Also highlight all inputs for this product
+        document.querySelectorAll(`[data-pid="${err.product_id}"]`).forEach(input => {
+            input.classList.add('input-error');
+        });
     });
+
+    // Show summary toast with all errors
+    if (errors.length > 0 && typeof window.showToast === 'function') {
+        const summary = errors.map(e => `${e.name}: ${e.error}`).join('\n');
+        console.error('Save errors:', summary);
+    }
 }
 
 // =============================================

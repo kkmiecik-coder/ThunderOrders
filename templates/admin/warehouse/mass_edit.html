@@ -1,4 +1,4 @@
-{% extends "admin/base_admin.html" %}
+{% extends "base.html" %}
 
 {% block title %}Masowa edycja produktów{% endblock %}
 
@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/mass-edit.css') }}">
 {% endblock %}
 
-{% block content %}
+{% block body_content %}
 <div class="mass-edit-wrapper" id="massEditWrapper">
 
     <!-- Stage 1: Column Selection -->
@@ -21,7 +21,7 @@
         </div>
 
         <div class="stage-actions">
-            <a href="{{ url_for('products.products_list') }}" class="btn-cancel">Anuluj</a>
+            <a href="{{ url_for('products.list_products') }}" class="btn-cancel">Anuluj</a>
             <button class="btn-primary" id="btnStartEdit" onclick="startEditing()">Edytuj</button>
         </div>
     </div>
@@ -44,7 +44,7 @@
                 <h2>Masowa edycja — <span id="productCount">0</span> produktów</h2>
             </div>
             <div class="grid-toolbar-right">
-                <a href="{{ url_for('products.products_list') }}" class="btn-cancel">Anuluj</a>
+                <a href="{{ url_for('products.list_products') }}" class="btn-cancel">Anuluj</a>
                 <button class="btn-save" id="btnSaveAll" onclick="saveAll()">Zapisz wszystko</button>
             </div>
         </div>
@@ -74,10 +74,12 @@
 
 <script>
     const PRODUCT_IDS = {{ product_ids | tojson }};
+    const INITIAL_MAX_IMAGES = {{ max_images }};
     const DATA_URL = "{{ url_for('products.mass_edit_data') }}";
     const SAVE_URL = "{{ url_for('products.mass_edit_save') }}";
     const IMAGE_UPLOAD_URL = "{{ url_for('products.mass_edit_upload_image') }}";
-    const PRODUCTS_LIST_URL = "{{ url_for('products.products_list') }}";
+    const IMAGE_DELETE_URL = "{{ url_for('products.mass_edit_delete_image') }}";
+    const PRODUCTS_LIST_URL = "{{ url_for('products.list_products') }}";
 </script>
 <script src="{{ url_for('static', filename='js/pages/admin/mass-edit.js') }}"></script>
 {% endblock %}
