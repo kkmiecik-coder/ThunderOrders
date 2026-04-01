@@ -146,6 +146,13 @@ class ProductForm(FlaskForm):
         validators=[Optional()]
     )
 
+    # Sizes
+    sizes = SelectMultipleField(
+        'Rozmiary',
+        coerce=int,
+        validators=[Optional()]
+    )
+
     # Images
     images = MultipleFileField(
         'Zdjęcia produktu',
@@ -193,6 +200,12 @@ class ProductForm(FlaskForm):
         # Populate tag choices
         self.tags.choices = [
             (t.id, t.name) for t in Tag.query.order_by(Tag.name).all()
+        ]
+
+        # Populate size choices
+        from modules.products.models import Size
+        self.sizes.choices = [
+            (s.id, s.name) for s in Size.query.order_by(Size.name).all()
         ]
 
     def validate_sku(self, field):

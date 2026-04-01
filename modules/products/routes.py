@@ -190,6 +190,13 @@ def create_product():
                 if tag:
                     product.tags.append(tag)
 
+        # Add sizes
+        if form.sizes.data:
+            for size_id in form.sizes.data:
+                size = Size.query.get(size_id)
+                if size:
+                    product.sizes.append(size)
+
         try:
             db.session.add(product)
             db.session.commit()
@@ -292,9 +299,10 @@ def edit_product(product_id):
     # Set product_id for SKU validation
     form.product_id = product_id
 
-    # Pre-select tags
+    # Pre-select tags and sizes
     if request.method == 'GET':
         form.tags.data = [tag.id for tag in product.tags]
+        form.sizes.data = [size.id for size in product.sizes]
 
     if form.validate_on_submit():
         # Update product fields
@@ -332,6 +340,14 @@ def edit_product(product_id):
                 tag = Tag.query.get(tag_id)
                 if tag:
                     product.tags.append(tag)
+
+        # Update sizes
+        product.sizes = []
+        if form.sizes.data:
+            for size_id in form.sizes.data:
+                size = Size.query.get(size_id)
+                if size:
+                    product.sizes.append(size)
 
         try:
             db.session.commit()
@@ -975,6 +991,10 @@ def bulk_duplicate():
             # Copy tags
             for tag in original_product.tags:
                 new_product.tags.append(tag)
+
+            # Copy sizes
+            for size in original_product.sizes:
+                new_product.sizes.append(size)
 
             # Copy images - PHYSICALLY copy files to new locations
             for img in original_product.images:
@@ -4047,6 +4067,23 @@ def mass_edit_save():
                                 db.session.flush()
                             tag_objects.append(tag)
                         product.tags = tag_objects
+
+                # Sizes (comma-separated string)
+                if 'sizes' in item:
+                    size_str = item['sizes']
+                    if size_str is None or size_str == '':
+                        product.sizes = []
+                    else:
+                        size_names = [s.strip() for s in str(size_str).split(',') if s.strip()]
+                        size_objects = []
+                        for sn in size_names:
+                            size = Size.query.filter(Size.name.ilike(sn)).first()
+                            if not size:
+                                size = Size(name=sn)
+                                db.session.add(size)
+                                db.session.flush()
+                            size_objects.append(size)
+                        product.sizes = size_objects
 
             results['success'] += 1
 

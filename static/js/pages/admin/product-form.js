@@ -673,6 +673,9 @@ window.initFormSubmission = function() {
                     if (typeof initTagsSystem === 'function') {
                         initTagsSystem();
                     }
+                    if (typeof initSizesSystem === 'function') {
+                        initSizesSystem();
+                    }
                     if (typeof initFormSubmission === 'function') {
                         initFormSubmission();
                     }

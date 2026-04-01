@@ -149,6 +149,122 @@ window.removeTag = function(tagId) {
 }
 
 // ==========================================
+// Sizes System (mirrors Tags system)
+// ==========================================
+window.selectedSizes = new Set();
+
+window.initSizesSystem = function() {
+    selectedSizes.clear();
+
+    const sizesSelectedContainer = document.getElementById('sizesSelected');
+    if (sizesSelectedContainer) {
+        sizesSelectedContainer.innerHTML = '';
+    }
+
+    const allSizeOptions = document.querySelectorAll('.size-option');
+    allSizeOptions.forEach(option => {
+        option.style.display = 'block';
+    });
+
+    // Pre-select already checked sizes
+    const checkboxes = document.querySelectorAll('input[name="sizes"]');
+    checkboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+            const sizeOption = document.querySelector(`.size-option[data-size-id="${checkbox.value}"]`);
+            if (sizeOption) {
+                const sizeId = checkbox.value;
+                const sizeName = sizeOption.getAttribute('data-size-name');
+                selectedSizes.add(sizeId);
+                addSizeBadge(sizeId, sizeName);
+                sizeOption.style.display = 'none';
+            }
+        }
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const sizesWrapper = document.querySelector('.sizes-input-wrapper');
+        const dropdown = document.getElementById('sizesDropdown');
+        if (sizesWrapper && !sizesWrapper.contains(e.target)) {
+            if (dropdown) dropdown.style.display = 'none';
+        }
+    });
+};
+
+window.showSizesDropdown = function() {
+    const dropdown = document.getElementById('sizesDropdown');
+    if (dropdown) dropdown.style.display = 'block';
+};
+
+window.filterSizes = function(searchTerm) {
+    const dropdown = document.getElementById('sizesDropdown');
+    if (!dropdown) return;
+    const options = dropdown.querySelectorAll('.size-option');
+
+    dropdown.style.display = 'block';
+    searchTerm = searchTerm.toLowerCase();
+
+    options.forEach(option => {
+        const sizeName = option.getAttribute('data-size-name').toLowerCase();
+        const sizeId = option.getAttribute('data-size-id');
+
+        if (selectedSizes.has(sizeId) || (searchTerm && !sizeName.includes(searchTerm))) {
+            option.style.display = 'none';
+        } else {
+            option.style.display = 'block';
+        }
+    });
+};
+
+window.selectSize = function(sizeId, sizeName) {
+    if (selectedSizes.has(sizeId)) return;
+
+    selectedSizes.add(sizeId);
+
+    const checkbox = document.querySelector(`input[name="sizes"][value="${sizeId}"]`);
+    if (checkbox) checkbox.checked = true;
+
+    addSizeBadge(sizeId, sizeName);
+
+    const sizeOption = document.querySelector(`.size-option[data-size-id="${sizeId}"]`);
+    if (sizeOption) sizeOption.style.display = 'none';
+
+    const searchInput = document.getElementById('sizesSearchInput');
+    if (searchInput) searchInput.value = '';
+
+    const dropdown = document.getElementById('sizesDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+};
+
+function addSizeBadge(sizeId, sizeName) {
+    const sizesSelectedContainer = document.getElementById('sizesSelected');
+    if (!sizesSelectedContainer) return;
+
+    const badge = document.createElement('div');
+    badge.className = 'tag-badge';
+    badge.setAttribute('data-size-id', sizeId);
+    badge.innerHTML = `
+        <span class="tag-badge-text">${sizeName}</span>
+        <button type="button" class="tag-badge-remove" onclick="removeSize('${sizeId}')">✕</button>
+    `;
+
+    sizesSelectedContainer.appendChild(badge);
+}
+
+window.removeSize = function(sizeId) {
+    selectedSizes.delete(sizeId);
+
+    const checkbox = document.querySelector(`input[name="sizes"][value="${sizeId}"]`);
+    if (checkbox) checkbox.checked = false;
+
+    const badge = document.querySelector(`.tag-badge[data-size-id="${sizeId}"]`);
+    if (badge) badge.remove();
+
+    const sizeOption = document.querySelector(`.size-option[data-size-id="${sizeId}"]`);
+    if (sizeOption) sizeOption.style.display = 'block';
+};
+
+// ==========================================
 // Image Upload System
 // ==========================================
 window.selectedImages = [];
