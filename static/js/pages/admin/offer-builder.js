@@ -1227,7 +1227,8 @@ async function updateSetVariantGroupProducts(select) {
     productsContainer.innerHTML = '<div class="variant-products-empty">Ładowanie...</div>';
 
     try {
-        const response = await fetch(`/admin/offers/api/variant-group/${variantGroupId}`);
+        const pageType = document.querySelector('.builder-page')?.dataset?.pageType || 'exclusive';
+        const response = await fetch(`/admin/offers/api/variant-group/${variantGroupId}?page_type=${pageType}`);
         const data = await response.json();
 
         if (data.products && data.products.length > 0) {
@@ -1532,7 +1533,8 @@ async function updateVariantGroupPreview(select) {
     previewContainer.innerHTML = '<p class="text-muted">Ładowanie produktów...</p>';
 
     try {
-        const response = await fetch(`/admin/offers/api/variant-groups`);
+        const pageType = document.querySelector('.builder-page')?.dataset?.pageType || 'exclusive';
+        const response = await fetch(`/admin/offers/api/variant-groups?page_type=${pageType}`);
         const variantGroups = await response.json();
 
         // Find selected group
