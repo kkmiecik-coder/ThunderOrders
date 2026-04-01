@@ -388,6 +388,18 @@ class ProductSearchForm(FlaskForm):
         validators=[Optional()]
     )
 
+    product_type = SelectField(
+        'Typ produktu',
+        coerce=int,
+        validators=[Optional()]
+    )
+
+    supplier = SelectField(
+        'Dostawca',
+        coerce=int,
+        validators=[Optional()]
+    )
+
     tags = SelectMultipleField(
         'Tagi',
         coerce=int,
@@ -414,7 +426,7 @@ class ProductSearchForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super(ProductSearchForm, self).__init__(*args, **kwargs)
 
-        from modules.products.models import Manufacturer, ProductSeries
+        from modules.products.models import Manufacturer, ProductSeries, ProductType
 
         # Populate category choices
         self.category_id.choices = [(0, '-- Wszystkie kategorie --')] + [
@@ -429,6 +441,16 @@ class ProductSearchForm(FlaskForm):
         # Populate series choices
         self.series.choices = [(0, '-- Wszystkie serie --')] + [
             (s.id, s.name) for s in ProductSeries.query.filter_by(is_active=True).order_by(ProductSeries.name).all()
+        ]
+
+        # Populate product type choices
+        self.product_type.choices = [(0, '-- Wszystkie typy --')] + [
+            (pt.id, pt.name) for pt in ProductType.query.filter_by(is_active=True).all()
+        ]
+
+        # Populate supplier choices
+        self.supplier.choices = [(0, '-- Wszyscy dostawcy --')] + [
+            (s.id, s.name) for s in Supplier.query.filter_by(is_active=True).order_by(Supplier.name).all()
         ]
 
         # Populate tag choices

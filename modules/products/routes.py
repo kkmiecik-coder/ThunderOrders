@@ -67,6 +67,14 @@ def list_products():
     if search_form.series.data:
         query = query.filter(Product.series_id == search_form.series.data)
 
+    # Apply product type filter
+    if search_form.product_type.data:
+        query = query.filter(Product.product_type_id == search_form.product_type.data)
+
+    # Apply supplier filter
+    if search_form.supplier.data:
+        query = query.filter(Product.supplier_id == search_form.supplier.data)
+
     # Apply tags filter
     if search_form.tags.data:
         for tag_id in search_form.tags.data:
@@ -89,16 +97,21 @@ def list_products():
     sort_by = request.args.get('sort', 'created_at')
     sort_order = request.args.get('order', 'desc')
 
+    # Secondary sort by ID for consistent ordering when primary values are equal
+    id_tiebreak = Product.id.desc() if sort_order == 'desc' else Product.id.asc()
+
     if sort_by == 'name':
-        query = query.order_by(Product.name.asc() if sort_order == 'asc' else Product.name.desc())
+        primary = Product.name.asc() if sort_order == 'asc' else Product.name.desc()
     elif sort_by == 'sku':
-        query = query.order_by(Product.sku.asc() if sort_order == 'asc' else Product.sku.desc())
+        primary = Product.sku.asc() if sort_order == 'asc' else Product.sku.desc()
     elif sort_by == 'price':
-        query = query.order_by(Product.sale_price.asc() if sort_order == 'asc' else Product.sale_price.desc())
+        primary = Product.sale_price.asc() if sort_order == 'asc' else Product.sale_price.desc()
     elif sort_by == 'quantity':
-        query = query.order_by(Product.quantity.asc() if sort_order == 'asc' else Product.quantity.desc())
+        primary = Product.quantity.asc() if sort_order == 'asc' else Product.quantity.desc()
     else:  # created_at (default)
-        query = query.order_by(Product.created_at.desc() if sort_order == 'desc' else Product.created_at.asc())
+        primary = Product.created_at.desc() if sort_order == 'desc' else Product.created_at.asc()
+
+    query = query.order_by(primary, id_tiebreak)
 
     # Pagination
     page = request.args.get('page', 1, type=int)

@@ -2541,6 +2541,14 @@
   color: #333;
 }
 
+.filters-grid .form-group-tags {
+  flex: 1 1 100%;
+}
+
+.filters-grid .form-group-tags .form-input {
+  min-height: 80px;
+}
+
 /* Filters Modal - Dark Mode */
 [data-theme="dark"] .filters-modal-content {
   background: rgba(30, 30, 40, 0.98);
