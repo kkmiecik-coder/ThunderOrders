@@ -48,18 +48,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Form actions visibility control
+    // Form + form actions visibility control
     const formActions = document.querySelector('.form-actions');
+    const settingsForm = document.getElementById('settingsForm');
     const tabsWithoutForm = ['categories', 'tags', 'series', 'manufacturers', 'suppliers'];
 
     function toggleFormActions(tabName) {
-        if (formActions) {
-            if (tabsWithoutForm.includes(tabName)) {
-                formActions.style.display = 'none';
-            } else {
-                formActions.style.display = 'flex';
-            }
-        }
+        const hide = tabsWithoutForm.includes(tabName);
+        if (formActions) formActions.style.display = hide ? 'none' : 'flex';
+        if (settingsForm) settingsForm.style.display = hide ? 'none' : 'block';
     }
 
     tabs.forEach(tab => {

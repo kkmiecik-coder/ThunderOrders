@@ -281,8 +281,8 @@
                     </div>
                 </div>
 
-                <!-- Settings Form (for SKU, Images, Stock, Pricing tabs) -->
-                <form method="POST" action="{{ url_for('products.warehouse_settings') }}" class="settings-form">
+                <!-- Settings Form (for Images, Stock, Pricing tabs — hidden on other tabs by JS) -->
+                <form method="POST" action="{{ url_for('products.warehouse_settings') }}" class="settings-form" id="settingsForm" style="display: none;">
                     {{ form.hidden_tag() }}
                     <input type="hidden" name="active_tab" id="active-tab-input" value="{{ request.args.get('tab', 'categories') }}">
 
