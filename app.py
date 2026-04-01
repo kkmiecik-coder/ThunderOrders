@@ -1,5 +1,5 @@
 import sys
-if sys.platform != 'darwin':
+if sys.platform != 'darwin' and 'db' not in sys.argv and 'migrate' not in sys.argv:
     import eventlet
     eventlet.monkey_patch()
 
@@ -59,7 +59,8 @@ def create_app(config_name=None):
     executor.init_app(app)
     limiter.init_app(app)
     socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', ['https://thunderorders.cloud', 'http://localhost:5001'])
-    socketio.init_app(app, async_mode='eventlet', cors_allowed_origins=socketio_origins)
+    async_mode = 'eventlet' if 'eventlet' in sys.modules else 'threading'
+    socketio.init_app(app, async_mode=async_mode, cors_allowed_origins=socketio_origins)
 
     # OAuth (Google, Facebook login)
     from utils.oauth import init_oauth
