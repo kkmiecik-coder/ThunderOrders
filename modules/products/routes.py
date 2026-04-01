@@ -3846,13 +3846,168 @@ def mass_edit_data():
 @login_required
 @role_required('admin', 'mod')
 def mass_edit_save():
-    """Save mass-edited products — stub, implemented in Task 2"""
-    return jsonify({'success': False, 'error': 'Not implemented yet'}), 501
+    """Save mass-edited products"""
+    import re
+    from modules.products.models import Manufacturer, ProductSeries
+    from modules.products.models import Category, Supplier, Tag
+
+    try:
+        from modules.products.models import ProductType
+    except ImportError:
+        ProductType = None
+
+    data = request.get_json()
+    products_data = data.get('products', [])
+
+    if not products_data:
+        return jsonify({'success': False, 'error': 'Brak danych do zapisania'}), 400
+
+    results = {'success': 0, 'failed': 0, 'errors': []}
+
+    for item in products_data:
+        product_id = item.get('id')
+        try:
+            with db.session.begin_nested():
+                product = Product.query.get(product_id)
+                if not product:
+                    raise ValueError(f'Produkt ID {product_id} nie istnieje')
+
+                # Simple fields
+                for field in ['name', 'sku', 'ean', 'description', 'purchase_currency',
+                              'sale_price', 'purchase_price', 'purchase_price_pln',
+                              'margin', 'quantity', 'length', 'width', 'height', 'weight']:
+                    if field in item:
+                        val = item[field]
+                        if val == '' or val is None:
+                            if field == 'name':
+                                raise ValueError('Nazwa produktu jest wymagana')
+                            if field == 'sale_price':
+                                raise ValueError('Cena sprzedaży jest wymagana')
+                            val = None
+                        setattr(product, field, val)
+
+                # Boolean
+                if 'is_active' in item:
+                    product.is_active = bool(item['is_active'])
+
+                # FK fields with auto-create
+                fk_mappings = {
+                    'category_id': (Category, 'name', {}),
+                    'manufacturer_id': (Manufacturer, 'name', {}),
+                    'series_id': (ProductSeries, 'name', {}),
+                    'supplier_id': (Supplier, 'name', {}),
+                }
+
+                if ProductType:
+                    fk_mappings['product_type_id'] = (ProductType, 'name', {'slug_field': True})
+
+                for field, (model, name_attr, opts) in fk_mappings.items():
+                    if field in item:
+                        val = item[field]
+                        if val is None or val == '' or val == 0:
+                            setattr(product, field, None)
+                        elif isinstance(val, int):
+                            setattr(product, field, val)
+                        elif isinstance(val, str):
+                            existing = model.query.filter(
+                                getattr(model, name_attr).ilike(val.strip())
+                            ).first()
+                            if existing:
+                                setattr(product, field, existing.id)
+                            else:
+                                kwargs = {name_attr: val.strip()}
+                                if opts.get('slug_field') and hasattr(model, 'slug'):
+                                    kwargs['slug'] = re.sub(r'[^a-z0-9]+', '-', val.strip().lower()).strip('-')
+                                new_entity = model(**kwargs)
+                                db.session.add(new_entity)
+                                db.session.flush()
+                                setattr(product, field, new_entity.id)
+
+                # Tags (comma-separated string)
+                if 'tags' in item:
+                    tag_str = item['tags']
+                    if tag_str is None or tag_str == '':
+                        product.tags = []
+                    else:
+                        tag_names = [t.strip() for t in str(tag_str).split(',') if t.strip()]
+                        tag_objects = []
+                        for tn in tag_names:
+                            tag = Tag.query.filter(Tag.name.ilike(tn)).first()
+                            if not tag:
+                                tag = Tag(name=tn)
+                                db.session.add(tag)
+                                db.session.flush()
+                            tag_objects.append(tag)
+                        product.tags = tag_objects
+
+            results['success'] += 1
+
+        except Exception as e:
+            results['failed'] += 1
+            results['errors'].append({
+                'product_id': product_id,
+                'name': item.get('name', f'ID {product_id}'),
+                'error': str(e)
+            })
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'results': results
+    })
 
 
 @products_bp.route('/mass-edit/upload-image', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
 def mass_edit_upload_image():
-    """Upload image — stub, implemented in Task 2"""
-    return jsonify({'success': False, 'error': 'Not implemented yet'}), 501
+    """Upload single image for a product slot"""
+    from utils.image_processor import process_upload, allowed_file, delete_image_files
+
+    product_id = request.form.get('product_id', type=int)
+    slot = request.form.get('slot', type=int)
+
+    if not product_id or not slot:
+        return jsonify({'success': False, 'error': 'Brak product_id lub slot'}), 400
+
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({'success': False, 'error': 'Produkt nie istnieje'}), 404
+
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'Brak pliku'}), 400
+
+    file = request.files['image']
+    if not file.filename or not allowed_file(file.filename):
+        return jsonify({'success': False, 'error': 'Nieprawidłowy format pliku'}), 400
+
+    try:
+        upload_folder = os.path.join(current_app.config['UPLOAD_FOLDER'], 'products')
+
+        existing = ProductImage.query.filter_by(product_id=product_id, sort_order=slot).first()
+        if existing:
+            delete_image_files(existing.path_original, existing.path_compressed)
+            db.session.delete(existing)
+
+        image_data = process_upload(file, upload_folder)
+        product_image = ProductImage(
+            product_id=product_id,
+            filename=image_data['filename'],
+            path_original=image_data['path_original'],
+            path_compressed=image_data['path_compressed'],
+            is_primary=(slot == 1),
+            sort_order=slot
+        )
+        db.session.add(product_image)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'path_compressed': image_data['path_compressed'],
+            'filename': image_data['filename']
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
