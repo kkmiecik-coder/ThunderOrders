@@ -183,7 +183,7 @@ window.initSizesSystem = function() {
 
     // Close dropdown when clicking outside
     document.addEventListener('click', function(e) {
-        const sizesWrapper = document.querySelector('.sizes-input-wrapper');
+        const sizesWrapper = document.querySelector('.sizes-picker-wrapper');
         const dropdown = document.getElementById('sizesDropdown');
         if (sizesWrapper && !sizesWrapper.contains(e.target)) {
             if (dropdown) dropdown.style.display = 'none';
@@ -231,9 +231,6 @@ window.selectSize = function(sizeId, sizeName) {
 
     const searchInput = document.getElementById('sizesSearchInput');
     if (searchInput) searchInput.value = '';
-
-    const dropdown = document.getElementById('sizesDropdown');
-    if (dropdown) dropdown.style.display = 'none';
 };
 
 function addSizeBadge(sizeId, sizeName) {
