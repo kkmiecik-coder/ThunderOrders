@@ -61,7 +61,7 @@
                     <td class="col-name">
                         <div class="product-name-cell">
                             <div class="mobile-name-row">
-                                <span class="product-name">{{ item.product_name }}</span>
+                                <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
                                 <span class="mobile-badges">
                                     <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">{{ item.wms_status_name }}</span>
                                     <span class="set-badge set-badge-ok" title="Złapany">✓</span>
@@ -158,7 +158,7 @@
                     <td class="col-name">
                         <div class="product-name-cell">
                             <div class="mobile-name-row">
-                                <span class="product-name text-outside-set">{{ item.product_name }}</span>
+                                <span class="product-name text-outside-set">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
                                 <span class="mobile-badges">
                                     <span class="wms-badge" style="background-color: #9e9e9e;">—</span>
                                     <span class="set-badge set-badge-fail" title="Poza setem">✗</span>
@@ -248,7 +248,7 @@
                     <td class="col-name">
                         <div class="product-name-cell">
                             <div class="mobile-name-row">
-                                <span class="product-name text-outside-set">{{ item.product_name }}</span>
+                                <span class="product-name text-outside-set">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
                                 <span class="mobile-badges">
                                     <span class="wms-badge" style="background-color: {{ item.wms_status_color }};">{{ item.wms_status_name }}</span>
                                     <span class="set-badge set-badge-fail" title="Poza setem">✗</span>
@@ -354,6 +354,7 @@
                             <div class="mobile-name-row">
                                 <span class="product-name">
                                     {{ item.product_name }}
+                                    {% if item.selected_size %}<span class="size-badge">{{ item.selected_size }}</span>{% endif %}
                                     {% if item.is_full_set %}
                                     <span class="product-badge product-badge-full-set" title="Pełny set ze strony sprzedaży">
                                         <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">

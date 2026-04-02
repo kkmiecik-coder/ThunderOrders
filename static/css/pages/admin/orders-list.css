@@ -2949,6 +2949,22 @@
     margin: 2px 0;
 }
 
+.size-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #555;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
+[data-theme="dark"] .size-badge {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
 .item-badge-mini {
     display: inline-block;
     margin-left: 6px;
