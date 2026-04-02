@@ -371,7 +371,7 @@ async function submitOrder() {
                 window.trackOrderPlaced(data.order_number, data.total_amount, getCartItemCount(), 'preorder');
             }
         } else {
-            alert(data.error || 'Wystąpił błąd podczas składania zamówienia.');
+            alert(data.message || data.error || 'Wystąpił błąd podczas składania zamówienia.');
         }
     } catch (error) {
         console.error('Order error:', error);

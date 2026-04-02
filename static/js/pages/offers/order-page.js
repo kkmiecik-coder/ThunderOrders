@@ -760,7 +760,9 @@ async function submitOrder() {
         } else {
             let errorMessage = 'Wystąpił błąd podczas składania zamówienia.';
 
-            if (data.error === 'no_reservations') {
+            if (data.error === 'size_required') {
+                errorMessage = data.message || 'Wybierz rozmiar dla wszystkich produktów.';
+            } else if (data.error === 'no_reservations') {
                 errorMessage = 'Brak produktów w koszyku. Rezerwacja mogła wygasnąć.';
             } else if (data.error === 'insufficient_stock') {
                 errorMessage = `Produkt "${data.product_name}" nie ma wystarczającej ilości w magazynie.`;

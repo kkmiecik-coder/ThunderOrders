@@ -184,6 +184,14 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
         price = product.sale_price
         item_total = price * quantity
 
+        # Validate size selection
+        if product.sizes and not reservation.selected_size:
+            return False, {
+                'error': 'size_required',
+                'message': f'Wybierz rozmiar dla produktu: {product.name}',
+                'product_name': product.name
+            }
+
         # Calculate set_number for products that are part of a set
         item_set_number = None
         item_set_section_id = None
@@ -550,6 +558,15 @@ def place_preorder_order(page, cart_items, order_note=None):
         product = Product.query.get(item_data['product_id'])
         if not product:
             continue
+
+        # Validate size selection
+        if product.sizes and not item_data.get('selected_size'):
+            db.session.rollback()
+            return False, {
+                'error': 'size_required',
+                'message': f'Wybierz rozmiar dla produktu: {product.name}',
+                'product_name': product.name
+            }
 
         quantity = int(item_data['quantity'])
         price = product.sale_price if product.sale_price else product.price
