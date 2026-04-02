@@ -1077,7 +1077,17 @@ def bulk_export_csv():
         return jsonify({'error': 'Nie wybrano żadnych produktów.'}), 400
 
     try:
-        products = Product.query.filter(Product.id.in_(product_ids)).all()
+        from sqlalchemy.orm import joinedload
+        products = Product.query.options(
+            joinedload(Product.tags),
+            joinedload(Product.sizes),
+            joinedload(Product.variant_groups),
+            joinedload(Product.category),
+            joinedload(Product.manufacturer),
+            joinedload(Product.series),
+            joinedload(Product.product_type),
+            joinedload(Product.supplier),
+        ).filter(Product.id.in_(product_ids)).all()
 
         if not products:
             return jsonify({'error': 'Nie znaleziono produktów.'}), 404
