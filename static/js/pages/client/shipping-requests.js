@@ -227,7 +227,7 @@ function renderOrderItems(items, orderId) {
                 ${item.quantity > 1 ? `<span class="item-qty-badge">${item.quantity}</span>` : ''}
             </div>
             <div class="item-details">
-                <span class="item-name" title="${item.name}">${item.quantity}× ${truncateText(item.name, 30)}</span>
+                <span class="item-name" title="${item.name}">${item.quantity}× ${truncateText(item.name, 30)}${item.selected_size ? ` <span class="size-badge">${item.selected_size}</span>` : ''}</span>
                 <span class="item-price">${item.price.toFixed(2)} zł/szt</span>
             </div>
         </div>
@@ -243,7 +243,7 @@ function renderOrderItems(items, orderId) {
                             ${item.quantity > 1 ? `<span class="item-qty-badge">${item.quantity}</span>` : ''}
                         </div>
                         <div class="item-details">
-                            <span class="item-name" title="${item.name}">${item.quantity}× ${truncateText(item.name, 30)}</span>
+                            <span class="item-name" title="${item.name}">${item.quantity}× ${truncateText(item.name, 30)}${item.selected_size ? ` <span class="size-badge">${item.selected_size}</span>` : ''}</span>
                             <span class="item-price">${item.price.toFixed(2)} zł/szt</span>
                         </div>
                     </div>

@@ -297,6 +297,7 @@ def shipping_requests_available_orders():
                     continue
                 items_data.append({
                     'name': item.product_name,
+                    'selected_size': item.selected_size,
                     'image_url': item.product_image_url,
                     'quantity': item.quantity,
                     'price': float(item.price)
