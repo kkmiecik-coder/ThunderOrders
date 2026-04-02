@@ -432,6 +432,11 @@ window.initializeVariantGroups = function() {
         initTagsSystem();
     }
 
+    // Initialize sizes system
+    if (typeof initSizesSystem === 'function') {
+        initSizesSystem();
+    }
+
     // Make sure first tab is active
     if (typeof switchTab === 'function') {
         switchTab('product');

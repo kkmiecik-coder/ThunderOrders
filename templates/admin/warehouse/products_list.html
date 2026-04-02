@@ -1057,6 +1057,9 @@ function openProductModal(productId = null, tab = 'product') {
                     if (window.initTagsSystem) {
                         window.initTagsSystem();
                     }
+                    if (window.initSizesSystem) {
+                        window.initSizesSystem();
+                    }
                     if (window.initVariantsSystem) {
                         window.initVariantsSystem();
                     }
@@ -1134,6 +1137,9 @@ function openProductModal(productId = null, tab = 'product') {
                     }
                     if (window.initTagsSystem) {
                         window.initTagsSystem();
+                    }
+                    if (window.initSizesSystem) {
+                        window.initSizesSystem();
                     }
                     if (window.initVariantsSystem) {
                         window.initVariantsSystem();
@@ -1335,6 +1341,7 @@ async function submitProductForm() {
             setTimeout(() => {
                 if (window.initCurrencyCalculator) window.initCurrencyCalculator();
                 if (window.initTagsSystem) window.initTagsSystem();
+                if (window.initSizesSystem) window.initSizesSystem();
                 if (window.initFormSubmission) window.initFormSubmission();
                 if (window.initProductTypeToggle) window.initProductTypeToggle();
 
