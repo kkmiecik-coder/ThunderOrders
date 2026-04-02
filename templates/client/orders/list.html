@@ -264,7 +264,7 @@
                                 </div>
                                 <div class="item-details">
                                     <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
-                                        {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-bonus">GRATIS</span>{% endif %}
+                                        {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}{% if item.is_full_set %}<span class="item-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-bonus">GRATIS</span>{% endif %}
                                     </span>
                                     <span class="item-price">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} zł/szt{% endif %}</span>
                                 </div>
@@ -288,7 +288,7 @@
                                     </div>
                                     <div class="item-details">
                                         <span class="item-name{% if item.is_set_fulfilled == False %} text-outside-set{% endif %}" title="{{ item.product_name }}">
-                                            {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.is_full_set %}<span class="item-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-bonus">GRATIS</span>{% endif %}
+                                            {{ item.quantity }}× {{ item.product_name|truncate(35, True) }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}{% if item.is_full_set %}<span class="item-badge-set">SET</span>{% endif %}{% if item.is_bonus %}<span class="item-badge-bonus">GRATIS</span>{% endif %}
                                         </span>
                                         <span class="item-price">{% if item.is_bonus %}Gratis{% else %}{{ "%.2f"|format(item.price) }} zł/szt{% endif %}</span>
                                     </div>
