@@ -406,6 +406,22 @@
     white-space: nowrap;
 }
 
+.size-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #555;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+[data-theme="dark"] .size-badge {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
 .matrix-product-col .item-badge {
     margin-right: 6px;
     vertical-align: middle;

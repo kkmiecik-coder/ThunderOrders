@@ -388,6 +388,8 @@ function buildOrderCardHTML(order) {
         var name = item.product_name;
         if (name.length > 35) name = name.substring(0, 35) + '...';
 
+        var sizeBadge = item.selected_size ? ' <span class="size-badge">' + escapeHtml(item.selected_size) + '</span>' : '';
+
         var priceHTML = '';
         if (includeFinancials && item.total) {
             priceHTML = '<span class="item-price">' + parseFloat(item.total).toFixed(2) + ' PLN</span>';
@@ -395,7 +397,7 @@ function buildOrderCardHTML(order) {
 
         itemsHTML += '<div class="' + cls + '">' +
             badge +
-            '<span class="item-name">' + escapeHtml(name) + '</span>' +
+            '<span class="item-name">' + escapeHtml(name) + sizeBadge + '</span>' +
             '<span class="item-qty">x' + item.quantity + '</span>' +
             priceHTML +
             '</div>';
@@ -559,7 +561,7 @@ function renderSetsMatrix(setsData) {
                 }
                 html += '<tr>';
                 html += '<td class="matrix-product-col">';
-                html += '<span>' + escapeHtml(prod.product_name) + '</span>';
+                html += '<span>' + escapeHtml(prod.product_name) + (prod.selected_size ? ' <span class="size-badge">' + escapeHtml(prod.selected_size) + '</span>' : '') + '</span>';
                 if (prod.reserved && prod.reserved > 0) {
                     var resCustomers = (prod.reserved_customers && prod.reserved_customers.length > 0) ? prod.reserved_customers.join(', ') : '';
                     var resTitle = resCustomers || ('W rezerwacji: ' + prod.reserved);

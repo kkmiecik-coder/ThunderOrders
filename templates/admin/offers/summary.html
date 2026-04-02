@@ -251,7 +251,7 @@
                                     {% if not product.is_full_set %}
                                     <tr>
                                         <td class="matrix-product-col">
-                                            <span>{{ product.product_name }}</span>
+                                            <span>{{ product.product_name }}{% if product.selected_size %} <span class="size-badge">{{ product.selected_size }}</span>{% endif %}</span>
                                         </td>
                                         {% for slot in product.slots %}
                                         <td class="matrix-slot-col text-center">
@@ -396,7 +396,7 @@
                                     {% if product.is_bonus %}
                                     <span class="item-badge item-badge-bonus">GRATIS</span>
                                     {% endif %}
-                                    <span>{{ product.product_name }}</span>
+                                    <span>{{ product.product_name }}{% if product.selected_size %} <span class="size-badge">{{ product.selected_size }}</span>{% endif %}</span>
                                 </div>
                             </td>
                             <td class="text-center">{{ product.order_count }}</td>
