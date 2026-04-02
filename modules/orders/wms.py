@@ -118,6 +118,7 @@ def _build_session_data(session):
             items_data.append({
                 'id': item.id,
                 'product_name': item.product_name,
+                'selected_size': item.selected_size,
                 'product_sku': item.product_sku,
                 'product_image_url': item.product_image_url,
                 'quantity': item.quantity,

@@ -375,7 +375,8 @@
         info.className = 'wms-m-item-info';
         var name = document.createElement('div');
         name.className = 'wms-m-item-name';
-        name.textContent = item.product_name || '-';
+        var sizeBadge = item.selected_size ? ' [' + item.selected_size + ']' : '';
+        name.textContent = (item.product_name || '-') + sizeBadge;
         var sku = document.createElement('div');
         sku.className = 'wms-m-item-sku';
         sku.textContent = item.product_sku || '';

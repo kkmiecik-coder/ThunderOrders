@@ -766,6 +766,7 @@ def get_page_summary(page_id, include_financials=True):
             item_data = {
                 'product_id': item.product_id,
                 'product_name': item.product_name,
+                'selected_size': item.selected_size,
                 'quantity': item.quantity,
                 'price': float(item.price) if item.price else 0,
                 'total': item_total,
@@ -833,12 +834,13 @@ def get_page_summary(page_id, include_financials=True):
     products_agg = {}
     for order in orders:
         for item in order.items:
-            key = item.product_id if item.product_id else f"custom_{item.product_name}"
+            key = (item.product_id, item.selected_size) if item.product_id else f"custom_{item.product_name}"
 
             if key not in products_agg:
                 products_agg[key] = {
                     'product_id': item.product_id,
                     'product_name': item.product_name,
+                    'selected_size': item.selected_size,
                     'total_quantity': 0,
                     'fulfilled_quantity': 0,
                     'unfulfilled_quantity': 0,
@@ -1153,12 +1155,13 @@ def get_live_summary(page_id, include_financials=True):
     products_agg = {}
     for order in orders:
         for item in order.items:
-            key = item.product_id if item.product_id else f"custom_{item.product_name}"
+            key = (item.product_id, item.selected_size) if item.product_id else f"custom_{item.product_name}"
 
             if key not in products_agg:
                 products_agg[key] = {
                     'product_id': item.product_id,
                     'product_name': item.product_name,
+                    'selected_size': item.selected_size,
                     'total_quantity': 0,
                     'revenue': 0.0,
                     'order_count': 0,
@@ -1184,6 +1187,7 @@ def get_live_summary(page_id, include_financials=True):
             items_details.append({
                 'product_id': item.product_id,
                 'product_name': item.product_name,
+                'selected_size': item.selected_size,
                 'quantity': item.quantity,
                 'price': float(item.price) if item.price else 0,
                 'total': float(item.total) if item.total else 0,
@@ -1313,6 +1317,7 @@ def send_closure_emails(page_id):
             is_fulfilled = item.is_set_fulfilled if item.is_set_fulfilled is not None else True
             items.append({
                 'product_name': item.product_name,
+                'selected_size': item.selected_size,
                 'quantity': item.quantity,
                 'price': float(item.price) if item.price else 0.0,
                 'is_fulfilled': is_fulfilled,

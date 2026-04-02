@@ -2625,7 +2625,8 @@ def create_stock_orders_from_aggregation():
                 product_id=product_id,
                 quantity=quantity,
                 unit_price=unit_price,
-                total_price=total_price
+                total_price=total_price,
+                selected_size=product_data.get('selected_size')
             )
 
             db.session.add(proxy_order_item)
@@ -2701,7 +2702,8 @@ def create_group_proxy_order():
                 product_id=product.id,
                 quantity=quantity,
                 unit_price=unit_price,
-                total_price=total_price
+                total_price=total_price,
+                selected_size=item_data.get('selected_size')
             )
             db.session.add(proxy_order_item)
             db.session.flush()
@@ -2738,6 +2740,7 @@ def create_group_proxy_order():
                     proxy_order_item_id=proxy_item.id,
                     product_id=proxy_item.product_id,
                     quantity=proxy_item.quantity,
+                    selected_size=proxy_item.selected_size,
                 )
                 db.session.add(poland_item)
 
@@ -3504,7 +3507,8 @@ def create_poland_order():
                 product_id=proxy_item.product_id,
                 order_id=proxy_item.order_id,
                 quantity=proxy_item.quantity,
-                shipping_cost=shipping_cost
+                shipping_cost=shipping_cost,
+                selected_size=proxy_item.selected_size,
             )
             db.session.add(poland_item)
 
