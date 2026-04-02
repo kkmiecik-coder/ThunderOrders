@@ -238,6 +238,7 @@ def process_set_section(section, orders):
                     is_set_fulfilled=False,
                     set_section_id=section.id,
                     fulfilled_quantity=0,
+                    selected_size=order_item.selected_size,
                     picked=False,
                     picked_at=None,
                     picked_by=None

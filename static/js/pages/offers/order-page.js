@@ -3110,10 +3110,11 @@ function evaluateBonuses() {
                         <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">${removeIcon}</button>
                     </div>`;
             } else {
-                const sizeBadge = item.selectedSize ? ` <span class="size-badge">${item.selectedSize}</span>` : '';
+                const esc = s => s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
+                const sizeBadge = item.selectedSize ? ` <span class="size-badge">${esc(item.selectedSize)}</span>` : '';
                 return `
                     <div class="cart-item">
-                        <span class="cart-item-name">${item.name}${sizeBadge}</span>
+                        <span class="cart-item-name">${esc(item.name)}${sizeBadge}</span>
                         <span class="cart-item-qty">x${item.qty}</span>
                         <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
                         <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">${removeIcon}</button>
