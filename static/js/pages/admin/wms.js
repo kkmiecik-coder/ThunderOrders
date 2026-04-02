@@ -571,7 +571,9 @@
                 } else if (picked > 0) {
                     itemEl.classList.add('item-partial');
                 }
-                itemEl.textContent = item.product_name || '-';
+                var itemName = item.product_name || '-';
+                if (item.selected_size) itemName += ' [' + item.selected_size + ']';
+                itemEl.textContent = itemName;
                 itemsList.appendChild(itemEl);
             });
         }
@@ -702,7 +704,9 @@
         }
 
         // Info
-        card.querySelector('.wms-item-name').textContent = item.product_name || '-';
+        var displayName = item.product_name || '-';
+        if (item.selected_size) displayName += ' [' + item.selected_size + ']';
+        card.querySelector('.wms-item-name').textContent = displayName;
         card.querySelector('.wms-item-sku').textContent = item.product_sku || '';
 
         // Status badge
