@@ -308,6 +308,25 @@
                                                 <span class="set-item-name">{{ product.name }}</span>
                                                 <span class="set-item-price-mobile">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                             </div>
+                                            {% if product.sizes %}
+                                            <div class="size-selector size-selector-sm" data-product-id="{{ product.id }}">
+                                                <span class="size-label">Rozmiar:</span>
+                                                {% if product.sizes|length <= 6 %}
+                                                <div class="size-buttons">
+                                                    {% for size in product.sizes %}
+                                                    <button type="button" class="size-btn" data-size-name="{{ size.name }}" data-product-id="{{ product.id }}" onclick="selectProductSize(this)">{{ size.name }}</button>
+                                                    {% endfor %}
+                                                </div>
+                                                {% else %}
+                                                <select class="size-dropdown" data-product-id="{{ product.id }}" onchange="selectProductSizeDropdown(this)">
+                                                    <option value="">Wybierz</option>
+                                                    {% for size in product.sizes %}
+                                                    <option value="{{ size.name }}">{{ size.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                {% endif %}
+                                            </div>
+                                            {% endif %}
                                             <div class="set-item-qty">
                                                 <span class="set-item-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                                 <div class="quantity-wrapper">
@@ -408,6 +427,25 @@
                                     <span class="variant-product-name">{{ product.name }}</span>
                                     <span class="variant-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                 </div>
+                                {% if product.sizes %}
+                                <div class="size-selector size-selector-sm" data-product-id="{{ product.id }}">
+                                    <span class="size-label">Rozmiar:</span>
+                                    {% if product.sizes|length <= 6 %}
+                                    <div class="size-buttons">
+                                        {% for size in product.sizes %}
+                                        <button type="button" class="size-btn" data-size-name="{{ size.name }}" data-product-id="{{ product.id }}" onclick="selectProductSize(this)">{{ size.name }}</button>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <select class="size-dropdown" data-product-id="{{ product.id }}" onchange="selectProductSizeDropdown(this)">
+                                        <option value="">Wybierz</option>
+                                        {% for size in product.sizes %}
+                                        <option value="{{ size.name }}">{{ size.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                                 <div class="variant-product-qty">
                                     <div class="quantity-wrapper">
                                         <div class="quantity-control quantity-control-sm">
