@@ -560,7 +560,8 @@ def place_preorder_order(page, cart_items, order_note=None):
             product_id=product.id,
             quantity=quantity,
             price=Decimal(str(price)),
-            total=item_total
+            total=item_total,
+            selected_size=item_data.get('selected_size'),
         )
         db.session.add(order_item)
 

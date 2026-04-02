@@ -19,6 +19,23 @@ function toggleSetImage(el) {
 // ============================================
 let cart = [];
 const CART_KEY = `preorder_cart_${window.pageToken}`;
+const selectedProductSizes = {};
+
+// ============================================
+// Size Selection
+// ============================================
+function selectProductSize(btn) {
+    const productId = btn.dataset.productId;
+    const container = btn.closest('.size-selector');
+    container.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedProductSizes[productId] = btn.dataset.sizeName;
+}
+
+function selectProductSizeDropdown(select) {
+    const productId = select.dataset.productId;
+    selectedProductSizes[productId] = select.value;
+}
 
 // ============================================
 // Initialization
@@ -63,6 +80,14 @@ function adjustPreorderQty(btn, delta) {
 // Add to Cart
 // ============================================
 function addToPreorderCart(productId, productName, price, btn) {
+    // Size validation
+    const sizeSelector = document.querySelector(`.size-selector[data-product-id="${productId}"]`);
+    if (sizeSelector && !selectedProductSizes[productId]) {
+        sizeSelector.classList.add('size-required');
+        setTimeout(() => sizeSelector.classList.remove('size-required'), 1500);
+        return;
+    }
+
     const productActions = btn.closest('.product-controls-box') ||
                            btn.closest('.variant-product-action') ||
                            btn.closest('.variant-product-qty') ||
@@ -70,7 +95,8 @@ function addToPreorderCart(productId, productName, price, btn) {
     const qtyInput = productActions ? productActions.querySelector('.qty-input') : null;
     const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
 
-    const existing = cart.find(item => item.product_id === productId);
+    const selectedSize = selectedProductSizes[productId] || null;
+    const existing = cart.find(item => item.product_id === productId && item.selected_size === selectedSize);
     if (existing) {
         existing.quantity += qty;
     } else {
@@ -78,7 +104,8 @@ function addToPreorderCart(productId, productName, price, btn) {
             product_id: productId,
             name: productName,
             price: parseFloat(price),
-            quantity: qty
+            quantity: qty,
+            selected_size: selectedSize
         });
     }
 
@@ -235,10 +262,11 @@ function updateCartUI() {
                         </div>
                     `;
                 }
+                const sizeBadge = item.selected_size ? ` <span class="size-badge">${escapeHtml(item.selected_size)}</span>` : '';
                 return `
                     <div class="cart-item">
                         <div class="cart-item-info">
-                            <span class="cart-item-name">${escapeHtml(item.name)}</span>
+                            <span class="cart-item-name">${escapeHtml(item.name)}${sizeBadge}</span>
                             <span class="cart-item-price">${item.price.toFixed(2)} PLN</span>
                         </div>
                         <div class="cart-item-controls">
@@ -310,7 +338,8 @@ async function submitOrder() {
             body: JSON.stringify({
                 cart_items: cart.map(item => ({
                     product_id: item.product_id,
-                    quantity: item.quantity
+                    quantity: item.quantity,
+                    selected_size: item.selected_size || null
                 })),
                 order_note: orderNote
             })

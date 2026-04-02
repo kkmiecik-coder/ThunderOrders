@@ -119,6 +119,25 @@
                             </div>
                         </div>
                     </div>
+                    {% if section.product.sizes %}
+                    <div class="size-selector" data-product-id="{{ section.product.id }}">
+                        <span class="size-label">Rozmiar:</span>
+                        {% if section.product.sizes|length <= 6 %}
+                        <div class="size-buttons">
+                            {% for size in section.product.sizes %}
+                            <button type="button" class="size-btn" data-size-name="{{ size.name }}" data-product-id="{{ section.product.id }}" onclick="selectProductSize(this)">{{ size.name }}</button>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <select class="size-dropdown" data-product-id="{{ section.product.id }}" onchange="selectProductSizeDropdown(this)">
+                            <option value="">Wybierz rozmiar</option>
+                            {% for size in section.product.sizes %}
+                            <option value="{{ size.name }}">{{ size.name }}</option>
+                            {% endfor %}
+                        </select>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <!-- Body: obrazek wycentrowany + kontrolki po prawej -->
                     <div class="product-body">
                         <div class="product-image-area">
@@ -214,6 +233,25 @@
                                 </div>
                                 <div class="variant-product-info">
                                     <span class="variant-product-name">{{ product.name }}</span>
+                                    {% if product.sizes %}
+                                    <div class="size-selector size-selector-sm" data-product-id="{{ product.id }}">
+                                        <span class="size-label">Rozmiar:</span>
+                                        {% if product.sizes|length <= 6 %}
+                                        <div class="size-buttons">
+                                            {% for size in product.sizes %}
+                                            <button type="button" class="size-btn" data-size-name="{{ size.name }}" data-product-id="{{ product.id }}" onclick="selectProductSize(this)">{{ size.name }}</button>
+                                            {% endfor %}
+                                        </div>
+                                        {% else %}
+                                        <select class="size-dropdown" data-product-id="{{ product.id }}" onchange="selectProductSizeDropdown(this)">
+                                            <option value="">Wybierz</option>
+                                            {% for size in product.sizes %}
+                                            <option value="{{ size.name }}">{{ size.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
                                     <span class="variant-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
                                 </div>
                                 <div class="variant-product-action">
