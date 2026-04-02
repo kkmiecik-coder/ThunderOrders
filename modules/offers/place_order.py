@@ -207,6 +207,7 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
             is_full_set=(product.id in set_product_ids),
             set_section_id=item_set_section_id,
             set_number=item_set_number,
+            selected_size=reservation.selected_size,
         )
 
         db.session.add(order_item)

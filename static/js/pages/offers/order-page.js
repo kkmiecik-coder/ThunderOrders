@@ -211,6 +211,23 @@ function updateCheckoutBottomBar(totalItems, totalPrice) {
 // Cart state
 // ============================================
 let cart = [];
+const selectedProductSizes = {};
+
+// ============================================
+// Size Selection
+// ============================================
+function selectProductSize(btn) {
+    const productId = btn.dataset.productId;
+    const container = btn.closest('.size-selector');
+    container.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedProductSizes[productId] = btn.dataset.sizeName;
+}
+
+function selectProductSizeDropdown(select) {
+    const productId = select.dataset.productId;
+    selectedProductSizes[productId] = select.value;
+}
 
 function updateCart() {
     console.log('[Cart] updateCart called');
@@ -265,7 +282,7 @@ function updateCart() {
 
             if (productId && name && !isNaN(price)) {
                 console.log(`[Cart] Adding product to cart: id=${productId}, name=${name}, qty=${qty}, price=${price}`);
-                cart.push({ productId: parseInt(productId), name, qty, price, isFullSet: false });
+                cart.push({ productId: parseInt(productId), name, qty, price, isFullSet: false, selectedSize: selectedProductSizes[productId] || null });
             } else {
                 console.log(`[Cart] Skipping product: id=${productId}, name=${name}, price=${price} (qty=${qty})`);
             }
@@ -1231,6 +1248,14 @@ function increaseQtyWithReservation(btn) {
     const productSection = input.closest('.section-product, .set-item, .variant-product');
     const productId = productSection.dataset.productId;
 
+    // Size validation - require size selection before adding to cart
+    const sizeSelector = document.querySelector(`.size-selector[data-product-id="${productId}"]`);
+    if (sizeSelector && !selectedProductSizes[productId]) {
+        sizeSelector.classList.add('size-required');
+        setTimeout(() => sizeSelector.classList.remove('size-required'), 1500);
+        return;
+    }
+
     let val = parseInt(input.value) || 0;
 
     const max = input.getAttribute('max');
@@ -1301,6 +1326,7 @@ function increaseQtyWithReservation(btn) {
             session_id: reservationState.sessionId,
             product_id: productId,
             quantity: 1,
+            selected_size: selectedProductSizes[productId] || null,
         }, function(result) {
             if (result && result.success) {
                 onSuccess(result);
@@ -1316,7 +1342,8 @@ function increaseQtyWithReservation(btn) {
                 session_id: reservationState.sessionId,
                 product_id: productId,
                 quantity: 1,
-                action: val === 0 ? 'add' : 'increase'
+                action: val === 0 ? 'add' : 'increase',
+                selected_size: selectedProductSizes[productId] || null
             })
         }).then(r => {
             if (r.status === 429) {
@@ -3081,9 +3108,10 @@ function evaluateBonuses() {
                         <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">${removeIcon}</button>
                     </div>`;
             } else {
+                const sizeBadge = item.selectedSize ? ` <span class="size-badge">${item.selectedSize}</span>` : '';
                 return `
                     <div class="cart-item">
-                        <span class="cart-item-name">${item.name}</span>
+                        <span class="cart-item-name">${item.name}${sizeBadge}</span>
                         <span class="cart-item-qty">x${item.qty}</span>
                         <span class="cart-item-price">${(item.qty * item.price).toFixed(2)} PLN</span>
                         <button type="button" class="cart-item-remove" onclick="removeProductFromCart(${item.productId})" title="Usuń z koszyka">${removeIcon}</button>

@@ -2161,6 +2161,118 @@ body.offer-page-body {
     flex-shrink: 0;
 }
 
+/* ==========================================
+   Size Selector
+   ========================================== */
+.size-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    flex-wrap: wrap;
+}
+
+.size-selector-sm {
+    padding: 4px 0;
+}
+
+.size-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #555;
+    white-space: nowrap;
+}
+
+.size-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.size-btn {
+    padding: 4px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    color: #333;
+    min-width: 36px;
+    text-align: center;
+}
+
+.size-btn:hover {
+    border-color: #999;
+}
+
+.size-btn.active {
+    background: #333;
+    color: #fff;
+    border-color: #333;
+}
+
+.size-dropdown {
+    padding: 6px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    color: #333;
+}
+
+.size-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.size-required {
+    animation: sizeFlash 0.3s ease 3;
+}
+
+@keyframes sizeFlash {
+    0%, 100% { background: transparent; }
+    50% { background: rgba(245, 87, 108, 0.15); border-radius: 8px; }
+}
+
+/* Dark Mode - Size Selector */
+[data-theme="dark"] .size-label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .size-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #fff;
+}
+
+[data-theme="dark"] .size-btn:hover {
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .size-btn.active {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    border-color: transparent;
+    color: #fff;
+}
+
+[data-theme="dark"] .size-dropdown {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #fff;
+}
+
+[data-theme="dark"] .size-badge {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
 /* Dark Mode - Logout Button */
 [data-theme="dark"] .offer-logout-btn {
     background: rgba(244, 67, 54, 0.1);

@@ -576,6 +576,7 @@ class OfferReservation(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.String(500))
+    selected_size = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.BigInteger, default=lambda: int(__import__('time').time()))
 
     # Relationships

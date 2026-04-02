@@ -270,6 +270,7 @@ def reserve(token):
     session_id = data.get('session_id')
     product_id = data.get('product_id')
     quantity = data.get('quantity', 1)
+    selected_size = data.get('selected_size')
 
     if not session_id or not product_id:
         return jsonify({'success': False, 'error': 'missing_params'}), 400
@@ -333,7 +334,8 @@ def reserve(token):
         product_id=product_id,
         quantity=quantity,
         section_max=section_max,
-        user_id=current_user.id
+        user_id=current_user.id,
+        selected_size=selected_size
     )
 
     if success:

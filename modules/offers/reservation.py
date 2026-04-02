@@ -136,7 +136,7 @@ def get_user_reservation(session_id, page_id, product_id):
     ).first()
 
 
-def reserve_product(session_id, page_id, product_id, quantity, section_max=None, user_id=None):
+def reserve_product(session_id, page_id, product_id, quantity, section_max=None, user_id=None, selected_size=None):
     """
     Rezerwuje produkt (atomowo z row-level locking)
 
@@ -233,6 +233,8 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None,
         if user_reservation:
             user_reservation.quantity += quantity
             user_reservation.expires_at = expires_at
+            if selected_size:
+                user_reservation.selected_size = selected_size
         else:
             # Bezpieczne pobieranie IP/UA (SocketIO może nie mieć tych danych)
             try:
@@ -251,7 +253,8 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None,
                 expires_at=expires_at,
                 user_id=user_id,
                 ip_address=ip_addr,
-                user_agent=user_agent
+                user_agent=user_agent,
+                selected_size=selected_size
             )
             db.session.add(user_reservation)
 
