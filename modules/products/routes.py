@@ -2922,8 +2922,10 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
 
     client_orders = Order.query.filter(
         Order.payment_stages == target_stages,
-        Order.status.in_(['nowe', 'oczekujace']),
-        Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
+        or_(
+            and_(Order.order_type == 'pre_order', Order.status.in_(['nowe', 'oczekujace'])),
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.status == 'oczekujace'),
+        )
     ).all()
 
     return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_proxy')
@@ -2950,10 +2952,13 @@ def _update_client_orders_on_customs():
 
     client_orders = Order.query.filter(
         or_(
-            and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska'])),
-            and_(Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska'])),
-        ),
-        Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
+            # Pre-order: include 'nowe' (pre-orders start with 'nowe', not 'oczekujace')
+            and_(Order.order_type == 'pre_order', Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska'])),
+            and_(Order.order_type == 'pre_order', Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska'])),
+            # Exclusive/on_hand: normal flow (no 'nowe')
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska'])),
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska'])),
+        )
     ).all()
 
     return _apply_coverage_status_update(at_customs, client_orders, 'urzad_celny')
@@ -2980,10 +2985,13 @@ def _update_client_orders_on_gom_delivery():
 
     client_orders = Order.query.filter(
         or_(
-            and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska', 'urzad_celny'])),
-            and_(Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
-        ),
-        Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
+            # Pre-order: include 'nowe'
+            and_(Order.order_type == 'pre_order', Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska', 'urzad_celny'])),
+            and_(Order.order_type == 'pre_order', Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
+            # Exclusive/on_hand: normal flow
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska', 'urzad_celny'])),
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
+        )
     ).all()
 
     return _apply_coverage_status_update(delivered, client_orders, 'dostarczone_gom')
