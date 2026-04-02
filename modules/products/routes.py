@@ -2922,7 +2922,7 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
 
     client_orders = Order.query.filter(
         Order.payment_stages == target_stages,
-        Order.status == 'oczekujace',
+        Order.status.in_(['nowe', 'oczekujace']),
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
 
@@ -2950,8 +2950,8 @@ def _update_client_orders_on_customs():
 
     client_orders = Order.query.filter(
         or_(
-            and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska'])),
-            and_(Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska'])),
+            and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska'])),
+            and_(Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska'])),
         ),
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
@@ -2980,8 +2980,8 @@ def _update_client_orders_on_gom_delivery():
 
     client_orders = Order.query.filter(
         or_(
-            and_(Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska', 'urzad_celny'])),
-            and_(Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
+            and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska', 'urzad_celny'])),
+            and_(Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
         ),
         Order.order_type.in_(['pre_order', 'on_hand', 'exclusive'])
     ).all()
