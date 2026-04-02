@@ -141,7 +141,7 @@
                                             {% for item in order.items[:2] %}
                                             <div class="order-product-item">
                                                 <span class="product-qty">{{ item.quantity }}x</span>
-                                                <span class="product-name">{{ item.product_name }}</span>
+                                                <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
                                             </div>
                                             {% endfor %}
                                             {% if order.items|length > 2 %}
@@ -149,7 +149,7 @@
                                                 {% for item in order.items[2:] %}
                                                 <div class="order-product-item">
                                                     <span class="product-qty">{{ item.quantity }}x</span>
-                                                    <span class="product-name">{{ item.product_name }}</span>
+                                                    <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
                                                 </div>
                                                 {% endfor %}
                                             </div>
