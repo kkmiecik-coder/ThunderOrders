@@ -1125,11 +1125,11 @@ def bulk_export_csv():
                 fmt_decimal(p.height),
                 fmt_decimal(p.weight),
                 p.supplier.name if p.supplier else '',
-                ','.join(tag.name for tag in p.tags) if p.tags else '',
-                ','.join(s.name for s in p.sizes) if p.sizes else '',
+                ', '.join(tag.name for tag in p.tags) if p.tags else '',
+                ', '.join(s.name for s in p.sizes) if p.sizes else '',
                 p.description or '',
                 'true' if p.is_active else 'false',
-                ','.join(vg.name for vg in p.variant_groups) if p.variant_groups else '',
+                ', '.join(vg.name for vg in p.variant_groups) if p.variant_groups else '',
             ])
 
         csv_content = output.getvalue()
