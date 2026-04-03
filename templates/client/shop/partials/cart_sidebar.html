@@ -7,19 +7,21 @@
         <h3>Koszyk</h3>
         <button class="cart-sidebar-close" id="cartClose" aria-label="Zamknij koszyk">&times;</button>
     </div>
-    <div class="cart-sidebar-body" id="cartBody"></div>
+    <div class="cart-sidebar-body" id="cartBody">
+        <div class="cart-items-list" id="cartItemsList"></div>
+        <div class="cart-sidebar-empty" id="cartEmpty">
+            <div class="cart-empty-message">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+                <p>Twój koszyk jest pusty</p>
+            </div>
+            <div id="cartEmptyRecs"></div>
+        </div>
+    </div>
     <div class="cart-sidebar-footer" id="cartFooter" style="display:none;">
         <div class="cart-sidebar-total">
             <span>Suma:</span>
             <span id="cartTotal">0.00 PLN</span>
         </div>
         <a href="/client/shop/checkout" class="cart-checkout-btn">Przejdź do zamówienia</a>
-    </div>
-    <div class="cart-sidebar-empty" id="cartEmpty" style="display:none;">
-        <div class="cart-empty-message">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
-            <p>Twój koszyk jest pusty</p>
-        </div>
-        <div id="cartEmptyRecs"></div>
     </div>
 </aside>

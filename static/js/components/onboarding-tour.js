@@ -93,6 +93,8 @@
 
     function completeTour(tour) {
         tour.complete();
+        // Always set localStorage so tour doesn't repeat even if network fails
+        try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
         // Mark tour as seen via backend
         fetch('/client/tour-completed', {
             method: 'POST',
@@ -100,10 +102,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             }
-        }).catch(function() {
-            // Fallback: store in localStorage so tour doesn't repeat on network failure
-            try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
-        });
+        }).catch(function() {});
     }
 
     function getCSRFToken() {
@@ -496,7 +495,18 @@
 
         // Cleanup on complete/cancel
         tour.on('complete', function() { removeFullscreen(); });
-        tour.on('cancel', function() { removeFullscreen(); });
+        tour.on('cancel', function() {
+            removeFullscreen();
+            // Mark tour as seen when user cancels (ESC, overlay click)
+            try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
+            fetch('/client/tour-completed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            }).catch(function() {});
+        });
 
         // Responsive swap
         setupResponsiveSwap(tour);

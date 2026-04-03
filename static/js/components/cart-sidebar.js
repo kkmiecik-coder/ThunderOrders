@@ -71,8 +71,10 @@
     // ── Render ──────────────────────────────────────────────────────────
     function renderCart(items, total, count) {
         refs();
+        var itemsList = document.getElementById('cartItemsList');
         if (!items || items.length === 0) {
-            body.innerHTML = '';
+            if (itemsList) itemsList.innerHTML = '';
+            if (itemsList) itemsList.style.display = 'none';
             footer.style.display = 'none';
             empty.style.display = 'flex';
             loadRecommendations();
@@ -80,6 +82,7 @@
         }
 
         empty.style.display = 'none';
+        if (itemsList) itemsList.style.display = '';
         footer.style.display = '';
         totalEl.textContent = total.toFixed(2) + ' PLN';
 
@@ -112,7 +115,7 @@
             html += '</div>';
         });
 
-        body.innerHTML = html;
+        if (itemsList) itemsList.innerHTML = html;
     }
 
     function escapeHtml(str) {
