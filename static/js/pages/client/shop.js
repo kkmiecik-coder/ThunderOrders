@@ -91,6 +91,13 @@
         state.priceMin = params.get('price_min') || '';
         state.priceMax = params.get('price_max') || '';
 
+        // Validate price min <= max
+        if (state.priceMin && state.priceMax) {
+            var pMin = parseFloat(state.priceMin);
+            var pMax = parseFloat(state.priceMax);
+            if (pMin > pMax) { state.priceMin = state.priceMax; }
+        }
+
         // Reflect in DOM
         if (els.searchInput) els.searchInput.value = state.search;
         if (els.sortSelect) els.sortSelect.value = state.sort;

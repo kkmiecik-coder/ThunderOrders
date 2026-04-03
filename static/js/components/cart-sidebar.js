@@ -73,8 +73,10 @@
         refs();
         var itemsList = document.getElementById('cartItemsList');
         if (!items || items.length === 0) {
-            if (itemsList) itemsList.innerHTML = '';
-            if (itemsList) itemsList.style.display = 'none';
+            if (itemsList) {
+                itemsList.innerHTML = '';
+                itemsList.style.display = 'none';
+            }
             footer.style.display = 'none';
             empty.style.display = 'flex';
             loadRecommendations();
@@ -151,7 +153,8 @@
                 html += '</div>';
                 recsEl.innerHTML = html;
             })
-            .catch(function () {
+            .catch(function (err) {
+                console.warn('Failed to load cart recommendations:', err);
                 recsEl.innerHTML = '';
             });
     }
@@ -221,13 +224,8 @@
     // ── Badge update ────────────────────────────────────────────────────
     function updateBadge(count) {
         document.querySelectorAll('.cart-badge').forEach(function (badge) {
-            if (count > 0) {
-                badge.textContent = count;
-                badge.style.display = '';
-            } else {
-                badge.textContent = '';
-                badge.style.display = 'none';
-            }
+            badge.textContent = count > 0 ? count : '';
+            badge.style.display = count > 0 ? 'flex' : 'none';
         });
     }
 

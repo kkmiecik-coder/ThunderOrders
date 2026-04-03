@@ -22,6 +22,7 @@ from modules.orders.utils import generate_order_number
 from modules.auth.models import Settings, ShippingAddress
 from utils.activity_logger import log_activity
 from sqlalchemy import func, and_, or_
+from sqlalchemy.orm import joinedload
 
 
 shop_bp = Blueprint('shop', __name__)
@@ -79,7 +80,9 @@ def api_products():
     if not on_hand_type:
         return jsonify(products=[], total=0, pages=0, current_page=1)
 
-    query = Product.query.filter(
+    query = Product.query.options(
+        joinedload(Product.images), joinedload(Product.manufacturer), joinedload(Product.sizes)
+    ).filter(
         Product.product_type_id == on_hand_type.id,
         Product.is_active == True,   # noqa: E712
         Product.quantity > 0,
@@ -331,7 +334,9 @@ def _get_related(product, exclude_ids, limit=8):
     on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
     if not on_hand_type:
         return []
-    return Product.query.filter(
+    return Product.query.options(
+        joinedload(Product.images), joinedload(Product.manufacturer)
+    ).filter(
         Product.product_type_id == on_hand_type.id,
         Product.is_active == True,
         Product.quantity > 0,
@@ -360,6 +365,8 @@ def _get_also_viewed(product_id, exclude_ids, limit=8):
                 else_=1
             )
         ).label('score')
+    ).options(
+        joinedload(Product.images), joinedload(Product.manufacturer)
     ).join(
         ProductInteraction, ProductInteraction.product_id == Product.id
     ).filter(
@@ -405,13 +412,14 @@ def _get_recommendations(user_id, exclude_ids, limit=8):
         ~Product.id.in_(exclude_ids)
     ]
 
+    eager = [joinedload(Product.images), joinedload(Product.manufacturer)]
     if mfr_ids:
-        return Product.query.filter(
+        return Product.query.options(*eager).filter(
             *base_filter, Product.manufacturer_id.in_(mfr_ids)
         ).order_by(func.rand()).limit(limit).all()
     else:
         # Fallback: random on-hand products
-        return Product.query.filter(
+        return Product.query.options(*eager).filter(
             *base_filter
         ).order_by(func.rand()).limit(limit).all()
 
