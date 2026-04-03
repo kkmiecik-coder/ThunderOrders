@@ -137,7 +137,8 @@
                     </div>
                     {% endif %}
 
-                    {# E3: Cło/VAT #}
+                    {# E3: Cło/VAT (nie dotyczy on-hand) #}
+                    {% if order.order_type != 'on_hand' %}
                     {% set e3_status = order.stage_3_status %}
                     <div class="pc-payment-row">
                         <span class="pc-payment-label">Cło/VAT</span>
@@ -154,6 +155,7 @@
                             <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
                     </div>
+                    {% endif %}
 
                     {# E4: Wysyłka PL #}
                     {% set e4_status = order.stage_4_status %}
@@ -245,10 +247,12 @@
                         <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.proxy_shipping_cost or 0) }} zł</span>
                     </div>
                     {% endif %}
+                    {% if order.order_type != 'on_hand' %}
                     <div class="pc-fully-paid-stage">
                         <span class="pc-fully-paid-label">Cło/VAT</span>
                         <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.customs_vat_sale_cost or 0) }} zł</span>
                     </div>
+                    {% endif %}
                     <div class="pc-fully-paid-stage">
                         <span class="pc-fully-paid-label">Wysyłka PL</span>
                         <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.shipping_cost or 0) }} zł</span>

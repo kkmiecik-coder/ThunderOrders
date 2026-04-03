@@ -362,9 +362,7 @@
 
         if (!modal) return;
 
-        // Re-read current selection instead of stale dataset to respect
-        // any checkboxes the user toggled after opening the modal
-        const orderIds = getSelectedOrderIds();
+        const orderIds = JSON.parse(modal.dataset.orderIds || '[]');
 
         if (orderIds.length === 0) {
             showToast('Brak wybranych zamówień', 'error');
@@ -399,12 +397,19 @@
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                showToast(result.message, 'success');
+                const deleted = result.deleted_count || 0;
                 if (modal) {
                     closeBulkDeleteModal();
                 }
-                // Reload page to show changes
-                window.location.reload();
+                if (deleted > 0) {
+                    showToast(result.message, 'success');
+                    // Delay reload so the user can see the toast
+                    setTimeout(() => window.location.reload(), 1200);
+                } else {
+                    // Nothing was actually deleted (e.g. WMS blocked)
+                    showToast(result.message || 'Nie usunięto żadnych zamówień', 'warning');
+                    resetDeleteButton();
+                }
             } else {
                 showToast(result.message || 'Błąd podczas usuwania', 'error');
                 resetDeleteButton();

@@ -80,6 +80,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
      * Zwraca listę etapów dla danego zamówienia (zależy od payment_stages).
      * payment_stages == 4 (Proxy): product → korean_shipping → customs_vat → domestic_shipping
      * payment_stages == 3 (Polska): product → customs_vat → domestic_shipping
+     * payment_stages == 2 (On-hand): product → domestic_shipping
      */
     function getStagesForOrder(paymentStages) {
         if (paymentStages === 4) {
@@ -87,6 +88,12 @@ window.toggleOrderItems = function(orderId, totalItems) {
                 { id: 'product', name: 'Produkty' },
                 { id: 'korean_shipping', name: 'Wysyłka KR' },
                 { id: 'customs_vat', name: 'Cło i VAT' },
+                { id: 'domestic_shipping', name: 'Wysyłka PL' }
+            ];
+        }
+        if (paymentStages === 2) {
+            return [
+                { id: 'product', name: 'Produkty' },
                 { id: 'domestic_shipping', name: 'Wysyłka PL' }
             ];
         }
