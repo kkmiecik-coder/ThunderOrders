@@ -1,10 +1,11 @@
 """
 Client Shop Module
-On-hand product shop - browsing, filtering, and product grid API.
+On-hand product shop - browsing, filtering, cart, and checkout.
 """
 
 import re
 import unicodedata
+from decimal import Decimal
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from extensions import db
@@ -13,6 +14,13 @@ from modules.products.models import (
     CartItem, ProductInteraction,
     variant_products, product_sizes,
 )
+from modules.orders.models import (
+    Order, OrderItem, OrderType,
+    ShippingRequest, ShippingRequestOrder, ShippingRequestStatus,
+)
+from modules.orders.utils import generate_order_number
+from modules.auth.models import Settings, ShippingAddress
+from utils.activity_logger import log_activity
 from sqlalchemy import func, and_, or_
 
 
@@ -568,3 +576,206 @@ def api_cart_count():
     """Return cart badge count."""
     count = _get_cart_count(current_user.id)
     return jsonify(count=count)
+
+
+# ---------------------------------------------------------------------------
+# Checkout helpers
+# ---------------------------------------------------------------------------
+
+def _get_initial_shipping_status():
+    """Determine the initial status slug for a new shipping request."""
+    setting = Settings.query.filter_by(key='shipping_request_default_status').first()
+    if setting and setting.value:
+        status = ShippingRequestStatus.query.filter_by(slug=setting.value, is_active=True).first()
+        if status:
+            return status.slug
+    status = ShippingRequestStatus.query.filter_by(is_initial=True, is_active=True).first()
+    if status:
+        return status.slug
+    status = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).first()
+    return status.slug if status else 'nowe'
+
+
+# ---------------------------------------------------------------------------
+# Checkout routes
+# ---------------------------------------------------------------------------
+
+@shop_bp.route('/client/shop/checkout')
+@login_required
+def checkout():
+    """Render checkout page."""
+    items = CartItem.query.filter_by(user_id=current_user.id).all()
+    if not items:
+        return redirect(url_for('shop.index'))
+
+    addresses = ShippingAddress.query.filter_by(
+        user_id=current_user.id,
+        is_active=True,
+    ).all()
+
+    return render_template('client/shop/checkout.html', addresses=addresses)
+
+
+@shop_bp.route('/client/shop/checkout/place', methods=['POST'])
+@login_required
+def checkout_place():
+    """Place order (AJAX). Validate stock, create order + optional shipping request."""
+    data = request.get_json(silent=True) or {}
+    create_shipping = data.get('create_shipping', False)
+    address_id = data.get('address_id')
+
+    # 1. Get cart items
+    items = CartItem.query.filter_by(user_id=current_user.id).all()
+    if not items:
+        return jsonify(success=False, error='Koszyk jest pusty.'), 400
+
+    # 2. Validate stock for ALL items — collect every error
+    stock_errors = []
+    for item in items:
+        product = item.product
+        if not product or not product.is_active:
+            stock_errors.append({
+                'product_id': item.product_id,
+                'error': 'Produkt nie istnieje lub jest nieaktywny.',
+                'available': 0,
+            })
+            continue
+        if product.quantity == 0:
+            stock_errors.append({
+                'product_id': product.id,
+                'error': f'{product.name} — wyprzedany.',
+                'available': 0,
+            })
+            continue
+        if product.quantity < item.quantity:
+            stock_errors.append({
+                'product_id': product.id,
+                'error': f'{product.name} — dostępne tylko {product.quantity} szt.',
+                'available': product.quantity,
+            })
+
+    if stock_errors:
+        return jsonify(success=False, stock_errors=stock_errors), 400
+
+    # 3. Shipping validation
+    address = None
+    if create_shipping:
+        if not address_id:
+            return jsonify(success=False, error='Wybierz adres dostawy.'), 400
+        address = ShippingAddress.query.filter_by(
+            id=address_id,
+            user_id=current_user.id,
+            is_active=True,
+        ).first()
+        if not address:
+            return jsonify(success=False, error='Wybrany adres nie istnieje.'), 400
+
+    # 4. Create order
+    try:
+        order_number = generate_order_number('on_hand')
+        total = sum(
+            (item.product.sale_price or Decimal('0')) * item.quantity
+            for item in items
+            if item.product
+        )
+
+        order = Order(
+            order_number=order_number,
+            user_id=current_user.id,
+            order_type='on_hand',
+            status='nowe',
+            total_amount=total,
+        )
+        db.session.add(order)
+        db.session.flush()  # get order.id
+
+        # 5. Create order items, decrease stock, record interaction
+        for item in items:
+            product = item.product
+            selected_size = product.sizes[0].name if product.sizes else None
+
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=product.id,
+                quantity=item.quantity,
+                price=product.sale_price,
+                total=(product.sale_price or Decimal('0')) * item.quantity,
+                selected_size=selected_size,
+            )
+            db.session.add(order_item)
+
+            product.quantity -= item.quantity
+
+            interaction = ProductInteraction(
+                user_id=current_user.id,
+                product_id=product.id,
+                interaction_type='purchase',
+            )
+            db.session.add(interaction)
+
+        # 6. Optional shipping request
+        shipping_request_number = None
+        if create_shipping and address:
+            initial_status = _get_initial_shipping_status()
+            sr = ShippingRequest(
+                request_number=ShippingRequest.generate_request_number(),
+                user_id=current_user.id,
+                status=initial_status,
+                address_type=address.address_type,
+                shipping_name=address.shipping_name,
+                shipping_address=address.shipping_address,
+                shipping_postal_code=address.shipping_postal_code,
+                shipping_city=address.shipping_city,
+                shipping_voivodeship=address.shipping_voivodeship,
+                shipping_country=address.shipping_country,
+                pickup_courier=address.pickup_courier,
+                pickup_point_id=address.pickup_point_id,
+                pickup_address=address.pickup_address,
+                pickup_postal_code=address.pickup_postal_code,
+                pickup_city=address.pickup_city,
+            )
+            db.session.add(sr)
+            db.session.flush()
+
+            sro = ShippingRequestOrder(
+                shipping_request_id=sr.id,
+                order_id=order.id,
+            )
+            db.session.add(sro)
+            shipping_request_number = sr.request_number
+
+        # 7. Clear cart
+        CartItem.query.filter_by(user_id=current_user.id).delete()
+
+        db.session.commit()
+
+        # 8. Log activity
+        log_activity(
+            user=current_user,
+            action='order_created',
+            entity_type='order',
+            entity_id=order.id,
+            new_value={'order_number': order_number, 'total': float(total)},
+        )
+
+        return jsonify(
+            success=True,
+            order_id=order.id,
+            order_number=order_number,
+            shipping_request_number=shipping_request_number,
+            redirect_url=url_for('shop.order_success', order_id=order.id),
+        )
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify(success=False, error=f'Wystąpił błąd: {str(e)}'), 500
+
+
+@shop_bp.route('/client/shop/order-success/<int:order_id>')
+@login_required
+def order_success(order_id):
+    """Show order success page."""
+    order = Order.query.get_or_404(order_id)
+    if order.user_id != current_user.id:
+        return redirect(url_for('shop.index'))
+    return render_template('client/shop/success.html', order=order)

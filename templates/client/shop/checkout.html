@@ -1,0 +1,76 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/shop-checkout.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="checkout-page">
+    <!-- Back link -->
+    <a href="{{ url_for('shop.index') }}" class="checkout-back-link">
+        <i class="fas fa-arrow-left"></i> Wróć do sklepu
+    </a>
+
+    <h1 class="checkout-title">Podsumowanie zamówienia</h1>
+
+    <div class="checkout-layout">
+        <!-- Left: items list -->
+        <div class="checkout-items-section">
+            <div class="checkout-items-list" id="checkoutItemsList">
+                <!-- Populated by JS -->
+            </div>
+            <div class="checkout-items-loading" id="checkoutLoading">
+                <i class="fas fa-spinner fa-spin"></i> Ładowanie...
+            </div>
+        </div>
+
+        <!-- Right: summary sidebar -->
+        <aside class="checkout-sidebar">
+            <div class="checkout-summary-card">
+                <h2 class="checkout-summary-title">Podsumowanie</h2>
+
+                <div class="checkout-summary-row">
+                    <span>Produkty:</span>
+                    <span id="summaryCount">0 szt.</span>
+                </div>
+                <div class="checkout-summary-row checkout-summary-total">
+                    <span>Razem:</span>
+                    <span id="summaryTotal">0,00 PLN</span>
+                </div>
+
+                <hr class="checkout-divider">
+
+                <!-- Shipping toggle -->
+                <label class="checkout-shipping-toggle">
+                    <input type="checkbox" id="createShippingCheckbox">
+                    <span class="checkout-shipping-label">Stwórz zlecenie wysyłki</span>
+                </label>
+
+                <!-- Address picker (hidden by default) -->
+                <div class="checkout-address-picker" id="addressPicker" style="display:none;">
+                    <label for="addressSelect" class="checkout-address-label">Adres dostawy</label>
+                    <select id="addressSelect" class="checkout-address-select">
+                        <option value="">Wybierz adres...</option>
+                        {% for addr in addresses %}
+                        <option value="{{ addr.id }}">{{ addr.display_name }} — {{ addr.full_address }}</option>
+                        {% endfor %}
+                    </select>
+                    <a href="{{ url_for('client.shipping_addresses') }}" class="checkout-address-add-link">
+                        <i class="fas fa-plus"></i> Dodaj nowy adres
+                    </a>
+                </div>
+
+                <button type="button" id="placeOrderBtn" class="checkout-place-btn" disabled>
+                    <i class="fas fa-check"></i> Złóż zamówienie
+                </button>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/pages/client/shop-checkout.js') }}"></script>
+{% endblock %}

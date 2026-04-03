@@ -1,0 +1,26 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/shop-checkout.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="success-page">
+    <div class="success-card">
+        <div class="success-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <h1 class="success-title">Zamówienie złożone pomyślnie!</h1>
+        <p class="success-order-number">Numer zamówienia: <strong>{{ order.order_number }}</strong></p>
+        <div class="success-actions">
+            <a href="{{ url_for('client.payment_confirmations') }}" class="success-btn success-btn-primary">
+                <i class="fas fa-upload"></i> Wgraj potwierdzenie płatności
+            </a>
+            <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="success-btn success-btn-secondary">
+                <i class="fas fa-eye"></i> Szczegóły zamówienia
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
