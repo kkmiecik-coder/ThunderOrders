@@ -506,6 +506,17 @@
     box-shadow: 0 2px 10px rgba(124, 58, 237, 0.25);
 }
 
+.shop-product-add-btn--added {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+}
+
+.shop-product-add-btn--added:hover {
+    background: #10b981;
+    border-color: #10b981;
+}
+
 /* --- Empty state --- */
 .shop-empty {
     text-align: center;
@@ -803,6 +814,14 @@
     border-color: rgba(74, 222, 128, 0.6);
     color: rgba(74, 222, 128, 1);
     box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
+}
+
+[data-theme="dark"] .shop-product-add-btn--added,
+[data-theme="dark"] .shop-product-add-btn--added:hover {
+    background: rgba(74, 222, 128, 0.2);
+    border-color: rgba(74, 222, 128, 0.6);
+    color: rgba(74, 222, 128, 1);
+    box-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
 }
 
 /* Empty & loading — dark */

@@ -488,8 +488,11 @@
             var productId = btn.getAttribute('data-product-id');
             if (!productId) return;
 
+            var cartSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
+            var defaultHtml = cartSvg + '<span>Dodaj</span>';
+
             btn.disabled = true;
-            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
 
             fetch('/client/shop/api/cart/add', {
                 method: 'POST',
@@ -501,20 +504,26 @@
             })
             .then(function (res) { return res.json(); })
             .then(function (data) {
-                btn.disabled = false;
-                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
-
                 if (data.success) {
                     if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
                     if (data.cart_count != null) updateCartBadge(data.cart_count);
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg><span>Dodano!</span>';
+                    btn.classList.add('shop-product-add-btn--added');
+                    setTimeout(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = defaultHtml;
+                        btn.classList.remove('shop-product-add-btn--added');
+                    }, 3000);
                 } else {
-                    if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udalo sie dodac do koszyka', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = defaultHtml;
+                    if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udało się dodać do koszyka', 'error');
                 }
             })
             .catch(function () {
                 btn.disabled = false;
-                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
-                if (typeof window.showToast === 'function') window.showToast('Blad polaczenia', 'error');
+                btn.innerHTML = defaultHtml;
+                if (typeof window.showToast === 'function') window.showToast('Błąd połączenia', 'error');
             });
         });
     }
