@@ -38,15 +38,23 @@
         filtersToggle: document.getElementById('shopFiltersToggle'),
         filters: document.getElementById('shopFilters'),
         filtersMobileClose: document.getElementById('shopFiltersMobileClose'),
-        emptyClearBtn: document.getElementById('shopEmptyClearBtn'),
-        filterActions: document.getElementById('filterActions')
+        emptyClearBtn: document.getElementById('shopEmptyClearBtn')
     };
 
-    function showFilterActions() {
-        if (els.filterActions) els.filterActions.style.display = 'flex';
+    // Show "Filtruj" when pending filter changes exist (price/size changed but not applied)
+    function showApplyBtn() {
+        if (els.applyBtn) els.applyBtn.style.display = '';
     }
-    function hideFilterActions() {
-        if (els.filterActions) els.filterActions.style.display = 'none';
+    function hideApplyBtn() {
+        if (els.applyBtn) els.applyBtn.style.display = 'none';
+    }
+
+    // Show "Wyczyść" when any filters are actively applied
+    function updateClearBtn() {
+        var hasFilters = state.category || state.size || state.search ||
+            (state.priceMin && state.priceMin !== els.priceMin?.min) ||
+            (state.priceMax && state.priceMax !== els.priceMax?.max);
+        if (els.clearBtn) els.clearBtn.style.display = hasFilters ? '' : 'none';
     }
 
     // ---- CSRF Token ----
@@ -142,8 +150,8 @@
         priceTrack.style.width = (rightPct - leftPct) + '%';
     }
 
-    if (els.priceMin) els.priceMin.addEventListener('input', function() { updatePriceLabels(); showFilterActions(); });
-    if (els.priceMax) els.priceMax.addEventListener('input', function() { updatePriceLabels(); showFilterActions(); });
+    if (els.priceMin) els.priceMin.addEventListener('input', function() { updatePriceLabels(); showApplyBtn(); });
+    if (els.priceMax) els.priceMax.addEventListener('input', function() { updatePriceLabels(); showApplyBtn(); });
 
     // ---- Render product card ----
     function renderCard(p) {
@@ -344,6 +352,7 @@
 
             state.page = 1;
             fetchProducts();
+            updateClearBtn();
         });
     }
 
@@ -362,7 +371,7 @@
             if (!isActive) {
                 btn.classList.add('active');
             }
-            showFilterActions();
+            showApplyBtn();
         });
     }
 
@@ -379,7 +388,7 @@
 
             state.page = 1;
             fetchProducts();
-            hideFilterActions();
+            hideApplyBtn(); updateClearBtn();
 
             // Close mobile filters
             if (els.filters) els.filters.classList.remove('open');
@@ -414,7 +423,7 @@
         }
 
         fetchProducts();
-        hideFilterActions();
+        hideApplyBtn(); updateClearBtn();
     }
 
     if (els.clearBtn) els.clearBtn.addEventListener('click', clearAllFilters);
@@ -426,6 +435,7 @@
             state.search = els.searchInput ? els.searchInput.value.trim() : '';
             state.page = 1;
             fetchProducts();
+            updateClearBtn();
         });
     }
 
@@ -436,6 +446,7 @@
                 state.search = els.searchInput.value.trim();
                 state.page = 1;
                 fetchProducts();
+                updateClearBtn();
             }
         });
     }
@@ -522,5 +533,6 @@
     readUrlParams();
     fetchFilters();
     fetchProducts();
+    updateClearBtn();
 
 })();
