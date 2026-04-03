@@ -58,16 +58,43 @@
     <div class="sr-tab-layout">
         <!-- Status Filter Sidebar -->
         <aside class="sr-status-sidebar">
+            <!-- Order type filter -->
+            <div class="sr-status-sidebar-header">
+                <h3>Typ zamówienia</h3>
+            </div>
+            <div class="sr-status-list sr-type-list">
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter) }}"
+                   class="sr-status-item {% if not order_type_filter %}active{% endif %}">
+                    <span class="sr-status-name">Wszystkie</span>
+                </a>
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='on_hand') }}"
+                   class="sr-status-item {% if order_type_filter == 'on_hand' %}active{% endif %}">
+                    <span class="sr-status-dot" style="background-color: #10b981;"></span>
+                    <span class="sr-status-name">On-hand</span>
+                </a>
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='exclusive') }}"
+                   class="sr-status-item {% if order_type_filter == 'exclusive' %}active{% endif %}">
+                    <span class="sr-status-dot" style="background-color: #f59e0b;"></span>
+                    <span class="sr-status-name">Exclusive</span>
+                </a>
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=sr_status_filter, order_type='pre_order') }}"
+                   class="sr-status-item {% if order_type_filter == 'pre_order' %}active{% endif %}">
+                    <span class="sr-status-dot" style="background-color: #6366f1;"></span>
+                    <span class="sr-status-name">Pre-order</span>
+                </a>
+            </div>
+
+            <!-- Status filter -->
             <div class="sr-status-sidebar-header">
                 <h3>Statusy</h3>
             </div>
             <div class="sr-status-list">
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', order_type=order_type_filter) }}"
                    class="sr-status-item {% if not sr_status_filter %}active{% endif %}">
                     <span class="sr-status-name">Wszystkie</span>
                 </a>
                 {% for status in sr_statuses %}
-                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug) }}"
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping', status=status.slug, order_type=order_type_filter) }}"
                    class="sr-status-item {% if sr_status_filter == status.slug %}active{% endif %}">
                     <span class="sr-status-dot" style="background-color: {{ status.badge_color }};"></span>
                     <span class="sr-status-name">{{ status.name }}</span>
@@ -83,6 +110,9 @@
                 <input type="hidden" name="tab" value="shipping">
                 {% if sr_status_filter %}
                 <input type="hidden" name="status" value="{{ sr_status_filter }}">
+                {% endif %}
+                {% if order_type_filter %}
+                <input type="hidden" name="order_type" value="{{ order_type_filter }}">
                 {% endif %}
                 <div class="input-icon-wrapper">
                     <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -255,7 +285,7 @@
             <div class="pagination-wrapper">
                 <nav class="pagination">
                     {% if sr_pagination.has_prev %}
-                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.prev_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
+                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.prev_num, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}" class="pagination-btn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M15 18l-6-6 6-6"/>
                         </svg>
@@ -264,7 +294,7 @@
 
                     {% for page_num in sr_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                         {% if page_num %}
-                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=page_num, status=sr_status_filter, search=sr_search) }}"
+                            <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=page_num, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}"
                                class="pagination-btn {% if page_num == sr_pagination.page %}active{% endif %}">
                                 {{ page_num }}
                             </a>
@@ -274,7 +304,7 @@
                     {% endfor %}
 
                     {% if sr_pagination.has_next %}
-                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.next_num, status=sr_status_filter, search=sr_search) }}" class="pagination-btn">
+                    <a href="{{ url_for('orders.wms_dashboard', tab='shipping', page=sr_pagination.next_num, status=sr_status_filter, order_type=order_type_filter, search=sr_search) }}" class="pagination-btn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M9 18l6-6-6-6"/>
                         </svg>
