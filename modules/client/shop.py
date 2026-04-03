@@ -5,11 +5,12 @@ On-hand product shop - browsing, filtering, and product grid API.
 
 import re
 import unicodedata
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from extensions import db
 from modules.products.models import (
     Product, ProductType, ProductImage, Size, Manufacturer,
+    CartItem, ProductInteraction,
     variant_products, product_sizes,
 )
 from sqlalchemy import func, and_, or_
@@ -238,3 +239,163 @@ def api_filters():
         price_min=float(price_range[0]) if price_range and price_range[0] else 0,
         price_max=float(price_range[1]) if price_range and price_range[1] else 0,
     )
+
+
+# ---------------------------------------------------------------------------
+# Product detail
+# ---------------------------------------------------------------------------
+
+@shop_bp.route('/client/shop/product/<int:product_id>-<path:slug>')
+@shop_bp.route('/client/shop/product/<int:product_id>')
+@login_required
+def product_detail(product_id, slug=None):
+    """Product detail page."""
+    product = Product.query.get_or_404(product_id)
+
+    # Verify it's an on-hand product
+    if not product.product_type or product.product_type.slug != 'on_hand':
+        return redirect(url_for('shop.index'))
+
+    # Record view interaction
+    interaction = ProductInteraction(
+        user_id=current_user.id,
+        product_id=product.id,
+        interaction_type='view'
+    )
+    db.session.add(interaction)
+    db.session.commit()
+
+    # Get variant group products
+    variants = _get_variants(product)
+
+    # Related products (same manufacturer, exclude current + variants)
+    exclude_ids = [product.id] + [v.id for v in variants]
+    related = _get_related(product, exclude_ids)
+
+    # "Others also viewed" — collaborative filtering
+    also_viewed = _get_also_viewed(product.id, exclude_ids)
+
+    # "You might like" — personalized recommendations
+    all_exclude = exclude_ids + [p.id for p in related] + [p.id for p in also_viewed]
+    might_like = _get_recommendations(current_user.id, all_exclude)
+
+    return render_template('client/shop/product.html',
+                           product=product,
+                           variants=variants,
+                           related=related,
+                           also_viewed=also_viewed,
+                           might_like=might_like,
+                           slugify=slugify)
+
+
+# ---------------------------------------------------------------------------
+# Recommendation helpers
+# ---------------------------------------------------------------------------
+
+def _get_variants(product):
+    """Get other products in the same variant group."""
+    row = db.session.query(variant_products.c.variant_group_id).filter(
+        variant_products.c.product_id == product.id
+    ).first()
+    if not row:
+        return []
+    group_id = row[0]
+    variant_ids = [r[0] for r in db.session.query(variant_products.c.product_id).filter(
+        variant_products.c.variant_group_id == group_id,
+        variant_products.c.product_id != product.id
+    ).all()]
+    if not variant_ids:
+        return []
+    return Product.query.filter(Product.id.in_(variant_ids), Product.is_active == True).all()
+
+
+def _get_related(product, exclude_ids, limit=8):
+    """Products from same manufacturer."""
+    if not product.manufacturer_id:
+        return []
+    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    if not on_hand_type:
+        return []
+    return Product.query.filter(
+        Product.product_type_id == on_hand_type.id,
+        Product.is_active == True,
+        Product.quantity > 0,
+        Product.manufacturer_id == product.manufacturer_id,
+        ~Product.id.in_(exclude_ids)
+    ).limit(limit).all()
+
+
+def _get_also_viewed(product_id, exclude_ids, limit=8):
+    """Collaborative filtering: users who viewed this also viewed X."""
+    viewer_ids = db.session.query(ProductInteraction.user_id).filter(
+        ProductInteraction.product_id == product_id,
+        ProductInteraction.interaction_type.in_(['view', 'purchase'])
+    ).distinct().subquery()
+
+    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    if not on_hand_type:
+        return []
+
+    results = db.session.query(
+        Product,
+        func.sum(
+            db.case(
+                (ProductInteraction.interaction_type == 'purchase', 5),
+                (ProductInteraction.interaction_type == 'cart_add', 3),
+                else_=1
+            )
+        ).label('score')
+    ).join(
+        ProductInteraction, ProductInteraction.product_id == Product.id
+    ).filter(
+        ProductInteraction.user_id.in_(db.select(viewer_ids.c.user_id)),
+        Product.product_type_id == on_hand_type.id,
+        Product.is_active == True,
+        Product.quantity > 0,
+        ~Product.id.in_(exclude_ids + [product_id])
+    ).group_by(Product.id).order_by(db.desc('score')).limit(limit).all()
+
+    return [r[0] for r in results]
+
+
+def _get_recommendations(user_id, exclude_ids, limit=8):
+    """Personalized recommendations based on user's interaction history."""
+    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    if not on_hand_type:
+        return []
+
+    # Get preferred manufacturers
+    preferred = db.session.query(
+        Product.manufacturer_id,
+        func.sum(
+            db.case(
+                (ProductInteraction.interaction_type == 'purchase', 5),
+                (ProductInteraction.interaction_type == 'cart_add', 3),
+                else_=1
+            )
+        ).label('score')
+    ).join(
+        ProductInteraction, ProductInteraction.product_id == Product.id
+    ).filter(
+        ProductInteraction.user_id == user_id,
+        Product.manufacturer_id.isnot(None)
+    ).group_by(Product.manufacturer_id).order_by(db.desc('score')).limit(5).all()
+
+    mfr_ids = [m[0] for m in preferred if m[0]]
+
+    base_filter = [
+        Product.product_type_id == on_hand_type.id,
+        Product.is_active == True,
+        Product.quantity > 0,
+        ~Product.id.in_(exclude_ids)
+    ]
+
+    if mfr_ids:
+        return Product.query.filter(
+            *base_filter, Product.manufacturer_id.in_(mfr_ids)
+        ).order_by(func.rand()).limit(limit).all()
+    else:
+        # Fallback: random on-hand products
+        return Product.query.filter(
+            *base_filter
+        ).order_by(func.rand()).limit(limit).all()

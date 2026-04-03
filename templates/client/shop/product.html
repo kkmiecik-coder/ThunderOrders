@@ -1,0 +1,189 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/shop-product.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="product-page">
+
+    <!-- Back link -->
+    <a href="{{ url_for('shop.index') }}" class="product-back-link">
+        <i class="fas fa-arrow-left"></i> Wrocdo sklepu
+    </a>
+
+    <!-- Main layout: gallery + info -->
+    <div class="product-main">
+
+        <!-- Gallery -->
+        <div class="product-gallery">
+            {% set images = product.images.all() %}
+            {% if images %}
+                <div class="product-gallery-main">
+                    <img id="galleryMainImage"
+                         src="/static/{{ images[0].path_compressed }}"
+                         alt="{{ product.name }}">
+                </div>
+                {% if images|length > 1 %}
+                <div class="product-gallery-thumbs">
+                    {% for img in images %}
+                    <button type="button"
+                            class="product-thumb{% if loop.first %} active{% endif %}"
+                            data-image="/static/{{ img.path_compressed }}">
+                        <img src="/static/{{ img.path_compressed }}" alt="{{ product.name }} - {{ loop.index }}">
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% else %}
+                <div class="product-gallery-main product-gallery-placeholder">
+                    <i class="fas fa-image"></i>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Product info -->
+        <div class="product-info">
+            <h1 class="product-title">{{ product.name }}</h1>
+
+            {% if product.manufacturer %}
+            <p class="product-brand">{{ product.manufacturer.name }}</p>
+            {% endif %}
+
+            <p class="product-sku">SKU: {{ product.sku }}</p>
+
+            <div class="product-price">
+                {{ "%.2f"|format(product.sale_price)|replace('.', ',') }} PLN
+            </div>
+
+            <div class="product-stock" id="productStock" data-stock="{{ product.quantity }}">
+                {% if product.quantity > 0 %}
+                    <span class="product-stock-badge product-stock-available">
+                        <i class="fas fa-check-circle"></i> Dostepne: {{ product.quantity }} szt.
+                    </span>
+                {% else %}
+                    <span class="product-stock-badge product-stock-unavailable">
+                        <i class="fas fa-times-circle"></i> Brak w magazynie
+                    </span>
+                {% endif %}
+            </div>
+
+            {% if product.sizes.all()|length > 0 %}
+            <div class="product-sizes">
+                <span class="product-sizes-label">Rozmiar:</span>
+                {% for size in product.sizes.all() %}
+                <span class="product-size-badge">{{ size.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Variants -->
+            {% if variants %}
+            <div class="product-variants">
+                <span class="product-variants-label">Warianty:</span>
+                <div class="product-variants-list">
+                    {% for v in variants %}
+                    <a href="{{ url_for('shop.product_detail', product_id=v.id, slug=slugify(v.name)) }}"
+                       class="product-variant-link">
+                        {% set v_img = v.primary_image %}
+                        {% if v_img %}
+                        <img src="/static/{{ v_img.path_compressed }}" alt="{{ v.name }}">
+                        {% else %}
+                        <div class="product-variant-no-image"><i class="fas fa-image"></i></div>
+                        {% endif %}
+                        <span class="product-variant-name">
+                            {{ v.name }}
+                            {% if v.sizes.all()|length > 0 %}
+                                ({{ v.sizes.all()|map(attribute='name')|join(', ') }})
+                            {% endif %}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quantity + Add to cart -->
+            <div class="product-actions" data-max-qty="{{ product.quantity }}">
+                <div class="product-qty-selector">
+                    <button type="button" class="product-qty-btn" id="qtyMinus" aria-label="Zmniejsz ilosc">
+                        <i class="fas fa-minus"></i>
+                    </button>
+                    <input type="number" id="qtyInput" class="product-qty-input"
+                           value="1" min="1" max="{{ product.quantity }}" readonly>
+                    <button type="button" class="product-qty-btn" id="qtyPlus" aria-label="Zwieksz ilosc">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+
+                <button type="button" class="product-add-to-cart" id="addToCartBtn"
+                        data-product-id="{{ product.id }}"
+                        {% if product.quantity == 0 %}disabled{% endif %}>
+                    <i class="fas fa-cart-plus"></i> Dodaj do koszyka
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Description -->
+    {% if product.description %}
+    <div class="product-description">
+        <h2 class="product-section-title">Opis produktu</h2>
+        <div class="product-description-content">
+            {{ product.description | safe }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recommendation sections -->
+    {% macro product_row(title, products) %}
+    {% if products %}
+    <div class="product-reco-section">
+        <h2 class="product-section-title">{{ title }}</h2>
+        <div class="product-reco-scroll">
+            {% for p in products %}
+            <a href="{{ url_for('shop.product_detail', product_id=p.id, slug=slugify(p.name)) }}"
+               class="product-reco-card">
+                {% set p_img = p.primary_image %}
+                <div class="product-reco-image">
+                    {% if p_img %}
+                    <img src="/static/{{ p_img.path_compressed }}" alt="{{ p.name }}" loading="lazy">
+                    {% else %}
+                    <div class="product-reco-no-image"><i class="fas fa-image"></i></div>
+                    {% endif %}
+                </div>
+                <div class="product-reco-info">
+                    <span class="product-reco-name">{{ p.name }}</span>
+                    <span class="product-reco-price">{{ "%.2f"|format(p.sale_price)|replace('.', ',') }} PLN</span>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
+    {{ product_row("Powiazane produkty", related) }}
+    {{ product_row("Inni ogladali", also_viewed) }}
+    {{ product_row("Moze Ci sie spodobac", might_like) }}
+
+</div>
+
+<!-- Sticky mobile add-to-cart bar -->
+<div class="product-sticky-bar" id="productStickyBar">
+    <div class="product-sticky-price">
+        {{ "%.2f"|format(product.sale_price)|replace('.', ',') }} PLN
+    </div>
+    <button type="button" class="product-sticky-add" id="stickyAddToCartBtn"
+            data-product-id="{{ product.id }}"
+            {% if product.quantity == 0 %}disabled{% endif %}>
+        <i class="fas fa-cart-plus"></i> Dodaj do koszyka
+    </button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/pages/client/shop-product.js') }}"></script>
+{% endblock %}
