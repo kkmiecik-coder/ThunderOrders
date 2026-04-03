@@ -3,6 +3,10 @@
    Neon glassmorphism design system
    ============================================================ */
 
+/* --- Spin animation for loading icons --- */
+.spin-icon { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* --- Page container --- */
 .shop-page {
     max-width: 1400px;

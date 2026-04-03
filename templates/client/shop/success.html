@@ -9,16 +9,16 @@
 <div class="success-page">
     <div class="success-card">
         <div class="success-icon">
-            <i class="fas fa-check-circle"></i>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
         <h1 class="success-title">Zamówienie złożone pomyślnie!</h1>
         <p class="success-order-number">Numer zamówienia: <strong>{{ order.order_number }}</strong></p>
         <div class="success-actions">
             <a href="{{ url_for('client.payment_confirmations') }}" class="success-btn success-btn-primary">
-                <i class="fas fa-upload"></i> Wgraj potwierdzenie płatności
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Wgraj potwierdzenie płatności
             </a>
             <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="success-btn success-btn-secondary">
-                <i class="fas fa-eye"></i> Szczegóły zamówienia
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Szczegóły zamówienia
             </a>
         </div>
     </div>

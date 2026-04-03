@@ -89,7 +89,7 @@
             var productUrl = '/client/shop/product/' + item.product_id + '-' + item.slug;
             var imgHtml = item.image_url
                 ? '<img src="' + escapeHtml(item.image_url) + '" alt="' + escapeHtml(item.name) + '" class="cart-item-img">'
-                : '<div class="cart-item-img cart-item-img--placeholder"><i class="fas fa-image"></i></div>';
+                : '<div class="cart-item-img cart-item-img--placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
 
             html += '<div class="cart-item' + unavailableClass + '" data-item-id="' + item.id + '">';
             html += '  <a href="' + productUrl + '" class="cart-item-image-link">' + imgHtml + '</a>';
@@ -138,7 +138,7 @@
                     var url = '/client/shop/product/' + p.id + '-' + slug;
                     var img = p.image_url
                         ? '<img src="' + escapeHtml(p.image_url) + '" alt="' + escapeHtml(p.name) + '">'
-                        : '<div class="cart-rec-placeholder"><i class="fas fa-image"></i></div>';
+                        : '<div class="cart-rec-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
                     html += '<a href="' + url + '" class="cart-rec-card">';
                     html += img;
                     html += '<span class="cart-rec-name">' + escapeHtml(p.name) + '</span>';

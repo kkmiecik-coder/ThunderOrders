@@ -126,7 +126,7 @@
         var price = formatPrice(p.price);
         var imageHtml = p.image_url
             ? '<img src="' + esc(p.image_url) + '" alt="' + esc(p.name) + '" loading="lazy">'
-            : '<div class="shop-product-no-image"><i class="fas fa-image"></i></div>';
+            : '<div class="shop-product-no-image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="32" height="32"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
 
         return '<div class="shop-product-card" data-product-id="' + p.id + '">' +
             '<a href="/client/shop/product/' + p.id + '-' + esc(p.slug) + '" class="shop-product-link">' +
@@ -447,7 +447,7 @@
             if (!productId) return;
 
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>';
 
             fetch('/client/shop/api/cart/add', {
                 method: 'POST',
@@ -460,7 +460,7 @@
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-cart-plus"></i>';
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
 
                 if (data.success) {
                     if (window.Toast) window.Toast.show('Dodano do koszyka', 'success');
@@ -471,7 +471,7 @@
             })
             .catch(function () {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-cart-plus"></i>';
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
                 if (window.Toast) window.Toast.show('Blad polaczenia', 'error');
             });
         });
