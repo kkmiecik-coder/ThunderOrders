@@ -131,17 +131,25 @@
         return '<div class="shop-product-card" data-product-id="' + p.id + '">' +
             '<a href="/client/shop/product/' + p.id + '-' + esc(p.slug) + '" class="shop-product-link">' +
                 '<div class="shop-product-image">' + imageHtml + '</div>' +
-                '<div class="shop-product-info">' +
-                    '<h3 class="shop-product-name">' + esc(p.name) + '</h3>' +
-                    (p.brand ? '<span class="shop-product-brand">' + esc(p.brand) + '</span>' : '') +
-                    '<div class="shop-product-bottom">' +
-                        '<span class="shop-product-price">' + price + ' PLN</span>' +
-                    '</div>' +
-                '</div>' +
             '</a>' +
-            '<button class="shop-product-add-btn" data-product-id="' + p.id + '" title="Dodaj do koszyka">' +
-                '<i class="fas fa-cart-plus"></i>' +
-            '</button>' +
+            '<div class="shop-product-info">' +
+                '<a href="/client/shop/product/' + p.id + '-' + esc(p.slug) + '" class="shop-product-name-link">' +
+                    '<h3 class="shop-product-name">' + esc(p.name) + '</h3>' +
+                '</a>' +
+                '<div class="shop-product-bottom">' +
+                    '<div class="shop-product-meta">' +
+                        '<span class="shop-product-price">' + price + ' PLN</span>' +
+                        (p.brand ? '<span class="shop-product-brand">' + esc(p.brand) + '</span>' : '') +
+                    '</div>' +
+                    '<button class="shop-product-add-btn" data-product-id="' + p.id + '" title="Dodaj do koszyka">' +
+                        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">' +
+                            '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>' +
+                            '<path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>' +
+                        '</svg>' +
+                        '<span>Dodaj</span>' +
+                    '</button>' +
+                '</div>' +
+            '</div>' +
         '</div>';
     }
 
