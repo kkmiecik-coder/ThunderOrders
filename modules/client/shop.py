@@ -75,7 +75,7 @@ def api_products():
     """Return paginated, filtered JSON list of on-hand products."""
 
     # --- base query: on-hand, active, in stock ---
-    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
     if not on_hand_type:
         return jsonify(products=[], total=0, pages=0, current_page=1)
 
@@ -200,7 +200,7 @@ def api_products():
 def api_filters():
     """Return categories (manufacturers), sizes and price range for on-hand products."""
 
-    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
     if not on_hand_type:
         return jsonify(categories=[], sizes=[], price_min=0, price_max=0)
 
@@ -261,7 +261,7 @@ def product_detail(product_id, slug=None):
     product = Product.query.get_or_404(product_id)
 
     # Verify it's an on-hand product
-    if not product.product_type or product.product_type.slug != 'on_hand':
+    if not product.product_type or product.product_type.slug != 'on-hand':
         return redirect(url_for('shop.index'))
 
     # Record view interaction
@@ -321,7 +321,7 @@ def _get_related(product, exclude_ids, limit=8):
     """Products from same manufacturer."""
     if not product.manufacturer_id:
         return []
-    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
     if not on_hand_type:
         return []
     return Product.query.filter(
@@ -340,7 +340,7 @@ def _get_also_viewed(product_id, exclude_ids, limit=8):
         ProductInteraction.interaction_type.in_(['view', 'purchase'])
     ).distinct().subquery()
 
-    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
     if not on_hand_type:
         return []
 
@@ -368,7 +368,7 @@ def _get_also_viewed(product_id, exclude_ids, limit=8):
 
 def _get_recommendations(user_id, exclude_ids, limit=8):
     """Personalized recommendations based on user's interaction history."""
-    on_hand_type = ProductType.query.filter_by(slug='on_hand').first()
+    on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
     if not on_hand_type:
         return []
 
@@ -473,7 +473,7 @@ def api_cart_add():
         return jsonify(success=False, error='Produkt nie istnieje lub jest nieaktywny.'), 404
 
     # Must be on-hand type
-    if not product.product_type or product.product_type.slug != 'on_hand':
+    if not product.product_type or product.product_type.slug != 'on-hand':
         return jsonify(success=False, error='Ten produkt nie jest dostępny w sklepie.'), 400
 
     if product.quantity <= 0:

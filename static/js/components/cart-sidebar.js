@@ -131,7 +131,7 @@
                 var products = data.products || data.items || [];
                 if (!products.length) { recsEl.innerHTML = ''; return; }
 
-                var html = '<p class="cart-recs-title">Moze Cie zainteresowac</p>';
+                var html = '<p class="cart-recs-title">Może Cię zainteresować</p>';
                 html += '<div class="cart-recs-grid">';
                 products.forEach(function (p) {
                     var slug = p.slug || '';

@@ -10,7 +10,7 @@
 
     <!-- Back link -->
     <a href="{{ url_for('shop.index') }}" class="product-back-link">
-        <i class="fas fa-arrow-left"></i> Wrocdo sklepu
+        <i class="fas fa-arrow-left"></i> Wróć do sklepu
     </a>
 
     <!-- Main layout: gallery + info -->
@@ -107,12 +107,12 @@
             <!-- Quantity + Add to cart -->
             <div class="product-actions" data-max-qty="{{ product.quantity }}">
                 <div class="product-qty-selector">
-                    <button type="button" class="product-qty-btn" id="qtyMinus" aria-label="Zmniejsz ilosc">
+                    <button type="button" class="product-qty-btn" id="qtyMinus" aria-label="Zmniejsz ilość">
                         <i class="fas fa-minus"></i>
                     </button>
                     <input type="number" id="qtyInput" class="product-qty-input"
                            value="1" min="1" max="{{ product.quantity }}" readonly>
-                    <button type="button" class="product-qty-btn" id="qtyPlus" aria-label="Zwieksz ilosc">
+                    <button type="button" class="product-qty-btn" id="qtyPlus" aria-label="Zwiększ ilość">
                         <i class="fas fa-plus"></i>
                     </button>
                 </div>
@@ -164,9 +164,9 @@
     {% endif %}
     {% endmacro %}
 
-    {{ product_row("Powiazane produkty", related) }}
-    {{ product_row("Inni ogladali", also_viewed) }}
-    {{ product_row("Moze Ci sie spodobac", might_like) }}
+    {{ product_row("Powiązane produkty", related) }}
+    {{ product_row("Inni oglądali", also_viewed) }}
+    {{ product_row("Może Ci się spodobać", might_like) }}
 
 </div>
 
