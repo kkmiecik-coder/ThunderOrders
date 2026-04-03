@@ -64,7 +64,7 @@
                 updateBadge(data.count);
             })
             .catch(function () {
-                body.innerHTML = '<p class="cart-sidebar-error">Nie udalo sie zaladowac koszyka.</p>';
+                body.innerHTML = '<p class="cart-sidebar-error">Nie udało się załadować koszyka.</p>';
             });
     }
 
@@ -102,7 +102,7 @@
                 html += '    <span class="cart-item-size">' + escapeHtml(item.size) + '</span>';
             }
             if (!item.is_available) {
-                html += '    <span class="cart-item-unavailable-label">Niedostepny</span>';
+                html += '    <span class="cart-item-unavailable-label">Niedostępny</span>';
             }
             html += '    <span class="cart-item-price">' + item.price.toFixed(2) + ' PLN</span>';
             html += '    <div class="cart-item-qty">';
@@ -173,7 +173,7 @@
             if (cur < max) {
                 updateQuantity(itemId, cur + 1);
             } else {
-                if (typeof window.showToast === 'function') window.showToast('Maksymalna dostepna ilosc: ' + max, 'warning');
+                if (typeof window.showToast === 'function') window.showToast('Maksymalna dostępna ilość:' + max, 'warning');
             }
         } else if (action === 'remove-item') {
             removeItem(itemId);
@@ -191,11 +191,11 @@
             if (data.success) {
                 loadCart();
             } else {
-                if (typeof window.showToast === 'function') window.showToast(data.error || 'Blad aktualizacji.', 'error');
+                if (typeof window.showToast === 'function') window.showToast(data.error || 'Błąd aktualizacji.', 'error');
             }
         })
         .catch(function () {
-            if (typeof window.showToast === 'function') window.showToast('Blad polaczenia.', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Błąd połączenia.', 'error');
         });
     }
 
@@ -210,11 +210,11 @@
             if (data.success) {
                 loadCart();
             } else {
-                if (typeof window.showToast === 'function') window.showToast(data.error || 'Blad usuwania.', 'error');
+                if (typeof window.showToast === 'function') window.showToast(data.error || 'Błąd usuwania.', 'error');
             }
         })
         .catch(function () {
-            if (typeof window.showToast === 'function') window.showToast('Blad polaczenia.', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Błąd połączenia.', 'error');
         });
     }
 

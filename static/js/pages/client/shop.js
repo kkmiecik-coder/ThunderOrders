@@ -289,7 +289,7 @@
                 if (els.loading) els.loading.style.display = 'none';
                 if (els.grid) els.grid.style.opacity = '1';
                 console.error('Shop fetch error:', err);
-                if (typeof window.showToast === 'function') window.showToast('Blad ladowania produktow', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Błąd ładowania produktów', 'error');
             });
     }
 

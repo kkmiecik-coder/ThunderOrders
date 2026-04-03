@@ -91,7 +91,7 @@
 
             var imgHtml = item.image_url
                 ? '<img src="' + item.image_url + '" alt="' + escapeHtml(item.name) + '">'
-                : '<div class="checkout-item-placeholder"><i class="fas fa-box"></i></div>';
+                : '<div class="checkout-item-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>';
 
             html += '<div class="checkout-item' + (unavailable ? ' checkout-item--unavailable' : '') + '">';
             html += '  <div class="checkout-item-image">' + imgHtml + '</div>';
@@ -101,7 +101,7 @@
                 html += '    <div class="checkout-item-size">Rozmiar: ' + escapeHtml(item.size) + '</div>';
             }
             if (unavailable) {
-                html += '    <div class="checkout-item-error"><i class="fas fa-exclamation-triangle"></i> Niedostępny</div>';
+                html += '    <div class="checkout-item-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Niedostępny</div>';
             }
             html += '  </div>';
             html += '  <div class="checkout-item-qty">' + item.quantity + ' szt.</div>';
@@ -138,7 +138,7 @@
         placeOrderBtn.addEventListener('click', function () {
             if (placeOrderBtn.disabled) return;
             placeOrderBtn.disabled = true;
-            placeOrderBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Składanie...';
+            placeOrderBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Składanie...';
 
             var payload = {
                 create_shipping: shippingCheckbox ? shippingCheckbox.checked : false,
@@ -170,13 +170,13 @@
                             showToast(res.data.error || 'Wystąpił błąd.', 'error');
                         }
                         placeOrderBtn.disabled = false;
-                        placeOrderBtn.innerHTML = '<i class="fas fa-check"></i> Złóż zamówienie';
+                        placeOrderBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg> Złóż zamówienie';
                     }
                 })
                 .catch(function () {
                     showToast('Błąd połączenia z serwerem.', 'error');
                     placeOrderBtn.disabled = false;
-                    placeOrderBtn.innerHTML = '<i class="fas fa-check"></i> Złóż zamówienie';
+                    placeOrderBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg> Złóż zamówienie';
                 });
         });
     }
