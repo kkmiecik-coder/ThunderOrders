@@ -74,6 +74,9 @@
         document.querySelectorAll('.cart-badge').forEach(function (badge) {
             badge.textContent = count;
             badge.style.display = count > 0 ? 'flex' : 'none';
+            badge.classList.remove('bounce');
+            void badge.offsetWidth; // force reflow
+            badge.classList.add('bounce');
         });
     }
 
@@ -286,7 +289,7 @@
                 if (els.loading) els.loading.style.display = 'none';
                 if (els.grid) els.grid.style.opacity = '1';
                 console.error('Shop fetch error:', err);
-                if (window.Toast) window.Toast.show('Blad ladowania produktow', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Blad ladowania produktow', 'error');
             });
     }
 
@@ -502,16 +505,16 @@
                 btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
 
                 if (data.success) {
-                    if (window.Toast) window.Toast.show('Dodano do koszyka', 'success');
+                    if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
                     if (data.cart_count != null) updateCartBadge(data.cart_count);
                 } else {
-                    if (window.Toast) window.Toast.show(data.error || 'Nie udalo sie dodac do koszyka', 'error');
+                    if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udalo sie dodac do koszyka', 'error');
                 }
             })
             .catch(function () {
                 btn.disabled = false;
                 btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
-                if (window.Toast) window.Toast.show('Blad polaczenia', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Blad polaczenia', 'error');
             });
         });
     }

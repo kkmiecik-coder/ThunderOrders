@@ -173,7 +173,7 @@
             if (cur < max) {
                 updateQuantity(itemId, cur + 1);
             } else {
-                if (window.Toast) window.Toast.show('Maksymalna dostepna ilosc: ' + max, 'warning');
+                if (typeof window.showToast === 'function') window.showToast('Maksymalna dostepna ilosc: ' + max, 'warning');
             }
         } else if (action === 'remove-item') {
             removeItem(itemId);
@@ -191,11 +191,11 @@
             if (data.success) {
                 loadCart();
             } else {
-                if (window.Toast) window.Toast.show(data.error || 'Blad aktualizacji.', 'error');
+                if (typeof window.showToast === 'function') window.showToast(data.error || 'Blad aktualizacji.', 'error');
             }
         })
         .catch(function () {
-            if (window.Toast) window.Toast.show('Blad polaczenia.', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Blad polaczenia.', 'error');
         });
     }
 
@@ -210,11 +210,11 @@
             if (data.success) {
                 loadCart();
             } else {
-                if (window.Toast) window.Toast.show(data.error || 'Blad usuwania.', 'error');
+                if (typeof window.showToast === 'function') window.showToast(data.error || 'Blad usuwania.', 'error');
             }
         })
         .catch(function () {
-            if (window.Toast) window.Toast.show('Blad polaczenia.', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Blad polaczenia.', 'error');
         });
     }
 

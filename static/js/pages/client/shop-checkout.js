@@ -161,10 +161,8 @@
     }
 
     function showToast(msg, type) {
-        if (window.Toast && typeof window.Toast.show === 'function') {
-            window.Toast.show(msg, type);
-        } else {
-            alert(msg);
+        if (typeof window.showToast === 'function') {
+            window.showToast(msg, type);
         }
     }
 

@@ -107,7 +107,7 @@
             if (stickyAddBtn) stickyAddBtn.disabled = false;
 
             if (data.success) {
-                if (window.Toast) window.Toast.show('Dodano do koszyka', 'success');
+                if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
                 if (data.cart_count != null) updateCartBadge(data.cart_count);
 
                 // Track event
@@ -123,7 +123,7 @@
                     );
                 }
             } else {
-                if (window.Toast) window.Toast.show(data.error || 'Nie udalo sie dodac do koszyka', 'error');
+                if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udalo sie dodac do koszyka', 'error');
 
                 // If stock changed, update display
                 if (data.available_quantity != null) {
@@ -152,7 +152,7 @@
             btn.innerHTML = originalHtml;
             if (addToCartBtn) addToCartBtn.disabled = false;
             if (stickyAddBtn) stickyAddBtn.disabled = false;
-            if (window.Toast) window.Toast.show('Blad polaczenia', 'error');
+            if (typeof window.showToast === 'function') window.showToast('Blad polaczenia', 'error');
         });
     }
 

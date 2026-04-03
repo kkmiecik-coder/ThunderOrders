@@ -333,6 +333,17 @@
     pointer-events: none;
 }
 
+.cart-badge.bounce {
+    animation: cartBounce 0.4s ease;
+}
+
+@keyframes cartBounce {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
 [data-theme="dark"] .cart-badge {
     background: #f093fb;
     color: #1a1a2e;
