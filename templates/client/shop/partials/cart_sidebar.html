@@ -1,0 +1,23 @@
+<!-- Cart Sidebar Overlay -->
+<div class="cart-overlay" id="cartOverlay"></div>
+
+<!-- Cart Sidebar -->
+<aside class="cart-sidebar" id="cartSidebar">
+    <div class="cart-sidebar-header">
+        <h3>Koszyk</h3>
+        <button class="cart-sidebar-close" id="cartClose" aria-label="Zamknij koszyk">&times;</button>
+    </div>
+    <div class="cart-sidebar-body" id="cartBody"></div>
+    <div class="cart-sidebar-footer" id="cartFooter" style="display:none;">
+        <div class="cart-sidebar-total">
+            <span>Suma:</span>
+            <span id="cartTotal">0.00 PLN</span>
+        </div>
+        <a href="/client/shop/checkout" class="cart-checkout-btn">Przejdz do zamowienia</a>
+    </div>
+    <div class="cart-sidebar-empty" id="cartEmpty" style="display:none;">
+        <i class="fas fa-shopping-cart"></i>
+        <p>Twoj koszyk jest pusty</p>
+        <div id="cartEmptyRecs"></div>
+    </div>
+</aside>
