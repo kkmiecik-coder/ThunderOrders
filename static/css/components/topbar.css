@@ -313,6 +313,65 @@
 }
 
 /* ==================== */
+/* Cart Badge            */
+/* ==================== */
+.cart-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: #f5576c;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    border-radius: 9px;
+    border: 2px solid var(--topbar-bg);
+    pointer-events: none;
+}
+
+[data-theme="dark"] .cart-badge {
+    background: #f093fb;
+    color: #1a1a2e;
+    border-color: rgba(15, 12, 41, 0.95);
+}
+
+/* Cart button SVG styling */
+.topbar-btn[data-action="open-cart"] svg {
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+}
+
+.topbar-btn[data-action="open-cart"]:hover svg {
+    opacity: 1;
+}
+
+[data-theme="dark"] .topbar-btn[data-action="open-cart"] svg {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Mobile cart badge */
+.mobile-search-btn[data-action="open-cart"] .cart-badge {
+    top: 4px;
+    right: 2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    font-size: 10px;
+    line-height: 16px;
+    border-radius: 8px;
+    border-width: 1.5px;
+}
+
+/* Mobile cart SVG dark mode */
+[data-theme="dark"] .mobile-search-btn[data-action="open-cart"] svg {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* ==================== */
 /* Notification Dropdown */
 /* ==================== */
 .notif-dropdown {
