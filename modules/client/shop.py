@@ -533,7 +533,12 @@ def api_cart_update():
     item_id = data.get('item_id')
     quantity = data.get('quantity')
 
-    if not item_id or quantity is None:
+    try:
+        quantity = int(quantity)
+    except (ValueError, TypeError):
+        return jsonify(success=False, error='Ilość musi być liczbą.'), 400
+
+    if not item_id:
         return jsonify(success=False, error='Brak wymaganych parametrów.'), 400
 
     item = CartItem.query.filter_by(id=item_id, user_id=current_user.id).first()
@@ -698,8 +703,13 @@ def checkout_place():
         db.session.flush()  # get order.id
 
         # 5. Create order items, decrease stock, record interaction
+        # Re-validate stock with row lock to prevent race conditions
         for item in items:
-            product = item.product
+            product = Product.query.with_for_update().get(item.product_id)
+            if not product or product.quantity < item.quantity:
+                db.session.rollback()
+                return jsonify(success=False, error=f'Produkt "{product.name if product else "?"}" został właśnie wyprzedany. Odśwież stronę.'), 409
+
             selected_size = product.sizes[0].name if product.sizes else None
 
             order_item = OrderItem(
@@ -776,7 +786,9 @@ def checkout_place():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify(success=False, error=f'Wystąpił błąd: {str(e)}'), 500
+        from flask import current_app
+        current_app.logger.exception('Checkout error for user %s: %s', current_user.id, e)
+        return jsonify(success=False, error='Wystąpił błąd podczas składania zamówienia.'), 500
 
 
 @shop_bp.route('/client/shop/order-success/<int:order_id>')

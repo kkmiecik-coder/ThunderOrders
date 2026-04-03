@@ -881,7 +881,9 @@ class Order(db.Model):
 
     @property
     def can_upload_stage_3(self):
-        """Można wgrać E3? (kwota > 0, nie approved/pending)"""
+        """Można wgrać E3? (kwota > 0, nie approved/pending, nie on-hand)"""
+        if self.order_type == 'on_hand':
+            return False
         if self.stage_3_status in ['approved', 'pending']:
             return False
         if not self.customs_vat_sale_cost or self.customs_vat_sale_cost <= 0:
