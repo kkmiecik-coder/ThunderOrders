@@ -322,7 +322,14 @@
 .product-add-to-cart--added {
     background: #10b981 !important;
     border-color: #10b981 !important;
+    color: #fff !important;
     opacity: 1 !important;
+}
+
+[data-theme="dark"] .product-add-to-cart--added {
+    background: #10b981 !important;
+    border-color: #10b981 !important;
+    color: #0f0c29 !important;
 }
 
 .spin-icon { animation: spin 1s linear infinite; }
