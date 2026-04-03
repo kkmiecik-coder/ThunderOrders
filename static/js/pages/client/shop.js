@@ -121,9 +121,25 @@
     var priceMinLabel = document.getElementById('filterPriceMinLabel');
     var priceMaxLabel = document.getElementById('filterPriceMaxLabel');
 
+    var priceTrack = document.getElementById('filterPriceTrack');
+
     function updatePriceLabels() {
         if (priceMinLabel && els.priceMin) priceMinLabel.textContent = els.priceMin.value + ' PLN';
         if (priceMaxLabel && els.priceMax) priceMaxLabel.textContent = els.priceMax.value + ' PLN';
+        updatePriceTrack();
+    }
+
+    function updatePriceTrack() {
+        if (!priceTrack || !els.priceMin || !els.priceMax) return;
+        var min = parseFloat(els.priceMin.min) || 0;
+        var max = parseFloat(els.priceMin.max) || 100;
+        var valMin = parseFloat(els.priceMin.value) || min;
+        var valMax = parseFloat(els.priceMax.value) || max;
+        var range = max - min || 1;
+        var leftPct = ((valMin - min) / range) * 100;
+        var rightPct = ((valMax - min) / range) * 100;
+        priceTrack.style.left = leftPct + '%';
+        priceTrack.style.width = (rightPct - leftPct) + '%';
     }
 
     if (els.priceMin) els.priceMin.addEventListener('input', function() { updatePriceLabels(); showFilterActions(); });
