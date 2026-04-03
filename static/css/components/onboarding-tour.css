@@ -298,6 +298,34 @@
     transform: translateY(0);
 }
 
+.tour-fullscreen-content {
+    position: relative;
+}
+
+.tour-fullscreen-close {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 24px;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tour-fullscreen-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
 /* ----------------------------------------------------------
    9. Mobile bottom-sheet
    ---------------------------------------------------------- */

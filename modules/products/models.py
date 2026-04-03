@@ -443,3 +443,48 @@ class PolandOrderItem(db.Model):
 
     def __repr__(self):
         return f'<PolandOrderItem {self.id} - Product {self.product_id}>'
+
+
+class CartItem(db.Model):
+    """Shopping cart item for on-hand products."""
+    __tablename__ = 'cart_items'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    updated_at = db.Column(db.DateTime, default=db.func.now(), onupdate=db.func.now())
+
+    user = db.relationship('User', backref=db.backref('cart_items', lazy='dynamic'))
+    product = db.relationship('Product', backref=db.backref('cart_items', lazy='dynamic'))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'product_id', name='uq_cart_user_product'),
+    )
+
+    def __repr__(self):
+        return f'<CartItem user={self.user_id} product={self.product_id} qty={self.quantity}>'
+
+
+class ProductInteraction(db.Model):
+    """Tracks user interactions with products for recommendations."""
+    __tablename__ = 'product_interactions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    interaction_type = db.Column(db.Enum('view', 'cart_add', 'purchase', name='interaction_type_enum'), nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.now())
+
+    user = db.relationship('User', backref=db.backref('product_interactions', lazy='dynamic'))
+    product = db.relationship('Product', backref=db.backref('interactions', lazy='dynamic'))
+
+    WEIGHTS = {
+        'view': 1,
+        'cart_add': 3,
+        'purchase': 5
+    }
+
+    def __repr__(self):
+        return f'<ProductInteraction user={self.user_id} product={self.product_id} type={self.interaction_type}>'

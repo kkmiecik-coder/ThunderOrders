@@ -217,8 +217,24 @@ window.filterSizes = function(searchTerm) {
     });
 };
 
+/**
+ * Get the currently active product type slug from the toggle bar
+ */
+function getActiveProductTypeSlug() {
+    const activeButton = document.querySelector('.toggle-option.active');
+    return activeButton ? activeButton.getAttribute('data-type-slug') : null;
+}
+
 window.selectSize = function(sizeId, sizeName) {
     if (selectedSizes.has(sizeId)) return;
+
+    // Enforce max 1 size for on-hand products
+    if (getActiveProductTypeSlug() === 'on-hand' && selectedSizes.size >= 1) {
+        if (window.Toast) {
+            window.Toast.show('Produkty on-hand mogą mieć max 1 rozmiar', 'warning');
+        }
+        return;
+    }
 
     selectedSizes.add(sizeId);
 

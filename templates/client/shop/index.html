@@ -1,0 +1,127 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/shop.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="shop-page">
+    <!-- Header -->
+    <div class="shop-header">
+        <h1 class="shop-title">Sklep</h1>
+    </div>
+
+    <!-- Search bar -->
+    <div class="shop-search">
+        <div class="shop-search-input-wrapper">
+            <input type="text" id="shopSearchInput" class="shop-search-input" placeholder="Szukaj produktu po nazwie lub SKU...">
+            <button type="button" id="shopSearchBtn" class="shop-search-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="shop-layout">
+        <!-- Filters sidebar -->
+        <aside class="shop-filters" id="shopFilters">
+            <div class="shop-filters-header">
+                <h3>Filtry</h3>
+                <button type="button" id="shopFiltersMobileClose" class="shop-filters-close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <!-- Category (manufacturer) filter -->
+            <div class="filter-group" id="filterCategoryGroup">
+                <h4 class="filter-group-title">Kategoria</h4>
+                <div class="filter-options" id="filterCategoryOptions">
+                    <!-- Populated by JS from /api/filters -->
+                </div>
+            </div>
+
+            <!-- Price range filter -->
+            <div class="filter-group">
+                <h4 class="filter-group-title">Cena (PLN)</h4>
+                <div class="filter-price-slider">
+                    <div class="filter-price-labels">
+                        <span id="filterPriceMinLabel">0</span>
+                        <span id="filterPriceMaxLabel">0</span>
+                    </div>
+                    <div class="filter-price-sliders">
+                        <div class="filter-price-track" id="filterPriceTrack"></div>
+                        <input type="range" id="filterPriceMin" class="filter-range-input" min="0" max="1000" value="0" step="1">
+                        <input type="range" id="filterPriceMax" class="filter-range-input" min="0" max="1000" value="1000" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Size filter -->
+            <div class="filter-group" id="filterSizeGroup">
+                <h4 class="filter-group-title">Rozmiar</h4>
+                <div class="filter-options" id="filterSizeOptions">
+                    <!-- Populated by JS from /api/filters -->
+                </div>
+            </div>
+
+            <!-- Filter action buttons -->
+            <div class="filter-actions">
+                <button type="button" id="filterApplyBtn" class="filter-btn filter-btn-primary" style="display: none;">Filtruj</button>
+                <button type="button" id="filterClearBtn" class="filter-btn filter-btn-secondary" style="display: none;">Wyczyść</button>
+            </div>
+        </aside>
+
+        <!-- Main content area -->
+        <div class="shop-main">
+            <!-- Toolbar: sort + results count + mobile filter toggle -->
+            <div class="shop-toolbar">
+                <button type="button" id="shopFiltersToggle" class="shop-filters-toggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg> Filtry
+                </button>
+
+                <span class="shop-results-count" id="shopResultsCount"></span>
+
+                <div class="shop-sort">
+                    <label for="shopSortSelect" class="shop-sort-label">Sortuj:</label>
+                    <select id="shopSortSelect" class="shop-sort-select">
+                        <option value="newest">Najnowsze</option>
+                        <option value="price_asc">Cena rosnąco</option>
+                        <option value="price_desc">Cena malejąco</option>
+                        <option value="name_asc">Nazwa A-Z</option>
+                        <option value="name_desc">Nazwa Z-A</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product grid (populated by JS) -->
+            <div class="shop-grid" id="shopGrid">
+                <!-- Product cards inserted here by JS -->
+            </div>
+
+            <!-- Empty state -->
+            <div class="shop-empty" id="shopEmpty" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" class="shop-empty-icon"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <p class="shop-empty-text">Nie znaleziono produktów spełniających kryteria.</p>
+                <button type="button" id="shopEmptyClearBtn" class="filter-btn filter-btn-secondary">Wyczyść filtry</button>
+            </div>
+
+            <!-- Loading spinner -->
+            <div class="shop-loading" id="shopLoading" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg>
+            </div>
+
+            <!-- Pagination -->
+            <div class="shop-pagination" id="shopPagination">
+                <!-- Built by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/pages/client/shop.js') }}"></script>
+{% endblock %}

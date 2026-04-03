@@ -323,6 +323,7 @@ def wms_dashboard():
 
     # --- Shipping Requests tab data ---
     sr_status_filter = request.args.get('status', '')
+    order_type_filter = request.args.get('order_type', '')
     sr_search = request.args.get('search', '')
     sr_page = request.args.get('page', 1, type=int)
     sr_per_page = 20
@@ -331,6 +332,16 @@ def wms_dashboard():
 
     if sr_status_filter:
         sr_query = sr_query.filter(ShippingRequest.status == sr_status_filter)
+
+    if order_type_filter:
+        sr_query = sr_query.filter(
+            ShippingRequest.id.in_(
+                db.session.query(ShippingRequestOrder.shipping_request_id)
+                .join(Order, ShippingRequestOrder.order_id == Order.id)
+                .filter(Order.order_type == order_type_filter)
+                .subquery()
+            )
+        )
 
     if sr_search:
         search_term = f"%{sr_search}%"
@@ -370,6 +381,7 @@ def wms_dashboard():
         sr_pagination=sr_pagination,
         sr_statuses=sr_statuses,
         sr_status_filter=sr_status_filter,
+        order_type_filter=order_type_filter,
         sr_search=sr_search,
         sr_total_count=sr_total_count,
     )

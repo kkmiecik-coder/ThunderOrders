@@ -91,8 +91,14 @@
         return '<div class="tour-body"><p class="tour-text">' + text + '</p></div>';
     }
 
+    var tourCompleting = false;
+
     function completeTour(tour) {
+        if (tourCompleting) return;
+        tourCompleting = true;
         tour.complete();
+        // Always set localStorage so tour doesn't repeat even if network fails
+        try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
         // Mark tour as seen via backend
         fetch('/client/tour-completed', {
             method: 'POST',
@@ -100,10 +106,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRFToken': getCSRFToken()
             }
-        }).catch(function() {
-            // Fallback: store in localStorage so tour doesn't repeat on network failure
-            try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
-        });
+        }).catch(function() {}).then(function() { tourCompleting = false; });
     }
 
     function getCSRFToken() {
@@ -141,8 +144,9 @@
     // -------------------------------------------------------------------------
 
     var fullscreenEl = null;
+    var fullscreenEscHandler = null;
 
-    function showFullscreen(emoji, title, text, btnText, onBtnClick) {
+    function showFullscreen(emoji, title, text, btnText, onBtnClick, onClose) {
         var shepherdEl = document.querySelector('.shepherd-element');
         if (shepherdEl) shepherdEl.style.display = 'none';
 
@@ -150,6 +154,7 @@
         fullscreenEl.className = 'tour-fullscreen-overlay';
         fullscreenEl.innerHTML =
             '<div class="tour-fullscreen-content">' +
+                '<button class="tour-fullscreen-close" title="Zamknij">&times;</button>' +
                 '<span class="tour-fullscreen-emoji">' + emoji + '</span>' +
                 '<h2 class="tour-fullscreen-title">' + title + '</h2>' +
                 '<p class="tour-fullscreen-text">' + text + '</p>' +
@@ -161,12 +166,29 @@
             removeFullscreen();
             onBtnClick();
         });
+
+        // Close button (X) in top-right corner
+        fullscreenEl.querySelector('.tour-fullscreen-close').addEventListener('click', function() {
+            if (onClose) onClose();
+        });
+
+        // ESC key to close
+        fullscreenEscHandler = function(e) {
+            if (e.key === 'Escape') {
+                if (onClose) onClose();
+            }
+        };
+        document.addEventListener('keydown', fullscreenEscHandler);
     }
 
     function removeFullscreen() {
         if (fullscreenEl && fullscreenEl.parentNode) {
             fullscreenEl.parentNode.removeChild(fullscreenEl);
             fullscreenEl = null;
+        }
+        if (fullscreenEscHandler) {
+            document.removeEventListener('keydown', fullscreenEscHandler);
+            fullscreenEscHandler = null;
         }
         var shepherdEl = document.querySelector('.shepherd-element');
         if (shepherdEl) shepherdEl.style.display = '';
@@ -392,12 +414,14 @@
                         var onAction = isLast
                             ? function() { completeTour(tour); }
                             : function() { tour.next(); };
+                        var onClose = function() { completeTour(tour); };
                         showFullscreen(
                             def.fullscreenConfig.emoji,
                             def.fullscreenConfig.title,
                             def.fullscreenConfig.text,
                             def.fullscreenConfig.btnText,
-                            onAction
+                            onAction,
+                            onClose
                         );
                         setTimeout(resolve, 50);
                     });
@@ -496,7 +520,18 @@
 
         // Cleanup on complete/cancel
         tour.on('complete', function() { removeFullscreen(); });
-        tour.on('cancel', function() { removeFullscreen(); });
+        tour.on('cancel', function() {
+            removeFullscreen();
+            // Mark tour as seen when user cancels (ESC, overlay click)
+            try { localStorage.setItem('thunderorders_tour_seen', '1'); } catch(e) {}
+            fetch('/client/tour-completed', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCSRFToken()
+                }
+            }).catch(function() {});
+        });
 
         // Responsive swap
         setupResponsiveSwap(tour);
@@ -539,6 +574,10 @@
                 console.warn('Shepherd.js not loaded');
                 return;
             }
+            // Cancel any active tour before starting a new one
+            if (Shepherd.activeTour) {
+                Shepherd.activeTour.cancel();
+            }
             var tour = createTour();
             tour.start();
         }
@@ -550,16 +589,23 @@
         var localFallback = false;
         try { localFallback = localStorage.getItem('thunderorders_tour_seen') === '1'; } catch(e) {}
 
+        var autoStarted = false;
+        function autoStart() {
+            if (autoStarted) return;
+            autoStarted = true;
+            window.ThunderTour.start();
+        }
+
         if (shouldShow && !localFallback) {
             // Wait for popups to finish before starting tour
             document.addEventListener('popups-all-closed', function() {
-                setTimeout(function() { window.ThunderTour.start(); }, 500);
+                setTimeout(autoStart, 500);
             }, { once: true });
 
             // Fallback: if no popups system or it never fires, start after 5s
             setTimeout(function() {
                 if (typeof Shepherd !== 'undefined' && !Shepherd.activeTour) {
-                    window.ThunderTour.start();
+                    autoStart();
                 }
             }, 5000);
         }

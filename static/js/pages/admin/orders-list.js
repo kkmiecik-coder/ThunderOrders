@@ -11,16 +11,36 @@
     // ====================
 
     const selectAllCheckbox = document.getElementById('selectAll');
-    const orderCheckboxes = document.querySelectorAll('.order-checkbox');
     const bulkToolbar = document.getElementById('bulkToolbar');
     const selectedCountSpan = document.getElementById('selectedCount');
+
+    /**
+     * Get only the visible order checkboxes (table or cards, not both).
+     * Both desktop table and mobile cards render .order-checkbox for each order,
+     * so we pick only the set that is currently visible to avoid double-counting.
+     */
+    function getVisibleOrderCheckboxes() {
+        const tableContainer = document.getElementById('ordersTable');
+        const cardsContainer = document.querySelector('.orders-cards');
+
+        // Desktop table visible — use table checkboxes
+        if (tableContainer && tableContainer.offsetParent !== null) {
+            return tableContainer.querySelectorAll('.order-checkbox');
+        }
+        // Mobile cards visible — use card checkboxes
+        if (cardsContainer && cardsContainer.offsetParent !== null) {
+            return cardsContainer.querySelectorAll('.order-checkbox');
+        }
+        // Fallback: all (shouldn't happen)
+        return document.querySelectorAll('.order-checkbox');
+    }
 
     /**
      * Update bulk toolbar visibility and count
      */
     function updateBulkToolbar() {
-        const checkedBoxes = document.querySelectorAll('.order-checkbox:checked');
-        const count = checkedBoxes.length;
+        const visibleCheckboxes = getVisibleOrderCheckboxes();
+        const count = Array.from(visibleCheckboxes).filter(cb => cb.checked).length;
 
         if (count > 0) {
             bulkToolbar.classList.remove('hidden');
@@ -31,31 +51,33 @@
     }
 
     /**
-     * Get array of selected order IDs
+     * Get array of selected order IDs (deduplicated)
      */
     function getSelectedOrderIds() {
-        const checkedBoxes = document.querySelectorAll('.order-checkbox:checked');
-        return Array.from(checkedBoxes).map(cb => cb.value);
+        const visibleCheckboxes = getVisibleOrderCheckboxes();
+        return Array.from(visibleCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
     }
 
     // Select All checkbox handler
     if (selectAllCheckbox) {
         selectAllCheckbox.addEventListener('change', function() {
             const isChecked = this.checked;
-            orderCheckboxes.forEach(checkbox => {
+            const visibleCheckboxes = getVisibleOrderCheckboxes();
+            visibleCheckboxes.forEach(checkbox => {
                 checkbox.checked = isChecked;
             });
             updateBulkToolbar();
         });
     }
 
-    // Individual checkbox handlers
-    orderCheckboxes.forEach(checkbox => {
+    // Individual checkbox handlers — bind to all checkboxes
+    document.querySelectorAll('.order-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             // Update "Select All" checkbox state
             if (selectAllCheckbox) {
-                const allChecked = Array.from(orderCheckboxes).every(cb => cb.checked);
-                const someChecked = Array.from(orderCheckboxes).some(cb => cb.checked);
+                const visibleCheckboxes = getVisibleOrderCheckboxes();
+                const allChecked = Array.from(visibleCheckboxes).every(cb => cb.checked);
+                const someChecked = Array.from(visibleCheckboxes).some(cb => cb.checked);
 
                 selectAllCheckbox.checked = allChecked;
                 selectAllCheckbox.indeterminate = someChecked && !allChecked;
@@ -375,12 +397,19 @@
         .then(response => response.json())
         .then(result => {
             if (result.success) {
-                showToast(result.message, 'success');
+                const deleted = result.deleted_count || 0;
                 if (modal) {
                     closeBulkDeleteModal();
                 }
-                // Reload page to show changes
-                window.location.reload();
+                if (deleted > 0) {
+                    showToast(result.message, 'success');
+                    // Delay reload so the user can see the toast
+                    setTimeout(() => window.location.reload(), 1200);
+                } else {
+                    // Nothing was actually deleted (e.g. WMS blocked)
+                    showToast(result.message || 'Nie usunięto żadnych zamówień', 'warning');
+                    resetDeleteButton();
+                }
             } else {
                 showToast(result.message || 'Błąd podczas usuwania', 'error');
                 resetDeleteButton();

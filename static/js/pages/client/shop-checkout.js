@@ -1,0 +1,203 @@
+(function () {
+    'use strict';
+
+    // --- CSRF helper ---
+    function getCsrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.getAttribute('content');
+        var cookies = document.cookie.split(';');
+        for (var i = 0; i < cookies.length; i++) {
+            var parts = cookies[i].trim().split('=');
+            if (parts[0] === 'csrf_token') return decodeURIComponent(parts[1]);
+        }
+        var input = document.querySelector('input[name="csrf_token"]');
+        return input ? input.value : '';
+    }
+
+    // --- DOM refs ---
+    var itemsList = document.getElementById('checkoutItemsList');
+    var loadingEl = document.getElementById('checkoutLoading');
+    var summaryCount = document.getElementById('summaryCount');
+    var summaryTotal = document.getElementById('summaryTotal');
+    var shippingCheckbox = document.getElementById('createShippingCheckbox');
+    var addressPicker = document.getElementById('addressPicker');
+    var addressSelect = document.getElementById('addressSelect');
+    var placeOrderBtn = document.getElementById('placeOrderBtn');
+
+    var addressDetails = document.getElementById('addressDetails');
+
+    if (!itemsList) return; // not on checkout page
+
+    var cartData = null;
+    var hasUnavailable = false;
+
+    // --- Address details display ---
+    if (addressSelect) {
+        addressSelect.addEventListener('change', function () {
+            var addrId = parseInt(addressSelect.value, 10);
+            var addresses = window.__checkoutAddresses || [];
+            var addr = null;
+            for (var i = 0; i < addresses.length; i++) {
+                if (addresses[i].id === addrId) { addr = addresses[i]; break; }
+            }
+            if (addr && addressDetails) {
+                var html = '<div class="address-detail-card">';
+                if (addr.type === 'pickup_point') {
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Kurier:</span><span>' + escapeHtml(addr.pickup_courier) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Punkt:</span><span>' + escapeHtml(addr.pickup_point_id) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Adres:</span><span>' + escapeHtml(addr.pickup_address) + ', ' + escapeHtml(addr.pickup_city) + '</span></div>';
+                } else {
+                    if (addr.shipping_name) html += '<div class="address-detail-row"><span class="address-detail-label">Odbiorca:</span><span>' + escapeHtml(addr.shipping_name) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Adres:</span><span>' + escapeHtml(addr.shipping_address) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Miasto:</span><span>' + escapeHtml(addr.shipping_postal_code) + ' ' + escapeHtml(addr.shipping_city) + '</span></div>';
+                }
+                html += '</div>';
+                addressDetails.innerHTML = html;
+                addressDetails.style.display = 'block';
+            } else if (addressDetails) {
+                addressDetails.innerHTML = '';
+                addressDetails.style.display = 'none';
+            }
+        });
+    }
+
+    // --- Load cart ---
+    function loadCart() {
+        fetch('/client/shop/api/cart')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (loadingEl) loadingEl.style.display = 'none';
+                cartData = data;
+                renderItems(data.items);
+                updateSummary(data);
+            })
+            .catch(function () {
+                if (loadingEl) loadingEl.textContent = 'Błąd ładowania koszyka.';
+            });
+    }
+
+    function renderItems(items) {
+        if (!items || items.length === 0) {
+            itemsList.innerHTML = '<p class="checkout-empty">Koszyk jest pusty.</p>';
+            return;
+        }
+
+        hasUnavailable = false;
+        var html = '';
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var unavailable = !item.is_available;
+            if (unavailable) hasUnavailable = true;
+
+            var imgHtml = item.image_url
+                ? '<img src="' + item.image_url + '" alt="' + escapeHtml(item.name) + '">'
+                : '<div class="checkout-item-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="24" height="24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>';
+
+            html += '<div class="checkout-item' + (unavailable ? ' checkout-item--unavailable' : '') + '">';
+            html += '  <div class="checkout-item-image">' + imgHtml + '</div>';
+            html += '  <div class="checkout-item-info">';
+            html += '    <div class="checkout-item-name">' + escapeHtml(item.name) + '</div>';
+            if (item.size) {
+                html += '    <div class="checkout-item-size">Rozmiar: ' + escapeHtml(item.size) + '</div>';
+            }
+            if (unavailable) {
+                html += '    <div class="checkout-item-error"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Niedostępny</div>';
+            }
+            html += '  </div>';
+            html += '  <div class="checkout-item-qty">' + item.quantity + ' szt.</div>';
+            html += '  <div class="checkout-item-price">' + formatPrice(item.price * item.quantity) + ' PLN</div>';
+            html += '</div>';
+        }
+        itemsList.innerHTML = html;
+        updatePlaceBtn();
+    }
+
+    function updateSummary(data) {
+        if (summaryCount) summaryCount.textContent = data.count + ' szt.';
+        if (summaryTotal) summaryTotal.textContent = formatPrice(data.total) + ' PLN';
+        updatePlaceBtn();
+    }
+
+    function updatePlaceBtn() {
+        if (!placeOrderBtn) return;
+        var disabled = hasUnavailable || !cartData || cartData.count === 0;
+        placeOrderBtn.disabled = disabled;
+    }
+
+    // --- Shipping toggle ---
+    if (shippingCheckbox) {
+        shippingCheckbox.addEventListener('change', function () {
+            if (addressPicker) {
+                addressPicker.style.display = this.checked ? 'block' : 'none';
+            }
+        });
+    }
+
+    // --- Place order ---
+    if (placeOrderBtn) {
+        placeOrderBtn.addEventListener('click', function () {
+            if (placeOrderBtn.disabled) return;
+            placeOrderBtn.disabled = true;
+            placeOrderBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Składanie...';
+
+            var payload = {
+                create_shipping: shippingCheckbox ? shippingCheckbox.checked : false,
+                address_id: (shippingCheckbox && shippingCheckbox.checked && addressSelect)
+                    ? parseInt(addressSelect.value) || null
+                    : null,
+            };
+
+            fetch('/client/shop/checkout/place', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                },
+                body: JSON.stringify(payload),
+            })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                .then(function (res) {
+                    if (res.data.success) {
+                        window.location.href = res.data.redirect_url;
+                    } else {
+                        // Show errors
+                        if (res.data.stock_errors) {
+                            var msgs = res.data.stock_errors.map(function (e) { return e.error; });
+                            showToast(msgs.join('\n'), 'error');
+                            // Reload cart to reflect changes
+                            loadCart();
+                        } else {
+                            showToast(res.data.error || 'Wystąpił błąd.', 'error');
+                        }
+                        placeOrderBtn.disabled = false;
+                        placeOrderBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg> Złóż zamówienie';
+                    }
+                })
+                .catch(function () {
+                    showToast('Błąd połączenia z serwerem.', 'error');
+                    placeOrderBtn.disabled = false;
+                    placeOrderBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg> Złóż zamówienie';
+                });
+        });
+    }
+
+    // --- Helpers ---
+    function formatPrice(val) {
+        return Number(val).toFixed(2).replace('.', ',');
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(str));
+        return div.innerHTML;
+    }
+
+    function showToast(msg, type) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(msg, type);
+        }
+    }
+
+    // --- Init ---
+    loadCart();
+})();

@@ -267,6 +267,10 @@ def register_blueprints(app):
     from modules.achievements import achievements_bp
     app.register_blueprint(achievements_bp, url_prefix='/achievements')
 
+    # Shop module (client on-hand shop — no url_prefix, routes have full paths)
+    from modules.client.shop import shop_bp
+    app.register_blueprint(shop_bp)
+
     # Deploy webhook (GitHub auto-deploy) - exempt from CSRF (uses HMAC signature)
     from modules.deploy import deploy_bp
     app.register_blueprint(deploy_bp)
