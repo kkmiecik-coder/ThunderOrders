@@ -517,6 +517,17 @@
     border-color: #10b981;
 }
 
+.shop-product-add-btn--error {
+    background: #fee2e2;
+    border-color: #f87171;
+    color: #dc2626;
+}
+
+.shop-product-add-btn--error:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+}
+
 /* --- Empty state --- */
 .shop-empty {
     text-align: center;
@@ -814,6 +825,13 @@
     border-color: rgba(74, 222, 128, 0.6);
     color: rgba(74, 222, 128, 1);
     box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
+}
+
+[data-theme="dark"] .shop-product-add-btn--error,
+[data-theme="dark"] .shop-product-add-btn--error:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #f87171;
 }
 
 [data-theme="dark"] .shop-product-add-btn--added,

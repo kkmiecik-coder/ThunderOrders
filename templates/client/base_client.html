@@ -36,13 +36,10 @@
 
 <!-- Cart Sidebar -->
 {% include 'client/shop/partials/cart_sidebar.html' %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/cart-sidebar.css') }}">
+<script src="{{ url_for('static', filename='js/components/cart-sidebar.js') }}"></script>
 {% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/layouts/client-layout.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/components/cart-sidebar.css') }}">
-{% endblock %}
-
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/components/cart-sidebar.js') }}"></script>
 {% endblock %}

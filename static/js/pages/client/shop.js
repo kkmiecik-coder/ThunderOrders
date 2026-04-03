@@ -517,8 +517,13 @@
                         if (data.cart_count != null) updateCartBadge(data.cart_count);
                     } catch (e) { console.error('Cart badge/toast error:', e); }
                 } else {
-                    btn.disabled = false;
-                    btn.innerHTML = defaultHtml;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>W koszyku</span>';
+                    btn.classList.add('shop-product-add-btn--error');
+                    setTimeout(function () {
+                        btn.disabled = false;
+                        btn.innerHTML = defaultHtml;
+                        btn.classList.remove('shop-product-add-btn--error');
+                    }, 3000);
                     try { if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udało się dodać do koszyka', 'error'); } catch (e) {}
                 }
             })
