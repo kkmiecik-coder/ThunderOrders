@@ -18,7 +18,7 @@
 
         <!-- Gallery -->
         <div class="product-gallery">
-            {% set images = product.images.all() %}
+            {% set images = product.images %}
             {% if images %}
                 <div class="product-gallery-main">
                     <img id="galleryMainImage"
@@ -69,10 +69,10 @@
                 {% endif %}
             </div>
 
-            {% if product.sizes.all()|length > 0 %}
+            {% if product.sizes|length > 0 %}
             <div class="product-sizes">
                 <span class="product-sizes-label">Rozmiar:</span>
-                {% for size in product.sizes.all() %}
+                {% for size in product.sizes %}
                 <span class="product-size-badge">{{ size.name }}</span>
                 {% endfor %}
             </div>
@@ -94,8 +94,8 @@
                         {% endif %}
                         <span class="product-variant-name">
                             {{ v.name }}
-                            {% if v.sizes.all()|length > 0 %}
-                                ({{ v.sizes.all()|map(attribute='name')|join(', ') }})
+                            {% if v.sizes|length > 0 %}
+                                ({{ v.sizes|map(attribute='name')|join(', ') }})
                             {% endif %}
                         </span>
                     </a>
