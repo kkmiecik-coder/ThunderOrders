@@ -15,13 +15,42 @@
     <h1 class="checkout-title">Podsumowanie zamówienia</h1>
 
     <div class="checkout-layout">
-        <!-- Left: items list -->
+        <!-- Left: items + shipping -->
         <div class="checkout-items-section">
             <div class="checkout-items-list" id="checkoutItemsList">
                 <!-- Populated by JS -->
             </div>
             <div class="checkout-items-loading" id="checkoutLoading">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Ładowanie...
+            </div>
+
+            <!-- Shipping section -->
+            <div class="checkout-shipping-section">
+                <label class="checkout-shipping-toggle" for="createShippingCheckbox">
+                    <span class="checkout-shipping-checkbox-wrapper">
+                        <input type="checkbox" id="createShippingCheckbox">
+                        <span class="checkout-shipping-checkmark">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                    </span>
+                    <span class="checkout-shipping-toggle-text">
+                        <span class="checkout-shipping-toggle-title">Stwórz zlecenie wysyłki</span>
+                        <span class="checkout-shipping-toggle-desc">Automatycznie utworzy zlecenie wysyłki z wybranym adresem dostawy</span>
+                    </span>
+                </label>
+
+                <div class="checkout-address-picker" id="addressPicker" style="display:none;">
+                    <label for="addressSelect" class="checkout-address-label">Adres dostawy</label>
+                    <select id="addressSelect" class="checkout-address-select">
+                        <option value="">Wybierz adres...</option>
+                        {% for addr in addresses %}
+                        <option value="{{ addr.id }}">{{ addr.display_name }} — {{ addr.full_address }}</option>
+                        {% endfor %}
+                    </select>
+                    <a href="{{ url_for('client.shipping_addresses') }}" class="checkout-address-add-link">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Dodaj nowy adres
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -37,28 +66,6 @@
                 <div class="checkout-summary-row checkout-summary-total">
                     <span>Razem:</span>
                     <span id="summaryTotal">0,00 PLN</span>
-                </div>
-
-                <hr class="checkout-divider">
-
-                <!-- Shipping toggle -->
-                <label class="checkout-shipping-toggle">
-                    <input type="checkbox" id="createShippingCheckbox">
-                    <span class="checkout-shipping-label">Stwórz zlecenie wysyłki</span>
-                </label>
-
-                <!-- Address picker (hidden by default) -->
-                <div class="checkout-address-picker" id="addressPicker" style="display:none;">
-                    <label for="addressSelect" class="checkout-address-label">Adres dostawy</label>
-                    <select id="addressSelect" class="checkout-address-select">
-                        <option value="">Wybierz adres...</option>
-                        {% for addr in addresses %}
-                        <option value="{{ addr.id }}">{{ addr.display_name }} — {{ addr.full_address }}</option>
-                        {% endfor %}
-                    </select>
-                    <a href="{{ url_for('client.shipping_addresses') }}" class="checkout-address-add-link">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Dodaj nowy adres
-                    </a>
                 </div>
 
                 <button type="button" id="placeOrderBtn" class="checkout-place-btn" disabled>

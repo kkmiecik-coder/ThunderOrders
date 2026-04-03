@@ -185,26 +185,87 @@
     margin: 1rem 0;
 }
 
-/* --- Shipping toggle --- */
-.checkout-shipping-toggle {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: #333;
-    margin-bottom: 0.75rem;
+/* --- Shipping section --- */
+.checkout-shipping-section {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    border: 1px solid #e0e4eb;
+    border-radius: 12px;
+    background: #fff;
 }
 
-.checkout-shipping-toggle input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    accent-color: #7c3aed;
+.checkout-shipping-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    cursor: pointer;
+}
+
+.checkout-shipping-checkbox-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.checkout-shipping-checkbox-wrapper input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.checkout-shipping-checkmark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 2px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    transition: all 0.2s ease;
+}
+
+.checkout-shipping-checkmark svg {
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.2s ease;
+    color: #fff;
+}
+
+.checkout-shipping-checkbox-wrapper input:checked + .checkout-shipping-checkmark {
+    background: #7c3aed;
+    border-color: #7c3aed;
+}
+
+.checkout-shipping-checkbox-wrapper input:checked + .checkout-shipping-checkmark svg {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.checkout-shipping-toggle-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.checkout-shipping-toggle-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1a1a2e;
+}
+
+.checkout-shipping-toggle-desc {
+    font-size: 0.8rem;
+    color: #888;
+    line-height: 1.4;
 }
 
 /* --- Address picker --- */
 .checkout-address-picker {
-    margin-bottom: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e0e4eb;
 }
 
 .checkout-address-label {
@@ -435,12 +496,35 @@
     border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="dark"] .checkout-shipping-toggle {
-    color: rgba(255, 255, 255, 0.8);
+[data-theme="dark"] .checkout-shipping-section {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(240, 147, 251, 0.12);
 }
 
-[data-theme="dark"] .checkout-shipping-toggle input[type="checkbox"] {
-    accent-color: #f093fb;
+[data-theme="dark"] .checkout-shipping-toggle-title {
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .checkout-shipping-toggle-desc {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .checkout-shipping-checkmark {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .checkout-shipping-checkbox-wrapper input:checked + .checkout-shipping-checkmark {
+    background: #f093fb;
+    border-color: #f093fb;
+}
+
+[data-theme="dark"] .checkout-shipping-checkbox-wrapper input:checked + .checkout-shipping-checkmark svg {
+    color: #0f0c29;
+}
+
+[data-theme="dark"] .checkout-address-picker {
+    border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme="dark"] .checkout-address-label {
