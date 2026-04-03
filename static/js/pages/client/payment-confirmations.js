@@ -987,15 +987,14 @@ window.toggleOrderItems = function(orderId, totalItems) {
         var paymentRows = card.querySelectorAll('.pc-payment-row');
         var paymentStages = parseInt(card.dataset.paymentStages) || 3;
 
+        // Map stage ID to row index based on payment_stages
+        // 4 stages: product(0), korean_shipping(1), customs_vat(2), domestic_shipping(3)
+        // 3 stages: product(0), customs_vat(1), domestic_shipping(2)
+        // 2 stages: product(0), domestic_shipping(1)
+        var stages = getStagesForOrder(paymentStages);
         var rowIndex = -1;
-        if (stageId === 'product') {
-            rowIndex = 0;
-        } else if (stageId === 'korean_shipping' && paymentStages === 4) {
-            rowIndex = 1;
-        } else if (stageId === 'customs_vat') {
-            rowIndex = paymentStages === 4 ? 2 : 1;
-        } else if (stageId === 'domestic_shipping') {
-            rowIndex = paymentStages === 4 ? 3 : 2;
+        for (var si = 0; si < stages.length; si++) {
+            if (stages[si].id === stageId) { rowIndex = si; break; }
         }
 
         if (rowIndex < 0 || rowIndex >= paymentRows.length) return;
