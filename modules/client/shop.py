@@ -399,3 +399,172 @@ def _get_recommendations(user_id, exclude_ids, limit=8):
         return Product.query.filter(
             *base_filter
         ).order_by(func.rand()).limit(limit).all()
+
+
+# ---------------------------------------------------------------------------
+# Cart helpers
+# ---------------------------------------------------------------------------
+
+def _get_cart_count(user_id):
+    """Return total quantity of items in user's cart."""
+    return db.session.query(
+        func.coalesce(func.sum(CartItem.quantity), 0)
+    ).filter(
+        CartItem.user_id == user_id
+    ).scalar()
+
+
+# ---------------------------------------------------------------------------
+# API: Cart endpoints
+# ---------------------------------------------------------------------------
+
+@shop_bp.route('/client/shop/api/cart')
+@login_required
+def api_cart():
+    """Get cart contents with stock validation."""
+    items = CartItem.query.filter_by(
+        user_id=current_user.id
+    ).order_by(CartItem.created_at.desc()).all()
+
+    cart_data = []
+    for item in items:
+        product = item.product
+        available = product.quantity if product and product.is_active else 0
+        img = product.primary_image if product else None
+        cart_data.append({
+            'id': item.id,
+            'product_id': item.product_id,
+            'name': product.name if product else 'Produkt usunięty',
+            'price': float(product.sale_price) if product and product.sale_price else 0,
+            'quantity': item.quantity,
+            'available': available,
+            'image_url': f'/static/{img.path_compressed}' if img else None,
+            'is_available': available > 0 and product.is_active if product else False,
+            'slug': slugify(product.name) if product else '',
+            'size': product.sizes[0].name if product and product.sizes else None,
+        })
+
+    total = sum(i['price'] * i['quantity'] for i in cart_data if i['is_available'])
+    count = sum(i['quantity'] for i in cart_data if i['is_available'])
+    return jsonify(items=cart_data, total=round(total, 2), count=count)
+
+
+@shop_bp.route('/client/shop/api/cart/add', methods=['POST'])
+@login_required
+def api_cart_add():
+    """Add a product to the cart."""
+    data = request.get_json(silent=True) or {}
+    product_id = data.get('product_id')
+    quantity = data.get('quantity', 1)
+
+    if not product_id:
+        return jsonify(success=False, error='Brak ID produktu.'), 400
+
+    product = Product.query.get(product_id)
+    if not product or not product.is_active:
+        return jsonify(success=False, error='Produkt nie istnieje lub jest nieaktywny.'), 404
+
+    # Must be on-hand type
+    if not product.product_type or product.product_type.slug != 'on_hand':
+        return jsonify(success=False, error='Ten produkt nie jest dostępny w sklepie.'), 400
+
+    if product.quantity <= 0:
+        return jsonify(success=False, error='Produkt jest niedostępny (brak na stanie).'), 400
+
+    # Check if already in cart
+    existing = CartItem.query.filter_by(
+        user_id=current_user.id,
+        product_id=product_id,
+    ).first()
+
+    if existing:
+        new_qty = existing.quantity + quantity
+        if new_qty > product.quantity:
+            return jsonify(
+                success=False,
+                error=f'Nie można dodać więcej. Dostępne: {product.quantity}, w koszyku: {existing.quantity}.',
+            ), 400
+        existing.quantity = new_qty
+    else:
+        if quantity > product.quantity:
+            return jsonify(
+                success=False,
+                error=f'Żądana ilość ({quantity}) przekracza dostępną ({product.quantity}).',
+            ), 400
+        cart_item = CartItem(
+            user_id=current_user.id,
+            product_id=product_id,
+            quantity=quantity,
+        )
+        db.session.add(cart_item)
+
+    # Record interaction
+    interaction = ProductInteraction(
+        user_id=current_user.id,
+        product_id=product_id,
+        interaction_type='cart_add',
+    )
+    db.session.add(interaction)
+    db.session.commit()
+
+    return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+
+
+@shop_bp.route('/client/shop/api/cart/update', methods=['POST'])
+@login_required
+def api_cart_update():
+    """Update quantity of a cart item."""
+    data = request.get_json(silent=True) or {}
+    item_id = data.get('item_id')
+    quantity = data.get('quantity')
+
+    if not item_id or quantity is None:
+        return jsonify(success=False, error='Brak wymaganych parametrów.'), 400
+
+    item = CartItem.query.filter_by(id=item_id, user_id=current_user.id).first()
+    if not item:
+        return jsonify(success=False, error='Nie znaleziono elementu koszyka.'), 404
+
+    if quantity <= 0:
+        db.session.delete(item)
+        db.session.commit()
+        return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+
+    product = item.product
+    if product and quantity > product.quantity:
+        return jsonify(
+            success=False,
+            error=f'Dostępna ilość: {product.quantity}.',
+            available=product.quantity,
+        ), 400
+
+    item.quantity = quantity
+    db.session.commit()
+    return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+
+
+@shop_bp.route('/client/shop/api/cart/remove', methods=['POST'])
+@login_required
+def api_cart_remove():
+    """Remove an item from the cart."""
+    data = request.get_json(silent=True) or {}
+    item_id = data.get('item_id')
+
+    if not item_id:
+        return jsonify(success=False, error='Brak ID elementu.'), 400
+
+    item = CartItem.query.filter_by(id=item_id, user_id=current_user.id).first()
+    if not item:
+        return jsonify(success=False, error='Nie znaleziono elementu koszyka.'), 404
+
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+
+
+@shop_bp.route('/client/shop/api/cart/count')
+@login_required
+def api_cart_count():
+    """Return cart badge count."""
+    count = _get_cart_count(current_user.id)
+    return jsonify(count=count)
