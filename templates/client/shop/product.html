@@ -18,7 +18,7 @@
 
         <!-- Gallery -->
         <div class="product-gallery">
-            {% set images = product.images %}
+            {% set images = product.images|list %}
             {% if images %}
                 <div class="product-gallery-main">
                     <img id="galleryMainImage"
@@ -69,7 +69,7 @@
                 {% endif %}
             </div>
 
-            {% if product.sizes|length > 0 %}
+            {% if product.sizes|list|length > 0 %}
             <div class="product-sizes">
                 <span class="product-sizes-label">Rozmiar:</span>
                 {% for size in product.sizes %}
@@ -94,7 +94,7 @@
                         {% endif %}
                         <span class="product-variant-name">
                             {{ v.name }}
-                            {% if v.sizes|length > 0 %}
+                            {% if v.sizes|list|length > 0 %}
                                 ({{ v.sizes|map(attribute='name')|join(', ') }})
                             {% endif %}
                         </span>
