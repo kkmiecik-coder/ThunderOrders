@@ -505,8 +505,6 @@
             .then(function (res) { return res.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
-                    if (data.cart_count != null) updateCartBadge(data.cart_count);
                     btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg><span>Dodano!</span>';
                     btn.classList.add('shop-product-add-btn--added');
                     setTimeout(function () {
@@ -514,16 +512,21 @@
                         btn.innerHTML = defaultHtml;
                         btn.classList.remove('shop-product-add-btn--added');
                     }, 3000);
+                    try {
+                        if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
+                        if (data.cart_count != null) updateCartBadge(data.cart_count);
+                    } catch (e) { console.error('Cart badge/toast error:', e); }
                 } else {
                     btn.disabled = false;
                     btn.innerHTML = defaultHtml;
-                    if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udało się dodać do koszyka', 'error');
+                    try { if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udało się dodać do koszyka', 'error'); } catch (e) {}
                 }
             })
-            .catch(function () {
+            .catch(function (err) {
+                console.error('Add to cart fetch error:', err);
                 btn.disabled = false;
                 btn.innerHTML = defaultHtml;
-                if (typeof window.showToast === 'function') window.showToast('Błąd połączenia', 'error');
+                try { if (typeof window.showToast === 'function') window.showToast('Błąd połączenia', 'error'); } catch (e) {}
             });
         });
     }
