@@ -282,9 +282,26 @@
                     }
                 }
 
-                // Empty state
+                // Empty state — distinguish "no products at all" vs "no results for filters"
                 if (els.empty) {
-                    els.empty.style.display = products.length === 0 ? 'flex' : 'none';
+                    if (products.length === 0) {
+                        els.empty.style.display = 'flex';
+                        var hasFilters = state.search || state.category || state.size ||
+                            (state.priceMin && state.priceMin !== (els.priceMin ? els.priceMin.min : '')) ||
+                            (state.priceMax && state.priceMax !== (els.priceMax ? els.priceMax.max : ''));
+                        var emptyIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>';
+                        if (hasFilters) {
+                            els.empty.innerHTML = emptyIcon +
+                                '<p class="shop-empty-text">Nie znaleziono produktów spełniających kryteria.</p>' +
+                                '<button type="button" id="shopEmptyClearBtn" class="filter-btn filter-btn-secondary" onclick="document.getElementById(\'filterClearBtn\')?.click()">Wyczyść filtry</button>';
+                        } else {
+                            els.empty.innerHTML = emptyIcon +
+                                '<p class="shop-empty-text">Sklep jest jeszcze pusty.</p>' +
+                                '<p class="shop-empty-subtext">Wkrótce pojawią się tutaj produkty.</p>';
+                        }
+                    } else {
+                        els.empty.style.display = 'none';
+                    }
                 }
 
                 // Pagination
