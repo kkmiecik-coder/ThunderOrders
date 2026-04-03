@@ -109,6 +109,18 @@
         return n.toFixed(2).replace('.', ',');
     }
 
+    // ---- Price slider labels ----
+    var priceMinLabel = document.getElementById('filterPriceMinLabel');
+    var priceMaxLabel = document.getElementById('filterPriceMaxLabel');
+
+    function updatePriceLabels() {
+        if (priceMinLabel && els.priceMin) priceMinLabel.textContent = els.priceMin.value + ' PLN';
+        if (priceMaxLabel && els.priceMax) priceMaxLabel.textContent = els.priceMax.value + ' PLN';
+    }
+
+    if (els.priceMin) els.priceMin.addEventListener('input', updatePriceLabels);
+    if (els.priceMax) els.priceMax.addEventListener('input', updatePriceLabels);
+
     // ---- Render product card ----
     function renderCard(p) {
         var price = formatPrice(p.price);
@@ -124,7 +136,6 @@
                     (p.brand ? '<span class="shop-product-brand">' + esc(p.brand) + '</span>' : '') +
                     '<div class="shop-product-bottom">' +
                         '<span class="shop-product-price">' + price + ' PLN</span>' +
-                        '<span class="shop-product-stock">' + parseInt(p.quantity, 10) + ' szt.</span>' +
                     '</div>' +
                 '</div>' +
             '</a>' +
@@ -206,7 +217,7 @@
 
                 // Results count
                 if (els.resultsCount) {
-                    els.resultsCount.textContent = total + ' produkt' + (total === 1 ? '' : 'ow');
+                    els.resultsCount.textContent = total + ' produkt' + (total === 1 ? '' : 'ów');
                 }
 
                 // Grid
@@ -259,13 +270,20 @@
                     }).join('');
                 }
 
-                // Price range placeholders
-                if (els.priceMin && data.price_min != null && !els.priceMin.value) {
-                    els.priceMin.placeholder = 'Od ' + Math.floor(data.price_min);
+                // Price range sliders
+                var pMin = Math.floor(data.price_min || 0);
+                var pMax = Math.ceil(data.price_max || 1000);
+                if (els.priceMin) {
+                    els.priceMin.min = pMin;
+                    els.priceMin.max = pMax;
+                    els.priceMin.value = state.priceMin || pMin;
                 }
-                if (els.priceMax && data.price_max != null && !els.priceMax.value) {
-                    els.priceMax.placeholder = 'Do ' + Math.ceil(data.price_max);
+                if (els.priceMax) {
+                    els.priceMax.min = pMin;
+                    els.priceMax.max = pMax;
+                    els.priceMax.value = state.priceMax || pMax;
                 }
+                updatePriceLabels();
             })
             .catch(function (err) {
                 console.error('Filters fetch error:', err);

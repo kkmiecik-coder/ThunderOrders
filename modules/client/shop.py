@@ -185,7 +185,7 @@ def api_products():
 
     return jsonify(
         products=result,
-        total=pagination.total,
+        total=len(result),
         pages=pagination.pages,
         current_page=pagination.page,
     )

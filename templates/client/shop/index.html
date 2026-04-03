@@ -43,10 +43,15 @@
             <!-- Price range filter -->
             <div class="filter-group">
                 <h4 class="filter-group-title">Cena (PLN)</h4>
-                <div class="filter-price-range">
-                    <input type="number" id="filterPriceMin" class="filter-price-input" placeholder="Od" min="0" step="1">
-                    <span class="filter-price-separator">&ndash;</span>
-                    <input type="number" id="filterPriceMax" class="filter-price-input" placeholder="Do" min="0" step="1">
+                <div class="filter-price-slider">
+                    <div class="filter-price-labels">
+                        <span id="filterPriceMinLabel">0</span>
+                        <span id="filterPriceMaxLabel">0</span>
+                    </div>
+                    <div class="filter-price-sliders">
+                        <input type="range" id="filterPriceMin" class="filter-range-input" min="0" max="1000" value="0" step="1">
+                        <input type="range" id="filterPriceMax" class="filter-range-input" min="0" max="1000" value="1000" step="1">
+                    </div>
                 </div>
             </div>
 
