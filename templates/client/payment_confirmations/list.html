@@ -112,8 +112,10 @@
                             <span class="pc-stage-badge pc-stage-badge-pending">Weryfikacja</span>
                         {% elif e1_status == 'rejected' %}
                             <span class="pc-stage-badge pc-stage-badge-rejected">Odrzucone</span>
+                        {% elif order.can_upload_product_payment %}
+                            <span class="pc-stage-badge pc-stage-badge-ready">Do zapłaty</span>
                         {% else %}
-                            <span class="pc-stage-badge pc-stage-badge-soon">Oczekuje</span>
+                            <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
                     </div>
 
