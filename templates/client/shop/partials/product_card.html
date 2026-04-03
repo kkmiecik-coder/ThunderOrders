@@ -1,0 +1,42 @@
+{#
+  Product card partial — server-rendered fallback.
+  Expected context variable: product (Product model instance)
+#}
+{% set img = product.primary_image %}
+<div class="product-card" data-product-id="{{ product.id }}">
+    <a href="{{ url_for('shop.product_detail', product_id=product.id, slug=product.name) }}" class="product-card-link">
+        <div class="product-card-image">
+            {% if img %}
+                <img src="{{ url_for('static', filename=img.path_compressed) }}" alt="{{ product.name }}" loading="lazy">
+            {% else %}
+                <div class="product-card-no-image">
+                    <i class="fas fa-image"></i>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="product-card-body">
+            {% if product.manufacturer %}
+                <span class="product-card-brand">{{ product.manufacturer.name }}</span>
+            {% endif %}
+
+            <h3 class="product-card-name">{{ product.name }}</h3>
+
+            <div class="product-card-price">{{ "%.2f"|format(product.sale_price) }} PLN</div>
+
+            <div class="product-card-meta">
+                {% if product.quantity > 0 %}
+                    <span class="product-card-stock product-card-stock--in">Dostepne ({{ product.quantity }})</span>
+                {% else %}
+                    <span class="product-card-stock product-card-stock--out">Brak</span>
+                {% endif %}
+            </div>
+        </div>
+    </a>
+
+    <div class="product-card-actions">
+        <button type="button" class="product-card-add-btn" data-product-id="{{ product.id }}">
+            <i class="fas fa-cart-plus"></i> Dodaj do koszyka
+        </button>
+    </div>
+</div>

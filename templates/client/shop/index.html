@@ -1,0 +1,119 @@
+{% extends "client/base_client.html" %}
+
+{% block extra_css %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/shop.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="shop-page">
+    <!-- Header -->
+    <div class="shop-header">
+        <h1 class="shop-title">Sklep</h1>
+    </div>
+
+    <!-- Search bar -->
+    <div class="shop-search">
+        <div class="shop-search-input-wrapper">
+            <input type="text" id="shopSearchInput" class="shop-search-input" placeholder="Szukaj produktu po nazwie lub SKU...">
+            <button type="button" id="shopSearchBtn" class="shop-search-btn">
+                <i class="fas fa-search"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="shop-layout">
+        <!-- Filters sidebar -->
+        <aside class="shop-filters" id="shopFilters">
+            <div class="shop-filters-header">
+                <h3>Filtry</h3>
+                <button type="button" id="shopFiltersMobileClose" class="shop-filters-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Category (manufacturer) filter -->
+            <div class="filter-group" id="filterCategoryGroup">
+                <h4 class="filter-group-title">Kategoria</h4>
+                <div class="filter-options" id="filterCategoryOptions">
+                    <!-- Populated by JS from /api/filters -->
+                </div>
+            </div>
+
+            <!-- Price range filter -->
+            <div class="filter-group">
+                <h4 class="filter-group-title">Cena (PLN)</h4>
+                <div class="filter-price-range">
+                    <input type="number" id="filterPriceMin" class="filter-price-input" placeholder="Od" min="0" step="1">
+                    <span class="filter-price-separator">&ndash;</span>
+                    <input type="number" id="filterPriceMax" class="filter-price-input" placeholder="Do" min="0" step="1">
+                </div>
+            </div>
+
+            <!-- Size filter -->
+            <div class="filter-group" id="filterSizeGroup">
+                <h4 class="filter-group-title">Rozmiar</h4>
+                <div class="filter-options" id="filterSizeOptions">
+                    <!-- Populated by JS from /api/filters -->
+                </div>
+            </div>
+
+            <!-- Filter action buttons -->
+            <div class="filter-actions">
+                <button type="button" id="filterApplyBtn" class="filter-btn filter-btn-primary">Filtruj</button>
+                <button type="button" id="filterClearBtn" class="filter-btn filter-btn-secondary">Wyczysc</button>
+            </div>
+        </aside>
+
+        <!-- Main content area -->
+        <div class="shop-main">
+            <!-- Toolbar: sort + results count + mobile filter toggle -->
+            <div class="shop-toolbar">
+                <button type="button" id="shopFiltersToggle" class="shop-filters-toggle">
+                    <i class="fas fa-sliders-h"></i> Filtry
+                </button>
+
+                <span class="shop-results-count" id="shopResultsCount"></span>
+
+                <div class="shop-sort">
+                    <label for="shopSortSelect" class="shop-sort-label">Sortuj:</label>
+                    <select id="shopSortSelect" class="shop-sort-select">
+                        <option value="newest">Najnowsze</option>
+                        <option value="price_asc">Cena rosnaco</option>
+                        <option value="price_desc">Cena malejaco</option>
+                        <option value="name_asc">Nazwa A-Z</option>
+                        <option value="name_desc">Nazwa Z-A</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product grid (populated by JS) -->
+            <div class="shop-grid" id="shopGrid">
+                <!-- Product cards inserted here by JS -->
+            </div>
+
+            <!-- Empty state -->
+            <div class="shop-empty" id="shopEmpty" style="display:none;">
+                <i class="fas fa-box-open shop-empty-icon"></i>
+                <p class="shop-empty-text">Nie znaleziono produktow speniajacych kryteria.</p>
+                <button type="button" id="shopEmptyClearBtn" class="filter-btn filter-btn-secondary">Wyczysc filtry</button>
+            </div>
+
+            <!-- Loading spinner -->
+            <div class="shop-loading" id="shopLoading" style="display:none;">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+
+            <!-- Pagination -->
+            <div class="shop-pagination" id="shopPagination">
+                <!-- Built by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/pages/client/shop.js') }}"></script>
+{% endblock %}
