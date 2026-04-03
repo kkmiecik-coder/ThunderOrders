@@ -314,7 +314,14 @@ def _get_variants(product):
     ).all()]
     if not variant_ids:
         return []
-    return Product.query.filter(Product.id.in_(variant_ids), Product.is_active == True).all()
+    on_hand_type = ProductType.query.filter_by(slug='on-hand').first()
+    if not on_hand_type:
+        return []
+    return Product.query.filter(
+        Product.id.in_(variant_ids),
+        Product.is_active == True,
+        Product.product_type_id == on_hand_type.id
+    ).all()
 
 
 def _get_related(product, exclude_ids, limit=8):

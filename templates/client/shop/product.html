@@ -51,7 +51,7 @@
             <p class="product-brand">{{ product.manufacturer.name }}</p>
             {% endif %}
 
-            <p class="product-sku">SKU: {{ product.sku }}</p>
+            {% if product.sku %}<p class="product-sku">SKU: {{ product.sku }}</p>{% endif %}
 
             <div class="product-price">
                 {{ "%.2f"|format(product.sale_price)|replace('.', ',') }} PLN
@@ -60,7 +60,7 @@
             <div class="product-stock" id="productStock" data-stock="{{ product.quantity }}">
                 {% if product.quantity > 0 %}
                     <span class="product-stock-badge product-stock-available">
-                        <i class="fas fa-check-circle"></i> Dostepne: {{ product.quantity }} szt.
+                        <i class="fas fa-check-circle"></i> Dostępne: {{ product.quantity }} szt.
                     </span>
                 {% else %}
                     <span class="product-stock-badge product-stock-unavailable">
