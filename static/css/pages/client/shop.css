@@ -207,6 +207,7 @@
     pointer-events: auto;
     position: relative;
     z-index: 2;
+    margin-top: -7px;
 }
 
 .filter-range-input::-moz-range-thumb {
@@ -236,7 +237,15 @@
 .filter-actions {
     display: flex;
     gap: 0.5rem;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+    animation: filterActionsIn 0.2s ease;
+}
+
+@keyframes filterActionsIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .filter-btn {

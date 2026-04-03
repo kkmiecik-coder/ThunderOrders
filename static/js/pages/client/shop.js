@@ -38,8 +38,16 @@
         filtersToggle: document.getElementById('shopFiltersToggle'),
         filters: document.getElementById('shopFilters'),
         filtersMobileClose: document.getElementById('shopFiltersMobileClose'),
-        emptyClearBtn: document.getElementById('shopEmptyClearBtn')
+        emptyClearBtn: document.getElementById('shopEmptyClearBtn'),
+        filterActions: document.getElementById('filterActions')
     };
+
+    function showFilterActions() {
+        if (els.filterActions) els.filterActions.style.display = 'flex';
+    }
+    function hideFilterActions() {
+        if (els.filterActions) els.filterActions.style.display = 'none';
+    }
 
     // ---- CSRF Token ----
     function getCsrfToken() {
@@ -118,8 +126,8 @@
         if (priceMaxLabel && els.priceMax) priceMaxLabel.textContent = els.priceMax.value + ' PLN';
     }
 
-    if (els.priceMin) els.priceMin.addEventListener('input', updatePriceLabels);
-    if (els.priceMax) els.priceMax.addEventListener('input', updatePriceLabels);
+    if (els.priceMin) els.priceMin.addEventListener('input', function() { updatePriceLabels(); showFilterActions(); });
+    if (els.priceMax) els.priceMax.addEventListener('input', function() { updatePriceLabels(); showFilterActions(); });
 
     // ---- Render product card ----
     function renderCard(p) {
@@ -338,6 +346,7 @@
             if (!isActive) {
                 btn.classList.add('active');
             }
+            showFilterActions();
         });
     }
 
@@ -354,6 +363,7 @@
 
             state.page = 1;
             fetchProducts();
+            hideFilterActions();
 
             // Close mobile filters
             if (els.filters) els.filters.classList.remove('open');
@@ -388,6 +398,7 @@
         }
 
         fetchProducts();
+        hideFilterActions();
     }
 
     if (els.clearBtn) els.clearBtn.addEventListener('click', clearAllFilters);
