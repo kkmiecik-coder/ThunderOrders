@@ -225,7 +225,8 @@
 
                 // Results count
                 if (els.resultsCount) {
-                    els.resultsCount.textContent = total + ' produkt' + (total === 1 ? '' : 'ów');
+                    var suffix = total === 1 ? 'produkt' : (total % 10 >= 2 && total % 10 <= 4 && (total % 100 < 10 || total % 100 >= 20)) ? 'produkty' : 'produktów';
+                    els.resultsCount.textContent = total + ' ' + suffix;
                 }
 
                 // Grid
