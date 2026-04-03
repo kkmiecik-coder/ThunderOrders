@@ -692,6 +692,7 @@ def checkout_place():
             order_type='on_hand',
             status='nowe',
             total_amount=total,
+            payment_stages=2,
         )
         db.session.add(order)
         db.session.flush()  # get order.id

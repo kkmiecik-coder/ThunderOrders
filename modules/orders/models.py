@@ -644,8 +644,8 @@ class Order(db.Model):
         paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
         grand = self.grand_total
 
-        # Zamówienia offer (exclusive / pre_order) z etapami płatności
-        if self.order_type in ('exclusive', 'pre_order') and self.payment_stages:
+        # Zamówienia z etapami płatności (exclusive, pre_order, on_hand)
+        if self.order_type in ('exclusive', 'pre_order', 'on_hand') and self.payment_stages:
             stages_info = []
             statuses = []
 
@@ -676,13 +676,14 @@ class Order(db.Model):
                 stages_info.append(f"E2 Wysy\u0142ka KR: {e2_icon} {e2_paid} / {e2_due} z\u0142")
                 statuses.append(e2_status)
 
-            # E3: Cło/VAT
-            e3_status = self.stage_3_status
-            e3_conf = self.stage_3_confirmation
-            e3_paid = e3_conf.amount if e3_conf and e3_conf.is_approved else Decimal('0.00')
-            e3_icon = status_icons.get(e3_status, default_icon)
-            stages_info.append(f"E3 C\u0142o/VAT: {e3_icon} {e3_paid} / {e3_due} z\u0142")
-            statuses.append(e3_status)
+            # E3: Cło/VAT (nie dotyczy on-hand)
+            if self.order_type != 'on_hand':
+                e3_status = self.stage_3_status
+                e3_conf = self.stage_3_confirmation
+                e3_paid = e3_conf.amount if e3_conf and e3_conf.is_approved else Decimal('0.00')
+                e3_icon = status_icons.get(e3_status, default_icon)
+                stages_info.append(f"E3 C\u0142o/VAT: {e3_icon} {e3_paid} / {e3_due} z\u0142")
+                statuses.append(e3_status)
 
             # E4: Wysyłka PL
             e4_status = self.stage_4_status
@@ -778,8 +779,8 @@ class Order(db.Model):
             'spakowane',
         ]
 
-        # Pre-order: 'nowe' jest dozwolone (klient płaci od razu)
-        if self.order_type == 'pre_order' and self.status == 'nowe':
+        # Pre-order i on-hand: 'nowe' jest dozwolone (klient płaci od razu)
+        if self.order_type in ('pre_order', 'on_hand') and self.status == 'nowe':
             pass  # allowed
         elif self.status not in allowed_statuses:
             return False

@@ -89,14 +89,21 @@ def payment_confirmations():
         'spakowane',
     ]
 
-    # Zamówienia ze stron sprzedaży użytkownika w dozwolonych statusach
-    # Pre-order: 'nowe' też dozwolone (klient płaci od razu)
+    # Zamówienia użytkownika w dozwolonych statusach
+    # - Offer orders (exclusive/pre-order): muszą mieć offer_page_id
+    # - On-hand orders: nie mają offer_page_id, ale mają payment_stages=2
+    # - Pre-order/on-hand: 'nowe' też dozwolone (klient płaci od razu)
     all_orders = Order.query.filter(
         Order.user_id == current_user.id,
-        Order.offer_page_id.isnot(None),
+        db.or_(
+            # Offer orders (exclusive, pre-order)
+            Order.offer_page_id.isnot(None),
+            # On-hand orders
+            Order.order_type == 'on_hand'
+        ),
         db.or_(
             Order.status.in_(allowed_statuses),
-            db.and_(Order.order_type == 'pre_order', Order.status == 'nowe')
+            db.and_(Order.order_type.in_(['pre_order', 'on_hand']), Order.status == 'nowe')
         )
     ).order_by(Order.created_at.desc()).all()
 
@@ -110,7 +117,8 @@ def payment_confirmations():
         statuses = [order.product_payment_status]
         if order.payment_stages == 4:
             statuses.append(order.stage_2_status or 'none')
-        statuses.append(order.stage_3_status)
+        if order.order_type != 'on_hand':
+            statuses.append(order.stage_3_status)
         statuses.append(order.stage_4_status)
 
         if all(s == 'approved' for s in statuses):
