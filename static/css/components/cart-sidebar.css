@@ -293,22 +293,27 @@
     display: none;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 40px 20px;
     text-align: center;
     color: #888;
+    overflow-y: auto;
 }
 
-.cart-sidebar-empty > i {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
-    opacity: 0.4;
+.cart-sidebar-empty > svg {
+    margin-top: auto;
+    opacity: 0.35;
+    flex-shrink: 0;
 }
 
 .cart-sidebar-empty > p {
     font-size: 1rem;
     font-weight: 600;
-    margin: 0 0 20px;
+    margin: 12px 0 0;
+}
+
+#cartEmptyRecs {
+    margin-top: auto;
+    width: 100%;
+    padding: 20px 16px;
 }
 
 /* -- Recommendations -------------------------------------------------- */
