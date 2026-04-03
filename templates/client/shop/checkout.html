@@ -44,13 +44,34 @@
                     <select id="addressSelect" class="checkout-address-select">
                         <option value="">Wybierz adres...</option>
                         {% for addr in addresses %}
-                        <option value="{{ addr.id }}">{{ addr.display_name }} — {{ addr.full_address }}</option>
+                        <option value="{{ addr.id }}">{{ addr.name or 'Adres #' ~ addr.id }}</option>
                         {% endfor %}
                     </select>
+                    <div class="checkout-address-details" id="addressDetails" style="display:none;"></div>
                     <a href="{{ url_for('client.shipping_addresses') }}" class="checkout-address-add-link">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Dodaj nowy adres
                     </a>
                 </div>
+
+                <script>
+                    window.__checkoutAddresses = [
+                        {% for addr in addresses %}
+                        {
+                            id: {{ addr.id }},
+                            name: {{ (addr.name or '')|tojson }},
+                            type: {{ addr.address_type|tojson }},
+                            shipping_name: {{ (addr.shipping_name or '')|tojson }},
+                            shipping_address: {{ (addr.shipping_address or '')|tojson }},
+                            shipping_postal_code: {{ (addr.shipping_postal_code or '')|tojson }},
+                            shipping_city: {{ (addr.shipping_city or '')|tojson }},
+                            pickup_courier: {{ (addr.pickup_courier or '')|tojson }},
+                            pickup_point_id: {{ (addr.pickup_point_id or '')|tojson }},
+                            pickup_address: {{ (addr.pickup_address or '')|tojson }},
+                            pickup_city: {{ (addr.pickup_city or '')|tojson }}
+                        }{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ];
+                </script>
             </div>
         </div>
 

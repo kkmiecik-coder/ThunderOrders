@@ -292,6 +292,35 @@
     border-color: #7c3aed;
 }
 
+.checkout-address-details {
+    margin-top: 0.75rem;
+}
+
+.address-detail-card {
+    padding: 0.75rem 1rem;
+    border: 1px solid #e0e4eb;
+    border-radius: 8px;
+    background: #f9fafb;
+}
+
+.address-detail-row {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    padding: 0.2rem 0;
+}
+
+.address-detail-label {
+    font-weight: 600;
+    color: #555;
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.address-detail-row span:last-child {
+    color: #333;
+}
+
 .checkout-address-add-link {
     display: inline-flex;
     align-items: center;
@@ -543,6 +572,19 @@
 
 [data-theme="dark"] .checkout-address-select option {
     background: #1a1a2e;
+    color: #f0f0f0;
+}
+
+[data-theme="dark"] .address-detail-card {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .address-detail-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .address-detail-row span:last-child {
     color: #f0f0f0;
 }
 

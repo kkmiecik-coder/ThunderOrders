@@ -24,10 +24,42 @@
     var addressSelect = document.getElementById('addressSelect');
     var placeOrderBtn = document.getElementById('placeOrderBtn');
 
+    var addressDetails = document.getElementById('addressDetails');
+
     if (!itemsList) return; // not on checkout page
 
     var cartData = null;
     var hasUnavailable = false;
+
+    // --- Address details display ---
+    if (addressSelect) {
+        addressSelect.addEventListener('change', function () {
+            var addrId = parseInt(addressSelect.value, 10);
+            var addresses = window.__checkoutAddresses || [];
+            var addr = null;
+            for (var i = 0; i < addresses.length; i++) {
+                if (addresses[i].id === addrId) { addr = addresses[i]; break; }
+            }
+            if (addr && addressDetails) {
+                var html = '<div class="address-detail-card">';
+                if (addr.type === 'pickup_point') {
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Kurier:</span><span>' + escapeHtml(addr.pickup_courier) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Punkt:</span><span>' + escapeHtml(addr.pickup_point_id) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Adres:</span><span>' + escapeHtml(addr.pickup_address) + ', ' + escapeHtml(addr.pickup_city) + '</span></div>';
+                } else {
+                    if (addr.shipping_name) html += '<div class="address-detail-row"><span class="address-detail-label">Odbiorca:</span><span>' + escapeHtml(addr.shipping_name) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Adres:</span><span>' + escapeHtml(addr.shipping_address) + '</span></div>';
+                    html += '<div class="address-detail-row"><span class="address-detail-label">Miasto:</span><span>' + escapeHtml(addr.shipping_postal_code) + ' ' + escapeHtml(addr.shipping_city) + '</span></div>';
+                }
+                html += '</div>';
+                addressDetails.innerHTML = html;
+                addressDetails.style.display = 'block';
+            } else if (addressDetails) {
+                addressDetails.innerHTML = '';
+                addressDetails.style.display = 'none';
+            }
+        });
+    }
 
     // --- Load cart ---
     function loadCart() {
