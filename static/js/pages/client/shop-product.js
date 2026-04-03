@@ -88,8 +88,16 @@
         if (addToCartBtn) addToCartBtn.disabled = true;
         if (stickyAddBtn) stickyAddBtn.disabled = true;
 
-        var originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Dodawanie...';
+        var cartIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>';
+        var originalHtml = cartIcon + ' Dodaj do koszyka';
+        var checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg>';
+
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" class="spin-icon"><path d="M21 12a9 9 0 11-6.219-8.56"/></svg> Dodawanie...';
+
+        function restoreBtn() {
+            if (addToCartBtn) { addToCartBtn.disabled = false; addToCartBtn.innerHTML = originalHtml; addToCartBtn.classList.remove('product-add-to-cart--added'); }
+            if (stickyAddBtn) { stickyAddBtn.disabled = false; stickyAddBtn.innerHTML = originalHtml; stickyAddBtn.classList.remove('product-add-to-cart--added'); }
+        }
 
         fetch('/client/shop/api/cart/add', {
             method: 'POST',
@@ -101,29 +109,20 @@
         })
         .then(function (res) { return res.json(); })
         .then(function (data) {
-            // Restore buttons
-            btn.innerHTML = originalHtml;
-            if (addToCartBtn) addToCartBtn.disabled = false;
-            if (stickyAddBtn) stickyAddBtn.disabled = false;
-
             if (data.success) {
-                if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
-                if (data.cart_count != null) updateCartBadge(data.cart_count);
+                // Show "Dodano!" for 3 seconds
+                var addedHtml = checkIcon + ' Dodano!';
+                if (addToCartBtn) { addToCartBtn.innerHTML = addedHtml; addToCartBtn.classList.add('product-add-to-cart--added'); }
+                if (stickyAddBtn) { stickyAddBtn.innerHTML = addedHtml; stickyAddBtn.classList.add('product-add-to-cart--added'); }
+                setTimeout(restoreBtn, 3000);
 
-                // Track event
-                if (typeof window.trackAddToCart === 'function') {
-                    var name = document.querySelector('.product-title');
-                    var sku = document.querySelector('.product-sku');
-                    var price = document.querySelector('.product-price');
-                    window.trackAddToCart(
-                        name ? name.textContent.trim() : '',
-                        sku ? sku.textContent.replace('SKU:', '').trim() : '',
-                        price ? parseFloat(price.textContent.replace(',', '.').replace(/[^\d.]/g, '')) : 0,
-                        quantity
-                    );
-                }
+                try {
+                    if (typeof window.showToast === 'function') window.showToast('Dodano do koszyka', 'success');
+                    if (data.cart_count != null) updateCartBadge(data.cart_count);
+                } catch (e) { console.error('Toast/badge error:', e); }
             } else {
-                if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udalo sie dodac do koszyka', 'error');
+                restoreBtn();
+                try { if (typeof window.showToast === 'function') window.showToast(data.error || 'Nie udało się dodać do koszyka', 'error'); } catch (e) {}
 
                 // If stock changed, update display
                 if (data.available_quantity != null) {
@@ -132,27 +131,15 @@
                     if (maxQty === 0) {
                         if (addToCartBtn) addToCartBtn.disabled = true;
                         if (stickyAddBtn) stickyAddBtn.disabled = true;
-                        if (stockEl) {
-                            stockEl.setAttribute('data-stock', '0');
-                            stockEl.innerHTML = '<span class="product-stock-badge product-stock-unavailable">' +
-                                '<i class="fas fa-times-circle"></i> Brak w magazynie</span>';
-                        }
                     } else {
                         setQty(getQty());
-                        if (stockEl) {
-                            stockEl.setAttribute('data-stock', maxQty);
-                            stockEl.innerHTML = '<span class="product-stock-badge product-stock-available">' +
-                                '<i class="fas fa-check-circle"></i> Dostepne: ' + maxQty + ' szt.</span>';
-                        }
                     }
                 }
             }
         })
         .catch(function () {
-            btn.innerHTML = originalHtml;
-            if (addToCartBtn) addToCartBtn.disabled = false;
-            if (stickyAddBtn) stickyAddBtn.disabled = false;
-            if (typeof window.showToast === 'function') window.showToast('Blad polaczenia', 'error');
+            restoreBtn();
+            try { if (typeof window.showToast === 'function') window.showToast('Błąd połączenia', 'error'); } catch (e) {}
         });
     }
 

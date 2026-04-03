@@ -319,6 +319,15 @@
     cursor: not-allowed;
 }
 
+.product-add-to-cart--added {
+    background: #10b981 !important;
+    border-color: #10b981 !important;
+    opacity: 1 !important;
+}
+
+.spin-icon { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* --- Description --- */
 .product-description {
     margin-bottom: 2.5rem;
