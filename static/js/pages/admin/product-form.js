@@ -1080,8 +1080,22 @@ function initProductTypeToggle() {
             const typeId = this.getAttribute('data-type-id');
             hiddenSelect.value = typeId;
 
-            // Move slider based on which button was clicked
+            // Enforce max 1 size when switching to on-hand
             const typeSlug = this.getAttribute('data-type-slug');
+            if (typeSlug === 'on-hand' && window.selectedSizes && window.selectedSizes.size > 1) {
+                // Keep only the first selected size, remove the rest
+                const sizesArray = Array.from(window.selectedSizes);
+                for (let i = 1; i < sizesArray.length; i++) {
+                    if (typeof window.removeSize === 'function') {
+                        window.removeSize(sizesArray[i]);
+                    }
+                }
+                if (window.Toast) {
+                    window.Toast.show('Produkty on-hand mogą mieć max 1 rozmiar. Pozostawiono pierwszy wybrany rozmiar.', 'warning');
+                }
+            }
+
+            // Move slider based on which button was clicked
             if (typeSlug === 'pre-order') {
                 toggleSlider.style.left = '4px';
             } else if (typeSlug === 'on-hand') {

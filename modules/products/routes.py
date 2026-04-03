@@ -190,12 +190,17 @@ def create_product():
                 if tag:
                     product.tags.append(tag)
 
-        # Add sizes
-        if form.sizes.data:
-            for size_id in form.sizes.data:
-                size = Size.query.get(size_id)
-                if size:
-                    product.sizes.append(size)
+        # Add sizes (on-hand products: max 1 size)
+        sizes_data = form.sizes.data or []
+        if product.product_type_id:
+            from modules.products.models import ProductType
+            pt = ProductType.query.get(product.product_type_id)
+            if pt and pt.slug == 'on-hand' and len(sizes_data) > 1:
+                sizes_data = sizes_data[:1]
+        for size_id in sizes_data:
+            size = Size.query.get(size_id)
+            if size:
+                product.sizes.append(size)
 
         try:
             db.session.add(product)
@@ -341,13 +346,18 @@ def edit_product(product_id):
                 if tag:
                     product.tags.append(tag)
 
-        # Update sizes
+        # Update sizes (on-hand products: max 1 size)
         product.sizes = []
-        if form.sizes.data:
-            for size_id in form.sizes.data:
-                size = Size.query.get(size_id)
-                if size:
-                    product.sizes.append(size)
+        sizes_data = form.sizes.data or []
+        if product.product_type_id:
+            from modules.products.models import ProductType
+            pt = ProductType.query.get(product.product_type_id)
+            if pt and pt.slug == 'on-hand' and len(sizes_data) > 1:
+                sizes_data = sizes_data[:1]
+        for size_id in sizes_data:
+            size = Size.query.get(size_id)
+            if size:
+                product.sizes.append(size)
 
         try:
             db.session.commit()
