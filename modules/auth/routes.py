@@ -3,10 +3,11 @@ Auth Module - Routes
 Endpointy autentykacji: login, register, logout, password reset
 """
 
-from flask import render_template, redirect, url_for, flash, request, current_app, jsonify
+from flask import render_template, redirect, url_for, flash, request, current_app, jsonify, session
 from flask_login import login_user, logout_user, current_user, login_required
 from datetime import datetime, timedelta
 from collections import defaultdict
+import secrets
 import threading
 
 # Import db z extensions.py (unika circular import)
@@ -170,9 +171,13 @@ def login():
 
         # Sprawdź czy konto jest aktywne
         if not user.is_active:
+            token = secrets.token_urlsafe(32)
+            session['reactivation_token'] = token
+            session['reactivation_user_id'] = user.id
             return jsonify({
                 'success': False,
-                'error': 'Twoje konto zostało dezaktywowane. Skontaktuj się z administratorem.'
+                'deactivated': True,
+                'redirect': url_for('auth.account_deactivated')
             }), 403
 
         # Sprawdź czy email został zweryfikowany
@@ -235,8 +240,10 @@ def login():
 
         # Sprawdź czy konto jest aktywne
         if not user.is_active:
-            flash('Twoje konto zostało dezaktywowane. Skontaktuj się z administratorem.', 'error')
-            return redirect(url_for('auth.login'))
+            token = secrets.token_urlsafe(32)
+            session['reactivation_token'] = token
+            session['reactivation_user_id'] = user.id
+            return redirect(url_for('auth.account_deactivated'))
 
         # Sprawdź czy email został zweryfikowany
         if not user.email_verified:
@@ -683,6 +690,61 @@ def verification_success():
     )
 
 
+@auth_bp.route('/account-deactivated')
+def account_deactivated():
+    """
+    Strona informująca o dezaktywowanym koncie z opcją reaktywacji.
+    Token reaktywacji przechowywany w session.
+    """
+    token = session.get('reactivation_token')
+    if not token:
+        return redirect(url_for('auth.login'))
+
+    return render_template(
+        'auth/auth_unified.html',
+        mode='deactivated',
+        reactivation_token=token
+    )
+
+
+@auth_bp.route('/reactivate-account', methods=['POST'])
+def reactivate_account():
+    """
+    Reaktywacja konta przez użytkownika.
+    """
+    token = request.form.get('token')
+    session_token = session.get('reactivation_token')
+
+    if not token or not session_token or token != session_token:
+        flash('Nieprawidłowy token reaktywacji. Spróbuj zalogować się ponownie.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user_id = session.pop('reactivation_user_id', None)
+    session.pop('reactivation_token', None)
+
+    if not user_id:
+        flash('Sesja wygasła. Spróbuj zalogować się ponownie.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(user_id)
+    if not user:
+        flash('Nie znaleziono konta.', 'error')
+        return redirect(url_for('auth.login'))
+
+    user.reactivate()
+    db.session.commit()
+
+    login_user(user, remember=True)
+    user.update_last_login()
+
+    if not user.profile_completed:
+        return redirect(url_for('auth.complete_profile'))
+
+    if user.role in ['admin', 'mod']:
+        return redirect(url_for('admin.dashboard'))
+    return redirect(url_for('client.dashboard'))
+
+
 # =============================================
 # OAuth Login (Google, Facebook)
 # =============================================
@@ -799,8 +861,10 @@ def oauth_callback(provider):
 
     # Sprawdź czy konto aktywne
     if not user.is_active:
-        flash('Twoje konto zostało dezaktywowane. Skontaktuj się z administratorem.', 'error')
-        return redirect(url_for('auth.login'))
+        token = secrets.token_urlsafe(32)
+        session['reactivation_token'] = token
+        session['reactivation_user_id'] = user.id
+        return redirect(url_for('auth.account_deactivated'))
 
     # Zaloguj użytkownika
     login_user(user, remember=True)

@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block title %}
-{% if mode == 'forgot' %}Resetowanie hasla{% elif mode == 'reset' %}Nowe haslo{% elif mode == 'verify' %}Weryfikacja{% elif mode == 'success' %}Sukces{% else %}Konto{% endif %} - ThunderOrders
+{% if mode == 'forgot' %}Resetowanie hasla{% elif mode == 'reset' %}Nowe haslo{% elif mode == 'verify' %}Weryfikacja{% elif mode == 'success' %}Sukces{% elif mode == 'deactivated' %}Konto dezaktywowane{% else %}Konto{% endif %} - ThunderOrders
 {% endblock %}
 
 {% block body_content %}
@@ -427,6 +427,43 @@
                     <span class="btn-text">Przejdź do logowania</span>
                     <div class="btn-shine"></div>
                 </a>
+            </div>
+            {% endif %}
+
+            <!-- ==================== ACCOUNT DEACTIVATED ==================== -->
+            {% if mode == 'deactivated' %}
+            <div class="auth-step active" data-step="deactivated">
+                <div class="auth-header">
+                    <div class="success-icon-container" style="color: #ef4444;">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="15" y1="9" x2="9" y2="15"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                    </div>
+                    <h1 class="auth-title">Konto dezaktywowane</h1>
+                    <p class="auth-subtitle">Twoje konto zostało dezaktywowane. Jeśli chcesz wrócić, możesz je reaktywować poniżej.</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('auth.reactivate_account') }}" class="auth-form" id="reactivate-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="token" value="{{ reactivation_token }}">
+
+                    <button type="submit" class="auth-submit success-btn">
+                        <span class="btn-text">Reaktywuj konto</span>
+                        <div class="btn-shine"></div>
+                    </button>
+                </form>
+
+                <div class="auth-footer">
+                    <a href="{{ url_for('auth.login') }}" class="auth-link back-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Powrót do logowania</span>
+                    </a>
+                </div>
             </div>
             {% endif %}
 
