@@ -71,6 +71,37 @@
             });
         });
 
+        // Bind search button inside sheet
+        var sheetSearchBtn = sheetBody.querySelector('#pwaSheetSearchBtn');
+        if (sheetSearchBtn) {
+            sheetSearchBtn.addEventListener('click', function () {
+                closeSheet();
+                var overlay = document.getElementById('globalSearchMobileOverlay');
+                var input = document.getElementById('globalSearchMobileInput');
+                if (overlay) {
+                    overlay.classList.add('active');
+                    if (input) setTimeout(function () { input.focus(); }, 150);
+                }
+            });
+        }
+
+        // Bind notification button inside sheet
+        var sheetNotifBtn = sheetBody.querySelector('#pwaSheetNotifBtn');
+        if (sheetNotifBtn) {
+            sheetNotifBtn.addEventListener('click', function () {
+                closeSheet();
+                var overlay = document.getElementById('mobileNotifOverlay');
+                if (overlay) {
+                    overlay.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                    // Trigger fetch if push-bell.js exposed it
+                    if (typeof window.fetchMobileNotifications === 'function') {
+                        window.fetchMobileNotifications(0, false);
+                    }
+                }
+            });
+        }
+
         sheet.classList.add('open');
         sheetOpen = true;
         currentSheetName = sheetName;

@@ -623,16 +623,6 @@
         });
     }
 
-    // PWA bottom sheet notification button
-    var pwaSheetNotifBtn = document.getElementById('pwaSheetNotifBtn');
-    if (pwaSheetNotifBtn) {
-        pwaSheetNotifBtn.addEventListener('click', function () {
-            // Close bottom sheet first
-            var sheet = document.querySelector('.pwa-bottom-sheet');
-            if (sheet) sheet.classList.remove('open');
-            openMobileOverlay();
-        });
-    }
 
     if (mobileBackBtn) {
         mobileBackBtn.addEventListener('click', function () {
