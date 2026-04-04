@@ -13,6 +13,7 @@ import secrets
 from datetime import timedelta
 
 import qrcode
+from PIL import Image, ImageOps
 from flask import request, jsonify, abort, render_template, redirect, url_for, current_app
 from flask_login import login_required, current_user
 
@@ -1324,6 +1325,13 @@ def wms_upload_packing_photo():
         save_filename = f'{order_id}_{timestamp}.jpg'
         save_path = os.path.join(upload_dir, save_filename)
         photo.save(save_path)
+
+        # Fix EXIF orientation (phone photos may be rotated)
+        img = Image.open(save_path)
+        img = ImageOps.exif_transpose(img)
+        if img.mode == 'RGBA':
+            img = img.convert('RGB')
+        img.save(save_path, 'JPEG', quality=85)
 
         # Update order
         relative_path = f'uploads/packing_photos/{save_filename}'

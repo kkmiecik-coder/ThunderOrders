@@ -5,7 +5,7 @@ Handles image upload, compression, and optimization
 
 import os
 import secrets
-from PIL import Image
+from PIL import Image, ImageOps
 from werkzeug.utils import secure_filename
 from flask import current_app
 
@@ -100,6 +100,9 @@ def compress_image(file_path, max_size=None, dpi=None, quality=None):
         # Open image
         img = Image.open(file_path)
 
+        # Fix EXIF orientation (phone photos may be rotated)
+        img = ImageOps.exif_transpose(img)
+
         # Convert RGBA to RGB if needed (for JPEG)
         if img.mode == 'RGBA':
             # Create white background
@@ -177,11 +180,13 @@ def process_upload(file, upload_folder):
     compressed_path = os.path.join(compressed_folder, unique_filename)
 
     try:
-        # Save original
+        # Save original (with EXIF orientation fix)
         file.save(original_path)
+        img_orig = Image.open(original_path)
+        img_orig = ImageOps.exif_transpose(img_orig)
+        img_orig.save(original_path)
 
         # Create compressed version
-        # Copy original to compressed location first
         img = Image.open(original_path)
         img.save(compressed_path)
 
@@ -232,6 +237,7 @@ def process_avatar(file, series_slug, avatar_number, target_size=256):
     # Check minimum resolution (200x200)
     try:
         img = Image.open(file.stream)
+        img = ImageOps.exif_transpose(img)
         width, height = img.size
 
         if width < 200 or height < 200:
@@ -257,6 +263,7 @@ def process_avatar(file, series_slug, avatar_number, target_size=256):
     try:
         # Open and process image
         img = Image.open(file.stream)
+        img = ImageOps.exif_transpose(img)
 
         # Pre-resize large images to reduce memory usage
         # If image is very large, first resize to 1024px max dimension
@@ -402,6 +409,12 @@ def process_collection_upload(file, user_id):
     try:
         file.save(original_path)
 
+        # Fix EXIF orientation on original
+        img = Image.open(original_path)
+        img = ImageOps.exif_transpose(img)
+        img.save(original_path)
+
+        # Create compressed version
         img = Image.open(original_path)
         img.save(compressed_path)
 
