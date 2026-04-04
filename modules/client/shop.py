@@ -263,8 +263,8 @@ def product_detail(product_id, slug=None):
     """Product detail page."""
     product = Product.query.get_or_404(product_id)
 
-    # Verify it's an on-hand product
-    if not product.product_type or product.product_type.slug != 'on-hand':
+    # Verify it's an active on-hand product
+    if not product.is_active or not product.product_type or product.product_type.slug != 'on-hand':
         return redirect(url_for('shop.index'))
 
     # Record view interaction
