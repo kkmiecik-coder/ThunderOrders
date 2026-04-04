@@ -24,11 +24,18 @@
         <span class="cart-badge pwa-bar-badge" style="display:none;">0</span>
     </button>
 
+    <a href="{{ url_for('shop.index') }}"
+       class="pwa-bar-item {% if request.endpoint and 'shop' in request.endpoint %}active{% endif %}"
+       data-tooltip="Sklep">
+        <img src="{{ url_for('static', filename='img/icons/shop.svg') }}" alt="" class="pwa-bar-icon">
+        <span class="pwa-bar-label">Sklep</span>
+    </a>
+
     <a href="{{ url_for('client.payment_confirmations') }}"
        class="pwa-bar-item {% if request.endpoint == 'client.payment_confirmations' %}active{% endif %}"
-       data-tooltip="Potwierdzenia">
+       data-tooltip="Płatności">
         <img src="{{ url_for('static', filename='img/icons/payment.svg') }}" alt="" class="pwa-bar-icon">
-        <span class="pwa-bar-label">Potwierdzenia</span>
+        <span class="pwa-bar-label">Płatności</span>
     </a>
 
     <button class="pwa-bar-item" id="pwaMoreBtn" aria-label="Więcej" data-sheet="client-more">
