@@ -782,10 +782,16 @@ def oauth_callback(provider):
         flash('Logowanie przez ten serwis nie jest dostępne.', 'error')
         return redirect(url_for('auth.login'))
 
+    # Check if user denied access
+    if request.args.get('error'):
+        current_app.logger.info(f'OAuth cancelled by user ({provider}): {request.args.get("error")}')
+        flash('Logowanie zostało anulowane.', 'info')
+        return redirect(url_for('auth.login'))
+
     try:
         token = client.authorize_access_token()
     except Exception as e:
-        current_app.logger.error(f'OAuth token error ({provider}): {e}')
+        current_app.logger.warning(f'OAuth token error ({provider}): {e}')
         flash('Nie udało się zalogować. Spróbuj ponownie.', 'error')
         return redirect(url_for('auth.login'))
 
