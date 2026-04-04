@@ -569,7 +569,6 @@
 
     window.ThunderTour = {
         start: function() {
-            if (isPhone()) return;
             if (typeof Shepherd === 'undefined') {
                 console.warn('Shepherd.js not loaded');
                 return;
