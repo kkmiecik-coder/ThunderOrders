@@ -38,15 +38,17 @@ function initPhoneInput() {
 
     if (!prefixBtn || !dropdown) return;
 
+    const selector = document.getElementById('phone-prefix-selector');
+
     // Otwieranie/zamykanie dropdown
     prefixBtn.addEventListener('click', function(e) {
         e.stopPropagation();
-        dropdown.classList.toggle('open');
+        selector.classList.toggle('open');
     });
 
     // Zamknij po kliknięciu poza
     document.addEventListener('click', function() {
-        dropdown.classList.remove('open');
+        selector.classList.remove('open');
     });
 
     // Wybór opcji
@@ -58,7 +60,7 @@ function initPhoneInput() {
             prefixInput.value = prefix;
             selectedFlag.textContent = flag;
             selectedPrefix.textContent = prefix;
-            dropdown.classList.remove('open');
+            selector.classList.remove('open');
         });
     });
 }
