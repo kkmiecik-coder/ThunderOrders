@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from extensions import db
+from modules.auth.models import get_local_now
 
 
 def get_metric_value(user, metric, config, context=None):
@@ -58,7 +59,7 @@ def _login_streak(user, config, context):
 def _account_age_days(user, config, context):
     if not user.created_at:
         return (0, False)
-    days = (datetime.now() - user.created_at).days
+    days = (get_local_now() - user.created_at).days
     return (days, days >= config['threshold'])
 
 
@@ -70,7 +71,7 @@ def _single_order_items(user, config, context):
 
 
 def _order_hour_range(user, config, context):
-    now = datetime.now()
+    now = get_local_now()
     hour = now.hour
     start, end = config['start'], config['end']
     in_range = start <= hour < end
@@ -79,7 +80,7 @@ def _order_hour_range(user, config, context):
 
 def _orders_in_window(user, config, context):
     from modules.orders.models import Order
-    window_start = datetime.now() - timedelta(days=config['window_days'])
+    window_start = get_local_now() - timedelta(days=config['window_days'])
     count = Order.query.filter(
         Order.user_id == user.id,
         Order.created_at >= window_start
@@ -89,7 +90,7 @@ def _orders_in_window(user, config, context):
 
 def _orders_in_weekend(user, config, context):
     from modules.orders.models import Order
-    now = datetime.now()
+    now = get_local_now()
     weekday = now.weekday()  # 0=Mon, 5=Sat, 6=Sun
     if weekday == 5:  # Saturday
         weekend_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -111,7 +112,7 @@ def _time_since_drop(user, config, context):
     starts_at = context['offer_page_starts_at']
     if not starts_at:
         return (0, False)
-    now = datetime.now()
+    now = get_local_now()
     minutes_diff = (now - starts_at).total_seconds() / 60
     return (minutes_diff, minutes_diff <= config['max_minutes'])
 
@@ -121,7 +122,7 @@ def _time_since_page_visit(user, config, context):
         return (0, False)
     try:
         entered_at = datetime.fromtimestamp(context['page_entered_at'] / 1000)
-        now = datetime.now()
+        now = get_local_now()
         minutes_diff = (now - entered_at).total_seconds() / 60
         return (minutes_diff, minutes_diff <= config['max_minutes'])
     except (ValueError, TypeError, OSError):
