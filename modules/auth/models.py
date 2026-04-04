@@ -522,6 +522,8 @@ class User(UserMixin, db.Model):
         """
         self.is_active = False
         self.deletion_requested_at = get_local_now()
+        self.deactivated_at = get_local_now()
+        self.deactivated_by = self.id
         self.deactivation_reason = 'Żądanie usunięcia konta (RODO art. 17)'
 
     def anonymize(self):
