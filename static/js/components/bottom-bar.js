@@ -90,14 +90,8 @@
         if (sheetNotifBtn) {
             sheetNotifBtn.addEventListener('click', function () {
                 closeSheet();
-                var overlay = document.getElementById('mobileNotifOverlay');
-                if (overlay) {
-                    overlay.classList.add('active');
-                    document.body.style.overflow = 'hidden';
-                    // Trigger fetch if push-bell.js exposed it
-                    if (typeof window.fetchMobileNotifications === 'function') {
-                        window.fetchMobileNotifications(0, false);
-                    }
+                if (typeof window.openMobileNotifOverlay === 'function') {
+                    window.openMobileNotifOverlay();
                 }
             });
         }

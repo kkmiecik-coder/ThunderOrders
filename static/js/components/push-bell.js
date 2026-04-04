@@ -568,6 +568,9 @@
         fetchMobileNotifications(0, false);
     }
 
+    // Expose for PWA bottom-bar.js
+    window.openMobileNotifOverlay = openMobileOverlay;
+
     function closeMobileOverlay() {
         if (!mobileOverlay || !isMobileOpen) return;
         isMobileOpen = false;
