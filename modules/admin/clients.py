@@ -161,6 +161,17 @@ def client_detail(id):
         Order.created_at.desc()
     ).paginate(page=page, per_page=per_page, error_out=False)
 
+    # Additional stats
+    from modules.auth.models import ShippingAddress
+    from modules.client.models import CollectionItem
+    from modules.achievements.models import UserAchievement
+    from modules.notifications.models import PushSubscription
+
+    addresses_count = ShippingAddress.query.filter_by(user_id=client.id, is_active=True).count()
+    collection_count = CollectionItem.query.filter_by(user_id=client.id).count()
+    achievements_count = UserAchievement.query.filter_by(user_id=client.id).count()
+    push_count = PushSubscription.query.filter_by(user_id=client.id, is_active=True).count()
+
     return render_template(
         'admin/clients/detail.html',
         title=f'Klient: {client.full_name}',
@@ -171,7 +182,11 @@ def client_detail(id):
         avg_value=avg_value,
         last_order=last_order,
         recent_orders=recent_orders,
-        orders_pagination=orders_pagination
+        orders_pagination=orders_pagination,
+        addresses_count=addresses_count,
+        collection_count=collection_count,
+        achievements_count=achievements_count,
+        push_count=push_count
     )
 
 

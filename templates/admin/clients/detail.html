@@ -114,6 +114,34 @@
                                 {% endif %}
                             </span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">Źródło rejestracji:</span>
+                            <span class="info-value">
+                                {% if client.google_id %}
+                                <span class="registration-source">
+                                    <img src="{{ url_for('static', filename='img/icons/google-logo.svg') }}" alt="" width="16" height="16">
+                                    Google
+                                </span>
+                                {% elif client.facebook_id %}
+                                <span class="registration-source">
+                                    <img src="{{ url_for('static', filename='img/icons/facebook-logo.svg') }}" alt="" width="16" height="16">
+                                    Facebook
+                                </span>
+                                {% else %}
+                                <span class="registration-source">Email</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Profil kompletny:</span>
+                            <span class="info-value">
+                                {% if client.profile_completed %}
+                                <span class="status-badge status-active">Tak</span>
+                                {% else %}
+                                <span class="status-badge status-inactive">Nie</span>
+                                {% endif %}
+                            </span>
+                        </div>
                     </div>
 
                     <!-- Edit Mode (hidden by default) -->
@@ -333,6 +361,82 @@
                 </div>
             </div>
 
+            <!-- Activity Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Aktywność</h2>
+                </div>
+                <div class="card-body">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value">{{ client.login_count or 0 }}</span>
+                            <span class="stat-label">Logowań</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ client.login_streak or 0 }}</span>
+                            <span class="stat-label">Seria logowań</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ collection_count }}</span>
+                            <span class="stat-label">Kolekcja</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ achievements_count }}</span>
+                            <span class="stat-label">Osiągnięcia</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ addresses_count }}</span>
+                            <span class="stat-label">Adresy</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value">{{ push_count }}</span>
+                            <span class="stat-label">Push</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Consents & Preferences Card -->
+            <div class="info-card">
+                <div class="card-header">
+                    <h2>Zgody i preferencje</h2>
+                </div>
+                <div class="card-body">
+                    <div class="info-grid">
+                        <div class="info-row">
+                            <span class="info-label">Zgoda analytics:</span>
+                            <span class="info-value">
+                                {% if client.analytics_consent %}
+                                <span class="status-badge status-active">Tak</span>
+                                {% elif client.analytics_consent is none %}
+                                <span class="text-muted">Nie określono</span>
+                                {% else %}
+                                <span class="status-badge status-inactive">Nie</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Zgoda marketing:</span>
+                            <span class="info-value">
+                                {% if client.marketing_consent %}
+                                <span class="status-badge status-active">Tak</span>
+                                {% else %}
+                                <span class="status-badge status-inactive">Nie</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Tryb ciemny:</span>
+                            <span class="info-value">{{ 'Tak' if client.dark_mode_enabled else 'Nie' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Samouczek:</span>
+                            <span class="info-value">{{ 'Ukończony' if client.has_seen_tour else 'Nie ukończony' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Timestamps Card -->
             <div class="info-card">
                 <div class="card-header">
@@ -364,6 +468,18 @@
                                 {% endif %}
                             </span>
                         </div>
+                        {% if client.registration_reminder_sent_at %}
+                        <div class="info-row">
+                            <span class="info-label">Przypomnienie wysłane:</span>
+                            <span class="info-value">{{ client.registration_reminder_sent_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                        </div>
+                        {% endif %}
+                        {% if client.deletion_requested_at %}
+                        <div class="info-row">
+                            <span class="info-label">Żądanie usunięcia:</span>
+                            <span class="info-value">{{ client.deletion_requested_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>

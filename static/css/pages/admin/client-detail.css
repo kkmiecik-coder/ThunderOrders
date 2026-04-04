@@ -482,6 +482,15 @@
 }
 
 /* ==========================================
+   Registration Source
+   ========================================== */
+.registration-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ==========================================
    Responsive
    ========================================== */
 @media (max-width: 768px) {
