@@ -335,6 +335,12 @@
         filter: brightness(0) saturate(100%) invert(36%) sepia(93%) saturate(1400%) hue-rotate(338deg) brightness(91%) contrast(97%);
     }
 
+    /* --- Notification overlay (PWA safe area) --- */
+    .mobile-notif-header {
+        padding-top: env(safe-area-inset-top, 0px);
+        height: calc(60px + env(safe-area-inset-top, 0px));
+    }
+
     /* --- Fullscreen Search (PWA adjustments) --- */
     .global-search-mobile-overlay {
         z-index: 1002 !important;
