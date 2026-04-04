@@ -16,6 +16,7 @@
         if (!container || !form) return;
 
         var verifyToken = null;
+        try { verifyToken = sessionStorage.getItem('verifyToken') || null; } catch(e) {}
 
         // ========== Required fields ==========
         function updateRequiredFields() {
@@ -110,6 +111,7 @@
 
                 if (data.success) {
                     verifyToken = data.token;
+                    try { sessionStorage.setItem('verifyToken', verifyToken); } catch(e) {}
                     switchToVerify(data.email, data.seconds_remaining);
                 } else if (data.errors) {
                     showFieldErrors(data.errors);
@@ -260,6 +262,7 @@
                 submitBtn.classList.remove('loading');
 
                 if (data.success) {
+                    try { sessionStorage.removeItem('verifyToken'); } catch(e) {}
                     window.location.href = data.redirect;
                 } else {
                     showCodeError(data.error || 'Nieprawidłowy kod');
