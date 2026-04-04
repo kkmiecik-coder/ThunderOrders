@@ -22,8 +22,7 @@
     .sidebar-backdrop,
     .topbar,
     .mobile-navbar,
-    .mobile-menu-overlay,
-    .mobile-notif-overlay {
+    .mobile-menu-overlay {
         display: none !important;
     }
 

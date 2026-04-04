@@ -62,11 +62,11 @@
             </button>
         </li>
         <li>
-            <a href="{{ url_for('notifications.notification_list') }}" class="pwa-sheet-item">
+            <button class="pwa-sheet-item" id="pwaSheetNotifBtn">
                 <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="" class="pwa-sheet-icon">
                 <span>Powiadomienia</span>
                 <span class="pwa-sheet-badge" id="pwaSheetNotifBadge" style="display:none;">0</span>
-            </a>
+            </button>
         </li>
         <li>
             <a href="{{ url_for('client.collection_list') }}" class="pwa-sheet-item {% if request.endpoint and 'collection' in request.endpoint %}active{% endif %}">
