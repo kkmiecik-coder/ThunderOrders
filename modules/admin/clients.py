@@ -23,6 +23,7 @@ from modules.achievements.models import UserAchievement
 from modules.notifications.models import Notification, PushSubscription, NotificationPreference
 from modules.imports.models import CsvImport
 from modules.client.payment_upload_sessions import PaymentUploadSession
+from modules.products.models import CartItem, ProductInteraction
 from extensions import db
 from utils.decorators import role_required
 from utils.email_sender import send_account_deactivated_email
@@ -384,6 +385,8 @@ def client_delete(id):
         PublicCollectionConfig.query.filter_by(user_id=uid).delete()
         CollectionItem.query.filter_by(user_id=uid).delete()
         PaymentUploadSession.query.filter_by(user_id=uid).delete()
+        CartItem.query.filter_by(user_id=uid).delete()
+        ProductInteraction.query.filter_by(user_id=uid).delete()
 
         db.session.delete(client)
         db.session.commit()

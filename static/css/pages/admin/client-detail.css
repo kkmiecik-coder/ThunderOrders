@@ -50,6 +50,18 @@
   color: #333;
 }
 
+.client-id {
+  font-size: 16px;
+  font-weight: 400;
+  color: #9e9e9e;
+}
+
+.registration-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .client-avatar-large {
   width: 48px;
   height: 48px;
@@ -544,6 +556,10 @@
 
 [data-theme="dark"] .page-title {
   color: #ffffff;
+}
+
+[data-theme="dark"] .client-id {
+  color: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="dark"] .client-avatar-large {

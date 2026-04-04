@@ -24,6 +24,7 @@
                 </div>
                 {% endif %}
                 {{ client.full_name }}
+                <span class="client-id">#{{ client.id }}</span>
                 <span class="role-badge role-{{ client.role }}">
                     {% if client.role == 'admin' %}Admin
                     {% elif client.role == 'mod' %}Moderator
