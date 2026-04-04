@@ -27,6 +27,7 @@
     min-height: 100dvh;
     display: flex;
     justify-content: center;
+    align-items: center;
     overflow-y: auto;
     overflow-x: hidden;
     background: radial-gradient(ellipse at 50% 110%, #1a1a3e 0%, #0e0e20 50%, #0a0a18 100%);
