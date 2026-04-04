@@ -863,6 +863,10 @@ def complete_profile():
             current_user.analytics_consent = analytics_consent
             db.session.commit()
 
+            # Check profile achievements
+            from modules.achievements.services import AchievementService
+            AchievementService().check_event(current_user, 'profile_update')
+
             return jsonify({'success': True})
         else:
             # Zbierz błędy walidacji
@@ -915,6 +919,11 @@ def complete_profile_save_avatar():
         current_user.avatar_id = avatar_id
         current_user.profile_completed = True
         db.session.commit()
+
+        # Check achievements for profile completion and avatar
+        from modules.achievements.services import AchievementService
+        AchievementService().check_event(current_user, 'profile_update')
+        AchievementService().check_event(current_user, 'avatar_change')
 
         # Ustal URL dashboardu
         if current_user.role in ['admin', 'mod']:
