@@ -141,6 +141,9 @@ class User(UserMixin, db.Model):
     # Avatar
     avatar_id = db.Column(db.Integer, db.ForeignKey('avatars.id'), index=True)
 
+    # Registration reminder
+    registration_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+
     created_at = db.Column(db.DateTime, default=get_local_now)
     updated_at = db.Column(
         db.DateTime,

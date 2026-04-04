@@ -619,6 +619,70 @@ def register_cli_commands(app):
 
         click.echo(f'\nGotowe.')
 
+    @app.cli.command('send-registration-reminders')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl, nie wysyłaj')
+    @click.option('--hours', default=24, help='Wyślij po N godzinach od rejestracji (domyślnie 24)')
+    def send_registration_reminders(dry_run, hours):
+        """Wysyła jednorazowe przypomnienie do użytkowników, którzy nie dokończyli rejestracji."""
+        from modules.auth.models import User, get_local_now
+        from utils.email_sender import send_email
+        from datetime import timedelta
+
+        now = get_local_now()
+        cutoff = now - timedelta(hours=hours)
+
+        # Użytkownicy z niekompletnym profilem, zarejestrowani > N godzin temu, bez wysłanego przypomnienia
+        users = User.query.filter(
+            User.profile_completed == False,
+            User.is_active == True,
+            User.created_at < cutoff,
+            User.registration_reminder_sent_at.is_(None)
+        ).all()
+
+        click.echo(f'Znaleziono {len(users)} użytkowników do przypomnienia')
+
+        if not users:
+            return
+
+        sent = 0
+        for user in users:
+            email_verified = user.email_verified
+            user_name = user.first_name or None
+
+            if not email_verified:
+                message = 'Zauważyliśmy, że Twoja rejestracja nie została dokończona. Zaloguj się, żeby zweryfikować email i uzupełnić profil.'
+                action_text = 'Zaloguj się'
+                action_url = flask_url_for('auth.login', _external=True)
+            else:
+                message = 'Twoje konto jest prawie gotowe! Zaloguj się, żeby uzupełnić dane i zacząć korzystać z ThunderOrders.'
+                action_text = 'Dokończ rejestrację'
+                action_url = flask_url_for('auth.login', _external=True)
+
+            click.echo(f'  #{user.id} {user.email} (verified={email_verified})', nl=False)
+
+            if dry_run:
+                click.echo(' [DRY RUN]')
+            else:
+                try:
+                    send_email(
+                        to=user.email,
+                        subject='Dokończ rejestrację - ThunderOrders',
+                        template='registration_reminder',
+                        user_name=user_name,
+                        message=message,
+                        action_text=action_text,
+                        action_url=action_url
+                    )
+                    user.registration_reminder_sent_at = now
+                    db.session.commit()
+                    sent += 1
+                    click.echo(' — wysłano')
+                except Exception as e:
+                    db.session.rollback()
+                    click.echo(f' — BŁĄD: {e}')
+
+        click.echo(f'\nWysłano {sent}/{len(users)} przypomnień.')
+
     @app.cli.command('cleanup-payment-proofs')
     @click.option('--days', default=30, help='Usuwaj pliki starsze niż N dni od zatwierdzenia')
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl pliki do usunięcia, nie usuwaj')
