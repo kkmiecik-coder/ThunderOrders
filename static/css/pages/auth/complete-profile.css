@@ -8,7 +8,7 @@
    Kontener główny - szerszy niż standardowy auth
    ============================================ */
 .complete-profile-container {
-    max-width: 560px;
+    max-width: 800px;
 }
 
 .complete-profile-container .auth-form {
@@ -339,6 +339,29 @@
 }
 
 .auth-back-btn svg {
+    flex-shrink: 0;
+}
+
+.auth-back-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    padding: 8px;
+    transition: color 0.2s ease;
+}
+
+.auth-back-link:hover {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.auth-back-link svg {
     flex-shrink: 0;
 }
 
