@@ -649,14 +649,17 @@ def register_cli_commands(app):
             email_verified = user.email_verified
             user_name = user.first_name or None
 
+            base_url = app.config.get('BASE_URL', 'https://thunderorders.cloud')
+            login_url = f'{base_url}/auth/login'
+
             if not email_verified:
                 message = 'Zauważyliśmy, że Twoja rejestracja nie została dokończona. Zaloguj się, żeby zweryfikować email i uzupełnić profil.'
                 action_text = 'Zaloguj się'
-                action_url = flask_url_for('auth.login', _external=True)
+                action_url = login_url
             else:
                 message = 'Twoje konto jest prawie gotowe! Zaloguj się, żeby uzupełnić dane i zacząć korzystać z ThunderOrders.'
                 action_text = 'Dokończ rejestrację'
-                action_url = flask_url_for('auth.login', _external=True)
+                action_url = login_url
 
             click.echo(f'  #{user.id} {user.email} (verified={email_verified})', nl=False)
 
