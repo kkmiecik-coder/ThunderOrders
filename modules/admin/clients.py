@@ -191,6 +191,138 @@ def client_detail(id):
     )
 
 
+@admin_bp.route('/clients/<int:id>/stat-detail/<stat_type>')
+@login_required
+@role_required('admin', 'mod')
+def client_stat_detail(id, stat_type):
+    """Returns HTML fragment with stat details for modal."""
+    client = User.query.get_or_404(id)
+
+    if stat_type == 'orders':
+        from modules.orders.models import Order
+        # Group by status
+        status_counts = {}
+        for o in Order.query.filter_by(user_id=id).all():
+            name = o.status_display_name
+            status_counts[name] = status_counts.get(name, 0) + 1
+        html = '<div class="stat-detail-list">'
+        html += '<h4>Zamówienia wg statusu:</h4>'
+        for status, count in status_counts.items():
+            html += f'<div class="stat-detail-row"><span>{status}</span><span class="stat-detail-count">{count}</span></div>'
+        if not status_counts:
+            html += '<p class="text-muted">Brak zamówień</p>'
+        html += '</div>'
+        return html
+
+    elif stat_type == 'total_value':
+        from modules.orders.models import Order
+        from decimal import Decimal
+        orders = Order.query.filter_by(user_id=id).all()
+        # Breakdown by order type
+        type_totals = {}
+        for o in orders:
+            type_name = o.type_rel.name if o.type_rel else (o.order_type or 'Inne')
+            if type_name not in type_totals:
+                type_totals[type_name] = {'count': 0, 'total': Decimal('0')}
+            type_totals[type_name]['count'] += 1
+            type_totals[type_name]['total'] += Decimal(str(o.total_amount or 0))
+        html = '<div class="stat-detail-list">'
+        html += '<h4>Wartość wg typu zamówienia:</h4>'
+        for type_name, data in type_totals.items():
+            html += f'<div class="stat-detail-row"><span>{type_name} ({data["count"]})</span><span class="stat-detail-count">{data["total"]:.2f} zł</span></div>'
+        if not type_totals:
+            html += '<p class="text-muted">Brak zamówień</p>'
+        html += '</div>'
+        return html
+
+    elif stat_type == 'last_order':
+        from modules.orders.models import Order
+        order = Order.query.filter_by(user_id=id).order_by(Order.created_at.desc()).first()
+        if order:
+            html = '<div class="stat-detail-list">'
+            html += f'<div class="stat-detail-row"><span>Numer:</span><span>{order.order_number}</span></div>'
+            html += f'<div class="stat-detail-row"><span>Status:</span><span>{order.status_display_name}</span></div>'
+            html += f'<div class="stat-detail-row"><span>Kwota:</span><span>{order.total_amount:.2f} zł</span></div>'
+            html += f'<div class="stat-detail-row"><span>Data:</span><span>{order.created_at.strftime("%d.%m.%Y %H:%M")}</span></div>'
+            detail_url = url_for("orders.admin_detail", order_id=order.id)
+            html += f'<a href="{detail_url}" class="btn btn-primary btn-sm" style="margin-top:12px;display:block;text-align:center;">Przejdź do zamówienia</a>'
+            html += '</div>'
+        else:
+            html = '<p class="text-muted">Brak zamówień</p>'
+        return html
+
+    elif stat_type == 'logins':
+        html = '<div class="stat-detail-list">'
+        html += f'<div class="stat-detail-row"><span>Liczba logowań:</span><span>{client.login_count or 0}</span></div>'
+        html += f'<div class="stat-detail-row"><span>Seria logowań:</span><span>{client.login_streak or 0} dni</span></div>'
+        html += f'<div class="stat-detail-row"><span>Ostatnie logowanie:</span><span>{client.last_login.strftime("%d.%m.%Y %H:%M") if client.last_login else "Nigdy"}</span></div>'
+        html += f'<div class="stat-detail-row"><span>Rejestracja:</span><span>{client.created_at.strftime("%d.%m.%Y %H:%M") if client.created_at else "-"}</span></div>'
+        html += '</div>'
+        return html
+
+    elif stat_type == 'collection':
+        items = CollectionItem.query.filter_by(user_id=id).order_by(CollectionItem.created_at.desc()).limit(20).all()
+        html = '<div class="stat-detail-list">'
+        if items:
+            for item in items:
+                name = item.name or (item.product.name if item.product else 'Bez nazwy')
+                date = item.created_at.strftime('%d.%m.%Y') if item.created_at else ''
+                html += f'<div class="stat-detail-row"><span>{name}</span><span class="text-muted">{date}</span></div>'
+        else:
+            html += '<p class="text-muted">Pusta kolekcja</p>'
+        html += '</div>'
+        return html
+
+    elif stat_type == 'achievements':
+        from modules.achievements.models import Achievement
+        user_achievements = db.session.query(UserAchievement, Achievement).join(
+            Achievement, UserAchievement.achievement_id == Achievement.id
+        ).filter(UserAchievement.user_id == id).order_by(UserAchievement.unlocked_at.desc()).all()
+        html = '<div class="stat-detail-list">'
+        if user_achievements:
+            for ua, ach in user_achievements:
+                date = ua.unlocked_at.strftime('%d.%m.%Y') if ua.unlocked_at else ''
+                html += f'<div class="stat-detail-row"><span>{ach.name}</span><span class="text-muted">{date}</span></div>'
+        else:
+            html += '<p class="text-muted">Brak osiągnięć</p>'
+        html += '</div>'
+        return html
+
+    elif stat_type == 'addresses':
+        from modules.auth.models import ShippingAddress
+        addresses = ShippingAddress.query.filter_by(user_id=id, is_active=True).all()
+        html = '<div class="stat-detail-list">'
+        if addresses:
+            for addr in addresses:
+                label = addr.name or 'Adres'
+                if addr.address_type == 'pickup_point':
+                    city = addr.pickup_city or ''
+                    courier = addr.pickup_courier or ''
+                    html += f'<div class="stat-detail-row"><span>{label} ({courier})</span><span class="text-muted">{city}</span></div>'
+                else:
+                    city = addr.shipping_city or ''
+                    html += f'<div class="stat-detail-row"><span>{label}</span><span class="text-muted">{city}</span></div>'
+        else:
+            html += '<p class="text-muted">Brak adresów</p>'
+        html += '</div>'
+        return html
+
+    elif stat_type == 'push':
+        subs = PushSubscription.query.filter_by(user_id=id, is_active=True).all()
+        html = '<div class="stat-detail-list">'
+        if subs:
+            for sub in subs:
+                device = sub.device_name or 'Nieznane urządzenie'
+                date = sub.created_at.strftime('%d.%m.%Y') if sub.created_at else ''
+                html += f'<div class="stat-detail-row"><span>{device[:50]}</span><span class="text-muted">{date}</span></div>'
+        else:
+            html += '<p class="text-muted">Brak subskrypcji push</p>'
+        html += '</div>'
+        return html
+
+    return '<p class="text-muted">Nieznany typ statystyki</p>', 404
+
+
 @admin_bp.route('/clients/<int:id>/edit', methods=['POST'])
 @login_required
 @role_required('admin')

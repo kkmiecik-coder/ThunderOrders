@@ -336,19 +336,19 @@
                 </div>
                 <div class="card-body">
                     <div class="stats-grid">
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('orders')">
                             <span class="stat-value">{{ orders_count }}</span>
                             <span class="stat-label">Zamówień</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('total_value')">
                             <span class="stat-value">{{ "%.2f"|format(total_value) }} zł</span>
                             <span class="stat-label">Łączna wartość</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item no-click" onclick="return">
                             <span class="stat-value">{{ "%.2f"|format(avg_value) }} zł</span>
                             <span class="stat-label">Średnia wartość</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('last_order')">
                             <span class="stat-value">
                                 {% if last_order %}
                                 {{ last_order.created_at|format_datetime('%d.%m.%Y') }}
@@ -369,27 +369,27 @@
                 </div>
                 <div class="card-body">
                     <div class="stats-grid">
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('logins')">
                             <span class="stat-value">{{ client.login_count or 0 }}</span>
                             <span class="stat-label">Logowań</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item no-click" onclick="return">
                             <span class="stat-value">{{ client.login_streak or 0 }}</span>
                             <span class="stat-label">Seria logowań</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('collection')">
                             <span class="stat-value">{{ collection_count }}</span>
                             <span class="stat-label">Kolekcja</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('achievements')">
                             <span class="stat-value">{{ achievements_count }}</span>
                             <span class="stat-label">Osiągnięcia</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('addresses')">
                             <span class="stat-value">{{ addresses_count }}</span>
                             <span class="stat-label">Adresy</span>
                         </div>
-                        <div class="stat-item">
+                        <div class="stat-item" onclick="openStatDetail('push')">
                             <span class="stat-value">{{ push_count }}</span>
                             <span class="stat-label">Push</span>
                         </div>
@@ -513,6 +513,19 @@
                 </div>
             </div>
             {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Stat Detail Modal -->
+<div id="statDetailModal" class="modal-overlay" onclick="if(event.target === this) closeStatModal()">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title" id="statModalTitle">Szczegóły</h2>
+            <button type="button" class="modal-close" onclick="closeStatModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="statModalBody">
+            <div class="stat-modal-loading">Ładowanie...</div>
         </div>
     </div>
 </div>
@@ -704,9 +717,50 @@ function confirmDelete() {
     });
 }
 
+// Stat Detail Modal
+const statTitles = {
+    'orders': 'Zamówienia',
+    'total_value': 'Łączna wartość',
+    'last_order': 'Ostatnie zamówienie',
+    'logins': 'Logowanie',
+    'collection': 'Kolekcja',
+    'achievements': 'Osiągnięcia',
+    'addresses': 'Adresy wysyłkowe',
+    'push': 'Subskrypcje push'
+};
+
+function openStatDetail(statType) {
+    const modal = document.getElementById('statDetailModal');
+    const title = document.getElementById('statModalTitle');
+    const body = document.getElementById('statModalBody');
+
+    title.textContent = statTitles[statType] || 'Szczegóły';
+    body.innerHTML = '<div class="stat-modal-loading">Ładowanie...</div>';
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    fetch(`/admin/clients/${clientId}/stat-detail/${statType}`, {
+        headers: { 'X-CSRFToken': getCSRFToken() }
+    })
+    .then(r => r.text())
+    .then(html => { body.innerHTML = html; })
+    .catch(() => { body.innerHTML = '<p class="text-muted">Błąd ładowania danych</p>'; });
+}
+
+function closeStatModal() {
+    const modal = document.getElementById('statDetailModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+    }, 350);
+}
+
 // Close modals on Escape key
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+        closeStatModal();
         closeDeactivateModal();
         closeDeleteModal();
     }
