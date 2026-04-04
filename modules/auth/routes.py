@@ -278,7 +278,7 @@ def login():
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
-@limiter.limit("20 per hour", methods=["POST"])
+@limiter.limit("30 per hour", methods=["POST"])
 def register():
     """
     Strona rejestracji (zunifikowany szablon)
