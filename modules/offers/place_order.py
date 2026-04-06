@@ -112,6 +112,18 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
 
     # Check if there are any items to order (reservations OR full set items)
     if not reservations and not full_set_items:
+        # Double-submit guard: check if order was already placed for this session
+        from modules.orders.models import Order
+        existing_order = Order.query.filter_by(
+            offer_page_id=page.id,
+            user_id=current_user.id
+        ).order_by(Order.created_at.desc()).first()
+        if existing_order and existing_order.status != 'anulowane':
+            return True, {
+                'order_number': existing_order.order_number,
+                'total': float(existing_order.total_amount),
+                'already_placed': True
+            }
         return False, {'error': 'no_reservations', 'message': 'Brak produktów w koszyku'}
 
     # 3. Check product availability (with SELECT FOR UPDATE to prevent race conditions)

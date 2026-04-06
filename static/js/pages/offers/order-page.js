@@ -697,11 +697,18 @@ async function handleLogin(event) {
     }
 }
 
+let _orderSubmitting = false;
+
 async function submitOrder() {
+    // Guard: prevent double-submit (double-tap on mobile)
+    if (_orderSubmitting) return;
+    _orderSubmitting = true;
+
     const btn = document.querySelector('.offer-btn-submit');
     const originalText = btn.innerHTML;
 
     btn.disabled = true;
+    btn.style.pointerEvents = 'none';
     btn.innerHTML = '<span>Wysyłanie...</span>';
 
     try {
@@ -730,7 +737,9 @@ async function submitOrder() {
         if (response.status === 429) {
             alert('Zbyt wiele prób złożenia zamówienia. Poczekaj chwilę i spróbuj ponownie.');
             btn.disabled = false;
+            btn.style.pointerEvents = '';
             btn.innerHTML = originalText;
+            _orderSubmitting = false;
             return;
         }
 
@@ -756,6 +765,7 @@ async function submitOrder() {
 
             // Redirect to thank you page (URL set by template)
             window.location.href = window.thankYouUrl;
+            // Keep _orderSubmitting = true — redirect in progress, block any further submits
 
         } else {
             let errorMessage = 'Wystąpił błąd podczas składania zamówienia.';
@@ -776,7 +786,9 @@ async function submitOrder() {
 
             alert(errorMessage);
             btn.disabled = false;
+            btn.style.pointerEvents = '';
             btn.innerHTML = originalText;
+            _orderSubmitting = false;
 
             if (data.error === 'no_reservations') {
                 setTimeout(() => {
@@ -789,7 +801,9 @@ async function submitOrder() {
         console.error('Order submission error:', error);
         alert('Wystąpił błąd połączenia. Spróbuj ponownie.');
         btn.disabled = false;
+        btn.style.pointerEvents = '';
         btn.innerHTML = originalText;
+        _orderSubmitting = false;
     }
 }
 
