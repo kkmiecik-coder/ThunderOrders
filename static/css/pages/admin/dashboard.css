@@ -920,8 +920,15 @@
 .offer-card-top {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
+}
+
+.offer-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .offer-card-middle {
@@ -954,6 +961,11 @@
     font-weight: 600;
     color: var(--gray-800);
     transition: color 0.5s ease;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .offer-card:hover .offer-name {
@@ -968,6 +980,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
 }
 
 .offer-type-exclusive { background: #FEF3C7; color: #92400E; }
