@@ -3244,8 +3244,8 @@ def admin_add_custom_product(order_id):
     order = Order.query.get_or_404(order_id)
     data = request.get_json()
 
-    custom_name = data.get('custom_name', '').strip()
-    custom_sku = data.get('custom_sku', '').strip() or None
+    custom_name = (data.get('custom_name') or '').strip()
+    custom_sku = (data.get('custom_sku') or '').strip() or None
     quantity = data.get('quantity', 0)
     price = data.get('price', 0)
 
