@@ -113,7 +113,6 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
     # Check if there are any items to order (reservations OR full set items)
     if not reservations and not full_set_items:
         # Double-submit guard: check if order was already placed for this session
-        from modules.orders.models import Order
         existing_order = Order.query.filter_by(
             offer_page_id=page.id,
             user_id=current_user.id
