@@ -144,6 +144,9 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None,
     SELECT FOR UPDATE lockuje wiersze rezerwacji dla danego produktu,
     zapobiegając race condition przy jednoczesnych rezerwacjach.
 
+    Przy deadlocku (np. wielu użytkowników rezerwuje naraz) automatycznie
+    ponawia próbę do 3 razy z rosnącym opóźnieniem.
+
     Args:
         session_id: UUID sesji
         page_id: ID strony ofertowej
@@ -153,6 +156,32 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None,
 
     Returns:
         tuple: (success: bool, data: dict)
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    for attempt in range(3):
+        result = _reserve_product_attempt(
+            session_id, page_id, product_id, quantity,
+            section_max=section_max, user_id=user_id, selected_size=selected_size
+        )
+
+        if result is not None:
+            return result
+
+        # Deadlock — retry z rosnącym opóźnieniem
+        logger.warning(f"Deadlock on reserve attempt {attempt + 1}/3, product={product_id}, page={page_id}")
+        time.sleep(0.1 * (attempt + 1))
+
+    return False, {
+        'error': 'server_error',
+        'message': 'Serwer jest chwilowo przeciążony. Spróbuj ponownie za chwilę.'
+    }
+
+
+def _reserve_product_attempt(session_id, page_id, product_id, quantity, section_max=None, user_id=None, selected_size=None):
+    """
+    Pojedyncza próba rezerwacji. Zwraca None przy deadlocku (sygnał do retry).
     """
     from modules.orders.models import Order, OrderItem
 
@@ -279,6 +308,11 @@ def reserve_product(session_id, page_id, product_id, quantity, section_max=None,
 
     except Exception as e:
         db.session.rollback()
+
+        # Deadlock — zwróć None aby reserve_product mógł ponowić
+        if 'Deadlock' in str(e) or 'deadlock' in str(e).lower():
+            return None
+
         import traceback
         print(f"[RESERVE ERROR] {e}")
         traceback.print_exc()

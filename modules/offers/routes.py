@@ -457,7 +457,6 @@ def availability(token):
 
 @offers_bp.route('/<token>/extend', methods=['POST'])
 @csrf.exempt
-@limiter.limit("20 per minute")
 def extend(token):
     """Extend reservation"""
     if not current_user.is_authenticated:
@@ -485,7 +484,7 @@ def extend(token):
 
 @offers_bp.route('/<token>/restore', methods=['POST'])
 @csrf.exempt
-@limiter.limit("10 per minute")
+@limiter.limit("30 per minute")
 def restore(token):
     """Restore reservation/cart from localStorage"""
     page = OfferPage.get_by_token(token)

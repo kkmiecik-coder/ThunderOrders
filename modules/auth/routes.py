@@ -92,7 +92,7 @@ from utils.oauth import oauth
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @csrf.exempt
-@limiter.limit("5 per minute", methods=["POST"])
+@limiter.limit("15 per minute", methods=["POST"])
 def login():
     """
     Strona logowania
