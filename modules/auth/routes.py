@@ -862,6 +862,13 @@ def oauth_callback(provider):
             db.session.add(user)
             db.session.commit()
 
+            # Achievement hook: email verified (OAuth providers guarantee email)
+            try:
+                from modules.achievements.services import AchievementService
+                AchievementService().check_event(user, 'email_verify')
+            except Exception:
+                pass
+
             # Wyślij email powitalny
             EmailManager.send_welcome(user)
 
