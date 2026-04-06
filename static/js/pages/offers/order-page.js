@@ -3033,6 +3033,7 @@ function evaluateBonuses() {
                 // Show as unlocked only if there are new bonuses to earn AND items in cart
                 const isUnlocked = earned > 0 && regularItems.length > 0;
                 const isAlreadyClaimed = sectionTotal >= threshold && earned <= 0;
+                const isPendingPickup = earned > 0 && regularItems.length === 0;
                 const remaining = Math.max(0, threshold - sectionTotal);
                 const progress = Math.min(100, (sectionTotal / threshold) * 100);
                 const earnedLabel = earned > 1 ? ` x${earned}` : '';
@@ -3048,6 +3049,8 @@ function evaluateBonuses() {
                         <span class="bonus-coupon-check">✓</span>
                         <span class="bonus-coupon-unlocked-text">Już odebrane</span>
                     </div>`;
+                } else if (isPendingPickup) {
+                    priceStatusHtml = `<div class="bonus-coupon-remaining">Dodaj produkt do koszyka, aby odebrać gratis!</div>`;
                 } else {
                     priceStatusHtml = `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining.toFixed(2)} PLN</strong> do gratisu!</div>
                         <div class="bonus-coupon-progress-wrapper">
@@ -3056,9 +3059,9 @@ function evaluateBonuses() {
                 }
 
                 bonusHtml += `
-                    <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''} ${isAlreadyClaimed ? 'bonus-claimed' : ''}" data-bonus-id="${bonus.id}">
+                    <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''} ${isAlreadyClaimed ? 'bonus-claimed' : ''} ${isPendingPickup ? 'bonus-pending' : ''}" data-bonus-id="${bonus.id}">
                         <div class="bonus-coupon-icon-area">
-                            <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : isAlreadyClaimed ? '✅' : '🎁'}</span>
+                            <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : isAlreadyClaimed ? '✅' : isPendingPickup ? '🎁' : '🎁'}</span>
                         </div>
                         <div class="bonus-coupon-body">
                             <div class="bonus-coupon-title">${bonus.bonus_product_name}${earnedLabel}</div>
@@ -3088,6 +3091,7 @@ function evaluateBonuses() {
                 // Show as unlocked only if there are new bonuses to earn AND items in cart
                 const isUnlocked = earned > 0 && regularItems.length > 0;
                 const isAlreadyClaimed = sectionQty >= threshold && earned <= 0;
+                const isPendingPickup = earned > 0 && regularItems.length === 0;
                 const remaining = Math.max(0, threshold - sectionQty);
                 const progress = Math.min(100, (sectionQty / threshold) * 100);
                 const earnedLabelQty = earned > 1 ? ` x${earned}` : '';
@@ -3103,6 +3107,8 @@ function evaluateBonuses() {
                         <span class="bonus-coupon-check">✓</span>
                         <span class="bonus-coupon-unlocked-text">Już odebrane</span>
                     </div>`;
+                } else if (isPendingPickup) {
+                    qtyStatusHtml = `<div class="bonus-coupon-remaining">Dodaj produkt do koszyka, aby odebrać gratis!</div>`;
                 } else {
                     qtyStatusHtml = `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining} szt.</strong> do gratisu!</div>
                         <div class="bonus-coupon-progress-wrapper">
@@ -3111,9 +3117,9 @@ function evaluateBonuses() {
                 }
 
                 bonusHtml += `
-                    <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''} ${isAlreadyClaimed ? 'bonus-claimed' : ''}" data-bonus-id="${bonus.id}">
+                    <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''} ${isAlreadyClaimed ? 'bonus-claimed' : ''} ${isPendingPickup ? 'bonus-pending' : ''}" data-bonus-id="${bonus.id}">
                         <div class="bonus-coupon-icon-area">
-                            <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : isAlreadyClaimed ? '✅' : '🎁'}</span>
+                            <span class="bonus-coupon-icon">${isUnlocked ? '🎉' : isAlreadyClaimed ? '✅' : isPendingPickup ? '🎁' : '🎁'}</span>
                         </div>
                         <div class="bonus-coupon-body">
                             <div class="bonus-coupon-title">${bonus.bonus_product_name}${earnedLabelQty}</div>
