@@ -79,9 +79,82 @@
         var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         window._showPreloader = !isMobile && sessionStorage.getItem('showLoginPreloader') === 'true';
     </script>
-    <!-- iOS PWA splash screen generator (caches startup images from icon) -->
-    <script src="https://cdn.jsdelivr.net/npm/ios-pwa-splash@1.0.0/cdn.min.js"></script>
-    <script>if(typeof iosPWASplash==='function')iosPWASplash('{{ url_for('static', filename='img/pwa/icon-512x512.png') }}','#0f0c29');</script>
+    <!-- iOS PWA splash screen: gradient + particles + logo -->
+    <script>
+    (function(){
+        if(!navigator.standalone && !window.matchMedia('(display-mode: standalone)').matches){
+            // Only generate splash for PWA-capable devices (iOS Safari)
+            if(!/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+        }
+        var dpr = window.devicePixelRatio || 1;
+        var w = screen.width * dpr;
+        var h = screen.height * dpr;
+        var c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        var ctx = c.getContext('2d');
+
+        // 1. Gradient background
+        var grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#0f0c29');
+        grad.addColorStop(0.5, '#302b63');
+        grad.addColorStop(1, '#24243e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+
+        // 2. Blurred orbs
+        var orbs = [
+            {x: w*0.1, y: h*0.15, r: w*0.35, colors: ['#f093fb','#f5576c']},
+            {x: w*0.85, y: h*0.5, r: w*0.25, colors: ['#667eea','#764ba2']},
+            {x: w*0.4, y: h*0.85, r: w*0.3, colors: ['#4facfe','#00f2fe']}
+        ];
+        for(var i=0;i<orbs.length;i++){
+            var o=orbs[i];
+            var rg=ctx.createRadialGradient(o.x,o.y,0,o.x,o.y,o.r);
+            rg.addColorStop(0, o.colors[0]+'40');
+            rg.addColorStop(1, o.colors[1]+'00');
+            ctx.fillStyle=rg;
+            ctx.fillRect(0,0,w,h);
+        }
+
+        // 3. Static particles (dots)
+        var particleColors = [
+            {r:240,g:147,b:251},{r:123,g:44,b:191},
+            {r:157,g:78,b:221},{r:245,g:87,b:108},
+            {r:255,g:255,b:255}
+        ];
+        for(var p=0;p<80;p++){
+            var pc=particleColors[Math.floor(Math.random()*particleColors.length)];
+            var isWhite=pc.r===255;
+            var px=Math.random()*w;
+            var py=Math.random()*h;
+            var pr=(1+Math.random()*2)*dpr;
+            var po=isWhite?0.06+Math.random()*0.1:0.1+Math.random()*0.25;
+            ctx.beginPath();
+            ctx.arc(px,py,pr,0,Math.PI*2);
+            ctx.fillStyle='rgba('+pc.r+','+pc.g+','+pc.b+','+po+')';
+            ctx.fill();
+        }
+
+        // 4. Logo (load and draw centered)
+        var logo=new Image();
+        logo.onload=function(){
+            var logoW=180*dpr;
+            var logoH=logoW*(logo.naturalHeight/logo.naturalWidth);
+            ctx.drawImage(logo,(w-logoW)/2,(h-logoH)/2,logoW,logoH);
+
+            // 5. Inject as apple-touch-startup-image
+            var dataUrl=c.toDataURL('image/png');
+            // Remove any existing startup images
+            var existing=document.querySelectorAll('link[rel="apple-touch-startup-image"]');
+            for(var e=0;e<existing.length;e++) existing[e].remove();
+            var link=document.createElement('link');
+            link.rel='apple-touch-startup-image';
+            link.href=dataUrl;
+            document.head.appendChild(link);
+        };
+        logo.src='{{ url_for("static", filename="img/icons/logo_chmurka.svg") }}';
+    })();
+    </script>
 
     <!-- Custom CSS - Core & Components (individual files for cache-busting) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
