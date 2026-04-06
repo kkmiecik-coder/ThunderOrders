@@ -178,7 +178,7 @@ def create_app(config_name=None):
             "img-src 'self' data: blob: https://www.google-analytics.com https://*.googleusercontent.com https://*.basemaps.cartocdn.com; "
             "connect-src 'self' wss://thunderorders.cloud ws://localhost:* "
                 "https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com https://challenges.cloudflare.com; "
-            "frame-src https://challenges.cloudflare.com; "
+            "frame-src 'self' https://challenges.cloudflare.com; "
             "object-src 'none'; "
             "base-uri 'self'"
         )
