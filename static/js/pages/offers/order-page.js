@@ -3098,8 +3098,9 @@ function evaluateBonuses() {
                     </div>`;
             }
 
-            // Add bonus to cart if earned
-            if (earned > 0) {
+            // Add bonus to cart if earned AND user has items in current cart
+            // (don't show gratis with empty cart — cumulative bonuses only apply when placing a new order)
+            if (earned > 0 && regularItems.length > 0) {
                 cart.push({
                     productId: bonus.bonus_product_id,
                     name: bonus.bonus_product_name,
