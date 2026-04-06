@@ -1087,6 +1087,34 @@
     height: 16px;
 }
 
+/* Open Page Button */
+.open-page-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    text-decoration: none;
+}
+
+.open-page-btn:hover {
+    background: rgba(16, 185, 129, 0.2);
+    transform: scale(1.05);
+    color: #059669;
+}
+
+.open-page-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
 /* ====================================
    DARK MODE - EXCLUSIVE PAGES
    ==================================== */
@@ -1119,6 +1147,16 @@
 
 [data-theme="dark"] .offer-no-date {
     color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .open-page-btn {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+}
+
+[data-theme="dark"] .open-page-btn:hover {
+    background: rgba(16, 185, 129, 0.25);
+    color: #6ee7b7;
 }
 
 /* Dark mode status badges */
