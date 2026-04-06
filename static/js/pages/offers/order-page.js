@@ -2910,10 +2910,15 @@ function evaluateBonuses() {
 
         // Full set qty for this section
         let fullSetQty = 0;
+        let itemsPerSet = 0;
         const sectionEl = document.querySelector(`.section-set[data-section-id="${sectionId}"]`);
         if (sectionEl) {
             const fsInput = sectionEl.querySelector('.full-set-qty-input');
             fullSetQty = fsInput ? (parseInt(fsInput.value) || 0) : 0;
+            // Count total items per one full set (sum of quantity_per_set for all products)
+            sectionEl.querySelectorAll('.set-item').forEach(itemEl => {
+                itemsPerSet += parseInt(itemEl.dataset.quantityPerSet) || 1;
+            });
         }
 
         let bonusHtml = '';
@@ -3038,7 +3043,7 @@ function evaluateBonuses() {
 
             } else if (bonus.trigger_type === 'quantity_threshold') {
                 let sectionQty = products.reduce((sum, p) => sum + p.qty, 0);
-                if (bonus.count_full_set) sectionQty += fullSetQty;
+                if (bonus.count_full_set && fullSetQty > 0) sectionQty += fullSetQty * itemsPerSet;
 
                 const threshold = bonus.threshold_value || 0;
                 const progress = Math.min(100, (sectionQty / threshold) * 100);

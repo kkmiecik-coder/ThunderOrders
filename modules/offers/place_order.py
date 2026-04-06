@@ -343,8 +343,13 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
                 if bonus.threshold_value is None or int(bonus.threshold_value) <= 0:
                     continue
                 section_qty = sum(item.quantity for item in section_items)
-                if bonus.count_full_set:
-                    section_qty += full_set_qty
+                if bonus.count_full_set and full_set_qty > 0:
+                    # Each full set contains all products in the section
+                    items_per_set = sum(
+                        info['quantity_per_set'] for pid, info in product_set_info.items()
+                        if info['section_id'] == sec.id
+                    )
+                    section_qty += full_set_qty * items_per_set
                 if section_qty >= int(bonus.threshold_value):
                     if bonus.repeatable:
                         bonus_earned = section_qty // int(bonus.threshold_value)
