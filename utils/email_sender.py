@@ -26,6 +26,9 @@ def _is_retryable_smtp_error(exc):
     import smtplib
     if isinstance(exc, (smtplib.SMTPServerDisconnected, ConnectionError, OSError)):
         return True
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        # SMTPSenderRefused stores code in .smtp_code
+        return exc.smtp_code in SMTP_RETRYABLE_CODES
     if isinstance(exc, smtplib.SMTPResponseException):
         return exc.smtp_code in SMTP_RETRYABLE_CODES
     return False
@@ -93,8 +96,9 @@ def send_async_email_batch(app, messages):
                                              f"attempt={attempt}, error={type(e).__name__}: {e}")
                                 break
                     # Delay between emails to avoid SMTP rate limits
+                    # 2s gap keeps us under typical provider limits (~30 emails/min)
                     if i < total - 1:
-                        time.sleep(0.5)
+                        time.sleep(2)
     except Exception as e:
         logger.error(f"[EMAIL-BATCH] Connection error: {type(e).__name__}: {e}")
 
