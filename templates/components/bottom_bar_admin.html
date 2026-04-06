@@ -133,6 +133,14 @@
             </a>
         </li>
         <li>
+            <button class="pwa-sheet-item pwa-sheet-theme-toggle" id="pwaThemeToggle">
+                <img src="{{ url_for('static', filename='img/icons/sun.svg') }}" alt="" class="pwa-sheet-icon pwa-theme-icon-light">
+                <img src="{{ url_for('static', filename='img/icons/moon.svg') }}" alt="" class="pwa-sheet-icon pwa-theme-icon-dark">
+                <span class="pwa-theme-text-light">Tryb ciemny</span>
+                <span class="pwa-theme-text-dark">Tryb jasny</span>
+            </button>
+        </li>
+        <li>
             <a href="{{ url_for('profile.index') }}" class="pwa-sheet-item">
                 <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="" class="pwa-sheet-icon">
                 <span>Profil</span>

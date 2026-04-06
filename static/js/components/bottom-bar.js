@@ -96,6 +96,22 @@
             });
         }
 
+        // Bind theme toggle inside sheet
+        var sheetThemeBtn = sheetBody.querySelector('#pwaThemeToggle');
+        if (sheetThemeBtn) {
+            sheetThemeBtn.addEventListener('click', function () {
+                if (typeof window.toggleDarkMode === 'function') {
+                    window.toggleDarkMode();
+                } else {
+                    // Fallback
+                    var html = document.documentElement;
+                    var isDark = html.getAttribute('data-theme') === 'dark';
+                    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+                    localStorage.setItem('darkMode', !isDark);
+                }
+            });
+        }
+
         sheet.classList.add('open');
         sheetOpen = true;
         currentSheetName = sheetName;

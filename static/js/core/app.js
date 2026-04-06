@@ -158,6 +158,7 @@ function toggleDarkMode() {
   // Save to localStorage as fallback
   localStorage.setItem('darkMode', AppState.darkMode);
 }
+window.toggleDarkMode = toggleDarkMode;
 
 function applyDarkMode(isDark) {
   const theme = isDark ? 'dark' : 'light';

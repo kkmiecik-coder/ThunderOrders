@@ -331,6 +331,30 @@
     }
 
     /* Danger (logout) */
+    /* Theme toggle */
+    .pwa-sheet-theme-toggle {
+        width: 100%;
+        background: none;
+        border: none;
+        font-family: inherit;
+        cursor: pointer;
+    }
+
+    .pwa-theme-icon-light,
+    .pwa-theme-text-dark {
+        display: none;
+    }
+
+    [data-theme="dark"] .pwa-theme-icon-dark,
+    [data-theme="dark"] .pwa-theme-text-light {
+        display: none;
+    }
+
+    [data-theme="dark"] .pwa-theme-icon-light,
+    [data-theme="dark"] .pwa-theme-text-dark {
+        display: inline;
+    }
+
     .pwa-sheet-item-switch {
         color: #8b5cf6;
     }
