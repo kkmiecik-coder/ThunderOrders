@@ -2964,7 +2964,7 @@ function evaluateBonuses() {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }
 
-                const isUnlocked = earned > 0;
+                const isUnlocked = earned > 0 && regularItems.length > 0;
                 const isUnavailable = isBonusUnavailable(bonus, sectionEl);
                 const canClaim = !isUnlocked && !isUnavailable && canClaimBonus(bonus, sectionEl);
                 const reqLines = bonus.required_products.map(r =>
@@ -3020,10 +3020,8 @@ function evaluateBonuses() {
                 }
 
                 const threshold = bonus.threshold_value || 0;
-                const progress = Math.min(100, (sectionTotal / threshold) * 100);
-                const isUnlocked = sectionTotal >= threshold;
 
-                if (isUnlocked) {
+                if (sectionTotal >= threshold) {
                     earned = bonus.repeatable ? Math.floor(sectionTotal / threshold) : 1;
                 }
                 // Subtract bonuses already earned in previous orders
@@ -3032,7 +3030,10 @@ function evaluateBonuses() {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }
 
+                // Show as unlocked only if there are new bonuses to earn AND items in cart
+                const isUnlocked = earned > 0 && regularItems.length > 0;
                 const remaining = Math.max(0, threshold - sectionTotal);
+                const progress = Math.min(100, (sectionTotal / threshold) * 100);
                 const earnedLabel = earned > 1 ? ` x${earned}` : '';
                 bonusHtml += `
                     <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''}" data-bonus-id="${bonus.id}">
@@ -3063,10 +3064,8 @@ function evaluateBonuses() {
                 if (bonus.count_full_set && totalFullSetQtyThresh > 0) sectionQty += totalFullSetQtyThresh * itemsPerSet;
 
                 const threshold = bonus.threshold_value || 0;
-                const progress = Math.min(100, (sectionQty / threshold) * 100);
-                const isUnlocked = sectionQty >= threshold;
 
-                if (isUnlocked) {
+                if (sectionQty >= threshold) {
                     earned = bonus.repeatable ? Math.floor(sectionQty / threshold) : 1;
                 }
                 // Subtract bonuses already earned in previous orders
@@ -3075,7 +3074,10 @@ function evaluateBonuses() {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }
 
+                // Show as unlocked only if there are new bonuses to earn AND items in cart
+                const isUnlocked = earned > 0 && regularItems.length > 0;
                 const remaining = Math.max(0, threshold - sectionQty);
+                const progress = Math.min(100, (sectionQty / threshold) * 100);
                 const earnedLabelQty = earned > 1 ? ` x${earned}` : '';
                 bonusHtml += `
                     <div class="bonus-coupon ${isUnlocked ? 'bonus-unlocked' : ''}" data-bonus-id="${bonus.id}">
