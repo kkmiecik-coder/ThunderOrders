@@ -156,13 +156,15 @@ class AchievementService:
             return  # Already unlocked
 
         try:
+            nested = db.session.begin_nested()
             ua = UserAchievement(
                 user_id=user.id,
                 achievement_id=achievement.id,
                 seen=seen,
             )
             db.session.add(ua)
-            db.session.flush()
+            nested.commit()
+            db.session.commit()
         except Exception:
             db.session.rollback()
             return  # Duplicate from race condition, safe to ignore
