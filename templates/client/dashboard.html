@@ -212,8 +212,10 @@
                     {# Visible pages #}
                     {% for page in offer_pages.visible %}
                     <div class="offer-card">
-                        <div class="offer-card-header">
+                        <div class="offer-card-name">
                             <span class="offer-name">{{ page.name }}</span>
+                        </div>
+                        <div class="offer-card-badges">
                             <span class="offer-type-badge offer-type-{{ page.page_type }}">
                                 {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
                             </span>
@@ -233,12 +235,14 @@
                                 </span>
                             {% endif %}
                         </div>
-                        <div class="offer-card-footer">
+                        <div class="offer-card-timing">
                             <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
                                   data-status="{{ page.status }}"
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
+                        </div>
+                        <div class="offer-card-footer">
                             <div class="offer-card-actions">
                             {% if page._has_sets %}
                             <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
@@ -248,11 +252,11 @@
                             </button>
                             {% endif %}
                             {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="offer-action-btn" disabled aria-disabled="true">
+                            <a class="offer-action-btn offer-action-btn-grow" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
                             {% else %}
-                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
+                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn offer-action-btn-grow" target="_blank">
                                 Otwórz →
                             </a>
                             {% endif %}
@@ -263,8 +267,10 @@
                     {# Buffer pages (hidden) #}
                     {% for page in offer_pages.buffer %}
                     <div class="offer-card offer-buffered" style="display: none;">
-                        <div class="offer-card-header">
+                        <div class="offer-card-name">
                             <span class="offer-name">{{ page.name }}</span>
+                        </div>
+                        <div class="offer-card-badges">
                             <span class="offer-type-badge offer-type-{{ page.page_type }}">
                                 {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
                             </span>
@@ -284,12 +290,14 @@
                                 </span>
                             {% endif %}
                         </div>
-                        <div class="offer-card-footer">
+                        <div class="offer-card-timing">
                             <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
                                   data-status="{{ page.status }}"
                                   data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
                                   data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
                             </span>
+                        </div>
+                        <div class="offer-card-footer">
                             <div class="offer-card-actions">
                             {% if page._has_sets %}
                             <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
@@ -299,11 +307,11 @@
                             </button>
                             {% endif %}
                             {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="offer-action-btn" disabled aria-disabled="true">
+                            <a class="offer-action-btn offer-action-btn-grow" disabled aria-disabled="true">
                                 Otwórz →
                             </a>
                             {% else %}
-                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
+                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn offer-action-btn-grow" target="_blank">
                                 Otwórz →
                             </a>
                             {% endif %}
@@ -358,7 +366,7 @@
             <div class="widget widget-orders" id="recentOrdersWidget">
                 <div class="widget-header">
                     <h2 class="widget-title">📦 Ostatnie Zamówienia</h2>
-                    <a href="{{ url_for('orders.client_list') }}" class="widget-link">Zobacz wszystkie →</a>
+                    <a href="{{ url_for('orders.client_list') }}" class="widget-link">Wszystkie →</a>
                 </div>
                 <div class="widget-body widget-body-table">
                     {% if recent_orders.visible|length > 0 %}
@@ -770,22 +778,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 </button>`
                 : '';
 
+            const growButtonHTML = buttonHTML.replace('offer-action-btn"', 'offer-action-btn offer-action-btn-grow"');
+
             return `
                 <div class="offer-card">
-                    <div class="offer-card-header">
+                    <div class="offer-card-name">
                         <span class="offer-name">${page.name}</span>
+                    </div>
+                    <div class="offer-card-badges">
                         <span class="offer-type-badge offer-type-${page.page_type || 'exclusive'}">${page.page_type === 'preorder' ? 'Pre-order' : 'Exclusive'}</span>
                         ${statusHTML}
                     </div>
-                    <div class="offer-card-footer">
+                    <div class="offer-card-timing">
                         <span class="offer-timing${timingClass}"
                               data-status="${page.status}"
                               data-starts="${page.starts_at || ''}"
                               data-ends="${page.ends_at || ''}">
                         </span>
+                    </div>
+                    <div class="offer-card-footer">
                         <div class="offer-card-actions">
                             ${matrixBtnHTML}
-                            ${buttonHTML}
+                            ${growButtonHTML}
                         </div>
                     </div>
                 </div>

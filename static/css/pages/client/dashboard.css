@@ -597,6 +597,10 @@ a.metric-card-clickable.metric-card-info:hover {
 
 /* Mobile (max-width: 768px) */
 @media (max-width: 768px) {
+    .client-dashboard {
+        padding: var(--space-4) var(--space-3);
+    }
+
     .dashboard-title {
         font-size: 2rem;
     }
@@ -1235,23 +1239,46 @@ a.metric-card-clickable.metric-card-info:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.offer-card-header {
+/* Card name - full width row */
+.offer-card-name {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+}
+
+.offer-card-name .offer-name {
+    font-size: 1rem;
+    line-height: 1.3;
+}
+
+/* Badges row - type + status side by side */
+.offer-card-badges {
+    display: flex;
     align-items: center;
     gap: var(--space-2);
+    flex-wrap: wrap;
 }
 
-.offer-card-header .offer-name {
-    flex: 1;
-    font-size: 1rem;
+/* Timing row */
+.offer-card-timing {
+    display: flex;
+    align-items: center;
 }
 
+/* Footer row - matrix btn + open btn stretched */
 .offer-card-footer {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: var(--space-3);
+}
+
+.offer-card-footer .offer-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.offer-action-btn-grow {
+    flex: 1;
 }
 
 /* Card Button - uses .offer-action-btn (same as desktop table) */
@@ -1292,7 +1319,7 @@ a.metric-card-clickable.metric-card-info:hover {
    Mobile: Timing Badge for Important Statuses
    ================================================ */
 .offer-card .offer-timing {
-    flex: 1;
+    display: inline-block;
 }
 
 .offer-card .offer-timing-important {
