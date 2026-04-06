@@ -70,18 +70,17 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicon-16x16.png') }}">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
 
-    <!-- Splash screen: inline critical CSS so it renders BEFORE external CSS loads -->
-    <style>
+    <!-- Dark background fallback: eliminates white flash on PWA/iOS launch -->
+    <style>html,body{background:#0f0c29}
         #login-preloader{position:fixed;top:0;left:0;width:100%;height:100%;z-index:99999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);opacity:0;visibility:hidden}
         #login-preloader.visible{opacity:1;visibility:visible}
     </style>
     <script>
-        (function(){
-            var isPWA=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
-            var isLogin=sessionStorage.getItem('showLoginPreloader')==='true';
-            if(isPWA||isLogin){document.getElementById('login-preloader').classList.add('visible')}
-        })();
+        window._showPreloader = (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || sessionStorage.getItem('showLoginPreloader') === 'true');
     </script>
+    <!-- iOS PWA splash screen generator (caches startup images from icon) -->
+    <script src="https://cdn.jsdelivr.net/npm/ios-pwa-splash@1.0.0/cdn.min.js"></script>
+    <script>if(typeof iosPWASplash==='function')iosPWASplash('{{ url_for('static', filename='img/pwa/icon-512x512.png') }}','#0f0c29');</script>
 
     <!-- Custom CSS - Core & Components (individual files for cache-busting) -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
@@ -119,9 +118,11 @@
     </div>
     <script>
         (function() {
+            if (!window._showPreloader) return;
             var el = document.getElementById('login-preloader');
-            if (!el || !el.classList.contains('visible')) return;
-            // Start particles (preloader already visible from <head> script)
+            if (!el) return;
+            el.classList.add('visible');
+            // Start particles
             var c = document.getElementById('preloaderParticles');
             if (!c || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
             var ctx = c.getContext('2d');
