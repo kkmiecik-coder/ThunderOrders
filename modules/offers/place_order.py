@@ -275,17 +275,96 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
     # Flush so order.items relationship sees all newly added items
     db.session.flush()
 
+    # Query PREVIOUS orders from this user on this page (excluding current order, excluding cancelled)
+    from sqlalchemy import func as bonus_func
+    prev_user_orders = db.session.query(Order.id).filter(
+        Order.offer_page_id == page.id,
+        Order.user_id == current_user.id,
+        Order.status != 'anulowane',
+        Order.id != order.id,
+    ).subquery()
+
+    # Previous individual item quantities per product (non-bonus, non-full-set)
+    prev_item_counts = {}
+    prev_individual_rows = db.session.query(
+        OrderItem.product_id,
+        bonus_func.sum(OrderItem.quantity)
+    ).filter(
+        OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+        OrderItem.is_bonus != True,
+        OrderItem.is_full_set != True,
+    ).group_by(OrderItem.product_id).all()
+    for pid, qty in prev_individual_rows:
+        prev_item_counts[pid] = int(qty)
+
+    # Previous full set quantities per product (set_product_id)
+    prev_full_set_counts = {}
+    prev_fs_rows = db.session.query(
+        OrderItem.product_id,
+        bonus_func.sum(OrderItem.quantity)
+    ).filter(
+        OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+        OrderItem.is_full_set == True,
+    ).group_by(OrderItem.product_id).all()
+    for pid, qty in prev_fs_rows:
+        prev_full_set_counts[pid] = int(qty)
+
+    # Previous individual item totals (price) per section
+    prev_section_totals = {}
+    for pid, info in product_set_info.items():
+        sec_id = info['section_id']
+        if sec_id not in prev_section_totals:
+            prev_section_totals[sec_id] = Decimal('0.00')
+    prev_total_rows = db.session.query(
+        OrderItem.product_id,
+        bonus_func.sum(OrderItem.total)
+    ).filter(
+        OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+        OrderItem.is_bonus != True,
+        OrderItem.is_full_set != True,
+        OrderItem.product_id.in_(product_set_info.keys()),
+    ).group_by(OrderItem.product_id).all()
+    for pid, total in prev_total_rows:
+        sec_id = product_set_info[pid]['section_id']
+        prev_section_totals[sec_id] = prev_section_totals.get(sec_id, Decimal('0.00')) + total
+
+    # Previous full set totals per section
+    prev_fs_totals = {}
+    for sec in set_sections:
+        if sec.set_product_id:
+            prev_fs_total_row = db.session.query(
+                bonus_func.coalesce(bonus_func.sum(OrderItem.total), 0)
+            ).filter(
+                OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+                OrderItem.is_full_set == True,
+                OrderItem.product_id == sec.set_product_id,
+            ).scalar()
+            prev_fs_totals[sec.id] = Decimal(str(prev_fs_total_row))
+
+    # Previous bonuses already earned by THIS USER per bonus_id
+    prev_user_bonus_counts = {}
+    prev_bonus_rows = db.session.query(
+        OrderItem.product_id,
+        OrderItem.bonus_source_section_id,
+        bonus_func.sum(OrderItem.quantity)
+    ).filter(
+        OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+        OrderItem.is_bonus == True,
+    ).group_by(OrderItem.product_id, OrderItem.bonus_source_section_id).all()
+    for pid, sec_id, qty in prev_bonus_rows:
+        prev_user_bonus_counts[(pid, sec_id)] = int(qty)
+
     for sec in set_sections:
         active_bonuses = OfferSetBonus.query.filter_by(
             section_id=sec.id, is_active=True
         ).all()
 
         for bonus in active_bonuses:
-            # Check global limit for this bonus
-            claimed = 0
+            # Check global limit for this bonus (all users)
+            global_claimed = 0
             if bonus.max_available is not None:
                 from sqlalchemy import func as sql_func2
-                claimed = db.session.query(
+                global_claimed = db.session.query(
                     sql_func2.coalesce(sql_func2.sum(OrderItem.quantity), 0)
                 ).join(Order).filter(
                     OrderItem.is_bonus == True,
@@ -294,45 +373,60 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
                     Order.offer_page_id == page.id,
                     Order.status != 'anulowane'
                 ).with_for_update().scalar()
-                if claimed >= bonus.max_available:
+                if global_claimed >= bonus.max_available:
                     continue
 
-            # Get order items from this section in current order (non-bonus only)
+            # Current order items for this section (non-bonus only)
             section_items = [item for item in order.items if
                             item.product_id in product_set_info and
                             product_set_info[item.product_id]['section_id'] == sec.id and
                             not item.is_bonus]
 
-            # Get full set items for this section
+            # Current order full set items for this section
             section_full_set_items = [item for item in order.items if
                                       item.is_full_set and item.product_id == sec.set_product_id]
-            full_set_qty = sum(item.quantity for item in section_full_set_items)
+            curr_full_set_qty = sum(item.quantity for item in section_full_set_items)
+
+            # Previous full set qty for this section
+            prev_full_set_qty = prev_full_set_counts.get(sec.set_product_id, 0) if sec.set_product_id else 0
+            total_full_set_qty = curr_full_set_qty + prev_full_set_qty
+
+            # How many bonuses this user already earned for this bonus
+            user_already_earned = prev_user_bonus_counts.get(
+                (bonus.bonus_product_id, sec.id), 0
+            ) // bonus.bonus_quantity  # Convert quantity back to earn count
 
             bonus_earned = 0
 
             if bonus.trigger_type == 'buy_products':
-                # Check if all required products are in the order
                 required = bonus.required_products
                 if not required:
                     continue
-                # Calculate how many complete bundles
                 bundle_counts = []
                 for req in required:
+                    # Current order qty
                     matching = [i for i in section_items if i.product_id == req.product_id]
-                    qty_in_order = sum(i.quantity for i in matching)
-                    # Full set contains all products — each full set counts as quantity_per_set
-                    if bonus.count_full_set and full_set_qty > 0:
+                    qty_cumulative = sum(i.quantity for i in matching)
+                    # Previous orders qty
+                    qty_cumulative += prev_item_counts.get(req.product_id, 0)
+                    # Full set contribution (current + previous)
+                    if bonus.count_full_set and total_full_set_qty > 0:
                         qps = product_set_info.get(req.product_id, {}).get('quantity_per_set', 1)
-                        qty_in_order += full_set_qty * qps
-                    bundle_counts.append(qty_in_order // req.min_quantity)
+                        qty_cumulative += total_full_set_qty * qps
+                    bundle_counts.append(qty_cumulative // req.min_quantity)
                 bonus_earned = min(bundle_counts) if bundle_counts else 0
 
             elif bonus.trigger_type == 'price_threshold':
                 if bonus.threshold_value is None or float(bonus.threshold_value) <= 0:
                     continue
+                # Current order total
                 section_total = sum(float(item.total) for item in section_items)
+                # Previous orders total
+                section_total += float(prev_section_totals.get(sec.id, 0))
+                # Full set totals
                 if bonus.count_full_set:
                     section_total += sum(float(item.total) for item in section_full_set_items)
+                    section_total += float(prev_fs_totals.get(sec.id, 0))
                 if section_total >= float(bonus.threshold_value):
                     if bonus.repeatable:
                         bonus_earned = int(section_total // float(bonus.threshold_value))
@@ -342,23 +436,31 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
             elif bonus.trigger_type == 'quantity_threshold':
                 if bonus.threshold_value is None or int(bonus.threshold_value) <= 0:
                     continue
+                # Current order qty
                 section_qty = sum(item.quantity for item in section_items)
-                if bonus.count_full_set and full_set_qty > 0:
-                    # Each full set contains all products in the section
+                # Previous orders qty
+                for pid, info in product_set_info.items():
+                    if info['section_id'] == sec.id:
+                        section_qty += prev_item_counts.get(pid, 0)
+                # Full set contribution
+                if bonus.count_full_set and total_full_set_qty > 0:
                     items_per_set = sum(
                         info['quantity_per_set'] for pid, info in product_set_info.items()
                         if info['section_id'] == sec.id
                     )
-                    section_qty += full_set_qty * items_per_set
+                    section_qty += total_full_set_qty * items_per_set
                 if section_qty >= int(bonus.threshold_value):
                     if bonus.repeatable:
                         bonus_earned = section_qty // int(bonus.threshold_value)
                     else:
                         bonus_earned = 1
 
-            # Apply limit
+            # Subtract bonuses already earned by this user in previous orders
+            bonus_earned = max(0, bonus_earned - user_already_earned)
+
+            # Apply global limit
             if bonus.max_available is not None:
-                bonus_earned = min(bonus_earned, bonus.max_available - claimed)
+                bonus_earned = min(bonus_earned, bonus.max_available - global_claimed)
 
             if bonus_earned > 0:
                 bonus_product = Product.query.get(bonus.bonus_product_id)

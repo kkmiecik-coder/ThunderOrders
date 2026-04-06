@@ -2942,17 +2942,23 @@ function evaluateBonuses() {
 
             if (bonus.trigger_type === 'buy_products') {
                 const bundleCounts = [];
+                const prevFullSetQty = bonus.prev_full_set_qty || 0;
+                const totalFullSetQty = fullSetQty + prevFullSetQty;
                 for (const req of bonus.required_products) {
                     const inCart = products.find(p => p.productId === req.product_id);
                     let qty = inCart ? inCart.qty : 0;
-                    // Full set contains all products — each full set counts as quantityPerSet
-                    if (bonus.count_full_set && fullSetQty > 0) {
+                    // Add previous orders quantity
+                    qty += (bonus.prev_product_counts && bonus.prev_product_counts[String(req.product_id)]) || 0;
+                    // Full set contribution (current + previous)
+                    if (bonus.count_full_set && totalFullSetQty > 0) {
                         const qps = inCart ? (inCart.quantityPerSet || 1) : 1;
-                        qty += fullSetQty * qps;
+                        qty += totalFullSetQty * qps;
                     }
                     bundleCounts.push(Math.floor(qty / req.min_quantity));
                 }
                 earned = bundleCounts.length > 0 ? Math.min(...bundleCounts) : 0;
+                // Subtract bonuses already earned in previous orders
+                earned = Math.max(0, earned - (bonus.user_already_earned || 0));
 
                 if (bonus.max_available !== null) {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
@@ -3002,10 +3008,15 @@ function evaluateBonuses() {
 
             } else if (bonus.trigger_type === 'price_threshold') {
                 let sectionTotal = products.reduce((sum, p) => sum + (p.qty * p.price), 0);
-                if (bonus.count_full_set && fullSetQty > 0) {
-                    const fsSection = sectionEl.querySelector('.full-set-section');
-                    const fsPrice = fsSection ? parseFloat(fsSection.dataset.setPrice) || 0 : 0;
-                    sectionTotal += fullSetQty * fsPrice;
+                // Add previous orders total
+                sectionTotal += bonus.prev_total || 0;
+                if (bonus.count_full_set) {
+                    if (fullSetQty > 0) {
+                        const fsSection = sectionEl.querySelector('.full-set-section');
+                        const fsPrice = fsSection ? parseFloat(fsSection.dataset.setPrice) || 0 : 0;
+                        sectionTotal += fullSetQty * fsPrice;
+                    }
+                    sectionTotal += bonus.prev_fs_total || 0;
                 }
 
                 const threshold = bonus.threshold_value || 0;
@@ -3015,6 +3026,8 @@ function evaluateBonuses() {
                 if (isUnlocked) {
                     earned = bonus.repeatable ? Math.floor(sectionTotal / threshold) : 1;
                 }
+                // Subtract bonuses already earned in previous orders
+                earned = Math.max(0, earned - (bonus.user_already_earned || 0));
                 if (bonus.max_available !== null) {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }
@@ -3043,7 +3056,11 @@ function evaluateBonuses() {
 
             } else if (bonus.trigger_type === 'quantity_threshold') {
                 let sectionQty = products.reduce((sum, p) => sum + p.qty, 0);
-                if (bonus.count_full_set && fullSetQty > 0) sectionQty += fullSetQty * itemsPerSet;
+                // Add previous orders quantity
+                sectionQty += bonus.prev_qty || 0;
+                // Full set contribution (current + previous)
+                const totalFullSetQtyThresh = fullSetQty + (bonus.prev_full_set_qty || 0);
+                if (bonus.count_full_set && totalFullSetQtyThresh > 0) sectionQty += totalFullSetQtyThresh * itemsPerSet;
 
                 const threshold = bonus.threshold_value || 0;
                 const progress = Math.min(100, (sectionQty / threshold) * 100);
@@ -3052,6 +3069,8 @@ function evaluateBonuses() {
                 if (isUnlocked) {
                     earned = bonus.repeatable ? Math.floor(sectionQty / threshold) : 1;
                 }
+                // Subtract bonuses already earned in previous orders
+                earned = Math.max(0, earned - (bonus.user_already_earned || 0));
                 if (bonus.max_available !== null) {
                     earned = Math.min(earned, bonus.max_available - bonus.already_claimed);
                 }

@@ -16,14 +16,97 @@ def _build_bonuses_config(page, sections):
     """
     Buduje konfiguracje bonusow (gratisow) dla strony klienta.
     Zwraca JSON string z danymi per section.
+    Includes cumulative data from previous user orders.
     """
     import json
     from flask import url_for
-    from .models import OfferSetBonus
+    from flask_login import current_user
+    from .models import OfferSetBonus, OfferSection
     from modules.orders.models import Order, OrderItem
     from sqlalchemy import func
 
     config = {}
+
+    # Build product_set_info for all set sections (needed for cumulative qty)
+    product_set_info = {}
+    for section in sections:
+        if section.section_type == 'set':
+            for set_item in section.set_items:
+                qps = set_item.quantity_per_set or 1
+                for prod in set_item.get_products():
+                    product_set_info[prod.id] = {
+                        'section_id': section.id,
+                        'quantity_per_set': qps,
+                    }
+
+    # Query previous order data for this user (if authenticated)
+    prev_item_counts = {}
+    prev_section_totals = {}
+    prev_full_set_counts = {}
+    prev_fs_totals = {}
+    prev_user_bonus_counts = {}
+
+    if current_user.is_authenticated:
+        prev_user_orders = db.session.query(Order.id).filter(
+            Order.offer_page_id == page.id,
+            Order.user_id == current_user.id,
+            Order.status != 'anulowane',
+        ).subquery()
+
+        # Previous individual item counts
+        prev_rows = db.session.query(
+            OrderItem.product_id,
+            func.sum(OrderItem.quantity)
+        ).filter(
+            OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+            OrderItem.is_bonus != True,
+            OrderItem.is_full_set != True,
+        ).group_by(OrderItem.product_id).all()
+        for pid, qty in prev_rows:
+            prev_item_counts[pid] = int(qty)
+
+        # Previous individual item totals per section
+        if product_set_info:
+            prev_total_rows = db.session.query(
+                OrderItem.product_id,
+                func.sum(OrderItem.total)
+            ).filter(
+                OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+                OrderItem.is_bonus != True,
+                OrderItem.is_full_set != True,
+                OrderItem.product_id.in_(product_set_info.keys()),
+            ).group_by(OrderItem.product_id).all()
+            for pid, total in prev_total_rows:
+                sec_id = product_set_info.get(pid, {}).get('section_id')
+                if sec_id:
+                    prev_section_totals[sec_id] = float(prev_section_totals.get(sec_id, 0)) + float(total)
+
+        # Previous full set counts and totals
+        for section in sections:
+            if section.section_type == 'set' and section.set_product_id:
+                fs_row = db.session.query(
+                    func.coalesce(func.sum(OrderItem.quantity), 0),
+                    func.coalesce(func.sum(OrderItem.total), 0),
+                ).filter(
+                    OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+                    OrderItem.is_full_set == True,
+                    OrderItem.product_id == section.set_product_id,
+                ).first()
+                if fs_row:
+                    prev_full_set_counts[section.id] = int(fs_row[0])
+                    prev_fs_totals[section.id] = float(fs_row[1])
+
+        # Previous bonuses earned by this user
+        prev_bonus_rows = db.session.query(
+            OrderItem.product_id,
+            OrderItem.bonus_source_section_id,
+            func.sum(OrderItem.quantity)
+        ).filter(
+            OrderItem.order_id.in_(db.session.query(prev_user_orders.c.id)),
+            OrderItem.is_bonus == True,
+        ).group_by(OrderItem.product_id, OrderItem.bonus_source_section_id).all()
+        for pid, sec_id, qty in prev_bonus_rows:
+            prev_user_bonus_counts[(pid, sec_id)] = int(qty)
 
     for section in sections:
         if section.section_type not in ('set', 'bonus'):
@@ -36,9 +119,18 @@ def _build_bonuses_config(page, sections):
         if not bonuses:
             continue
 
+        # Cumulative data for this section
+        sec_prev_qty = sum(
+            prev_item_counts.get(pid, 0) for pid, info in product_set_info.items()
+            if info['section_id'] == section.id
+        )
+        sec_prev_total = prev_section_totals.get(section.id, 0)
+        sec_prev_full_set_qty = prev_full_set_counts.get(section.id, 0)
+        sec_prev_fs_total = prev_fs_totals.get(section.id, 0)
+
         section_bonuses = []
         for bonus in bonuses:
-            # Policz ile gratisow juz rozdano (dla limitu)
+            # Policz ile gratisow juz rozdano globalnie (dla limitu)
             already_claimed = 0
             if bonus.max_available is not None:
                 already_claimed = db.session.query(
@@ -58,6 +150,12 @@ def _build_bonuses_config(page, sections):
             if is_exhausted and bonus.when_exhausted == 'hide':
                 continue
 
+            # User already earned (for this specific bonus)
+            user_already_earned_qty = prev_user_bonus_counts.get(
+                (bonus.bonus_product_id, section.id), 0
+            )
+            user_already_earned = user_already_earned_qty // bonus.bonus_quantity
+
             bonus_product = bonus.bonus_product
             bonus_data = {
                 'id': bonus.id,
@@ -75,6 +173,18 @@ def _build_bonuses_config(page, sections):
                 'already_claimed': int(already_claimed),
                 'is_exhausted': is_exhausted,
                 'required_products': [],
+                # Cumulative data from previous orders
+                'prev_qty': sec_prev_qty,
+                'prev_total': sec_prev_total,
+                'prev_full_set_qty': sec_prev_full_set_qty,
+                'prev_fs_total': sec_prev_fs_total,
+                'user_already_earned': user_already_earned,
+                # Per-product previous counts (for buy_products trigger)
+                'prev_product_counts': {
+                    str(pid): prev_item_counts.get(pid, 0)
+                    for pid, info in product_set_info.items()
+                    if info['section_id'] == section.id
+                },
             }
 
             if bonus.trigger_type == 'buy_products':
