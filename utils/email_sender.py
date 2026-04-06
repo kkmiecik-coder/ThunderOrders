@@ -227,6 +227,10 @@ def send_email_sync(to, subject, template, **kwargs):
 
         return False
 
+    except Exception as e:
+        logger.error(f"[EMAIL-SYNC] Preparation FAILED to={to}, subject='{subject}', error={type(e).__name__}: {e}")
+        return False
+
 
 def prepare_email(to, subject, template, **kwargs):
     """
