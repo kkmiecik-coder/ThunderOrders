@@ -13,22 +13,49 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Retry configuration for transient SMTP errors (e.g. 454 rate limit)
+SMTP_MAX_RETRIES = 3
+SMTP_RETRY_DELAYS = [5, 15, 30]  # seconds between retries (exponential backoff)
+
+# SMTP error codes that are transient and worth retrying
+SMTP_RETRYABLE_CODES = {421, 450, 451, 452, 454}
+
+
+def _is_retryable_smtp_error(exc):
+    """Check if an SMTP exception is transient and worth retrying."""
+    import smtplib
+    if isinstance(exc, (smtplib.SMTPServerDisconnected, ConnectionError, OSError)):
+        return True
+    if isinstance(exc, smtplib.SMTPResponseException):
+        return exc.smtp_code in SMTP_RETRYABLE_CODES
+    return False
+
 
 def send_async_email(app, msg):
-    """Wysyła email asynchronicznie w osobnym wątku"""
+    """Wysyła email asynchronicznie w osobnym wątku z retry dla błędów tymczasowych"""
     recipient = msg.recipients[0] if msg.recipients else 'unknown'
     subject = msg.subject or 'no subject'
     logger.info(f"[EMAIL-THREAD] Starting SMTP send to={recipient}, subject='{subject}'")
     start_time = time.time()
 
-    try:
-        with app.app_context():
-            mail.send(msg)
-        elapsed = time.time() - start_time
-        logger.info(f"[EMAIL-THREAD] SUCCESS to={recipient}, subject='{subject}', took={elapsed:.2f}s")
-    except Exception as e:
-        elapsed = time.time() - start_time
-        logger.error(f"[EMAIL-THREAD] FAILED to={recipient}, subject='{subject}', took={elapsed:.2f}s, error={type(e).__name__}: {e}")
+    for attempt in range(1, SMTP_MAX_RETRIES + 1):
+        try:
+            with app.app_context():
+                mail.send(msg)
+            elapsed = time.time() - start_time
+            logger.info(f"[EMAIL-THREAD] SUCCESS to={recipient}, subject='{subject}', took={elapsed:.2f}s" +
+                        (f" (attempt {attempt})" if attempt > 1 else ""))
+            return
+        except Exception as e:
+            elapsed = time.time() - start_time
+            if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
+                delay = SMTP_RETRY_DELAYS[attempt - 1]
+                logger.warning(f"[EMAIL-THREAD] RETRY {attempt}/{SMTP_MAX_RETRIES} to={recipient}, "
+                               f"error={type(e).__name__}: {e}, retrying in {delay}s")
+                time.sleep(delay)
+            else:
+                logger.error(f"[EMAIL-THREAD] FAILED to={recipient}, subject='{subject}', "
+                             f"took={elapsed:.2f}s, attempt={attempt}, error={type(e).__name__}: {e}")
 
 
 def send_async_email_batch(app, messages):
@@ -45,14 +72,27 @@ def send_async_email_batch(app, messages):
             with mail.connect() as conn:
                 for i, msg in enumerate(messages):
                     recipient = msg.recipients[0] if msg.recipients else 'unknown'
-                    try:
-                        conn.send(msg)
-                        sent += 1
-                        logger.info(f"[EMAIL-BATCH] {i+1}/{total} SUCCESS to={recipient}")
-                    except Exception as e:
-                        failed += 1
-                        logger.error(f"[EMAIL-BATCH] {i+1}/{total} FAILED to={recipient}, error={type(e).__name__}: {e}")
-                    # Small delay between emails to avoid SMTP rate limits
+                    msg_sent = False
+                    for attempt in range(1, SMTP_MAX_RETRIES + 1):
+                        try:
+                            conn.send(msg)
+                            sent += 1
+                            msg_sent = True
+                            logger.info(f"[EMAIL-BATCH] {i+1}/{total} SUCCESS to={recipient}" +
+                                        (f" (attempt {attempt})" if attempt > 1 else ""))
+                            break
+                        except Exception as e:
+                            if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
+                                delay = SMTP_RETRY_DELAYS[attempt - 1]
+                                logger.warning(f"[EMAIL-BATCH] {i+1}/{total} RETRY {attempt}/{SMTP_MAX_RETRIES} "
+                                               f"to={recipient}, error={type(e).__name__}: {e}, retrying in {delay}s")
+                                time.sleep(delay)
+                            else:
+                                failed += 1
+                                logger.error(f"[EMAIL-BATCH] {i+1}/{total} FAILED to={recipient}, "
+                                             f"attempt={attempt}, error={type(e).__name__}: {e}")
+                                break
+                    # Delay between emails to avoid SMTP rate limits
                     if i < total - 1:
                         time.sleep(0.5)
     except Exception as e:
@@ -161,13 +201,26 @@ def send_email_sync(to, subject, template, **kwargs):
 
         logger.info(f"[EMAIL-SYNC] Sending to={to}, subject='{subject}'")
         start_time = time.time()
-        mail.send(msg)
-        elapsed = time.time() - start_time
-        logger.info(f"[EMAIL-SYNC] SUCCESS to={to}, took={elapsed:.2f}s")
-        return True
 
-    except Exception as e:
-        logger.error(f"[EMAIL-SYNC] FAILED to={to}, subject='{subject}', error={type(e).__name__}: {e}")
+        for attempt in range(1, SMTP_MAX_RETRIES + 1):
+            try:
+                mail.send(msg)
+                elapsed = time.time() - start_time
+                logger.info(f"[EMAIL-SYNC] SUCCESS to={to}, took={elapsed:.2f}s" +
+                            (f" (attempt {attempt})" if attempt > 1 else ""))
+                return True
+            except Exception as e:
+                if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
+                    delay = SMTP_RETRY_DELAYS[attempt - 1]
+                    logger.warning(f"[EMAIL-SYNC] RETRY {attempt}/{SMTP_MAX_RETRIES} to={to}, "
+                                   f"error={type(e).__name__}: {e}, retrying in {delay}s")
+                    time.sleep(delay)
+                else:
+                    elapsed = time.time() - start_time
+                    logger.error(f"[EMAIL-SYNC] FAILED to={to}, subject='{subject}', "
+                                 f"took={elapsed:.2f}s, attempt={attempt}, error={type(e).__name__}: {e}")
+                    return False
+
         return False
 
 
