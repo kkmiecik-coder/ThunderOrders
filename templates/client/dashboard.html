@@ -1131,19 +1131,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 html += '<div class="set-matrix-table-wrap"><table class="set-matrix-table"><thead><tr>';
                 html += '<th class="matrix-product-col">Produkt</th>';
                 for (let i = 0; i < set.set_max_sets; i++) {
-                    const colClass = (set.has_limit && i === set.set_max_sets - 1) ? 'matrix-slot-col matrix-locked-col text-center' : 'matrix-slot-col text-center';
-                    html += `<th class="${colClass}">Set ${i + 1}</th>`;
+                    html += `<th class="matrix-slot-col text-center">Set ${i + 1}</th>`;
+                }
+                if (set.has_limit) {
+                    html += `<th class="matrix-slot-col matrix-locked-col text-center">Set ${set.set_max_sets + 1}</th>`;
                 }
                 html += '</tr></thead><tbody>';
 
                 products.forEach(product => {
                     html += '<tr>';
                     html += `<td class="matrix-product-col"><span>${product.product_name}</span></td>`;
-                    product.slots.forEach((slot, idx) => {
-                        const colClass = (set.has_limit && idx === set.set_max_sets - 1) ? 'matrix-slot-col matrix-locked-col text-center' : 'matrix-slot-col text-center';
-                        html += `<td class="${colClass}">`;
-                        const isLocked = set.has_limit && idx === set.set_max_sets - 1;
-                        if (slot.filled) {
+                    for (let idx = 0; idx < set.set_max_sets; idx++) {
+                        html += '<td class="matrix-slot-col text-center">';
+                        const slot = product.slots[idx];
+                        if (slot && slot.filled) {
                             if (slot.is_own) {
                                 html += `<span class="slot-check-own-wrap" data-tooltip="${slot.customer}">`;
                                 html += '<svg class="slot-check-own" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
@@ -1151,11 +1152,14 @@ document.addEventListener('DOMContentLoaded', function() {
                             } else {
                                 html += '<svg class="slot-check" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
                             }
-                        } else if (isLocked) {
-                            html += '<svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>';
                         }
                         html += '</td>';
-                    });
+                    }
+                    if (set.has_limit) {
+                        html += '<td class="matrix-slot-col matrix-locked-col text-center">';
+                        html += '<svg class="slot-lock" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>';
+                        html += '</td>';
+                    }
                     html += '</tr>';
                 });
 
