@@ -8,35 +8,33 @@
 // ==========================================
 (function() {
   var preloader = document.getElementById('login-preloader');
-  var shouldShow = sessionStorage.getItem('showLoginPreloader');
-  var startTime = parseInt(sessionStorage.getItem('loginPreloaderStart')) || 0;
+  if (!preloader || !preloader.classList.contains('visible')) return;
 
-  if (shouldShow === 'true' && preloader) {
-    // Preloader is already visible (set by inline script in base.html)
-    // Calculate remaining time (minimum 2s total from login click)
-    var elapsed = Date.now() - startTime;
-    var minDuration = 2000;
-    var remaining = Math.max(0, minDuration - elapsed);
+  var isLogin = sessionStorage.getItem('showLoginPreloader') === 'true';
+  var startTime = parseInt(sessionStorage.getItem('loginPreloaderStart')) || Date.now();
 
-    // Hide preloader after remaining time with fade out animation
-    var hidePreloader = function() {
-      // Remove instant class to enable transition, then remove visible
-      preloader.classList.remove('instant');
+  // Minimum display: 2s for login, 1s for PWA
+  var minDuration = isLogin ? 2000 : 1000;
+  var elapsed = Date.now() - startTime;
+  var remaining = Math.max(0, minDuration - elapsed);
 
-      // Force reflow to apply transition
-      preloader.offsetHeight;
+  var hidePreloader = function() {
+    preloader.classList.remove('instant');
+    preloader.offsetHeight;
+    preloader.classList.remove('visible');
 
-      // Now fade out (transition will apply)
-      preloader.classList.remove('visible');
+    // Stop particle animation
+    if (window._preloaderRaf) {
+      cancelAnimationFrame(window._preloaderRaf);
+      window._preloaderRaf = null;
+    }
 
-      // Clear flags
-      sessionStorage.removeItem('showLoginPreloader');
-      sessionStorage.removeItem('loginPreloaderStart');
-    };
+    // Clear login flags
+    sessionStorage.removeItem('showLoginPreloader');
+    sessionStorage.removeItem('loginPreloaderStart');
+  };
 
-    // Wait for remaining time before hiding
-    setTimeout(hidePreloader, remaining);
-  }
+  setTimeout(hidePreloader, remaining);
 })();
 
 // ==========================================
