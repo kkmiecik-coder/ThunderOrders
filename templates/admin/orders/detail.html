@@ -671,6 +671,16 @@
                     </svg>
                     Dodaj produkt z magazynu
                 </button>
+                <button type="button" class="dropdown-item" onclick="openGratisModal(); closeAddProductsDropdown();">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 12v10H4V12"/>
+                        <path d="M2 7h20v5H2z"/>
+                        <path d="M12 22V7"/>
+                        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+                        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+                    </svg>
+                    Produkt gratisowy
+                </button>
             </div>
         </div>
     </div>
@@ -1544,6 +1554,42 @@
     </div>
 </div>
 
+<!-- Modal: Dodaj produkt gratisowy -->
+<div class="modal-overlay" id="gratisModal">
+    <div class="modal-container modal-sm gratis-modal">
+        <div class="modal-header">
+            <h2>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 12v10H4V12"/>
+                    <path d="M2 7h20v5H2z"/>
+                    <path d="M12 22V7"/>
+                    <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+                    <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+                </svg>
+                Dodaj produkt gratisowy
+            </h2>
+            <button type="button" class="modal-close" onclick="closeGratisModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="gratis-search-wrapper">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <input type="text"
+                       id="gratisSearchInput"
+                       class="form-input"
+                       placeholder="Szukaj produktu po nazwie, SKU lub EAN..."
+                       oninput="debounceGratisSearch()">
+            </div>
+            <div class="gratis-results" id="gratisResultsContainer">
+                <div class="gratis-empty-state">
+                    <p>Wpisz nazwę produktu, aby wyszukać</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Modal: Dodaj produkty do zamówienia -->
 <div class="modal-overlay" id="addProductsModal">
     <div class="modal-container modal-xl add-products-modal">
@@ -2120,10 +2166,173 @@ function debounceSearch() {
     searchTimeout = setTimeout(loadProducts, 300);
 }
 
+// ========================================
+// GRATIS PRODUCT MODAL
+// ========================================
+
+function openGratisModal() {
+    const modal = document.getElementById('gratisModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+        document.getElementById('gratisSearchInput').focus();
+    }, 100);
+}
+
+function closeGratisModal() {
+    const modal = document.getElementById('gratisModal');
+    modal.classList.add('closing');
+    setTimeout(() => {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+        document.getElementById('gratisSearchInput').value = '';
+        document.getElementById('gratisResultsContainer').innerHTML = `
+            <div class="gratis-empty-state">
+                <p>Wpisz nazwę produktu, aby wyszukać</p>
+            </div>
+        `;
+    }, 350);
+}
+
+let gratisSearchTimeout;
+function debounceGratisSearch() {
+    clearTimeout(gratisSearchTimeout);
+    const query = document.getElementById('gratisSearchInput').value.trim();
+    if (query.length < 2) {
+        document.getElementById('gratisResultsContainer').innerHTML = `
+            <div class="gratis-empty-state">
+                <p>Wpisz min. 2 znaki, aby wyszukać</p>
+            </div>
+        `;
+        return;
+    }
+    gratisSearchTimeout = setTimeout(() => loadGratisProducts(query), 300);
+}
+
+function loadGratisProducts(query) {
+    const container = document.getElementById('gratisResultsContainer');
+    container.innerHTML = `<div class="gratis-loading"><div class="spinner"></div></div>`;
+
+    const params = new URLSearchParams({ search: query });
+    fetch(`/admin/orders/api/products?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+            renderGratisResults(data.products);
+        })
+        .catch(error => {
+            console.error('Error loading gratis products:', error);
+            container.innerHTML = `<div class="gratis-empty-state"><p>Błąd podczas ładowania produktów</p></div>`;
+        });
+}
+
+function renderGratisResults(products) {
+    const container = document.getElementById('gratisResultsContainer');
+
+    if (products.length === 0) {
+        container.innerHTML = `
+            <div class="gratis-empty-state">
+                <p>Nie znaleziono produktów</p>
+            </div>
+        `;
+        return;
+    }
+
+    const defaultImage = '/static/img/placeholders/product.svg';
+    container.innerHTML = products.map(product => {
+        const imgUrl = product.image_url || defaultImage;
+        return `
+        <div class="gratis-product-row">
+            <img src="${imgUrl}" alt="${escapeHtml(product.name)}" class="gratis-product-img" onerror="this.src='${defaultImage}'">
+            <div class="gratis-product-info">
+                <div class="gratis-product-name">${escapeHtml(product.name)}</div>
+                <div class="gratis-product-meta">
+                    ${product.sku ? `<span>SKU: ${escapeHtml(product.sku)}</span>` : ''}
+                    ${product.category_name ? `<span>${escapeHtml(product.category_name)}</span>` : ''}
+                </div>
+            </div>
+            <div class="gratis-qty-wrapper">
+                <label>Ilość:</label>
+                <input type="number" class="gratis-qty-input" id="gratisQty-${product.id}" min="1" value="1">
+            </div>
+            <button type="button" class="btn btn-sm btn-gratis-add" onclick="addGratisProduct(${product.id}, '${escapeHtml(product.name)}')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 12v10H4V12"/>
+                    <path d="M2 7h20v5H2z"/>
+                    <path d="M12 22V7"/>
+                </svg>
+                Dodaj gratis
+            </button>
+        </div>
+        `;
+    }).join('');
+}
+
+function addGratisProduct(productId, productName) {
+    const qtyInput = document.getElementById(`gratisQty-${productId}`);
+    const quantity = parseInt(qtyInput.value) || 1;
+
+    if (quantity < 1) {
+        showToast('Ilość musi być większa niż 0', 'error');
+        return;
+    }
+
+    // Disable the button to prevent double-click
+    const btn = qtyInput.closest('.gratis-product-row').querySelector('.btn-gratis-add');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner spinner-sm"></div>';
+
+    fetch(`/admin/orders/${orderId}/add-gratis-product`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        },
+        body: JSON.stringify({
+            product_id: productId,
+            quantity: quantity
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            closeGratisModal();
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            showToast(data.message || 'Błąd podczas dodawania gratisu', 'error');
+            btn.disabled = false;
+            btn.innerHTML = `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 12v10H4V12"/>
+                    <path d="M2 7h20v5H2z"/>
+                    <path d="M12 22V7"/>
+                </svg>
+                Dodaj gratis
+            `;
+        }
+    })
+    .catch(error => {
+        console.error('Error adding gratis product:', error);
+        showToast('Wystąpił błąd podczas dodawania gratisu', 'error');
+        btn.disabled = false;
+        btn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 12v10H4V12"/>
+                <path d="M2 7h20v5H2z"/>
+                <path d="M12 22V7"/>
+            </svg>
+            Dodaj gratis
+        `;
+    });
+}
+
 // Close modal on overlay click
 document.addEventListener('click', function(e) {
     if (e.target.id === 'addProductsModal') {
         closeAddProductsModal();
+    }
+    if (e.target.id === 'gratisModal') {
+        closeGratisModal();
     }
     if (e.target.id === 'editItemModal') {
         closeEditItemModal();
@@ -2143,6 +2352,10 @@ document.addEventListener('keydown', function(e) {
         const editModal = document.getElementById('editItemModal');
         if (editModal && editModal.classList.contains('active')) {
             closeEditItemModal();
+        }
+        const gratisModal = document.getElementById('gratisModal');
+        if (gratisModal && gratisModal.classList.contains('active')) {
+            closeGratisModal();
         }
         const deleteModal = document.getElementById('deleteItemModal');
         if (deleteModal && deleteModal.classList.contains('active')) {

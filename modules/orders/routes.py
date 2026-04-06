@@ -3323,6 +3323,78 @@ def admin_add_custom_product(order_id):
         }), 500
 
 
+@orders_bp.route('/admin/orders/<int:order_id>/add-gratis-product', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_add_gratis_product(order_id):
+    """Dodaje produkt gratisowy (is_bonus=True, price=0) do zamówienia."""
+    from modules.products.models import Product
+
+    order = Order.query.get_or_404(order_id)
+
+    try:
+        data = request.get_json()
+        product_id = data.get('product_id')
+        quantity = data.get('quantity', 1)
+
+        if not product_id:
+            return jsonify({'success': False, 'message': 'Nie podano produktu'}), 400
+
+        try:
+            quantity = int(quantity)
+            if quantity < 1:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'message': 'Ilość musi być liczbą całkowitą większą od 0'}), 400
+
+        product = Product.query.get(product_id)
+        if not product:
+            return jsonify({'success': False, 'message': 'Nie znaleziono produktu'}), 404
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=product.id,
+            quantity=quantity,
+            price=0,
+            total=0,
+            is_bonus=True,
+            picked=False
+        )
+
+        db.session.add(order_item)
+        db.session.flush()
+        db.session.refresh(order)
+        order.recalculate_total()
+        db.session.commit()
+
+        log_activity(
+            user=current_user,
+            action='order_gratis_added',
+            entity_type='order',
+            entity_id=order.id,
+            new_value={
+                'product_id': product.id,
+                'product_name': product.name,
+                'quantity': quantity,
+                'is_bonus': True
+            }
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Gratis "{product.name}" (x{quantity}) został dodany',
+            'item_id': order_item.id,
+            'new_total': float(order.total_amount) if order.total_amount else 0
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Błąd podczas dodawania gratisu: {str(e)}'
+        }), 500
+
+
 # ============================================
 # PAYMENT METHODS CRUD (Settings Tab)
 # ============================================
