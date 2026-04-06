@@ -100,6 +100,9 @@
         sheetOpen = true;
         currentSheetName = sheetName;
 
+        // Update notification badge inside the sheet
+        updateBadge();
+
         // Push history state for Android back button
         history.pushState({ pwaSheet: true }, '');
     }
