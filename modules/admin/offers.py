@@ -1390,14 +1390,14 @@ def offers_live_export_excel(page_id):
     Generuje i pobiera plik Excel z danymi LIVE dla aktywnej strony Offers.
     Tylko Admin może pobrać Excel.
     """
-    from utils.excel_export import generate_offers_live_excel
+    from utils.excel_export import generate_offer_live_excel
     from utils.offer_closure import get_live_summary
 
     page = OfferPage.query.get_or_404(page_id)
 
     try:
         summary = get_live_summary(page_id, include_financials=True)
-        excel_buffer = generate_offers_live_excel(page, summary)
+        excel_buffer = generate_offer_live_excel(page, summary)
 
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
         safe_name = safe_name.replace(' ', '_')[:50]
