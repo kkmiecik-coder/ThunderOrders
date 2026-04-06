@@ -3052,7 +3052,10 @@ function evaluateBonuses() {
                         <span class="bonus-coupon-unlocked-text">Już odebrane</span>
                     </div>`;
                 } else if (isPendingPickup) {
-                    priceStatusHtml = `<div class="bonus-coupon-remaining">Dodaj produkt do koszyka, aby odebrać gratis!</div>`;
+                    priceStatusHtml = `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining.toFixed(2)} PLN</strong> do gratisu!</div>
+                        <div class="bonus-coupon-progress-wrapper">
+                            <div class="bonus-coupon-progress-bar" style="width: ${progress}%"></div>
+                        </div>`;
                 } else {
                     priceStatusHtml = `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining.toFixed(2)} PLN</strong> do gratisu!</div>
                         <div class="bonus-coupon-progress-wrapper">
@@ -3113,7 +3116,10 @@ function evaluateBonuses() {
                         <span class="bonus-coupon-unlocked-text">Już odebrane</span>
                     </div>`;
                 } else if (isPendingPickup) {
-                    qtyStatusHtml = `<div class="bonus-coupon-remaining">Dodaj produkt do koszyka, aby odebrać gratis!</div>`;
+                    qtyStatusHtml = `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining} szt.</strong> do gratisu!</div>
+                        <div class="bonus-coupon-progress-wrapper">
+                            <div class="bonus-coupon-progress-bar" style="width: ${progress}%"></div>
+                        </div>`;
                 } else {
                     qtyStatusHtml = `<div class="bonus-coupon-remaining">Jeszcze <strong>${remaining} szt.</strong> do gratisu!</div>
                         <div class="bonus-coupon-progress-wrapper">
