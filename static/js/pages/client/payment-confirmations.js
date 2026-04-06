@@ -937,7 +937,14 @@ window.toggleOrderItems = function(orderId, totalItems) {
             body: formData,
             headers: headers
         })
-            .then(function (response) { return response.json(); })
+            .then(function (response) {
+                if (!response.ok && response.status === 413) {
+                    throw new Error('Plik jest za duży. Maksymalny rozmiar: 5MB.');
+                }
+                return response.json().catch(function () {
+                    throw new Error('Serwer zwrócił błąd (kod ' + response.status + '). Spróbuj ponownie.');
+                });
+            })
             .then(function (data) {
                 if (data.success) {
                     showToast(data.message, 'success');
@@ -966,7 +973,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
             })
             .catch(function (error) {
                 console.error('Upload error:', error);
-                showToast('Błąd połączenia. Spróbuj ponownie.', 'error');
+                showToast(error.message || 'Błąd połączenia. Spróbuj ponownie.', 'error');
                 resetSubmitBtn();
             });
     }
