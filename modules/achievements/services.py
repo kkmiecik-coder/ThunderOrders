@@ -155,13 +155,17 @@ class AchievementService:
         if existing:
             return  # Already unlocked
 
-        ua = UserAchievement(
-            user_id=user.id,
-            achievement_id=achievement.id,
-            seen=seen,
-        )
-        db.session.add(ua)
-        db.session.commit()
+        try:
+            ua = UserAchievement(
+                user_id=user.id,
+                achievement_id=achievement.id,
+                seen=seen,
+            )
+            db.session.add(ua)
+            db.session.flush()
+        except Exception:
+            db.session.rollback()
+            return  # Duplicate from race condition, safe to ignore
 
     def get_unseen(self, user):
         """Get unseen achievements for unlock animation."""
