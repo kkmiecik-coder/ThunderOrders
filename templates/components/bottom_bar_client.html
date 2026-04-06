@@ -94,6 +94,14 @@
             </ul>
         </li>
         <li class="pwa-sheet-divider"></li>
+        {% if current_user.role in ['admin', 'mod'] %}
+        <li>
+            <a href="{{ url_for('switch_view') }}" class="pwa-sheet-item pwa-sheet-item-switch">
+                <img src="{{ url_for('static', filename='img/icons/switch-view.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Widok admina</span>
+            </a>
+        </li>
+        {% endif %}
         <li>
             <a href="{{ url_for('profile.index') }}" class="pwa-sheet-item">
                 <img src="{{ url_for('static', filename='img/icons/user.svg') }}" alt="" class="pwa-sheet-icon">

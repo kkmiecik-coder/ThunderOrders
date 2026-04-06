@@ -331,6 +331,14 @@
     }
 
     /* Danger (logout) */
+    .pwa-sheet-item-switch {
+        color: #8b5cf6;
+    }
+
+    .pwa-sheet-item-switch .pwa-sheet-icon {
+        filter: brightness(0) saturate(100%) invert(40%) sepia(60%) saturate(2000%) hue-rotate(240deg) brightness(95%) contrast(95%);
+    }
+
     .pwa-sheet-item-danger {
         color: var(--error);
     }
@@ -454,6 +462,14 @@
 
     [data-theme="dark"] .pwa-sheet-divider {
         background: rgba(240, 147, 251, 0.15);
+    }
+
+    [data-theme="dark"] .pwa-sheet-item-switch {
+        color: #a78bfa;
+    }
+
+    [data-theme="dark"] .pwa-sheet-item-switch .pwa-sheet-icon {
+        filter: brightness(0) saturate(100%) invert(65%) sepia(50%) saturate(1500%) hue-rotate(220deg) brightness(105%) contrast(95%);
     }
 
     [data-theme="dark"] .pwa-sheet-item-danger {
