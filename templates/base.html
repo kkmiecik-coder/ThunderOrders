@@ -76,7 +76,8 @@
         #login-preloader.visible{opacity:1;visibility:visible}
     </style>
     <script>
-        window._showPreloader = (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone || sessionStorage.getItem('showLoginPreloader') === 'true');
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        window._showPreloader = !isMobile && sessionStorage.getItem('showLoginPreloader') === 'true';
     </script>
     <!-- iOS PWA splash screen generator (caches startup images from icon) -->
     <script src="https://cdn.jsdelivr.net/npm/ios-pwa-splash@1.0.0/cdn.min.js"></script>
