@@ -3032,8 +3032,8 @@ function evaluateBonuses() {
 
                 // Show as unlocked only if there are new bonuses to earn AND items in cart
                 const isUnlocked = earned > 0 && regularItems.length > 0;
-                const isAlreadyClaimed = sectionTotal >= threshold && earned <= 0;
-                const isPendingPickup = earned > 0 && regularItems.length === 0;
+                const isAlreadyClaimed = sectionTotal >= threshold && earned <= 0 && !bonus.repeatable;
+                const isPendingPickup = regularItems.length === 0 && (earned > 0 || (bonus.repeatable && sectionTotal >= threshold));
                 const remaining = Math.max(0, threshold - sectionTotal);
                 const progress = Math.min(100, (sectionTotal / threshold) * 100);
                 const earnedLabel = earned > 1 ? ` x${earned}` : '';
@@ -3090,8 +3090,8 @@ function evaluateBonuses() {
 
                 // Show as unlocked only if there are new bonuses to earn AND items in cart
                 const isUnlocked = earned > 0 && regularItems.length > 0;
-                const isAlreadyClaimed = sectionQty >= threshold && earned <= 0;
-                const isPendingPickup = earned > 0 && regularItems.length === 0;
+                const isAlreadyClaimed = sectionQty >= threshold && earned <= 0 && !bonus.repeatable;
+                const isPendingPickup = regularItems.length === 0 && (earned > 0 || (bonus.repeatable && sectionQty >= threshold));
                 const remaining = Math.max(0, threshold - sectionQty);
                 const progress = Math.min(100, (sectionQty / threshold) * 100);
                 const earnedLabelQty = earned > 1 ? ` x${earned}` : '';
