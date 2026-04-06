@@ -1,6 +1,6 @@
 <!-- PWA Bottom Bar - Admin -->
 {% if current_user.is_authenticated %}
-<nav class="pwa-bottom-bar" id="pwaBottomBar" role="navigation" aria-label="Nawigacja główna" aria-hidden="true">
+<nav class="pwa-bottom-bar pwa-bar-5" id="pwaBottomBar" role="navigation" aria-label="Nawigacja główna" aria-hidden="true">
     <a href="{{ url_for('admin.dashboard') }}"
        class="pwa-bar-item {% if request.endpoint == 'admin.dashboard' %}active{% endif %}">
         <img src="{{ url_for('static', filename='img/icons/dashboard.svg') }}" alt="" class="pwa-bar-icon">

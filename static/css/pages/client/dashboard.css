@@ -1258,10 +1258,15 @@ a.metric-card-clickable.metric-card-info:hover {
     flex-wrap: wrap;
 }
 
-/* Timing row */
+/* Timing row - stretch to full width on mobile */
 .offer-card-timing {
     display: flex;
     align-items: center;
+}
+
+.offer-card-timing .offer-timing-important {
+    width: 100%;
+    text-align: center;
 }
 
 /* Footer row - matrix btn + open btn stretched */

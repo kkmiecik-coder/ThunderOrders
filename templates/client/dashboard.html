@@ -629,9 +629,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // ====================================
     // EXCLUSIVE PAGES - DYNAMIC TIMING
     // ====================================
+    let statusRefreshPending = false;
+
     function updateOfferTimings() {
         const timingElements = document.querySelectorAll('.offer-timing');
         const now = new Date();
+        let needsStatusRefresh = false;
 
         timingElements.forEach(el => {
             const status = el.dataset.status;
@@ -645,13 +648,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const diffHours = diffMs / (1000 * 60 * 60);
 
                 if (diffHours > 24) {
-                    // > 24h - show date and time
                     text = `Start: ${formatDateTime(startsAt)}`;
                 } else if (diffMs > 0) {
-                    // < 24h - show countdown
                     text = `Aktywna za ${formatCountdown(diffMs)}`;
                 } else {
-                    text = 'Oczekuje na start';
+                    // Countdown finished — status should transition to active
+                    text = 'Uruchamianie...';
+                    needsStatusRefresh = true;
                 }
             } else if (status === 'active') {
                 if (endsAt) {
@@ -659,7 +662,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (diffMs > 0) {
                         text = `Zamknięcie za ${formatCountdown(diffMs)}`;
                     } else {
-                        text = 'Kończy się...';
+                        // Countdown finished — status should transition to ended
+                        text = 'Zamykanie...';
+                        needsStatusRefresh = true;
                     }
                 } else {
                     text = 'Bez daty zakończenia';
@@ -678,6 +683,114 @@ document.addEventListener('DOMContentLoaded', function() {
 
             el.textContent = text;
         });
+
+        // If any countdown just expired, fetch fresh statuses from API (once)
+        if (needsStatusRefresh && !statusRefreshPending) {
+            statusRefreshPending = true;
+            refreshOfferStatuses();
+        }
+    }
+
+    async function refreshOfferStatuses() {
+        try {
+            const response = await fetch('/client/api/offer-pages?offset=0&limit=100');
+            const data = await response.json();
+            if (!data.success) return;
+
+            const pageMap = {};
+            data.pages.forEach(p => { pageMap[String(p.id)] = p; });
+
+            // Update all visible cards (mobile)
+            document.querySelectorAll('.offer-card').forEach(card => {
+                // Find page id from matrix button or action link
+                const matrixBtn = card.querySelector('.offer-matrix-btn');
+                const actionLink = card.querySelector('.offer-action-btn');
+                let pageId = matrixBtn ? matrixBtn.dataset.pageId : null;
+
+                // Try to match by name if no matrix btn
+                if (!pageId) {
+                    const nameEl = card.querySelector('.offer-name');
+                    if (nameEl) {
+                        const page = data.pages.find(p => p.name === nameEl.textContent.trim());
+                        if (page) pageId = page.id;
+                    }
+                }
+
+                if (!pageId || !pageMap[pageId]) return;
+                const page = pageMap[pageId];
+
+                // Update status badge
+                const badgesContainer = card.querySelector('.offer-card-badges') || card.querySelector('.offer-card-header');
+                if (badgesContainer) {
+                    const oldStatus = badgesContainer.querySelector('.offer-status');
+                    if (oldStatus) {
+                        const newStatus = document.createElement('span');
+                        newStatus.className = `offer-status offer-status-${page.status_class}`;
+                        if (page.is_live) {
+                            newStatus.innerHTML = '<span class="live-dot"></span>LIVE';
+                        } else {
+                            newStatus.textContent = page.status_text;
+                        }
+                        oldStatus.replaceWith(newStatus);
+                    }
+                }
+
+                // Update timing element data attributes
+                const timingEl = card.querySelector('.offer-timing');
+                if (timingEl) {
+                    timingEl.dataset.status = page.status;
+                    timingEl.dataset.starts = page.starts_at || '';
+                    timingEl.dataset.ends = page.ends_at || '';
+                    // Update important class
+                    if (page.is_important) {
+                        timingEl.classList.add('offer-timing-important');
+                    } else {
+                        timingEl.classList.remove('offer-timing-important');
+                    }
+                }
+            });
+
+            // Update all visible table rows (desktop)
+            document.querySelectorAll('#offersTableBody tr').forEach(row => {
+                const nameEl = row.querySelector('.offer-name');
+                if (!nameEl) return;
+                const page = data.pages.find(p => p.name === nameEl.textContent.trim());
+                if (!page) return;
+
+                // Update status badge in table
+                const statusCell = row.querySelector('.offer-status');
+                if (statusCell) {
+                    const newStatus = document.createElement('span');
+                    newStatus.className = `offer-status offer-status-${page.status_class}`;
+                    if (page.is_live) {
+                        newStatus.innerHTML = '<span class="live-dot"></span>LIVE';
+                    } else {
+                        newStatus.textContent = page.status_text;
+                    }
+                    statusCell.replaceWith(newStatus);
+                }
+
+                // Update timing element
+                const timingEl = row.querySelector('.offer-timing');
+                if (timingEl) {
+                    timingEl.dataset.status = page.status;
+                    timingEl.dataset.starts = page.starts_at || '';
+                    timingEl.dataset.ends = page.ends_at || '';
+                    if (page.is_important) {
+                        timingEl.classList.add('offer-timing-important');
+                    } else {
+                        timingEl.classList.remove('offer-timing-important');
+                    }
+                }
+            });
+
+        } catch (err) {
+            console.warn('Failed to refresh offer statuses:', err);
+        } finally {
+            statusRefreshPending = false;
+            // Re-run timing update with fresh data
+            updateOfferTimings();
+        }
     }
 
     function formatDateTime(date) {

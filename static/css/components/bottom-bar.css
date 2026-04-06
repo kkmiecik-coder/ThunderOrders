@@ -55,6 +55,10 @@
         user-select: none;
     }
 
+    .pwa-bottom-bar.pwa-bar-5 {
+        grid-template-columns: repeat(5, 1fr);
+    }
+
     /* --- Bar Items --- */
     .pwa-bar-item {
         display: flex;
