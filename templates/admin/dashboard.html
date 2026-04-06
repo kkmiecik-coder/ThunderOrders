@@ -770,7 +770,7 @@ function openTaskPreview(taskId) {
     window.copyOfferLink = async function(token, btn) {
         if (!token) return;
 
-        const url = `${window.location.origin}/offers/${token}`;
+        const url = `${window.location.origin}/offer/${token}`;
 
         try {
             await navigator.clipboard.writeText(url);

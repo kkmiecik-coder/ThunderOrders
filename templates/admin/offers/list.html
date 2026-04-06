@@ -547,7 +547,7 @@ function closeDeleteModal() {
 
 // Copy link
 function copyLink(token) {
-    const url = `${window.location.origin}/offers/${token}`;
+    const url = `${window.location.origin}/offer/${token}`;
     navigator.clipboard.writeText(url).then(() => {
         showToast('Link skopiowany do schowka!');
     }).catch(err => {
