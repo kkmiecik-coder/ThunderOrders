@@ -46,6 +46,34 @@
     </script>
     {% endif %}
 
+    <!-- Sentry JS - Frontend error tracking -->
+    {% if config.SENTRY_DSN_FRONTEND %}
+    <script src="https://browser.sentry-cdn.com/8.54.0/bundle.tracing.min.js" crossorigin="anonymous"></script>
+    <script>
+        Sentry.init({
+            dsn: '{{ config.SENTRY_DSN_FRONTEND }}',
+            environment: '{{ config.ENV or "production" }}',
+            tracesSampleRate: 0.1,
+            replaysSessionSampleRate: 0,
+            replaysOnErrorSampleRate: 0,
+            ignoreErrors: [
+                'ResizeObserver loop',
+                'Non-Error promise rejection',
+                'Load failed',
+                'Failed to fetch',
+                'NetworkError',
+                'AbortError',
+                'ChunkLoadError',
+            ],
+            {% if current_user.is_authenticated %}
+            initialScope: {
+                user: { id: '{{ current_user.id }}', role: '{{ current_user.role }}' }
+            },
+            {% endif %}
+        });
+    </script>
+    {% endif %}
+
     <!-- PWA Manifest & Meta -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <meta name="theme-color" content="#240046">

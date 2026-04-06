@@ -63,6 +63,9 @@ class Config:
     # Google Analytics 4
     GA_MEASUREMENT_ID = os.getenv('GA_MEASUREMENT_ID')
 
+    # Sentry Frontend (JS error tracking)
+    SENTRY_DSN_FRONTEND = os.getenv('SENTRY_DSN_FRONTEND')
+
     # GeoIP Database
     GEOIP_DB_PATH = os.environ.get('GEOIP_DB_PATH') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'GeoLite2-City.mmdb')
 
