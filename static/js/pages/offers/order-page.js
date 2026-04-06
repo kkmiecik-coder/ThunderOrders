@@ -3034,8 +3034,10 @@ function evaluateBonuses() {
                 const isUnlocked = earned > 0 && regularItems.length > 0;
                 const isAlreadyClaimed = sectionTotal >= threshold && earned <= 0 && !bonus.repeatable;
                 const isPendingPickup = regularItems.length === 0 && (earned > 0 || (bonus.repeatable && sectionTotal >= threshold));
-                const remaining = Math.max(0, threshold - sectionTotal);
-                const progress = Math.min(100, (sectionTotal / threshold) * 100);
+                const alreadyEarnedPrice = bonus.user_already_earned || 0;
+                const nextMilestonePrice = (alreadyEarnedPrice + 1) * threshold;
+                const remaining = Math.max(0, nextMilestonePrice - sectionTotal);
+                const progress = Math.min(100, (sectionTotal / nextMilestonePrice) * 100);
                 const earnedLabel = earned > 1 ? ` x${earned}` : '';
 
                 let priceStatusHtml;
@@ -3092,8 +3094,11 @@ function evaluateBonuses() {
                 const isUnlocked = earned > 0 && regularItems.length > 0;
                 const isAlreadyClaimed = sectionQty >= threshold && earned <= 0 && !bonus.repeatable;
                 const isPendingPickup = regularItems.length === 0 && (earned > 0 || (bonus.repeatable && sectionQty >= threshold));
-                const remaining = Math.max(0, threshold - sectionQty);
-                const progress = Math.min(100, (sectionQty / threshold) * 100);
+                // Calculate remaining to NEXT bonus level (not just first threshold)
+                const alreadyEarned = bonus.user_already_earned || 0;
+                const nextMilestone = (alreadyEarned + 1) * threshold;
+                const remaining = Math.max(0, nextMilestone - sectionQty);
+                const progress = Math.min(100, (sectionQty / nextMilestone) * 100);
                 const earnedLabelQty = earned > 1 ? ` x${earned}` : '';
 
                 let qtyStatusHtml;
