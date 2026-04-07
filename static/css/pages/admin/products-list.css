@@ -554,6 +554,10 @@
   text-align: center;
 }
 
+.col-type .type-badge + .type-badge {
+  margin-top: 4px;
+}
+
 .col-tags {
   width: 200px;
 }
