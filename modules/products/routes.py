@@ -2287,18 +2287,72 @@ def get_products_to_order():
     Returns list of products with aggregated quantities minus already ordered in ProxyOrders.
 
     Hardcoded rules:
-    - Exclusive: order_type='exclusive', status='oczekujace', E1 payment approved
-    - Pre-order: order_type='pre_order', status='nowe', E1 payment approved
+    - Exclusive: order_type='exclusive', status='oczekujace',
+      ALL orders from the same offer page must have E1 payment approved
+    - Pre-order: order_type='pre_order', status='nowe', E1 payment approved (per order)
+    - Bonus/gratis items (is_bonus=True) are excluded
     """
     from modules.products.models import ProxyOrder, ProxyOrderItem
     from modules.orders.models import Order, OrderItem, PaymentConfirmation
+    from modules.offers.models import OfferPage
     from sqlalchemy import func
 
-    # Step 1: Agregacja produktów z zamówień klientów
-    # GROUP BY (product_id, payment_stages) — osobny wiersz per typ płatności
-    # Tylko zamówienia z zaakceptowanym E1 (płatność za produkt)
-    # Warunek: (exclusive + oczekujace) OR (pre_order + nowe)
-    customer_orders_subq = db.session.query(
+    # --- EXCLUSIVE: Only include items from offer pages where ALL orders have E1 approved ---
+
+    # Count total exclusive orders per offer page (status=oczekujace)
+    total_per_page = db.session.query(
+        Order.offer_page_id,
+        func.count(Order.id).label('total_orders')
+    ).filter(
+        Order.order_type == 'exclusive',
+        Order.status == 'oczekujace',
+        Order.offer_page_id.isnot(None)
+    ).group_by(Order.offer_page_id).subquery()
+
+    # Count exclusive orders per offer page that have E1 approved
+    paid_per_page = db.session.query(
+        Order.offer_page_id,
+        func.count(db.distinct(Order.id)).label('paid_orders')
+    ).join(
+        PaymentConfirmation,
+        db.and_(
+            PaymentConfirmation.order_id == Order.id,
+            PaymentConfirmation.payment_stage == 'product',
+            PaymentConfirmation.status == 'approved'
+        )
+    ).filter(
+        Order.order_type == 'exclusive',
+        Order.status == 'oczekujace',
+        Order.offer_page_id.isnot(None)
+    ).group_by(Order.offer_page_id).subquery()
+
+    # Offer pages where ALL orders have paid E1
+    fully_paid_pages = db.session.query(
+        total_per_page.c.offer_page_id
+    ).join(
+        paid_per_page,
+        total_per_page.c.offer_page_id == paid_per_page.c.offer_page_id
+    ).filter(
+        total_per_page.c.total_orders == paid_per_page.c.paid_orders
+    ).subquery()
+
+    # Exclusive items from fully paid pages (excluding gratis)
+    exclusive_items = db.session.query(
+        OrderItem.product_id,
+        Order.payment_stages,
+        func.sum(OrderItem.quantity).label('total_ordered')
+    ).join(
+        Order, OrderItem.order_id == Order.id
+    ).filter(
+        Order.order_type == 'exclusive',
+        Order.status == 'oczekujace',
+        Order.offer_page_id.in_(db.session.query(fully_paid_pages.c.offer_page_id)),
+        OrderItem.is_bonus == False,
+        OrderItem.product_id.isnot(None)
+    ).group_by(OrderItem.product_id, Order.payment_stages)
+
+    # --- PRE-ORDER: Per order, E1 approved (excluding gratis) ---
+    preorder_items = db.session.query(
         OrderItem.product_id,
         Order.payment_stages,
         func.sum(OrderItem.quantity).label('total_ordered')
@@ -2312,11 +2366,21 @@ def get_products_to_order():
             PaymentConfirmation.status == 'approved'
         )
     ).filter(
-        db.or_(
-            db.and_(Order.order_type == 'exclusive', Order.status == 'oczekujace'),
-            db.and_(Order.order_type == 'pre_order', Order.status == 'nowe')
-        )
-    ).group_by(OrderItem.product_id, Order.payment_stages).subquery()
+        Order.order_type == 'pre_order',
+        Order.status == 'nowe',
+        OrderItem.is_bonus == False,
+        OrderItem.product_id.isnot(None)
+    ).group_by(OrderItem.product_id, Order.payment_stages)
+
+    # Combine exclusive + pre-order with UNION ALL
+    combined = exclusive_items.union_all(preorder_items).subquery()
+
+    # Re-aggregate after union (same product may appear in both)
+    customer_orders_subq = db.session.query(
+        combined.c.product_id,
+        combined.c.payment_stages,
+        func.sum(combined.c.total_ordered).label('total_ordered')
+    ).group_by(combined.c.product_id, combined.c.payment_stages).subquery()
 
     # Step 2: Produkty już zamówione u dostawców (nie anulowane) — per (product_id, order_type)
     already_ordered_subq = db.session.query(
