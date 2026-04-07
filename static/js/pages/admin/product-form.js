@@ -1133,3 +1133,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Also initialize when modal is shown (for modal context)
 window.initProductTypeToggle = initProductTypeToggle;
+
+// ==========================================
+// GRATIS CHECKBOX - zeroes out all cost fields
+// ==========================================
+
+function initGratisToggle() {
+    var checkbox = document.getElementById('isGratisCheckbox');
+    if (!checkbox) return;
+
+    var costFields = [
+        'purchase_price_modal',
+        'purchase_price_pln_modal',
+        'margin_modal',
+        'margin_amount_modal'
+    ];
+
+    function applyGratis(isGratis) {
+        costFields.forEach(function(id) {
+            var field = document.getElementById(id);
+            if (!field) return;
+            if (isGratis) {
+                field.dataset.prevValue = field.value;
+                field.value = '0.00';
+                field.readOnly = true;
+                field.classList.add('gratis-disabled');
+            } else {
+                field.readOnly = (id === 'purchase_price_pln_modal' || id === 'margin_amount_modal');
+                field.classList.remove('gratis-disabled');
+                if (field.dataset.prevValue !== undefined) {
+                    field.value = field.dataset.prevValue;
+                    delete field.dataset.prevValue;
+                }
+            }
+        });
+
+        // Also disable currency select
+        var currencySelect = document.getElementById('purchase_currency_modal');
+        if (currencySelect) {
+            currencySelect.disabled = isGratis;
+            if (isGratis) currencySelect.classList.add('gratis-disabled');
+            else currencySelect.classList.remove('gratis-disabled');
+        }
+    }
+
+    checkbox.addEventListener('change', function() {
+        applyGratis(this.checked);
+    });
+
+    // Apply on init if already checked
+    if (checkbox.checked) {
+        applyGratis(true);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    initGratisToggle();
+});
+
+window.initGratisToggle = initGratisToggle;

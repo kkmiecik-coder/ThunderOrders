@@ -50,14 +50,6 @@
                 <!-- Hidden select field for form submission -->
                 {{ form.product_type_id(class="hidden-select", style="display: none;") }}
             </div>
-            <div class="form-group gratis-checkbox-group">
-                <label class="checkbox-label">
-                    <input type="checkbox" name="is_gratis" id="isGratisCheckbox" {% if product and product.is_gratis %}checked{% endif %}>
-                    <span class="checkbox-custom"></span>
-                    <span class="checkbox-text">Gratis</span>
-                </label>
-                <small class="form-hint">Produkt będzie traktowany jako gratis w zamówieniach</small>
-            </div>
         </div>
 
         <!-- Category, Manufacturer, Series -->
@@ -210,6 +202,15 @@
                     <span class="input-unit">PLN</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Gratis checkbox -->
+        <div class="gratis-toggle-row">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_gratis" id="isGratisCheckbox" {% if product and product.is_gratis %}checked{% endif %}>
+                <span class="checkbox-text">Gratis</span>
+            </label>
+            <small class="form-hint">Zaznacz, aby ustawić wszystkie koszty na 0,00 PLN</small>
         </div>
 
         <!-- Exchange rate info -->

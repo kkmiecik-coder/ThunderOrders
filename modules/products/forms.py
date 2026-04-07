@@ -90,7 +90,7 @@ class ProductForm(FlaskForm):
     sale_price = DecimalField(
         'Cena sprzedaży (PLN)',
         places=2,
-        validators=[DataRequired(message='Cena sprzedaży jest wymagana'), NumberRange(min=0.01)]
+        validators=[DataRequired(message='Cena sprzedaży jest wymagana'), NumberRange(min=0)]
     )
 
     purchase_price = DecimalField(
