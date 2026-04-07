@@ -1331,7 +1331,59 @@
     }
 }
 
-/* ===== Payment Deadline in SR Modal ===== */
+/* ===== Shipping Cost + Deadline Boxes ===== */
+
+.sr-boxes-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 600px) {
+    .sr-boxes-row {
+        flex-direction: column;
+    }
+}
+
+.sr-box {
+    border-radius: 6px;
+    padding: 10px 14px;
+    flex: 1;
+}
+
+.sr-box label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin: 0 0 6px 0;
+    white-space: nowrap;
+}
+
+.sr-box.shipping-cost-box {
+    background: #fff7ed;
+    border: 1px solid #FF8500;
+}
+
+.sr-box.deadline-box {
+    background: #fef2f2;
+    border: 1px solid #f87171;
+}
+
+/* Dark mode boxes */
+[data-theme="dark"] .sr-box label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .sr-box.shipping-cost-box {
+    background: rgba(255, 133, 0, 0.1);
+    border-color: rgba(255, 133, 0, 0.4);
+}
+
+[data-theme="dark"] .sr-box.deadline-box {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.4);
+}
 
 .deadline-input-group {
     display: flex;

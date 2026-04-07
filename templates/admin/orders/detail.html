@@ -3107,21 +3107,23 @@ document.querySelectorAll('.summary-cost-input').forEach(function(input) {
                 <div class="sr-modal-section">
                     <h4>Koszty wysyłki</h4>
                     <div class="sr-shipping-costs">
-                        <div class="sr-total-cost-row">
-                            <label>Całkowity koszt wysyłki:</label>
-                            <div class="sr-total-cost-input">
-                                <input type="number" id="srTotalCost" step="0.01" min="0" placeholder="0.00" class="form-input">
-                                <span class="currency">PLN</span>
-                                <button type="button" class="btn btn-sm btn-secondary" onclick="distributeShippingCost()">
-                                    Rozłóż na zamówienia
-                                </button>
+                        <div class="sr-boxes-row">
+                            <div class="sr-box shipping-cost-box">
+                                <label>Całkowity koszt wysyłki:</label>
+                                <div class="sr-total-cost-input">
+                                    <input type="number" id="srTotalCost" step="0.01" min="0" placeholder="0.00" class="form-input">
+                                    <span class="currency">PLN</span>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="distributeShippingCost()">
+                                        Rozłóż na zamówienia
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                        <div class="sr-total-cost-row" style="margin-top: 12px;">
-                            <label>Termin płatności za wysyłkę:</label>
-                            <div class="deadline-input-group">
-                                <input type="date" id="srPaymentDeadlineDate" class="form-input deadline-date-field" required>
-                                <input type="time" id="srPaymentDeadlineTime" class="form-input deadline-time-field" value="23:59" required>
+                            <div class="sr-box deadline-box">
+                                <label>Termin płatności za wysyłkę:</label>
+                                <div class="deadline-input-group">
+                                    <input type="date" id="srPaymentDeadlineDate" class="form-input deadline-date-field" required>
+                                    <input type="time" id="srPaymentDeadlineTime" class="form-input deadline-time-field" value="23:59" required>
+                                </div>
                             </div>
                         </div>
                         <div class="sr-orders-table">

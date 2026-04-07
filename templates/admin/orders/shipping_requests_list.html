@@ -369,9 +369,9 @@
                 </div>
 
                 <!-- Total Cost + Payment Deadline Row -->
-                <div class="sr-form-row sr-cost-row">
-                    <div class="form-group">
-                        <label for="srTotalCost">Całkowity koszt wysyłki</label>
+                <div class="sr-boxes-row">
+                    <div class="sr-box shipping-cost-box">
+                        <label for="srTotalCost">Całkowity koszt wysyłki:</label>
                         <div class="sr-cost-input-group">
                             <input type="number" id="srTotalCost" name="total_cost" class="form-input" step="0.01" min="0" placeholder="0.00">
                             <span class="currency">PLN</span>
@@ -383,8 +383,8 @@
                             </button>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Termin płatności za wysyłkę</label>
+                    <div class="sr-box deadline-box">
+                        <label>Termin płatności za wysyłkę:</label>
                         <div class="deadline-input-group">
                             <input type="date" id="srPaymentDeadlineDate" class="form-input deadline-date-field" required>
                             <input type="time" id="srPaymentDeadlineTime" class="form-input deadline-time-field" value="23:59" required>
