@@ -9,7 +9,7 @@ from wtforms import (
     StringField, TextAreaField, DecimalField, IntegerField,
     SelectField, SelectMultipleField, BooleanField, SubmitField
 )
-from wtforms.validators import DataRequired, Optional, Length, NumberRange, ValidationError, Regexp
+from wtforms.validators import DataRequired, InputRequired, Optional, Length, NumberRange, ValidationError, Regexp
 from modules.products.models import Product, Category, Tag, Supplier
 
 
@@ -90,7 +90,7 @@ class ProductForm(FlaskForm):
     sale_price = DecimalField(
         'Cena sprzedaży (PLN)',
         places=2,
-        validators=[DataRequired(message='Cena sprzedaży jest wymagana'), NumberRange(min=0)]
+        validators=[InputRequired(message='Cena sprzedaży jest wymagana'), NumberRange(min=0)]
     )
 
     purchase_price = DecimalField(
