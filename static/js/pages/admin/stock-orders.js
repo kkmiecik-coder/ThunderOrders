@@ -160,6 +160,10 @@ function openPolandOrderModal() {
     totalInput.oninput = calculateShippingCascade;
     document.getElementById('polandTrackingNumber').value = '';
     document.getElementById('polandOrderNote').value = '';
+    const deadlineDateInput = document.getElementById('polandPaymentDeadlineDate');
+    const deadlineTimeInput = document.getElementById('polandPaymentDeadlineTime');
+    if (deadlineDateInput) deadlineDateInput.value = '';
+    if (deadlineTimeInput) deadlineTimeInput.value = '23:59';
     document.getElementById('sumShippingCost').textContent = '0.00 PLN';
     document.getElementById('shippingDifference').textContent = '0.00 PLN';
     document.getElementById('shippingDifference').style.color = '#059669';
@@ -642,6 +646,21 @@ function confirmPolandOrder() {
         return;
     }
 
+    const deadlineDate = document.getElementById('polandPaymentDeadlineDate').value;
+    const deadlineTime = document.getElementById('polandPaymentDeadlineTime').value;
+    let paymentDeadline = null;
+
+    if (deadlineDate && deadlineTime) {
+        const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
+        if (deadlineDatetime <= new Date()) {
+            if (typeof window.showToast === 'function') {
+                window.showToast('Termin płatności musi być w przyszłości.', 'error');
+            }
+            return;
+        }
+        paymentDeadline = `${deadlineDate}T${deadlineTime}`;
+    }
+
     const trackingNumber = 'KB88900-RS' + trackingNum;
     const proxyOrderIds = polandOrderData.proxyOrders.map(o => o.id);
 
@@ -670,7 +689,8 @@ function confirmPolandOrder() {
             shipping_cost_total: totalShipping,
             tracking_number: trackingNumber,
             items: itemsPayload,
-            note: note
+            note: note,
+            payment_deadline: paymentDeadline
         })
     })
     .then(handleFetchResponse)

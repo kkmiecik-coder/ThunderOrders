@@ -3555,6 +3555,15 @@ def create_poland_order():
         items_data = data.get('items', [])
         note = data.get('note', '').strip()
 
+        payment_deadline_str = data.get('payment_deadline')
+        payment_deadline = None
+        if payment_deadline_str:
+            from datetime import datetime
+            try:
+                payment_deadline = datetime.fromisoformat(payment_deadline_str)
+            except (ValueError, TypeError):
+                return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
+
         if not proxy_order_ids:
             return jsonify({'success': False, 'error': 'Brak zamówień Proxy'}), 400
 
@@ -3571,6 +3580,7 @@ def create_poland_order():
             shipping_cost=shipping_cost_total,
             tracking_number=tracking_number if tracking_number else None,
             notes=note if note else None,
+            payment_deadline=payment_deadline,
         )
         db.session.add(poland_order)
         db.session.flush()

@@ -897,6 +897,14 @@ class Order(db.Model):
             return False
         return True
 
+    def get_shipping_kr_deadline(self):
+        """Get payment deadline for E2 (Korean shipping) from PolandOrder."""
+        from modules.products.models import PolandOrderItem
+        poland_item = PolandOrderItem.query.filter_by(order_id=self.id).first()
+        if poland_item and poland_item.poland_order:
+            return poland_item.poland_order.payment_deadline
+        return None
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal
