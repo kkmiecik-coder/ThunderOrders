@@ -646,18 +646,25 @@ function confirmPolandOrder() {
         return;
     }
 
-    const deadlineDate = document.getElementById('polandPaymentDeadlineDate').value;
-    const deadlineTime = document.getElementById('polandPaymentDeadlineTime').value;
+    const deadlineDateEl = document.getElementById('polandPaymentDeadlineDate');
+    const deadlineTimeEl = document.getElementById('polandPaymentDeadlineTime');
+    const deadlineDate = deadlineDateEl.value;
+    const deadlineTime = deadlineTimeEl.value;
 
     if (!deadlineDate || !deadlineTime) {
+        if (!deadlineDate) deadlineDateEl.classList.add('input-error');
+        if (!deadlineTime) deadlineTimeEl.classList.add('input-error');
         if (typeof window.showToast === 'function') {
             window.showToast('Termin płatności za wysyłkę jest wymagany.', 'error');
         }
         return;
     }
+    deadlineDateEl.classList.remove('input-error');
+    deadlineTimeEl.classList.remove('input-error');
 
     const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
     if (deadlineDatetime <= new Date()) {
+        deadlineDateEl.classList.add('input-error');
         if (typeof window.showToast === 'function') {
             window.showToast('Termin płatności musi być w przyszłości.', 'error');
         }
@@ -1070,16 +1077,23 @@ function saveCustomsVat() {
     }
 
     // Customs payment deadline (required)
-    const cdDate = document.getElementById('customsPaymentDeadlineDate').value;
-    const cdTime = document.getElementById('customsPaymentDeadlineTime').value;
+    const cdDateEl = document.getElementById('customsPaymentDeadlineDate');
+    const cdTimeEl = document.getElementById('customsPaymentDeadlineTime');
+    const cdDate = cdDateEl.value;
+    const cdTime = cdTimeEl.value;
 
     if (!cdDate || !cdTime) {
+        if (!cdDate) cdDateEl.classList.add('input-error');
+        if (!cdTime) cdTimeEl.classList.add('input-error');
         if (typeof window.showToast === 'function') window.showToast('Termin płatności za Cło/VAT jest wymagany.', 'error');
         return;
     }
+    cdDateEl.classList.remove('input-error');
+    cdTimeEl.classList.remove('input-error');
 
     const cdDatetime = new Date(`${cdDate}T${cdTime}`);
     if (cdDatetime <= new Date()) {
+        cdDateEl.classList.add('input-error');
         if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
         return;
     }

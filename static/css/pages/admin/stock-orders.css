@@ -1767,6 +1767,16 @@
     flex: 0 0 auto;
 }
 
+.input-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+[data-theme="dark"] .input-error {
+    border-color: #f87171 !important;
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.2) !important;
+}
+
 .tracking-input-group {
     display: flex;
     align-items: stretch;
