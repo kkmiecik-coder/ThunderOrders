@@ -9,5 +9,8 @@ offers_bp = Blueprint('offers', __name__, url_prefix='/offer')
 
 from . import routes
 
+# Import reminder models so Flask-Migrate detects them
+from . import reminder_models  # noqa: F401
+
 # Import SocketIO event handlers for offers LIVE dashboard
 from . import socket_events

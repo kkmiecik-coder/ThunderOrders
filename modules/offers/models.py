@@ -102,6 +102,9 @@ class OfferPage(db.Model):
     closed_at = db.Column(db.DateTime, nullable=True)
     closed_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
+    # Termin płatności za produkt (ustawiany przy zamykaniu strony)
+    payment_deadline = db.Column(db.DateTime, nullable=True)
+
     # Relationships
     creator = db.relationship('User', backref='offer_pages', foreign_keys=[created_by])
     closed_by = db.relationship('User', foreign_keys=[closed_by_id])
