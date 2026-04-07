@@ -906,16 +906,9 @@ class EmailManager:
     # ========================================
 
     @staticmethod
-    def notify_payment_reminder(order):
+    def notify_payment_reminder(order, payment_deadline=None, reminder_context='before_deadline'):
         """
         Wysyła przypomnienie o niezapłaconych etapach zamówienia.
-        Automatycznie wykrywa które etapy wymagają płatności.
-
-        Args:
-            order: obiekt Order
-
-        Returns:
-            bool: True jeśli wysłano (były niezapłacone etapy), False w przeciwnym razie
         """
         if not EmailManager.is_email_enabled('notify_payment_reminder'):
             current_app.logger.info("Email notification 'notify_payment_reminder' is disabled, skipping")
@@ -928,10 +921,8 @@ class EmailManager:
             current_app.logger.warning(f"Cannot send payment reminder for {order.order_number}: no email")
             return False
 
-        # Zbierz niezapłacone etapy
+        # Na razie tylko E1 (produkt)
         unpaid_stages = []
-
-        # E1: Produkt
         product_status = order.product_payment_status
         if product_status in ('none', 'rejected'):
             unpaid_stages.append({
@@ -940,41 +931,10 @@ class EmailManager:
                 'status': product_status
             })
 
-        # E2: Wysyłka KR (tylko 4-płatnościowe)
-        if order.payment_stages == 4 and order.proxy_shipping_cost and float(order.proxy_shipping_cost) > 0:
-            stage_2_status = order.stage_2_status
-            if stage_2_status in ('none', 'rejected'):
-                unpaid_stages.append({
-                    'name': 'Wysyłka z Korei',
-                    'amount': float(order.proxy_shipping_cost),
-                    'status': stage_2_status
-                })
-
-        # E3: Cło/VAT
-        if order.customs_vat_sale_cost and float(order.customs_vat_sale_cost) > 0:
-            stage_3_status = order.stage_3_status
-            if stage_3_status in ('none', 'rejected'):
-                unpaid_stages.append({
-                    'name': 'Cło i VAT',
-                    'amount': float(order.customs_vat_sale_cost),
-                    'status': stage_3_status
-                })
-
-        # E4: Wysyłka krajowa
-        if order.shipping_cost and float(order.shipping_cost) > 0:
-            stage_4_status = order.stage_4_status
-            if stage_4_status in ('none', 'rejected'):
-                unpaid_stages.append({
-                    'name': 'Wysyłka krajowa',
-                    'amount': float(order.shipping_cost),
-                    'status': stage_4_status
-                })
-
         if not unpaid_stages:
             return False
 
-        order_detail_url = url_for('orders.client_detail',
-                                   order_id=order.id, _external=True)
+        confirmations_url = url_for('client.payment_confirmations', _external=True)
 
         try:
             send_payment_reminder_email(
@@ -982,16 +942,48 @@ class EmailManager:
                 user_name=order.customer_name,
                 order_number=order.order_number,
                 unpaid_stages=unpaid_stages,
-                order_detail_url=order_detail_url
+                order_detail_url=confirmations_url,
+                payment_deadline=payment_deadline,
+                reminder_context=reminder_context
             )
             current_app.logger.info(
                 f"Payment reminder sent for {order.order_number} to {email} "
-                f"({len(unpaid_stages)} unpaid stages)"
+                f"(context={reminder_context}, deadline={payment_deadline})"
             )
             return True
         except Exception as e:
             current_app.logger.error(f"Failed to send payment reminder for {order.order_number}: {e}")
             return False
+
+    @staticmethod
+    def notify_admin_deadline_exceeded(page, orders):
+        """Wysyła email do admina o zamówieniach z przekroczonym deadline."""
+        from utils.email_sender import send_deadline_exceeded_email
+
+        admin_emails = EmailManager.get_admin_notification_emails()
+        if not admin_emails:
+            current_app.logger.warning("No admin emails configured for deadline exceeded notification")
+            return
+
+        orders_data = []
+        for order in orders:
+            orders_data.append({
+                'order_number': order.order_number,
+                'customer_name': order.customer_name or 'Brak',
+                'customer_email': order.customer_email or 'Brak',
+                'amount': float(order.effective_total or order.total_amount or 0),
+            })
+
+        try:
+            for email in admin_emails:
+                send_deadline_exceeded_email(
+                    to_email=email,
+                    page_name=page.name,
+                    payment_deadline=page.payment_deadline,
+                    orders=orders_data
+                )
+        except Exception as e:
+            current_app.logger.error(f"Failed to send deadline exceeded email: {e}")
 
     # ========================================
     # PAYMENT EMAILS

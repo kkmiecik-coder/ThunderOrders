@@ -388,86 +388,189 @@ def register_cli_commands(app):
 
     import click
 
-    @app.cli.command('send-payment-reminders')
-    @click.option('--days', default=3, help='Minimalny odstęp w dniach między przypomnieniami')
-    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl zamówienia, nie wysyłaj emaili')
-    def send_payment_reminders(days, dry_run):
-        """Wysyła przypomnienia o niezapłaconych etapach zamówień."""
+    @app.cli.command('check-payment-reminders')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl, nie wysyłaj')
+    def check_payment_reminders(dry_run):
+        """Sprawdza i wysyła przypomnienia o płatnościach (uruchamiany co godzinę przez cron)."""
         from modules.orders.models import Order, get_local_now
+        from modules.offers.models import OfferPage
+        from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
+        from modules.auth.models import Settings
         from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        from utils.activity_logger import log_activity
         from datetime import timedelta
 
         now = get_local_now()
-        cutoff = now - timedelta(days=days)
+        sent_count = 0
 
-        # Statusy, w których zamówienie jest aktywne i wymaga płatności
-        active_statuses = [
-            'oczekujace', 'dostarczone_proxy', 'w_drodze_polska',
-            'urzad_celny', 'dostarczone_gom', 'spakowane'
-        ]
+        # Pobierz aktywne reguły
+        rules = PaymentReminderConfig.query.filter_by(enabled=True, payment_stage='product').all()
+        click.echo(f"Aktywnych reguł: {len(rules)}")
 
-        # Znajdź zamówienia: aktywne, przypomnienie niewyslane lub starsze niż X dni
-        orders = Order.query.filter(
-            Order.status.in_(active_statuses)
-        ).filter(
-            db.or_(
-                Order.payment_reminder_sent_at.is_(None),
-                Order.payment_reminder_sent_at < cutoff
-            )
+        for rule in rules:
+            if rule.reminder_type == 'before_deadline':
+                # Pobierz zamknięte OfferPages z deadline
+                pages = OfferPage.query.filter(
+                    OfferPage.payment_deadline.isnot(None),
+                    OfferPage.is_fully_closed == True
+                ).all()
+
+                for page in pages:
+                    trigger_time = page.payment_deadline - timedelta(hours=rule.hours)
+                    if trigger_time > now:
+                        continue  # Za wcześnie
+
+                    orders = Order.query.filter(
+                        Order.offer_page_id == page.id
+                    ).all()
+
+                    for order in orders:
+                        if order.product_payment_status not in ('none', 'rejected'):
+                            continue
+
+                        already_sent = PaymentReminderLog.query.filter_by(
+                            order_id=order.id, config_id=rule.id
+                        ).first()
+                        if already_sent:
+                            continue
+
+                        if dry_run:
+                            click.echo(f"  [DRY RUN] {order.order_number} <- {rule.hours}h przed deadline")
+                            sent_count += 1
+                            continue
+
+                        success = EmailManager.notify_payment_reminder(
+                            order, payment_deadline=page.payment_deadline,
+                            reminder_context='before_deadline'
+                        )
+                        if success:
+                            PushManager.notify_payment_reminder(
+                                order, payment_deadline=page.payment_deadline
+                            )
+                            db.session.add(PaymentReminderLog(
+                                order_id=order.id, config_id=rule.id
+                            ))
+                            log_activity(
+                                action='payment_reminder_sent',
+                                entity_type='order',
+                                entity_id=order.id,
+                                new_value=f'Wysłano przypomnienie ({rule.hours}h przed terminem)'
+                            )
+                            sent_count += 1
+                            click.echo(f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline)")
+
+            elif rule.reminder_type == 'after_order_placed':
+                # Tylko On-hand i Pre-order
+                orders = Order.query.filter(
+                    Order.order_type.in_(['on_hand', 'preorder'])
+                ).all()
+
+                for order in orders:
+                    if order.product_payment_status not in ('none', 'rejected'):
+                        continue
+
+                    trigger_time = order.created_at + timedelta(hours=rule.hours)
+                    if trigger_time > now:
+                        continue
+
+                    already_sent = PaymentReminderLog.query.filter_by(
+                        order_id=order.id, config_id=rule.id
+                    ).first()
+                    if already_sent:
+                        continue
+
+                    payment_deadline = None
+                    if order.offer_page:
+                        payment_deadline = order.offer_page.payment_deadline
+
+                    if dry_run:
+                        click.echo(f"  [DRY RUN] {order.order_number} <- {rule.hours}h po złożeniu")
+                        sent_count += 1
+                        continue
+
+                    success = EmailManager.notify_payment_reminder(
+                        order, payment_deadline=payment_deadline,
+                        reminder_context='after_order_placed'
+                    )
+                    if success:
+                        PushManager.notify_payment_reminder(order, payment_deadline=payment_deadline)
+                        db.session.add(PaymentReminderLog(
+                            order_id=order.id, config_id=rule.id
+                        ))
+                        log_activity(
+                            action='payment_reminder_sent',
+                            entity_type='order',
+                            entity_id=order.id,
+                            new_value=f'Wysłano przypomnienie ({rule.hours}h po złożeniu zamówienia)'
+                        )
+                        sent_count += 1
+                        click.echo(f"  Wysłano: {order.order_number} ({rule.hours}h po złożeniu)")
+
+        # Sprawdź przekroczone deadline'y
+        exceeded_pages = OfferPage.query.filter(
+            OfferPage.payment_deadline.isnot(None),
+            OfferPage.payment_deadline < now,
+            OfferPage.is_fully_closed == True
         ).all()
 
-        click.echo(f"Znaleziono {len(orders)} zamówień do sprawdzenia (odstęp: {days} dni)")
+        exceeded_count = 0
+        exceeded_orders_by_page = {}
 
-        sent_count = 0
-        skipped_count = 0
+        for page in exceeded_pages:
+            orders = Order.query.filter(Order.offer_page_id == page.id).all()
+            for order in orders:
+                if order.product_payment_status not in ('none', 'rejected'):
+                    continue
 
-        for order in orders:
-            # Sprawdź czy są niezapłacone etapy
-            has_unpaid = False
+                already_notified = PaymentReminderLog.query.filter_by(
+                    order_id=order.id, config_id=None, reminder_type='deadline_exceeded'
+                ).first()
+                if already_notified:
+                    continue
 
-            # E1: Produkt
-            if order.product_payment_status in ('none', 'rejected'):
-                has_unpaid = True
+                if not dry_run:
+                    db.session.add(PaymentReminderLog(
+                        order_id=order.id, config_id=None, reminder_type='deadline_exceeded'
+                    ))
+                    log_activity(
+                        action='payment_deadline_exceeded',
+                        entity_type='order',
+                        entity_id=order.id,
+                        new_value='Przekroczono termin płatności — powiadomiono administrację'
+                    )
 
-            # E2: Wysyłka KR (4-płatnościowe)
-            if (order.payment_stages == 4 and order.proxy_shipping_cost
-                    and float(order.proxy_shipping_cost) > 0
-                    and order.stage_2_status in ('none', 'rejected')):
-                has_unpaid = True
+                if page.id not in exceeded_orders_by_page:
+                    exceeded_orders_by_page[page.id] = {'page': page, 'orders': []}
+                exceeded_orders_by_page[page.id]['orders'].append(order)
+                exceeded_count += 1
 
-            # E3: Cło/VAT
-            if (order.customs_vat_sale_cost
-                    and float(order.customs_vat_sale_cost) > 0
-                    and order.stage_3_status in ('none', 'rejected')):
-                has_unpaid = True
+        if exceeded_orders_by_page and not dry_run:
+            for page_data in exceeded_orders_by_page.values():
+                EmailManager.notify_admin_deadline_exceeded(
+                    page_data['page'], page_data['orders']
+                )
 
-            # E4: Wysyłka krajowa
-            if (order.shipping_cost
-                    and float(order.shipping_cost) > 0
-                    and order.stage_4_status in ('none', 'rejected')):
-                has_unpaid = True
+        if exceeded_count > 0:
+            click.echo(f"  Przekroczone deadline: {exceeded_count} zamówień")
 
-            if not has_unpaid:
-                skipped_count += 1
-                continue
+        # Commit
+        if not dry_run:
+            db.session.commit()
 
-            if dry_run:
-                click.echo(f"  [DRY RUN] {order.order_number} → {order.customer_email}")
-                sent_count += 1
-                continue
+            def set_setting(key, value):
+                setting = Settings.query.filter_by(key=key).first()
+                if setting:
+                    setting.value = str(value)
+                else:
+                    setting = Settings(key=key, value=str(value), type='string')
+                    db.session.add(setting)
 
-            success = EmailManager.notify_payment_reminder(order)
-            if success:
-                from utils.push_manager import PushManager
-                PushManager.notify_payment_reminder(order)
-                order.payment_reminder_sent_at = now
-                db.session.commit()
-                sent_count += 1
-                click.echo(f"  Wysłano: {order.order_number} → {order.customer_email}")
-            else:
-                skipped_count += 1
+            set_setting('payment_reminder_last_check', now.strftime('%d/%m/%Y %H:%M'))
+            set_setting('payment_reminder_last_count', str(sent_count))
+            db.session.commit()
 
-        click.echo(f"\nGotowe. Wysłano: {sent_count}, Pominięto: {skipped_count}")
+        click.echo(f"\nGotowe. Wysłano przypomnień: {sent_count}, Przekroczone deadline: {exceeded_count}")
 
     @app.cli.command('backfill-set-numbers')
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl bez zapisywania')

@@ -793,17 +793,8 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
     )
 
 
-def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url):
-    """
-    Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia.
-
-    Args:
-        user_email (str): Email klienta
-        user_name (str): Imię klienta
-        order_number (str): Numer zamówienia
-        unpaid_stages (list): Lista dict z kluczami: name, amount, status
-        order_detail_url (str): URL do szczegółów zamówienia
-    """
+def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
+    """Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia."""
     return send_email(
         to=user_email,
         subject=f'Przypomnienie o płatności - {order_number} - ThunderOrders',
@@ -811,7 +802,21 @@ def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stag
         user_name=user_name,
         order_number=order_number,
         unpaid_stages=unpaid_stages,
-        order_detail_url=order_detail_url
+        order_detail_url=order_detail_url,
+        payment_deadline=payment_deadline,
+        reminder_context=reminder_context
+    )
+
+
+def send_deadline_exceeded_email(to_email, page_name, payment_deadline, orders):
+    """Wysyła email do admina o przekroczonym terminie płatności."""
+    return send_email(
+        to=to_email,
+        subject=f'Przekroczony termin płatności - {page_name} - ThunderOrders',
+        template='payment_deadline_exceeded',
+        page_name=page_name,
+        payment_deadline=payment_deadline,
+        orders=orders
     )
 
 

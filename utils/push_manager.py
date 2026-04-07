@@ -395,17 +395,24 @@ class PushManager:
     # ========================================
 
     @staticmethod
-    def notify_payment_reminder(order):
+    def notify_payment_reminder(order, payment_deadline=None):
         """Push notification reminding about pending payment."""
         user_id = order.user_id
         if not user_id:
             return
 
         from flask import url_for
+
+        if payment_deadline:
+            deadline_str = payment_deadline.strftime('%d.%m %H:%M')
+            body = f'Termin płatności upływa {deadline_str}. Prześlij potwierdzenie.'
+        else:
+            body = 'Masz oczekującą płatność do potwierdzenia.'
+
         PushManager._fire_and_forget(
             user_id=user_id,
             title=f'Przypomnienie: {order.order_number}',
-            body='Masz oczekującą płatność do potwierdzenia.',
+            body=body,
             url=url_for('client.payment_confirmations', _external=True),
             tag=f'reminder-{order.id}',
             notification_type='payment_updates'
