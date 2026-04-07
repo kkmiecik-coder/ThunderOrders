@@ -582,6 +582,20 @@ async function openShippingRequestModal(shippingRequestId) {
             }
         }
 
+        // Payment deadline
+        const srDeadlineDate = document.getElementById('srPaymentDeadlineDate');
+        const srDeadlineTime = document.getElementById('srPaymentDeadlineTime');
+        if (srDeadlineDate && srDeadlineTime) {
+            if (data.payment_deadline) {
+                const dl = new Date(data.payment_deadline);
+                srDeadlineDate.value = dl.toISOString().split('T')[0];
+                srDeadlineTime.value = dl.toTimeString().slice(0, 5);
+            } else {
+                srDeadlineDate.value = '';
+                srDeadlineTime.value = '23:59';
+            }
+        }
+
         // Show modal
         modal.classList.add('active');
 
@@ -803,8 +817,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
 
+            // Payment deadline (required)
+            const srDdEl = document.getElementById('srPaymentDeadlineDate');
+            const srDtEl = document.getElementById('srPaymentDeadlineTime');
+            const srDd = srDdEl.value;
+            const srDt = srDtEl.value;
+
+            if (!srDd || !srDt) {
+                if (!srDd) srDdEl.classList.add('input-error');
+                if (!srDt) srDtEl.classList.add('input-error');
+                alert('Termin płatności za wysyłkę jest wymagany.');
+                return;
+            }
+            srDdEl.classList.remove('input-error');
+            srDtEl.classList.remove('input-error');
+
+            const srDeadlineDt = new Date(`${srDd}T${srDt}`);
+            if (srDeadlineDt <= new Date()) {
+                srDdEl.classList.add('input-error');
+                alert('Termin płatności musi być w przyszłości.');
+                return;
+            }
+
             const formData = {
-                order_costs: orderCosts
+                order_costs: orderCosts,
+                payment_deadline: `${srDd}T${srDt}`
             };
 
             // Only include shipping fields if edit mode is active

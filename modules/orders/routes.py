@@ -3692,6 +3692,7 @@ def admin_get_shipping_request(shipping_request_id):
         'pickup_postal_code': sr.pickup_postal_code,
         'pickup_city': sr.pickup_city,
         'orders': orders_data,
+        'payment_deadline': sr.payment_deadline.isoformat() if sr.payment_deadline else None,
         'created_at': sr.created_at.isoformat() if sr.created_at else None
     })
 
@@ -3745,6 +3746,18 @@ def admin_update_shipping_request(shipping_request_id):
 
     old_tracking = sr.tracking_number
     old_status = sr.status
+
+    # Payment deadline
+    if 'payment_deadline' in data:
+        deadline_str = data['payment_deadline']
+        if deadline_str:
+            from datetime import datetime
+            try:
+                sr.payment_deadline = datetime.fromisoformat(deadline_str)
+            except (ValueError, TypeError):
+                return jsonify({'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
+        else:
+            sr.payment_deadline = None
 
     # Update basic fields
     if 'status' in data:

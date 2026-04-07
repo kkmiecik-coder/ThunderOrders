@@ -913,6 +913,13 @@ class Order(db.Model):
             return poland_item.poland_order.customs_payment_deadline
         return None
 
+    def get_shipping_pl_deadline(self):
+        """Get payment deadline for E4 (Domestic shipping) from ShippingRequest."""
+        for sr_order in self.shipping_request_orders:
+            if sr_order.shipping_request and sr_order.shipping_request.payment_deadline:
+                return sr_order.shipping_request.payment_deadline
+        return None
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal
@@ -1270,6 +1277,9 @@ class ShippingRequest(db.Model):
 
     # Notes
     admin_notes = db.Column(db.Text, nullable=True)
+
+    # Termin płatności za wysyłkę PL (E4)
+    payment_deadline = db.Column(db.DateTime, nullable=True)
 
     # Timestamps
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)

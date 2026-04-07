@@ -1330,3 +1330,47 @@
         margin-bottom: 0;
     }
 }
+
+/* ===== Payment Deadline in SR Modal ===== */
+
+.deadline-input-group {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.deadline-date-field {
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    min-width: 140px;
+    flex: 1;
+}
+
+.deadline-time-field {
+    font-size: 13px;
+    padding: 6px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    width: 90px;
+    flex: 0 0 auto;
+}
+
+.input-error {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+}
+
+/* Dark mode */
+[data-theme="dark"] .deadline-date-field,
+[data-theme="dark"] .deadline-time-field {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+[data-theme="dark"] .input-error {
+    border-color: #f87171 !important;
+    box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.2) !important;
+}
