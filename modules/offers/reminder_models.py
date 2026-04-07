@@ -25,6 +25,9 @@ class PaymentReminderConfig(db.Model):
 class PaymentReminderLog(db.Model):
     """Log wysłanych przypomnień — zapobiega duplikacji."""
     __tablename__ = 'payment_reminder_logs'
+    __table_args__ = (
+        db.UniqueConstraint('order_id', 'config_id', name='uq_reminder_log_order_config'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
