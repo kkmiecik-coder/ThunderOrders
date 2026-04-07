@@ -304,6 +304,7 @@
                                 <button type="button" class="btn btn-sm btn-outline" id="addBeforeDeadlineBtn">+ Dodaj przypomnienie</button>
                             </div>
 
+                            <div class="reminder-rules-label">Aktywne przypomnienia</div>
                             <div class="reminder-rules-list" id="beforeDeadlineRules">
                                 {% for rule in reminder_rules_before %}
                                 <div class="reminder-rule-row" data-id="{{ rule.id }}">
@@ -330,6 +331,7 @@
                                 <button type="button" class="btn btn-sm btn-outline" id="addAfterOrderBtn">+ Dodaj przypomnienie</button>
                             </div>
 
+                            <div class="reminder-rules-label">Aktywne przypomnienia</div>
                             <div class="reminder-rules-list" id="afterOrderRules">
                                 {% for rule in reminder_rules_after %}
                                 <div class="reminder-rule-row" data-id="{{ rule.id }}">

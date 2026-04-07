@@ -2313,6 +2313,20 @@
     font-style: italic;
 }
 
+.reminder-rules-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+[data-theme="dark"] .reminder-rules-label {
+    color: rgba(255, 255, 255, 0.4);
+}
+
 .reminder-rules-list {
     display: flex;
     flex-direction: column;
