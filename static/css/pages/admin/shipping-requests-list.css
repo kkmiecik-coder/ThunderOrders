@@ -1350,6 +1350,8 @@
     border-radius: 6px;
     padding: 10px 14px;
     flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .sr-box label {
@@ -1358,6 +1360,28 @@
     font-size: 13px;
     margin: 0 0 6px 0;
     white-space: nowrap;
+}
+
+.sr-box .sr-cost-input-group,
+.sr-box .deadline-input-group {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.sr-box .deadline-input-group {
+    gap: 6px;
+}
+
+.sr-box .deadline-date-field,
+.sr-box .deadline-time-field {
+    height: 36px;
+    box-sizing: border-box;
+}
+
+.sr-box .sr-cost-input-group .form-input {
+    height: 36px;
+    box-sizing: border-box;
 }
 
 .sr-box.shipping-cost-box {
