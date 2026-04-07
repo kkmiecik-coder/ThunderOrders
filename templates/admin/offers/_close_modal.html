@@ -49,6 +49,17 @@
                     <li>Istniejące zamówienia pozostaną bez zmian</li>
                 </ul>
             </div>
+
+            <!-- Deadline płatności (wspólne dla obu typów) -->
+            <div class="form-group" style="margin-top: 16px;" id="deadlineGroup">
+                <label class="deadline-label">Termin płatności za produkt <span class="required">*</span></label>
+                <div class="deadline-inputs">
+                    <input type="date" id="paymentDeadlineDate" required>
+                    <input type="time" id="paymentDeadlineTime" value="23:59" required>
+                </div>
+                <small class="deadline-helper">Data i godzina, do której klienci powinni opłacić zamówienie</small>
+                <p id="deadlineError" class="deadline-error" style="display: none;"></p>
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" onclick="closeCloseModal()">Anuluj</button>

@@ -638,6 +638,11 @@ function openCloseModal(pageId, pageName, pageType) {
         ? 'Po zamknięciu nie będzie możliwości wznowienia sprzedaży.'
         : 'Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.';
 
+    // Reset deadline fields
+    document.getElementById('paymentDeadlineDate').value = '';
+    document.getElementById('paymentDeadlineTime').value = '23:59';
+    document.getElementById('deadlineError').style.display = 'none';
+
     document.getElementById('closeModal').classList.add('active');
 }
 
@@ -659,7 +664,32 @@ async function executeCloseComplete() {
     if (!closePageId) return;
 
     const btn = document.getElementById('closeCompleteBtn');
-    const sendEmails = document.getElementById('sendEmailsCheckbox').checked;
+
+    // Read and validate deadline
+    const deadlineDate = document.getElementById('paymentDeadlineDate').value;
+    const deadlineTime = document.getElementById('paymentDeadlineTime').value;
+    const deadlineError = document.getElementById('deadlineError');
+
+    if (!deadlineDate || !deadlineTime) {
+        deadlineError.textContent = 'Termin płatności jest wymagany.';
+        deadlineError.style.display = 'block';
+        return;
+    }
+
+    const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
+    if (deadlineDatetime <= new Date()) {
+        deadlineError.textContent = 'Termin płatności musi być w przyszłości.';
+        deadlineError.style.display = 'block';
+        return;
+    }
+
+    deadlineError.style.display = 'none';
+
+    // Read send_emails — checkbox may be hidden for preorder type
+    const sendEmailsCheckbox = document.getElementById('sendEmailsCheckbox');
+    const sendEmails = sendEmailsCheckbox && sendEmailsCheckbox.closest('#closeInfoExclusive').style.display !== 'none'
+        ? sendEmailsCheckbox.checked
+        : false;
 
     // Show loading state
     btn.querySelector('.btn-text').style.display = 'none';
@@ -673,7 +703,10 @@ async function executeCloseComplete() {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({ send_emails: sendEmails })
+            body: JSON.stringify({
+                send_emails: sendEmails,
+                payment_deadline: `${deadlineDate}T${deadlineTime}`
+            })
         });
 
         const data = await response.json();
