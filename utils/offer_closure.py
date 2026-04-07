@@ -450,7 +450,24 @@ def close_offer_page(page_id, user_id, send_emails=True):
         # 1. Wykonaj algorytm alokacji (ZMODYFIKOWANY - zeruje ceny, splituje partial)
         allocation_result = calculate_set_fulfillment(page_id)
 
-        # 2. NOWE: Auto-aktualizuj statusy zamówień (konfigurowalne)
+        # 2. Dezaktywuj gratisy w zamówieniach bez fulfilled items
+        orders = Order.query.filter_by(offer_page_id=page_id).all()
+        for order in orders:
+            non_bonus = [item for item in order.items if not item.is_bonus]
+            has_fulfilled = any(
+                item.is_set_fulfilled is not False and item.quantity > 0
+                for item in non_bonus
+            )
+            if not has_fulfilled:
+                for item in order.items:
+                    if item.is_bonus and item.quantity > 0:
+                        item.quantity = 0
+                        item.price = Decimal('0.00')
+                        item.total = Decimal('0.00')
+                        item.is_set_fulfilled = False
+                        item.fulfilled_quantity = 0
+
+        # 2b. NOWE: Auto-aktualizuj statusy zamówień (konfigurowalne)
         status_update_result = auto_update_order_statuses(page_id, user_id)
 
         # 3. NOWE: Przelicz total_amount dla wszystkich zamówień
