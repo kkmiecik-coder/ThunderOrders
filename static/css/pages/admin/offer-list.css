@@ -2247,3 +2247,198 @@
         padding: var(--space-3);
     }
 }
+
+/* ===== Payment Reminders Tab ===== */
+
+.cron-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    font-size: 13px;
+}
+
+.cron-status-label {
+    font-weight: 600;
+    color: #0369a1;
+}
+
+.cron-status-value {
+    color: #475569;
+}
+
+.cron-status-value em {
+    color: #94a3b8;
+}
+
+.reminder-section {
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.reminder-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.reminder-section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.reminder-section-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.reminder-section-info {
+    font-size: 12px;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.reminder-rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.reminder-rule-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+}
+
+.reminder-rule-text {
+    font-size: 14px;
+    color: #334155;
+    font-weight: 500;
+}
+
+.btn-remove-rule {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+
+.btn-remove-rule:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.reminder-add-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.reminder-hours-input {
+    width: 140px;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.btn-sm.btn-outline {
+    padding: 8px 16px;
+    font-size: 13px;
+    border: 1px solid #7c3aed;
+    color: #7c3aed;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+
+.btn-sm.btn-outline:hover {
+    background: #7c3aed;
+    color: #fff;
+}
+
+/* Dark mode */
+[data-theme="dark"] .cron-status-bar {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .cron-status-label {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .cron-status-value {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .cron-status-value em {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .reminder-section {
+    border-bottom-color: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .reminder-section-header h4 {
+    color: #fff;
+}
+
+[data-theme="dark"] .reminder-section-info {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .reminder-rule-row {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .reminder-rule-text {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .btn-remove-rule {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .btn-remove-rule:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+[data-theme="dark"] .reminder-hours-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #fff;
+}
+
+[data-theme="dark"] .btn-sm.btn-outline {
+    border-color: #f093fb;
+    color: #f093fb;
+}
+
+[data-theme="dark"] .btn-sm.btn-outline:hover {
+    background: #f093fb;
+    color: #1a1a2e;
+}

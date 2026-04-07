@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeCustomSelects();
     initializeAutoIncreaseForm();
     initializeDeleteForm();
+    initializePaymentReminders();
 });
 
 /**
@@ -295,5 +296,112 @@ function showToast(message, type = 'info') {
         window.Toast.show(message, type);
     } else {
         alert(message);
+    }
+}
+
+/**
+ * Initialize Payment Reminders Settings Tab
+ */
+function initializePaymentReminders() {
+    const addBeforeBtn = document.getElementById('addBeforeDeadlineBtn');
+    const addAfterBtn = document.getElementById('addAfterOrderBtn');
+
+    if (!addBeforeBtn && !addAfterBtn) return;
+
+    if (addBeforeBtn) {
+        addBeforeBtn.addEventListener('click', function() {
+            const input = document.getElementById('beforeDeadlineHours');
+            addReminderRule('before_deadline', input, 'beforeDeadlineRules');
+        });
+    }
+
+    if (addAfterBtn) {
+        addAfterBtn.addEventListener('click', function() {
+            const input = document.getElementById('afterOrderHours');
+            addReminderRule('after_order_placed', input, 'afterOrderRules');
+        });
+    }
+
+    document.querySelectorAll('.btn-remove-rule').forEach(btn => {
+        btn.addEventListener('click', function() {
+            deleteReminderRule(this.dataset.id, this.closest('.reminder-rule-row'));
+        });
+    });
+}
+
+async function addReminderRule(reminderType, input, listId) {
+    const hours = parseInt(input.value, 10);
+    if (!hours || hours < 1) {
+        showToast('Podaj prawidłową liczbę godzin (min. 1).', 'error');
+        return;
+    }
+
+    try {
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+        const response = await fetch('/admin/offers/settings/payment-reminders/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ reminder_type: reminderType, hours: hours })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            const list = document.getElementById(listId);
+            const textPrefix = reminderType === 'before_deadline'
+                ? `${hours}h przed terminem płatności`
+                : `${hours}h po złożeniu zamówienia`;
+
+            const row = document.createElement('div');
+            row.className = 'reminder-rule-row';
+            row.dataset.id = data.rule.id;
+            row.innerHTML = `
+                <span class="reminder-rule-text">${textPrefix}</span>
+                <button type="button" class="btn-remove-rule" data-id="${data.rule.id}" title="Usuń">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                    </svg>
+                </button>
+            `;
+            row.querySelector('.btn-remove-rule').addEventListener('click', function() {
+                deleteReminderRule(this.dataset.id, row);
+            });
+            list.appendChild(row);
+
+            input.value = '';
+            showToast('Przypomnienie dodane.', 'success');
+        } else {
+            showToast(data.error || 'Wystąpił błąd.', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding rule:', error);
+        showToast('Błąd połączenia z serwerem.', 'error');
+    }
+}
+
+async function deleteReminderRule(ruleId, rowElement) {
+    try {
+        const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+        const response = await fetch('/admin/offers/settings/payment-reminders/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ rule_id: parseInt(ruleId, 10) })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            rowElement.remove();
+            showToast('Przypomnienie usunięte.', 'success');
+        } else {
+            showToast(data.error || 'Wystąpił błąd.', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting rule:', error);
+        showToast('Błąd połączenia z serwerem.', 'error');
     }
 }

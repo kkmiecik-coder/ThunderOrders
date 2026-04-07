@@ -37,6 +37,13 @@
                 </svg>
                 <span class="tab-label">Auto-zwiększanie max</span>
             </button>
+            <button class="settings-tab" data-tab="payment-reminders">
+                <svg class="tab-icon" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="10" cy="10" r="8"/>
+                    <polyline points="10 6 10 10 13 13"/>
+                </svg>
+                <span class="tab-label">Przypomnienia płatności</span>
+            </button>
         </div>
 
         <!-- Right Content Panel -->
@@ -258,6 +265,82 @@
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Tab: Payment Reminders Settings -->
+            <div class="tab-panel" id="tab-payment-reminders">
+                <div class="settings-card">
+                    <div class="card-header">
+                        <h3>Przypomnienia o płatności</h3>
+                        <p class="settings-description">
+                            Konfiguracja automatycznych przypomnień wysyłanych do klientów z niezapłaconymi etapami.
+                        </p>
+                    </div>
+
+                    <!-- Cron status -->
+                    <div class="cron-status-bar">
+                        <span class="cron-status-label">Ostatnie sprawdzanie:</span>
+                        <span class="cron-status-value">
+                            {% if reminder_last_check %}
+                                {{ reminder_last_check }} | Wysłano przypomnień: {{ reminder_last_count }}
+                            {% else %}
+                                <em>Brak danych — cron jeszcze nie uruchomiony</em>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <!-- Section 1: Before Deadline -->
+                    <div class="reminder-section">
+                        <div class="reminder-section-header">
+                            <h4>Przed deadline'm</h4>
+                            <span class="reminder-section-info">Dotyczy: Exclusive, On-hand, Pre-order</span>
+                        </div>
+
+                        <div class="reminder-rules-list" id="beforeDeadlineRules">
+                            {% for rule in reminder_rules_before %}
+                            <div class="reminder-rule-row" data-id="{{ rule.id }}">
+                                <span class="reminder-rule-text">{{ rule.hours }}h przed terminem płatności</span>
+                                <button type="button" class="btn-remove-rule" data-id="{{ rule.id }}" title="Usuń">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="reminder-add-row">
+                            <input type="number" id="beforeDeadlineHours" min="1" step="1" placeholder="Liczba godzin" class="reminder-hours-input">
+                            <button type="button" class="btn btn-sm btn-outline" id="addBeforeDeadlineBtn">+ Dodaj przypomnienie</button>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: After Order Placed -->
+                    <div class="reminder-section">
+                        <div class="reminder-section-header">
+                            <h4>Po złożeniu zamówienia</h4>
+                            <span class="reminder-section-info">Dotyczy: On-hand, Pre-order</span>
+                        </div>
+
+                        <div class="reminder-rules-list" id="afterOrderRules">
+                            {% for rule in reminder_rules_after %}
+                            <div class="reminder-rule-row" data-id="{{ rule.id }}">
+                                <span class="reminder-rule-text">{{ rule.hours }}h po złożeniu zamówienia</span>
+                                <button type="button" class="btn-remove-rule" data-id="{{ rule.id }}" title="Usuń">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="reminder-add-row">
+                            <input type="number" id="afterOrderHours" min="1" step="1" placeholder="Liczba godzin" class="reminder-hours-input">
+                            <button type="button" class="btn btn-sm btn-outline" id="addAfterOrderBtn">+ Dodaj przypomnienie</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

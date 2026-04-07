@@ -64,12 +64,30 @@ def offers_settings():
         'amount': int(get_setting_value('auto_increase_amount', '1'))
     }
 
+    # Payment reminder settings
+    from modules.offers.reminder_models import PaymentReminderConfig
+
+    reminder_rules_before = PaymentReminderConfig.query.filter_by(
+        reminder_type='before_deadline', payment_stage='product', enabled=True
+    ).order_by(PaymentReminderConfig.hours.desc()).all()
+
+    reminder_rules_after = PaymentReminderConfig.query.filter_by(
+        reminder_type='after_order_placed', payment_stage='product', enabled=True
+    ).order_by(PaymentReminderConfig.hours.asc()).all()
+
+    reminder_last_check = get_setting_value('payment_reminder_last_check', None)
+    reminder_last_count = get_setting_value('payment_reminder_last_count', '0')
+
     return render_template(
         'admin/offers/settings.html',
         title='Ustawienia stron sprzedaży',
         statuses=statuses,
         offers_closure_settings=offers_closure_settings,
-        auto_increase_settings=auto_increase_settings
+        auto_increase_settings=auto_increase_settings,
+        reminder_rules_before=reminder_rules_before,
+        reminder_rules_after=reminder_rules_after,
+        reminder_last_check=reminder_last_check,
+        reminder_last_count=reminder_last_count
     )
 
 
@@ -1404,6 +1422,91 @@ def update_global_auto_increase_settings():
         'success': True,
         'message': 'Ustawienia auto-zwiększania zostały zapisane.'
     })
+
+
+# ============================================
+# Payment Reminder Rules CRUD
+# ============================================
+
+@admin_bp.route('/offers/settings/payment-reminders/add', methods=['POST'])
+@login_required
+@admin_required
+def add_payment_reminder_rule():
+    """Dodaje nową regułę przypomnienia o płatności."""
+    from modules.offers.reminder_models import PaymentReminderConfig
+    from utils.activity_logger import log_activity
+    import json
+
+    data = request.get_json() or {}
+    reminder_type = data.get('reminder_type')
+    hours = data.get('hours')
+
+    if reminder_type not in ('before_deadline', 'after_order_placed'):
+        return jsonify({'success': False, 'error': 'Nieprawidłowy typ przypomnienia.'}), 400
+
+    if not hours or not isinstance(hours, int) or hours < 1:
+        return jsonify({'success': False, 'error': 'Liczba godzin musi być liczbą całkowitą >= 1.'}), 400
+
+    existing = PaymentReminderConfig.query.filter_by(
+        reminder_type=reminder_type, hours=hours, payment_stage='product', enabled=True
+    ).first()
+    if existing:
+        return jsonify({'success': False, 'error': 'Taka reguła już istnieje.'}), 400
+
+    rule = PaymentReminderConfig(
+        reminder_type=reminder_type,
+        hours=hours,
+        payment_stage='product',
+        enabled=True
+    )
+    db.session.add(rule)
+    db.session.commit()
+
+    log_activity(
+        user=current_user,
+        action='payment_reminder_rule_added',
+        entity_type='payment_reminder_config',
+        entity_id=rule.id,
+        new_value=json.dumps({'type': reminder_type, 'hours': hours})
+    )
+
+    return jsonify({
+        'success': True,
+        'rule': {'id': rule.id, 'reminder_type': rule.reminder_type, 'hours': rule.hours}
+    })
+
+
+@admin_bp.route('/offers/settings/payment-reminders/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_payment_reminder_rule():
+    """Usuwa regułę przypomnienia o płatności."""
+    from modules.offers.reminder_models import PaymentReminderConfig
+    from utils.activity_logger import log_activity
+    import json
+
+    data = request.get_json() or {}
+    rule_id = data.get('rule_id')
+
+    if not rule_id:
+        return jsonify({'success': False, 'error': 'Brak ID reguły.'}), 400
+
+    rule = PaymentReminderConfig.query.get(rule_id)
+    if not rule:
+        return jsonify({'success': False, 'error': 'Reguła nie istnieje.'}), 404
+
+    log_activity(
+        user=current_user,
+        action='payment_reminder_rule_deleted',
+        entity_type='payment_reminder_config',
+        entity_id=rule.id,
+        old_value=json.dumps({'type': rule.reminder_type, 'hours': rule.hours})
+    )
+
+    db.session.delete(rule)
+    db.session.commit()
+
+    return jsonify({'success': True})
 
 
 # ============================================
