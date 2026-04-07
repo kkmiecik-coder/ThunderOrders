@@ -53,6 +53,12 @@
                 {{ summary.ends_at|format_date('%d.%m.%Y') if summary.ends_at else '?' }}
             </span>
         </div>
+        {% if page.payment_deadline %}
+        <div class="meta-item">
+            <span class="meta-label">Termin płatności:</span>
+            <span class="meta-value">{{ page.payment_deadline.strftime('%d.%m.%Y %H:%M') }}</span>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Tab Navigation -->
