@@ -1143,6 +1143,7 @@ function initGratisToggle() {
     if (!checkbox) return;
 
     var costFields = [
+        'sale_price',
         'purchase_price_modal',
         'purchase_price_pln_modal',
         'margin_modal',
@@ -1159,8 +1160,10 @@ function initGratisToggle() {
                 field.readOnly = true;
                 field.classList.add('gratis-disabled');
             } else {
+                // Restore readOnly only for computed fields
                 field.readOnly = (id === 'purchase_price_pln_modal' || id === 'margin_amount_modal');
                 field.classList.remove('gratis-disabled');
+                field.style.pointerEvents = '';
                 if (field.dataset.prevValue !== undefined) {
                     field.value = field.dataset.prevValue;
                     delete field.dataset.prevValue;

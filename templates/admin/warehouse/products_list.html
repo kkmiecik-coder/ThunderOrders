@@ -1075,6 +1075,9 @@ function openProductModal(productId = null, tab = 'product') {
                     if (window.initProductTypeToggle) {
                         window.initProductTypeToggle();
                     }
+                    if (window.initGratisToggle) {
+                        window.initGratisToggle();
+                    }
 
                     // Initialize variant groups system with data from data attributes
                     console.log('[PRODUCTS LIST] Initializing variant groups...');
@@ -1155,6 +1158,9 @@ function openProductModal(productId = null, tab = 'product') {
                     }
                     if (window.initProductTypeToggle) {
                         window.initProductTypeToggle();
+                    }
+                    if (window.initGratisToggle) {
+                        window.initGratisToggle();
                     }
 
                     // Initialize variant groups system with data from data attributes
@@ -1350,6 +1356,7 @@ async function submitProductForm() {
                 if (window.initSizesSystem) window.initSizesSystem();
                 if (window.initFormSubmission) window.initFormSubmission();
                 if (window.initProductTypeToggle) window.initProductTypeToggle();
+                if (window.initGratisToggle) window.initGratisToggle();
 
                 // Re-initialize variant groups
                 if (typeof window.initVariantGroupsSystem === 'function') {
