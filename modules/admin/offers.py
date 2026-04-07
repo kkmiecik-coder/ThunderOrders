@@ -1091,9 +1091,38 @@ def offers_close_complete(page_id):
             'error': 'Ta strona została już całkowicie zamknięta.'
         }), 400
 
+    # Pobierz dane z request
+    data = request.get_json() or {}
+    payment_deadline_str = data.get('payment_deadline')
+
+    # Walidacja deadline (wymagany)
+    if not payment_deadline_str:
+        return jsonify({
+            'success': False,
+            'error': 'Termin płatności jest wymagany.'
+        }), 400
+
+    from datetime import datetime
+    try:
+        payment_deadline = datetime.fromisoformat(payment_deadline_str)
+    except (ValueError, TypeError):
+        return jsonify({
+            'success': False,
+            'error': 'Nieprawidłowy format daty terminu płatności.'
+        }), 400
+
+    from modules.offers.models import get_local_now
+    if payment_deadline <= get_local_now():
+        return jsonify({
+            'success': False,
+            'error': 'Termin płatności musi być w przyszłości.'
+        }), 400
+
+    # Zapisz deadline na OfferPage
+    page.payment_deadline = payment_deadline
+
     # Pre-order: uproszczone zamknięcie (bez kompletowania setów, bez maili)
     if page.page_type == 'preorder':
-        from modules.offers.models import get_local_now
         from utils.activity_logger import log_activity
         page.is_fully_closed = True
         page.closed_at = get_local_now()
@@ -1116,7 +1145,6 @@ def offers_close_complete(page_id):
 
     # Exclusive: full closure with set allocation
     # Pobierz opcję wysyłki emaili
-    data = request.get_json() or {}
     send_emails = data.get('send_emails', True)
 
     try:

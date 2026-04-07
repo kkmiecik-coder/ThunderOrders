@@ -520,7 +520,7 @@ def close_offer_page(page_id, user_id, send_emails=True):
         if send_emails:
             try:
                 # Email o closure (istniejący)
-                send_closure_emails(page_id)
+                send_closure_emails(page_id, payment_deadline=page.payment_deadline)
 
                 # NOWE: Email o anulowaniu (tylko dla zamówień not_fulfilled)
                 status_not_fulfilled_setting = Settings.query.filter_by(
@@ -1289,7 +1289,7 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
         )
 
 
-def send_closure_emails(page_id):
+def send_closure_emails(page_id, payment_deadline=None):
     """
     Wysyła emaile do wszystkich klientów z podsumowaniem ich zamówień.
     ROZSZERZONE: Dodaje informacje finansowe i dane do przelewu.
@@ -1297,6 +1297,7 @@ def send_closure_emails(page_id):
 
     Args:
         page_id: ID strony Offer
+        payment_deadline: Termin płatności (datetime, opcjonalny) — do użycia w szablonie emaila (Task 11)
     """
     from utils.email_sender import prepare_email, send_email_batch
     from utils.push_manager import PushManager
