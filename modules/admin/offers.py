@@ -1428,7 +1428,7 @@ def offers_export_excel(page_id):
 
     Tylko Admin może pobrać Excel.
     """
-    from utils.excel_export import generate_offers_closure_excel
+    from utils.excel_export import generate_offer_closure_excel
     from utils.offer_closure import get_page_summary
 
     page = OfferPage.query.get_or_404(page_id)
@@ -1440,7 +1440,7 @@ def offers_export_excel(page_id):
 
     try:
         summary = get_page_summary(page_id, include_financials=True)
-        excel_buffer = generate_offers_closure_excel(page, summary)
+        excel_buffer = generate_offer_closure_excel(page, summary)
 
         # Generuj nazwę pliku
         safe_name = "".join(c for c in page.name if c.isalnum() or c in (' ', '-', '_')).strip()
