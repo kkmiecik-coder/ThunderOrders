@@ -3556,13 +3556,14 @@ def create_poland_order():
         note = data.get('note', '').strip()
 
         payment_deadline_str = data.get('payment_deadline')
-        payment_deadline = None
-        if payment_deadline_str:
-            from datetime import datetime
-            try:
-                payment_deadline = datetime.fromisoformat(payment_deadline_str)
-            except (ValueError, TypeError):
-                return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
+        if not payment_deadline_str:
+            return jsonify({'success': False, 'error': 'Termin płatności za wysyłkę jest wymagany.'}), 400
+
+        from datetime import datetime
+        try:
+            payment_deadline = datetime.fromisoformat(payment_deadline_str)
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
 
         if not proxy_order_ids:
             return jsonify({'success': False, 'error': 'Brak zamówień Proxy'}), 400
@@ -3774,13 +3775,14 @@ def update_poland_customs_vat():
 
         # Opcjonalny termin płatności za Cło/VAT
         customs_deadline_str = data.get('customs_payment_deadline')
-        customs_deadline = None
-        if customs_deadline_str:
-            from datetime import datetime
-            try:
-                customs_deadline = datetime.fromisoformat(customs_deadline_str)
-            except (ValueError, TypeError):
-                pass
+        if not customs_deadline_str:
+            return jsonify({'success': False, 'error': 'Termin płatności za Cło/VAT jest wymagany.'}), 400
+
+        from datetime import datetime
+        try:
+            customs_deadline = datetime.fromisoformat(customs_deadline_str)
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
 
         affected_order_ids = set()
         updated_items = []

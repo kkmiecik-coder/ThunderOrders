@@ -648,18 +648,22 @@ function confirmPolandOrder() {
 
     const deadlineDate = document.getElementById('polandPaymentDeadlineDate').value;
     const deadlineTime = document.getElementById('polandPaymentDeadlineTime').value;
-    let paymentDeadline = null;
 
-    if (deadlineDate && deadlineTime) {
-        const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
-        if (deadlineDatetime <= new Date()) {
-            if (typeof window.showToast === 'function') {
-                window.showToast('Termin płatności musi być w przyszłości.', 'error');
-            }
-            return;
+    if (!deadlineDate || !deadlineTime) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('Termin płatności za wysyłkę jest wymagany.', 'error');
         }
-        paymentDeadline = `${deadlineDate}T${deadlineTime}`;
+        return;
     }
+
+    const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
+    if (deadlineDatetime <= new Date()) {
+        if (typeof window.showToast === 'function') {
+            window.showToast('Termin płatności musi być w przyszłości.', 'error');
+        }
+        return;
+    }
+    const paymentDeadline = `${deadlineDate}T${deadlineTime}`;
 
     const trackingNumber = 'KB88900-RS' + trackingNum;
     const proxyOrderIds = polandOrderData.proxyOrders.map(o => o.id);
@@ -1065,19 +1069,21 @@ function saveCustomsVat() {
         return;
     }
 
-    // Customs payment deadline (optional)
+    // Customs payment deadline (required)
     const cdDate = document.getElementById('customsPaymentDeadlineDate').value;
     const cdTime = document.getElementById('customsPaymentDeadlineTime').value;
-    let customsPaymentDeadline = null;
 
-    if (cdDate && cdTime) {
-        const cdDatetime = new Date(`${cdDate}T${cdTime}`);
-        if (cdDatetime <= new Date()) {
-            if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
-            return;
-        }
-        customsPaymentDeadline = `${cdDate}T${cdTime}`;
+    if (!cdDate || !cdTime) {
+        if (typeof window.showToast === 'function') window.showToast('Termin płatności za Cło/VAT jest wymagany.', 'error');
+        return;
     }
+
+    const cdDatetime = new Date(`${cdDate}T${cdTime}`);
+    if (cdDatetime <= new Date()) {
+        if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
+        return;
+    }
+    const customsPaymentDeadline = `${cdDate}T${cdTime}`;
 
     fetch('/admin/products/api/update-poland-customs-vat', {
         method: 'PUT',
