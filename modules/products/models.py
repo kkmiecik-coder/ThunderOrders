@@ -216,6 +216,7 @@ class Product(db.Model):
 
     # Status
     is_active = db.Column(db.Boolean, default=True)
+    is_gratis = db.Column(db.Boolean, default=False, nullable=False)
 
     created_at = db.Column(db.DateTime, default=get_local_now)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)

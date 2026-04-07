@@ -326,6 +326,9 @@
                         {% if product.product_type %}
                         <span class="type-badge type-{{ product.product_type.slug }}">{{ product.product_type.name }}</span>
                         {% else %}—{% endif %}
+                        {% if product.is_gratis %}
+                        <span class="type-badge type-gratis">Gratis</span>
+                        {% endif %}
                     </span>
                 </div>
                 <div class="product-card-detail">
@@ -451,6 +454,9 @@
                             <span class="type-badge type-{{ product.product_type.slug }}">{{ product.product_type.name }}</span>
                         {% else %}
                             <span class="text-muted">—</span>
+                        {% endif %}
+                        {% if product.is_gratis %}
+                            <span class="type-badge type-gratis">Gratis</span>
                         {% endif %}
                     </td>
 

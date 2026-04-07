@@ -144,7 +144,9 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-right">
-                                        {% if product.purchase_price_pln %}
+                                        {% if product.is_gratis %}
+                                            <span class="gratis-badge">Gratis</span>
+                                        {% elif product.purchase_price_pln %}
                                             <div class="price-pln">{{ "%.2f"|format(product.purchase_price_pln) }} PLN</div>
                                             {% if product.purchase_currency == 'KRW' and product.purchase_price %}
                                                 <div class="price-krw">{{ "{:,.0f}"|format(product.purchase_price) }} ₩</div>
@@ -156,7 +158,9 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-right">
-                                        {% if product.purchase_price_pln %}
+                                        {% if product.is_gratis %}
+                                            <span class="gratis-badge">Gratis</span>
+                                        {% elif product.purchase_price_pln %}
                                             {% set total_pln = item.to_order * product.purchase_price_pln %}
                                             <div class="price-pln"><strong>{{ "%.2f"|format(total_pln) }} PLN</strong></div>
                                             {% if product.purchase_currency == 'KRW' and product.purchase_price %}

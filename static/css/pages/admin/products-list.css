@@ -796,6 +796,11 @@
   color: #c2185b;
 }
 
+.type-badge.type-gratis {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
 /* Variants Badge */
 .variants-badge {
   display: inline-block;
@@ -2389,6 +2394,11 @@
 [data-theme="dark"] .type-badge.type-exclusive {
   background: rgba(240, 147, 251, 0.2);
   color: #f093fb;
+}
+
+[data-theme="dark"] .type-badge.type-gratis {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
 }
 
 /* Variants Badge */

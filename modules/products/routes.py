@@ -177,7 +177,8 @@ def create_product():
             quantity=form.quantity.data,
             supplier_id=form.supplier_id.data if form.supplier_id.data != 0 and current_user.role == 'admin' else None,
             description=form.description.data,
-            is_active=form.is_active.data
+            is_active=form.is_active.data,
+            is_gratis='is_gratis' in request.form
         )
 
         # Calculate margin
@@ -330,6 +331,7 @@ def edit_product(product_id):
         product.quantity = form.quantity.data
         product.description = form.description.data
         product.is_active = form.is_active.data
+        product.is_gratis = 'is_gratis' in request.form
 
         # Only admin can change supplier
         if current_user.role == 'admin':

@@ -1243,6 +1243,53 @@
   }
 }
 
+/* Gratis Checkbox */
+.gratis-checkbox-group {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.gratis-checkbox-group .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-700);
+}
+
+.gratis-checkbox-group .checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #10b981;
+    cursor: pointer;
+}
+
+.gratis-checkbox-group .checkbox-text {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.gratis-checkbox-group .form-hint {
+    margin-top: 4px;
+    font-size: 0.7rem;
+    color: var(--gray-500);
+}
+
+[data-theme="dark"] .gratis-checkbox-group .checkbox-label {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .gratis-checkbox-group .checkbox-text {
+    color: #34d399;
+}
+
+[data-theme="dark"] .gratis-checkbox-group .form-hint {
+    color: rgba(255, 255, 255, 0.4);
+}
+
 /* ==========================================
    DARK MODE - Glassmorphism Theme
    ========================================== */
