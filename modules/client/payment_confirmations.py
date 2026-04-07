@@ -163,7 +163,8 @@ def payment_confirmations():
         tab=tab,
         active_total=active_total,
         archive_count=archive_count,
-        title='Potwierdzenia płatności'
+        title='Potwierdzenia płatności',
+        now=get_local_now()
     )
 
 

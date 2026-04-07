@@ -1409,7 +1409,8 @@ def send_closure_emails(page_id, payment_deadline=None):
             grand_total=grand_total,
             order_number=order.order_number,
             payment_methods=payment_methods,
-            upload_payment_url=upload_payment_url
+            upload_payment_url=upload_payment_url,
+            payment_deadline=payment_deadline
         )
         if msg:
             email_messages.append(msg)

@@ -136,6 +136,22 @@
                                                     {{ "%.2f"|format(fulfilled_total) }} PLN
                                                 </td>
                                             </tr>
+                                            {% if payment_deadline %}
+                                            <tr>
+                                                <td style="padding: 12px 0; border-top: 2px solid #E0E0E0;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                                        <tr>
+                                                            <td style="font-size: 15px; color: #212121; font-weight: 700;">
+                                                                Termin płatności za produkt
+                                                            </td>
+                                                            <td align="right" style="font-size: 15px; color: #D32F2F; font-weight: 700;">
+                                                                {{ payment_deadline.strftime('%d.%m.%Y, %H:%M') }}
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                            {% endif %}
                                         </table>
 
                                         <p style="margin: 16px 0 0 0; font-size: 13px; color: #757575; font-style: italic;">

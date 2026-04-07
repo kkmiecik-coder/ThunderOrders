@@ -26,7 +26,11 @@
                                 Cześć <strong>{{ user_name }}</strong>!
                             </p>
                             <p style="margin: 0 0 24px 0; font-size: 16px; color: #212121;">
-                                Przypominamy, że zamówienie <strong>{{ order_number }}</strong> ma oczekujące płatności. Prosimy o jak najszybsze uregulowanie należności, aby kontynuować realizację zamówienia.
+                                {% if reminder_context == 'before_deadline' and payment_deadline %}
+                                    Przypominamy, że termin płatności za zamówienie <strong>{{ order_number }}</strong> upływa <strong>{{ payment_deadline.strftime('%d.%m.%Y o %H:%M') }}</strong>.
+                                {% else %}
+                                    Przypominamy o oczekującej płatności za zamówienie <strong>{{ order_number }}</strong>.
+                                {% endif %}
                             </p>
                             <!-- Unpaid stages list -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
@@ -71,12 +75,17 @@
                             <p style="margin: 20px 0; font-size: 14px; color: #666;">
                                 Aby dokonać płatności, wejdź w szczegóły zamówienia i wgraj potwierdzenie przelewu dla odpowiednich etapów.
                             </p>
+                            {% if payment_deadline %}
+                            <p style="margin: 20px 0 0; font-size: 14px; color: #666; text-align: center;">
+                                <strong>Termin płatności: {{ payment_deadline.strftime('%d.%m.%Y, %H:%M') }}</strong>
+                            </p>
+                            {% endif %}
                             <!-- CTA Button -->
                             <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
                                 <tr>
                                     <td align="center">
                                         <a href="{{ order_detail_url }}" style="display: inline-block; background-color: #240046; color: #FFFFFF; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px; text-align: center;">
-                                            Zobacz szczegóły zamówienia
+                                            Prześlij potwierdzenie
                                         </a>
                                     </td>
                                 </tr>

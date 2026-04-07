@@ -2555,3 +2555,63 @@
         font-size: 0.8rem;
     }
 }
+
+/* ===== Payment Deadline Row ===== */
+
+.pc-deadline-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 14px 8px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.pc-deadline-icon {
+    display: flex;
+    align-items: center;
+    opacity: 0.6;
+}
+
+.pc-deadline-text {
+    font-weight: 500;
+}
+
+.pc-deadline-warning {
+    color: #d97706;
+}
+
+.pc-deadline-warning .pc-deadline-icon {
+    color: #d97706;
+    opacity: 1;
+}
+
+.pc-deadline-expired {
+    color: #ef4444;
+}
+
+.pc-deadline-expired .pc-deadline-icon {
+    color: #ef4444;
+    opacity: 1;
+}
+
+/* Dark mode */
+[data-theme="dark"] .pc-deadline-row {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .pc-deadline-warning {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .pc-deadline-warning .pc-deadline-icon {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .pc-deadline-expired {
+    color: #f87171;
+}
+
+[data-theme="dark"] .pc-deadline-expired .pc-deadline-icon {
+    color: #f87171;
+}
