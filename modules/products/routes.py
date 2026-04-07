@@ -2340,9 +2340,9 @@ def get_products_to_order():
 
     # Exclusive items from fully paid pages (excluding gratis)
     exclusive_items = db.session.query(
-        OrderItem.product_id,
-        Order.payment_stages,
-        func.sum(OrderItem.quantity).label('total_ordered')
+        OrderItem.product_id.label('pid'),
+        Order.payment_stages.label('pstages'),
+        func.sum(OrderItem.quantity).label('qty')
     ).join(
         Order, OrderItem.order_id == Order.id
     ).filter(
@@ -2355,9 +2355,9 @@ def get_products_to_order():
 
     # --- PRE-ORDER: Per order, E1 approved (excluding gratis) ---
     preorder_items = db.session.query(
-        OrderItem.product_id,
-        Order.payment_stages,
-        func.sum(OrderItem.quantity).label('total_ordered')
+        OrderItem.product_id.label('pid'),
+        Order.payment_stages.label('pstages'),
+        func.sum(OrderItem.quantity).label('qty')
     ).join(
         Order, OrderItem.order_id == Order.id
     ).join(
@@ -2379,10 +2379,10 @@ def get_products_to_order():
 
     # Re-aggregate after union (same product may appear in both)
     customer_orders_subq = db.session.query(
-        combined.c.product_id,
-        combined.c.payment_stages,
-        func.sum(combined.c.total_ordered).label('total_ordered')
-    ).group_by(combined.c.product_id, combined.c.payment_stages).subquery()
+        combined.c.pid.label('product_id'),
+        combined.c.pstages.label('payment_stages'),
+        func.sum(combined.c.qty).label('total_ordered')
+    ).group_by(combined.c.pid, combined.c.pstages).subquery()
 
     # Step 2: Produkty już zamówione u dostawców (nie anulowane) — per (product_id, order_type)
     already_ordered_subq = db.session.query(
