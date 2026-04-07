@@ -733,14 +733,23 @@
             </button>
         </div>
         <div class="modal-body">
-            <!-- Globalny % (widoczny tylko w trybie bulk) -->
-            <div id="customsVatGlobalSection" class="customs-vat-global-section" style="display: none;">
-                <div class="customs-vat-global-row">
-                    <label for="customsVatGlobalPercent">Zastosuj % do wszystkich produktów:</label>
-                    <div class="customs-vat-global-input-group">
-                        <input type="number" id="customsVatGlobalPercent" class="form-control customs-vat-percent-input" min="0" max="100" step="0.01" placeholder="np. 23">
-                        <span class="input-suffix">%</span>
-                        <button type="button" class="btn btn-sm btn-primary" onclick="applyGlobalCustomsPercentage()">Zastosuj</button>
+            <!-- Header: globalny % + termin płatności -->
+            <div class="customs-vat-header-row">
+                <div id="customsVatGlobalSection" class="customs-vat-global-section" style="display: none;">
+                    <div class="customs-vat-global-row">
+                        <label for="customsVatGlobalPercent">Zastosuj % do wszystkich produktów:</label>
+                        <div class="customs-vat-global-input-group">
+                            <input type="number" id="customsVatGlobalPercent" class="form-control customs-vat-percent-input" min="0" max="100" step="0.01" placeholder="np. 23">
+                            <span class="input-suffix">%</span>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="applyGlobalCustomsPercentage()">Zastosuj</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="poland-modal-box deadline-box">
+                    <label>Termin płatności za Cło/VAT:</label>
+                    <div class="deadline-input-group">
+                        <input type="date" id="customsPaymentDeadlineDate" class="form-input deadline-date-field">
+                        <input type="time" id="customsPaymentDeadlineTime" class="form-input deadline-time-field" value="23:59">
                     </div>
                 </div>
             </div>

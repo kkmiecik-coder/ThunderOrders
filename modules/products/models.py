@@ -401,8 +401,9 @@ class PolandOrder(db.Model):
     admin_notes = db.Column(db.Text, nullable=True)
     tracking_number = db.Column(db.String(100), nullable=True)
 
-    # Termin płatności za wysyłkę KR (ustawiany przy tworzeniu zamówienia do Polski)
-    payment_deadline = db.Column(db.DateTime, nullable=True)
+    # Terminy płatności (ustawiane przy tworzeniu zamówienia do Polski / edycji cła)
+    payment_deadline = db.Column(db.DateTime, nullable=True)  # E2: Wysyłka KR
+    customs_payment_deadline = db.Column(db.DateTime, nullable=True)  # E3: Cło/VAT
 
     created_at = db.Column(db.DateTime, default=get_local_now)
     updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)

@@ -192,6 +192,24 @@
                             <span class="pc-stage-badge pc-stage-badge-locked">Zablokowane</span>
                         {% endif %}
                     </div>
+                    {# Deadline płatności za Cło/VAT #}
+                    {% if e3_status in ('none', 'rejected') %}
+                    {% set customs_deadline = order.get_customs_vat_deadline() %}
+                    {% if customs_deadline %}
+                    <div class="pc-deadline-row {% if customs_deadline < now %}pc-deadline-expired{% elif (customs_deadline - now).total_seconds() < 86400 %}pc-deadline-warning{% endif %}">
+                        <span class="pc-deadline-icon">
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M8 3.5a.5.5 0 00-1 0V8a.5.5 0 00.252.434l3.5 2a.5.5 0 00.496-.868L8 7.71V3.5z"/>
+                                <path d="M8 16A8 8 0 108 0a8 8 0 000 16zm7-8A7 7 0 111 8a7 7 0 0114 0z"/>
+                            </svg>
+                        </span>
+                        <span class="pc-deadline-text">
+                            Termin: {{ customs_deadline.strftime('%d.%m %H:%M') }}
+                            {% if customs_deadline < now %} — minął{% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% endif %}
                     {% endif %}
 
                     {# E4: Wysyłka PL #}

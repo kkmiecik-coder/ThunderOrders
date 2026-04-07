@@ -3772,6 +3772,16 @@ def update_poland_customs_vat():
         if not items_data:
             return jsonify({'success': False, 'error': 'Brak danych do zapisania'}), 400
 
+        # Opcjonalny termin płatności za Cło/VAT
+        customs_deadline_str = data.get('customs_payment_deadline')
+        customs_deadline = None
+        if customs_deadline_str:
+            from datetime import datetime
+            try:
+                customs_deadline = datetime.fromisoformat(customs_deadline_str)
+            except (ValueError, TypeError):
+                pass
+
         affected_order_ids = set()
         updated_items = []
         product_customs_percentages = {}  # {product_id: percentage}
@@ -3820,6 +3830,10 @@ def update_poland_customs_vat():
 
             poland_order.customs_cost = total_customs
             poland_order.total_amount = total_product_value + (poland_order.shipping_cost or Decimal('0')) + total_customs
+
+            # Zapisz termin płatności za Cło/VAT (jeśli podany)
+            if customs_deadline:
+                poland_order.customs_payment_deadline = customs_deadline
 
             updated_orders.append({
                 'order_id': poland_order.id,

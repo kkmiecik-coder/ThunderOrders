@@ -905,6 +905,14 @@ class Order(db.Model):
             return poland_item.poland_order.payment_deadline
         return None
 
+    def get_customs_vat_deadline(self):
+        """Get payment deadline for E3 (Customs/VAT) from PolandOrder."""
+        from modules.products.models import PolandOrderItem
+        poland_item = PolandOrderItem.query.filter_by(order_id=self.id).first()
+        if poland_item and poland_item.poland_order:
+            return poland_item.poland_order.customs_payment_deadline
+        return None
+
     def recalculate_total(self):
         """Recalculates order total from items"""
         from decimal import Decimal

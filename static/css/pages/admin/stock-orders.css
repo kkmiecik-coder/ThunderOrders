@@ -2258,6 +2258,31 @@
 /* ==========================================
    Customs/VAT Modal
    ========================================== */
+.customs-vat-header-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 16px;
+}
+
+.customs-vat-header-row .customs-vat-global-section {
+    margin-bottom: 0;
+    flex: 1;
+}
+
+.customs-vat-header-row .deadline-box {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .customs-vat-header-row {
+        flex-direction: column;
+    }
+}
+
 .customs-vat-global-section {
     display: flex;
     align-items: center;

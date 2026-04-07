@@ -786,6 +786,12 @@ function openCustomsVatModal(orderId) {
     globalSection.style.display = 'none';
     container.innerHTML = '<div class="loading-spinner">Ładowanie danych...</div>';
 
+    // Reset deadline fields
+    const cdDate = document.getElementById('customsPaymentDeadlineDate');
+    const cdTime = document.getElementById('customsPaymentDeadlineTime');
+    if (cdDate) cdDate.value = '';
+    if (cdTime) cdTime.value = '23:59';
+
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
 
@@ -1059,13 +1065,27 @@ function saveCustomsVat() {
         return;
     }
 
+    // Customs payment deadline (optional)
+    const cdDate = document.getElementById('customsPaymentDeadlineDate').value;
+    const cdTime = document.getElementById('customsPaymentDeadlineTime').value;
+    let customsPaymentDeadline = null;
+
+    if (cdDate && cdTime) {
+        const cdDatetime = new Date(`${cdDate}T${cdTime}`);
+        if (cdDatetime <= new Date()) {
+            if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
+            return;
+        }
+        customsPaymentDeadline = `${cdDate}T${cdTime}`;
+    }
+
     fetch('/admin/products/api/update-poland-customs-vat', {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({ items: items })
+        body: JSON.stringify({ items: items, customs_payment_deadline: customsPaymentDeadline })
     })
         .then(res => res.json())
         .then(data => {
