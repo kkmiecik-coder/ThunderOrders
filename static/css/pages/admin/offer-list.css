@@ -2275,15 +2275,22 @@
     color: #94a3b8;
 }
 
-.reminder-section {
-    margin-bottom: 28px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid #e2e8f0;
+.reminder-sections-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
 }
 
-.reminder-section:last-child {
-    border-bottom: none;
+@media (max-width: 768px) {
+    .reminder-sections-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.reminder-section {
     margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
 }
 
 .reminder-section-header {
@@ -2395,10 +2402,6 @@
 
 [data-theme="dark"] .cron-status-value em {
     color: rgba(255, 255, 255, 0.4);
-}
-
-[data-theme="dark"] .reminder-section {
-    border-bottom-color: rgba(240, 147, 251, 0.1);
 }
 
 [data-theme="dark"] .reminder-section-header h4 {

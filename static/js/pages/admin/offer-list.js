@@ -368,7 +368,7 @@ async function addReminderRule(reminderType, input, listId) {
             row.querySelector('.btn-remove-rule').addEventListener('click', function() {
                 deleteReminderRule(this.dataset.id, row);
             });
-            list.appendChild(row);
+            list.prepend(row);
 
             input.value = '';
             showToast('Przypomnienie dodane.', 'success');
