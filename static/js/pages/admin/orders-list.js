@@ -537,6 +537,14 @@
         chevron.classList.toggle('rotated');
     };
 
+    // Order type radio buttons - toggle active class
+    document.querySelectorAll('.order-type-chip input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.order-type-chip').forEach(chip => chip.classList.remove('active'));
+            this.closest('.order-type-chip').classList.add('active');
+        });
+    });
+
     // ====================
     // UTILITY FUNCTIONS
     // ====================

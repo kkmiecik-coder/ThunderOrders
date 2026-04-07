@@ -44,24 +44,6 @@
                 </button>
             </div>
             <div class="page-header-right">
-                <div class="quick-filters">
-                    <a href="{{ url_for('orders.admin_list') }}"
-                       class="filter-btn {% if not request.args.get('order_type') %}active{% endif %}">
-                        Wszystkie
-                    </a>
-                    <a href="{{ url_for('orders.admin_list', order_type='pre_order') }}"
-                       class="filter-btn {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
-                        Pre-order
-                    </a>
-                    <a href="{{ url_for('orders.admin_list', order_type='on_hand') }}"
-                       class="filter-btn {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
-                        On-hand
-                    </a>
-                    <a href="{{ url_for('orders.admin_list', order_type='offer') }}"
-                       class="filter-btn {% if request.args.get('order_type') == 'offer' %}active{% endif %}">
-                        Exclusive
-                    </a>
-                </div>
                 <!-- Filter Icon Button -->
                 <button class="btn btn-icon" id="openFiltersBtn" title="Otwórz filtry">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -77,6 +59,11 @@
     {% if request.args.get('date_to') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.get('search') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.get('products') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+    {% if request.args.get('order_type') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+    {% if request.args.get('pay_e1') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+    {% if request.args.get('pay_e2') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+    {% if request.args.get('pay_e3') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+    {% if request.args.get('pay_e4') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
     {% if request.args.getlist('status') %}{% set active_filters.count = active_filters.count + request.args.getlist('status')|length %}{% endif %}
 
     <div class="filters-modal" id="filtersModal">
@@ -95,10 +82,38 @@
             <!-- Modal Body (scrollable) -->
             <div class="filters-modal-body">
                 <form method="get" action="{{ url_for('orders.admin_list') }}" id="filterForm">
-            <form method="get" action="{{ url_for('orders.admin_list') }}" id="filterForm">
                 <div class="filters-grid">
+                    <!-- Order Type -->
+                    <div class="form-group form-group-full">
+                        <label class="form-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                                <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                            </svg>
+                            Typ zamówienia
+                        </label>
+                        <div class="order-type-filter-grid">
+                            <label class="order-type-chip {% if not request.args.get('order_type') %}active{% endif %}">
+                                <input type="radio" name="order_type" value="" {% if not request.args.get('order_type') %}checked{% endif %}>
+                                Wszystkie
+                            </label>
+                            <label class="order-type-chip {% if request.args.get('order_type') == 'pre_order' %}active{% endif %}">
+                                <input type="radio" name="order_type" value="pre_order" {% if request.args.get('order_type') == 'pre_order' %}checked{% endif %}>
+                                Pre-order
+                            </label>
+                            <label class="order-type-chip {% if request.args.get('order_type') == 'on_hand' %}active{% endif %}">
+                                <input type="radio" name="order_type" value="on_hand" {% if request.args.get('order_type') == 'on_hand' %}checked{% endif %}>
+                                On-hand
+                            </label>
+                            <label class="order-type-chip {% if request.args.get('order_type') == 'offer' %}active{% endif %}">
+                                <input type="radio" name="order_type" value="offer" {% if request.args.get('order_type') == 'offer' %}checked{% endif %}>
+                                Exclusive
+                            </label>
+                        </div>
+                    </div>
+
                     <!-- Search -->
-                    <div class="form-group form-group-search">
+                    <div class="form-group form-group-full">
                         <label class="form-label">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <circle cx="11" cy="11" r="8"></circle>
@@ -106,13 +121,7 @@
                             </svg>
                             Szukaj
                         </label>
-                        <div class="input-icon-wrapper">
-                            <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <path d="m21 21-4.35-4.35"></path>
-                            </svg>
-                            {{ filter_form.search(class="form-input form-input-icon", placeholder="Numer, klient, email...") }}
-                        </div>
+                        {{ filter_form.search(class="form-input", placeholder="Numer, klient, email...") }}
                     </div>
 
                     <!-- Date range -->
@@ -140,6 +149,35 @@
                             Data do
                         </label>
                         {{ filter_form.date_to(class="form-input") }}
+                    </div>
+
+                    <!-- Payment Stage Filters -->
+                    <div class="form-group form-group-full">
+                        <label class="form-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                                <line x1="1" y1="10" x2="23" y2="10"></line>
+                            </svg>
+                            Płatności
+                        </label>
+                        <div class="payment-filters-grid">
+                            <div class="payment-filter-item">
+                                <span class="payment-filter-label">E1: Produkt</span>
+                                {{ filter_form.pay_e1(class="form-input form-select-sm") }}
+                            </div>
+                            <div class="payment-filter-item">
+                                <span class="payment-filter-label">E2: Wysyłka KR</span>
+                                {{ filter_form.pay_e2(class="form-input form-select-sm") }}
+                            </div>
+                            <div class="payment-filter-item">
+                                <span class="payment-filter-label">E3: Cło/VAT</span>
+                                {{ filter_form.pay_e3(class="form-input form-select-sm") }}
+                            </div>
+                            <div class="payment-filter-item">
+                                <span class="payment-filter-label">E4: Wysyłka PL</span>
+                                {{ filter_form.pay_e4(class="form-input form-select-sm") }}
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Status filter (mobile only) -->
@@ -219,7 +257,7 @@
     </div>
 
     <!-- Active Filters Tags -->
-    {% set has_active_filters = request.args.get('date_from') or request.args.get('date_to') or request.args.get('search') or request.args.get('order_type') or request.args.get('products') or request.args.getlist('status') %}
+    {% set has_active_filters = request.args.get('date_from') or request.args.get('date_to') or request.args.get('search') or request.args.get('order_type') or request.args.get('products') or request.args.getlist('status') or request.args.get('pay_e1') or request.args.get('pay_e2') or request.args.get('pay_e3') or request.args.get('pay_e4') %}
     {% if has_active_filters %}
     <div class="active-filters-bar">
         <span class="active-filters-label">Aktywne filtry:</span>
@@ -279,6 +317,39 @@
                 </svg>
             </a>
             {% endfor %}
+            {% set pay_status_labels = {'none': 'Brak', 'pending': 'Oczekujące', 'approved': 'Zatwierdzone', 'rejected': 'Odrzucone'} %}
+            {% if request.args.get('pay_e1') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('pay_e1')) }}" class="filter-tag">
+                <span>E1 Produkt: {{ pay_status_labels.get(request.args.get('pay_e1'), request.args.get('pay_e1')) }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('pay_e2') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('pay_e2')) }}" class="filter-tag">
+                <span>E2 Wysyłka KR: {{ pay_status_labels.get(request.args.get('pay_e2'), request.args.get('pay_e2')) }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('pay_e3') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('pay_e3')) }}" class="filter-tag">
+                <span>E3 Cło/VAT: {{ pay_status_labels.get(request.args.get('pay_e3'), request.args.get('pay_e3')) }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if request.args.get('pay_e4') %}
+            <a href="{{ url_for('orders.admin_list', **request.args|reject_key('pay_e4')) }}" class="filter-tag">
+                <span>E4 Wysyłka PL: {{ pay_status_labels.get(request.args.get('pay_e4'), request.args.get('pay_e4')) }}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+            </a>
+            {% endif %}
         </div>
         <a href="{{ url_for('orders.admin_list') }}" class="clear-all-filters">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

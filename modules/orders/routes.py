@@ -146,6 +146,31 @@ def admin_list():
         except ValueError:
             pass  # Invalid product IDs, skip filter
 
+    # Payment stage filters
+    from modules.orders.models import PaymentConfirmation
+    stage_map = {
+        'pay_e1': 'product',
+        'pay_e2': 'korean_shipping',
+        'pay_e3': 'customs_vat',
+        'pay_e4': 'domestic_shipping',
+    }
+    for field_name, stage_value in stage_map.items():
+        filter_val = getattr(filter_form, field_name).data
+        if filter_val:
+            if filter_val == 'none':
+                # Orders with no PaymentConfirmation for this stage
+                no_conf_subquery = db.session.query(PaymentConfirmation.order_id).filter(
+                    PaymentConfirmation.payment_stage == stage_value
+                ).subquery()
+                query = query.filter(~Order.id.in_(no_conf_subquery))
+            else:
+                # Orders with specific status for this stage
+                conf_subquery = db.session.query(PaymentConfirmation.order_id).filter(
+                    PaymentConfirmation.payment_stage == stage_value,
+                    PaymentConfirmation.status == filter_val
+                ).subquery()
+                query = query.filter(Order.id.in_(conf_subquery))
+
     # Sorting
     sort_by = request.args.get('sort', 'created_at')
     sort_order = request.args.get('order', 'desc')

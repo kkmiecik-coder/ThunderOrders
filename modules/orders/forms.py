@@ -89,6 +89,39 @@ class OrderFilterForm(FlaskForm):
         description='Comma-separated product IDs'
     )
 
+    # Payment stage filters
+    PAYMENT_STATUS_CHOICES = [
+        ('', 'Wszystkie'),
+        ('none', 'Brak'),
+        ('pending', 'Oczekujące'),
+        ('approved', 'Zatwierdzone'),
+        ('rejected', 'Odrzucone'),
+    ]
+
+    pay_e1 = SelectField(
+        'E1: Produkt',
+        choices=PAYMENT_STATUS_CHOICES,
+        validators=[Optional()]
+    )
+
+    pay_e2 = SelectField(
+        'E2: Wysyłka KR',
+        choices=PAYMENT_STATUS_CHOICES,
+        validators=[Optional()]
+    )
+
+    pay_e3 = SelectField(
+        'E3: Cło/VAT',
+        choices=PAYMENT_STATUS_CHOICES,
+        validators=[Optional()]
+    )
+
+    pay_e4 = SelectField(
+        'E4: Wysyłka PL',
+        choices=PAYMENT_STATUS_CHOICES,
+        validators=[Optional()]
+    )
+
     submit = SubmitField('Filtruj')
 
 
