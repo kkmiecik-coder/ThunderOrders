@@ -928,54 +928,89 @@ window.toggleOrderItems = function(orderId, totalItems) {
             submitBtn.textContent = 'Przesyłanie...';
         }
 
-        var csrfToken = document.querySelector('meta[name="csrf-token"]');
-        var headers = { 'X-Requested-With': 'XMLHttpRequest' };
-        if (csrfToken) headers['X-CSRFToken'] = csrfToken.content;
+        function doUpload(retryCount) {
+            var csrfToken = document.querySelector('meta[name="csrf-token"]');
+            var headers = { 'X-Requested-With': 'XMLHttpRequest' };
+            if (csrfToken) headers['X-CSRFToken'] = csrfToken.content;
 
-        fetch('/client/payment-confirmations/upload', {
-            method: 'POST',
-            body: formData,
-            headers: headers
-        })
-            .then(function (response) {
-                if (!response.ok && response.status === 413) {
-                    throw new Error('Plik jest za duży. Maksymalny rozmiar: 5MB.');
-                }
-                return response.json().catch(function () {
-                    throw new Error('Serwer zwrócił błąd (kod ' + response.status + '). Spróbuj ponownie.');
-                });
+            fetch('/client/payment-confirmations/upload', {
+                method: 'POST',
+                body: formData,
+                headers: headers
             })
-            .then(function (data) {
-                if (data.success) {
-                    showToast(data.message, 'success');
-                    // Zamknij modal
-                    closePaymentModal();
-                    // Zaktualizuj karty — zmień etapy na "Weryfikacja"
-                    if (data.updated_stages) {
-                        data.updated_stages.forEach(function (us) {
-                            updateCardStageStatus(us.order_id, us.stage, us.status);
+                .then(function (response) {
+                    if (!response.ok && response.status === 413) {
+                        throw new Error('Plik jest za duży. Maksymalny rozmiar: 5MB.');
+                    }
+                    // CSRF token expired — refresh token and retry once
+                    if (response.status === 400 && retryCount === 0) {
+                        return response.text().then(function (text) {
+                            if (text.indexOf('CSRF') !== -1 || text.indexOf('csrf') !== -1 || text.indexOf('token') !== -1) {
+                                return fetch(window.location.href).then(function (pageResp) {
+                                    return pageResp.text();
+                                }).then(function (html) {
+                                    var match = html.match(/meta name="csrf-token" content="([^"]+)"/);
+                                    if (match) {
+                                        var meta = document.querySelector('meta[name="csrf-token"]');
+                                        if (meta) meta.content = match[1];
+                                    }
+                                    doUpload(1);
+                                    return null;
+                                });
+                            }
+                            // Not CSRF — try to parse as JSON
+                            try {
+                                var data = JSON.parse(text);
+                                return data;
+                            } catch (e) {
+                                throw new Error('Serwer zwrócił błąd (kod ' + response.status + '). Spróbuj ponownie.');
+                            }
                         });
                     }
-                    // Wyczyść selekcję
-                    selectedOrders.clear();
-                    selectedStages.clear();
-                    document.querySelectorAll('.order-checkbox').forEach(function (cb) {
-                        cb.checked = false;
+                    return response.json().catch(function () {
+                        throw new Error('Serwer zwrócił błąd (kod ' + response.status + '). Spróbuj ponownie.');
                     });
-                    document.querySelectorAll('.pc-order-card').forEach(function (card) {
-                        card.classList.remove('selected');
-                    });
-                    updateUI();
-                } else {
-                    showToast(data.message || 'Błąd podczas przesyłania.', 'error');
+                })
+                .then(function (data) {
+                    if (!data) return; // retry in progress
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                        closePaymentModal();
+                        if (data.updated_stages) {
+                            data.updated_stages.forEach(function (us) {
+                                updateCardStageStatus(us.order_id, us.stage, us.status);
+                            });
+                        }
+                        selectedOrders.clear();
+                        selectedStages.clear();
+                        document.querySelectorAll('.order-checkbox').forEach(function (cb) {
+                            cb.checked = false;
+                        });
+                        document.querySelectorAll('.pc-order-card').forEach(function (card) {
+                            card.classList.remove('selected');
+                        });
+                        updateUI();
+                    } else {
+                        showToast(data.message || 'Błąd podczas przesyłania.', 'error');
+                        resetSubmitBtn();
+                    }
+                })
+                .catch(function (error) {
+                    console.error('Upload error:', error);
+                    if (error.message === 'Failed to fetch' && retryCount === 0) {
+                        // Network error — retry once after short delay
+                        setTimeout(function () { doUpload(1); }, 1500);
+                        return;
+                    }
+                    var msg = error.message === 'Failed to fetch'
+                        ? 'Błąd połączenia z serwerem. Sprawdź internet i spróbuj ponownie.'
+                        : (error.message || 'Błąd połączenia. Spróbuj ponownie.');
+                    showToast(msg, 'error');
                     resetSubmitBtn();
-                }
-            })
-            .catch(function (error) {
-                console.error('Upload error:', error);
-                showToast(error.message || 'Błąd połączenia. Spróbuj ponownie.', 'error');
-                resetSubmitBtn();
-            });
+                });
+        }
+
+        doUpload(0);
     }
 
     function resetSubmitBtn() {
