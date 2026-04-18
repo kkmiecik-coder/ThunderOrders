@@ -11,7 +11,7 @@
 
                 // Check for updates every 60 min
                 setInterval(function () {
-                    registration.update();
+                    registration.update().catch(function () {});
                 }, 60 * 60 * 1000);
             })
             .catch(function (err) {
