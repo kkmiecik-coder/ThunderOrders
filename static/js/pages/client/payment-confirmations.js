@@ -1002,15 +1002,65 @@ window.toggleOrderItems = function(orderId, totalItems) {
                         setTimeout(function () { doUpload(1); }, 1500);
                         return;
                     }
-                    var msg = error.message === 'Failed to fetch'
-                        ? 'Błąd połączenia z serwerem. Sprawdź internet i spróbuj ponownie.'
-                        : (error.message || 'Błąd połączenia. Spróbuj ponownie.');
+                    if (error.message === 'Failed to fetch') {
+                        // Retry also failed — fallback to traditional form submit
+                        fallbackFormSubmit(formData, orderStagesArr);
+                        return;
+                    }
+                    var msg = error.message || 'Błąd połączenia. Spróbuj ponownie.';
                     showToast(msg, 'error');
                     resetSubmitBtn();
                 });
         }
 
         doUpload(0);
+    }
+
+    function fallbackFormSubmit(formData, orderStagesArr) {
+        // Create a hidden traditional HTML form and submit it (no fetch needed)
+        var form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/client/payment-confirmations/upload';
+        form.enctype = 'multipart/form-data';
+        form.style.display = 'none';
+
+        // CSRF token
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) {
+            var csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrf_token';
+            csrfInput.value = csrfMeta.content;
+            form.appendChild(csrfInput);
+        }
+
+        // Order stages
+        var stagesInput = document.createElement('input');
+        stagesInput.type = 'hidden';
+        stagesInput.name = 'order_stages';
+        stagesInput.value = JSON.stringify(orderStagesArr);
+        form.appendChild(stagesInput);
+
+        // Payment method
+        var activeTile = document.querySelector('.pc-method-tile.active');
+        if (activeTile) {
+            var pmInput = document.createElement('input');
+            pmInput.type = 'hidden';
+            pmInput.name = 'payment_method_id';
+            pmInput.value = activeTile.dataset.methodId;
+            form.appendChild(pmInput);
+        }
+
+        // File — clone from the original input
+        var proofInput = document.getElementById('proof-file');
+        if (proofInput && proofInput.files[0]) {
+            var clonedInput = proofInput.cloneNode(true);
+            clonedInput.name = 'proof_file';
+            form.appendChild(clonedInput);
+        }
+
+        document.body.appendChild(form);
+        form.submit();
     }
 
     function resetSubmitBtn() {
