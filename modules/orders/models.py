@@ -767,6 +767,7 @@ class Order(db.Model):
         Dozwolone statusy obejmują różne etapy realizacji zamówienia,
         aby klient mógł wgrać potwierdzenie nawet jeśli zapomni na etapie 'oczekujace'.
         Pre-order: 'nowe' jest dozwolone (klient płaci od razu po złożeniu).
+        Exclusive: wymagane is_fully_closed na stronie offer (płatność dopiero po zamknięciu sprzedaży).
         """
         allowed_statuses = [
             'oczekujace',
@@ -776,6 +777,10 @@ class Order(db.Model):
             'dostarczone_gom',
             'spakowane',
         ]
+
+        # Exclusive: płatność dostępna dopiero po zamknięciu strony offer
+        if self.order_type == 'exclusive' and self.offer_page and not self.offer_page.is_fully_closed:
+            return False
 
         # Pre-order i on-hand: 'nowe' jest dozwolone (klient płaci od razu)
         if self.order_type in ('pre_order', 'on_hand') and self.status == 'nowe':

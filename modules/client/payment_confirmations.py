@@ -93,6 +93,8 @@ def payment_confirmations():
     # - Offer orders (exclusive/pre-order): muszą mieć offer_page_id
     # - On-hand orders: nie mają offer_page_id, ale mają payment_stages=2
     # - Pre-order/on-hand: 'nowe' też dozwolone (klient płaci od razu)
+    # - Exclusive: widoczne dopiero po zamknięciu strony offer (is_fully_closed)
+    from modules.offers.models import OfferPage
     all_orders = Order.query.filter(
         Order.user_id == current_user.id,
         db.or_(
@@ -106,6 +108,14 @@ def payment_confirmations():
             db.and_(Order.order_type.in_(['pre_order', 'on_hand']), Order.status == 'nowe')
         )
     ).order_by(Order.created_at.desc()).all()
+
+    # Filtruj exclusive zamówienia: pokaż tylko gdy strona jest zamknięta (is_fully_closed)
+    all_orders = [
+        order for order in all_orders
+        if order.order_type != 'exclusive'
+        or not order.offer_page
+        or order.offer_page.is_fully_closed
+    ]
 
     # Podział: zamówienia do opłacenia vs w pełni opłacone
     orders = []
