@@ -290,27 +290,17 @@ def score_transfer_title(text, order_numbers):
     return score, details
 
 
-def score_recipient(text, payment_method):
+def _check_method_against_text(text_upper, text_normalized, text_raw, method):
     """
-    Ocenia czy dane odbiorcy pasują do wybranej metody płatności. Max 20 punktów.
-
-    Args:
-        text: str — tekst OCR
-        payment_method: PaymentMethod object lub None
+    Sprawdza dopasowanie jednej metody płatności do tekstu OCR.
 
     Returns:
-        tuple(int, dict): (score, details)
+        tuple(list, list): (searched, found)
     """
-    if not payment_method:
-        return 0, {'match': 'no_method', 'searched': []}
-
-    text_upper = text.upper()
-    text_normalized = re.sub(r'\s', '', text_upper)
     searched = []
     found = []
 
-    # Sprawdź dane zależne od metody
-    method_name = (payment_method.name or '').lower()
+    method_name = (method.name or '').lower()
 
     # Nazwa/keyword metody (PayPal, Revolut, BLIK)
     if method_name in ('paypal', 'revolut', 'blik'):
@@ -320,30 +310,27 @@ def score_recipient(text, payment_method):
             found.append(f"keyword:{keyword}")
 
     # Numer konta (dla przelewu tradycyjnego)
-    if payment_method.account_number:
-        account = payment_method.account_number.strip()
+    if method.account_number:
+        account = method.account_number.strip()
         account_normalized = re.sub(r'\s', '', account)
         searched.append(f"account:{account}")
 
-        # Szukaj pełnego lub częściowego numeru konta
         if account_normalized in text_normalized:
             found.append(f"account:full")
         else:
-            # Szukaj fragmentów (ostatnie 8 cyfr, środkowe fragmenty)
             digits_only = re.sub(r'\D', '', account_normalized)
             if len(digits_only) >= 8:
                 last8 = digits_only[-8:]
-                if last8 in re.sub(r'\D', '', text):
+                if last8 in re.sub(r'\D', '', text_raw):
                     found.append(f"account:partial")
 
     # Odbiorca (imię/nazwisko)
-    if payment_method.recipient:
-        recipient = payment_method.recipient.strip()
+    if method.recipient:
+        recipient = method.recipient.strip()
         searched.append(f"recipient:{recipient}")
         if recipient.upper() in text_upper:
             found.append(f"recipient:{recipient}")
         else:
-            # Szukaj poszczególnych słów
             words = recipient.split()
             for word in words:
                 if len(word) >= 3 and word.upper() in text_upper:
@@ -351,11 +338,36 @@ def score_recipient(text, payment_method):
                     break
 
     # Kod (SWIFT, Revtag)
-    if payment_method.code:
-        code = payment_method.code.strip()
+    if method.code:
+        code = method.code.strip()
         searched.append(f"code:{code}")
         if code.upper() in text_upper:
             found.append(f"code:{code}")
+
+    return searched, found
+
+
+def score_recipient(text, payment_method, all_payment_methods=None):
+    """
+    Ocenia czy dane odbiorcy pasują do wybranej metody płatności. Max 20 punktów.
+    Fallback: jeśli wybrana metoda daje słaby wynik, sprawdza inne metody z niższą punktacją.
+
+    Args:
+        text: str — tekst OCR
+        payment_method: PaymentMethod object lub None (wybrana przez klienta)
+        all_payment_methods: list[PaymentMethod] lub None (wszystkie aktywne metody, do fallback)
+
+    Returns:
+        tuple(int, dict): (score, details)
+    """
+    if not payment_method:
+        return 0, {'match': 'no_method', 'searched': []}
+
+    text_upper = text.upper()
+    text_normalized = re.sub(r'\s', '', text_upper)
+
+    # Sprawdź wybraną metodę
+    searched, found = _check_method_against_text(text_upper, text_normalized, text, payment_method)
 
     details = {
         'method': payment_method.name,
@@ -363,15 +375,41 @@ def score_recipient(text, payment_method):
         'found': found,
     }
 
-    if not found:
-        details['match'] = 'none'
-        return 0, details
-    elif len(found) >= 2:
+    if len(found) >= 2:
         details['match'] = 'strong'
         return 20, details
-    else:
+
+    # Fallback: sprawdź inne metody płatności (niższa punktacja — max 16 pkt)
+    if all_payment_methods:
+        best_fallback_found = []
+        best_fallback_method = None
+
+        for other_method in all_payment_methods:
+            if other_method.id == payment_method.id:
+                continue
+            _, other_found = _check_method_against_text(text_upper, text_normalized, text, other_method)
+            if len(other_found) > len(best_fallback_found):
+                best_fallback_found = other_found
+                best_fallback_method = other_method
+
+        if len(best_fallback_found) >= 2:
+            details['match'] = 'fallback_strong'
+            details['fallback_method'] = best_fallback_method.name
+            details['fallback_found'] = best_fallback_found
+            return 16, details
+        elif len(best_fallback_found) > len(found):
+            details['match'] = 'fallback_partial'
+            details['fallback_method'] = best_fallback_method.name
+            details['fallback_found'] = best_fallback_found
+            return 12, details
+
+    # Wynik z wybranej metody
+    if found:
         details['match'] = 'partial'
         return 12, details
+
+    details['match'] = 'none'
+    return 0, details
 
 
 def score_readability(text):
@@ -407,7 +445,7 @@ def score_readability(text):
 # MAIN VERIFY FUNCTION
 # ========================
 
-def verify_payment_proof(filepath, expected_amount, order_numbers, payment_method=None):
+def verify_payment_proof(filepath, expected_amount, order_numbers, payment_method=None, all_payment_methods=None):
     """
     Główna funkcja weryfikacji potwierdzenia płatności.
 
@@ -416,6 +454,7 @@ def verify_payment_proof(filepath, expected_amount, order_numbers, payment_metho
         expected_amount: Decimal — oczekiwana kwota sumaryczna
         order_numbers: list[str] — numery zamówień (np. ['EX/00000002', 'EX/00000001'])
         payment_method: PaymentMethod object lub None
+        all_payment_methods: list[PaymentMethod] lub None — do fallback w score_recipient
 
     Returns:
         dict: {
@@ -469,7 +508,7 @@ def verify_payment_proof(filepath, expected_amount, order_numbers, payment_metho
 
     title_score, title_details = score_transfer_title(text, order_numbers)
 
-    recipient_score, recipient_details = score_recipient(text, payment_method)
+    recipient_score, recipient_details = score_recipient(text, payment_method, all_payment_methods)
 
     readability_score, readability_details = score_readability(text)
 

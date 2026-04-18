@@ -950,6 +950,9 @@ def register_cli_commands(app):
                 by_file[conf.proof_file] = []
             by_file[conf.proof_file].append(conf)
 
+        # Wszystkie aktywne metody płatności (do fallback)
+        all_methods = PaymentMethod.get_active()
+
         processed = 0
         skipped = 0
         errors = 0
@@ -988,7 +991,8 @@ def register_cli_commands(app):
                     filepath=filepath,
                     expected_amount=total_expected,
                     order_numbers=order_numbers,
-                    payment_method=pm_obj
+                    payment_method=pm_obj,
+                    all_payment_methods=all_methods
                 )
 
                 score = result.get('score')

@@ -67,13 +67,17 @@ def _process_ocr_internal(task_data):
     if payment_method_id:
         pm_obj = PaymentMethod.query.get(payment_method_id)
 
+    # Pobierz wszystkie aktywne metody (do fallback w score_recipient)
+    all_methods = PaymentMethod.get_active()
+
     # Uruchom OCR
     try:
         ocr_result = verify_payment_proof(
             filepath=proof_filepath,
             expected_amount=total_expected,
             order_numbers=order_numbers,
-            payment_method=pm_obj
+            payment_method=pm_obj,
+            all_payment_methods=all_methods
         )
     except Exception as e:
         logger.error(f"OCR background verification error: {e}")
