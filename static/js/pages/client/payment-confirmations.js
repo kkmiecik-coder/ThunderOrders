@@ -835,6 +835,10 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
     // === UPLOAD ===
 
+    // Buforowany plik — kopia w pamięci przeglądarki (zapobiega ERR_UPLOAD_FILE_CHANGED
+    // gdy plik pochodzi z Google Drive lub innego wirtualnego źródła)
+    var bufferedFile = null;
+
     function handleFileSelect(event) {
         var file = event.target.files[0];
 
@@ -842,6 +846,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
         if (!file) {
             filePreview.innerHTML = '';
+            bufferedFile = null;
             return;
         }
 
@@ -850,6 +855,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
             showToast('Plik jest za duży. Maksymalny rozmiar: 5MB.', 'error');
             event.target.value = '';
             filePreview.innerHTML = '';
+            bufferedFile = null;
             return;
         }
 
@@ -858,8 +864,22 @@ window.toggleOrderItems = function(orderId, totalItems) {
             showToast('Nieprawidłowy format pliku. Dozwolone: JPG, PNG, PDF.', 'error');
             event.target.value = '';
             filePreview.innerHTML = '';
+            bufferedFile = null;
             return;
         }
+
+        // Skopiuj plik do pamięci przeglądarki (ArrayBuffer → File)
+        // aby uniknąć ERR_UPLOAD_FILE_CHANGED z Google Drive / chmury
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var arrayBuffer = e.target.result;
+            bufferedFile = new File(
+                [arrayBuffer],
+                file.name,
+                { type: file.type, lastModified: file.lastModified }
+            );
+        };
+        reader.readAsArrayBuffer(file);
 
         var sizeKb = (file.size / 1024).toFixed(1);
         var fileInfoHtml = '<div class="pc-file-info">' +
@@ -869,13 +889,13 @@ window.toggleOrderItems = function(orderId, totalItems) {
             '</div>';
 
         if (file.type.startsWith('image/')) {
-            var reader = new FileReader();
-            reader.onload = function (e) {
+            var imgReader = new FileReader();
+            imgReader.onload = function (ev) {
                 filePreview.innerHTML =
-                    '<div class="pc-image-preview"><img src="' + e.target.result + '" alt="Preview"></div>' +
+                    '<div class="pc-image-preview"><img src="' + ev.target.result + '" alt="Preview"></div>' +
                     fileInfoHtml;
             };
-            reader.readAsDataURL(file);
+            imgReader.readAsDataURL(file);
         } else {
             filePreview.innerHTML = fileInfoHtml;
         }
@@ -885,7 +905,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
         event.preventDefault();
 
         // Check if file uploaded via QR or local file
-        var hasLocalFile = proofFileInput && proofFileInput.files[0];
+        var hasLocalFile = bufferedFile || (proofFileInput && proofFileInput.files[0]);
         var hasQrFile = qrUploadedFilename && currentQrSessionToken;
 
         if (!hasLocalFile && !hasQrFile) {
@@ -913,7 +933,9 @@ window.toggleOrderItems = function(orderId, totalItems) {
         if (hasQrFile) {
             formData.append('qr_session_token', currentQrSessionToken);
         } else {
-            formData.append('proof_file', proofFileInput.files[0]);
+            // Użyj buforowanego pliku (kopia w pamięci) jeśli dostępny,
+            // fallback na oryginalny input (dla starszych przeglądarek)
+            formData.append('proof_file', bufferedFile || proofFileInput.files[0]);
         }
         formData.append('order_stages', JSON.stringify(orderStagesArr));
 
