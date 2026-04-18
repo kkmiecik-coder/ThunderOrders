@@ -906,6 +906,117 @@ def register_cli_commands(app):
                    f'Pominięto: {skipped_count}')
 
 
+    @app.cli.command('reprocess-ocr')
+    @click.option('--dry-run', is_flag=True, help='Tylko wyświetl potwierdzenia do przetworzenia, nie uruchamiaj OCR')
+    @click.option('--all', 'reprocess_all', is_flag=True, help='Przetwórz WSZYSTKIE potwierdzenia (nie tylko score=0/NULL)')
+    def reprocess_ocr(dry_run, reprocess_all):
+        """Ponownie przetwarza OCR dla potwierdzeń płatności z wynikiem 0% lub NULL."""
+        import json as _json
+        from modules.orders.models import PaymentConfirmation, Order, get_local_now
+        from modules.payments.models import PaymentMethod
+        from utils.ocr_verifier import verify_payment_proof, TESSERACT_AVAILABLE
+
+        if not TESSERACT_AVAILABLE:
+            click.echo('BŁĄD: Tesseract OCR nie jest dostępny. Zainstaluj: apt install tesseract-ocr tesseract-ocr-pol')
+            return
+
+        upload_folder = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            'uploads', 'payment_confirmations'
+        )
+
+        # Znajdź potwierdzenia do przetworzenia
+        query = PaymentConfirmation.query.filter(
+            PaymentConfirmation.proof_file.isnot(None)
+        )
+        if not reprocess_all:
+            query = query.filter(
+                db.or_(
+                    PaymentConfirmation.ocr_score.is_(None),
+                    PaymentConfirmation.ocr_score == 0
+                )
+            )
+
+        confirmations = query.all()
+        click.echo(f'Znaleziono {len(confirmations)} potwierdzeń do przetworzenia')
+
+        if not confirmations:
+            return
+
+        # Grupuj po proof_file (jeden plik może mieć wiele confirmation records)
+        by_file = {}
+        for conf in confirmations:
+            if conf.proof_file not in by_file:
+                by_file[conf.proof_file] = []
+            by_file[conf.proof_file].append(conf)
+
+        processed = 0
+        skipped = 0
+        errors = 0
+
+        for filename, confs in by_file.items():
+            filepath = os.path.join(upload_folder, filename)
+
+            if not os.path.exists(filepath):
+                click.echo(f'  POMINIĘTO: {filename} — plik nie istnieje')
+                skipped += len(confs)
+                continue
+
+            # Zbierz dane do weryfikacji z pierwszego confirmation
+            first_conf = confs[0]
+            order = first_conf.order
+
+            # Zbierz numery zamówień powiązane z tym plikiem
+            order_numbers = list(set(c.order.order_number for c in confs if c.order))
+
+            # Oblicz łączną oczekiwaną kwotę
+            total_expected = sum(c.amount for c in confs if c.amount)
+
+            # Metoda płatności
+            pm_obj = first_conf.payment_method
+
+            if dry_run:
+                click.echo(f'  [DRY RUN] {filename} — {len(confs)} rekord(ów), '
+                           f'zamówienia: {", ".join(order_numbers)}, '
+                           f'kwota: {total_expected} PLN')
+                processed += len(confs)
+                continue
+
+            # Uruchom OCR
+            try:
+                result = verify_payment_proof(
+                    filepath=filepath,
+                    expected_amount=total_expected,
+                    order_numbers=order_numbers,
+                    payment_method=pm_obj
+                )
+
+                score = result.get('score')
+                details_json = _json.dumps(result.get('details', {}), ensure_ascii=False)
+
+                for conf in confs:
+                    conf.ocr_score = score
+                    conf.ocr_details = details_json
+
+                processed += len(confs)
+
+                # Podgląd wyniku
+                raw_preview = result.get('details', {}).get('raw_text_preview', '')[:80]
+                click.echo(f'  OK: {filename} — score: {score}%, '
+                           f'zamówienia: {", ".join(order_numbers)}, '
+                           f'tekst: "{raw_preview}..."')
+
+            except Exception as e:
+                click.echo(f'  BŁĄD: {filename} — {e}')
+                errors += len(confs)
+
+        if not dry_run:
+            db.session.commit()
+
+        prefix = '[DRY RUN] ' if dry_run else ''
+        click.echo(f'\n{prefix}Gotowe. Przetworzono: {processed}, Pominięto: {skipped}, Błędów: {errors}')
+
+
 def register_error_handlers(app):
     """Rejestruje handlery dla błędów HTTP"""
 
