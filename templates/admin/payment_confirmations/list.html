@@ -585,7 +585,13 @@
      ================================ -->
 <div class="pc-lightbox" id="pcLightbox">
     <button type="button" class="pc-lightbox-close" onclick="closeLightbox()" aria-label="Zamknij">&times;</button>
-    <img id="pcLightboxImage" class="pc-lightbox-image" alt="Dowód wpłaty">
+    <div id="pcLightboxLoading" class="pc-lightbox-loading" style="display: none;">
+        <div class="pc-lightbox-spinner"></div>
+        <div class="pc-lightbox-loading-text">Ładowanie obrazu...</div>
+    </div>
+    <div class="pc-lightbox-image-wrap" id="pcLightboxImageWrap">
+        <img id="pcLightboxImage" class="pc-lightbox-image" alt="Dowód wpłaty">
+    </div>
     <iframe id="pcLightboxPdf" class="pc-lightbox-pdf" style="display: none;"></iframe>
     <div class="pc-lightbox-info" id="pcLightboxInfo"></div>
     <div class="pc-lightbox-counter" id="pcLightboxCounter"></div>
@@ -601,6 +607,14 @@
                 <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
             </svg>
             Odrzuć
+        </button>
+        <button type="button" class="pc-btn pc-btn-open-pdf" id="pcLightboxOpenPdf" style="display: none;" onclick="openLightboxPdfInNewTab()" aria-label="Otwórz PDF w nowej karcie">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Nowa karta
         </button>
     </div>
 </div>
@@ -669,5 +683,6 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='vendor/panzoom/panzoom.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/payment-confirmations.js') }}"></script>
 {% endblock %}

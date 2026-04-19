@@ -748,12 +748,60 @@
     opacity: 1;
 }
 
-.pc-lightbox-image {
+/* Wrapper dla obrazu — stała przestrzeń robocza dla panzoom (pan/zoom przez CSS transform) */
+.pc-lightbox-image-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
     max-width: 90%;
-    max-height: 70vh;
+    height: 70vh;
+    overflow: hidden;
+    touch-action: none; /* Wyłącz natywne gesty przeglądarki — panzoom zarządza */
+}
+
+.pc-lightbox-image {
+    max-width: 100%;
+    max-height: 100%;
     border-radius: 8px;
     box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
     object-fit: contain;
+    cursor: grab;
+    will-change: transform;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.pc-lightbox-image:active {
+    cursor: grabbing;
+}
+
+/* Przycisk "Nowa karta" — widoczny tylko dla PDF, renderowany w .pc-lightbox-actions
+   obok Akceptuj / Odrzuć. Lightbox ma ciemne tło (rgba(0,0,0,0.85)) niezależnie
+   od motywu, więc styl jest jeden, ale dodany wariant dark dla pewności. */
+.pc-btn-open-pdf {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    border: 1px solid rgba(240, 147, 251, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.pc-btn-open-pdf:hover:not(:disabled) {
+    background: rgba(240, 147, 251, 0.2);
+    border-color: rgba(240, 147, 251, 0.7);
+    color: #fff;
+}
+
+[data-theme="dark"] .pc-btn-open-pdf {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .pc-btn-open-pdf:hover:not(:disabled) {
+    background: rgba(240, 147, 251, 0.25);
+    border-color: rgba(240, 147, 251, 0.6);
 }
 
 .pc-lightbox-pdf {
@@ -761,6 +809,49 @@
     height: 70vh;
     border: none;
     border-radius: 8px;
+}
+
+/* Loader dla lightboxa (pokazywany podczas preload obrazu) */
+.pc-lightbox-loading {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 200px;
+    padding: 40px;
+}
+
+.pc-lightbox-loading.active {
+    display: flex;
+}
+
+.pc-lightbox-spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid rgba(255, 255, 255, 0.15);
+    border-top-color: #f093fb;
+    border-radius: 50%;
+    animation: pc-lightbox-spin 0.8s linear infinite;
+}
+
+@keyframes pc-lightbox-spin {
+    to { transform: rotate(360deg); }
+}
+
+.pc-lightbox-loading-text {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.75);
+    text-align: center;
+}
+
+.pc-lightbox-loading.error .pc-lightbox-spinner {
+    display: none;
+}
+
+.pc-lightbox-loading.error .pc-lightbox-loading-text {
+    color: #f87171;
+    font-weight: 500;
 }
 
 .pc-lightbox-info {
@@ -1377,9 +1468,14 @@
         padding: 20px;
     }
 
+    .pc-lightbox-image-wrap {
+        max-width: 100%;
+        height: 60vh;
+    }
+
     .pc-lightbox-image {
         max-width: 100%;
-        max-height: 60vh;
+        max-height: 100%;
     }
 
     .pc-lightbox-actions {

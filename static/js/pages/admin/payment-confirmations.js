@@ -56,10 +56,112 @@
     // ================================
     var lightbox = document.getElementById('pcLightbox');
     var lightboxImage = document.getElementById('pcLightboxImage');
+    var lightboxImageWrap = document.getElementById('pcLightboxImageWrap');
     var lightboxPdf = document.getElementById('pcLightboxPdf');
     var lightboxInfo = document.getElementById('pcLightboxInfo');
     var lightboxCounter = document.getElementById('pcLightboxCounter');
     var lightboxActions = document.getElementById('pcLightboxActions');
+    var lightboxLoading = document.getElementById('pcLightboxLoading');
+    var lightboxOpenPdf = document.getElementById('pcLightboxOpenPdf');
+
+    // Token do anulowania nieaktualnych requestów, gdy user szybko przeskakuje między obrazami
+    var currentImageLoadToken = 0;
+    var currentPdfUrl = null;
+    var lightboxPanzoom = null;
+    var wheelHandlerAttached = false;
+
+    function destroyPanzoom() {
+        if (lightboxPanzoom) {
+            try { lightboxPanzoom.destroy(); } catch (e) { /* ignore */ }
+            lightboxPanzoom = null;
+        }
+        if (lightboxImage) {
+            lightboxImage.style.transform = '';
+        }
+    }
+
+    function initPanzoomForImage() {
+        destroyPanzoom();
+        if (typeof Panzoom !== 'function' || !lightboxImage) return;
+
+        lightboxPanzoom = Panzoom(lightboxImage, {
+            maxScale: 6,
+            minScale: 1,
+            step: 0.3,
+            animate: true,
+            cursor: 'grab',
+            origin: '50% 50%'  // Zoom/pan z centrum elementu (bez tego Panzoom używa '0 0' i rośnie w prawo-dół)
+        });
+
+        // Wheel zoom — zawsze z centrum obrazu (ignorujemy pozycję kursora)
+        if (lightbox && !wheelHandlerAttached) {
+            lightbox.addEventListener('wheel', function(e) {
+                if (!lightboxPanzoom) return;
+                if (!lightboxImage || lightboxImage.style.display === 'none') return;
+                e.preventDefault();
+
+                var currentScale = lightboxPanzoom.getScale();
+                var step = 0.15;
+                var newScale = e.deltaY < 0
+                    ? currentScale * (1 + step)
+                    : currentScale / (1 + step);
+
+                newScale = Math.max(1, Math.min(6, newScale));
+                lightboxPanzoom.zoom(newScale, { animate: false });
+            }, { passive: false });
+            wheelHandlerAttached = true;
+        }
+    }
+
+    window.openLightboxPdfInNewTab = function() {
+        if (currentPdfUrl) {
+            window.open(currentPdfUrl, '_blank', 'noopener,noreferrer');
+        }
+    };
+
+    function loadLightboxImage(url) {
+        if (!lightboxImage) return;
+
+        var token = ++currentImageLoadToken;
+
+        destroyPanzoom();
+        lightboxImage.style.display = 'none';
+        if (lightboxImageWrap) lightboxImageWrap.style.display = 'none';
+        if (lightboxLoading) {
+            lightboxLoading.classList.remove('error');
+            var textEl = lightboxLoading.querySelector('.pc-lightbox-loading-text');
+            if (textEl) textEl.textContent = 'Ładowanie obrazu...';
+            lightboxLoading.classList.add('active');
+        }
+
+        if (!url) {
+            if (lightboxLoading) {
+                lightboxLoading.classList.add('error');
+                var errText = lightboxLoading.querySelector('.pc-lightbox-loading-text');
+                if (errText) errText.textContent = 'Brak pliku do wyświetlenia';
+            }
+            return;
+        }
+
+        var preloader = new Image();
+        preloader.onload = function() {
+            if (token !== currentImageLoadToken) return;
+            lightboxImage.src = url;
+            lightboxImage.style.display = 'block';
+            if (lightboxImageWrap) lightboxImageWrap.style.display = 'flex';
+            if (lightboxLoading) lightboxLoading.classList.remove('active');
+            initPanzoomForImage();
+        };
+        preloader.onerror = function() {
+            if (token !== currentImageLoadToken) return;
+            if (lightboxLoading) {
+                lightboxLoading.classList.add('error');
+                var errText = lightboxLoading.querySelector('.pc-lightbox-loading-text');
+                if (errText) errText.textContent = 'Nie udało się załadować obrazu';
+            }
+        };
+        preloader.src = url;
+    }
 
     function findPendingIndex(ids) {
         var key = ids.join(',');
@@ -76,17 +178,21 @@
 
         // Obrazek lub PDF
         if (item.isPdf) {
+            destroyPanzoom();
+            if (lightboxLoading) lightboxLoading.classList.remove('active');
             if (lightboxImage) lightboxImage.style.display = 'none';
+            if (lightboxImageWrap) lightboxImageWrap.style.display = 'none';
             if (lightboxPdf) {
                 lightboxPdf.src = item.proofUrl;
                 lightboxPdf.style.display = 'block';
             }
+            currentPdfUrl = item.proofUrl;
+            if (lightboxOpenPdf) lightboxOpenPdf.style.display = 'inline-flex';
         } else {
             if (lightboxPdf) { lightboxPdf.src = ''; lightboxPdf.style.display = 'none'; }
-            if (lightboxImage) {
-                lightboxImage.src = item.proofUrl;
-                lightboxImage.style.display = 'block';
-            }
+            currentPdfUrl = null;
+            if (lightboxOpenPdf) lightboxOpenPdf.style.display = 'none';
+            loadLightboxImage(item.proofUrl);
         }
 
         // Info — lista zamówień
@@ -153,11 +259,18 @@
             currentPendingIndex = -1;
 
             if (isPdf) {
+                destroyPanzoom();
+                if (lightboxLoading) lightboxLoading.classList.remove('active');
                 if (lightboxImage) lightboxImage.style.display = 'none';
+                if (lightboxImageWrap) lightboxImageWrap.style.display = 'none';
                 if (lightboxPdf) { lightboxPdf.src = proofUrl; lightboxPdf.style.display = 'block'; }
+                currentPdfUrl = proofUrl;
+                if (lightboxOpenPdf) lightboxOpenPdf.style.display = 'inline-flex';
             } else {
                 if (lightboxPdf) { lightboxPdf.src = ''; lightboxPdf.style.display = 'none'; }
-                if (lightboxImage) { lightboxImage.src = proofUrl; lightboxImage.style.display = 'block'; }
+                currentPdfUrl = null;
+                if (lightboxOpenPdf) lightboxOpenPdf.style.display = 'none';
+                loadLightboxImage(proofUrl);
             }
             if (lightboxInfo) {
                 var ordersHtml = orderNumbers.map(function(n) { return '<strong>' + n + '</strong>'; }).join(', ');
@@ -272,10 +385,15 @@
 
     window.closeLightbox = function() {
         if (!lightbox) return;
+        currentImageLoadToken++;
+        destroyPanzoom();
         lightbox.classList.remove('active');
         document.body.style.overflow = '';
         if (lightboxImage) lightboxImage.src = '';
         if (lightboxPdf) { lightboxPdf.src = ''; lightboxPdf.style.display = 'none'; }
+        if (lightboxLoading) lightboxLoading.classList.remove('active', 'error');
+        if (lightboxOpenPdf) lightboxOpenPdf.style.display = 'none';
+        currentPdfUrl = null;
     };
 
     if (lightbox) {
@@ -400,6 +518,13 @@
             rejectError.classList.remove('visible');
         }
 
+        // Reset przycisku — może zostać w stanie loading po poprzednim odrzuceniu
+        var submitBtn = document.getElementById('pcRejectSubmitBtn');
+        if (submitBtn) {
+            submitBtn.classList.remove('loading');
+            submitBtn.disabled = false;
+        }
+
         if (rejectModal) {
             rejectModal.classList.add('active');
             setTimeout(function() {
@@ -504,8 +629,8 @@
                 if (typeof window.showToast === 'function') {
                     window.showToast(data.message || 'Wystąpił błąd', 'error');
                 }
-                if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
             }
+            if (btn) { btn.classList.remove('loading'); btn.disabled = false; }
         })
         .catch(function(error) {
             console.error('Error:', error);
