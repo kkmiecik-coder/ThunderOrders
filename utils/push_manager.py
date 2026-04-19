@@ -139,17 +139,42 @@ class PushManager:
 
     @staticmethod
     def _handle_send_error(sub, error):
-        """Handle push send errors. Deactivate subscription on 410 or repeated failures."""
+        """Handle push send errors. Deactivate subscription on 410 or repeated failures.
+
+        Dedup: gdy kilka wątków równolegle wysyła push do tej samej subskrypcji
+        i dostaje 410, odświeżamy stan z DB. Jeśli inny wątek już oznaczył sub
+        jako nieaktywną, po prostu wychodzimy bez dublowania logów/commitów.
+        """
         from extensions import db
 
         error_str = str(error)
         status_code = getattr(error, 'status_code', None) or getattr(getattr(error, 'response', None), 'status_code', None)
 
         if status_code == 410:
-            # Subscription expired
+            # Subscription expired - sprawdź czy inny wątek już nie oznaczył jej jako nieaktywnej
+            try:
+                db.session.refresh(sub)
+                if not sub.is_active:
+                    # Inny wątek już to obsłużył - pomijamy
+                    return
+            except Exception:
+                # Obiekt detached lub inny problem - fallback do starego zachowania
+                pass
+
             sub.is_active = False
             current_app.logger.info(f'Push subscription {sub.id} expired (410), deactivated')
         else:
+            # Dedup również dla "failed too many times" - refresh PRZED modyfikacją
+            # aby inny wątek, który już oznaczył sub jako nieaktywną, nie został
+            # nadpisany, oraz aby failed_count był aktualny.
+            try:
+                db.session.refresh(sub)
+                if not sub.is_active:
+                    # Inny wątek już deaktywował sub - pomijamy
+                    return
+            except Exception:
+                pass
+
             sub.failed_count += 1
             if sub.failed_count >= 5:
                 sub.is_active = False
@@ -232,6 +257,86 @@ class PushManager:
             body=f'{stage_name} - {reason}' if reason else stage_name,
             url=url_for('orders.client_detail', order_id=order.id, _external=True),
             tag=f'payment-{order.id}',
+            notification_type='payment_updates'
+        )
+
+    @staticmethod
+    def notify_payment_bulk_approved(user_id, confirmations):
+        """Skonsolidowany push dla bulk-approve jednego użytkownika.
+
+        Args:
+            user_id (int): ID użytkownika-odbiorcy.
+            confirmations (list[PaymentConfirmation]): lista potwierdzeń tego usera
+                (muszą mieć już załadowane `order`).
+
+        Jeśli lista ma 1 element - wysyła standardowego pojedynczego pusha
+        (tak jak `notify_payment_approved`). Przy >1 wysyła zbiorczego.
+        """
+        if not user_id or not confirmations:
+            return
+
+        from flask import url_for
+        import time
+
+        if len(confirmations) == 1:
+            # Zachowaj dotychczasowy format dla pojedynczego potwierdzenia
+            PushManager.notify_payment_approved(confirmations[0].order, confirmations[0])
+            return
+
+        order_numbers = [c.order.order_number for c in confirmations if c.order]
+        count = len(confirmations)
+
+        # URL: lista potwierdzeń klienta
+        url = url_for('client.payment_confirmations', _external=True)
+
+        # Tag z timestampem - nie nadpisuje poprzednich bulk pushy
+        tag = f'payment-bulk-{int(time.time() * 1000)}'
+
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Zatwierdzono {count} potwierdzeń',
+            body=', '.join(order_numbers),
+            url=url,
+            tag=tag,
+            notification_type='payment_updates'
+        )
+
+    @staticmethod
+    def notify_payment_bulk_rejected(user_id, confirmations, reason):
+        """Skonsolidowany push dla bulk-reject jednego użytkownika.
+
+        Args:
+            user_id (int): ID użytkownika-odbiorcy.
+            confirmations (list[PaymentConfirmation]): lista potwierdzeń tego usera.
+            reason (str): powód odrzucenia (wspólny dla całego bulk).
+
+        Jeśli lista ma 1 element - wysyła standardowego pojedynczego pusha.
+        """
+        if not user_id or not confirmations:
+            return
+
+        from flask import url_for
+        import time
+
+        if len(confirmations) == 1:
+            PushManager.notify_payment_rejected(confirmations[0].order, confirmations[0], reason)
+            return
+
+        order_numbers = [c.order.order_number for c in confirmations if c.order]
+        count = len(confirmations)
+
+        url = url_for('client.payment_confirmations', _external=True)
+        tag = f'payment-bulk-{int(time.time() * 1000)}'
+
+        body_orders = ', '.join(order_numbers)
+        body = f'{body_orders} - {reason}' if reason else body_orders
+
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Odrzucono {count} potwierdzeń',
+            body=body,
+            url=url,
+            tag=tag,
             notification_type='payment_updates'
         )
 

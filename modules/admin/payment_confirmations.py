@@ -336,12 +336,23 @@ def payment_confirmation_bulk_approve():
 
     db.session.commit()
 
-    # Wyślij emaile + push po commit
+    # Wyślij emaile - 1 mail per potwierdzenie (OK)
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
     for confirmation in confirmations:
         EmailManager.notify_payment_approved(confirmation.order, confirmation)
-        PushManager.notify_payment_approved(confirmation.order, confirmation)
+
+    # Skonsolidowane push - 1 push per user_id (zapobiega race condition
+    # gdy N wątków równolegle próbuje wysłać pusha do tych samych subskrypcji)
+    confirmations_by_user = {}
+    for confirmation in confirmations:
+        order = confirmation.order
+        if not order or not order.user_id:
+            continue
+        confirmations_by_user.setdefault(order.user_id, []).append(confirmation)
+
+    for user_id, user_confirmations in confirmations_by_user.items():
+        PushManager.notify_payment_bulk_approved(user_id, user_confirmations)
 
     # Auto-transition SRs to 'oplacone' if all E4 payments approved
     checked_orders = set()
@@ -415,11 +426,22 @@ def payment_confirmation_bulk_reject():
 
     db.session.commit()
 
+    # Emaile - 1 mail per potwierdzenie (OK)
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
     for confirmation in confirmations:
         EmailManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
-        PushManager.notify_payment_rejected(confirmation.order, confirmation, rejection_reason)
+
+    # Skonsolidowane push - 1 push per user_id
+    confirmations_by_user = {}
+    for confirmation in confirmations:
+        order = confirmation.order
+        if not order or not order.user_id:
+            continue
+        confirmations_by_user.setdefault(order.user_id, []).append(confirmation)
+
+    for user_id, user_confirmations in confirmations_by_user.items():
+        PushManager.notify_payment_bulk_rejected(user_id, user_confirmations, rejection_reason)
 
     return jsonify({
         'success': True,
