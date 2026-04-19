@@ -26,3 +26,4 @@ static/cache/
 ~$*
 achievements_all_prompts.txt
 achievements_firefly_prompt.txt
+.DS_Store
