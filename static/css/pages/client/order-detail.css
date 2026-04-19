@@ -1563,3 +1563,261 @@
     border-color: rgba(255,255,255,0.15);
     color: rgba(255,255,255,0.6);
 }
+
+/* ===================================================================
+   SHIPPING REQUEST DETAILS (portowane z widoku admina)
+   Bogaty layout karty zlecenia wysyłki na stronie szczegółów zamówienia
+   =================================================================== */
+.shipping-request-details {
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.sr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #E0E0E0;
+}
+
+.sr-number {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sr-label {
+    color: #666;
+    font-size: 0.875rem;
+}
+
+.sr-number strong {
+    font-size: 1rem;
+    color: #240046;
+}
+
+.sr-info-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sr-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    gap: 0.75rem;
+}
+
+.sr-info-label {
+    color: #666;
+    font-size: 0.8125rem;
+    flex-shrink: 0;
+}
+
+.sr-info-value {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.sr-order-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #5A189A;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.sr-order-badge:hover {
+    background: #7B2CBF;
+    color: #fff;
+    text-decoration: none;
+}
+
+.sr-order-badge.current {
+    background: #FF8500;
+    font-weight: 600;
+}
+
+.sr-address-section,
+.sr-tracking-section {
+    background: #F8F9FA;
+    border-radius: 6px;
+    padding: 0.75rem;
+}
+
+.sr-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #5A189A;
+    margin-bottom: 0.5rem;
+}
+
+.sr-address-content {
+    font-size: 0.875rem;
+    color: #333;
+    line-height: 1.5;
+}
+
+.sr-address-content > div {
+    margin-bottom: 2px;
+}
+
+.sr-pickup-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2px 8px;
+    background: #E8F5E9;
+    color: #2E7D32;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.sr-pickup-id {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: #5A189A;
+    font-weight: 600;
+}
+
+.sr-tracking-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sr-courier-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: #E3F2FD;
+    color: #1565C0;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: lowercase;
+}
+
+.sr-tracking-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #5A189A;
+    text-decoration: none;
+    font-family: monospace;
+    font-size: 0.875rem;
+}
+
+.sr-tracking-link:hover {
+    text-decoration: underline;
+    color: #7B2CBF;
+}
+
+.sr-tracking-number {
+    font-family: monospace;
+    font-size: 0.875rem;
+    color: #333;
+}
+
+.sr-actions {
+    padding-top: 0.5rem;
+    border-top: 1px solid #E0E0E0;
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.sr-actions .od-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* Dark mode */
+[data-theme="dark"] .sr-header {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .sr-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .sr-number strong {
+    color: #fff;
+}
+
+[data-theme="dark"] .sr-info-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .sr-order-badge {
+    background: #7B2CBF;
+}
+
+[data-theme="dark"] .sr-order-badge:hover {
+    background: #9D4EDD;
+}
+
+[data-theme="dark"] .sr-order-badge.current {
+    background: #FF8500;
+}
+
+[data-theme="dark"] .sr-address-section,
+[data-theme="dark"] .sr-tracking-section {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .sr-section-header {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-address-content {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .sr-pickup-badge {
+    background: rgba(46, 125, 50, 0.2);
+    color: #81C784;
+}
+
+[data-theme="dark"] .sr-pickup-id {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-courier-badge {
+    background: rgba(21, 101, 192, 0.2);
+    color: #90CAF9;
+}
+
+[data-theme="dark"] .sr-tracking-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .sr-tracking-link:hover {
+    color: #f5576c;
+}
+
+[data-theme="dark"] .sr-tracking-number {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .sr-actions {
+    border-top-color: rgba(240, 147, 251, 0.15);
+}

@@ -53,13 +53,21 @@
    ================================ */
 
 .request-card {
-    flex: 1 1 340px;
+    flex: 1 1 380px;
     max-width: 500px;
     background: var(--card-bg);
     border-radius: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid #e5e7eb;
     transition: box-shadow 0.2s, transform 0.2s;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Body wypełnia wolną przestrzeń – footer zawsze na dole */
+.request-card .card-body {
+    flex: 1;
 }
 
 .request-card:hover {
@@ -120,46 +128,122 @@
     flex-shrink: 0;
 }
 
-/* Orders badges */
-.request-card .orders-badges {
+/* Orders row – kolumnowo (label nad listą zamówień) */
+.request-card .card-row-orders {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.request-card .card-row-orders .row-label {
+    margin-bottom: 4px;
+}
+
+.request-card .card-orders-list {
+    width: 100%;
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: flex-end;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.request-card .card-order-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .request-card .order-badge {
     display: inline-block;
-    padding: 4px 10px;
-    background: #e0e7ff;
-    color: #4338ca;
+    align-self: flex-start;
+    padding: 3px 10px;
+    background: rgba(102, 126, 234, 0.1);
+    color: #4f46e5;
     border-radius: 6px;
     font-size: 0.75rem;
     font-weight: 600;
     text-decoration: none;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
 }
 
 .request-card .order-badge:hover {
-    background: #c7d2fe;
-    transform: translateY(-1px);
+    background: rgba(102, 126, 234, 0.2);
+    color: #4338ca;
+    text-decoration: none;
 }
 
-.request-card .orders-more {
-    display: inline-flex;
-    align-items: center;
-    padding: 4px 8px;
-    background: #f3f4f6;
-    color: #6b7280;
-    border-radius: 6px;
+/* Produkty w ramach zamówienia */
+.request-card .card-order-products {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 10px;
+    border-left: 2px solid #e5e7eb;
+    margin-left: 4px;
+    margin-top: 4px;
+}
+
+.request-card .card-product-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
     font-size: 0.75rem;
-    font-weight: 500;
+    line-height: 1.4;
+}
+
+.request-card .card-product-qty {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: #6b7280;
+    min-width: 28px;
+}
+
+.request-card .card-product-name {
+    color: #4b5563;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+}
+
+.request-card .card-size-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    background: #555;
+    color: #fff;
+    border-radius: 3px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
+.request-card .card-order-products-toggle {
+    display: inline-block;
+    align-self: flex-start;
+    padding: 2px 0;
+    font-size: 0.7rem;
+    color: #4f46e5;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-style: italic;
+    transition: color 0.15s ease;
+}
+
+.request-card .card-order-products-toggle:hover {
+    color: #4338ca;
+    text-decoration: underline;
+}
+
+.request-card .card-order-products-toggle.expanded {
+    color: #9ca3af;
 }
 
 /* Address value */
 .request-card .address-value {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 6px;
     text-align: right;
     flex: 1;
@@ -170,18 +254,18 @@
 .request-card .address-icon {
     flex-shrink: 0;
     color: #6b7280;
+    margin-top: 3px;
 }
 
 .request-card .address-text {
     font-size: 0.85rem;
     color: #374151;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.4;
+    word-break: break-word;
 }
 
-/* Dual row (Cost & Tracking) */
-.request-card .card-row-dual {
+/* Split row (Cost & Tracking) */
+.request-card .card-row-split {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 16px;
@@ -189,20 +273,19 @@
     border-bottom: 1px solid #f3f4f6;
 }
 
-.request-card .dual-item {
+.request-card .card-col {
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.request-card .dual-item:last-child {
-    text-align: right;
-    align-items: flex-end;
+.request-card .card-col .row-label {
+    text-align: left;
 }
 
 /* Cost */
 .request-card .cost-value {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: #059669;
 }
@@ -214,20 +297,33 @@
 }
 
 /* Tracking */
+.request-card .tracking-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #4f46e5;
+    text-decoration: none;
+    font-size: 0.8rem;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    transition: color 0.15s ease;
+    word-break: break-all;
+}
+
+.request-card .tracking-link:hover {
+    color: #4338ca;
+    text-decoration: underline;
+}
+
+.request-card .tracking-link svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
 .request-card .tracking-number {
     font-family: 'SF Mono', 'Consolas', monospace;
     font-size: 0.8rem;
-    color: #4f46e5;
+    color: #6b7280;
     font-weight: 500;
-}
-
-.request-card .tracking-number a {
-    color: inherit;
-    text-decoration: none;
-}
-
-.request-card .tracking-number a:hover {
-    text-decoration: underline;
 }
 
 .request-card .tracking-pending {
@@ -274,6 +370,19 @@
 
 .request-card .btn-upload:hover {
     background: #4f46e5;
+}
+
+.request-card .btn-tracking {
+    background: #f3f4f6;
+    color: #374151;
+    text-decoration: none;
+    border: 1px solid #e5e7eb;
+}
+
+.request-card .btn-tracking:hover {
+    background: #e5e7eb;
+    color: #1f2937;
+    text-decoration: none;
 }
 
 .request-card .btn-cancel {
@@ -814,7 +923,7 @@
     border-bottom-color: rgba(240, 147, 251, 0.1);
 }
 
-[data-theme="dark"] .request-card .card-row-dual {
+[data-theme="dark"] .request-card .card-row-split {
     border-bottom-color: rgba(240, 147, 251, 0.1);
 }
 
@@ -823,17 +932,42 @@
 }
 
 [data-theme="dark"] .request-card .order-badge {
-    background: rgba(99, 102, 241, 0.25);
-    color: #a78bfa;
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
 }
 
 [data-theme="dark"] .request-card .order-badge:hover {
-    background: rgba(99, 102, 241, 0.4);
+    background: rgba(240, 147, 251, 0.25);
+    color: #f5a3fc;
 }
 
-[data-theme="dark"] .request-card .orders-more {
-    background: rgba(255, 255, 255, 0.1);
+[data-theme="dark"] .request-card .card-order-products {
+    border-left-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .request-card .card-product-qty {
     color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .request-card .card-product-name {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .request-card .card-size-badge {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    color: #fff;
+}
+
+[data-theme="dark"] .request-card .card-order-products-toggle {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .request-card .card-order-products-toggle:hover {
+    color: #f5a3fc;
+}
+
+[data-theme="dark"] .request-card .card-order-products-toggle.expanded {
+    color: rgba(255, 255, 255, 0.4);
 }
 
 [data-theme="dark"] .request-card .address-icon {
@@ -852,8 +986,16 @@
     color: #fbbf24;
 }
 
+[data-theme="dark"] .request-card .tracking-link {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .request-card .tracking-link:hover {
+    color: #f5a3fc;
+}
+
 [data-theme="dark"] .request-card .tracking-number {
-    color: #a78bfa;
+    color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="dark"] .request-card .tracking-pending {
@@ -875,6 +1017,18 @@
 
 [data-theme="dark"] .request-card .btn-upload:hover {
     background: #8b5cf6;
+}
+
+[data-theme="dark"] .request-card .btn-tracking {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.85);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .request-card .btn-tracking:hover {
+    background: rgba(240, 147, 251, 0.15);
+    color: #fff;
+    border-color: rgba(240, 147, 251, 0.3);
 }
 
 [data-theme="dark"] .request-card .btn-cancel {

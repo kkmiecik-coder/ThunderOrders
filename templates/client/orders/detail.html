@@ -471,40 +471,127 @@
                     {% endif %}
                 </section>
 
-                <!-- SHIPPING -->
+                <!-- SHIPPING REQUEST -->
                 <section class="od-section od-ship">
-                    <h2>Dostawa PL</h2>
+                    <h2>
+                        <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="vertical-align: -3px; margin-right: 6px;">
+                            <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h9A1.5 1.5 0 0 1 12 3.5V5h1.02a1.5 1.5 0 0 1 1.17.563l1.481 1.85a1.5 1.5 0 0 1 .329.938V10.5a1.5 1.5 0 0 1-1.5 1.5H14a2 2 0 1 1-4 0H5a2 2 0 1 1-3.998-.085A1.5 1.5 0 0 1 0 10.5v-7zm1.294 7.456A1.999 1.999 0 0 1 4.732 11h5.536a2.01 2.01 0 0 1 .732-.732V3.5a.5.5 0 0 0-.5-.5h-9a.5.5 0 0 0-.5.5v7a.5.5 0 0 0 .294.456zM12 10a2 2 0 0 1 1.732 1h.768a.5.5 0 0 0 .5-.5V8.35a.5.5 0 0 0-.11-.312l-1.48-1.85A.5.5 0 0 0 13.02 6H12v4zm-9 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm9 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                        </svg>
+                        Zlecenie wysyłki
+                    </h2>
+
                     {% if order.shipping_request %}
                         {% set sr = order.shipping_request %}
-                        <div class="od-ship__active">
-                            <div class="od-ship__head">
-                                <a href="{{ url_for('client.shipping_requests_list') }}" class="od-ship__num">{{ sr.request_number }}</a>
-                                <span class="od-dot" style="--dot-color: {{ sr.status_badge_color }};"></span>
-                                <span class="od-ship__status">{{ sr.status_display_name }}</span>
+                        <div class="shipping-request-details">
+                            <!-- Header z numerem i statusem -->
+                            <div class="sr-header">
+                                <div class="sr-number">
+                                    <span class="sr-label">Numer:</span>
+                                    <strong>{{ sr.request_number }}</strong>
+                                </div>
+                                <span class="badge" style="background-color: {{ sr.status_badge_color }}; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    {{ sr.status_display_name }}
+                                </span>
                             </div>
-                            {% set other_orders = order.shipping_request_other_orders %}
-                            {% if other_orders %}
-                            <div class="od-ship__others">
-                                <span class="od-ship__others-label">Razem z:</span>
-                                {% for other in other_orders[:3] %}
-                                <a href="{{ url_for('orders.client_detail', order_id=other.id) }}" class="od-chip">{{ other.order_number }}</a>
-                                {% endfor %}
-                                {% if other_orders|length > 3 %}
-                                <span class="od-chip od-chip--muted">+{{ other_orders|length - 3 }}</span>
-                                {% endif %}
+
+                            <!-- Informacje podstawowe -->
+                            <div class="sr-info-grid">
+                                <div class="sr-info-row">
+                                    <span class="sr-info-label">Zamówienia:</span>
+                                    <span class="sr-info-value">
+                                        {% for o in sr.orders %}
+                                        <a href="{{ url_for('orders.client_detail', order_id=o.id) }}"
+                                           class="sr-order-badge {% if o.id == order.id %}current{% endif %}">
+                                            {{ o.order_number }}
+                                        </a>
+                                        {% endfor %}
+                                    </span>
+                                </div>
+                                <div class="sr-info-row">
+                                    <span class="sr-info-label">Koszt wysyłki:</span>
+                                    <span class="sr-info-value">
+                                        {% if sr.calculated_shipping_cost %}
+                                            <strong>{{ "%.2f"|format(sr.calculated_shipping_cost) }} PLN</strong>
+                                        {% else %}
+                                            <span class="text-muted">Oczekuje na wycenę</span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                <div class="sr-info-row">
+                                    <span class="sr-info-label">Utworzono:</span>
+                                    <span class="sr-info-value">{{ sr.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Adres dostawy -->
+                            <div class="sr-address-section">
+                                <div class="sr-section-header">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                                    </svg>
+                                    Adres dostawy
+                                </div>
+                                <div class="sr-address-content">
+                                    {% if sr.address_type == 'pickup_point' %}
+                                        <div class="sr-pickup-badge">
+                                            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                            </svg>
+                                            Paczkomat / Punkt odbioru
+                                        </div>
+                                        {% if sr.pickup_courier %}<div><strong>{{ sr.pickup_courier }}</strong></div>{% endif %}
+                                        {% if sr.pickup_point_id %}<div class="sr-pickup-id">{{ sr.pickup_point_id }}</div>{% endif %}
+                                        {% if sr.pickup_address %}<div>{{ sr.pickup_address }}</div>{% endif %}
+                                        {% if sr.pickup_postal_code or sr.pickup_city %}
+                                            <div>{{ sr.pickup_postal_code }} {{ sr.pickup_city }}</div>
+                                        {% endif %}
+                                    {% else %}
+                                        {% if sr.shipping_name %}<div><strong>{{ sr.shipping_name }}</strong></div>{% endif %}
+                                        {% if sr.shipping_address %}<div>{{ sr.shipping_address }}</div>{% endif %}
+                                        {% if sr.shipping_postal_code or sr.shipping_city %}
+                                            <div>{{ sr.shipping_postal_code }} {{ sr.shipping_city }}</div>
+                                        {% endif %}
+                                        {% if sr.shipping_voivodeship %}<div class="text-muted">woj. {{ sr.shipping_voivodeship }}</div>{% endif %}
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Tracking -->
+                            {% if sr.tracking_number or sr.courier %}
+                            <div class="sr-tracking-section">
+                                <div class="sr-section-header">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                                    </svg>
+                                    Śledzenie przesyłki
+                                </div>
+                                <div class="sr-tracking-content">
+                                    {% if sr.courier %}<span class="sr-courier-badge">{{ sr.courier }}</span>{% endif %}
+                                    {% if sr.tracking_number %}
+                                        {% if sr.tracking_url %}
+                                            <a href="{{ sr.tracking_url }}" target="_blank" class="sr-tracking-link">
+                                                {{ sr.tracking_number }}
+                                                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd" d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+                                                    <path fill-rule="evenodd" d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+                                                </svg>
+                                            </a>
+                                        {% else %}
+                                            <span class="sr-tracking-number">{{ sr.tracking_number }}</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
                             </div>
                             {% endif %}
-                            <div class="od-ship__tracking">
-                                <span class="od-label">Nr przesyłki</span>
-                                {% if sr.tracking_number %}
-                                    {% if sr.tracking_url %}
-                                    <a href="{{ sr.tracking_url }}" target="_blank" class="od-mono-link">{{ sr.tracking_number }}</a>
-                                    {% else %}
-                                    <span class="od-mono">{{ sr.tracking_number }}</span>
-                                    {% endif %}
-                                {% else %}
-                                <em class="od-tbd">Wkrótce</em>
-                                {% endif %}
+
+                            <!-- Link do listy zleceń -->
+                            <div class="sr-actions">
+                                <a href="{{ url_for('client.shipping_requests_list') }}" class="od-btn od-btn--sm">
+                                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8z"/>
+                                    </svg>
+                                    Zobacz wszystkie zlecenia
+                                </a>
                             </div>
                         </div>
                     {% else %}

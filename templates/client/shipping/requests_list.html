@@ -38,18 +38,38 @@
 
             <!-- Card Body -->
             <div class="card-body">
-                <!-- Orders -->
-                <div class="card-row">
+                <!-- Orders with products -->
+                <div class="card-row card-row-orders">
                     <span class="row-label">Zamówienia</span>
-                    <div class="orders-badges">
-                        {% for ro in req.request_orders[:3] %}
-                        <a href="{{ url_for('orders.client_detail', order_id=ro.order.id) }}" class="order-badge">
-                            {{ ro.order.order_number }}
-                        </a>
+                    <div class="card-orders-list">
+                        {% for order in req.orders %}
+                        <div class="card-order-block">
+                            <a href="{{ url_for('orders.client_detail', order_id=order.id) }}" class="order-badge">
+                                {{ order.order_number }}
+                            </a>
+                            <div class="card-order-products">
+                                {% for item in order.items[:2] %}
+                                <div class="card-product-item">
+                                    <span class="card-product-qty">{{ item.quantity }}x</span>
+                                    <span class="card-product-name">{{ item.product_name }}{% if item.selected_size %} <span class="card-size-badge">{{ item.selected_size }}</span>{% endif %}</span>
+                                </div>
+                                {% endfor %}
+                                {% if order.items|length > 2 %}
+                                <div class="card-order-products-hidden" style="display: none;">
+                                    {% for item in order.items[2:] %}
+                                    <div class="card-product-item">
+                                        <span class="card-product-qty">{{ item.quantity }}x</span>
+                                        <span class="card-product-name">{{ item.product_name }}{% if item.selected_size %} <span class="card-size-badge">{{ item.selected_size }}</span>{% endif %}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <button type="button" class="card-order-products-toggle" onclick="toggleOrderProducts(this);">
+                                    +{{ order.items|length - 2 }} więcej...
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
                         {% endfor %}
-                        {% if req.request_orders|length > 3 %}
-                        <span class="orders-more">+{{ req.request_orders|length - 3 }}</span>
-                        {% endif %}
                     </div>
                 </div>
 
@@ -66,30 +86,41 @@
                             <path d="M8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4.5a.5.5 0 0 0 .5-.5v-4h2v4a.5.5 0 0 0 .5.5H14a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146zM2.5 14V7.707l5.5-5.5 5.5 5.5V14H10v-4a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5v4H2.5z"/>
                         </svg>
                         {% endif %}
-                        <span class="address-text" title="{{ req.full_address }}">{{ req.short_address }}</span>
+                        <span class="address-text">
+                            {% if req.address_type == 'home' %}
+                            {{ req.shipping_name }}, {{ req.shipping_address }}, {{ req.shipping_postal_code }} {{ req.shipping_city }}
+                            {% else %}
+                            {{ req.pickup_courier }}, {{ req.pickup_point_id }}, {{ req.pickup_address }}, {{ req.pickup_postal_code }} {{ req.pickup_city }}
+                            {% endif %}
+                        </span>
                     </div>
                 </div>
 
                 <!-- Cost & Tracking Row -->
-                <div class="card-row-dual">
-                    <div class="dual-item">
+                <div class="card-row card-row-split">
+                    <div class="card-col">
                         <span class="row-label">Koszt</span>
                         {% if req.calculated_shipping_cost %}
-                        <span class="cost-value">{{ "%.2f"|format(req.calculated_shipping_cost) }} zł</span>
+                        <span class="cost-value">{{ "%.2f"|format(req.calculated_shipping_cost) }} PLN</span>
                         {% else %}
                         <span class="cost-pending">Oczekuje</span>
                         {% endif %}
                     </div>
-                    <div class="dual-item">
-                        <span class="row-label">Nr przesyłki</span>
+                    <div class="card-col">
+                        <span class="row-label">Tracking</span>
                         {% if req.tracking_number %}
-                        <span class="tracking-number">
-                            {% if req.tracking_url %}
-                            <a href="{{ req.tracking_url }}" target="_blank">{{ req.tracking_number }}</a>
-                            {% else %}
+                        {% if req.tracking_url %}
+                        <a href="{{ req.tracking_url }}" target="_blank" class="tracking-link">
                             {{ req.tracking_number }}
-                            {% endif %}
-                        </span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                                <polyline points="15 3 21 3 21 9"></polyline>
+                                <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                        </a>
+                        {% else %}
+                        <span class="tracking-number">{{ req.tracking_number }}</span>
+                        {% endif %}
                         {% else %}
                         <span class="tracking-pending">—</span>
                         {% endif %}
@@ -99,12 +130,21 @@
                 <!-- Date -->
                 <div class="card-row">
                     <span class="row-label">Data utworzenia</span>
-                    <span class="date-value">{{ req.created_at|format_datetime('%d.%m.%Y %H:%M') }}</span>
+                    <span class="date-value">{{ req.created_at|format_datetime('%d.%m.%Y, %H:%M') }}</span>
                 </div>
             </div>
 
             <!-- Card Footer - Actions -->
             <div class="card-footer">
+                {% if req.tracking_number and req.tracking_url %}
+                <a href="{{ req.tracking_url }}" target="_blank" class="btn-action btn-tracking" title="Śledź przesyłkę">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    Tracking
+                </a>
+                {% endif %}
                 <!-- Cancel Button - always visible, disabled when can't cancel -->
                 <div class="cancel-btn-wrapper">
                     <button type="button"

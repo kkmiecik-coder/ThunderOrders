@@ -670,3 +670,35 @@ function renderRequestRow(req) {
 
 // Toast notifications - use global showToast from main.js
 // No local definition needed
+
+// ================================
+// PRODUCTS TOGGLE (rozwijanie "+N więcej...")
+// ================================
+
+/**
+ * Przełącza widoczność ukrytych produktów zamówienia w karcie zlecenia wysyłki.
+ * Używane inline w szablonie (onclick="toggleOrderProducts(this)").
+ * @param {HTMLElement} button - Przycisk "+N więcej..." / "Zwiń"
+ */
+function toggleOrderProducts(button) {
+    const productsContainer = button.parentElement;
+    const hiddenProducts = productsContainer.querySelector('.card-order-products-hidden');
+
+    if (!hiddenProducts) return;
+
+    const isHidden = hiddenProducts.style.display === 'none';
+
+    if (isHidden) {
+        hiddenProducts.style.display = 'block';
+        button.textContent = 'Zwiń';
+        button.classList.add('expanded');
+    } else {
+        hiddenProducts.style.display = 'none';
+        const hiddenCount = hiddenProducts.querySelectorAll('.card-product-item').length;
+        button.textContent = `+${hiddenCount} więcej...`;
+        button.classList.remove('expanded');
+    }
+}
+
+// Eksponujemy globalnie (onclick w atrybutach HTML wymaga globalnej widoczności)
+window.toggleOrderProducts = toggleOrderProducts;
