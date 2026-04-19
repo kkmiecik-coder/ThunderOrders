@@ -593,6 +593,28 @@
         <img id="pcLightboxImage" class="pc-lightbox-image" alt="Dowód wpłaty">
     </div>
     <iframe id="pcLightboxPdf" class="pc-lightbox-pdf" style="display: none;"></iframe>
+    <div id="pcLightboxPdfCanvasWrap" class="pc-lightbox-pdf-canvas-wrap" style="display: none;">
+        <canvas id="pcLightboxPdfCanvas" class="pc-lightbox-pdf-canvas"></canvas>
+        <div id="pcLightboxPdfNav" class="pc-lightbox-pdf-nav" style="display: none;">
+            <button type="button" class="pc-lightbox-pdf-nav-btn" id="pcLightboxPdfPrev" aria-label="Poprzednia strona">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <span class="pc-lightbox-pdf-page-info" id="pcLightboxPdfPageInfo">1 / 1</span>
+            <button type="button" class="pc-lightbox-pdf-nav-btn" id="pcLightboxPdfNext" aria-label="Następna strona">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+        </div>
+    </div>
+    <div id="pcLightboxPdfPlaceholder" class="pc-lightbox-pdf-placeholder" style="display: none;">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="15" x2="15" y2="15"/>
+            <line x1="9" y1="11" x2="13" y2="11"/>
+        </svg>
+        <div class="pc-lightbox-pdf-placeholder-title">Dokument PDF</div>
+        <div class="pc-lightbox-pdf-placeholder-hint">Nie udało się załadować podglądu.<br>Otwórz w nowej karcie, żeby zobaczyć zawartość.</div>
+    </div>
     <div class="pc-lightbox-info" id="pcLightboxInfo"></div>
     <div class="pc-lightbox-counter" id="pcLightboxCounter"></div>
     <div class="pc-lightbox-actions" id="pcLightboxActions">
@@ -684,5 +706,11 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='vendor/panzoom/panzoom.min.js') }}"></script>
+<script src="{{ url_for('static', filename='vendor/pdfjs/pdf.min.js') }}"></script>
+<script>
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "{{ url_for('static', filename='vendor/pdfjs/pdf.worker.min.js') }}";
+    }
+</script>
 <script src="{{ url_for('static', filename='js/pages/admin/payment-confirmations.js') }}"></script>
 {% endblock %}

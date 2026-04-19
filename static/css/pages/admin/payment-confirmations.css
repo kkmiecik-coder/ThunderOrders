@@ -811,6 +811,129 @@
     border-radius: 8px;
 }
 
+/* PDF Canvas render (PDF.js na mobile) */
+.pc-lightbox-pdf-canvas-wrap {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    width: 100%;
+    max-width: 90%;
+    max-height: 70vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+.pc-lightbox-pdf-canvas-wrap.active {
+    display: flex;
+}
+
+.pc-lightbox-pdf-canvas {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.pc-lightbox-pdf-nav {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 12px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 8px;
+    position: sticky;
+    bottom: 0;
+}
+
+.pc-lightbox-pdf-nav.active {
+    display: flex;
+}
+
+.pc-lightbox-pdf-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    background: #fff;
+    color: #333;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.pc-lightbox-pdf-nav-btn:hover:not(:disabled) {
+    background: #f093fb;
+    color: #fff;
+    border-color: #f093fb;
+}
+
+.pc-lightbox-pdf-nav-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.pc-lightbox-pdf-page-info {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* Placeholder dla PDF gdy PDF.js się wysypie */
+.pc-lightbox-pdf-placeholder {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 40px 24px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    max-width: 90%;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+}
+
+.pc-lightbox-pdf-placeholder.active {
+    display: flex;
+}
+
+.pc-lightbox-pdf-placeholder svg {
+    color: #f093fb;
+    opacity: 0.85;
+}
+
+.pc-lightbox-pdf-placeholder-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.pc-lightbox-pdf-placeholder-hint {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.7);
+    max-width: 320px;
+}
+
+/* Dark mode — lightbox ma ciemne tło niezależnie od motywu, styl spójny */
+[data-theme="light"] .pc-lightbox-pdf-canvas-wrap {
+    background: #fff;
+}
+
+[data-theme="dark"] .pc-lightbox-pdf-canvas-wrap {
+    background: #fff;
+    /* Canvas z PDF-em lepiej wygląda na białym tle — PDF-y mają biały content */
+}
+
 /* Loader dla lightboxa (pokazywany podczas preload obrazu) */
 .pc-lightbox-loading {
     display: none;
