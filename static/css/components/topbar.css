@@ -1939,3 +1939,30 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
+
+/* Light mode — przycisk konserwacji */
+[data-theme="light"] .maintenance-toggle-btn {
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.55);
+}
+
+[data-theme="light"] .maintenance-toggle-btn:hover {
+  border-color: rgba(245, 87, 108, 0.4);
+  color: rgba(0, 0, 0, 0.85);
+  background: rgba(245, 87, 108, 0.04);
+}
+
+[data-theme="light"] .maintenance-toggle-btn.active {
+  border-color: rgba(245, 87, 108, 0.5);
+  background: rgba(245, 87, 108, 0.1);
+  color: #d63752;
+}
+
+[data-theme="light"] .maintenance-toggle-dot {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="light"] .maintenance-toggle-btn.active .maintenance-toggle-dot {
+  background: #d63752;
+  box-shadow: 0 0 8px rgba(214, 55, 82, 0.5);
+}
