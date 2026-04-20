@@ -537,6 +537,23 @@
 [data-theme="dark"] .offer-type-exclusive { background: rgba(251, 191, 36, 0.15); color: #FCD34D; }
 [data-theme="dark"] .offer-type-preorder { background: rgba(129, 140, 248, 0.15); color: #A5B4FC; }
 
+/* Shipping type badge (proxy/polska) */
+.shipping-type-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.shipping-type-proxy { background: #DBEAFE; color: #1E40AF; }
+.shipping-type-polska { background: #DCFCE7; color: #166534; }
+
+[data-theme="dark"] .shipping-type-proxy { background: rgba(59, 130, 246, 0.15); color: #93C5FD; }
+[data-theme="dark"] .shipping-type-polska { background: rgba(34, 197, 94, 0.15); color: #86EFAC; }
+
 /* Modal buttons override */
 .modal-overlay .btn {
     padding: 12px 24px;

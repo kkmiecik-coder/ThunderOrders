@@ -143,10 +143,6 @@
                     </span>
                 </div>
                 <div class="offer-card-detail">
-                    <span class="detail-label">Sekcji</span>
-                    <span class="detail-value">{{ page.sections.count() }}</span>
-                </div>
-                <div class="offer-card-detail">
                     <span class="detail-label">Utworzono</span>
                     <span class="detail-value">
                         {{ page.created_at|format_date('%d.%m.%Y') }}
@@ -187,11 +183,12 @@
                     <tr>
                         <th>Nazwa</th>
                         <th>Typ</th>
+                        <th>Typ wysyłki</th>
                         <th>Status</th>
+                        <th>Utworzono</th>
                         <th>Rozpoczęcie</th>
                         <th>Zakończenie</th>
-                        <th>Sekcji</th>
-                        <th>Utworzono</th>
+                        <th>Termin płatności</th>
                         <th>Akcje</th>
                     </tr>
                 </thead>
@@ -217,6 +214,13 @@
                             </span>
                         </td>
                         <td>
+                            {% if page.payment_stages == 4 %}
+                            <span class="shipping-type-badge shipping-type-proxy">Proxy</span>
+                            {% else %}
+                            <span class="shipping-type-badge shipping-type-polska">Polska</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             {% if page.status == 'draft' %}
                             <span class="status-badge status-draft">Draft</span>
                             {% elif page.status == 'scheduled' %}
@@ -232,6 +236,10 @@
                                 <span class="status-badge status-ended">Zakończona</span>
                                 {% endif %}
                             {% endif %}
+                        </td>
+                        <td>
+                            <span class="date-cell">{{ page.created_at|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ page.created_at|format_time }}</span>
                         </td>
                         <td>
                             {% if page.starts_at %}
@@ -250,11 +258,12 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="sections-count">{{ page.sections.count() }}</span>
-                        </td>
-                        <td>
-                            <span class="date-cell">{{ page.created_at|format_date('%d.%m.%Y') }}</span>
-                            <span class="time-cell">{{ page.created_at|format_time }}</span>
+                            {% if page.payment_deadline %}
+                            <span class="date-cell">{{ page.payment_deadline|format_date('%d.%m.%Y') }}</span>
+                            <span class="time-cell">{{ page.payment_deadline|format_time }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
                         </td>
                         <td class="actions-cell">
                             <div class="action-buttons">
