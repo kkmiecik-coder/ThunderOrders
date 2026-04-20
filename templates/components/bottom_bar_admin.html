@@ -53,10 +53,6 @@
             <img src="{{ url_for('static', filename='img/icons/payment.svg') }}" alt="" class="pwa-sheet-icon">
             <span>Potwierdzenia płatności</span>
         </a></li>
-        <li><a href="{{ url_for('admin.offers_list') }}" class="pwa-sheet-item {% if request.endpoint == 'admin.offers_list' or request.endpoint == 'admin.offers_edit' %}active{% endif %}">
-            <img src="{{ url_for('static', filename='img/icons/exclusive.svg') }}" alt="" class="pwa-sheet-icon">
-            <span>Strony sprzedaży</span>
-        </a></li>
         <li><a href="{{ url_for('orders.settings') }}" class="pwa-sheet-item {% if request.endpoint == 'orders.settings' %}active{% endif %}">
             <img src="{{ url_for('static', filename='img/icons/settings.svg') }}" alt="" class="pwa-sheet-icon">
             <span>Ustawienia</span>
@@ -109,6 +105,19 @@
                 <img src="{{ url_for('static', filename='img/icons/tasks.svg') }}" alt="" class="pwa-sheet-icon">
                 <span>Moje zadania</span>
             </a>
+        </li>
+        <li class="pwa-sheet-accordion">
+            <button class="pwa-sheet-item pwa-sheet-accordion-toggle {% if request.endpoint in ['admin.offers_list', 'admin.offers_edit', 'admin.offers_settings', 'admin.offers_live', 'admin.offers_summary'] %}active{% endif %}">
+                <img src="{{ url_for('static', filename='img/icons/exclusive.svg') }}" alt="" class="pwa-sheet-icon">
+                <span>Strony sprzedaży</span>
+                <svg class="pwa-sheet-chevron" viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </button>
+            <ul class="pwa-sheet-subitems">
+                <li><a href="{{ url_for('admin.offers_list') }}" class="pwa-sheet-item pwa-sheet-subitem {% if request.endpoint in ['admin.offers_list', 'admin.offers_edit', 'admin.offers_live', 'admin.offers_summary'] %}active{% endif %}">Lista stron</a></li>
+                <li><a href="{{ url_for('admin.offers_settings') }}" class="pwa-sheet-item pwa-sheet-subitem {% if request.endpoint == 'admin.offers_settings' %}active{% endif %}">Ustawienia</a></li>
+            </ul>
         </li>
         <li class="pwa-sheet-accordion">
             <button class="pwa-sheet-item pwa-sheet-accordion-toggle">
