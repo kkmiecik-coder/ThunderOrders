@@ -388,8 +388,20 @@ def register_cli_commands(app):
     """Rejestruje komendy CLI (do użycia z cron)"""
 
     import click
+    import functools
+    from flask import current_app
+
+    def _with_request_context(fn):
+        """Owija CLI command w test_request_context, żeby url_for(_external=True) działał poza HTTP requestem."""
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            base_url = os.getenv('APP_BASE_URL', 'https://thunderorders.cloud')
+            with current_app.test_request_context(base_url=base_url):
+                return fn(*args, **kwargs)
+        return wrapper
 
     @app.cli.command('check-payment-reminders')
+    @_with_request_context
     @click.option('--dry-run', is_flag=True, help='Tylko wyświetl, nie wysyłaj')
     def check_payment_reminders(dry_run):
         """Sprawdza i wysyła przypomnienia o płatnościach (uruchamiany co godzinę przez cron)."""
