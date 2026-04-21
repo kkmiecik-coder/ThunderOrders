@@ -1,5 +1,6 @@
 import sys
-if sys.platform != 'darwin' and 'db' not in sys.argv and 'migrate' not in sys.argv:
+_is_flask_cli = bool(sys.argv) and sys.argv[0].endswith('/flask')
+if sys.platform != 'darwin' and not _is_flask_cli:
     import eventlet
     eventlet.monkey_patch()
 
