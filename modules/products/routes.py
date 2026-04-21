@@ -115,12 +115,20 @@ def list_products():
 
     # Pagination
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)  # Get per_page from URL params, default 50
+    per_page_raw = request.args.get('per_page', '50')
 
-    # Validate per_page (must be one of allowed values)
-    allowed_per_page = [10, 25, 50, 100, 150]
-    if per_page not in allowed_per_page:
-        per_page = 50
+    # Accept 'all' sentinel or any positive int, capped at 10000
+    if str(per_page_raw).lower() == 'all':
+        per_page = 10000
+    else:
+        try:
+            per_page = int(per_page_raw)
+        except (ValueError, TypeError):
+            per_page = 50
+        if per_page < 1:
+            per_page = 50
+        elif per_page > 10000:
+            per_page = 10000
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     products = pagination.items
