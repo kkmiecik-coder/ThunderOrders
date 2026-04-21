@@ -436,7 +436,8 @@ def register_cli_commands(app):
                             continue  # Za wcześnie
 
                         orders = Order.query.filter(
-                            Order.offer_page_id == page.id
+                            Order.offer_page_id == page.id,
+                            Order.status != 'anulowane'
                         ).all()
 
                         for order in orders:
@@ -491,6 +492,8 @@ def register_cli_commands(app):
                             order = po_item.order
                             if not order:
                                 continue
+                            if order.status == 'anulowane':
+                                continue
                             if order.stage_2_status not in ('none', 'rejected'):
                                 continue
 
@@ -531,7 +534,8 @@ def register_cli_commands(app):
 
                 # Tylko On-hand i Pre-order
                 orders = Order.query.filter(
-                    Order.order_type.in_(['on_hand', 'preorder'])
+                    Order.order_type.in_(['on_hand', 'preorder']),
+                    Order.status != 'anulowane'
                 ).all()
 
                 for order in orders:
@@ -586,7 +590,10 @@ def register_cli_commands(app):
         exceeded_orders_by_page = {}
 
         for page in exceeded_pages:
-            orders = Order.query.filter(Order.offer_page_id == page.id).all()
+            orders = Order.query.filter(
+                Order.offer_page_id == page.id,
+                Order.status != 'anulowane'
+            ).all()
             for order in orders:
                 if order.product_payment_status not in ('none', 'rejected'):
                     continue
