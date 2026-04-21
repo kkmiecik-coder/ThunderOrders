@@ -586,9 +586,9 @@ function startCsvImport() {
         const csvColumn = select.getAttribute('data-csv-column');
         const productField = select.value;
 
-        if (productField) {
-            columnMapping[csvColumn] = productField;
-        }
+        // Always include every CSV column in the mapping so backend row length matches.
+        // Unmapped columns get null and are ignored during row→product mapping.
+        columnMapping[csvColumn] = productField || null;
     });
 
     // Validate: name is required
@@ -598,11 +598,12 @@ function startCsvImport() {
         return;
     }
 
-    // Validate: no duplicate field mappings
+    // Validate: no duplicate field mappings (null/empty values are allowed to repeat)
     const fieldValues = Object.values(columnMapping);
     const seen = {};
     const duplicates = [];
     fieldValues.forEach(v => {
+        if (!v) return;
         if (seen[v]) duplicates.push(v);
         else seen[v] = true;
     });
