@@ -79,17 +79,23 @@ def _check_sr_auto_oplacone(order):
 def payment_confirmations_list():
     """
     Lista potwierdzeń płatności
-    Sortowanie: pending first (oldest first), potem approved/rejected (newest first)
-    Zakładki: active (domyślna) i archive
+    Zakładki:
+      - pending (domyślna) — tylko status='pending'
+      - processed — status='approved' (jeszcze nie w archiwum) + wszystkie status='rejected'
+      - archive — status='approved' AND updated_at < 3 dni temu
+    Sortowanie: najstarsze na początku w każdej zakładce
     """
-    from sqlalchemy import case
     from datetime import timedelta
 
-    # Zakładka
-    tab = request.args.get('tab', 'active')
+    # Zakładka: pending / processed / archive
+    tab = request.args.get('tab', 'pending')
+    # Backward-compat: stary link ?tab=active traktuj jako pending
+    if tab == 'active':
+        tab = 'pending'
+    if tab not in ('pending', 'processed', 'archive'):
+        tab = 'pending'
 
     # Filtry
-    status_filter = request.args.get('status', 'all')
     stage_filter = request.args.get('stage', 'all')
     ocr_filter = request.args.get('ocr', 'all')
 
@@ -99,27 +105,24 @@ def payment_confirmations_list():
     # Bazowe query
     query = PaymentConfirmation.query.join(Order)
 
-    # Filtruj po zakładce (active vs archive)
-    # Archive = approved AND updated_at < 3 dni temu
+    # Filtruj po zakładce
     if tab == 'archive':
         query = query.filter(
             PaymentConfirmation.status == 'approved',
             PaymentConfirmation.updated_at < archive_cutoff
         )
-    else:
-        # Active = NOT (approved AND updated_at < 3 dni temu)
+    elif tab == 'processed':
         query = query.filter(
-            db.not_(
+            db.or_(
                 db.and_(
                     PaymentConfirmation.status == 'approved',
-                    PaymentConfirmation.updated_at < archive_cutoff
-                )
+                    PaymentConfirmation.updated_at >= archive_cutoff
+                ),
+                PaymentConfirmation.status == 'rejected'
             )
         )
-
-    # Filtruj po statusie
-    if status_filter != 'all':
-        query = query.filter(PaymentConfirmation.status == status_filter)
+    else:  # pending
+        query = query.filter(PaymentConfirmation.status == 'pending')
 
     # Filtruj po etapie
     if stage_filter != 'all':
@@ -147,22 +150,11 @@ def payment_confirmations_list():
             )
         )
 
-    # Sortowanie
-    if tab == 'archive':
-        # Archive: newest first
-        query = query.order_by(PaymentConfirmation.updated_at.desc())
+    # Sortowanie: najstarsze na początku
+    if tab == 'pending':
+        query = query.order_by(PaymentConfirmation.uploaded_at.asc())
     else:
-        # Active: pending first (oldest first), potem reszta (newest first)
-        query = query.order_by(
-            case(
-                (PaymentConfirmation.status == 'pending', 0),
-                else_=1
-            ).asc(),
-            case(
-                (PaymentConfirmation.status == 'pending', PaymentConfirmation.uploaded_at),
-                else_=PaymentConfirmation.updated_at
-            ).asc()
-        )
+        query = query.order_by(PaymentConfirmation.updated_at.asc())
 
     # Paginacja
     page = request.args.get('page', 1, type=int)
@@ -181,25 +173,33 @@ def payment_confirmations_list():
             if conf.proof_file:
                 proof_file_map[conf.proof_file] = group
 
-    # Statystyki statusów (tylko dla aktywnych)
-    active_base = PaymentConfirmation.query.filter(
-        db.not_(
+    # Liczniki do badge w zakładkach — liczymy grupy (po proof_file), tak jak w widoku.
+    # Wiersze z NULL proof_file są liczone pojedynczo (każdy jako osobna grupa).
+    from sqlalchemy import func, distinct
+
+    def _count_groups(*filters):
+        with_proof = db.session.query(
+            func.count(distinct(PaymentConfirmation.proof_file))
+        ).filter(*filters, PaymentConfirmation.proof_file.isnot(None)).scalar() or 0
+        without_proof = PaymentConfirmation.query.filter(
+            *filters, PaymentConfirmation.proof_file.is_(None)
+        ).count()
+        return with_proof + without_proof
+
+    pending_count = _count_groups(PaymentConfirmation.status == 'pending')
+    processed_count = _count_groups(
+        db.or_(
             db.and_(
                 PaymentConfirmation.status == 'approved',
-                PaymentConfirmation.updated_at < archive_cutoff
-            )
+                PaymentConfirmation.updated_at >= archive_cutoff
+            ),
+            PaymentConfirmation.status == 'rejected'
         )
     )
-    pending_count = active_base.filter(PaymentConfirmation.status == 'pending').count()
-    approved_count = active_base.filter(PaymentConfirmation.status == 'approved').count()
-    rejected_count = active_base.filter(PaymentConfirmation.status == 'rejected').count()
-
-    # Licznik aktywnych i archiwalnych (do badge w zakładkach)
-    active_total = active_base.count()
-    archive_count = PaymentConfirmation.query.filter(
+    archive_count = _count_groups(
         PaymentConfirmation.status == 'approved',
         PaymentConfirmation.updated_at < archive_cutoff
-    ).count()
+    )
 
     # Statystyki etapów
     stage_counts = {
@@ -216,13 +216,10 @@ def payment_confirmations_list():
         groups=groups,
         pagination=pagination,
         tab=tab,
-        status_filter=status_filter,
         stage_filter=stage_filter,
         ocr_filter=ocr_filter,
         pending_count=pending_count,
-        approved_count=approved_count,
-        rejected_count=rejected_count,
-        active_total=active_total,
+        processed_count=processed_count,
         archive_count=archive_count,
         auto_approved_count=auto_approved_count,
         stage_counts=stage_counts,
