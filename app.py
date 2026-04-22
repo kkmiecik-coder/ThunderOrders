@@ -1041,6 +1041,49 @@ def register_cli_commands(app):
         click.echo(f'\n{prefix}Gotowe. Przetworzono: {processed}, Pominięto: {skipped}, Błędów: {errors}')
 
 
+    @app.cli.command('audit-offer-images')
+    @click.option('--clear-db', is_flag=True,
+                  help='Wyzeruj set_image w bazie dla rekordów wskazujących na nieistniejący plik')
+    def audit_offer_images(clear_db):
+        """Sprawdza spójność OfferSection.set_image — wykrywa "ghost paths" (rekord w bazie, brak pliku na dysku)."""
+        from modules.offers.models import OfferSection, OfferPage
+
+        sections = OfferSection.query.filter(OfferSection.set_image.isnot(None)).all()
+        click.echo(f'Sprawdzam {len(sections)} sekcji z ustawionym set_image...\n')
+
+        ok = []
+        ghosts = []
+        for section in sections:
+            file_path = os.path.join(app.static_folder, section.set_image)
+            if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+                ok.append(section)
+            else:
+                ghosts.append(section)
+
+        click.echo(f'OK: {len(ok)} pliki istnieją')
+        click.echo(f'GHOST: {len(ghosts)} rekordów wskazuje na brakujący plik\n')
+
+        if ghosts:
+            click.echo('Lista ghost paths:')
+            click.echo('-' * 100)
+            for section in ghosts:
+                page = OfferPage.query.get(section.offer_page_id)
+                page_name = page.name if page else '?'
+                click.echo(f'  section_id={section.id:>5}  page="{page_name}"  '
+                           f'type={section.section_type}  path={section.set_image}')
+            click.echo('-' * 100)
+
+            if clear_db:
+                for section in ghosts:
+                    section.set_image = None
+                db.session.commit()
+                click.echo(f'\nWyzerowano set_image dla {len(ghosts)} rekordów. '
+                           'Adminowie mogą ponownie wgrać obrazki przez page builder.')
+            else:
+                click.echo('\nUruchom z --clear-db aby wyzerować set_image w bazie '
+                           '(po tym admin musi ponownie wgrać obrazki).')
+
+
 def register_error_handlers(app):
     """Rejestruje handlery dla błędów HTTP"""
 

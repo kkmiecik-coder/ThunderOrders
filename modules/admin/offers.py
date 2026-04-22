@@ -940,7 +940,7 @@ def offers_upload_image():
     """Upload obrazka dla seta lub innego elementu"""
     import os
     import uuid
-    from werkzeug.utils import secure_filename
+    from flask import current_app
 
     if 'image' not in request.files:
         return jsonify({'success': False, 'error': 'Brak pliku'}), 400
@@ -949,38 +949,74 @@ def offers_upload_image():
     if file.filename == '':
         return jsonify({'success': False, 'error': 'Nie wybrano pliku'}), 400
 
-    # Sprawdź rozszerzenie
     allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
     file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
 
     if file_ext not in allowed_extensions:
         return jsonify({'success': False, 'error': 'Niedozwolony typ pliku'}), 400
 
+    unique_name = f"{uuid.uuid4().hex}.{file_ext}"
+    relative_path = f'uploads/offers/{unique_name}'
+
+    # ABSOLUTNA ścieżka do zapisu — uniezależnia od CWD gunicorna
+    upload_folder = os.path.join(current_app.static_folder, 'uploads', 'offers')
+    file_path = os.path.join(upload_folder, unique_name)
+
     try:
-        # Generuj unikalną nazwę pliku
-        unique_name = f"{uuid.uuid4().hex}.{file_ext}"
-
-        # Ścieżka do zapisu
-        upload_folder = os.path.join('static', 'uploads', 'offers')
         os.makedirs(upload_folder, exist_ok=True)
-
-        file_path = os.path.join(upload_folder, unique_name)
         file.save(file_path)
 
-        # Opcjonalnie: kompresuj obrazek
+        # WERYFIKACJA — czy plik faktycznie wylądował na dysku
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            current_app.logger.error(
+                f"[OFFER UPLOAD] file.save() nie zapisało pliku: {file_path} "
+                f"(user={current_user.id}, original={file.filename})"
+            )
+            return jsonify({
+                'success': False,
+                'error': 'Plik nie zapisał się na dysku — spróbuj ponownie'
+            }), 500
+
+        # Kompresja (best-effort — jeśli pęknie, zostawiamy oryginał)
         try:
             from utils.image_processor import compress_image
             compress_image(file_path, max_size=1600, quality=85)
-        except Exception:
-            pass  # Jeśli nie ma image_processor, zapisz bez kompresji
+        except Exception as compress_err:
+            current_app.logger.warning(
+                f"[OFFER UPLOAD] compress_image fail dla {relative_path}: {compress_err}"
+            )
+
+        # Druga weryfikacja — po kompresji plik nadal jest na miejscu
+        if not os.path.exists(file_path) or os.path.getsize(file_path) == 0:
+            current_app.logger.error(
+                f"[OFFER UPLOAD] plik zniknął/zerowy po kompresji: {file_path}"
+            )
+            return jsonify({
+                'success': False,
+                'error': 'Plik został uszkodzony podczas kompresji'
+            }), 500
+
+        current_app.logger.info(
+            f"[OFFER UPLOAD] OK {relative_path} "
+            f"({os.path.getsize(file_path)} bytes, user={current_user.id})"
+        )
 
         return jsonify({
             'success': True,
-            'path': f'uploads/offers/{unique_name}',
-            'url': url_for('static', filename=f'uploads/offers/{unique_name}')
+            'path': relative_path,
+            'url': url_for('static', filename=relative_path)
         })
 
     except Exception as e:
+        # Sprzątanie po częściowo zapisanym pliku
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except OSError:
+                pass
+        current_app.logger.exception(
+            f"[OFFER UPLOAD] wyjątek dla user={current_user.id}: {e}"
+        )
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
