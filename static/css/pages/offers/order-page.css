@@ -599,9 +599,29 @@ body.offer-page-body {
         flex-direction: column;
     }
 
-    /* Ukryj kontrolki w body na mobile */
+    /* Na mobile pokazujemy tylko przycisk "Dodaj do koszyka" -
+       cena i licznik są już w headerze (.product-header-controls) */
     .product-controls-box {
+        width: 100%;
+        background: transparent;
+        border: none;
+        padding: 0;
+        gap: 0;
+    }
+
+    .product-controls-box .product-price,
+    .product-controls-box .quantity-wrapper .quantity-control {
         display: none;
+    }
+
+    .product-controls-box .quantity-wrapper {
+        width: 100%;
+    }
+
+    .product-controls-box .btn-add-to-cart {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
     }
 }
 
@@ -1693,6 +1713,25 @@ body.offer-page-body {
     .variant-group-products {
         grid-template-columns: repeat(2, 1fr);
         gap: var(--space-3);
+    }
+
+    /* Variant z obrazem tła (.variant-product-horizontal) na mobile -
+       pionowy układ: zdjęcie na górze, nazwa pod, przycisk pod nazwą */
+    .variant-product-horizontal {
+        flex-direction: column;
+        align-items: stretch;
+        padding: var(--space-3);
+        gap: var(--space-2);
+    }
+
+    .variant-product-horizontal .variant-product-image {
+        width: 100%;
+        min-width: 0;
+        margin-bottom: var(--space-2);
+    }
+
+    .variant-product-horizontal .variant-product-info {
+        margin-bottom: var(--space-2);
     }
 
     .deadline-banner {
