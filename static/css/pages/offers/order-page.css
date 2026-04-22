@@ -1546,6 +1546,11 @@ body.offer-page-body {
     .page-content {
         flex-direction: column;
         padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+        /* Na mobile zerujemy stacking context, żeby .cart-sidebar (z-index 100)
+           mógł się wybić ponad .cart-mobile-overlay (z-index 95) w root stacking
+           context. Inaczej sidebar jest uwięziony w z-index:10 page-content i
+           overlay przykrywa kartę koszyka. */
+        z-index: auto;
     }
 
     .cart-sidebar {
