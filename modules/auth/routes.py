@@ -33,8 +33,8 @@ _login_attempts = defaultdict(list)
 _login_lock = threading.Lock()
 
 # Konfiguracja
-MAX_ATTEMPTS = 5          # Maksymalna liczba nieudanych prób
-LOCKOUT_MINUTES = 15      # Czas blokady w minutach
+MAX_ATTEMPTS = 10         # Maksymalna liczba nieudanych prób
+LOCKOUT_MINUTES = 5       # Czas blokady w minutach
 ATTEMPT_WINDOW_MINUTES = 15  # Okno czasowe liczenia prób
 
 

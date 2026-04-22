@@ -9,6 +9,7 @@ import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort
+from werkzeug.middleware.proxy_fix import ProxyFix
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
 # Sentry - error tracking (inicjalizacja przed create_app)
@@ -36,6 +37,10 @@ def create_app(config_name=None):
     Tworzy i konfiguruje instancję aplikacji Flask
     """
     app = Flask(__name__)
+
+    # Za reverse-proxy (Nginx) — odczytuj prawdziwy IP klienta z X-Forwarded-For.
+    # Bez tego request.remote_addr zwraca 127.0.0.1 i rate-limiter traktuje wszystkich jako ten sam IP.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
     # Konfiguracja logowania - upewnij się że logi INFO trafiają do stdout (Gunicorn/journalctl)
     logging.basicConfig(
