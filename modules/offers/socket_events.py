@@ -277,8 +277,8 @@ def _check_notification_subscriptions(page_id, current_availability):
                     from .models import OfferPage
                     from flask import url_for
 
-                    email = sub.guest_email
-                    if not email and sub.user_id:
+                    email = None
+                    if sub.user_id:
                         from modules.auth.models import User
                         user = User.query.get(sub.user_id)
                         if user:

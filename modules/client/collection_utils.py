@@ -14,7 +14,6 @@ def auto_add_order_to_collection(order):
     """
     Automatically add order items to user's collection.
 
-    - Skips guest orders (no user_id)
     - Checks for duplicates via order_item_id (idempotent)
     - For quantity > 1, creates separate CollectionItem per unit (K-pop = unique items)
     - Uses order_item.price as initial market_price
@@ -23,10 +22,6 @@ def auto_add_order_to_collection(order):
         order: Order model instance
     """
     from modules.client.models import CollectionItem
-
-    # Skip guest orders
-    if not order.user_id:
-        return
 
     for item in order.items:
         # Check if already added (idempotent)

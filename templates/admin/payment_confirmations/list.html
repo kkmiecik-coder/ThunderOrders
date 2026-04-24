@@ -183,7 +183,7 @@
                     <div class="pc-card-row">
                         <span class="pc-card-label">Klient:</span>
                         <span class="pc-card-value">
-                            {% if first.order.user %}{{ first.order.user.full_name or first.order.user.email }}{% else %}{{ first.order.customer_name or 'Gość' }}{% endif %}
+                            {{ first.order.user.full_name or first.order.user.email }}
                         </span>
                     </div>
                     <div class="pc-card-row">
@@ -366,12 +366,7 @@
                     <td class="col-customer">
                         <div class="customer-cell-new">
                             <div class="customer-name-row">
-                                {% if first.order.user %}
-                                    <span class="customer-name">{{ first.order.user.full_name or first.order.user.email }}</span>
-                                {% else %}
-                                    <span class="customer-name">{{ first.order.customer_name or 'Gość' }}</span>
-                                    <span class="badge badge-guest-sm">Gość</span>
-                                {% endif %}
+                                <span class="customer-name">{{ first.order.user.full_name or first.order.user.email }}</span>
                             </div>
                         </div>
                     </td>

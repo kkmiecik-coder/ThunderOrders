@@ -460,30 +460,6 @@
 }
 
 /* ==========================================
-   Guest Info
-   ========================================== */
-.guest-info {
-    margin-top: var(--space-6);
-    padding-top: var(--space-6);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.guest-info p {
-    font-size: var(--text-sm);
-}
-
-.guest-info a {
-    color: #f093fb;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-
-.guest-info a:hover {
-    color: #f5576c;
-    text-decoration: underline;
-}
-
-/* ==========================================
    Responsive
    ========================================== */
 @media (max-width: 600px) {

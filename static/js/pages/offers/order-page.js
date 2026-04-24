@@ -2353,6 +2353,12 @@ function updateNotificationBellVisibility(productId, available) {
  * @param {number} productId - Product ID
  */
 function openNotificationModal(productId) {
+    // Subskrypcja wymaga zalogowania.
+    if (!window.isAuthenticated) {
+        openLoginModal();
+        return;
+    }
+
     currentNotificationProductId = productId;
 
     const modal = document.getElementById('notificationModal');
@@ -2385,19 +2391,7 @@ function openNotificationModal(productId) {
 
     productNameEl.textContent = `o dostępności: ${productName}`;
 
-    // Reset form state
-    const emailInput = document.getElementById('notificationEmail');
-    const emailError = document.getElementById('notificationEmailError');
     const submitBtn = document.getElementById('notificationSubmitBtn');
-
-    if (emailInput) {
-        emailInput.value = '';
-        emailInput.classList.remove('error');
-    }
-    if (emailError) {
-        emailError.classList.add('hidden');
-        emailError.textContent = '';
-    }
     if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.querySelector('span').textContent = 'Powiadom mnie';
@@ -2422,26 +2416,6 @@ async function submitNotificationSubscription() {
     if (!currentNotificationProductId) return;
 
     const submitBtn = document.getElementById('notificationSubmitBtn');
-    const emailInput = document.getElementById('notificationEmail');
-    const emailError = document.getElementById('notificationEmailError');
-
-    // For guest users, validate email
-    let email = null;
-    if (!window.isAuthenticated && emailInput) {
-        email = emailInput.value.trim();
-
-        if (!email) {
-            showNotificationError('Podaj adres email');
-            return;
-        }
-
-        // Simple email validation
-        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailPattern.test(email)) {
-            showNotificationError('Nieprawidłowy format email');
-            return;
-        }
-    }
 
     // Disable button
     submitBtn.disabled = true;
@@ -2454,8 +2428,7 @@ async function submitNotificationSubscription() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                product_id: currentNotificationProductId,
-                email: email
+                product_id: currentNotificationProductId
             })
         });
 
@@ -2489,19 +2462,12 @@ async function submitNotificationSubscription() {
 }
 
 /**
- * Shows error message in notification modal
+ * Shows error message as toast (notification modal no longer has inline email field)
  * @param {string} message - Error message
  */
 function showNotificationError(message) {
-    const emailInput = document.getElementById('notificationEmail');
-    const emailError = document.getElementById('notificationEmailError');
-
-    if (emailInput) {
-        emailInput.classList.add('error');
-    }
-    if (emailError) {
-        emailError.textContent = message;
-        emailError.classList.remove('hidden');
+    if (typeof showToast === 'function') {
+        showToast(message, 'error');
     }
 }
 

@@ -666,9 +666,9 @@ class OfferProductNotificationSubscription(db.Model):
     """
     Subskrypcja powiadomienia o powrocie dostępności produktu na stronie oferty.
 
-    Użytkownik (zalogowany lub gość) może zapisać się na powiadomienie email,
-    gdy produkt jest niedostępny. Po powrocie dostępności (zwiększenie max_quantity
-    lub auto-increase) system wysyła jednorazowe powiadomienie.
+    Zalogowany użytkownik może zapisać się na powiadomienie email gdy produkt
+    jest niedostępny. Po powrocie dostępności (zwiększenie max_quantity lub
+    auto-increase) system wysyła jednorazowe powiadomienie.
     """
     __tablename__ = 'offer_product_notifications'
 
@@ -676,11 +676,7 @@ class OfferProductNotificationSubscription(db.Model):
     offer_page_id = db.Column(db.Integer, db.ForeignKey('offer_pages.id', ondelete='CASCADE'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
 
-    # Dla zalogowanych użytkowników
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=True)
-
-    # Dla gości (niezalogowanych)
-    guest_email = db.Column(db.String(255), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
 
     # Status i timestamps
     notified = db.Column(db.Boolean, default=False, nullable=False)
@@ -692,23 +688,17 @@ class OfferProductNotificationSubscription(db.Model):
     product = db.relationship('Product', backref=db.backref('offer_notification_subscriptions', lazy='dynamic', passive_deletes=True))
     user = db.relationship('User', backref=db.backref('offer_notification_subscriptions', lazy='dynamic', passive_deletes=True))
 
-    # Constraints - unikalne kombinacje (page + product + user/email)
     __table_args__ = (
         db.Index('ix_notification_page_product', 'offer_page_id', 'product_id'),
         db.Index('ix_notification_not_notified', 'offer_page_id', 'product_id', 'notified'),
     )
 
     def __repr__(self):
-        if self.user_id:
-            return f'<OfferNotification page={self.offer_page_id} product={self.product_id} user={self.user_id}>'
-        return f'<OfferNotification page={self.offer_page_id} product={self.product_id} email={self.guest_email}>'
+        return f'<OfferNotification page={self.offer_page_id} product={self.product_id} user={self.user_id}>'
 
     @property
     def email(self):
-        """Zwraca email subskrybenta (z konta lub guest_email)"""
-        if self.user:
-            return self.user.email
-        return self.guest_email
+        return self.user.email if self.user else None
 
 
 # ============================================

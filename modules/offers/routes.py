@@ -732,23 +732,19 @@ def place_order(token):
 
 @offers_bp.route('/<token>/subscribe-notification', methods=['POST'])
 @csrf.exempt
+@login_required
 def subscribe_notification(token):
     """
-    Zapisuje użytkownika na powiadomienie o dostępności produktu.
-
-    Dla zalogowanych użytkowników: używa email z konta.
-    Dla gości: wymaga podania email w body.
+    Zapisuje zalogowanego użytkownika na powiadomienie o dostępności produktu.
 
     Request body:
     {
-        "product_id": 123,
-        "email": "guest@example.com"  // tylko dla gości
+        "product_id": 123
     }
     """
     from .models import OfferProductNotificationSubscription, OfferSection, OfferSetItem
     from modules.products.models import Product, VariantGroup, variant_products
     from extensions import db
-    import re
 
     page = OfferPage.get_by_token(token)
     if not page:
@@ -760,7 +756,6 @@ def subscribe_notification(token):
 
     data = request.get_json()
     product_id = data.get('product_id')
-    guest_email = data.get('email')
 
     if not product_id:
         return jsonify({'success': False, 'error': 'missing_product_id', 'message': 'Brak ID produktu'}), 400
@@ -821,36 +816,13 @@ def subscribe_notification(token):
     if not product_on_page:
         return jsonify({'success': False, 'error': 'product_not_on_page', 'message': 'Produkt nie jest dostępny na tej stronie'}), 400
 
-    # Określ user_id lub guest_email
-    user_id = None
-    email_to_notify = None
-
-    if current_user.is_authenticated:
-        user_id = current_user.id
-        email_to_notify = current_user.email
-    else:
-        # Gość - wymaga email
-        if not guest_email:
-            return jsonify({'success': False, 'error': 'missing_email', 'message': 'Podaj adres email'}), 400
-
-        # Walidacja email
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_pattern, guest_email):
-            return jsonify({'success': False, 'error': 'invalid_email', 'message': 'Nieprawidłowy format email'}), 400
-
-        email_to_notify = guest_email.strip().lower()
-
     # Sprawdź czy już istnieje subskrypcja
-    existing_query = OfferProductNotificationSubscription.query.filter_by(
+    existing = OfferProductNotificationSubscription.query.filter_by(
         offer_page_id=page.id,
         product_id=product_id,
-        notified=False
-    )
-
-    if user_id:
-        existing = existing_query.filter_by(user_id=user_id).first()
-    else:
-        existing = existing_query.filter_by(guest_email=email_to_notify).first()
+        notified=False,
+        user_id=current_user.id
+    ).first()
 
     if existing:
         return jsonify({
@@ -859,12 +831,10 @@ def subscribe_notification(token):
             'message': 'Już zapisano na powiadomienie o tym produkcie'
         })
 
-    # Utwórz subskrypcję
     subscription = OfferProductNotificationSubscription(
         offer_page_id=page.id,
         product_id=product_id,
-        user_id=user_id,
-        guest_email=email_to_notify if not user_id else None,
+        user_id=current_user.id,
         notified=False
     )
 
@@ -874,5 +844,5 @@ def subscribe_notification(token):
     return jsonify({
         'success': True,
         'message': 'Zapisano! Otrzymasz powiadomienie gdy produkt będzie dostępny.',
-        'email': email_to_notify
+        'email': current_user.email
     })

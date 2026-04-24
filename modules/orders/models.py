@@ -152,7 +152,7 @@ class WmsStatus(db.Model):
 class Order(db.Model):
     """
     Main order model.
-    Supports both registered users and guest orders.
+    Zamówienia składane wyłącznie przez zalogowanych użytkowników.
     """
     __tablename__ = 'orders'
 
@@ -160,8 +160,7 @@ class Order(db.Model):
     order_number = db.Column(db.String(20), unique=True, nullable=False)  # Format: PO/00000001
     order_type = db.Column(db.String(50), db.ForeignKey('order_types.slug'), default='on_hand')
 
-    # User relationship (NULL for guest orders)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     user = db.relationship('User', back_populates='orders', foreign_keys=[user_id])
 
     # Status (foreign key to order_statuses)
@@ -243,17 +242,11 @@ class Order(db.Model):
 
     @property
     def customer_name(self):
-        """Returns customer name"""
-        if self.user:
-            return self.user.full_name
-        return 'Unknown'
+        return self.user.full_name
 
     @property
     def customer_email(self):
-        """Returns customer email"""
-        if self.user:
-            return self.user.email
-        return None
+        return self.user.email
 
     @property
     def status_badge_color(self):

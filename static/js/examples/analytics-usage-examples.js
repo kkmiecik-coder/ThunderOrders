@@ -88,30 +88,6 @@ document.getElementById('submit-order-btn').addEventListener('click', function()
     });
 });
 
-// ====================================================================
-// PRZYKŁAD 3: Tracking zamówienia Offer (Guest Order)
-// Lokalizacja: static/js/pages/offers/order-page.js
-// ====================================================================
-
-// Po złożeniu zamówienia przez gościa
-document.getElementById('guest-order-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-
-    const formData = new FormData(this);
-
-    fetch(this.action, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            // Pokazanie strony "Dziękujemy"...
-            showThankYouPage(data.order_number);
-        }
-    });
-});
-
 // Track wyświetlenia strony Offer (zaraz po załadowaniu)
 document.addEventListener('DOMContentLoaded', function() {
     const offerToken = document.body.dataset.offerToken;

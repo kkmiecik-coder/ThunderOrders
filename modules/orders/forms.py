@@ -219,10 +219,6 @@ class RefundForm(FlaskForm):
 
 
 # ====================
-# GUEST ORDER FORM
-# ====================
-
-# ====================
 # BULK ACTIONS FORM
 # ====================
 

@@ -777,23 +777,10 @@
 
         <!-- Body -->
         <div class="offer-modal-body">
-            {% if current_user.is_authenticated %}
-            <!-- Logged in user -->
             <p class="offer-modal-message">
                 Gdy produkt stanie się dostępny, wyślemy jednorazowe powiadomienie na adres:
             </p>
             <p class="notification-email-display">{{ current_user.email }}</p>
-            {% else %}
-            <!-- Guest user -->
-            <p class="offer-modal-message">
-                Podaj swój adres email, a powiadomimy Cię gdy produkt stanie się dostępny.
-            </p>
-            <div class="notification-form-group">
-                <label for="notificationEmail">Adres email</label>
-                <input type="email" id="notificationEmail" class="offer-input" placeholder="twoj@email.pl" required>
-                <span id="notificationEmailError" class="notification-error hidden"></span>
-            </div>
-            {% endif %}
 
             <p class="notification-hint">
                 Powiadomienie jest jednorazowe - po wysłaniu automatycznie usuwamy Twoje dane.
@@ -858,14 +845,10 @@ window.reservationStorageKey = 'offer_reservation_{{ page.token }}';
 window.bonusesConfig = {{ bonuses_config_json|safe }};
 
 // Redirect URL after order
-{% if current_user.is_authenticated %}
-    {% if current_user.role in ['admin', 'mod'] %}
+{% if current_user.is_authenticated and current_user.role in ['admin', 'mod'] %}
 window.redirectAfterOrderUrl = '/admin/dashboard';
-    {% else %}
-window.redirectAfterOrderUrl = '/client/dashboard';
-    {% endif %}
 {% else %}
-window.redirectAfterOrderUrl = '#'; // Guest - will just close modal
+window.redirectAfterOrderUrl = '/client/dashboard';
 {% endif %}
 
 // Auto-refresh when sale ends (if applicable)
