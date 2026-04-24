@@ -57,6 +57,8 @@
                  data-proxy-shipping-amount="{{ order.proxy_shipping_total }}"
                  data-customs-vat-amount="{{ order.customs_vat_total }}"
                  data-shipping-cost-amount="{{ order.shipping_cost or 0 }}"
+                 data-customer-name="{{ ((order.user.first_name or '') ~ ' ' ~ (order.user.last_name or ''))|trim if order.user else '' }}"
+                 data-offer-page-name="{{ (order.offer_page.name if order.offer_page else order.offer_page_name) or '' }}"
                  onclick="toggleCardCheckbox(event)"
             >
                 <!-- Header: checkbox + numer -->

@@ -16,6 +16,7 @@ from extensions import db
 from modules.offers.models import OfferPage, OfferSection, OfferSetItem
 from modules.orders.models import Order, OrderItem
 from modules.auth.models import Settings, User
+from utils.transfer_title import render_transfer_title
 
 
 def calculate_set_fulfillment(page_id):
@@ -1369,11 +1370,11 @@ def send_closure_emails(page_id, payment_deadline=None):
         shipping_cost = Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00')
         grand_total = fulfilled_total + shipping_cost
 
-        # Przygotuj metody płatności z podstawionym numerem zamówienia
+        # Przygotuj metody płatności z podstawionymi placeholderami
         payment_methods = []
         for method in payment_methods_raw:
-            title = (method.transfer_title or '').replace('[NUMER ZAMÓWIENIA]', order.order_number)
-            additional = (method.additional_info or '').replace('[NUMER ZAMÓWIENIA]', order.order_number)
+            title = render_transfer_title(method.transfer_title, order)
+            additional = render_transfer_title(method.additional_info, order)
 
             payment_methods.append({
                 'name': method.name,

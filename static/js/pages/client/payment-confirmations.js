@@ -544,7 +544,9 @@ window.toggleOrderItems = function(orderId, totalItems) {
                 canUploadStage4: row ? (row.dataset.canUploadStage4 === 'true') : false,
                 proxyShippingAmount: row ? parseFloat(row.dataset.proxyShippingAmount || 0) : 0,
                 customsVatAmount: row ? parseFloat(row.dataset.customsVatAmount || 0) : 0,
-                shippingCostAmount: row ? parseFloat(row.dataset.shippingCostAmount || 0) : 0
+                shippingCostAmount: row ? parseFloat(row.dataset.shippingCostAmount || 0) : 0,
+                customerName: row ? (row.dataset.customerName || '') : '',
+                offerPageName: row ? (row.dataset.offerPageName || '') : ''
             });
         });
 
@@ -707,6 +709,40 @@ window.toggleOrderItems = function(orderId, totalItems) {
         return numbers.join(', ');
     }
 
+    function getSelectedCustomerNames() {
+        var names = [];
+        selectedOrders.forEach(function (data) {
+            var name = (data.customerName || '').trim();
+            if (name && names.indexOf(name) === -1) names.push(name);
+        });
+        return names.join(', ');
+    }
+
+    function getSelectedOfferPageNames() {
+        var pages = [];
+        selectedOrders.forEach(function (data) {
+            var name = (data.offerPageName || '').trim();
+            if (name && pages.indexOf(name) === -1) pages.push(name);
+        });
+        return pages.join(', ');
+    }
+
+    function renderTemplateTitle(template) {
+        if (!template) return '';
+        var values = {
+            order: getSelectedOrderNumbers(),
+            customer: getSelectedCustomerNames(),
+            page: getSelectedOfferPageNames()
+        };
+        return template
+            .replace(/\[numer_zamowienia\]/gi, values.order)
+            .replace(/\[NUMER ZAMÓWIENIA\]/gi, values.order)
+            .replace(/\[klient\]/gi, values.customer)
+            .replace(/\[KLIENT\]/gi, values.customer)
+            .replace(/\[strona_sprzedazy\]/gi, values.page)
+            .replace(/\[STRONA SPRZEDAŻY\]/gi, values.page);
+    }
+
     function renderCopyButton(text) {
         return '<button class="pc-btn-copy" data-copy-text="' + escapeAttr(text) + '" title="Kopiuj">' +
             COPY_ICON +
@@ -721,7 +757,6 @@ window.toggleOrderItems = function(orderId, totalItems) {
     }
 
     function renderMethodDetails(method, detailPanel) {
-        var orderNumbers = getSelectedOrderNumbers();
         var html = '';
 
         html += '<div class="pc-method-detail-header">';
@@ -760,7 +795,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
         }
 
         if (method.transfer_title) {
-            var title = method.transfer_title.replace(/\[NUMER ZAMÓWIENIA\]/gi, orderNumbers);
+            var title = renderTemplateTitle(method.transfer_title);
             html += '<div class="pc-method-field">';
             html += '<span class="pc-method-field-label">Tytuł przelewu</span>';
             html += '<div class="pc-method-field-value">';

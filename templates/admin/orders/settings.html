@@ -994,12 +994,21 @@
                 </div>
                 <div class="form-group">
                     <label for="createTransferTitle">Tytuł przelewu</label>
-                    <input type="text" id="createTransferTitle" name="transfer_title" class="form-control" placeholder="np. [NUMER ZAMÓWIENIA]">
-                    <small class="input-hint">Użyj [NUMER ZAMÓWIENIA] jako placeholder</small>
+                    <input type="text" id="createTransferTitle" name="transfer_title" class="form-control" placeholder="np. [numer_zamowienia] [klient]">
+                    <small class="input-hint">
+                        Dostępne tagi:
+                        <code>[numer_zamowienia]</code>,
+                        <code>[klient]</code>,
+                        <code>[strona_sprzedazy]</code>.
+                        Stary zapis <code>[NUMER ZAMÓWIENIA]</code> dalej działa.
+                    </small>
                 </div>
                 <div class="form-group">
                     <label for="createAdditionalInfo">Dodatkowe informacje</label>
                     <textarea id="createAdditionalInfo" name="additional_info" class="form-control" rows="3" placeholder="Opcjonalne instrukcje dla klienta"></textarea>
+                    <small class="input-hint">
+                        Możesz użyć tych samych tagów co w tytule przelewu.
+                    </small>
                 </div>
                 <div class="form-group">
                     <label>Logo (light mode)</label>
@@ -1081,12 +1090,21 @@
                 </div>
                 <div class="form-group">
                     <label for="editTransferTitle">Tytuł przelewu</label>
-                    <input type="text" id="editTransferTitle" name="transfer_title" class="form-control">
-                    <small class="input-hint">Użyj [NUMER ZAMÓWIENIA] jako placeholder</small>
+                    <input type="text" id="editTransferTitle" name="transfer_title" class="form-control" placeholder="np. [numer_zamowienia] [klient]">
+                    <small class="input-hint">
+                        Dostępne tagi:
+                        <code>[numer_zamowienia]</code>,
+                        <code>[klient]</code>,
+                        <code>[strona_sprzedazy]</code>.
+                        Stary zapis <code>[NUMER ZAMÓWIENIA]</code> dalej działa.
+                    </small>
                 </div>
                 <div class="form-group">
                     <label for="editAdditionalInfo">Dodatkowe informacje</label>
                     <textarea id="editAdditionalInfo" name="additional_info" class="form-control" rows="3"></textarea>
+                    <small class="input-hint">
+                        Możesz użyć tych samych tagów co w tytule przelewu.
+                    </small>
                 </div>
                 <div class="form-group">
                     <label>Logo (light mode)</label>
