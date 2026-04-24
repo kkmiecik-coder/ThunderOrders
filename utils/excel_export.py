@@ -128,6 +128,10 @@ def generate_offer_closure_excel(page, summary):
     _build_products_sheet(wb, summary, s)
     _build_orders_sheet(wb, summary, s)
 
+    if page.page_type == 'preorder':
+        _build_preorder_summary_sheet(wb, page, s)
+        _build_preorder_quantities_sheet(wb, page, s)
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -600,6 +604,10 @@ def generate_offer_live_excel(page, summary):
     _build_live_products_sheet(wb, summary, s)
     _build_live_orders_sheet(wb, summary, s)
 
+    if page.page_type == 'preorder':
+        _build_preorder_summary_sheet(wb, page, s)
+        _build_preorder_quantities_sheet(wb, page, s)
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -1044,6 +1052,315 @@ def _build_live_orders_sheet(wb, summary, s):
         widths['J'] = 16
     _set_col_widths(ws, widths)
     ws.freeze_panes = 'A4'
+
+
+# ============================================
+# Pre-order matrix report (Podsumowanie + Ilości)
+# ============================================
+
+_PREORDER_PRICE_FILL = "FFF7E6"      # soft yellow for pln/krw rows
+_PREORDER_SUMA_FILL = "E8DAEF"       # violet for SUMA row
+
+
+def _get_krw_pln_rate():
+    """Zwraca aktualny kurs KRW/PLN (ile KRW za 1 PLN). None gdy niedostępny."""
+    try:
+        from utils.currency import get_exchange_rate
+        data = get_exchange_rate('KRW')
+        rate_krw_per_pln = data.get('rate')
+        if not rate_krw_per_pln or rate_krw_per_pln <= 0:
+            return None
+        return round(1 / rate_krw_per_pln, 2)
+    except Exception:
+        return None
+
+
+def _last_word(name):
+    """Zwraca ostatni wyraz z nazwy produktu (po spacji)."""
+    if not name:
+        return ''
+    return name.strip().split()[-1]
+
+
+def _section_column_name(section):
+    """Zwraca nazwę sekcji do nagłówka kolumny."""
+    if section.section_type == 'variant_group':
+        return section.variant_group.name if section.variant_group else 'Grupa wariantowa'
+    if section.section_type == 'set':
+        return section.set_name or 'Komplet'
+    if section.section_type == 'product':
+        return section.product.name if section.product else 'Produkt'
+    return 'Sekcja'
+
+
+def _section_products(section):
+    """Zwraca listę produktów wchodzących w skład sekcji (do matching order items)."""
+    if section.section_type == 'variant_group':
+        return list(section.variant_group.products) if section.variant_group else []
+    if section.section_type == 'set':
+        products = []
+        for item in section.get_set_items_ordered():
+            products.extend(item.get_products())
+        if section.set_product_id and section.set_product:
+            products.append(section.set_product)
+        return products
+    if section.section_type == 'product':
+        return [section.product] if section.product else []
+    return []
+
+
+def _price_pln_for_section(products):
+    """Cena PLN do wiersza 'pln'. Range 'min-max' gdy różne ceny w grupie."""
+    prices = []
+    for p in products:
+        if p and p.sale_price is not None:
+            prices.append(float(p.sale_price))
+    if not prices:
+        return None
+    p_min, p_max = min(prices), max(prices)
+    if p_min == p_max:
+        return _fmt_price(p_min)
+    return f"{_fmt_price(p_min)}-{_fmt_price(p_max)}"
+
+
+def _price_krw_for_section(products):
+    """Cena KRW do wiersza 'krw'. Tylko gdy produkt ma purchase_currency='KRW'."""
+    prices = []
+    for p in products:
+        if p and p.purchase_currency == 'KRW' and p.purchase_price is not None:
+            prices.append(float(p.purchase_price))
+    if not prices:
+        return None
+    p_min, p_max = min(prices), max(prices)
+    if p_min == p_max:
+        return _fmt_price(p_min, decimals=0)
+    return f"{_fmt_price(p_min, decimals=0)}-{_fmt_price(p_max, decimals=0)}"
+
+
+def _fmt_price(value, decimals=2):
+    """Formatuj cenę usuwając zbędne zera po przecinku."""
+    if value is None:
+        return None
+    if decimals == 0 or float(value).is_integer():
+        return int(round(value))
+    return round(value, decimals)
+
+
+def _preorder_collect_data(page):
+    """
+    Zbiera dane potrzebne do zakładek Podsumowanie i Ilości.
+
+    Returns:
+        dict z kluczami:
+            - orderable_sections: lista OfferSection (tylko product/variant_group/set)
+            - customers: listę krotek (klucz, nazwa, user_id, email) w kolejności 1-go zakupu
+            - matrix: {(customer_key, section_id): [(product_obj, quantity), ...]}
+    """
+    from modules.orders.models import Order, OrderItem
+
+    orderable_types = ('product', 'variant_group', 'set')
+    sections = [s for s in page.sections.order_by('sort_order').all()
+                if s.section_type in orderable_types]
+
+    # build product_id -> section map (pierwsza sekcja zawierająca produkt wygrywa)
+    product_to_section = {}
+    for sec in sections:
+        for prod in _section_products(sec):
+            if prod and prod.id not in product_to_section:
+                product_to_section[prod.id] = sec.id
+
+    orders = Order.query.filter_by(offer_page_id=page.id).filter(
+        Order.status != 'anulowane'
+    ).order_by(Order.created_at.asc()).all()
+
+    customers_order = []
+    seen_customers = set()
+    matrix = {}
+
+    for order in orders:
+        customer_key = f'u{order.user_id}' if order.user_id else f'e{order.customer_email}'
+        if customer_key not in seen_customers:
+            seen_customers.add(customer_key)
+            customers_order.append({
+                'key': customer_key,
+                'name': order.customer_name or order.customer_email or 'Gość',
+            })
+
+        for item in order.items:
+            if item.is_bonus:
+                continue
+            if not item.product_id:
+                continue
+            section_id = product_to_section.get(item.product_id)
+            if section_id is None:
+                continue
+            cell_key = (customer_key, section_id)
+            matrix.setdefault(cell_key, []).append((item.product, int(item.quantity)))
+
+    return {
+        'sections': sections,
+        'customers': customers_order,
+        'matrix': matrix,
+    }
+
+
+def _format_variant_cell(entries):
+    """Formatuj komórkę dla variant_group: 'Hongjoong ×2, San, Seonghwa'."""
+    from collections import OrderedDict
+    totals = OrderedDict()
+    for product, qty in entries:
+        label = _last_word(product.name) if product else ''
+        totals[label] = totals.get(label, 0) + qty
+    parts = []
+    for label, qty in totals.items():
+        parts.append(f'{label} ×{qty}' if qty > 1 else label)
+    return ', '.join(parts)
+
+
+def _format_product_cell(entries):
+    """Formatuj komórkę dla section_type=product: suma ilości."""
+    return sum(qty for _, qty in entries) or None
+
+
+def _build_preorder_summary_sheet(wb, page, s):
+    """Zakładka 'Podsumowanie' — macierz klient × sekcja z cenami, sumami i kursem."""
+    ws = wb.create_sheet(title='Podsumowanie', index=0)
+    ws.sheet_properties.tabColor = _PURPLE
+
+    data = _preorder_collect_data(page)
+    sections = data['sections']
+    customers = data['customers']
+    matrix = data['matrix']
+
+    price_fill = PatternFill(start_color=_PREORDER_PRICE_FILL, end_color=_PREORDER_PRICE_FILL, fill_type='solid')
+    suma_fill = PatternFill(start_color=_PREORDER_SUMA_FILL, end_color=_PREORDER_SUMA_FILL, fill_type='solid')
+
+    # Row 1: headers
+    headers = ['Klient'] + [_section_column_name(sec) for sec in sections] + ['Suma (PLN)', 'Suma (KRW)']
+    _write_header_row(ws, 1, headers, s)
+
+    # Precompute section prices + product sets
+    section_products = [_section_products(sec) for sec in sections]
+    pln_prices = [_price_pln_for_section(prods) for prods in section_products]
+    krw_prices = [_price_krw_for_section(prods) for prods in section_products]
+
+    # Row 2: pln
+    _write_cell(ws, 2, 1, 'pln', s, align='center', bold=True, fill=price_fill)
+    for idx, val in enumerate(pln_prices, start=2):
+        _write_cell(ws, 2, idx, val, s, align='center', fill=price_fill)
+    _write_cell(ws, 2, len(sections) + 2, None, s, fill=price_fill)
+    _write_cell(ws, 2, len(sections) + 3, None, s, fill=price_fill)
+
+    # Row 3: krw
+    _write_cell(ws, 3, 1, 'krw', s, align='center', bold=True, fill=price_fill)
+    for idx, val in enumerate(krw_prices, start=2):
+        _write_cell(ws, 3, idx, val, s, align='center', fill=price_fill)
+    _write_cell(ws, 3, len(sections) + 2, None, s, fill=price_fill)
+    _write_cell(ws, 3, len(sections) + 3, None, s, fill=price_fill)
+
+    # Rows: customers
+    customer_totals_pln = []
+    customer_totals_krw = []
+    col_totals_pln = [0.0] * len(sections)
+    col_totals_krw = [0.0] * len(sections)
+
+    for i, customer in enumerate(customers):
+        row = 4 + i
+        _write_cell(ws, row, 1, customer['name'], s, align='left')
+        total_pln = 0.0
+        total_krw = 0.0
+
+        for j, sec in enumerate(sections):
+            col = 2 + j
+            entries = matrix.get((customer['key'], sec.id), [])
+            if not entries:
+                _write_cell(ws, row, col, None, s, align='center')
+                continue
+
+            if sec.section_type == 'variant_group':
+                cell_value = _format_variant_cell(entries)
+            else:
+                cell_value = _format_product_cell(entries)
+
+            _write_cell(ws, row, col, cell_value, s, align='center')
+
+            # money totals (use actual item prices)
+            for product, qty in entries:
+                if product and product.sale_price is not None:
+                    val_pln = float(product.sale_price) * qty
+                    total_pln += val_pln
+                    col_totals_pln[j] += val_pln
+                if product and product.purchase_currency == 'KRW' and product.purchase_price is not None:
+                    val_krw = float(product.purchase_price) * qty
+                    total_krw += val_krw
+                    col_totals_krw[j] += val_krw
+
+        total_pln_val = _fmt_price(total_pln) if total_pln else None
+        total_krw_val = _fmt_price(total_krw, decimals=0) if total_krw else None
+        _write_cell(ws, row, len(sections) + 2, total_pln_val, s, align='center', bold=True)
+        _write_cell(ws, row, len(sections) + 3, total_krw_val, s, align='center', bold=True)
+
+        customer_totals_pln.append(total_pln)
+        customer_totals_krw.append(total_krw)
+
+    # SUMA (PLN) row
+    suma_row = 4 + len(customers)
+    _write_cell(ws, suma_row, 1, 'SUMA (PLN)', s, align='left', bold=True, fill=suma_fill)
+    for j, total in enumerate(col_totals_pln):
+        _write_cell(ws, suma_row, 2 + j, _fmt_price(total) if total else None,
+                    s, align='center', bold=True, fill=suma_fill)
+    total_all_pln = sum(customer_totals_pln)
+    total_all_krw = sum(customer_totals_krw)
+    _write_cell(ws, suma_row, len(sections) + 2,
+                _fmt_price(total_all_pln) if total_all_pln else None,
+                s, align='center', bold=True, fill=suma_fill)
+    _write_cell(ws, suma_row, len(sections) + 3,
+                _fmt_price(total_all_krw, decimals=0) if total_all_krw else None,
+                s, align='center', bold=True, fill=suma_fill)
+
+    # Blank row then Kurs
+    rate = _get_krw_pln_rate()
+    rate_row = suma_row + 2
+    _write_cell(ws, rate_row, 1, 'Kurs KRW/PLN:', s, align='left', bold=True)
+    if rate:
+        _write_cell(ws, rate_row, 2, round(rate), s, align='center', bold=True)
+
+    # Column widths
+    ws.column_dimensions['A'].width = 24
+    for j in range(len(sections)):
+        ws.column_dimensions[get_column_letter(2 + j)].width = 20
+    ws.column_dimensions[get_column_letter(len(sections) + 2)].width = 12
+    ws.column_dimensions[get_column_letter(len(sections) + 3)].width = 14
+
+    ws.freeze_panes = 'B4'
+
+
+def _build_preorder_quantities_sheet(wb, page, s):
+    """Zakładka 'Ilości' — macierz klient × sekcja z łącznymi ilościami sztuk."""
+    ws = wb.create_sheet(title='Ilości', index=1)
+    ws.sheet_properties.tabColor = _PURPLE_LIGHT
+
+    data = _preorder_collect_data(page)
+    sections = data['sections']
+    customers = data['customers']
+    matrix = data['matrix']
+
+    headers = ['Klient'] + [_section_column_name(sec) for sec in sections]
+    _write_header_row(ws, 1, headers, s)
+
+    for i, customer in enumerate(customers):
+        row = 2 + i
+        _write_cell(ws, row, 1, customer['name'], s, align='left')
+        for j, sec in enumerate(sections):
+            entries = matrix.get((customer['key'], sec.id), [])
+            qty_total = sum(q for _, q in entries) if entries else None
+            _write_cell(ws, row, 2 + j, qty_total, s, align='center')
+
+    ws.column_dimensions['A'].width = 24
+    for j in range(len(sections)):
+        ws.column_dimensions[get_column_letter(2 + j)].width = 16
+
+    ws.freeze_panes = 'B2'
 
 
 # ============================================
