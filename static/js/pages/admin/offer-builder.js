@@ -1031,6 +1031,9 @@ async function savePage() {
  * Auto-save (called every 60 seconds)
  */
 async function autoSave() {
+    // Strona aktywna — autosave wyłączony, admin zapisuje ręcznie
+    if (builderConfig.isPageActive) return;
+
     if (!isDirty) return;
 
     try {
