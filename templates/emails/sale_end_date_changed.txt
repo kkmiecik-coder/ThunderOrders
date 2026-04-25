@@ -1,0 +1,15 @@
+Cześć {{ user_name }},
+
+Zaktualizowaliśmy datę zakończenia sprzedaży strony "{{ page_name }}".
+
+Poprzednia data: {{ old_ends_at_display }}
+Nowa data:       {{ new_ends_at_display }}
+
+Przejdź do strony sprzedaży:
+{{ page_url }}
+
+---
+Otrzymujesz tę wiadomość, ponieważ masz zamówienie na tej stronie lub
+wyraziłeś/aś zgodę na otrzymywanie informacji marketingowych.
+
+ThunderOrders
