@@ -21,6 +21,7 @@ qr-test.png
 .gitignore
 qr-test.svg
 .superpowers/
+.worktrees/
 static/cache/
 *.xlsx
 ~$*
