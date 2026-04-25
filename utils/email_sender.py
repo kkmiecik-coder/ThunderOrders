@@ -674,6 +674,45 @@ def send_back_in_stock_email(email, product_name, product_image_url, offer_page_
     )
 
 
+def send_sale_end_date_changed_email(user_email, user_name, page_name,
+                                      old_ends_at_display, new_ends_at_display,
+                                      page_url):
+    """
+    Wysyła e-mail o zmianie daty zakończenia sprzedaży strony.
+
+    Args:
+        user_email (str): Adres e-mail odbiorcy
+        user_name (str): Imię odbiorcy (lub 'Kliencie' jeśli brak)
+        page_name (str): Nazwa strony sprzedaży
+        old_ends_at_display (str): Poprzednia data sformatowana po polsku
+                                   (lub 'bez limitu czasowego' jeśli brak)
+        new_ends_at_display (str): Nowa data sformatowana po polsku
+                                   (lub 'bez limitu czasowego' jeśli brak)
+        page_url (str): Pełny URL strony sprzedaży
+
+    Returns:
+        bool: True jeśli wysłano, False w przypadku błędu
+    """
+    if not user_email:
+        logger.warning("Cannot send sale end date changed email: no email address")
+        return False
+
+    try:
+        return send_email(
+            to=user_email,
+            subject=f'Zaktualizowano datę zakończenia sprzedaży — {page_name}',
+            template='sale_end_date_changed',
+            user_name=user_name,
+            page_name=page_name,
+            old_ends_at_display=old_ends_at_display,
+            new_ends_at_display=new_ends_at_display,
+            page_url=page_url,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send sale end date changed email to {user_email}: {e}")
+        return False
+
+
 def send_tracking_number_email(user_email, user_name, order_number, tracking_number,
                                 courier_name, tracking_url=None):
     """
