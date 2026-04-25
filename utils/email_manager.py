@@ -627,6 +627,67 @@ class EmailManager:
         current_app.logger.info(f"New offer page emails sent: {sent_count}/{len(clients)} for '{page.name}'")
         return sent_count
 
+    @staticmethod
+    def notify_sale_end_date_changed(page, old_ends_at, new_ends_at, recipients):
+        """
+        Wysyła e-mail o zmianie daty zakończenia sprzedaży do listy odbiorców.
+
+        Args:
+            page: obiekt OfferPage
+            old_ends_at: datetime lub None — poprzednia data
+            new_ends_at: datetime lub None — nowa data
+            recipients: lista obiektów User (już rozwiązana — bez duplikatów)
+
+        Returns:
+            int: liczba wysłanych e-maili
+        """
+        if not EmailManager.is_email_enabled('notify_sale_end_date_changed'):
+            current_app.logger.info(
+                "Email notification 'notify_sale_end_date_changed' is disabled, skipping"
+            )
+            return 0
+
+        from utils.email_sender import send_sale_end_date_changed_email
+
+        def _format_date(dt):
+            if dt is None:
+                return 'bez limitu czasowego'
+            return dt.strftime('%d.%m.%Y, %H:%M')
+
+        old_display = _format_date(old_ends_at)
+        new_display = _format_date(new_ends_at)
+
+        page_url = url_for('offers.order_page', token=page.token, _external=True)
+        sent_count = 0
+
+        for client in recipients:
+            email = client.email
+            if not email:
+                continue
+
+            name = client.first_name or 'Kliencie'
+
+            try:
+                ok = send_sale_end_date_changed_email(
+                    user_email=email,
+                    user_name=name,
+                    page_name=page.name,
+                    old_ends_at_display=old_display,
+                    new_ends_at_display=new_display,
+                    page_url=page_url,
+                )
+                if ok:
+                    sent_count += 1
+            except Exception as e:
+                current_app.logger.error(
+                    f"Failed to send sale end date changed email to {email}: {e}"
+                )
+
+        current_app.logger.info(
+            f"Sale end date changed emails sent: {sent_count}/{len(recipients)} for '{page.name}'"
+        )
+        return sent_count
+
     # ========================================
     # SHIPPING REQUEST EMAILS
     # ========================================
