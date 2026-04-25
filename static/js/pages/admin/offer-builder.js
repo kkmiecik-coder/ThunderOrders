@@ -1077,7 +1077,7 @@ async function savePage() {
         const decision = await openEndDateChangeModal(
             builderConfig.originalEndsAt,
             data.ends_at,
-            builderConfig.pageName
+            data.name || builderConfig.pageName
         );
 
         if (decision.cancelled) {
