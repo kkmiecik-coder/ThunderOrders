@@ -103,6 +103,7 @@ class NotificationPreference(db.Model):
     new_exclusive_pages = db.Column(db.Boolean, default=True, nullable=False)
     cost_added = db.Column(db.Boolean, default=True, nullable=False)
     admin_alerts = db.Column(db.Boolean, default=True, nullable=False)
+    sale_date_changes = db.Column(db.Boolean, default=True, nullable=False)
 
     user = db.relationship('User', backref=db.backref('notification_preference', uselist=False))
 
@@ -117,4 +118,5 @@ class NotificationPreference(db.Model):
             'new_exclusive_pages': self.new_exclusive_pages,
             'cost_added': self.cost_added,
             'admin_alerts': self.admin_alerts,
+            'sale_date_changes': self.sale_date_changes,
         }

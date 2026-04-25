@@ -3,7 +3,7 @@ Admin Offers Pages Routes
 Zarządzanie stronami ofert (Page Builder)
 """
 
-from flask import render_template, redirect, url_for, flash, request, jsonify, abort, Response
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort, Response, current_app
 from flask_login import login_required, current_user
 from markupsafe import Markup
 from modules.admin import admin_bp
@@ -214,13 +214,24 @@ def offers_edit(page_id):
 def offers_save(page_id):
     """
     Zapisuje stronę offers (AJAX)
-    Obsługuje zarówno auto-save jak i ręczny zapis
+    Obsługuje zarówno auto-save jak i ręczny zapis.
+
+    Dodatkowo: jeśli payload zawiera notify_email_on_end_date_change
+    lub notify_push_on_end_date_change i ends_at faktycznie się zmieniła,
+    po commit'cie odpala dispatcher powiadomień w background thread.
     """
     page = OfferPage.query.get_or_404(page_id)
     data = request.get_json()
 
     if not data:
         return jsonify({'success': False, 'error': 'Brak danych'}), 400
+
+    # Flagi powiadomień (opcjonalne — domyślnie False)
+    notify_email = bool(data.get('notify_email_on_end_date_change', False))
+    notify_push = bool(data.get('notify_push_on_end_date_change', False))
+
+    # Zapamiętaj starą wartość zanim ją nadpiszemy
+    old_ends_at = page.ends_at
 
     try:
         # Aktualizacja podstawowych danych strony
@@ -238,8 +249,6 @@ def offers_save(page_id):
                 new_starts_at = datetime.strptime(data['starts_at'], '%Y-%m-%dT%H:%M')
                 page.starts_at = new_starts_at
 
-                # Jeśli strona jest aktywna a nowa data rozpoczęcia jest w przyszłości,
-                # zmień status na "scheduled"
                 if page.status == 'active' and new_starts_at > datetime.now():
                     page.status = 'scheduled'
             else:
@@ -264,19 +273,48 @@ def offers_save(page_id):
         if 'sections' in data:
             limit_changes = _update_sections(page, data['sections'])
 
-        # Ręcznie aktualizuj updated_at (onupdate nie działa przy zmianach w relacjach)
         page.updated_at = datetime.now()
 
         db.session.commit()
 
-        # Po commit wysyłamy powiadomienia dla sekcji z zwiększonymi limitami
+        # Po commit: powiadomienia dla sekcji ze zwiększonymi limitami (jak dotąd)
         if limit_changes:
             _send_notifications_for_limit_changes(page.id, limit_changes)
+
+        # Po commit: powiadomienia o zmianie daty zakończenia
+        ends_at_changed = (old_ends_at != page.ends_at)
+        notifications_sent = {'email': 0, 'push': 0}
+
+        if ends_at_changed and (notify_email or notify_push):
+            # Resolver synchronicznie — żeby zwrócić liczby do frontendu
+            recipients = _resolve_end_date_change_recipients(page)
+
+            email_user_ids = [u.id for u in recipients['email_users']] if notify_email else []
+            push_user_ids = recipients['push_user_ids'] if notify_push else []
+
+            notifications_sent['email'] = len(email_user_ids)
+            notifications_sent['push'] = len(push_user_ids)
+
+            # Faktyczna wysyłka w tle
+            _dispatch_end_date_change_notifications(
+                app=current_app._get_current_object(),
+                page_id=page.id,
+                old_ends_at=old_ends_at,
+                new_ends_at=page.ends_at,
+                email_user_ids=email_user_ids,
+                push_user_ids=push_user_ids,
+            )
+            current_app.logger.info(
+                f"End date change dispatched for page={page.id} "
+                f"({old_ends_at} → {page.ends_at}, "
+                f"email={len(email_user_ids)}, push={len(push_user_ids)})"
+            )
 
         return jsonify({
             'success': True,
             'message': 'Zapisano',
-            'updated_at': page.updated_at.strftime('%H:%M:%S') if page.updated_at else None
+            'updated_at': page.updated_at.strftime('%H:%M:%S') if page.updated_at else None,
+            'notifications_sent': notifications_sent,
         })
 
     except Exception as e:
@@ -1626,3 +1664,131 @@ def offers_export_excel(page_id):
     except Exception as e:
         flash(f'Błąd generowania pliku Excel: {str(e)}', 'error')
         return redirect(url_for('admin.offers_summary', page_id=page_id))
+
+
+# ============================================
+# Powiadomienia o zmianie daty zakończenia
+# ============================================
+
+def _resolve_end_date_change_recipients(page):
+    """
+    Rozwiązuje listy odbiorców powiadomień o zmianie daty zakończenia sprzedaży.
+
+    E-mail (zgodnie z RODO):
+        - Klienci z aktywnym (nieanulowanym) zamówieniem na tej stronie
+          → mail transakcyjny (wykonanie umowy)
+        - Klienci z marketing_consent=True
+          → mail informacyjny
+        - Wynik = unia obu zbiorów (po User.id, bez duplikatów)
+        - Filtr bazowy: User.role='client', User.is_active=True
+
+    Push:
+        - Wszyscy aktywni klienci z włączoną kategorią sale_date_changes
+
+    Returns:
+        dict: {'email_users': [User, ...], 'push_user_ids': [int, ...]}
+    """
+    from modules.auth.models import User
+    from modules.orders.models import Order
+    from modules.notifications.models import NotificationPreference
+    from sqlalchemy import or_
+
+    # E-mail recipients
+    buyer_ids_subq = (
+        db.session.query(Order.user_id)
+        .filter(
+            Order.offer_page_id == page.id,
+            Order.user_id.isnot(None),
+            Order.status != 'anulowane',
+        )
+        .distinct()
+        .subquery()
+    )
+
+    email_users = (
+        User.query
+        .filter(User.role == 'client', User.is_active == True)
+        .filter(or_(
+            User.marketing_consent == True,
+            User.id.in_(buyer_ids_subq),
+        ))
+        .all()
+    )
+
+    # Push recipients
+    push_users = (
+        db.session.query(User.id)
+        .join(NotificationPreference, NotificationPreference.user_id == User.id)
+        .filter(
+            User.role == 'client',
+            User.is_active == True,
+            NotificationPreference.sale_date_changes == True,
+        )
+        .all()
+    )
+    push_user_ids = [row[0] for row in push_users]
+
+    return {
+        'email_users': email_users,
+        'push_user_ids': push_user_ids,
+    }
+
+
+def _dispatch_end_date_change_notifications(app, page_id, old_ends_at, new_ends_at,
+                                             email_user_ids, push_user_ids):
+    """
+    Uruchamia wysyłki w background thread. Każdy kanał ma osłonę try/except,
+    błąd jednego nie zatrzymuje drugiego.
+
+    Args:
+        app: Flask app instance (do app_context w threadzie)
+        page_id (int): ID strony (re-load wewnątrz threadu, bo obiekty SA
+                       z głównego requestu mogą być detached)
+        old_ends_at: datetime lub None
+        new_ends_at: datetime lub None
+        email_user_ids: lista ID Userów do wysyłki e-mail (puste = pomiń kanał)
+        push_user_ids: lista ID Userów do wysyłki push (puste = pomiń kanał)
+    """
+    import threading
+
+    def _run():
+        with app.app_context():
+            try:
+                from modules.auth.models import User
+                page = OfferPage.query.get(page_id)
+                if not page:
+                    return
+
+                if email_user_ids:
+                    try:
+                        from utils.email_manager import EmailManager
+                        users = User.query.filter(User.id.in_(email_user_ids)).all()
+                        EmailManager.notify_sale_end_date_changed(
+                            page, old_ends_at, new_ends_at, users
+                        )
+                    except Exception as e:
+                        from flask import current_app
+                        current_app.logger.error(
+                            f"Email channel failed for end date change (page={page_id}): {e}"
+                        )
+
+                if push_user_ids:
+                    try:
+                        from utils.push_manager import PushManager
+                        PushManager.notify_sale_end_date_changed(
+                            page, new_ends_at, push_user_ids
+                        )
+                    except Exception as e:
+                        from flask import current_app
+                        current_app.logger.error(
+                            f"Push channel failed for end date change (page={page_id}): {e}"
+                        )
+            except Exception as e:
+                from flask import current_app
+                current_app.logger.error(
+                    f"Dispatcher fatal error for end date change (page={page_id}): {e}"
+                )
+
+    thread = threading.Thread(target=_run)
+    thread.daemon = True
+    thread.start()

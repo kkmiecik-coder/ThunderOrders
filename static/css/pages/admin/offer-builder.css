@@ -3587,3 +3587,40 @@
         border-bottom-color: rgba(255, 255, 255, 0.06);
     }
 }
+
+/* === Active page banner === */
+.builder-active-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    margin: 0 0 16px 0;
+    background: #fff7e6;
+    border: 1px solid #ffd591;
+    border-left: 4px solid #fa8c16;
+    border-radius: 6px;
+    color: #874d00;
+    font-size: 14px;
+}
+.builder-active-banner svg {
+    flex-shrink: 0;
+    color: #fa8c16;
+}
+
+/* Dark mode */
+[data-theme="dark"] .builder-active-banner {
+    background: rgba(250, 140, 22, 0.08);
+    border: 1px solid rgba(250, 140, 22, 0.3);
+    border-left: 4px solid #fa8c16;
+    color: rgba(255, 255, 255, 0.9);
+}
+[data-theme="dark"] .builder-active-banner svg {
+    color: #ffa940;
+}
+
+@media (max-width: 768px) {
+    .builder-active-banner {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+}

@@ -662,3 +662,59 @@ class PushManager:
         thread = threading.Thread(target=_send_all)
         thread.daemon = True
         thread.start()
+
+    # ========================================
+    # SALE DATE CHANGES
+    # ========================================
+
+    @staticmethod
+    def notify_sale_end_date_changed(page, new_ends_at, user_ids):
+        """
+        Wysyła push notification o zmianie daty zakończenia sprzedaży.
+
+        Args:
+            page: obiekt OfferPage
+            new_ends_at: datetime lub None — nowa data
+            user_ids: lista ID użytkowników do powiadomienia
+
+        Returns:
+            int: liczba użytkowników, do których push został wystrzelony
+                 (sukces dostarczenia weryfikuje się asynchronicznie)
+        """
+        from flask import url_for
+
+        if new_ends_at is None:
+            body = 'Sprzedaż przedłużona bez limitu czasowego'
+        else:
+            body = f'Nowa data zakończenia: {new_ends_at.strftime("%d.%m.%Y, %H:%M")}'
+
+        title = f'{page.name} — zmiana daty zakończenia'
+
+        try:
+            url = url_for('offers.order_page', token=page.token, _external=False)
+        except Exception:
+            url = '/'
+
+        tag = f'sale-date-{page.id}'
+        sent = 0
+
+        for user_id in user_ids:
+            try:
+                PushManager._fire_and_forget(
+                    user_id=user_id,
+                    title=title,
+                    body=body,
+                    url=url,
+                    tag=tag,
+                    notification_type='sale_date_changes',
+                )
+                sent += 1
+            except Exception as e:
+                current_app.logger.error(
+                    f"Failed to fire sale_date_changes push for user {user_id}: {e}"
+                )
+
+        current_app.logger.info(
+            f"Sale end date changed push fired for {sent}/{len(user_ids)} users (page={page.id})"
+        )
+        return sent
