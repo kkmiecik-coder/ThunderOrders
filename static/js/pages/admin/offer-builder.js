@@ -988,14 +988,109 @@ function validatePageData(data) {
 }
 
 /**
+ * Format ISO datetime-local value to Polish display string.
+ * Returns 'bez limitu czasowego' for null/empty.
+ */
+function formatEndsAtForDisplay(isoValue) {
+    if (!isoValue) return 'bez limitu czasowego';
+    // isoValue format: "2026-05-08T18:00"
+    const [datePart, timePart] = isoValue.split('T');
+    const [y, m, d] = datePart.split('-');
+    const [hh, mm] = (timePart || '00:00').split(':');
+    return `${d}.${m}.${y}, ${hh}:${mm}`;
+}
+
+/**
+ * Open the end-date change modal and resolve with the user's decision.
+ * Returns Promise<{cancelled: bool, notifyEmail: bool, notifyPush: bool}>.
+ */
+function openEndDateChangeModal(oldEndsAt, newEndsAt, pageName) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('endDateChangeModal');
+        const pageNameEl = document.getElementById('endDateChangePageName');
+        const oldValueEl = document.getElementById('endDateChangeOldValue');
+        const newValueEl = document.getElementById('endDateChangeNewValue');
+        const warningEl = document.getElementById('endDateChangePastWarning');
+        const emailCb = document.getElementById('endDateChangeNotifyEmail');
+        const pushCb = document.getElementById('endDateChangeNotifyPush');
+        const confirmBtn = document.getElementById('endDateChangeConfirm');
+        const cancelEls = modal.querySelectorAll('[data-end-date-cancel]');
+
+        pageNameEl.textContent = pageName || '';
+        oldValueEl.textContent = formatEndsAtForDisplay(oldEndsAt);
+        newValueEl.textContent = formatEndsAtForDisplay(newEndsAt);
+
+        // Past-date warning
+        const isPast = newEndsAt && new Date(newEndsAt) < new Date();
+        warningEl.hidden = !isPast;
+
+        // Reset checkboxy do domyślnych (oba zaznaczone)
+        emailCb.checked = true;
+        pushCb.checked = true;
+
+        const cleanup = () => {
+            modal.classList.remove('active');
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelEls.forEach(el => el.removeEventListener('click', onCancel));
+            modal.removeEventListener('click', onOverlayClick);
+        };
+
+        const onConfirm = () => {
+            const decision = {
+                cancelled: false,
+                notifyEmail: emailCb.checked,
+                notifyPush: pushCb.checked,
+            };
+            cleanup();
+            resolve(decision);
+        };
+
+        const onCancel = () => {
+            cleanup();
+            resolve({ cancelled: true, notifyEmail: false, notifyPush: false });
+        };
+
+        const onOverlayClick = (e) => {
+            if (e.target === modal) onCancel();
+        };
+
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelEls.forEach(el => el.addEventListener('click', onCancel));
+        modal.addEventListener('click', onOverlayClick);
+
+        modal.classList.add('active');
+    });
+}
+
+/**
  * Save page (AJAX)
  */
 async function savePage() {
     const data = collectPageData();
 
-    // Validate before saving
     if (!validatePageData(data)) {
         return false;
+    }
+
+    // Hook: strona aktywna + zmiana ends_at → modal
+    if (builderConfig.isPageActive && data.ends_at !== builderConfig.originalEndsAt) {
+        const decision = await openEndDateChangeModal(
+            builderConfig.originalEndsAt,
+            data.ends_at,
+            builderConfig.pageName
+        );
+
+        if (decision.cancelled) {
+            // Przywróć datę w polu i pomiń zapis
+            const endsAtInput = document.getElementById('endsAt');
+            if (endsAtInput) {
+                endsAtInput.value = builderConfig.originalEndsAt || '';
+            }
+            return false;
+        }
+
+        data.notify_email_on_end_date_change = decision.notifyEmail;
+        data.notify_push_on_end_date_change = decision.notifyPush;
     }
 
     try {
@@ -1014,7 +1109,19 @@ async function savePage() {
             isDirty = false;
             lastSaveTime = new Date();
             document.getElementById('lastSaved').textContent = `Ostatni zapis: ${result.updated_at}`;
-            showToast('Zapisano zmiany', 'success');
+
+            // Aktualizuj originalEndsAt — kolejne zmiany porównujemy z nową bazą
+            builderConfig.originalEndsAt = data.ends_at;
+
+            const sent = result.notifications_sent || { email: 0, push: 0 };
+            if (sent.email > 0 || sent.push > 0) {
+                showToast(
+                    `Zapisano. Wysyłka do ${sent.email} maili, ${sent.push} powiadomień push.`,
+                    'success'
+                );
+            } else {
+                showToast('Zapisano zmiany', 'success');
+            }
             return true;
         } else {
             showToast(result.error || 'Błąd zapisu', 'error');
