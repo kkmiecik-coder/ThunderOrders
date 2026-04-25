@@ -279,6 +279,13 @@
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
+                            <div class="push-category-item">
+                                <span>Zmiana daty zakończenia sprzedaży</span>
+                                <label class="toggle-switch toggle-switch-sm">
+                                    <input type="checkbox" class="push-category-toggle" data-category="sale_date_changes" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
                             {% if current_user.role in ['admin', 'mod'] %}
                             <div class="push-category-item">
                                 <span>Alerty administratora</span>

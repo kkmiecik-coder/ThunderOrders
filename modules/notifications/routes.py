@@ -136,7 +136,7 @@ def update_preferences():
 
     allowed_fields = [
         'order_status_changes', 'payment_updates', 'shipping_updates',
-        'new_exclusive_pages', 'cost_added', 'admin_alerts'
+        'new_exclusive_pages', 'cost_added', 'sale_date_changes', 'admin_alerts'
     ]
     for field in allowed_fields:
         if field in data:
