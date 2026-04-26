@@ -402,7 +402,7 @@
                 <div class="card-header section-header">
                     <h2>Specjalne odznaki</h2>
                     {% if current_user.is_admin() and available_special_badges %}
-                    <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('grant-badge-modal').classList.add('active')">
+                    <button type="button" class="btn btn-sm btn-primary" data-grant-badge-open>
                         + Przyznaj odznakę
                     </button>
                     {% endif %}
@@ -614,11 +614,16 @@
 
 <!-- Grant Special Badge Modal -->
 {% if current_user.is_admin() %}
-<div id="grant-badge-modal" class="modal-overlay" onclick="if(event.target === this) this.classList.remove('active')">
+<div id="grant-badge-modal"
+     class="modal-overlay"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="grant-badge-modal-title"
+     aria-hidden="true">
     <div class="modal-content modal-grant-badge">
         <div class="modal-header">
-            <h2 class="modal-title">Przyznaj specjalną odznakę</h2>
-            <button type="button" class="modal-close" onclick="document.getElementById('grant-badge-modal').classList.remove('active')">&times;</button>
+            <h2 id="grant-badge-modal-title" class="modal-title">Przyznaj specjalną odznakę</h2>
+            <button type="button" class="modal-close" aria-label="Zamknij" data-grant-badge-close>&times;</button>
         </div>
         <form method="POST" action="{{ url_for('admin.grant_achievement', id=client.id) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -635,7 +640,7 @@
                 </p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="document.getElementById('grant-badge-modal').classList.remove('active')">Anuluj</button>
+                <button type="button" class="btn btn-secondary" data-grant-badge-close>Anuluj</button>
                 <button type="submit" class="btn btn-primary">Przyznaj</button>
             </div>
         </form>
@@ -838,4 +843,5 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
+<script src="{{ url_for('static', filename='js/components/grant-badge-modal.js') }}"></script>
 {% endblock %}
