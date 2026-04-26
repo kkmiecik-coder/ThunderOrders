@@ -400,6 +400,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         }
 
+        // Cosmic spotlight: inject DOM layers (mgławice, gwiazdy, promienie) przed aktywacją
+        if (window.CosmicSpotlight && modal.dataset.rarity === 'cosmic') {
+            window.CosmicSpotlight.inject(modal);
+        }
+
         // Double rAF ensures browser processes removal before re-adding
         // This reliably restarts all CSS animations (rings, stagger, etc.)
         requestAnimationFrame(function() {
