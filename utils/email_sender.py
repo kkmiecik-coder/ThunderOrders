@@ -976,3 +976,32 @@ def send_packing_photo_email(user_email, user_name, order_number, photo_path):
     except Exception as e:
         logger.error(f"[EMAIL] Packing photo email FAILED to={user_email}, error={type(e).__name__}: {e}")
         return False
+
+
+def send_achievement_granted_email(user_email, user_name, achievement_name,
+                                   achievement_description, achievement_slug,
+                                   gallery_url):
+    """
+    Wysyła email po ręcznym przyznaniu specjalnej odznaki przez admina.
+
+    Args:
+        user_email (str): Email odbiorcy
+        user_name (str): Imię klienta
+        achievement_name (str): Nazwa przyznanej odznaki
+        achievement_description (str): Krótki opis odznaki
+        achievement_slug (str): Slug odznaki (np. do deeplinka w przyszłości)
+        gallery_url (str): URL do galerii odznak klienta
+
+    Returns:
+        bool: True jeśli email został wysłany
+    """
+    return send_email(
+        to=user_email,
+        subject=f'🎖️ Otrzymałeś specjalną odznakę: {achievement_name}',
+        template='achievement_granted',
+        user_name=user_name,
+        achievement_name=achievement_name,
+        achievement_description=achievement_description,
+        achievement_slug=achievement_slug,
+        gallery_url=gallery_url,
+    )

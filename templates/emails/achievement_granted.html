@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Otrzymałeś specjalną odznakę - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <!-- Outer wrapper for centering -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <!-- Main email container (max-width: 600px) -->
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+
+                    <!-- Cosmic gradient hero -->
+                    <tr>
+                        <td style="padding: 0 40px;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #6a0dad 100%); border-radius: 12px; overflow: hidden;">
+                                <tr>
+                                    <td align="center" style="padding: 48px 32px 40px 32px; text-align: center;">
+                                        <div style="font-size: 56px; line-height: 1; margin-bottom: 16px;">🎖️</div>
+                                        <p style="margin: 0 0 8px 0; color: #c084fc; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; font-weight: 700;">
+                                            Specjalne wyróżnienie
+                                        </p>
+                                        <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #FFFFFF; line-height: 1.2;">
+                                            Otrzymałeś odznakę!
+                                        </h1>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 32px 40px 20px 40px;">
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                Cześć <strong>{{ user_name }}</strong>!
+                            </p>
+
+                            <p style="margin: 0 0 28px 0; font-size: 15px; color: #424242; line-height: 1.6;">
+                                Otrzymałeś od nas specjalną odznakę. To wyjątkowe wyróżnienie przyznawane ręcznie przez zespół ThunderOrders dla wybranych klientów.
+                            </p>
+
+                            <!-- Achievement card -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 28px 0;">
+                                <tr>
+                                    <td style="background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(106, 13, 173, 0.12) 100%); border: 1px solid rgba(168, 85, 247, 0.35); padding: 28px 24px; border-radius: 12px; text-align: center;">
+                                        <p style="margin: 0 0 10px 0; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #6a0dad; font-weight: 700;">
+                                            Cosmic ⋆ Specjalna
+                                        </p>
+                                        <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 700; color: #240046; line-height: 1.3;">
+                                            {{ achievement_name }}
+                                        </h2>
+                                        <p style="margin: 0; font-size: 14px; color: #424242; line-height: 1.5;">
+                                            {{ achievement_description }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ gallery_url }}" style="display: inline-block; background: linear-gradient(135deg, #8b5cf6 0%, #6a0dad 100%); color: #FFFFFF; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 16px; text-align: center;">
+                                            Zobacz w galerii odznak
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 24px 0 8px 0; font-size: 14px; color: #616161; text-align: center;">
+                                Link do galerii:
+                            </p>
+                            <p style="margin: 0 0 16px 0; text-align: center;">
+                                <a href="{{ gallery_url }}" style="color: #7B2CBF; text-decoration: underline; font-size: 14px; word-break: break-all;">
+                                    {{ gallery_url }}
+                                </a>
+                            </p>
+
+                            <p style="margin: 24px 0 0 0; font-size: 12px; color: #9E9E9E; text-align: center;">
+                                Otrzymujesz tę wiadomość, ponieważ admin ThunderOrders przyznał Ci specjalną odznakę.
+                            </p>
+
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
