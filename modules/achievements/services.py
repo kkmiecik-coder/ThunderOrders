@@ -1,6 +1,6 @@
 import os
 
-from flask import current_app
+from flask import current_app, url_for
 from extensions import db
 from modules.achievements.models import Achievement, UserAchievement, AchievementStat
 from modules.achievements.checkers import get_metric_value
@@ -168,6 +168,74 @@ class AchievementService:
         except Exception:
             db.session.rollback()
             return  # Duplicate from race condition, safe to ignore
+
+    def grant_manual(self, user, achievement, granted_by, send_animation=True):
+        """
+        Manual grant by admin. Sets granted_by_id (audit), seen=False (animation),
+        sends email notification. Idempotent — returns None if already granted.
+        """
+        existing = UserAchievement.query.filter_by(
+            user_id=user.id, achievement_id=achievement.id
+        ).first()
+        if existing:
+            return None
+
+        try:
+            nested = db.session.begin_nested()
+            ua = UserAchievement(
+                user_id=user.id,
+                achievement_id=achievement.id,
+                granted_by_id=granted_by.id,
+                seen=not send_animation,
+            )
+            db.session.add(ua)
+            nested.commit()
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return None
+
+        self.recalculate_stats()
+
+        try:
+            from utils.email_sender import send_achievement_granted_email
+            if user.email:
+                send_achievement_granted_email(
+                    user_email=user.email,
+                    user_name=user.first_name or user.email,
+                    achievement_name=achievement.name,
+                    achievement_description=achievement.description,
+                    achievement_slug=achievement.slug,
+                    gallery_url=url_for('achievements.gallery', _external=True),
+                )
+        except Exception as e:
+            current_app.logger.warning(f'Failed to send achievement email: {e}')
+
+        return ua
+
+    def revoke_manual(self, user, achievement, revoked_by):
+        """
+        Admin revokes a manually-granted achievement.
+        Only allowed for trigger_type='manual'.
+        """
+        if achievement.trigger_type != 'manual':
+            raise ValueError('Cannot revoke non-manual achievement')
+
+        ua = UserAchievement.query.filter_by(
+            user_id=user.id, achievement_id=achievement.id
+        ).first()
+        if not ua:
+            return False
+
+        current_app.logger.info(
+            f'Achievement revoked: user={user.id} achievement={achievement.id} '
+            f'by_admin={revoked_by.id} originally_granted_by={ua.granted_by_id}'
+        )
+
+        db.session.delete(ua)
+        db.session.commit()
+        self.recalculate_stats()
+        return True
 
     def get_unseen(self, user):
         """Get unseen achievements for unlock animation."""
