@@ -1,0 +1,61 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block title %}Posiadacze odznaki „{{ achievement.name }}" — Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-page-header">
+        <h1>Posiadacze: {{ achievement.name }}</h1>
+        <a href="{{ url_for('admin.achievements_list') }}" class="btn btn-link">← Powrót do listy</a>
+    </div>
+
+    <p>Liczba posiadaczy: <strong>{{ holders|length }}</strong></p>
+
+    {% if holders %}
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Klient</th>
+                <th>E-mail</th>
+                <th>Przyznano</th>
+                <th>Przez kogo</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ua in holders %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('admin.client_detail', id=ua.user.id) }}">
+                        {{ ua.user.first_name or ua.user.email }}
+                    </a>
+                </td>
+                <td>{{ ua.user.email }}</td>
+                <td>{{ ua.unlocked_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    {% if ua.granted_by %}
+                        {{ ua.granted_by.email }}
+                    {% else %}
+                        <small class="text-muted">automat</small>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if achievement.trigger_type == 'manual' %}
+                    <form method="POST"
+                          action="{{ url_for('admin.achievements_revoke_holder', id=achievement.id, user_id=ua.user.id) }}"
+                          style="display:inline"
+                          onsubmit="return confirm('Odebrać odznakę od {{ ua.user.email }}?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Odbierz</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted">Brak posiadaczy.</p>
+    {% endif %}
+</div>
+{% endblock %}
