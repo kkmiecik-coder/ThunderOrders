@@ -1,6 +1,7 @@
 import os
 
 from flask import current_app, url_for
+from sqlalchemy.exc import IntegrityError
 from extensions import db
 from modules.achievements.models import Achievement, UserAchievement, AchievementStat
 from modules.achievements.checkers import get_metric_value
@@ -194,11 +195,23 @@ class AchievementService:
             db.session.add(ua)
             nested.commit()
             db.session.commit()
-        except Exception:
+        except IntegrityError:
+            # Race condition: równoległy request już wstawił rekord
             db.session.rollback()
             return None
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception(
+                f'grant_manual failed user_id={user.id} achievement_id={achievement.id}'
+            )
+            raise
 
         self.recalculate_stats()
+
+        current_app.logger.info(
+            f'Achievement granted: user={user.id} achievement={achievement.id} '
+            f'by_admin={granted_by.id} send_animation={send_animation}'
+        )
 
         try:
             from utils.email_sender import send_achievement_granted_email
@@ -211,8 +224,12 @@ class AchievementService:
                     achievement_slug=achievement.slug,
                     gallery_url=url_for('achievements.gallery', _external=True),
                 )
-        except Exception as e:
-            current_app.logger.warning(f'Failed to send achievement email: {e}')
+        except ImportError:
+            current_app.logger.warning('email_sender not importable; skipping achievement_granted notification')
+        except Exception:
+            current_app.logger.exception(
+                f'Failed to send achievement_granted email user_id={user.id} achievement_id={achievement.id}'
+            )
 
         return ua
 
