@@ -122,7 +122,10 @@ class AchievementService:
         One-time retroactive check for all users against all achievements.
         Marks unlocked achievements as seen=True (no animation for past achievements).
         """
-        all_achievements = Achievement.query.filter_by(is_active=True).all()
+        all_achievements = Achievement.query.filter(
+            Achievement.is_active == True,  # noqa: E712
+            Achievement.trigger_type.in_(['event', 'cron']),
+        ).all()
         users = User.query.filter_by(is_active=True).all()
         total_unlocked = 0
         users_affected = set()
@@ -273,6 +276,9 @@ class AchievementService:
         result = []
         for a in all_achievements:
             ua = unlocked_map.get(a.id)
+            # Hide flagged achievements that user doesn't have
+            if a.is_hidden_until_unlocked and not ua:
+                continue
             stat = stats_map.get(a.id)
             config = a.trigger_config
             metric = config.get('metric')
@@ -301,8 +307,9 @@ class AchievementService:
                 'unlocked_at': ua.unlocked_at.isoformat() if ua else None,
                 'shared': ua.shared if ua else False,
                 'progress': progress,
-                'stat_percentage': stat.percentage if stat else 0,
-                'stat_total': stat.total_unlocked if stat else 0,
+                'stat_percentage': None if a.category == 'special' else (stat.percentage if stat else 0),
+                'stat_total': None if a.category == 'special' else (stat.total_unlocked if stat else 0),
+                'is_special': a.category == 'special',
             })
 
         return result
@@ -313,7 +320,10 @@ class AchievementService:
         if total_clients == 0:
             return
 
-        achievements = Achievement.query.filter_by(is_active=True).all()
+        achievements = Achievement.query.filter(
+            Achievement.is_active == True,  # noqa: E712
+            Achievement.category != 'special',
+        ).all()
         for a in achievements:
             unlocked_count = (
                 UserAchievement.query
