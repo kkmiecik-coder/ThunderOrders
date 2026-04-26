@@ -27,3 +27,4 @@ from modules.admin import statistics  # Statistics page
 from modules.admin import popups_models  # Popup models
 from modules.admin import popups  # Popup admin routes
 from modules.admin import broadcasts  # Broadcast notifications admin
+from . import achievements as _achievements_admin  # noqa: F401
