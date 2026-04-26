@@ -3,8 +3,12 @@ Offer Place Order Logic
 Logika składania zamówień przez strony ofertowe
 """
 
+import time
+import logging
+
 from flask_login import current_user
 from decimal import Decimal
+from sqlalchemy.exc import OperationalError
 from extensions import db
 from .models import OfferReservation, OfferPage, OfferSetBonus, OfferBonusRequiredProduct
 from .reservation import cleanup_expired_reservations
@@ -12,6 +16,19 @@ from modules.orders.models import Order, OrderItem
 from modules.orders.utils import generate_order_number
 from utils.activity_logger import log_activity
 from utils.offer_auto_increase import check_and_apply_auto_increase
+
+logger = logging.getLogger(__name__)
+
+# Retry config dla MySQL 1213 deadlock w place_offer_order.
+# Sortowanie po product_id eliminuje deterministyczne cykle, ale zostają
+# rzadkie kolizje z cleanup, innymi transakcjami na orders, etc.
+_PLACE_ORDER_MAX_DEADLOCK_RETRIES = 3
+
+
+def _is_deadlock(exc):
+    """Sprawdza czy wyjątek to MySQL deadlock (errno 1213)."""
+    msg = str(exc).lower()
+    return '1213' in msg or 'deadlock' in msg
 
 
 def check_product_availability(reservations, page_id, session_id):
@@ -37,7 +54,11 @@ def check_product_availability(reservations, page_id, session_id):
 
     now = int(time.time())
 
-    for reservation in reservations:
+    # Sortuj po product_id — wszystkie równoległe transakcje blokują w tej samej
+    # kolejności, co eliminuje cycle wait i deadlocki MySQL 1213.
+    reservations_sorted = sorted(reservations, key=lambda r: r.product_id)
+
+    for reservation in reservations_sorted:
         product = reservation.product
         section_max = get_section_max_for_product(page_id, product.id)
 
@@ -82,7 +103,49 @@ def check_product_availability(reservations, page_id, session_id):
 
 def place_offer_order(page, session_id, order_note=None, full_set_items=None):
     """
-    Place an order from offer page (requires authenticated user)
+    Place an order from offer page (requires authenticated user).
+
+    Wrapper z retry na MySQL deadlock 1213. Pierwsza próba i tak ma minimalne
+    ryzyko deadlocku dzięki sortowaniu w check_product_availability — retry
+    łapie edge case'y (kolizje z cleanup_expired_reservations, równoległe
+    aktualizacje na orders/order_items).
+
+    Bezpieczeństwo retry: deadlock zawsze powoduje pełny rollback w MySQL,
+    więc poprzednia próba nie zostawia żadnych częściowo zapisanych danych.
+    generate_order_number to czysty SELECT — kolejny attempt może wygenerować
+    ten sam numer (bo poprzedni nigdy nie został scommitowany).
+
+    Returns:
+        tuple: (success: bool, result: dict)
+    """
+    last_error = None
+    for attempt in range(1, _PLACE_ORDER_MAX_DEADLOCK_RETRIES + 1):
+        try:
+            return _place_offer_order_attempt(
+                page, session_id, order_note, full_set_items
+            )
+        except OperationalError as e:
+            last_error = e
+            db.session.rollback()
+            if _is_deadlock(e) and attempt < _PLACE_ORDER_MAX_DEADLOCK_RETRIES:
+                wait = 0.1 * attempt
+                logger.warning(
+                    f"Deadlock on place_offer_order (page {page.id}, attempt "
+                    f"{attempt}/{_PLACE_ORDER_MAX_DEADLOCK_RETRIES}), "
+                    f"retrying in {wait}s"
+                )
+                time.sleep(wait)
+                continue
+            # Nie deadlock lub wyczerpaliśmy retry — przekazujemy błąd dalej
+            raise
+
+    # Nie powinno tu dojść (raise w pętli), ale safety:
+    raise last_error
+
+
+def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items=None):
+    """
+    Pojedyncza próba złożenia zamówienia z offer page.
 
     Args:
         page (OfferPage): Offer page object
@@ -493,6 +556,12 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
     # 10. Commit transaction
     try:
         db.session.commit()
+    except OperationalError as e:
+        db.session.rollback()
+        if _is_deadlock(e):
+            # Re-raise żeby wrapper place_offer_order zrobił retry
+            raise
+        return False, {'error': 'database_error', 'message': str(e)}
     except Exception as e:
         db.session.rollback()
         return False, {'error': 'database_error', 'message': str(e)}
