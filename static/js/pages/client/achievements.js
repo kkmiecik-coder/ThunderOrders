@@ -205,6 +205,10 @@ document.addEventListener('DOMContentLoaded', function() {
             modal.classList.remove('active', 'closing', 'locked-modal');
             clearLegendaryParticles();
             clearLegendaryShimmer();
+            // Cleanup cosmic layers (~60 DOM nodes, stop background animations)
+            if (window.CosmicSpotlight && modal.dataset.rarity === 'cosmic') {
+                window.CosmicSpotlight.remove(modal);
+            }
         }, 300);
     }
 

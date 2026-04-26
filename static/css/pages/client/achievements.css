@@ -2085,6 +2085,7 @@
     position: absolute;
     border-radius: 50%;
     filter: blur(40px);
+    will-change: transform;
 }
 
 .cosmic-layers .nebula-cloud.purple {
@@ -2140,6 +2141,7 @@
     border-radius: 50%;
     box-shadow: 0 0 10px white, 0 0 20px rgba(168, 85, 247, 0.6);
     animation: cosmic-glow-pulse 3s ease-in-out infinite;
+    will-change: transform, opacity;
 }
 
 @keyframes cosmic-glow-pulse {
@@ -2155,6 +2157,7 @@
     transform-origin: left center;
     animation: cosmic-shooting-bg 4s linear infinite;
     opacity: 0;
+    will-change: transform, opacity;
 }
 
 @keyframes cosmic-shooting-bg {
@@ -2171,6 +2174,7 @@
     border-radius: 50%;
     background: white;
     transform: translate(-50%, -50%);
+    will-change: box-shadow, opacity;
 }
 
 .badge-spotlight.active[data-rarity="cosmic"] .cosmic-layers .supernova-core {
@@ -2195,11 +2199,12 @@
 .cosmic-layers .ray {
     position: absolute;
     left: 50%; top: 50%;
-    width: 2px; height: 0;
+    width: 2px; height: 100vh;
     background: linear-gradient(180deg, white, transparent);
     transform-origin: top center;
-    transform: translate(-50%, 0) rotate(var(--rot));
+    transform: translate(-50%, 0) rotate(var(--rot)) scaleY(0);
     opacity: 0;
+    will-change: transform, opacity;
 }
 
 .badge-spotlight.active[data-rarity="cosmic"] .cosmic-layers .ray {
@@ -2207,10 +2212,10 @@
 }
 
 @keyframes cosmic-ray-shoot {
-    0% { height: 0; opacity: 0; }
-    20% { height: 0; opacity: 0; }
-    35% { height: 50vh; opacity: 1; }
-    100% { height: 100vh; opacity: 0; }
+    0% { transform: translate(-50%, 0) rotate(var(--rot)) scaleY(0); opacity: 0; }
+    20% { transform: translate(-50%, 0) rotate(var(--rot)) scaleY(0); opacity: 0; }
+    35% { transform: translate(-50%, 0) rotate(var(--rot)) scaleY(0.5); opacity: 1; }
+    100% { transform: translate(-50%, 0) rotate(var(--rot)) scaleY(1); opacity: 0; }
 }
 
 /* Karta z aureolą */
@@ -2253,4 +2258,25 @@
     0% { transform: scale(0); opacity: 0; }
     50% { transform: scale(1.18); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
+}
+
+/* === A11y: prefers-reduced-motion === */
+@media (prefers-reduced-motion: reduce) {
+    .cosmic-layers,
+    .cosmic-layers .cosmic-backdrop,
+    .cosmic-layers .nebula-cloud,
+    .cosmic-layers .star-field,
+    .cosmic-layers .glow-star,
+    .cosmic-layers .shooting-bg,
+    .cosmic-layers .ray,
+    .badge-spotlight[data-rarity="cosmic"] .badge-spotlight__card,
+    .badge-spotlight[data-rarity="cosmic"] .badge-spotlight__card::before,
+    .badge-spotlight.active[data-rarity="cosmic"] .cosmic-layers .supernova-core,
+    .achievement-card.unlocked[data-rarity="cosmic"]::before {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    /* Wyłącz pulsujący twinkle (znaczna intensywność) */
+    @keyframes cosmic-twinkle { 0%, 100% { opacity: 1; } }
 }
