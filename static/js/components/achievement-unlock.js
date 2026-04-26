@@ -210,7 +210,7 @@ window.AchievementUnlock = (function() {
         if (rarity !== 'common') html += '<div class="auo__shimmer"></div>';
         if (rarity === 'legendary' || rarity === 'cosmic') html += '<div class="auo__rotating-border"></div>';
 
-        var labelText = rarity === 'cosmic' ? '\uD83C\uDF0C KOSMICZNE WYR\u00D3\u017BNIENIE!' : rarity === 'legendary' ? '\u26A1 LEGENDARNE OSI\u0104GNI\u0118CIE!'
+        var labelText = rarity === 'cosmic' ? 'KOSMICZNE WYR\u00D3\u017BNIENIE!' : rarity === 'legendary' ? '\u26A1 LEGENDARNE OSI\u0104GNI\u0118CIE!'
             : rarity === 'epic' ? '\uD83D\uDD2E Epickie osi\u0105gni\u0119cie!'
             : '\u2728 Nowe osi\u0105gni\u0119cie!';
         html += '<div class="auo__label">' + labelText + '</div>';
