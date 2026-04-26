@@ -186,6 +186,8 @@ def payment_upload_photo(session_token):
         return jsonify({'success': False, 'message': 'Plik za duży. Max 5MB.'}), 400
 
     try:
+        from utils.file_validation import validate_proof_file
+
         # Save file to uploads/payment_confirmations/
         original_filename = secure_filename(file.filename)
         unique_filename = f"{uuid.uuid4().hex}_{original_filename}"
@@ -194,7 +196,23 @@ def payment_upload_photo(session_token):
             current_app.root_path, 'uploads', 'payment_confirmations'
         )
         os.makedirs(upload_folder, exist_ok=True)
-        file.save(os.path.join(upload_folder, unique_filename))
+        saved_filepath = os.path.join(upload_folder, unique_filename)
+        file.save(saved_filepath)
+
+        # Walidacja integralności (wykrywa truncated uploads z urządzeń mobilnych)
+        is_valid, validation_error = validate_proof_file(saved_filepath)
+        if not is_valid:
+            try:
+                os.remove(saved_filepath)
+            except OSError:
+                pass
+            current_app.logger.warning(
+                f'[PaymentQR] File validation failed for session {session_token}: {validation_error}'
+            )
+            return jsonify({
+                'success': False,
+                'message': 'Plik wydaje się uszkodzony lub niepełny. Spróbuj ponownie.'
+            }), 400
 
         # Update session
         session.status = 'uploaded'

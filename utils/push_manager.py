@@ -17,10 +17,23 @@ NOTIFICATION TYPES (mapped to NotificationPreference fields):
 """
 
 import json
+import time
 import threading
 from datetime import datetime
 
 from flask import current_app
+
+
+# Retry config dla aktualizacji push_subscriptions po webpush.
+# Pod obciążeniem (wielu klientów składa zamówienia → wiele wątków pisze do tych samych
+# rzędów subskrypcji adminów) MySQL może zwrócić 1205 lock wait timeout.
+_SUB_UPDATE_MAX_RETRIES = 3
+
+
+def _is_lock_timeout(exc):
+    """Sprawdza czy wyjątek to MySQL lock wait timeout (errno 1205)."""
+    msg = str(exc).lower()
+    return '1205' in msg or 'lock wait timeout' in msg
 
 
 class PushManager:
@@ -36,6 +49,16 @@ class PushManager:
         """
         Send a push notification to all active subscriptions of a user.
         Also stores a Notification record in the database for the notification center.
+
+        Architektura (Opcja 1 — webpush poza transakcją):
+            1. Krótka transakcja: zapis Notification + cleanup starych
+            2. Krótka transakcja: pobranie subskrypcji + snapshot do dictów
+            3. webpush() w pętli — BEZ otwartej sesji DB
+            4. Mikro-transakcja per sub z retry na lock timeout — update last_used_at,
+               failed_count, is_active
+
+        Eliminuje 1205 lock wait timeout pod obciążeniem (wiele wątków konkurujących
+        o te same wiersze push_subscriptions adminów).
 
         Args:
             user_id (int): Target user ID
@@ -53,7 +76,7 @@ class PushManager:
         )
         from extensions import db as _db
 
-        # Always store notification in DB for the notification center
+        # === Krok 1: Notification record + cleanup (krótka transakcja) ===
         try:
             notif = Notification(
                 user_id=user_id,
@@ -66,7 +89,6 @@ class PushManager:
             _db.session.add(notif)
             _db.session.commit()
 
-            # Auto-cleanup: remove notifications older than 30 days for this user
             from datetime import datetime, timedelta
             cutoff = datetime.utcnow() - timedelta(days=30)
             Notification.query.filter(
@@ -78,7 +100,7 @@ class PushManager:
             _db.session.rollback()
             current_app.logger.warning(f'Failed to store notification for user {user_id}: {e}')
 
-        # Check user preference (only affects push delivery, not DB storage)
+        # === Krok 2: Preferencje + snapshot subskrypcji ===
         if notification_type:
             pref = NotificationPreference.query.filter_by(user_id=user_id).first()
             if pref and not getattr(pref, notification_type, True):
@@ -90,6 +112,20 @@ class PushManager:
 
         if not subs:
             return False
+
+        # Odetnij od ORM — webpush nie potrzebuje sesji DB
+        sub_snapshots = [
+            {
+                'id': s.id,
+                'endpoint': s.endpoint,
+                'p256dh': s.p256dh_key,
+                'auth': s.auth_key,
+            }
+            for s in subs
+        ]
+
+        # Zwolnij transakcję czytania zanim zaczną się wolne calle webpush
+        _db.session.commit()
 
         payload = json.dumps({
             'title': title,
@@ -105,31 +141,40 @@ class PushManager:
             current_app.logger.warning('VAPID_PRIVATE_KEY not configured, skipping push')
             return False
 
-        sent = False
-        for sub in subs:
+        # === Krok 3: webpush poza sesją DB ===
+        results = []  # [(sub_id, error_or_None)]
+        for snap in sub_snapshots:
             try:
-                PushManager._send_single(sub, payload, vapid_private_key, vapid_claims_email)
-                sub.last_used_at = datetime.utcnow()
-                sub.failed_count = 0
-                sent = True
+                PushManager._send_single_raw(
+                    snap['endpoint'], snap['p256dh'], snap['auth'],
+                    payload, vapid_private_key, vapid_claims_email
+                )
+                results.append((snap['id'], None))
             except Exception as e:
-                PushManager._handle_send_error(sub, e)
+                results.append((snap['id'], e))
 
-        from extensions import db
-        db.session.commit()
+        # === Krok 4: mikro-transakcje z retry ===
+        sent = False
+        for sub_id, error in results:
+            if error is None:
+                PushManager._update_sub_success(sub_id)
+                sent = True
+            else:
+                PushManager._handle_send_error_by_id(sub_id, error)
+
         return sent
 
     @staticmethod
-    def _send_single(sub, payload, vapid_private_key, vapid_claims_email):
-        """Send push to a single subscription via pywebpush."""
+    def _send_single_raw(endpoint, p256dh, auth, payload, vapid_private_key, vapid_claims_email):
+        """Wysyła pojedynczy push przez pywebpush — bez referencji do ORM."""
         from pywebpush import webpush
 
         webpush(
             subscription_info={
-                'endpoint': sub.endpoint,
+                'endpoint': endpoint,
                 'keys': {
-                    'p256dh': sub.p256dh_key,
-                    'auth': sub.auth_key,
+                    'p256dh': p256dh,
+                    'auth': auth,
                 }
             },
             data=payload,
@@ -138,49 +183,82 @@ class PushManager:
         )
 
     @staticmethod
-    def _handle_send_error(sub, error):
-        """Handle push send errors. Deactivate subscription on 410 or repeated failures.
-
-        Dedup: gdy kilka wątków równolegle wysyła push do tej samej subskrypcji
-        i dostaje 410, odświeżamy stan z DB. Jeśli inny wątek już oznaczył sub
-        jako nieaktywną, po prostu wychodzimy bez dublowania logów/commitów.
-        """
+    def _update_sub_success(sub_id):
+        """Po udanej wysyłce: last_used_at=now(), failed_count=0.
+        Mikro-transakcja z retry przy 1205 lock wait timeout."""
         from extensions import db
+        from modules.notifications.models import PushSubscription
+
+        for attempt in range(1, _SUB_UPDATE_MAX_RETRIES + 1):
+            try:
+                sub = PushSubscription.query.get(sub_id)
+                if not sub:
+                    return
+                sub.last_used_at = datetime.utcnow()
+                sub.failed_count = 0
+                db.session.commit()
+                return
+            except Exception as e:
+                db.session.rollback()
+                if _is_lock_timeout(e) and attempt < _SUB_UPDATE_MAX_RETRIES:
+                    time.sleep(0.1 * attempt)
+                    continue
+                current_app.logger.warning(
+                    f'Failed to update push_subscription {sub_id} success: {e}'
+                )
+                return
+
+    @staticmethod
+    def _handle_send_error_by_id(sub_id, error):
+        """Po błędzie webpush: deaktywuj na 410, inkrementuj failed_count na resztę.
+        Mikro-transakcja per sub z retry przy lock timeout. Świeży SELECT zapewnia
+        dedup gdy inny wątek już deaktywował sub."""
+        from extensions import db
+        from modules.notifications.models import PushSubscription
 
         error_str = str(error)
-        status_code = getattr(error, 'status_code', None) or getattr(getattr(error, 'response', None), 'status_code', None)
+        status_code = (
+            getattr(error, 'status_code', None)
+            or getattr(getattr(error, 'response', None), 'status_code', None)
+        )
 
-        if status_code == 410:
-            # Subscription expired - sprawdź czy inny wątek już nie oznaczył jej jako nieaktywnej
+        for attempt in range(1, _SUB_UPDATE_MAX_RETRIES + 1):
             try:
-                db.session.refresh(sub)
-                if not sub.is_active:
-                    # Inny wątek już to obsłużył - pomijamy
+                sub = PushSubscription.query.get(sub_id)
+                if not sub or not sub.is_active:
+                    # Inny wątek już deaktywował lub sub usunięty
                     return
-            except Exception:
-                # Obiekt detached lub inny problem - fallback do starego zachowania
-                pass
 
-            sub.is_active = False
-            current_app.logger.info(f'Push subscription {sub.id} expired (410), deactivated')
-        else:
-            # Dedup również dla "failed too many times" - refresh PRZED modyfikacją
-            # aby inny wątek, który już oznaczył sub jako nieaktywną, nie został
-            # nadpisany, oraz aby failed_count był aktualny.
-            try:
-                db.session.refresh(sub)
-                if not sub.is_active:
-                    # Inny wątek już deaktywował sub - pomijamy
-                    return
-            except Exception:
-                pass
-
-            sub.failed_count += 1
-            if sub.failed_count >= 5:
-                sub.is_active = False
-                current_app.logger.info(f'Push subscription {sub.id} deactivated after {sub.failed_count} failures')
-            else:
-                current_app.logger.warning(f'Push send error for sub {sub.id}: {error_str}')
+                if status_code == 410:
+                    sub.is_active = False
+                    db.session.commit()
+                    current_app.logger.info(
+                        f'Push subscription {sub_id} expired (410), deactivated'
+                    )
+                else:
+                    sub.failed_count += 1
+                    if sub.failed_count >= 5:
+                        sub.is_active = False
+                        db.session.commit()
+                        current_app.logger.info(
+                            f'Push subscription {sub_id} deactivated after '
+                            f'{sub.failed_count} failures'
+                        )
+                    else:
+                        db.session.commit()
+                        current_app.logger.warning(
+                            f'Push send error for sub {sub_id}: {error_str}'
+                        )
+                return
+            except Exception as e:
+                db.session.rollback()
+                if _is_lock_timeout(e) and attempt < _SUB_UPDATE_MAX_RETRIES:
+                    time.sleep(0.1 * attempt)
+                    continue
+                current_app.logger.warning(
+                    f'Failed to update push_subscription {sub_id} after error: {e}'
+                )
+                return
 
     @staticmethod
     def _send_async(app, user_id, title, body, url, tag, notification_type):

@@ -18,6 +18,7 @@ from modules.client import client_bp
 from modules.orders.models import Order, PaymentConfirmation
 from modules.payments.models import PaymentMethod
 from utils.activity_logger import log_activity
+from utils.file_validation import validate_proof_file
 
 
 # === HELPER FUNCTIONS ===
@@ -312,6 +313,27 @@ def payment_confirmations_upload():
             saved_filename = save_payment_proof_file(file)
             if not saved_filename:
                 return _upload_error('Błąd podczas zapisywania pliku.')
+
+            # Walidacja integralności pliku (truncated/corrupt detection)
+            upload_folder = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                'uploads', 'payment_confirmations'
+            )
+            saved_filepath = os.path.join(upload_folder, saved_filename)
+            is_valid, validation_error = validate_proof_file(saved_filepath)
+            if not is_valid:
+                # Sprzątaj uszkodzony plik
+                try:
+                    os.remove(saved_filepath)
+                except OSError:
+                    pass
+                current_app.logger.warning(
+                    f'Payment proof validation failed for user {current_user.id}: {validation_error}'
+                )
+                return _upload_error(
+                    'Plik wydaje się uszkodzony lub niepełny. '
+                    'Spróbuj ponownie lub wybierz inny plik.'
+                )
 
         # Metoda płatności wybrana przez klienta
         payment_method_id = request.form.get('payment_method_id', type=int)

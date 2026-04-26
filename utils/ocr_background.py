@@ -7,11 +7,58 @@ After processing, updates PaymentConfirmation records and emits WebSocket events
 """
 
 import os
+import time
 import json
 import logging
 from decimal import Decimal
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration dla transient OCR errors (Tesseract crash, DB deadlock, OOM)
+MAX_OCR_RETRIES = 3
+# Frazy w komunikacie błędu, które wskazują na trwałe uszkodzenie pliku —
+# nie retry-ujemy, bo kolejne próby na tym samym pliku zwrócą ten sam błąd.
+PERMANENT_OCR_ERROR_PATTERNS = (
+    'truncated',
+    'cannot identify image file',
+    'no such file',
+    'permission denied',
+    'unsupported',
+)
+
+
+def _is_permanent_ocr_error(exc):
+    """Czy błąd OCR jest trwały (no point in retry)."""
+    msg = str(exc).lower()
+    return any(p in msg for p in PERMANENT_OCR_ERROR_PATTERNS)
+
+
+def _verify_with_retry(verify_kwargs):
+    """
+    Uruchamia verify_payment_proof z retry/backoff dla transient errors.
+    Zwraca dict z wynikiem OCR lub None gdy się nie udało.
+    """
+    from utils.ocr_verifier import verify_payment_proof
+
+    last_error = None
+    for attempt in range(1, MAX_OCR_RETRIES + 1):
+        try:
+            return verify_payment_proof(**verify_kwargs)
+        except Exception as e:
+            last_error = e
+            if _is_permanent_ocr_error(e):
+                logger.warning(f"OCR permanent error (no retry): {e}")
+                return None
+            if attempt < MAX_OCR_RETRIES:
+                wait_seconds = 2 ** attempt
+                logger.info(
+                    f"OCR attempt {attempt}/{MAX_OCR_RETRIES} failed, "
+                    f"retrying in {wait_seconds}s: {e}"
+                )
+                time.sleep(wait_seconds)
+
+    logger.warning(f"OCR failed after {MAX_OCR_RETRIES} attempts: {last_error}")
+    return None
 
 
 def process_ocr_verification(task_data):
@@ -39,7 +86,7 @@ def _process_ocr_internal(task_data):
     from modules.orders.models import PaymentConfirmation, get_local_now
     from modules.payments.models import PaymentMethod
     from modules.auth.models import Settings
-    from utils.ocr_verifier import verify_payment_proof, TESSERACT_AVAILABLE
+    from utils.ocr_verifier import TESSERACT_AVAILABLE
 
     saved_filename = task_data['saved_filename']
     payment_method_id = task_data.get('payment_method_id')
@@ -70,17 +117,17 @@ def _process_ocr_internal(task_data):
     # Pobierz wszystkie aktywne metody (do fallback w score_recipient)
     all_methods = PaymentMethod.get_active()
 
-    # Uruchom OCR
-    try:
-        ocr_result = verify_payment_proof(
-            filepath=proof_filepath,
-            expected_amount=total_expected,
-            order_numbers=order_numbers,
-            payment_method=pm_obj,
-            all_payment_methods=all_methods
-        )
-    except Exception as e:
-        logger.error(f"OCR background verification error: {e}")
+    # Uruchom OCR z retry dla transient errors (Tesseract crash, DB deadlock)
+    ocr_result = _verify_with_retry({
+        'filepath': proof_filepath,
+        'expected_amount': total_expected,
+        'order_numbers': order_numbers,
+        'payment_method': pm_obj,
+        'all_payment_methods': all_methods,
+    })
+
+    if ocr_result is None:
+        # Wszystkie retry wyczerpane lub permanent error — moderator zweryfikuje ręcznie
         return
 
     ocr_score = ocr_result.get('score')
