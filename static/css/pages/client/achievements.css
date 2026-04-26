@@ -43,6 +43,17 @@
     --shimmer-speed: 3s;
 }
 
+.achievement-card[data-rarity="cosmic"],
+.badge-spotlight[data-rarity="cosmic"] {
+    --r1: #6a0dad;
+    --r2: #1e3a8a;
+    --r-glow: rgba(168, 85, 247, 0.5);
+    --r-accent: #a855f7;
+    --r-text: #c084fc;
+    --shimmer-speed: 4s;
+    --rarity-color: #a855f7;
+}
+
 /* === Page Container === */
 .achievements-page {
     max-width: 920px;
@@ -282,6 +293,134 @@
     box-shadow:
         0 8px 32px rgba(232, 163, 8, 0.4),
         0 0 40px rgba(232, 163, 8, 0.15);
+}
+
+/* ================================================
+   COSMIC RARITY (admin-grantable, kategoria 'special')
+   ================================================ */
+.achievement-card.unlocked[data-rarity="cosmic"] {
+    background:
+        radial-gradient(ellipse at 20% 30%, #6a0dad 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 70%, #1e3a8a 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, #0f0f23 0%, #000000 100%);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    box-shadow:
+        0 0 35px rgba(106, 13, 173, 0.7),
+        0 0 60px rgba(30, 58, 138, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.achievement-card.unlocked[data-rarity="cosmic"]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        radial-gradient(1px 1px at 25% 20%, white, transparent),
+        radial-gradient(1px 1px at 60% 35%, white, transparent),
+        radial-gradient(1px 1px at 85% 60%, #ffd700, transparent),
+        radial-gradient(2px 2px at 40% 75%, white, transparent),
+        radial-gradient(1px 1px at 10% 85%, #00d4ff, transparent),
+        radial-gradient(1px 1px at 70% 15%, white, transparent),
+        radial-gradient(1.5px 1.5px at 30% 50%, #ff80ff, transparent);
+    animation: cosmic-twinkle 4s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.achievement-card.unlocked[data-rarity="cosmic"] > * {
+    position: relative;
+    z-index: 2;
+}
+
+.achievement-card.unlocked[data-rarity="cosmic"]:hover {
+    box-shadow:
+        0 8px 40px rgba(106, 13, 173, 0.85),
+        0 0 70px rgba(30, 58, 138, 0.55);
+}
+
+.achievement-card.unlocked[data-rarity="cosmic"] .badge-name {
+    color: #ffffff;
+    text-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+@keyframes cosmic-twinkle {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+/* Cosmic rarity tag */
+.badge-rarity.cosmic {
+    background: linear-gradient(135deg, #6a0dad, #1e3a8a);
+    color: #fff;
+    border: 1px solid rgba(168, 85, 247, 0.6);
+}
+
+/* Cosmic icon */
+.badge-icon.cosmic {
+    background: rgba(168, 85, 247, 0.15);
+    border: 2px solid rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 18px rgba(168, 85, 247, 0.35);
+}
+
+.achievement-card.unlocked .badge-icon.cosmic {
+    box-shadow: 0 0 22px rgba(168, 85, 247, 0.5);
+}
+
+.achievement-card.unlocked .badge-icon.cosmic.has-image {
+    box-shadow: none;
+}
+
+/* Special tag — zamiast statystyk dla category='special' */
+.badge-special-tag {
+    color: rgba(168, 85, 247, 0.9);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+    margin-top: 4px;
+    position: relative;
+    z-index: 2;
+}
+
+/* Spotlight rarity pill — cosmic */
+.badge-spotlight__rarity.cosmic {
+    background: linear-gradient(135deg, rgba(106, 13, 173, 0.4), rgba(30, 58, 138, 0.4));
+    color: #fff;
+    border: 1px solid rgba(168, 85, 247, 0.5);
+}
+
+/* Cosmic spotlight glow — fioletowo-granatowy */
+.badge-spotlight[data-rarity="cosmic"]::before {
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(
+        circle,
+        rgba(168, 85, 247, 0.5) 0%,
+        rgba(106, 13, 173, 0.25) 25%,
+        rgba(30, 58, 138, 0.1) 50%,
+        transparent 70%
+    );
+}
+
+.badge-spotlight[data-rarity="cosmic"] .badge-spotlight__card {
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(106, 13, 173, 0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(30, 58, 138, 0.25) 0%, transparent 50%),
+        linear-gradient(180deg, #0f0f23 0%, #000000 100%);
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.6),
+        0 0 60px rgba(106, 13, 173, 0.3);
+    color: #fff;
+}
+
+.badge-spotlight[data-rarity="cosmic"] .badge-spotlight__name {
+    color: #fff;
+}
+
+.badge-spotlight[data-rarity="cosmic"] .badge-spotlight__desc {
+    color: rgba(255, 255, 255, 0.65);
 }
 
 /* ================================================
@@ -1484,6 +1623,69 @@
     --r1: #F5B72B;
     --r2: #FFE066;
     --r-glow: rgba(245, 183, 43, 0.25);
+}
+
+[data-theme="dark"] .achievement-card[data-rarity="cosmic"],
+[data-theme="dark"] .badge-spotlight[data-rarity="cosmic"] {
+    --r1: #a855f7;
+    --r2: #6a0dad;
+    --r-glow: rgba(168, 85, 247, 0.35);
+}
+
+/* Cosmic - Dark mode card */
+[data-theme="dark"] .achievement-card.unlocked[data-rarity="cosmic"] {
+    box-shadow:
+        0 0 45px rgba(106, 13, 173, 0.85),
+        0 0 80px rgba(30, 58, 138, 0.55);
+}
+
+[data-theme="dark"] .achievement-card.unlocked[data-rarity="cosmic"]:hover {
+    box-shadow:
+        0 8px 50px rgba(106, 13, 173, 0.95),
+        0 0 90px rgba(30, 58, 138, 0.7);
+}
+
+/* Cosmic - Dark mode rarity tag */
+[data-theme="dark"] .badge-rarity.cosmic {
+    background: linear-gradient(135deg, rgba(106, 13, 173, 0.7), rgba(30, 58, 138, 0.7));
+    color: #fff;
+    border: 1px solid rgba(168, 85, 247, 0.7);
+}
+
+/* Cosmic - Dark mode special tag */
+[data-theme="dark"] .badge-special-tag {
+    color: #c084fc;
+    text-shadow: 0 0 8px rgba(168, 85, 247, 0.4);
+}
+
+/* Cosmic - Dark mode spotlight */
+[data-theme="dark"] .badge-spotlight[data-rarity="cosmic"] .badge-spotlight__card {
+    background:
+        radial-gradient(ellipse at 20% 20%, rgba(106, 13, 173, 0.35) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 80%, rgba(30, 58, 138, 0.35) 0%, transparent 50%),
+        linear-gradient(180deg, #0f0f23 0%, #000000 100%);
+    border: 1px solid rgba(168, 85, 247, 0.5);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.7),
+        0 0 70px rgba(106, 13, 173, 0.4);
+}
+
+[data-theme="dark"] .badge-spotlight[data-rarity="cosmic"]::before {
+    width: 800px;
+    height: 800px;
+    background: radial-gradient(
+        circle,
+        rgba(168, 85, 247, 0.55) 0%,
+        rgba(106, 13, 173, 0.3) 25%,
+        rgba(30, 58, 138, 0.12) 50%,
+        transparent 70%
+    );
+}
+
+[data-theme="dark"] .badge-spotlight__rarity.cosmic {
+    background: linear-gradient(135deg, rgba(106, 13, 173, 0.5), rgba(30, 58, 138, 0.5));
+    color: #fff;
+    border: 1px solid rgba(168, 85, 247, 0.6);
 }
 
 /* Page */

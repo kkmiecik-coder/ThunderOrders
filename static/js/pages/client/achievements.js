@@ -13,9 +13,10 @@ document.addEventListener('DOMContentLoaded', function() {
         rare: 'Rzadkie',
         epic: 'Epickie',
         legendary: 'Legendarne',
+        cosmic: 'Kosmiczne',
     };
 
-    var RARITY_RANK = { common: 1, rare: 2, epic: 3, legendary: 4 };
+    var RARITY_RANK = { common: 1, rare: 2, epic: 3, legendary: 4, cosmic: 5 };
 
     // Fetch achievements
     fetch('/achievements/api/my', {
@@ -133,9 +134,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var rarityLabel = '<div class="badge-rarity ' + a.rarity + '">' + (RARITY_LABELS[a.rarity] || '') + '</div>';
 
-        // Stat percentage under rarity
+        // Stat percentage / Special tag under rarity
         var statHtml = '';
-        if (a.stat_percentage > 0) {
+        if (a.is_special) {
+            statHtml = '<div class="badge-special-tag">Wyróżnienie admina</div>';
+        } else if (a.stat_percentage > 0) {
             statHtml = '<div class="badge-stat">' + a.stat_percentage + '% użytkowników</div>';
         }
 
@@ -359,11 +362,17 @@ document.addEventListener('DOMContentLoaded', function() {
             progressWrap.style.display = 'none';
         }
 
-        // Stat
+        // Stat / Special tag
         var statEl = document.getElementById('badge-detail-stat');
-        statEl.textContent = a.stat_percentage > 0
-            ? 'Posiada ' + a.stat_percentage + '% użytkowników'
-            : '';
+        if (a.is_special) {
+            statEl.textContent = 'Wyróżnienie admina';
+            statEl.className = 'badge-spotlight__stat badge-special-tag';
+        } else {
+            statEl.textContent = a.stat_percentage > 0
+                ? 'Posiada ' + a.stat_percentage + '% użytkowników'
+                : '';
+            statEl.className = 'badge-spotlight__stat';
+        }
 
         // Unlock date
         var dateEl = document.getElementById('badge-detail-unlock-date');
