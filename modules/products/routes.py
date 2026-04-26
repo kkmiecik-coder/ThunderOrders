@@ -2535,15 +2535,19 @@ def stock_orders():
 def _build_effective_pln_map(products_to_order=None, proxy_orders=None, poland_orders=None):
     """
     Builds a dict mapping product.id -> {
-        'pln': float (effective purchase price in PLN),
-        'original': float (original purchase_price),
+        'pln': Decimal (effective purchase price in PLN),
+        'original': Decimal (original purchase_price),
         'currency': str (original currency, e.g. 'KRW'),
     }
 
     For products with purchase_price_pln set, that value is used directly.
     For products with purchase_price set in non-PLN currency but no purchase_price_pln,
     the value is converted on-the-fly using the current cached system exchange rate.
+
+    Values are kept as Decimal to stay compatible with other Decimal arithmetic
+    in templates (e.g. item.to_order * pln, where to_order is also a Decimal).
     """
+    from decimal import Decimal, ROUND_HALF_UP
     from utils.currency import get_exchange_rate
 
     products_seen = {}
@@ -2569,26 +2573,28 @@ def _build_effective_pln_map(products_to_order=None, proxy_orders=None, poland_o
         if currency in rate_cache:
             return rate_cache[currency]
         try:
-            rate_cache[currency] = float(get_exchange_rate(currency)['rate'])
+            rate = get_exchange_rate(currency)['rate']
+            rate_cache[currency] = Decimal(str(rate))
         except Exception as e:
             current_app.logger.warning(f'Cannot fetch exchange rate for {currency}: {e}')
             rate_cache[currency] = None
         return rate_cache[currency]
 
+    cents = Decimal('0.01')
     result = {}
     for product in products_seen.values():
-        original = float(product.purchase_price) if product.purchase_price else None
+        original = product.purchase_price  # Decimal or None
         currency = product.purchase_currency or 'PLN'
 
         if product.purchase_price_pln:
-            pln = float(product.purchase_price_pln)
+            pln = product.purchase_price_pln
         elif original is None:
             pln = None
         elif currency == 'PLN':
             pln = original
         else:
             rate = _rate_for(currency)
-            pln = round(original * rate, 2) if rate else None
+            pln = (original * rate).quantize(cents, rounding=ROUND_HALF_UP) if rate else None
 
         result[product.id] = {
             'pln': pln,
