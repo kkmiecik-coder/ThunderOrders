@@ -1,0 +1,66 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block title %}Odznaki — Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-page-header">
+        <h1>Odznaki</h1>
+        <a href="{{ url_for('admin.achievements_new') }}" class="btn btn-primary">+ Nowa odznaka</a>
+    </div>
+
+    <table class="admin-table">
+        <thead>
+            <tr>
+                <th>Ikona</th>
+                <th>Nazwa</th>
+                <th>Slug</th>
+                <th>Kategoria</th>
+                <th>Rzadkość</th>
+                <th>Typ</th>
+                <th>Posiadacze</th>
+                <th>Aktywna</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ach in achievements %}
+            <tr>
+                <td>
+                    <img src="{{ url_for('static', filename='uploads/achievements/' + ach.slug + '@256.png') }}"
+                         alt="{{ ach.name }}"
+                         style="width:40px;height:40px;border-radius:50%;object-fit:cover;"
+                         onerror="this.style.display='none'">
+                </td>
+                <td><strong>{{ ach.name }}</strong><br><small>{{ ach.description }}</small></td>
+                <td><code>{{ ach.slug }}</code></td>
+                <td><span class="badge badge-category badge-{{ ach.category }}">{{ ach.category }}</span></td>
+                <td><span class="badge badge-rarity badge-{{ ach.rarity }}">{{ ach.rarity }}</span></td>
+                <td>
+                    {% if ach.trigger_type == 'manual' %}
+                        <span class="badge badge-manual">manual</span>
+                    {% else %}
+                        <span class="badge badge-auto">{{ ach.trigger_type }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('admin.achievements_holders', id=ach.id) }}">{{ holders_count[ach.id] }}</a>
+                </td>
+                <td>
+                    {% if ach.is_active %}<span class="text-success">Tak</span>{% else %}<span class="text-muted">Nie</span>{% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('admin.achievements_edit', id=ach.id) }}" class="btn btn-sm btn-secondary">Edytuj</a>
+                    {% if ach.is_active %}
+                    <form method="POST" action="{{ url_for('admin.achievements_delete', id=ach.id) }}" style="display:inline" onsubmit="return confirm('Dezaktywować odznakę „{{ ach.name }}”?')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Dezaktywuj</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
