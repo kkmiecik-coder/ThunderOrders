@@ -1,0 +1,102 @@
+{% extends 'admin/base_admin.html' %}
+
+{% block title %}{{ 'Edycja' if achievement else 'Nowa' }} odznaka — Admin{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-page-header">
+        <h1>{{ 'Edycja' if achievement else 'Nowa' }} odznaka</h1>
+        <a href="{{ url_for('admin.achievements_list') }}" class="btn btn-link">← Powrót</a>
+    </div>
+
+    {% if achievement and holders_count > 0 %}
+    <div class="alert alert-info">
+        Tę odznakę posiada <strong>{{ holders_count }}</strong> klient(ów). Pola <code>slug</code> i <code>kategoria</code> są zablokowane.
+    </div>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" class="admin-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group">
+            <label for="name">Nazwa *</label>
+            <input type="text" id="name" name="name" required maxlength="120"
+                   value="{{ achievement.name if achievement else '' }}">
+        </div>
+
+        <div class="form-group">
+            <label for="slug">Slug (auto z nazwy jeśli puste)</label>
+            <input type="text" id="slug" name="slug" maxlength="80"
+                   pattern="[a-z0-9-]+"
+                   value="{{ achievement.slug if achievement else '' }}"
+                   {% if achievement and holders_count > 0 %}readonly{% endif %}>
+            <small>Tylko a-z, 0-9, „-".</small>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Opis *</label>
+            <input type="text" id="description" name="description" required maxlength="255"
+                   value="{{ achievement.description if achievement else '' }}">
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="category">Kategoria *</label>
+                <select id="category" name="category" required {% if achievement and holders_count > 0 %}disabled{% endif %}>
+                    {% for c in ['special', 'orders', 'collection', 'loyalty', 'speed', 'exclusive', 'social', 'financial', 'profile'] %}
+                    <option value="{{ c }}" {% if achievement and achievement.category == c %}selected{% elif not achievement and c == 'special' %}selected{% endif %}>{{ c }}</option>
+                    {% endfor %}
+                </select>
+                {% if achievement and holders_count > 0 %}
+                <input type="hidden" name="category" value="{{ achievement.category }}">
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="rarity">Rzadkość *</label>
+                <select id="rarity" name="rarity" required>
+                    {% for r in ['cosmic', 'legendary', 'epic', 'rare', 'common'] %}
+                    <option value="{{ r }}" {% if achievement and achievement.rarity == r %}selected{% elif not achievement and r == 'cosmic' %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="icon">Ikona {% if not achievement %}*{% endif %}</label>
+            <input type="file" id="icon" name="icon" accept="image/png,image/jpeg,image/webp,image/gif">
+            <small>Min 64×64. Plik zostanie auto-resize'owany do 256×256 PNG. Max 5MB.</small>
+            {% if achievement %}
+            <div style="margin-top:8px;">
+                <img src="{{ url_for('static', filename='uploads/achievements/' + achievement.slug + '@256.png') }}"
+                     alt="Aktualna ikona"
+                     style="width:64px;height:64px;border-radius:50%;"
+                     onerror="this.style.display='none'">
+                <small>Aktualna ikona — wgraj nowy plik aby zastąpić.</small>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_hidden_until_unlocked"
+                       {% if achievement and achievement.is_hidden_until_unlocked %}checked{% endif %}>
+                Ukryta dopóki nie zostanie przyznana (klient jej nie zobaczy)
+            </label>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                <input type="checkbox" name="is_active"
+                       {% if not achievement or achievement.is_active %}checked{% endif %}>
+                Aktywna
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ 'Zapisz' if achievement else 'Utwórz' }}</button>
+            <a href="{{ url_for('admin.achievements_list') }}" class="btn btn-link">Anuluj</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
