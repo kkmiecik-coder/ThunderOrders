@@ -146,6 +146,17 @@
                 </a>
             </li>
 
+            {% if current_user.role == 'admin' %}
+            <li class="sidebar-item">
+                <a href="{{ url_for('admin.achievements_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'achievement' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Odznaki">
+                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Odznaki" class="sidebar-icon">
+                    <span class="sidebar-text">Odznaki</span>
+                </a>
+            </li>
+            {% endif %}
+
             <li class="sidebar-item">
                 <a href="{{ url_for('admin.tasks_list') }}"
                    class="sidebar-link {% if request.endpoint and 'task' in request.endpoint %}active{% endif %}"
