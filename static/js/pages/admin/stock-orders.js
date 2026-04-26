@@ -78,6 +78,35 @@ function sortTable(column) {
 }
 
 /**
+ * Formatuj kwotę po polsku: 1 000,00 PLN (decimals=2) lub 1 000 KRW (decimals=0)
+ */
+function formatCurrencyPL(value, currency = 'PLN', decimals = 2) {
+    const num = Number(value);
+    if (!isFinite(num)) {
+        const zero = decimals === 0 ? '0' : '0,' + '0'.repeat(decimals);
+        return `${zero} ${currency}`;
+    }
+    const formatted = num.toLocaleString('pl-PL', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+    });
+    return `${formatted} ${currency}`;
+}
+
+/**
+ * Zbuduj dwuwierszową komórkę ceny: PLN na górze (pogrubione), waluta oryginalna pod spodem.
+ * Gdy currency === 'PLN' lub original brak — pokazuje tylko jeden wiersz PLN.
+ */
+function buildPriceCell(plnValue, originalValue, currency, plnDecimals = 2, origDecimals = 0) {
+    const pln = `<div class="price-pln">${formatCurrencyPL(plnValue, 'PLN', plnDecimals)}</div>`;
+    if (!currency || currency === 'PLN' || !originalValue) {
+        return pln;
+    }
+    const orig = `<div class="price-krw">${formatCurrencyPL(originalValue, currency, origDecimals)}</div>`;
+    return pln + orig;
+}
+
+/**
  * Get CSRF token from meta tag or cookie
  */
 function getCsrfToken() {
@@ -2127,26 +2156,40 @@ function openOrderProductsModal() {
     const tbody = document.getElementById('groupOrderTableBody');
     tbody.innerHTML = '';
     let total = 0;
+    let totalOriginal = 0;
+    let totalCurrency = null;
 
     checkboxes.forEach(checkbox => {
         const row = checkbox.closest('tr');
         const productName = row.dataset.productName;
         const toOrder = parseInt(row.dataset.toOrder);
         const purchasePrice = parseFloat(row.dataset.purchasePrice) || 0;
+        const purchaseOriginal = parseFloat(row.dataset.purchaseOriginal) || 0;
+        const purchaseCurrency = row.dataset.purchaseCurrency || 'PLN';
+
         const rowTotal = toOrder * purchasePrice;
         total += rowTotal;
+
+        if (purchaseCurrency !== 'PLN' && purchaseOriginal > 0) {
+            totalOriginal += toOrder * purchaseOriginal;
+            totalCurrency = purchaseCurrency;
+        }
+
+        const unitCell = buildPriceCell(purchasePrice, purchaseOriginal, purchaseCurrency);
+        const sumCell = buildPriceCell(rowTotal, toOrder * purchaseOriginal, purchaseCurrency);
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${escapeHtml(productName)}</td>
             <td class="text-center">${toOrder}</td>
-            <td class="text-right">${purchasePrice.toFixed(2)} PLN</td>
-            <td class="text-right font-semibold">${rowTotal.toFixed(2)} PLN</td>
+            <td class="text-right">${unitCell}</td>
+            <td class="text-right font-semibold">${sumCell}</td>
         `;
         tbody.appendChild(tr);
     });
 
-    document.getElementById('groupOrderTotal').textContent = total.toFixed(2) + ' PLN';
+    const totalCell = buildPriceCell(total, totalOriginal, totalCurrency);
+    document.getElementById('groupOrderTotal').innerHTML = totalCell;
 
     // Pokaż modal
     document.getElementById('groupOrderModal').classList.add('active');

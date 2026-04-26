@@ -94,6 +94,8 @@
                                 {% set payment_type = 'proxy' if item.payment_stages == 4 else 'polska' %}
                                 {% set price_info = effective_pln_prices.get(product.id, {}) %}
                                 {% set price_pln = price_info.get('pln') or 0 %}
+                                {% set price_original = price_info.get('original') or 0 %}
+                                {% set price_currency = price_info.get('currency') or 'PLN' %}
                                 <tr class="to-order-row"
                                     data-product-id="{{ product.id }}"
                                     data-product-name="{{ product.name }}"
@@ -103,6 +105,8 @@
                                     data-to-order="{{ item.to_order }}"
                                     data-purchase-price="{{ price_pln }}"
                                     data-purchase-value="{{ item.to_order * price_pln }}"
+                                    data-purchase-original="{{ price_original }}"
+                                    data-purchase-currency="{{ price_currency }}"
                                     data-payment-type="{{ payment_type }}">
                                     <td class="col-checkbox">
                                         <input type="checkbox" class="to-order-checkbox" value="{{ product.id }}"
