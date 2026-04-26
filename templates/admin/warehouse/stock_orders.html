@@ -92,7 +92,8 @@
                                 {% set product = item.product %}
                                 {% set primary_image = product.primary_image %}
                                 {% set payment_type = 'proxy' if item.payment_stages == 4 else 'polska' %}
-                                {% set price_pln = product.purchase_price_pln or product.purchase_price or 0 %}
+                                {% set price_info = effective_pln_prices.get(product.id, {}) %}
+                                {% set price_pln = price_info.get('pln') or 0 %}
                                 <tr class="to-order-row"
                                     data-product-id="{{ product.id }}"
                                     data-product-name="{{ product.name }}"
@@ -146,13 +147,13 @@
                                     <td class="text-right">
                                         {% if product.is_gratis %}
                                             <span class="gratis-badge">Gratis</span>
-                                        {% elif product.purchase_price_pln %}
-                                            <div class="price-pln">{{ "%.2f"|format(product.purchase_price_pln) }} PLN</div>
-                                            {% if product.purchase_currency == 'KRW' and product.purchase_price %}
-                                                <div class="price-krw">{{ "{:,.0f}"|format(product.purchase_price) }} ₩</div>
+                                        {% elif price_info.get('pln') is not none %}
+                                            <div class="price-pln">{{ price_info.pln|format_currency('PLN') }}</div>
+                                            {% if price_info.get('currency') and price_info.currency != 'PLN' and price_info.get('original') %}
+                                                <div class="price-krw">{{ price_info.original|format_currency(price_info.currency, 0) }}</div>
                                             {% endif %}
-                                        {% elif product.purchase_price %}
-                                            <div class="price-pln">{{ "%.2f"|format(product.purchase_price) }} {{ product.purchase_currency }}</div>
+                                        {% elif price_info.get('original') %}
+                                            <div class="price-pln">{{ price_info.original|format_currency(price_info.currency or 'PLN', 0) }}</div>
                                         {% else %}
                                             <span class="text-muted">—</span>
                                         {% endif %}
@@ -160,16 +161,13 @@
                                     <td class="text-right">
                                         {% if product.is_gratis %}
                                             <span class="gratis-badge">Gratis</span>
-                                        {% elif product.purchase_price_pln %}
-                                            {% set total_pln = item.to_order * product.purchase_price_pln %}
-                                            <div class="price-pln"><strong>{{ "%.2f"|format(total_pln) }} PLN</strong></div>
-                                            {% if product.purchase_currency == 'KRW' and product.purchase_price %}
-                                                {% set total_krw = item.to_order * product.purchase_price %}
-                                                <div class="price-krw">{{ "{:,.0f}"|format(total_krw) }} ₩</div>
+                                        {% elif price_info.get('pln') is not none %}
+                                            <div class="price-pln">{{ (item.to_order * price_info.pln)|format_currency('PLN') }}</div>
+                                            {% if price_info.get('currency') and price_info.currency != 'PLN' and price_info.get('original') %}
+                                                <div class="price-krw">{{ (item.to_order * price_info.original)|format_currency(price_info.currency, 0) }}</div>
                                             {% endif %}
-                                        {% elif product.purchase_price %}
-                                            {% set total_value = item.to_order * product.purchase_price %}
-                                            <div class="price-pln"><strong>{{ "%.2f"|format(total_value) }} {{ product.purchase_currency }}</strong></div>
+                                        {% elif price_info.get('original') %}
+                                            <div class="price-pln">{{ (item.to_order * price_info.original)|format_currency(price_info.currency or 'PLN', 0) }}</div>
                                         {% else %}
                                             <span class="text-muted">—</span>
                                         {% endif %}
@@ -343,11 +341,17 @@
                                                 <div class="poland-inner-col text-right">Wysyłka</div>
                                                 <div class="poland-inner-col text-right">Cło/VAT</div>
                                             </div>
-                                            {% set ns_totals = namespace(purchase=0, customs=0, shipping=0) %}
+                                            {% set ns_totals = namespace(purchase=0, purchase_orig=0, currency=None, customs=0, shipping=0) %}
                                             {% for item in order.items %}
                                             {% set product = item.product %}
-                                            {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
-                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_price * item.quantity) %}
+                                            {% set price_info = effective_pln_prices.get(product.id, {}) if product else {} %}
+                                            {% set purchase_pln = price_info.get('pln') or 0 %}
+                                            {% set purchase_orig = price_info.get('original') or 0 %}
+                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_pln * item.quantity) %}
+                                            {% if price_info.get('currency') and price_info.currency != 'PLN' %}
+                                                {% set ns_totals.purchase_orig = ns_totals.purchase_orig + (purchase_orig * item.quantity) %}
+                                                {% set ns_totals.currency = price_info.currency %}
+                                            {% endif %}
                                             {% set ns_totals.customs = ns_totals.customs + (item.customs_vat_amount or 0) %}
                                             {% set ns_totals.shipping = ns_totals.shipping + (item.shipping_cost or 0) %}
                                             <div class="poland-inner-row {% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
@@ -360,7 +364,12 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(purchase_price) }} zł</div>
+                                                <div class="poland-inner-col text-right">
+                                                    <div class="price-pln">{{ purchase_pln|format_currency('PLN') }}</div>
+                                                    {% if price_info.get('currency') and price_info.currency != 'PLN' and price_info.get('original') %}
+                                                    <div class="price-krw">{{ price_info.original|format_currency(price_info.currency, 0) }}</div>
+                                                    {% endif %}
+                                                </div>
                                                 <div class="poland-inner-col text-right">{{ '%.2f'|format(item.shipping_cost or 0) }} zł</div>
                                                 <div class="poland-inner-col text-right poland-customs-item-cell">
                                                     <span class="poland-item-customs-amount" data-item-id="{{ item.id }}">{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
@@ -374,7 +383,12 @@
                                             {% endfor %}
                                             <div class="poland-inner-totals">
                                                 <div class="poland-inner-col text-right">Suma:</div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.purchase) }} zł</div>
+                                                <div class="poland-inner-col text-right">
+                                                    <div class="price-pln">{{ ns_totals.purchase|format_currency('PLN') }}</div>
+                                                    {% if ns_totals.currency and ns_totals.purchase_orig %}
+                                                    <div class="price-krw">{{ ns_totals.purchase_orig|format_currency(ns_totals.currency, 0) }}</div>
+                                                    {% endif %}
+                                                </div>
                                                 <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.shipping) }} zł</div>
                                                 <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.customs) }} zł</div>
                                             </div>
@@ -499,11 +513,17 @@
                                                 <div class="poland-inner-col text-right">Wysyłka</div>
                                                 <div class="poland-inner-col text-right">Cło/VAT</div>
                                             </div>
-                                            {% set ns_totals = namespace(purchase=0, customs=0, shipping=0) %}
+                                            {% set ns_totals = namespace(purchase=0, purchase_orig=0, currency=None, customs=0, shipping=0) %}
                                             {% for item in order.items %}
                                             {% set product = item.product %}
-                                            {% set purchase_price = product.purchase_price_pln or product.purchase_price or 0 %}
-                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_price * item.quantity) %}
+                                            {% set price_info = effective_pln_prices.get(product.id, {}) if product else {} %}
+                                            {% set purchase_pln = price_info.get('pln') or 0 %}
+                                            {% set purchase_orig = price_info.get('original') or 0 %}
+                                            {% set ns_totals.purchase = ns_totals.purchase + (purchase_pln * item.quantity) %}
+                                            {% if price_info.get('currency') and price_info.currency != 'PLN' %}
+                                                {% set ns_totals.purchase_orig = ns_totals.purchase_orig + (purchase_orig * item.quantity) %}
+                                                {% set ns_totals.currency = price_info.currency %}
+                                            {% endif %}
                                             {% set ns_totals.customs = ns_totals.customs + (item.customs_vat_amount or 0) %}
                                             {% set ns_totals.shipping = ns_totals.shipping + (item.shipping_cost or 0) %}
                                             <div class="poland-inner-row {% if loop.index > 3 %}poland-product-hidden{% endif %}" {% if loop.index > 3 %}style="display: none;"{% endif %}>
@@ -516,7 +536,12 @@
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(purchase_price) }} zł</div>
+                                                <div class="poland-inner-col text-right">
+                                                    <div class="price-pln">{{ purchase_pln|format_currency('PLN') }}</div>
+                                                    {% if price_info.get('currency') and price_info.currency != 'PLN' and price_info.get('original') %}
+                                                    <div class="price-krw">{{ price_info.original|format_currency(price_info.currency, 0) }}</div>
+                                                    {% endif %}
+                                                </div>
                                                 <div class="poland-inner-col text-right">{{ '%.2f'|format(item.shipping_cost or 0) }} zł</div>
                                                 <div class="poland-inner-col text-right">
                                                     <span>{{ '%.2f'|format(item.customs_vat_amount or 0) }} zł</span>
@@ -525,7 +550,12 @@
                                             {% endfor %}
                                             <div class="poland-inner-totals">
                                                 <div class="poland-inner-col text-right">Suma:</div>
-                                                <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.purchase) }} zł</div>
+                                                <div class="poland-inner-col text-right">
+                                                    <div class="price-pln">{{ ns_totals.purchase|format_currency('PLN') }}</div>
+                                                    {% if ns_totals.currency and ns_totals.purchase_orig %}
+                                                    <div class="price-krw">{{ ns_totals.purchase_orig|format_currency(ns_totals.currency, 0) }}</div>
+                                                    {% endif %}
+                                                </div>
                                                 <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.shipping) }} zł</div>
                                                 <div class="poland-inner-col text-right">{{ '%.2f'|format(ns_totals.customs) }} zł</div>
                                             </div>

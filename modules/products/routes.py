@@ -2505,6 +2505,14 @@ def stock_orders():
     series_list = ProductSeries.query.filter_by(is_active=True).order_by(ProductSeries.name).all()
     tags = Tag.query.order_by(Tag.name).all()
 
+    # Build effective PLN price map: product_id -> {'pln': float, 'original': float|None, 'currency': str|None}
+    # When product.purchase_price_pln is missing, convert from purchase_price using current system rate.
+    effective_pln_prices = _build_effective_pln_map(
+        products_to_order=products_to_order,
+        proxy_orders=proxy_orders_list,
+        poland_orders=poland_orders_list,
+    )
+
     return render_template(
         'admin/warehouse/stock_orders.html',
         active_tab=active_tab,
@@ -2519,8 +2527,75 @@ def stock_orders():
         manufacturers=manufacturers,
         suppliers=suppliers,
         series_list=series_list,
-        tags=tags
+        tags=tags,
+        effective_pln_prices=effective_pln_prices,
     )
+
+
+def _build_effective_pln_map(products_to_order=None, proxy_orders=None, poland_orders=None):
+    """
+    Builds a dict mapping product.id -> {
+        'pln': float (effective purchase price in PLN),
+        'original': float (original purchase_price),
+        'currency': str (original currency, e.g. 'KRW'),
+    }
+
+    For products with purchase_price_pln set, that value is used directly.
+    For products with purchase_price set in non-PLN currency but no purchase_price_pln,
+    the value is converted on-the-fly using the current cached system exchange rate.
+    """
+    from utils.currency import get_exchange_rate
+
+    products_seen = {}
+
+    def _add_product(product):
+        if product is None or product.id in products_seen:
+            return
+        products_seen[product.id] = product
+
+    for item in (products_to_order or []):
+        _add_product(item.get('product'))
+    for order in (proxy_orders or []):
+        for it in order.items:
+            _add_product(it.product)
+    for order in (poland_orders or []):
+        for it in order.items:
+            _add_product(it.product)
+
+    # Cache exchange rates per currency code (avoid repeated lookups)
+    rate_cache = {}
+
+    def _rate_for(currency):
+        if currency in rate_cache:
+            return rate_cache[currency]
+        try:
+            rate_cache[currency] = float(get_exchange_rate(currency)['rate'])
+        except Exception as e:
+            current_app.logger.warning(f'Cannot fetch exchange rate for {currency}: {e}')
+            rate_cache[currency] = None
+        return rate_cache[currency]
+
+    result = {}
+    for product in products_seen.values():
+        original = float(product.purchase_price) if product.purchase_price else None
+        currency = product.purchase_currency or 'PLN'
+
+        if product.purchase_price_pln:
+            pln = float(product.purchase_price_pln)
+        elif original is None:
+            pln = None
+        elif currency == 'PLN':
+            pln = original
+        else:
+            rate = _rate_for(currency)
+            pln = round(original * rate, 2) if rate else None
+
+        result[product.id] = {
+            'pln': pln,
+            'original': original,
+            'currency': currency,
+        }
+    return result
 
 
 @products_bp.route('/api/search-products', methods=['GET'])

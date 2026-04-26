@@ -1288,22 +1288,30 @@ def register_template_filters(app):
         return dt.strftime('%Y-%m-%dT%H:%M')
 
     @app.template_filter('format_currency')
-    def format_currency_filter(value, currency='PLN'):
+    def format_currency_filter(value, currency='PLN', decimals=2):
         """
         Formatuje kwotę jako walutę.
-        Użycie: {{ amount|format_currency }} lub {{ amount|format_currency('USD') }}
+        Użycie:
+            {{ amount|format_currency }}                  # 1 000,00 PLN
+            {{ amount|format_currency('USD') }}           # 1 000,00 USD
+            {{ amount|format_currency('KRW', 0) }}        # 1 000 KRW (bez miejsc dziesiętnych)
         """
         if value is None:
-            return '0,00 PLN'
+            zero = '0' if decimals == 0 else '0,' + '0' * decimals
+            return f'{zero} {currency}'
 
         # Konwertuj do float jeśli potrzeba
         try:
             value = float(value)
         except (ValueError, TypeError):
-            return '0,00 PLN'
+            zero = '0' if decimals == 0 else '0,' + '0' * decimals
+            return f'{zero} {currency}'
 
         # Formatuj z przecinkiem jako separator dziesiętny (polski standard)
-        formatted = f"{value:,.2f}".replace(',', ' ').replace('.', ',')
+        if decimals == 0:
+            formatted = f"{value:,.0f}".replace(',', ' ')
+        else:
+            formatted = f"{value:,.{decimals}f}".replace(',', ' ').replace('.', ',')
 
         return f"{formatted} {currency}"
 
