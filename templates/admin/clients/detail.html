@@ -397,6 +397,47 @@
                 </div>
             </div>
 
+            <!-- Special Badges Card -->
+            <div class="info-card special-badges-section">
+                <div class="card-header section-header">
+                    <h2>Specjalne odznaki</h2>
+                    {% if current_user.is_admin() and available_special_badges %}
+                    <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('grant-badge-modal').classList.add('active')">
+                        + Przyznaj odznakę
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if user_special_badges %}
+                    <ul class="special-badges-list">
+                        {% for ua in user_special_badges %}
+                        <li>
+                            <img src="{{ url_for('static', filename='uploads/achievements/' + ua.achievement.slug + '@256.png') }}"
+                                 alt="" class="special-badge-icon"
+                                 onerror="this.style.display='none'">
+                            <div class="special-badge-info">
+                                <strong>{{ ua.achievement.name }}</strong>
+                                <br>
+                                <small>{{ ua.achievement.description }} · {{ ua.unlocked_at.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                            {% if current_user.is_admin() %}
+                            <form method="POST"
+                                  action="{{ url_for('admin.revoke_achievement', id=client.id, ach_id=ua.achievement_id) }}"
+                                  class="special-badge-revoke-form"
+                                  onsubmit="return confirm('Odebrać „{{ ua.achievement.name }}”?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-danger">Odbierz</button>
+                            </form>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Klient nie posiada żadnych specjalnych odznak.</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <!-- Consents & Preferences Card -->
             <div class="info-card">
                 <div class="card-header">
@@ -570,6 +611,37 @@
         </div>
     </div>
 </div>
+
+<!-- Grant Special Badge Modal -->
+{% if current_user.is_admin() %}
+<div id="grant-badge-modal" class="modal-overlay" onclick="if(event.target === this) this.classList.remove('active')">
+    <div class="modal-content modal-grant-badge">
+        <div class="modal-header">
+            <h2 class="modal-title">Przyznaj specjalną odznakę</h2>
+            <button type="button" class="modal-close" onclick="document.getElementById('grant-badge-modal').classList.remove('active')">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('admin.grant_achievement', id=client.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="modal-body">
+                <label for="achievement_id">Wybierz odznakę:</label>
+                <select id="achievement_id" name="achievement_id" required>
+                    <option value="">— wybierz —</option>
+                    {% for a in available_special_badges %}
+                    <option value="{{ a.id }}">{{ a.name }} ({{ a.rarity }}) — {{ a.description }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-muted modal-grant-badge-hint">
+                    Klient otrzyma e-mail i animację w galerii odznak.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('grant-badge-modal').classList.remove('active')">Anuluj</button>
+                <button type="submit" class="btn btn-primary">Przyznaj</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_css %}

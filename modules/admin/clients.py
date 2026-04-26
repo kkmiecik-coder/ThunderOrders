@@ -3,7 +3,7 @@ Admin Clients Module
 Zarządzanie klientami w panelu administratora
 """
 
-from flask import render_template, request, redirect, url_for, flash, jsonify
+from flask import render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from modules.admin import admin_bp
@@ -173,6 +173,26 @@ def client_detail(id):
     achievements_count = UserAchievement.query.filter_by(user_id=client.id).count()
     push_count = PushSubscription.query.filter_by(user_id=client.id, is_active=True).count()
 
+    from modules.achievements.models import Achievement
+
+    # Specjalne odznaki klienta (manual)
+    user_special_badges = (UserAchievement.query
+        .filter_by(user_id=client.id)
+        .join(Achievement)
+        .filter(Achievement.trigger_type == 'manual')
+        .order_by(UserAchievement.unlocked_at.desc())
+        .all())
+
+    # Lista dostępnych do przyznania (manual + active + nie posiadanych przez klienta)
+    owned_ids = [ua.achievement_id for ua in user_special_badges]
+    available_query = Achievement.query.filter(
+        Achievement.trigger_type == 'manual',
+        Achievement.is_active == True,  # noqa: E712
+    )
+    if owned_ids:
+        available_query = available_query.filter(~Achievement.id.in_(owned_ids))
+    available_special_badges = available_query.order_by(Achievement.name).all()
+
     return render_template(
         'admin/clients/detail.html',
         title=f'Klient: {client.full_name}',
@@ -187,7 +207,9 @@ def client_detail(id):
         addresses_count=addresses_count,
         collection_count=collection_count,
         achievements_count=achievements_count,
-        push_count=push_count
+        push_count=push_count,
+        user_special_badges=user_special_badges,
+        available_special_badges=available_special_badges,
     )
 
 
@@ -530,3 +552,68 @@ def client_delete(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/clients/<int:id>/grant-achievement', methods=['POST'])
+@login_required
+@role_required('admin')
+def grant_achievement(id):
+    """
+    Przyznaje specjalną (manual) odznakę klientowi.
+    POST /admin/clients/<id>/grant-achievement
+    """
+    from modules.achievements.models import Achievement
+    from modules.achievements.services import AchievementService
+
+    user = User.query.get_or_404(id)
+    achievement_id = request.form.get('achievement_id', type=int)
+    if not achievement_id:
+        flash('Brak ID odznaki.', 'error')
+        return redirect(url_for('admin.client_detail', id=id))
+
+    achievement = Achievement.query.filter_by(
+        id=achievement_id, trigger_type='manual', is_active=True
+    ).first()
+    if not achievement:
+        flash('Nie znaleziono aktywnej odznaki.', 'error')
+        return redirect(url_for('admin.client_detail', id=id))
+
+    service = AchievementService()
+    try:
+        ua = service.grant_manual(user, achievement, granted_by=current_user)
+    except Exception:
+        current_app.logger.exception(
+            f'grant_achievement failed user_id={id} achievement_id={achievement_id}'
+        )
+        flash('Wystąpił błąd podczas przyznawania odznaki. Sprawdź logi.', 'error')
+        return redirect(url_for('admin.client_detail', id=id))
+
+    if ua:
+        flash(f'Przyznano odznakę „{achievement.name}".', 'success')
+    else:
+        flash('Klient już posiada tę odznakę.', 'warning')
+    return redirect(url_for('admin.client_detail', id=id))
+
+
+@admin_bp.route('/clients/<int:id>/revoke-achievement/<int:ach_id>', methods=['POST'])
+@login_required
+@role_required('admin')
+def revoke_achievement(id, ach_id):
+    """
+    Odbiera specjalną (manual) odznakę klientowi.
+    POST /admin/clients/<id>/revoke-achievement/<ach_id>
+    """
+    from modules.achievements.models import Achievement
+    from modules.achievements.services import AchievementService
+
+    user = User.query.get_or_404(id)
+    achievement = Achievement.query.filter_by(
+        id=ach_id, trigger_type='manual'
+    ).first_or_404()
+
+    service = AchievementService()
+    if service.revoke_manual(user, achievement, revoked_by=current_user):
+        flash(f'Odebrano „{achievement.name}".', 'success')
+    else:
+        flash('Klient nie posiadał tej odznaki.', 'warning')
+    return redirect(url_for('admin.client_detail', id=id))
