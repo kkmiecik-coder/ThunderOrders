@@ -67,11 +67,28 @@ DESIGN = {
     },
 }
 
+RARITY_COSMIC = {
+    'bg': (8, 4, 24),
+    'glow_color': (168, 85, 247),
+    'glow_strength': 0.45,
+    'card_top_tint': (168, 85, 247),    # fioletowy akcent
+    'card_top_alpha': 0.18,
+    'card_bottom': (10, 5, 30),         # głęboki granat/czerń
+    'border_color': (168, 85, 247),
+    'border_alpha': 0.45,
+    'accent': (180, 100, 255),
+    'pill_bg_alpha': 0.20,
+    'pill_color': (220, 180, 255),
+}
+
+DESIGN['cosmic'] = RARITY_COSMIC
+
 RARITY_LABELS = {
     'common': 'Pospolite',
     'rare': 'Rzadkie',
     'epic': 'Epickie',
     'legendary': 'Legendarne',
+    'cosmic': 'Kosmiczne',
 }
 
 PAD = 100
