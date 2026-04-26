@@ -50,7 +50,10 @@ def _ensure_unique_slug(base_slug, exclude_id=None):
 
 def _process_icon_upload(file_storage, slug):
     """
-    Waliduje i zapisuje ikonę jako <slug>@256.png w static/uploads/achievements/.
+    Waliduje obraz i zapisuje go do TYMCZASOWEGO pliku obok docelowego.
+    Zwraca tuple (tmp_path, final_path). Wywołujący musi:
+    - po sukcesie DB: os.replace(tmp_path, final_path) + invalidate cache
+    - po porażce: os.unlink(tmp_path)
     Rzuca ValueError przy błędzie walidacji.
     """
     if not file_storage or not file_storage.filename:
@@ -88,12 +91,27 @@ def _process_icon_upload(file_storage, slug):
 
     upload_dir = os.path.join(current_app.static_folder, 'uploads', 'achievements')
     os.makedirs(upload_dir, exist_ok=True)
-    out_path = os.path.join(upload_dir, f'{slug}@256.png')
-    canvas.save(out_path, 'PNG', optimize=True)
+    final_path = os.path.join(upload_dir, f'{slug}@256.png')
+    tmp_path = os.path.join(upload_dir, f'.{slug}@256.tmp.png')
+    canvas.save(tmp_path, 'PNG', optimize=True)
 
-    # Invalidate icon cache
+    return tmp_path, final_path
+
+
+def _commit_icon_upload(tmp_path, final_path, slug):
+    """Atomically replace final_path with tmp_path; invalidate cache."""
+    os.replace(tmp_path, final_path)
     from modules.achievements.services import _icon_cache
     _icon_cache.pop(slug, None)
+
+
+def _abort_icon_upload(tmp_path):
+    """Cleanup tmp file after failed DB commit."""
+    try:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+    except OSError:
+        pass  # Best-effort cleanup
 
 
 # ========== ENDPOINTY ==========
@@ -191,45 +209,62 @@ def _save_achievement(achievement):
     # Slug uniqueness
     final_slug = _ensure_unique_slug(slug_input, exclude_id=None if is_new else achievement.id)
 
-    # Upload ikony
+    # Upload ikony — najpierw waliduj i zapisz do tymczasowego pliku
     icon_file = request.files.get('icon')
     if is_new and (not icon_file or not icon_file.filename):
         flash('Ikona jest wymagana przy tworzeniu odznaki.', 'error')
         return render_template('admin/achievements/form.html', achievement=achievement, holders_count=holders_count), 400
 
+    tmp_icon_path = None
+    final_icon_path = None
     if icon_file and icon_file.filename:
         try:
-            _process_icon_upload(icon_file, final_slug)
+            tmp_icon_path, final_icon_path = _process_icon_upload(icon_file, final_slug)
         except ValueError as e:
             flash(f'Błąd ikony: {e}', 'error')
             return render_template('admin/achievements/form.html', achievement=achievement, holders_count=holders_count), 400
 
-    # Save
-    if is_new:
-        achievement = Achievement(
-            slug=final_slug,
-            name=name,
-            description=description,
-            category=category,
-            rarity=rarity,
-            trigger_type='manual',
-            trigger_config={},
-            is_hidden_until_unlocked=is_hidden,
-            is_active=is_active,
-            sort_order=999,  # manual badges sortuj na końcu domyślnie
-        )
-        db.session.add(achievement)
-    else:
-        achievement.name = name
-        achievement.description = description
-        achievement.rarity = rarity
-        achievement.is_hidden_until_unlocked = is_hidden
-        achievement.is_active = is_active
-        if holders_count == 0:
-            achievement.slug = final_slug
-            achievement.category = category
+    # Save do DB — jeśli padnie, czyścimy tmp file
+    try:
+        if is_new:
+            achievement = Achievement(
+                slug=final_slug,
+                name=name,
+                description=description,
+                category=category,
+                rarity=rarity,
+                trigger_type='manual',
+                trigger_config={},
+                is_hidden_until_unlocked=is_hidden,
+                is_active=is_active,
+                sort_order=999,  # manual badges sortuj na końcu domyślnie
+            )
+            db.session.add(achievement)
+        else:
+            achievement.name = name
+            achievement.description = description
+            achievement.rarity = rarity
+            achievement.is_hidden_until_unlocked = is_hidden
+            achievement.is_active = is_active
+            if holders_count == 0:
+                achievement.slug = final_slug
+                achievement.category = category
 
-    db.session.commit()
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        _abort_icon_upload(tmp_icon_path)
+        current_app.logger.exception(f'Failed to save achievement (is_new={is_new})')
+        flash('Błąd zapisu odznaki w bazie. Sprawdź logi.', 'error')
+        return render_template('admin/achievements/form.html', achievement=achievement, holders_count=holders_count), 500
+
+    # Po sukcesie commit'u — atomic rename tmp -> final
+    if tmp_icon_path and final_icon_path:
+        try:
+            _commit_icon_upload(tmp_icon_path, final_icon_path, final_slug)
+        except OSError as e:
+            current_app.logger.exception(f'Failed to finalize icon upload for slug={final_slug}: {e}')
+            flash('Odznaka zapisana, ale wystąpił problem z zapisem ikony — wgraj ją ponownie.', 'warning')
 
     flash(f'Odznaka „{achievement.name}" zapisana.', 'success')
     return redirect(url_for('admin.achievements_list'))

@@ -19,7 +19,8 @@ from modules.client.models import (
 from modules.feedback.models import FeedbackSurvey, FeedbackResponse
 from modules.offers.models import OfferPage, OfferReservation
 from modules.tracking.models import QRCampaign
-from modules.achievements.models import UserAchievement
+from modules.achievements.models import Achievement, UserAchievement
+from modules.achievements.services import AchievementService
 from modules.notifications.models import Notification, PushSubscription, NotificationPreference
 from modules.imports.models import CsvImport
 from modules.client.payment_upload_sessions import PaymentUploadSession
@@ -165,15 +166,12 @@ def client_detail(id):
     # Additional stats
     from modules.auth.models import ShippingAddress
     from modules.client.models import CollectionItem
-    from modules.achievements.models import UserAchievement
     from modules.notifications.models import PushSubscription
 
     addresses_count = ShippingAddress.query.filter_by(user_id=client.id, is_active=True).count()
     collection_count = CollectionItem.query.filter_by(user_id=client.id).count()
     achievements_count = UserAchievement.query.filter_by(user_id=client.id).count()
     push_count = PushSubscription.query.filter_by(user_id=client.id, is_active=True).count()
-
-    from modules.achievements.models import Achievement
 
     # Specjalne odznaki klienta (manual)
     user_special_badges = (UserAchievement.query
@@ -562,10 +560,11 @@ def grant_achievement(id):
     Przyznaje specjalną (manual) odznakę klientowi.
     POST /admin/clients/<id>/grant-achievement
     """
-    from modules.achievements.models import Achievement
-    from modules.achievements.services import AchievementService
-
     user = User.query.get_or_404(id)
+    if user.role != 'client':
+        flash('Specjalne odznaki można przyznawać tylko klientom.', 'error')
+        return redirect(url_for('admin.client_detail', id=id))
+
     achievement_id = request.form.get('achievement_id', type=int)
     if not achievement_id:
         flash('Brak ID odznaki.', 'error')
@@ -603,10 +602,11 @@ def revoke_achievement(id, ach_id):
     Odbiera specjalną (manual) odznakę klientowi.
     POST /admin/clients/<id>/revoke-achievement/<ach_id>
     """
-    from modules.achievements.models import Achievement
-    from modules.achievements.services import AchievementService
-
     user = User.query.get_or_404(id)
+    if user.role != 'client':
+        flash('Specjalne odznaki można przyznawać tylko klientom.', 'error')
+        return redirect(url_for('admin.client_detail', id=id))
+
     achievement = Achievement.query.filter_by(
         id=ach_id, trigger_type='manual'
     ).first_or_404()
