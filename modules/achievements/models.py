@@ -11,22 +11,25 @@ class Achievement(db.Model):
     description = db.Column(db.String(255), nullable=False)
     category = db.Column(
         db.Enum('orders', 'collection', 'loyalty', 'speed', 'exclusive',
-                'social', 'financial', 'profile', name='achievement_category'),
+                'social', 'financial', 'profile', 'special',
+                name='achievement_category'),
         nullable=False
     )
     rarity = db.Column(
-        db.Enum('common', 'rare', 'epic', 'legendary', name='achievement_rarity'),
+        db.Enum('common', 'rare', 'epic', 'legendary', 'cosmic',
+                name='achievement_rarity'),
         nullable=False
     )
     tier = db.Column(db.Integer, nullable=True)
     tier_group = db.Column(db.String(60), nullable=True, index=True)
     trigger_type = db.Column(
-        db.Enum('event', 'cron', name='achievement_trigger_type'),
+        db.Enum('event', 'cron', 'manual', name='achievement_trigger_type'),
         nullable=False
     )
     trigger_config = db.Column(db.JSON, nullable=False)
     sort_order = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
+    is_hidden_until_unlocked = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     user_achievements = db.relationship('UserAchievement', back_populates='achievement', lazy='dynamic')
@@ -49,9 +52,15 @@ class UserAchievement(db.Model):
     seen = db.Column(db.Boolean, default=False)
     shared = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=get_local_now)
+    granted_by_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete='SET NULL'),
+        nullable=True
+    )
 
-    user = db.relationship('User', backref=db.backref('achievements_unlocked', lazy='dynamic'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('achievements_unlocked', lazy='dynamic'))
     achievement = db.relationship('Achievement', back_populates='user_achievements')
+    granted_by = db.relationship('User', foreign_keys=[granted_by_id])
 
     def __repr__(self):
         return f'<UserAchievement user={self.user_id} achievement={self.achievement_id}>'
