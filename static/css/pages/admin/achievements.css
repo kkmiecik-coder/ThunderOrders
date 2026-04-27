@@ -101,6 +101,18 @@
   border-bottom: none;
 }
 
+.achievements-table a {
+  color: var(--purple-300);
+  font-weight: var(--font-semibold);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.achievements-table a:hover {
+  color: var(--purple-400);
+  text-decoration: underline;
+}
+
 .achievements-table .col-icon { width: 56px; }
 .achievements-table .col-actions { text-align: right; white-space: nowrap; }
 
@@ -501,6 +513,28 @@
 [data-theme="dark"] .achievements-table th { color: var(--text-secondary); border-bottom-color: var(--card-border); }
 [data-theme="dark"] .achievements-table td { border-bottom-color: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
 [data-theme="dark"] .achievements-table tbody tr:hover { background: rgba(240, 147, 251, 0.06); }
+[data-theme="dark"] .achievements-table a {
+  color: var(--kpop-pink);
+}
+[data-theme="dark"] .achievements-table a:hover {
+  color: #f5b3ff;
+}
+
+/* Dark mode override dla btn-secondary (purple-300 #5A189A jest za ciemny i miesza
+   się z tłem dark mode). Uzywamy jasniejszej palety pink/purple z glassmorphism. */
+[data-theme="dark"] .achievements-page .btn-secondary,
+[data-theme="dark"] .special-badges-section .btn-secondary {
+  background: rgba(240, 147, 251, 0.12);
+  color: var(--kpop-pink);
+  border: 2px solid rgba(240, 147, 251, 0.4);
+}
+
+[data-theme="dark"] .achievements-page .btn-secondary:hover,
+[data-theme="dark"] .special-badges-section .btn-secondary:hover {
+  background: var(--kpop-pink);
+  color: var(--white);
+  border-color: var(--kpop-pink);
+}
 [data-theme="dark"] .achievements-table small,
 [data-theme="dark"] .ach-text-muted { color: var(--text-tertiary); }
 [data-theme="dark"] .achievements-table code,
