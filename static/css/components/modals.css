@@ -3142,6 +3142,9 @@
 }
 
 /* === Modal: Przyznaj odznakę (admin/clients/detail.html) === */
+/* Style sekcji "Specjalne odznaki" są w static/css/pages/admin/achievements.css.
+   Tu są tylko style specyficzne dla samego modala. */
+
 .modal-grant-badge {
     max-width: 540px;
     width: 92%;
@@ -3149,99 +3152,55 @@
 
 .modal-grant-badge .modal-body select {
     width: 100%;
-    padding: 10px 12px;
-    margin-top: 8px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    background: #fff;
-    color: #1f2937;
-    font-size: 14px;
+    padding: var(--space-3) var(--space-4);
+    margin-top: var(--space-2);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    background: var(--card-bg);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-family: var(--font-primary);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.modal-grant-badge .modal-body select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(255, 133, 0, 0.12);
 }
 
 .modal-grant-badge .modal-body label {
     display: block;
-    font-weight: 600;
-    margin-bottom: 4px;
-    color: #1f2937;
+    font-weight: var(--font-semibold);
+    margin-bottom: var(--space-1);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
 }
 
 .modal-grant-badge-hint {
-    margin-top: 12px;
-    font-size: 0.85em;
+    margin-top: var(--space-3);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
 }
 
-.special-badges-section .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.special-badges-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.special-badges-list li {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    margin-bottom: 8px;
-}
-
-.special-badges-list li:last-child {
-    margin-bottom: 0;
-}
-
-.special-badge-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    object-fit: cover;
-}
-
-.special-badge-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.special-badge-info small {
-    color: #6b7280;
-}
-
-.special-badge-revoke-form {
-    margin-left: auto;
-}
-
-/* Dark mode */
+/* Dark mode dla modala */
 [data-theme="dark"] .modal-grant-badge .modal-body select {
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(240, 147, 251, 0.3);
-    color: #fff;
+    border-color: var(--card-border);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .modal-grant-badge .modal-body select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.18);
 }
 
 [data-theme="dark"] .modal-grant-badge .modal-body select option {
     background: #1f1f2e;
-    color: #fff;
+    color: var(--text-primary);
 }
 
 [data-theme="dark"] .modal-grant-badge .modal-body label {
-    color: rgba(255, 255, 255, 0.9);
-}
-
-[data-theme="dark"] .special-badges-list li {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(240, 147, 251, 0.15);
-    color: #fff;
-}
-
-[data-theme="dark"] .special-badges-list li small,
-[data-theme="dark"] .special-badge-info small {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-primary);
 }
 

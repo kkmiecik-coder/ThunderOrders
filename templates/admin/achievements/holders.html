@@ -8,59 +8,77 @@
 {% block title %}Posiadacze odznaki „{{ achievement.name }}" — Admin{% endblock %}
 
 {% block content %}
-<div class="admin-page">
-    <div class="admin-page-header">
-        <h1>Posiadacze: {{ achievement.name }}</h1>
-        <a href="{{ url_for('admin.achievements_list') }}" class="btn btn-link">← Powrót do listy</a>
+<div class="achievements-page">
+    <div class="achievements-top-bar">
+        <h1>Posiadacze odznaki</h1>
+        <div class="top-bar-right">
+            <a href="{{ url_for('admin.achievements_list') }}" class="btn btn-secondary">← Powrót do listy</a>
+        </div>
     </div>
 
-    <p>Liczba posiadaczy: <strong>{{ holders|length }}</strong></p>
+    <div class="achievements-holders-header">
+        <img src="{{ url_for('static', filename='uploads/achievements/' + achievement.slug + '@256.png') }}"
+             alt="{{ achievement.name }}"
+             class="holder-icon"
+             onerror="this.style.visibility='hidden'">
+        <div class="holder-info">
+            <h2>{{ achievement.name }}</h2>
+            <p>{{ achievement.description }}</p>
+            <span class="holder-count">{{ holders|length }} posiadacz{% if holders|length == 1 %}{% elif holders|length in [2,3,4] or (holders|length > 20 and holders|length % 10 in [2,3,4] and holders|length % 100 not in [12,13,14]) %}y{% else %}y{% endif %}</span>
+        </div>
+    </div>
 
     {% if holders %}
-    <table class="admin-table">
-        <thead>
-            <tr>
-                <th>Klient</th>
-                <th>E-mail</th>
-                <th>Przyznano</th>
-                <th>Przez kogo</th>
-                <th>Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for ua in holders %}
-            <tr>
-                <td>
-                    <a href="{{ url_for('admin.client_detail', id=ua.user.id) }}">
-                        {{ ua.user.first_name or ua.user.email }}
-                    </a>
-                </td>
-                <td>{{ ua.user.email }}</td>
-                <td>{{ ua.unlocked_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td>
-                    {% if ua.granted_by %}
-                        {{ ua.granted_by.email }}
-                    {% else %}
-                        <small class="text-muted">automat</small>
-                    {% endif %}
-                </td>
-                <td>
-                    {% if achievement.trigger_type == 'manual' %}
-                    <form method="POST"
-                          action="{{ url_for('admin.achievements_revoke_holder', id=achievement.id, user_id=ua.user.id) }}"
-                          style="display:inline"
-                          onsubmit="return confirm('Odebrać odznakę od {{ ua.user.email }}?')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-danger">Odbierz</button>
-                    </form>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="achievements-table-wrap">
+        <table class="achievements-table">
+            <thead>
+                <tr>
+                    <th>Klient</th>
+                    <th>E-mail</th>
+                    <th>Przyznano</th>
+                    <th>Przez kogo</th>
+                    <th class="col-actions">Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ua in holders %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('admin.client_detail', id=ua.user.id) }}">
+                            {{ ua.user.first_name or ua.user.email }}
+                        </a>
+                    </td>
+                    <td>{{ ua.user.email }}</td>
+                    <td>{{ ua.unlocked_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {% if ua.granted_by %}
+                            {{ ua.granted_by.email }}
+                        {% else %}
+                            <span class="ach-text-muted">automat</span>
+                        {% endif %}
+                    </td>
+                    <td class="col-actions">
+                        {% if achievement.trigger_type == 'manual' %}
+                        <form method="POST"
+                              action="{{ url_for('admin.achievements_revoke_holder', id=achievement.id, user_id=ua.user.id) }}"
+                              style="display:inline"
+                              onsubmit="return confirm('Odebrać odznakę od {{ ua.user.email }}?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-sm">Odbierz</button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <p class="text-muted">Brak posiadaczy.</p>
+    <div class="achievements-table-wrap">
+        <div class="empty-state" style="padding: var(--space-12) var(--space-5); text-align: center; color: var(--text-tertiary);">
+            <p>Tej odznaki nie posiada jeszcze żaden klient.</p>
+        </div>
+    </div>
     {% endif %}
 </div>
 {% endblock %}
