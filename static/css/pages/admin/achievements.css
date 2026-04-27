@@ -12,6 +12,8 @@
 
 /* ==========================================
    Mniejsze przyciski (uzywane w tabelach i sekcjach inline)
+   Border 2px transparent na wszystkich btn-sm zeby height byl spojny
+   z .btn-secondary (ktory ma 2px solid) — przeciwdziala roznym wysokosciom.
    ========================================== */
 .achievements-page .btn.btn-sm,
 .special-badges-section .btn.btn-sm,
@@ -20,6 +22,16 @@
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  box-sizing: border-box;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+/* Specjalnie: .btn-secondary nadpisuje border przez specifity */
+.achievements-page .btn-secondary.btn-sm,
+.special-badges-section .btn-secondary.btn-sm {
+  border-color: var(--purple-300);
 }
 
 /* ==========================================

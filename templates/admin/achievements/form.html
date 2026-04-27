@@ -7,6 +7,11 @@
 
 {% block title %}{{ 'Edycja' if achievement else 'Nowa' }} odznaka — Admin{% endblock %}
 
+{% block extra_js %}
+{{ super() }}
+<script src="{{ url_for('static', filename='js/pages/admin/achievement-form.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="achievements-page">
     <div class="achievements-top-bar">
