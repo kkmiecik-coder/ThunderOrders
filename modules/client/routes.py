@@ -42,7 +42,13 @@ def dashboard():
     to_pay_orders = Order.query.filter_by(user_id=current_user.id).filter(
         Order.total_amount > Order.paid_amount
     ).all()
-    to_pay_total = sum((o.total_amount - o.paid_amount) for o in to_pay_orders)
+    # Exclusive orders are not payable until the offer page is fully closed —
+    # exclude them so the widget doesn't show amounts the client can't yet pay.
+    to_pay_total = sum(
+        (o.total_amount - o.paid_amount)
+        for o in to_pay_orders
+        if not (o.order_type == 'exclusive' and o.offer_page and not o.offer_page.is_fully_closed)
+    )
 
     # 3. Orders waiting for shipping request
     # Get allowed order statuses from settings
