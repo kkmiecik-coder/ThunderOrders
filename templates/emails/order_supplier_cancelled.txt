@@ -1,0 +1,11 @@
+Cześć {{ user_name }}!
+
+Informujemy, że zamówienie produktu u naszego dostawcy ({{ order_number }})
+zostało anulowane. Twoje zamówienie pozostaje aktywne, a my zamówimy produkty
+ponownie u innego dostawcy lub w kolejnej puli.
+
+Szczegóły zamówienia: {{ order_detail_url }}
+
+—
+ThunderOrders
+https://thunderorders.cloud

@@ -2689,6 +2689,7 @@ def create_stock_orders():
             return jsonify({'success': False, 'error': 'Brak produktów w zamówieniu'}), 400
 
         orders_created = 0
+        created_proxy_orders = []
 
         for product_data in products:
             product_id = product_data.get('product_id')
@@ -2728,8 +2729,13 @@ def create_stock_orders():
 
             db.session.add(proxy_order_item)
             orders_created += 1
+            created_proxy_orders.append(proxy_order)
 
         db.session.commit()
+
+        from utils.supplier_order_state import dispatch_supplier_ordered_notifications
+        for po in created_proxy_orders:
+            dispatch_supplier_ordered_notifications(po)
 
         log_activity(
             user=current_user,
@@ -2764,6 +2770,7 @@ def create_stock_orders_from_aggregation():
             return jsonify({'success': False, 'error': 'Brak produktów w zamówieniu'}), 400
 
         orders_created = 0
+        created_proxy_orders = []
 
         for product_data in products:
             product_id = product_data.get('product_id')
@@ -2785,7 +2792,7 @@ def create_stock_orders_from_aggregation():
                 order_number=order_number,
                 order_type=order_type,
                 supplier_id=final_supplier_id,
-                status='nowe',
+                status='zamowiono',
                 total_amount=total_price,
                 currency='PLN',
                 total_amount_pln=total_price,
@@ -2806,8 +2813,13 @@ def create_stock_orders_from_aggregation():
 
             db.session.add(proxy_order_item)
             orders_created += 1
+            created_proxy_orders.append(proxy_order)
 
         db.session.commit()
+
+        from utils.supplier_order_state import dispatch_supplier_ordered_notifications
+        for po in created_proxy_orders:
+            dispatch_supplier_ordered_notifications(po)
 
         log_activity(
             user=current_user,
@@ -2926,6 +2938,13 @@ def create_group_proxy_order():
             _update_client_orders_on_polska_ordered()
 
         db.session.commit()
+
+        # Powiadomienia: zamówienie u dostawcy (proxy) — tylko dla typu 'proxy'.
+        # Dla 'polska' główny status klienta zmienia się od razu na 'w_drodze_polska',
+        # więc ikona "zamówiono u dostawcy" nie jest potrzebna.
+        if order_type == 'proxy':
+            from utils.supplier_order_state import dispatch_supplier_ordered_notifications
+            dispatch_supplier_ordered_notifications(proxy_order)
 
         log_activity(
             user=current_user,
@@ -3197,6 +3216,16 @@ def update_proxy_order_status(order_id):
             emails_sent = _update_client_orders_if_fully_delivered(proxy_order.order_type) or 0
 
         db.session.commit()
+
+        # Powiadomienia o zamówieniu/anulowaniu u dostawcy
+        from utils.supplier_order_state import (
+            dispatch_supplier_ordered_notifications,
+            dispatch_supplier_cancelled_notifications,
+        )
+        if new_status == 'zamowiono' and old_status != 'zamowiono':
+            dispatch_supplier_ordered_notifications(proxy_order)
+        elif new_status == 'anulowane' and old_status == 'zamowiono':
+            dispatch_supplier_cancelled_notifications(proxy_order)
 
         log_activity(
             user=current_user,

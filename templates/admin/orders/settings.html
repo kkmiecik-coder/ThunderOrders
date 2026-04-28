@@ -570,6 +570,26 @@
                                     <span class="email-toggle-slider"></span>
                                 </label>
                             </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Zamówienie u dostawcy</div>
+                                    <div class="email-notif-desc">Email gdy produkt został zamówiony u dostawcy</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_supplier_ordered" {{ 'checked' if email_notif_config.get('notify_supplier_ordered', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="email-notif-item">
+                                <div class="email-notif-info">
+                                    <div class="email-notif-name">Anulowanie u dostawcy</div>
+                                    <div class="email-notif-desc">Email gdy zamówienie u dostawcy zostało anulowane</div>
+                                </div>
+                                <label class="email-toggle-switch">
+                                    <input type="checkbox" class="email-notif-toggle" data-key="notify_supplier_cancelled" {{ 'checked' if email_notif_config.get('notify_supplier_cancelled', true) != false }}>
+                                    <span class="email-toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 

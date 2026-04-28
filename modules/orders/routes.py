@@ -212,12 +212,16 @@ def admin_list():
     # Filter args without 'page' to avoid duplicate in pagination url_for
     filter_args = {k: v for k, v in request.args.items() if k != 'page'}
 
+    from utils.supplier_order_state import get_supplier_states_for_orders
+    supplier_states = get_supplier_states_for_orders(pagination.items)
+
     return render_template(
         'admin/orders/list.html',
         orders=pagination,
         filter_form=filter_form,
         statuses_with_counts=statuses_with_counts,
         total_orders_count=total_count,
+        supplier_states=supplier_states,
         page_title='Zamówienia',
         filter_args=filter_args
     )
@@ -1658,10 +1662,14 @@ def client_list():
 
     filter_args = {k: v for k, v in request.args.items() if k != 'page'}
 
+    from utils.supplier_order_state import get_supplier_states_for_orders
+    supplier_states = get_supplier_states_for_orders(pagination.items)
+
     return render_template(
         'client/orders/list.html',
         orders=pagination,
         statuses=statuses,
+        supplier_states=supplier_states,
         page_title='Moje zamówienia',
         filter_args=filter_args
     )

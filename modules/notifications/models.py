@@ -104,6 +104,7 @@ class NotificationPreference(db.Model):
     cost_added = db.Column(db.Boolean, default=True, nullable=False)
     admin_alerts = db.Column(db.Boolean, default=True, nullable=False)
     sale_date_changes = db.Column(db.Boolean, default=True, nullable=False)
+    order_supplier_ordered = db.Column(db.Boolean, default=True, nullable=False)
 
     user = db.relationship('User', backref=db.backref('notification_preference', uselist=False))
 
@@ -119,4 +120,5 @@ class NotificationPreference(db.Model):
             'cost_added': self.cost_added,
             'admin_alerts': self.admin_alerts,
             'sale_date_changes': self.sale_date_changes,
+            'order_supplier_ordered': self.order_supplier_ordered,
         }

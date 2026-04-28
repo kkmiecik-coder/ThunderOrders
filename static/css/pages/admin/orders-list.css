@@ -1827,6 +1827,16 @@
     color: #fff;
 }
 
+.status-icon-supplier-waiting {
+    background: #F59E0B;
+    color: #fff;
+}
+
+.status-icon-supplier-ordered {
+    background: #7B2CBF;
+    color: #fff;
+}
+
 /* Clickable status icon (link) */
 .status-icon-link {
     cursor: pointer;
@@ -2557,6 +2567,16 @@
 
 [data-theme="dark"] .status-icon-pending {
     background: #64B5F6;
+}
+
+[data-theme="dark"] .status-icon-supplier-waiting {
+    background: #FBBF24;
+    color: #1f1f1f;
+}
+
+[data-theme="dark"] .status-icon-supplier-ordered {
+    background: #C084FC;
+    color: #1f1f1f;
 }
 
 [data-theme="dark"] .status-icon-link:hover {

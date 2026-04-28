@@ -1014,6 +1014,16 @@
     color: #4527A0;
 }
 
+.status-icon-supplier-waiting {
+    background: rgba(245, 158, 11, 0.18);
+    color: #B45309;
+}
+
+.status-icon-supplier-ordered {
+    background: rgba(123, 44, 191, 0.18);
+    color: #6B21A8;
+}
+
 .status-icon-inactive {
     background: rgba(158, 158, 158, 0.15);
     color: #757575;
@@ -1064,6 +1074,16 @@
 [data-theme="dark"] .status-icon-pending {
     background: rgba(179, 136, 255, 0.2);
     color: #ce93d8;
+}
+
+[data-theme="dark"] .status-icon-supplier-waiting {
+    background: rgba(251, 191, 36, 0.25);
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .status-icon-supplier-ordered {
+    background: rgba(192, 132, 252, 0.25);
+    color: #e9d5ff;
 }
 
 [data-theme="dark"] .status-icon-inactive {

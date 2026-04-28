@@ -1,0 +1,11 @@
+Cześć {{ user_name }}!
+
+Mamy dobrą wiadomość — Twoje produkty z zamówienia {{ order_number }} zostały
+właśnie zamówione u naszego dostawcy. Następny krok to dostawa do proxy,
+o czym poinformujemy Cię osobnym e-mailem.
+
+Szczegóły zamówienia: {{ order_detail_url }}
+
+—
+ThunderOrders
+https://thunderorders.cloud

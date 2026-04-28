@@ -425,6 +425,30 @@ def send_order_status_change_email(user_email, user_name, order_number, old_stat
     )
 
 
+def send_supplier_ordered_email(user_email, user_name, order_number, order_detail_url):
+    """Wysyła email o zamówieniu produktów u dostawcy."""
+    return send_email(
+        to=user_email,
+        subject=f'Zamówiliśmy Twoje produkty u dostawcy ({order_number}) - ThunderOrders',
+        template='order_supplier_ordered',
+        user_name=user_name,
+        order_number=order_number,
+        order_detail_url=order_detail_url
+    )
+
+
+def send_supplier_cancelled_email(user_email, user_name, order_number, order_detail_url):
+    """Wysyła email o anulowaniu zamówienia u dostawcy."""
+    return send_email(
+        to=user_email,
+        subject=f'Anulowano zamówienie u dostawcy ({order_number}) - ThunderOrders',
+        template='order_supplier_cancelled',
+        user_name=user_name,
+        order_number=order_number,
+        order_detail_url=order_detail_url
+    )
+
+
 def send_offer_closure_email(customer_email, customer_name, page_name, items,
                                 fulfilled_items=None, fulfilled_total=0, shipping_cost=0,
                                 grand_total=0, order_number='', payment_methods=None,

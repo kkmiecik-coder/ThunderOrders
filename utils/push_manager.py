@@ -298,6 +298,40 @@ class PushManager:
             notification_type='order_status_changes'
         )
 
+    @staticmethod
+    def notify_supplier_ordered(order):
+        """Push: zam\u00f3wienie zosta\u0142o zam\u00f3wione u dostawcy."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Zam\u00f3wiono u dostawcy: {order.order_number}',
+            body='Tw\u00f3j produkt zosta\u0142 zam\u00f3wiony u dostawcy.',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'order-supplier-{order.id}',
+            notification_type='order_supplier_ordered'
+        )
+
+    @staticmethod
+    def notify_supplier_cancelled(order):
+        """Push: zam\u00f3wienie u dostawcy zosta\u0142o anulowane."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Anulowano u dostawcy: {order.order_number}',
+            body='Zam\u00f3wienie u dostawcy zosta\u0142o anulowane \u2014 zostanie ponownie zam\u00f3wione.',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'order-supplier-{order.id}',
+            notification_type='order_supplier_ordered'
+        )
+
     # ========================================
     # PAYMENTS
     # ========================================

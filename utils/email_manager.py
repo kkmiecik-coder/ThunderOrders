@@ -361,6 +361,56 @@ class EmailManager:
             current_app.logger.error(f"Failed to send status change email for {order.order_number}: {e}")
 
     @staticmethod
+    def notify_supplier_ordered(order):
+        """Wysyła email o zamówieniu produktów u dostawcy."""
+        if not EmailManager.is_email_enabled('notify_supplier_ordered'):
+            current_app.logger.info("Email notification 'notify_supplier_ordered' is disabled, skipping")
+            return
+
+        from utils.email_sender import send_supplier_ordered_email
+
+        email = order.customer_email
+        if not email:
+            return
+
+        try:
+            order_detail_url = url_for('orders.client_detail', order_id=order.id, _external=True)
+            send_supplier_ordered_email(
+                user_email=email,
+                user_name=order.customer_name,
+                order_number=order.order_number,
+                order_detail_url=order_detail_url
+            )
+            current_app.logger.info(f"Supplier ordered email sent for {order.order_number} to {email}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to send supplier ordered email for {order.order_number}: {e}")
+
+    @staticmethod
+    def notify_supplier_cancelled(order):
+        """Wysyła email o anulowaniu zamówienia u dostawcy."""
+        if not EmailManager.is_email_enabled('notify_supplier_cancelled'):
+            current_app.logger.info("Email notification 'notify_supplier_cancelled' is disabled, skipping")
+            return
+
+        from utils.email_sender import send_supplier_cancelled_email
+
+        email = order.customer_email
+        if not email:
+            return
+
+        try:
+            order_detail_url = url_for('orders.client_detail', order_id=order.id, _external=True)
+            send_supplier_cancelled_email(
+                user_email=email,
+                user_name=order.customer_name,
+                order_number=order.order_number,
+                order_detail_url=order_detail_url
+            )
+            current_app.logger.info(f"Supplier cancelled email sent for {order.order_number} to {email}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to send supplier cancelled email for {order.order_number}: {e}")
+
+    @staticmethod
     def notify_order_completed(order):
         """
         Wysyła email podsumowujący zakończone zamówienie.
