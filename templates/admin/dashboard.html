@@ -42,6 +42,10 @@
                     <div><strong>Tydzień:</strong> {{ "%.2f"|format(revenue.week) }} PLN</div>
                     <div><strong>Dzisiaj:</strong> {{ "%.2f"|format(revenue.today) }} PLN</div>
                 </div>
+                <div class="stat-meta stat-meta-payments">
+                    <div><strong>Zapłacone:</strong> {{ "%.2f"|format(revenue.outstanding_paid) }} PLN</div>
+                    <div><strong>Do zapłaty:</strong> {{ "%.2f"|format(revenue.outstanding_remaining) }} PLN</div>
+                </div>
             </div>
         </div>
 

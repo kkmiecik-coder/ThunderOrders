@@ -213,6 +213,16 @@
     flex-wrap: wrap;
 }
 
+.stat-meta-payments {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="dark"] .stat-meta-payments {
+    border-top-color: rgba(255, 255, 255, 0.12);
+}
+
 /* ====================================
    DASHBOARD GRID (2 columns)
    ==================================== */

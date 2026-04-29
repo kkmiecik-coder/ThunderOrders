@@ -13,7 +13,7 @@ from modules.admin.models import AdminTask
 from modules.orders.models import Order, OrderItem
 from modules.products.models import Product
 from modules.offers.models import OfferPage
-from sqlalchemy import func, desc, cast, Date, extract
+from sqlalchemy import func, desc, cast, Date, extract, or_, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 from calendar import month_name
@@ -95,10 +95,36 @@ def dashboard():
         Order.status != 'anulowane'  # Exclude cancelled orders
     ).scalar() or Decimal('0.00')
 
+    # Outstanding payments – jednostka: strona sprzedaży (OfferPage)
+    # Reguła: jeśli na OfferPage choć jedno zamówienie ma niezapłacony etap,
+    # liczymy WSZYSTKIE zamówienia z tej strony. Zamówienia bez offer_page
+    # (np. on_hand) liczymy indywidualnie tylko gdy nie są w pełni opłacone.
+    grand_total_expr = func.coalesce(Order.total_amount, 0) + func.coalesce(Order.shipping_cost, 0)
+    paid_expr = func.coalesce(Order.paid_amount, 0)
+
+    unpaid_pages_subq = db.session.query(Order.offer_page_id).filter(
+        Order.status != 'anulowane',
+        Order.offer_page_id.isnot(None),
+        grand_total_expr > paid_expr
+    ).distinct().subquery()
+
+    outstanding_paid, outstanding_remaining = db.session.query(
+        func.coalesce(func.sum(paid_expr), 0),
+        func.coalesce(func.sum(grand_total_expr - paid_expr), 0)
+    ).filter(
+        Order.status != 'anulowane',
+        or_(
+            Order.offer_page_id.in_(db.session.query(unpaid_pages_subq.c.offer_page_id)),
+            and_(Order.offer_page_id.is_(None), grand_total_expr > paid_expr)
+        )
+    ).one()
+
     revenue = {
         'today': float(revenue_today),
         'week': float(revenue_week),
-        'month': float(revenue_month)
+        'month': float(revenue_month),
+        'outstanding_paid': float(outstanding_paid or 0),
+        'outstanding_remaining': float(outstanding_remaining or 0)
     }
 
     # 3. Clients stats (real data)
