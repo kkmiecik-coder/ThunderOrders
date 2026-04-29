@@ -132,7 +132,7 @@ def dashboard():
     clients_active = User.query.filter_by(role='client', is_active=True).count()
     clients_new = User.query\
         .filter_by(role='client')\
-        .filter(func.date(User.created_at) >= week_ago)\
+        .filter(func.date(User.created_at) >= month_start)\
         .count()
 
     clients = {
