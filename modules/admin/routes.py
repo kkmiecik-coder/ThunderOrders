@@ -271,7 +271,6 @@ def dashboard():
     }
 
     # 9. Pending payment confirmations count
-    from modules.orders.models import PaymentConfirmation
     pending_payment_confirmations = PaymentConfirmation.query.filter_by(status='pending').count()
 
     return render_template(
