@@ -134,11 +134,16 @@ def dashboard():
         .filter_by(role='client')\
         .filter(func.date(User.created_at) >= month_start)\
         .count()
+    clients_new_week = User.query\
+        .filter_by(role='client')\
+        .filter(func.date(User.created_at) >= week_ago)\
+        .count()
 
     clients = {
         'total': clients_total,
         'active': clients_active,
-        'new': clients_new
+        'new': clients_new,
+        'new_week': clients_new_week
     }
 
     # 4. Recent orders (with lazy loading support)
