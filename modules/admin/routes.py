@@ -10,7 +10,7 @@ from utils.decorators import role_required
 from extensions import db
 from modules.auth.models import User
 from modules.admin.models import AdminTask
-from modules.orders.models import Order, OrderItem
+from modules.orders.models import Order, OrderItem, PaymentConfirmation
 from modules.products.models import Product
 from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, cast, Date, extract, or_, and_
@@ -119,12 +119,18 @@ def dashboard():
         )
     ).one()
 
+    # Suma kwot z oczekujących potwierdzeń płatności (do zweryfikowania)
+    pending_to_verify = db.session.query(
+        func.coalesce(func.sum(PaymentConfirmation.amount), 0)
+    ).filter(PaymentConfirmation.status == 'pending').scalar() or 0
+
     revenue = {
         'today': float(revenue_today),
         'week': float(revenue_week),
         'month': float(revenue_month),
         'outstanding_paid': float(outstanding_paid or 0),
-        'outstanding_remaining': float(outstanding_remaining or 0)
+        'outstanding_remaining': float(outstanding_remaining or 0),
+        'pending_to_verify': float(pending_to_verify)
     }
 
     # 3. Clients stats (real data)
