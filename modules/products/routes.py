@@ -840,6 +840,7 @@ def bulk_delete():
         from modules.orders.models import OrderItem
         from modules.client.models import CollectionItem
         from modules.offers.models import OfferSection, OfferSetItem
+        from modules.products.models import CartItem, ProductInteraction
 
         # Check which products are referenced in any orders (proxy, poland, client)
         products_in_proxy = set(
@@ -894,6 +895,14 @@ def bulk_delete():
             db.session.execute(
                 product_tags.delete().where(product_tags.c.product_id.in_(products_to_delete))
             )
+            db.session.execute(
+                product_sizes.delete().where(product_sizes.c.product_id.in_(products_to_delete))
+            )
+
+            # Delete product interactions (analytics, safe to drop)
+            ProductInteraction.query.filter(
+                ProductInteraction.product_id.in_(products_to_delete)
+            ).delete(synchronize_session=False)
 
             # Remove from client collections
             CollectionItem.query.filter(CollectionItem.product_id.in_(products_to_delete)).update(
@@ -909,6 +918,11 @@ def bulk_delete():
             )
             OfferSetItem.query.filter(OfferSetItem.product_id.in_(products_to_delete)).update(
                 {'product_id': None}, synchronize_session=False
+            )
+
+            # Remove from active shopping carts (ephemeral state)
+            CartItem.query.filter(CartItem.product_id.in_(products_to_delete)).delete(
+                synchronize_session=False
             )
 
             # Now delete products
