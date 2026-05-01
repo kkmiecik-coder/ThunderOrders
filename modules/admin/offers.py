@@ -1351,6 +1351,7 @@ def offers_summary(page_id):
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
+            'created_by_admin_id': o.get('created_by_admin_id'),
         })
 
     return render_template(
@@ -1792,3 +1793,357 @@ def _dispatch_end_date_change_notifications(app, page_id, old_ends_at, new_ends_
     thread = threading.Thread(target=_run)
     thread.daemon = True
     thread.start()
+
+
+# ============================================
+# Extra Order (admin-placed) for closed PRE-ORDER pages
+# ============================================
+
+@admin_bp.route('/offers/<int:page_id>/extra-order/users')
+@login_required
+@mod_required
+def offers_extra_order_users(page_id):
+    """
+    Autocomplete: szukaj zarejestrowanych użytkowników po imieniu/nazwisku/emailu.
+    Używane przez wizard "Dodaj zamówienie extra".
+    """
+    from modules.auth.models import User
+    from sqlalchemy import or_
+
+    page = OfferPage.query.get_or_404(page_id)
+    if page.page_type != 'preorder' or not page.is_fully_closed:
+        return jsonify({'error': 'invalid_page'}), 400
+
+    q = (request.args.get('q') or '').strip()
+    if len(q) < 2:
+        return jsonify({'users': []})
+
+    like = f"%{q}%"
+    users = User.query.filter(
+        User.role == 'client',
+        User.is_active == True,
+        or_(
+            User.email.ilike(like),
+            User.first_name.ilike(like),
+            User.last_name.ilike(like),
+        ),
+    ).order_by(User.last_name, User.first_name).limit(20).all()
+
+    return jsonify({
+        'users': [
+            {
+                'id': u.id,
+                'email': u.email,
+                'first_name': u.first_name or '',
+                'last_name': u.last_name or '',
+                'full_name': u.full_name or u.email,
+            }
+            for u in users
+        ]
+    })
+
+
+@admin_bp.route('/offers/<int:page_id>/extra-order/products')
+@login_required
+@mod_required
+def offers_extra_order_products(page_id):
+    """
+    Lista produktów dostępnych do dodania do extra-order.
+    Tylko sekcje typu 'product' z tej strony PRE-ORDER (limity ignorowane).
+    """
+    page = OfferPage.query.get_or_404(page_id)
+    if page.page_type != 'preorder' or not page.is_fully_closed:
+        return jsonify({'error': 'invalid_page'}), 400
+
+    sections = OfferSection.query.filter_by(
+        offer_page_id=page.id,
+    ).order_by(OfferSection.sort_order).all()
+
+    products = []
+    seen_product_ids = set()
+
+    def add_product(prod):
+        if not prod or prod.id in seen_product_ids:
+            return
+        seen_product_ids.add(prod.id)
+        price = prod.sale_price if prod.sale_price else prod.price
+        sizes_list = [{'id': s.id, 'name': s.name} for s in prod.sizes] if prod.sizes else []
+        products.append({
+            'product_id': prod.id,
+            'name': prod.name,
+            'sku': prod.sku,
+            'price': float(price) if price else 0.0,
+            'sizes': sizes_list,
+        })
+
+    for section in sections:
+        if section.section_type == 'product' and section.product:
+            add_product(section.product)
+        elif section.section_type == 'variant_group' and section.variant_group:
+            for prod in section.variant_group.products:
+                add_product(prod)
+        elif section.section_type == 'set':
+            # Set sections list multiple OfferSetItem (each can be product or variant group)
+            for set_item in section.set_items:
+                if set_item.product:
+                    add_product(set_item.product)
+                if set_item.variant_group:
+                    for prod in set_item.variant_group.products:
+                        add_product(prod)
+
+    # ===== Bonuses (manual selection by admin) =====
+    bonuses = []
+    bonus_records = OfferSetBonus.query.join(OfferSection).filter(
+        OfferSection.offer_page_id == page.id,
+        OfferSetBonus.is_active == True,
+        OfferSetBonus.bonus_product_id.isnot(None),
+    ).all()
+
+    seen_bonus_keys = set()
+    for bonus in bonus_records:
+        if not bonus.bonus_product:
+            continue
+        key = (bonus.id, bonus.bonus_product_id)
+        if key in seen_bonus_keys:
+            continue
+        seen_bonus_keys.add(key)
+        prod = bonus.bonus_product
+        sizes_list = [{'id': s.id, 'name': s.name} for s in prod.sizes] if prod.sizes else []
+        bonuses.append({
+            'bonus_id': bonus.id,
+            'section_id': bonus.section_id,
+            'bonus_product_id': prod.id,
+            'name': prod.name,
+            'sku': prod.sku,
+            'bonus_quantity': bonus.bonus_quantity,
+            'sizes': sizes_list,
+        })
+
+    return jsonify({'products': products, 'bonuses': bonuses})
+
+
+@admin_bp.route('/offers/<int:page_id>/extra-order', methods=['POST'])
+@login_required
+@mod_required
+def offers_extra_order_create(page_id):
+    """
+    Tworzy "extra" zamówienie ręcznie dla zamkniętej strony PRE-ORDER.
+
+    Body JSON:
+        user_id (int): ID zarejestrowanego klienta
+        items (list): [{product_id, quantity, selected_size?}, ...]
+        note (str, optional): notatka admina do zamówienia
+    """
+    from decimal import Decimal
+    from modules.auth.models import User
+    from modules.orders.models import Order, OrderItem
+    from modules.orders.utils import generate_order_number
+    from modules.products.models import Product
+    from utils.activity_logger import log_activity
+
+    page = OfferPage.query.get_or_404(page_id)
+    if page.page_type != 'preorder' or not page.is_fully_closed:
+        return jsonify({'error': 'invalid_page', 'message': 'Strona nie jest zamkniętą stroną PRE-ORDER.'}), 400
+
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id')
+    items_data = data.get('items') or []
+    bonus_data = data.get('bonuses') or []
+    note = (data.get('note') or '').strip() or None
+
+    if not user_id:
+        return jsonify({'error': 'user_required', 'message': 'Wybierz klienta.'}), 400
+
+    user = User.query.filter_by(id=user_id, role='client', is_active=True).first()
+    if not user:
+        return jsonify({'error': 'user_not_found', 'message': 'Nie znaleziono klienta.'}), 404
+
+    # Filter valid items
+    valid_items = []
+    for it in items_data:
+        try:
+            pid = int(it.get('product_id'))
+            qty = int(it.get('quantity', 0))
+        except (TypeError, ValueError):
+            continue
+        if pid and qty > 0:
+            valid_items.append({
+                'product_id': pid,
+                'quantity': qty,
+                'selected_size': (it.get('selected_size') or None),
+            })
+
+    if not valid_items:
+        return jsonify({'error': 'empty_cart', 'message': 'Dodaj co najmniej jeden produkt.'}), 400
+
+    # Check products belong to this offer page (product / variant_group / set sections)
+    allowed_product_ids = set()
+    page_sections = OfferSection.query.filter_by(offer_page_id=page.id).all()
+    for s in page_sections:
+        if s.section_type == 'product' and s.product_id:
+            allowed_product_ids.add(s.product_id)
+        elif s.section_type == 'variant_group' and s.variant_group:
+            for p in s.variant_group.products:
+                allowed_product_ids.add(p.id)
+        elif s.section_type == 'set':
+            for si in s.set_items:
+                if si.product_id:
+                    allowed_product_ids.add(si.product_id)
+                if si.variant_group:
+                    for p in si.variant_group.products:
+                        allowed_product_ids.add(p.id)
+
+    try:
+        order_number = generate_order_number('pre_order')
+    except Exception as e:
+        return jsonify({'error': 'order_number_failed', 'message': str(e)}), 500
+
+    order = Order(
+        order_number=order_number,
+        order_type='pre_order',
+        user_id=user.id,
+        status='nowe',
+        offer_page_id=page.id,
+        offer_page_name=page.name,
+        payment_stages=page.payment_stages,
+        notes=note,
+        total_amount=Decimal('0.00'),
+        created_by_admin_id=current_user.id,
+    )
+    db.session.add(order)
+    db.session.flush()
+
+    total_amount = Decimal('0.00')
+    total_items_count = 0
+
+    for item in valid_items:
+        if item['product_id'] not in allowed_product_ids:
+            db.session.rollback()
+            return jsonify({
+                'error': 'product_not_in_offer',
+                'message': f"Produkt #{item['product_id']} nie należy do tej strony sprzedaży.",
+            }), 400
+
+        product = Product.query.get(item['product_id'])
+        if not product:
+            db.session.rollback()
+            return jsonify({'error': 'product_not_found'}), 404
+
+        if product.sizes and not item['selected_size']:
+            db.session.rollback()
+            return jsonify({
+                'error': 'size_required',
+                'message': f'Wybierz rozmiar dla produktu: {product.name}',
+            }), 400
+
+        price = product.sale_price if product.sale_price else product.price
+        item_total = Decimal(str(price)) * item['quantity']
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=product.id,
+            quantity=item['quantity'],
+            price=Decimal(str(price)),
+            total=item_total,
+            selected_size=item['selected_size'],
+        )
+        db.session.add(order_item)
+
+        total_amount += item_total
+        total_items_count += item['quantity']
+
+    # ===== Manual bonuses added by admin =====
+    # Validate that each bonus belongs to this page
+    valid_bonus_ids = {
+        b.id for b in OfferSetBonus.query.join(OfferSection).filter(
+            OfferSection.offer_page_id == page.id,
+            OfferSetBonus.is_active == True,
+        ).all()
+    }
+
+    for bonus_item in bonus_data:
+        try:
+            bonus_id = int(bonus_item.get('bonus_id'))
+            qty = int(bonus_item.get('quantity', 0))
+        except (TypeError, ValueError):
+            continue
+        if qty <= 0 or bonus_id not in valid_bonus_ids:
+            continue
+
+        bonus = OfferSetBonus.query.get(bonus_id)
+        if not bonus or not bonus.bonus_product_id:
+            continue
+
+        order_item = OrderItem(
+            order_id=order.id,
+            product_id=bonus.bonus_product_id,
+            quantity=qty,
+            price=Decimal('0.00'),
+            total=Decimal('0.00'),
+            is_bonus=True,
+            bonus_source_section_id=bonus.section_id,
+            selected_size=(bonus_item.get('selected_size') or None),
+        )
+        db.session.add(order_item)
+        total_items_count += qty
+
+    order.total_amount = total_amount
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to commit extra-order for page {page.id}: {e}")
+        return jsonify({'error': 'database_error', 'message': str(e)}), 500
+
+    # Activity log
+    try:
+        log_activity(
+            user=current_user,
+            action='admin_extra_order_created',
+            entity_type='order',
+            entity_id=order.id,
+            new_value={
+                'order_number': order.order_number,
+                'offer_page_id': page.id,
+                'on_behalf_of_user_id': user.id,
+                'total': float(order.total_amount),
+                'items_count': total_items_count,
+            },
+        )
+    except Exception:
+        pass
+
+    # Send dedicated email + push to the customer
+    try:
+        from utils.email_manager import EmailManager
+        EmailManager.notify_admin_created_order(order, current_user)
+    except Exception as e:
+        current_app.logger.error(
+            f"Failed to send admin-created order email for {order.order_number}: {e}"
+        )
+
+    try:
+        from utils.push_manager import PushManager
+        PushManager.notify_admin_created_order(order)
+    except Exception as e:
+        current_app.logger.error(
+            f"Failed to send admin-created order push for {order.order_number}: {e}"
+        )
+
+    # Notify admins (reuse existing flow)
+    try:
+        from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        EmailManager.notify_admin_new_order(order)
+        PushManager.notify_admin_new_order(order)
+    except Exception:
+        pass
+
+    return jsonify({
+        'success': True,
+        'order_id': order.id,
+        'order_number': order.order_number,
+        'total_amount': float(order.total_amount),
+        'items_count': total_items_count,
+    })

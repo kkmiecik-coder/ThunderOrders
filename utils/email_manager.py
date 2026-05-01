@@ -273,6 +273,76 @@ class EmailManager:
             current_app.logger.error(f"Failed to send order confirmation email for {order.order_number}: {e}")
 
     @staticmethod
+    def notify_admin_created_order(order, admin_user):
+        """
+        Wysyła klientowi powiadomienie o zamówieniu utworzonym ręcznie przez
+        administratora (np. "Dodaj zamówienie extra" po zamknięciu strony PRE-ORDER).
+
+        Args:
+            order: obiekt Order (musi mieć ustawione user, items, offer_page)
+            admin_user: obiekt User administratora który utworzył zamówienie
+        """
+        if not EmailManager.is_email_enabled('notify_admin_created_order'):
+            current_app.logger.info(
+                "Email notification 'notify_admin_created_order' is disabled, skipping"
+            )
+            return
+
+        from utils.email_sender import send_admin_created_order_email
+
+        email = order.customer_email
+        if not email:
+            current_app.logger.warning(
+                f"Cannot send admin-created order email for {order.order_number}: no email"
+            )
+            return
+
+        try:
+            order_items = []
+            for item in order.items:
+                order_items.append({
+                    'product_name': item.product.name,
+                    'quantity': item.quantity,
+                    'price': float(item.price),
+                    'total': float(item.total),
+                })
+
+            page_name = (
+                order.offer_page.name if order.offer_page
+                else (order.offer_page_name or '-')
+            )
+
+            admin_name = (
+                f"{admin_user.first_name} {admin_user.last_name}".strip()
+                or admin_user.email
+            )
+
+            payment_deadline_str = None
+            if order.offer_page and order.offer_page.payment_deadline:
+                payment_deadline_str = order.offer_page.payment_deadline.strftime(
+                    '%d.%m.%Y %H:%M'
+                )
+
+            send_admin_created_order_email(
+                user_email=email,
+                user_name=order.customer_name,
+                admin_name=admin_name,
+                order_number=order.order_number,
+                page_name=page_name,
+                order_total=float(order.total_amount),
+                order_items=order_items,
+                payment_stages=order.payment_stages,
+                payment_deadline=payment_deadline_str,
+            )
+            current_app.logger.info(
+                f"Admin-created order email sent for {order.order_number} to {email}"
+            )
+        except Exception as e:
+            current_app.logger.error(
+                f"Failed to send admin-created order email for {order.order_number}: {e}"
+            )
+
+    @staticmethod
     def notify_packing_photo(order):
         """
         Wysyła email ze zdjęciem spakowanej paczki do klienta.

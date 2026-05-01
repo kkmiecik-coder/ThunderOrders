@@ -416,11 +416,16 @@ function buildOrderCardHTML(order) {
         amountHTML = '<span class="order-card-amount">' + parseFloat(order.total_amount).toFixed(2) + ' PLN</span>';
     }
 
+    var manualBadge = order.created_by_admin_id
+        ? '<span class="order-card-manual-badge" title="Zamówienie dodane ręcznie przez administratora">✋ Dodane ręcznie</span>'
+        : '';
+
     return '<div class="order-card" data-order-id="' + order.order_id + '">' +
         '<div class="order-card-header">' +
         '<div class="order-card-main">' +
         '<div class="order-card-number">' +
         '<a href="' + detailUrl + '">' + escapeHtml(order.order_number) + '</a>' +
+        manualBadge +
         '</div>' +
         '<div class="order-card-customer">' + escapeHtml(order.customer_name) + '</div>' +
         '<div class="order-card-meta">' +

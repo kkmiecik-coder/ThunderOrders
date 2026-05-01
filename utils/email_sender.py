@@ -403,6 +403,39 @@ def send_order_confirmation_email(user_email, user_name, order_number, order_tot
     )
 
 
+def send_admin_created_order_email(user_email, user_name, admin_name, order_number,
+                                    page_name, order_total, order_items,
+                                    payment_stages=None, payment_deadline=None):
+    """
+    Wysyła powiadomienie o zamówieniu utworzonym ręcznie przez administratora
+    (np. po zamknięciu strony PRE-ORDER).
+
+    Args:
+        user_email (str): Email klienta
+        user_name (str): Imię klienta
+        admin_name (str): Imię/nazwisko administratora który dodał zamówienie
+        order_number (str): Numer zamówienia
+        page_name (str): Nazwa strony sprzedaży
+        order_total (float): Suma za produkty
+        order_items (list): Lista pozycji [{'product_name', 'quantity', 'total'}]
+        payment_stages (int, optional): 3 lub 4 — etapy płatności
+        payment_deadline (str, optional): Sformatowany termin płatności (np. "12.05.2026 23:59")
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Zamówienie {order_number} dodane przez administratora - ThunderOrders',
+        template='admin_created_order',
+        user_name=user_name,
+        admin_name=admin_name,
+        order_number=order_number,
+        page_name=page_name,
+        order_total=order_total,
+        order_items=order_items,
+        payment_stages=payment_stages,
+        payment_deadline=payment_deadline,
+    )
+
+
 def send_order_status_change_email(user_email, user_name, order_number, old_status, new_status):
     """
     Wysyła powiadomienie o zmianie statusu zamówienia

@@ -163,6 +163,11 @@ class Order(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     user = db.relationship('User', back_populates='orders', foreign_keys=[user_id])
 
+    # Admin who manually created this order on behalf of the customer
+    # (NULL = standard customer-placed order; set = order added via "Dodaj zamówienie extra")
+    created_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    created_by_admin = db.relationship('User', foreign_keys=[created_by_admin_id])
+
     # Status (foreign key to order_statuses)
     status = db.Column(db.String(50), db.ForeignKey('order_statuses.slug'), default='nowe')
     status_rel = db.relationship('OrderStatus', back_populates='orders', foreign_keys=[status])

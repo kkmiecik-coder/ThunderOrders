@@ -465,6 +465,14 @@
                 <div class="orders-count-info">
                     <span id="ordersDisplayCount">{{ summary.total_orders }}</span> z {{ summary.total_orders }} zamówień
                 </div>
+                {% if page.page_type == 'preorder' and page.is_fully_closed and current_user.role in ['admin', 'mod'] %}
+                <button type="button" id="extraOrderBtn" class="btn btn-primary extra-order-btn">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                    </svg>
+                    Dodaj zamówienie extra
+                </button>
+                {% endif %}
             </div>
 
             <div id="ordersGrid" class="orders-grid"></div>
@@ -482,6 +490,90 @@
     </div>
 </div>
 
+{% if page.page_type == 'preorder' and page.is_fully_closed and current_user.role in ['admin', 'mod'] %}
+<!-- ===== Extra-Order Wizard Modal ===== -->
+<div id="extraOrderModal" class="modal-overlay">
+    <div class="modal-content extra-order-modal">
+        <div class="modal-header">
+            <h2>
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                Dodaj zamówienie extra
+            </h2>
+            <button type="button" class="modal-close" data-close-extra-order aria-label="Zamknij">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="modal-body">
+            <!-- Step indicator -->
+            <div class="wizard-steps">
+                <div class="wizard-step wizard-step-active" data-step-indicator="1">
+                    <span class="wizard-step-number">1</span>
+                    <span class="wizard-step-label">Klient</span>
+                </div>
+                <div class="wizard-step-line"></div>
+                <div class="wizard-step" data-step-indicator="2">
+                    <span class="wizard-step-number">2</span>
+                    <span class="wizard-step-label">Produkty</span>
+                </div>
+                <div class="wizard-step-line"></div>
+                <div class="wizard-step" data-step-indicator="3">
+                    <span class="wizard-step-number">3</span>
+                    <span class="wizard-step-label">Podsumowanie</span>
+                </div>
+            </div>
+
+            <!-- Step 1: Client search -->
+            <div class="wizard-pane wizard-pane-active" data-step="1">
+                <p class="wizard-hint">Wyszukaj zarejestrowanego klienta po imieniu, nazwisku lub adresie email.</p>
+                <div class="user-search-group">
+                    <input type="text" id="extraOrderUserSearch" class="form-input" placeholder="Min. 2 znaki..." autocomplete="off">
+                    <div id="extraOrderUserResults" class="user-search-results"></div>
+                </div>
+                <div id="extraOrderSelectedUser" class="selected-user" style="display: none;"></div>
+            </div>
+
+            <!-- Step 2: Products -->
+            <div class="wizard-pane" data-step="2">
+                <p class="wizard-hint">Wybierz produkty i ilości. Limity sprzedaży są ignorowane dla zamówień extra.</p>
+                <div id="extraOrderProductsList" class="extra-order-products-list">
+                    <div class="loading-spinner">Ładowanie produktów...</div>
+                </div>
+            </div>
+
+            <!-- Step 3: Summary -->
+            <div class="wizard-pane" data-step="3">
+                <div id="extraOrderSummary" class="extra-order-summary"></div>
+                <div class="form-group">
+                    <label for="extraOrderNote">Notatka administratora (opcjonalnie)</label>
+                    <textarea id="extraOrderNote" class="form-input" rows="3" placeholder="Np. powód dodania ręcznego..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" id="extraOrderBackBtn" class="btn btn-secondary" style="display: none;">Wstecz</button>
+            <div class="modal-footer-spacer"></div>
+            <button type="button" class="btn btn-secondary" data-close-extra-order>Anuluj</button>
+            <button type="button" id="extraOrderNextBtn" class="btn btn-primary" disabled>Dalej</button>
+            <button type="button" id="extraOrderSubmitBtn" class="btn btn-primary" style="display: none;">Utwórz zamówienie</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.EXTRA_ORDER_URLS = {
+        users: "{{ url_for('admin.offers_extra_order_users', page_id=page.id) }}",
+        products: "{{ url_for('admin.offers_extra_order_products', page_id=page.id) }}",
+        create: "{{ url_for('admin.offers_extra_order_create', page_id=page.id) }}"
+    };
+</script>
+{% endif %}
+
 <script>
     window.SUMMARY_ORDERS = {{ orders_json|safe }};
     window.INCLUDE_FINANCIALS = {{ include_financials|tojson }};
@@ -496,4 +588,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-summary.js') }}"></script>
+{% if page.page_type == 'preorder' and page.is_fully_closed and current_user.role in ['admin', 'mod'] %}
+<script src="{{ url_for('static', filename='js/pages/admin/offer-extra-order.js') }}"></script>
+{% endif %}
 {% endblock %}

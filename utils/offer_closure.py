@@ -806,6 +806,7 @@ def get_page_summary(page_id, include_financials=True):
             'created_at': order.created_at,
             'total_amount': fulfilled_amount,  # Tylko zrealizowane produkty
             'order_items': items_details,
+            'created_by_admin_id': order.created_by_admin_id,
         }
         orders_list.append(order_data)
 

@@ -522,6 +522,23 @@ class PushManager:
             notification_type='order_status_changes'
         )
 
+    @staticmethod
+    def notify_admin_created_order(order):
+        """Push notification: admin created an order on behalf of the customer."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Admin złożył zamówienie: {order.order_number}',
+            body=f'Kwota: {float(order.total_amount):.2f} PLN. Sprawdź szczegóły i opłać.',
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'order-admin-created-{order.id}',
+            notification_type='order_status_changes'
+        )
+
     # ========================================
     # TRACKING
     # ========================================
