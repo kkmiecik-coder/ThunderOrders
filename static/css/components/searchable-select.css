@@ -1,0 +1,128 @@
+/* Searchable Select component
+   Panel + input wyszukiwarki nad natywnym <select class="searchable-select">.
+   Bazowe style .custom-select-wrapper / .custom-select-display są w offer-builder.css */
+
+/* Natywny select = ukryty magazyn danych; kliknięcia idą do .custom-select-display */
+.custom-select-wrapper select.searchable-select {
+    pointer-events: none;
+}
+
+/* Wrapper jako element flex w nagłówku karty grupy wariantowej w secie */
+.variant-group-header .custom-select-wrapper {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Stan otwarty: obrót chevronu */
+.custom-select-wrapper.is-open .custom-select-display svg {
+    transform: rotate(180deg);
+}
+
+/* Panel */
+.searchable-select-panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    max-height: 280px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+}
+
+.searchable-select-search {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.searchable-select-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #374151;
+    outline: none;
+}
+
+.searchable-select-input:focus {
+    border-color: #f093fb;
+}
+
+.searchable-select-options {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+    overflow-y: auto;
+}
+
+.searchable-select-option {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+}
+
+.searchable-select-option:hover,
+.searchable-select-option.is-highlighted {
+    background: #faf5ff;
+}
+
+.searchable-select-option.is-selected {
+    font-weight: 600;
+    color: #f5576c;
+}
+
+.searchable-select-empty {
+    list-style: none;
+    padding: 12px 10px;
+    text-align: center;
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* Dark mode */
+[data-theme="dark"] .searchable-select-panel {
+    background: rgba(30, 20, 40, 0.98);
+    backdrop-filter: blur(12px);
+    border-color: rgba(240, 147, 251, 0.25);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .searchable-select-search {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .searchable-select-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .searchable-select-input:focus {
+    border-color: rgba(240, 147, 251, 0.5);
+}
+
+[data-theme="dark"] .searchable-select-option {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .searchable-select-option:hover,
+[data-theme="dark"] .searchable-select-option.is-highlighted {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .searchable-select-option.is-selected {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .searchable-select-empty {
+    color: rgba(255, 255, 255, 0.5);
+}

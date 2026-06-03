@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/offer-builder.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/searchable-select.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -425,15 +426,23 @@
                                                     <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 9h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3z"/>
                                                 </svg>
                                             </div>
-                                            <select class="form-select variant-group-select set-item-variant-group" onchange="updateSetVariantGroupProducts(this)">
-                                                <option value="">Wybierz grupę...</option>
-                                                {% for vg in variant_groups %}
-                                                <option value="{{ vg.id }}" data-products="{{ vg.products|length }}"
-                                                        {% if item.variant_group_id == vg.id %}selected{% endif %}>
-                                                    {{ vg.name }} ({{ vg.products|length }} produktów)
-                                                </option>
-                                                {% endfor %}
-                                            </select>
+                                            <div class="custom-select-wrapper">
+                                                <select class="form-select variant-group-select set-item-variant-group searchable-select" onchange="updateSetVariantGroupProducts(this)">
+                                                    <option value="">Wybierz grupę...</option>
+                                                    {% for vg in variant_groups %}
+                                                    <option value="{{ vg.id }}" data-products="{{ vg.products|length }}"
+                                                            {% if item.variant_group_id == vg.id %}selected{% endif %}>
+                                                        {{ vg.name }} ({{ vg.products|length }} produktów)
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                                <div class="custom-select-display">
+                                                    <span class="selected-text">{% set sel_vg = (variant_groups|selectattr('id','equalto',item.variant_group_id)|first) %}{% if sel_vg %}{{ sel_vg.name }} ({{ sel_vg.products|length }} produktów){% else %}Wybierz grupę...{% endif %}</span>
+                                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                        <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                                    </svg>
+                                                </div>
+                                            </div>
                                             <span class="set-item-badge badge-variant">Grupa</span>
                                         </div>
                                         <div class="variant-group-products">
@@ -516,7 +525,7 @@
                                         <small style="opacity: 0.7; display: block; margin-top: 4px;">Dodawany przez "KUP PEŁNY SET"</small>
                                     </label>
                                     <div class="custom-select-wrapper">
-                                        <select class="form-select set-product-select" onchange="markDirty(); updateSetProductPreview(this)">
+                                        <select class="form-select set-product-select searchable-select" onchange="markDirty(); updateSetProductPreview(this)">
                                             <option value="">Wybierz produkt...</option>
                                             {% for product in products %}
                                             <option value="{{ product.id }}"
@@ -696,16 +705,24 @@
                             <div class="variant-group-selection-row">
                                 <div class="variant-group-select-wrapper">
                                     <label>Grupa wariantowa</label>
-                                    <select class="form-select variant-group-select" data-variant-group-id="{{ section.variant_group_id or '' }}" onchange="updateVariantGroupPreview(this)">
-                                        <option value="">Wybierz grupę wariantową...</option>
-                                        {% for vg in variant_groups %}
-                                        <option value="{{ vg.id }}"
-                                                data-products="{{ vg.products|length }}"
-                                                {% if section.variant_group_id == vg.id %}selected{% endif %}>
-                                            {{ vg.name }} ({{ vg.products|length }} produktów)
-                                        </option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="custom-select-wrapper">
+                                        <select class="form-select variant-group-select searchable-select" data-variant-group-id="{{ section.variant_group_id or '' }}" onchange="updateVariantGroupPreview(this)">
+                                            <option value="">Wybierz grupę wariantową...</option>
+                                            {% for vg in variant_groups %}
+                                            <option value="{{ vg.id }}"
+                                                    data-products="{{ vg.products|length }}"
+                                                    {% if section.variant_group_id == vg.id %}selected{% endif %}>
+                                                {{ vg.name }} ({{ vg.products|length }} produktów)
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="custom-select-display">
+                                            <span class="selected-text">{% set sel_vg = (variant_groups|selectattr('id','equalto',section.variant_group_id)|first) %}{% if sel_vg %}{{ sel_vg.name }} ({{ sel_vg.products|length }} produktów){% else %}Wybierz grupę wariantową...{% endif %}</span>
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
                                 <!-- Tło grupy wariantowej -->
                                 <div class="vg-image-inline">
@@ -953,6 +970,7 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/pages/admin/offer-builder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/components/searchable-select.js') }}"></script>
 <script>
     // Initialize builder
     document.addEventListener('DOMContentLoaded', function() {
