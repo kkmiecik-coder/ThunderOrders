@@ -705,16 +705,24 @@
                             <div class="variant-group-selection-row">
                                 <div class="variant-group-select-wrapper">
                                     <label>Grupa wariantowa</label>
-                                    <select class="form-select variant-group-select" data-variant-group-id="{{ section.variant_group_id or '' }}" onchange="updateVariantGroupPreview(this)">
-                                        <option value="">Wybierz grupę wariantową...</option>
-                                        {% for vg in variant_groups %}
-                                        <option value="{{ vg.id }}"
-                                                data-products="{{ vg.products|length }}"
-                                                {% if section.variant_group_id == vg.id %}selected{% endif %}>
-                                            {{ vg.name }} ({{ vg.products|length }} produktów)
-                                        </option>
-                                        {% endfor %}
-                                    </select>
+                                    <div class="custom-select-wrapper">
+                                        <select class="form-select variant-group-select searchable-select" data-variant-group-id="{{ section.variant_group_id or '' }}" onchange="updateVariantGroupPreview(this)">
+                                            <option value="">Wybierz grupę wariantową...</option>
+                                            {% for vg in variant_groups %}
+                                            <option value="{{ vg.id }}"
+                                                    data-products="{{ vg.products|length }}"
+                                                    {% if section.variant_group_id == vg.id %}selected{% endif %}>
+                                                {{ vg.name }} ({{ vg.products|length }} produktów)
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                        <div class="custom-select-display">
+                                            <span class="selected-text">{% set sel_vg = (variant_groups|selectattr('id','equalto',section.variant_group_id)|first) %}{% if sel_vg %}{{ sel_vg.name }} ({{ sel_vg.products|length }} produktów){% else %}Wybierz grupę wariantową...{% endif %}</span>
+                                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                                <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
                                 <!-- Tło grupy wariantowej -->
                                 <div class="vg-image-inline">

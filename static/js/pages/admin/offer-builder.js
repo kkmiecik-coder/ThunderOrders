@@ -643,10 +643,18 @@ function getSectionTemplate(type) {
                         <div class="variant-group-selection-row">
                             <div class="variant-group-select-wrapper">
                                 <label>Grupa wariantowa</label>
-                                <select class="form-select variant-group-select" data-variant-group-id="" onchange="updateVariantGroupPreview(this)">
-                                    <option value="">Wybierz grupę wariantową...</option>
-                                    ${document.getElementById('variantGroupOptionTemplate')?.innerHTML || ''}
-                                </select>
+                                <div class="custom-select-wrapper">
+                                    <select class="form-select variant-group-select searchable-select" data-variant-group-id="" onchange="updateVariantGroupPreview(this)">
+                                        <option value="">Wybierz grupę wariantową...</option>
+                                        ${document.getElementById('variantGroupOptionTemplate')?.innerHTML || ''}
+                                    </select>
+                                    <div class="custom-select-display">
+                                        <span class="selected-text">Wybierz grupę wariantową...</span>
+                                        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+                                        </svg>
+                                    </div>
+                                </div>
                             </div>
                             <div class="qty-counters-inline">
                                 <div class="qty-counter-group">
