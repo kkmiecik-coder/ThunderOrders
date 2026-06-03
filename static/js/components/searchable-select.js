@@ -55,14 +55,27 @@
         }
     }
 
+    // Przy scrollu/resize: przesuń panel za triggerem; zamknij dopiero gdy
+    // trigger wyjdzie poza widok. Dzięki temu scroll w samej liście opcji
+    // (ani scroll strony) nie zamyka panelu.
+    function handleViewportChange() {
+        if (!openWrapper || !openPanelEl) return;
+        const rect = openWrapper.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+            closePanel();
+            return;
+        }
+        positionPanel(openWrapper, openPanelEl);
+    }
+
     function closePanel() {
         if (!openWrapper) return;
         if (openPanelEl && openPanelEl.parentNode) {
             openPanelEl.parentNode.removeChild(openPanelEl);
         }
         openWrapper.classList.remove('is-open');
-        window.removeEventListener('scroll', closePanel, true);
-        window.removeEventListener('resize', closePanel);
+        window.removeEventListener('scroll', handleViewportChange, true);
+        window.removeEventListener('resize', handleViewportChange);
         openWrapper = null;
         openPanelEl = null;
     }
@@ -113,10 +126,10 @@
         positionPanel(wrapper, panel);
         input.focus();
 
-        // Zamykaj panel przy scrollu/resize (panel jest fixed, nie podąża za stroną).
-        // 'true' = faza przechwytywania, żeby łapać scroll zagnieżdżonych kontenerów.
-        window.addEventListener('scroll', closePanel, true);
-        window.addEventListener('resize', closePanel);
+        // Panel jest fixed -> przy scrollu/resize repozycjonuj go za triggerem.
+        // 'true' = faza przechwytywania, żeby łapać też scroll zagnieżdżonych kontenerów.
+        window.addEventListener('scroll', handleViewportChange, true);
+        window.addEventListener('resize', handleViewportChange);
 
         let highlighted = -1;
 
