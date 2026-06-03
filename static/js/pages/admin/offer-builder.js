@@ -482,7 +482,7 @@ function getSectionTemplate(type) {
                                     <small style="opacity: 0.7; display: block; margin-top: 4px;">Dodawany przez "KUP PEŁNY SET"</small>
                                 </label>
                                 <div class="custom-select-wrapper">
-                                    <select class="form-select set-product-select" onchange="markDirty(); updateSetProductPreview(this)">
+                                    <select class="form-select set-product-select searchable-select" onchange="markDirty(); updateSetProductPreview(this)">
                                         <option value="">Wybierz produkt...</option>
                                         ${productOptions}
                                     </select>
