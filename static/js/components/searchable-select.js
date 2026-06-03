@@ -67,7 +67,7 @@
 
         const empty = document.createElement('li');
         empty.className = 'searchable-select-empty';
-        empty.textContent = 'Brak wynikow';
+        empty.textContent = 'Brak wyników';
         empty.style.display = 'none';
         list.appendChild(empty);
 
