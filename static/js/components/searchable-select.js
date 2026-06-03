@@ -31,7 +31,9 @@
         }
     }
 
-    // Pozycjonuje panel (fixed) pod triggerem; jeśli brakuje miejsca pod, otwiera nad.
+    // Pozycjonuje panel (fixed) względem triggera. Otwiera pod triggerem, gdy
+    // pełna lista się tam mieści; jeśli nie, a nad jest miejsce — otwiera nad.
+    // Gdy nigdzie się nie mieści, wybiera stronę z większą przestrzenią (scroll).
     function positionPanel(wrapper, panel) {
         const rect = wrapper.getBoundingClientRect();
         const gap = 4;
@@ -42,13 +44,24 @@
         panel.style.left = rect.left + 'px';
         panel.style.width = rect.width + 'px';
 
-        if (spaceBelow < 160 && spaceAbove > spaceBelow) {
-            // Otwórz nad triggerem
+        // Zmierz naturalną wysokość zawartości (bez ograniczenia), ograniczoną do maxH.
+        panel.style.maxHeight = 'none';
+        const desired = Math.min(panel.scrollHeight, maxH);
+
+        let openAbove;
+        if (desired <= spaceBelow) {
+            openAbove = false;          // mieści się pod
+        } else if (desired <= spaceAbove) {
+            openAbove = true;           // nie mieści się pod, ale mieści się nad
+        } else {
+            openAbove = spaceAbove > spaceBelow;  // nigdzie — wybierz większą stronę
+        }
+
+        if (openAbove) {
             panel.style.top = '';
             panel.style.bottom = (window.innerHeight - rect.top + gap) + 'px';
             panel.style.maxHeight = Math.min(maxH, spaceAbove) + 'px';
         } else {
-            // Otwórz pod triggerem
             panel.style.bottom = '';
             panel.style.top = (rect.bottom + gap) + 'px';
             panel.style.maxHeight = Math.min(maxH, spaceBelow) + 'px';
