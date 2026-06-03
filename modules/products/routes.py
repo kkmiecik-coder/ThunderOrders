@@ -473,7 +473,8 @@ def edit_product(product_id):
                         'sku': p.sku or '',
                         'image_url': image_url,
                         'series': p.series.name if p.series else 'Brak serii',
-                        'type': p.product_type.name if p.product_type else 'Brak typu'
+                        'type': p.product_type.name if p.product_type else 'Brak typu',
+                        'price': float(p.sale_price) if p.sale_price else 0.0
                     })
                     current_app.logger.info(f"[VARIANT GROUPS]   - Added to group_products")
                 else:
