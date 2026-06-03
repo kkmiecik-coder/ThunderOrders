@@ -4,11 +4,15 @@
  * pokazuje się panel z inputem wyszukiwarki i listą opcji budowaną na żywo z selecta.
  * Wybór ustawia select.value, dispatchuje natywny 'change' i aktualizuje tekst triggera.
  * Cała logika na delegacji zdarzeń -> działa dla dynamicznie dodawanych sekcji.
+ *
+ * Panel jest renderowany w <body> z position:fixed i pozycjonowany pod triggerem,
+ * żeby nie był przycinany przez kontenery z overflow:hidden (np. .section-card).
  */
 (function () {
     'use strict';
 
     let openWrapper = null;
+    let openPanelEl = null;
 
     function getSelect(wrapper) {
         return wrapper.querySelector('select.searchable-select');
@@ -27,12 +31,53 @@
         }
     }
 
+    // Pozycjonuje panel (fixed) pod triggerem; jeśli brakuje miejsca pod, otwiera nad.
+    function positionPanel(wrapper, panel) {
+        const rect = wrapper.getBoundingClientRect();
+        const gap = 4;
+        const maxH = 280;
+        const spaceBelow = window.innerHeight - rect.bottom - gap;
+        const spaceAbove = rect.top - gap;
+
+        panel.style.left = rect.left + 'px';
+        panel.style.width = rect.width + 'px';
+
+        if (spaceBelow < 160 && spaceAbove > spaceBelow) {
+            // Otwórz nad triggerem
+            panel.style.top = '';
+            panel.style.bottom = (window.innerHeight - rect.top + gap) + 'px';
+            panel.style.maxHeight = Math.min(maxH, spaceAbove) + 'px';
+        } else {
+            // Otwórz pod triggerem
+            panel.style.bottom = '';
+            panel.style.top = (rect.bottom + gap) + 'px';
+            panel.style.maxHeight = Math.min(maxH, spaceBelow) + 'px';
+        }
+    }
+
+    // Przy scrollu/resize: przesuń panel za triggerem; zamknij dopiero gdy
+    // trigger wyjdzie poza widok. Dzięki temu scroll w samej liście opcji
+    // (ani scroll strony) nie zamyka panelu.
+    function handleViewportChange() {
+        if (!openWrapper || !openPanelEl) return;
+        const rect = openWrapper.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+            closePanel();
+            return;
+        }
+        positionPanel(openWrapper, openPanelEl);
+    }
+
     function closePanel() {
         if (!openWrapper) return;
-        const panel = openWrapper.querySelector('.searchable-select-panel');
-        if (panel) panel.remove();
+        if (openPanelEl && openPanelEl.parentNode) {
+            openPanelEl.parentNode.removeChild(openPanelEl);
+        }
         openWrapper.classList.remove('is-open');
+        window.removeEventListener('scroll', handleViewportChange, true);
+        window.removeEventListener('resize', handleViewportChange);
         openWrapper = null;
+        openPanelEl = null;
     }
 
     function openPanel(wrapper) {
@@ -73,10 +118,18 @@
 
         panel.appendChild(searchWrap);
         panel.appendChild(list);
-        wrapper.appendChild(panel);
+        document.body.appendChild(panel);
         wrapper.classList.add('is-open');
         openWrapper = wrapper;
+        openPanelEl = panel;
+
+        positionPanel(wrapper, panel);
         input.focus();
+
+        // Panel jest fixed -> przy scrollu/resize repozycjonuj go za triggerem.
+        // 'true' = faza przechwytywania, żeby łapać też scroll zagnieżdżonych kontenerów.
+        window.addEventListener('scroll', handleViewportChange, true);
+        window.addEventListener('resize', handleViewportChange);
 
         let highlighted = -1;
 

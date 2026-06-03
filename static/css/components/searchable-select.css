@@ -18,20 +18,19 @@
     transform: rotate(180deg);
 }
 
-/* Panel */
+/* Panel — renderowany w <body> (position:fixed), pozycja ustawiana w JS,
+   żeby uciec spod kontenerów z overflow:hidden (np. .section-card). */
 .searchable-select-panel {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 50;
+    position: fixed;
+    z-index: 2000;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     max-height: 280px;
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
     overflow: hidden;
 }
 
@@ -90,8 +89,7 @@
 
 /* Dark mode */
 [data-theme="dark"] .searchable-select-panel {
-    background: rgba(30, 20, 40, 0.98);
-    backdrop-filter: blur(12px);
+    background: #241a2e;
     border-color: rgba(240, 147, 251, 0.25);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
