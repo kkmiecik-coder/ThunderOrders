@@ -4,11 +4,15 @@
  * pokazuje się panel z inputem wyszukiwarki i listą opcji budowaną na żywo z selecta.
  * Wybór ustawia select.value, dispatchuje natywny 'change' i aktualizuje tekst triggera.
  * Cała logika na delegacji zdarzeń -> działa dla dynamicznie dodawanych sekcji.
+ *
+ * Panel jest renderowany w <body> z position:fixed i pozycjonowany pod triggerem,
+ * żeby nie był przycinany przez kontenery z overflow:hidden (np. .section-card).
  */
 (function () {
     'use strict';
 
     let openWrapper = null;
+    let openPanelEl = null;
 
     function getSelect(wrapper) {
         return wrapper.querySelector('select.searchable-select');
@@ -27,12 +31,40 @@
         }
     }
 
+    // Pozycjonuje panel (fixed) pod triggerem; jeśli brakuje miejsca pod, otwiera nad.
+    function positionPanel(wrapper, panel) {
+        const rect = wrapper.getBoundingClientRect();
+        const gap = 4;
+        const maxH = 280;
+        const spaceBelow = window.innerHeight - rect.bottom - gap;
+        const spaceAbove = rect.top - gap;
+
+        panel.style.left = rect.left + 'px';
+        panel.style.width = rect.width + 'px';
+
+        if (spaceBelow < 160 && spaceAbove > spaceBelow) {
+            // Otwórz nad triggerem
+            panel.style.top = '';
+            panel.style.bottom = (window.innerHeight - rect.top + gap) + 'px';
+            panel.style.maxHeight = Math.min(maxH, spaceAbove) + 'px';
+        } else {
+            // Otwórz pod triggerem
+            panel.style.bottom = '';
+            panel.style.top = (rect.bottom + gap) + 'px';
+            panel.style.maxHeight = Math.min(maxH, spaceBelow) + 'px';
+        }
+    }
+
     function closePanel() {
         if (!openWrapper) return;
-        const panel = openWrapper.querySelector('.searchable-select-panel');
-        if (panel) panel.remove();
+        if (openPanelEl && openPanelEl.parentNode) {
+            openPanelEl.parentNode.removeChild(openPanelEl);
+        }
         openWrapper.classList.remove('is-open');
+        window.removeEventListener('scroll', closePanel, true);
+        window.removeEventListener('resize', closePanel);
         openWrapper = null;
+        openPanelEl = null;
     }
 
     function openPanel(wrapper) {
@@ -73,10 +105,18 @@
 
         panel.appendChild(searchWrap);
         panel.appendChild(list);
-        wrapper.appendChild(panel);
+        document.body.appendChild(panel);
         wrapper.classList.add('is-open');
         openWrapper = wrapper;
+        openPanelEl = panel;
+
+        positionPanel(wrapper, panel);
         input.focus();
+
+        // Zamykaj panel przy scrollu/resize (panel jest fixed, nie podąża za stroną).
+        // 'true' = faza przechwytywania, żeby łapać scroll zagnieżdżonych kontenerów.
+        window.addEventListener('scroll', closePanel, true);
+        window.addEventListener('resize', closePanel);
 
         let highlighted = -1;
 
