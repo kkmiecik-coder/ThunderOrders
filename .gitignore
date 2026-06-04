@@ -37,3 +37,4 @@ __pycache__/
 ._*
 .AppleDouble/
 db_dumps/
+logs/

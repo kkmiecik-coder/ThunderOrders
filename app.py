@@ -64,7 +64,12 @@ def create_app(config_name=None):
     csrf.init_app(app)
     executor.init_app(app)
     limiter.init_app(app)
-    socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', ['https://thunderorders.cloud', 'http://localhost:5001'])
+    socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', [
+        'https://thunderorders.cloud',
+        'http://localhost:5001',
+        'http://localhost:8090',  # lokalny nginx (smoke/stress test)
+        'http://127.0.0.1:8090',
+    ])
     async_mode = 'eventlet' if 'eventlet' in sys.modules else 'threading'
     socketio_kwargs = dict(
         async_mode=async_mode,

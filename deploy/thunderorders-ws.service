@@ -1,0 +1,18 @@
+[Unit]
+Description=ThunderOrders Socket.IO (eventlet worker)
+After=network.target mariadb.service redis-server.service
+
+[Service]
+Type=notify
+User=konrad
+Group=konrad
+WorkingDirectory=/var/www/ThunderOrders
+Environment="PATH=/var/www/ThunderOrders/venv/bin"
+Environment="GUNICORN_LOG_DIR=/var/www/ThunderOrders/logs"
+ExecStart=/var/www/ThunderOrders/venv/bin/gunicorn -c gunicorn_ws.py wsgi_ws:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

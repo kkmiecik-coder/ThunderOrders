@@ -70,7 +70,7 @@ python-dotenv==1.0.0
 python-engineio==4.13.1
 python-socketio==5.16.1
 pytz==2025.2
-redis==8.0.0
+redis==5.3.1
 pywebpush==2.0.1
 qrcode==7.4.2
 regex==2025.9.18
