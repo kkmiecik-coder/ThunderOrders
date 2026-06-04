@@ -7,6 +7,7 @@ from flask import render_template, abort, redirect, url_for, request, jsonify, s
 from flask_login import login_required, current_user
 from extensions import db, limiter, csrf
 from flask_limiter.util import get_remote_address
+from sqlalchemy.exc import IntegrityError
 from . import offers_bp
 from .models import OfferPage
 from modules.products.models import Product, VariantGroup
@@ -839,7 +840,16 @@ def subscribe_notification(token):
     )
 
     db.session.add(subscription)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Race: drugi request usera wszedł między SELECT a INSERT
+        db.session.rollback()
+        return jsonify({
+            'success': True,
+            'already_subscribed': True,
+            'message': 'Już zapisano na powiadomienie o tym produkcie'
+        })
 
     return jsonify({
         'success': True,
