@@ -1,8 +1,12 @@
 import sys
-_is_flask_cli = bool(sys.argv) and sys.argv[0].endswith('/flask')
-if sys.platform != 'darwin' and not _is_flask_cli:
-    import eventlet
-    eventlet.monkey_patch()
+# Eventlet monkey_patch — robiony EXCLUSIVE w entry pointach:
+# - wsgi_ws.py (proces Socket.IO): tak, przed importem app
+# - wsgi.py (proces HTTP gthread): nie, gthread nie wymaga eventletu
+# - flask run (dev): nie, werkzeug devserver używa threading
+# - python app.py (direct, dev z socketio.run): patrz blok if __name__ niżej
+#
+# NIE robimy monkey_patch przy imporcie modułu app — to powoduje "RLock not
+# greened" gdy proces HTTP gthread importuje to (np. przez wsgi.py).
 
 import os
 import logging
