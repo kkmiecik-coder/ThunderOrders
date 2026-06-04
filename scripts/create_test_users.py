@@ -21,10 +21,27 @@ ADMIN_EMAIL = 'stressadmin@local.test'
 USER_EMAIL_PATTERN = 'stresstest{}@local.test'
 
 with app.app_context():
-    # Wyczyść istniejące testowe konta (idempotentność)
+    # Wyczyść powiązane dane (orders, reservations, subscriptions, etc.) przed kasowaniem userów
+    test_user_ids = [u.id for u in User.query.filter(User.email.like('stress%@local.test')).all()]
+    if test_user_ids:
+        from sqlalchemy import text
+        # Tabele zależne — kasujemy w kolejności od najgłębszych
+        for sql in [
+            "DELETE oi FROM order_items oi JOIN orders o ON oi.order_id=o.id WHERE o.user_id IN :ids",
+            "DELETE FROM offer_reservations WHERE session_id IN (SELECT session_id FROM orders WHERE user_id IN :ids)",
+            "DELETE FROM orders WHERE user_id IN :ids",
+            "DELETE FROM offer_product_notification_subscriptions WHERE user_id IN :ids",
+            "DELETE FROM activity_log WHERE user_id IN :ids",
+        ]:
+            try:
+                db.session.execute(text(sql).bindparams(ids=tuple(test_user_ids))).rowcount
+            except Exception:
+                db.session.rollback()
+        db.session.commit()
+
     deleted = User.query.filter(User.email.like('stress%@local.test')).delete(synchronize_session=False)
     db.session.commit()
-    print(f"Wyczyszczono {deleted} istniejących test userów.")
+    print(f"Wyczyszczono {deleted} istniejących test userów + ich dane.")
 
     # Stwórz admina testowego
     admin = User(
@@ -39,8 +56,8 @@ with app.app_context():
     )
     db.session.add(admin)
 
-    # Stwórz 20 zwykłych userów
-    for i in range(1, 21):
+    # Stwórz 40 zwykłych userów
+    for i in range(1, 41):
         u = User(
             email=USER_EMAIL_PATTERN.format(i),
             password_hash=generate_password_hash(PASSWORD),
