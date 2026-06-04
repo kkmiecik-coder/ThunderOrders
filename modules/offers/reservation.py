@@ -664,30 +664,49 @@ def get_availability_snapshot(page_id, section_products, session_id):
     result = {}
     now = int(time.time())
 
-    for product_id, section_max in section_products.items():
-        # Total reserved (all users) - temporary reservations
-        total_reserved = db.session.query(
+    product_ids = list(section_products.keys())
+
+    # Batch 1: total_reserved per product (1 query zamiast N)
+    total_reserved_by_pid = {}
+    if product_ids:
+        rows = db.session.query(
+            OfferReservation.product_id,
             func.sum(OfferReservation.quantity)
         ).filter(
             OfferReservation.offer_page_id == page_id,
-            OfferReservation.product_id == product_id,
+            OfferReservation.product_id.in_(product_ids),
             OfferReservation.expires_at > now
-        ).scalar() or 0
+        ).group_by(OfferReservation.product_id).all()
+        total_reserved_by_pid = {pid: int(qty or 0) for pid, qty in rows}
 
-        # Total already ordered (permanent) - from completed offer orders for this product
-        total_ordered = db.session.query(
+    # Batch 2: total_ordered per product (1 query zamiast N)
+    total_ordered_by_pid = {}
+    if product_ids:
+        rows = db.session.query(
+            OrderItem.product_id,
             func.sum(OrderItem.quantity)
         ).join(Order).filter(
             Order.offer_page_id == page_id,
             Order.status != 'anulowane',
-            OrderItem.product_id == product_id
-        ).scalar() or 0
+            OrderItem.product_id.in_(product_ids)
+        ).group_by(OrderItem.product_id).all()
+        total_ordered_by_pid = {pid: int(qty or 0) for pid, qty in rows}
 
-        # User reserved
-        user_reservation = get_user_reservation(session_id, page_id, product_id)
-        user_reserved = user_reservation.quantity if user_reservation else 0
+    # Batch 3: user reservations dla tej sesji (1 query zamiast N)
+    user_reserved_by_pid = {}
+    if session_id and product_ids:
+        user_rows = OfferReservation.query.filter(
+            OfferReservation.session_id == session_id,
+            OfferReservation.offer_page_id == page_id,
+            OfferReservation.product_id.in_(product_ids)
+        ).all()
+        user_reserved_by_pid = {r.product_id: r.quantity for r in user_rows}
 
-        # Available = max - reserved - already ordered
+    for product_id, section_max in section_products.items():
+        total_reserved = total_reserved_by_pid.get(product_id, 0)
+        total_ordered = total_ordered_by_pid.get(product_id, 0)
+        user_reserved = user_reserved_by_pid.get(product_id, 0)
+
         if section_max and section_max > 0:
             available = max(0, section_max - total_reserved - total_ordered)
         else:

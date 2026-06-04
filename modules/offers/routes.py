@@ -512,46 +512,55 @@ def availability(token):
 
     session_id = request.args.get('session_id')
 
-    # Get all products from page sections
     sections = OfferSection.query.filter_by(offer_page_id=page.id).all()
-    section_products = {}
 
+    # Pre-fetch wszystkich OfferSetItem dla sekcji typu 'set' (1 query zamiast N)
+    set_section_ids = [s.id for s in sections if s.section_type == 'set']
+    set_items_by_section = {}
+    if set_section_ids:
+        all_set_items = OfferSetItem.query.filter(
+            OfferSetItem.section_id.in_(set_section_ids)
+        ).all()
+        for item in all_set_items:
+            set_items_by_section.setdefault(item.section_id, []).append(item)
+
+    # Zbierz wszystkie variant_group_id z sekcji i z set_items
+    all_vg_ids = set()
+    for s in sections:
+        if s.section_type == 'variant_group' and s.variant_group_id:
+            all_vg_ids.add(s.variant_group_id)
+    for items in set_items_by_section.values():
+        for item in items:
+            if item.variant_group_id:
+                all_vg_ids.add(item.variant_group_id)
+
+    # Pre-fetch produktów z grup wariantów (1 query zamiast N)
+    vg_to_product_ids = {}
+    if all_vg_ids:
+        rows = Product.query.join(Product.variant_groups).filter(
+            VariantGroup.id.in_(all_vg_ids),
+            Product.is_active == True
+        ).with_entities(Product.id, VariantGroup.id).all()
+        for product_id, vg_id in rows:
+            vg_to_product_ids.setdefault(vg_id, []).append(product_id)
+
+    section_products = {}
     for section in sections:
         if section.section_type == 'product' and section.product_id:
-            # Direct product section
             section_products[section.product_id] = section.max_quantity
 
         elif section.section_type == 'variant_group' and section.variant_group_id:
-            # Variant group section - get all products from the group
-            products = Product.query.join(
-                Product.variant_groups
-            ).filter(
-                VariantGroup.id == section.variant_group_id,
-                Product.is_active == True
-            ).all()
-            for product in products:
-                section_products[product.id] = section.max_quantity
+            for product_id in vg_to_product_ids.get(section.variant_group_id, []):
+                section_products[product_id] = section.max_quantity
 
         elif section.section_type == 'set':
-            # SET section - get all products from set items
-            # ARCHITECTURE: 1 set = 1 piece of each product, all products share set_max_sets
             product_limit = section.set_max_sets
-            set_items = OfferSetItem.query.filter_by(section_id=section.id).all()
-
-            for set_item in set_items:
-                if set_item.product_id:
-                    # Direct product in set
-                    section_products[set_item.product_id] = product_limit
-                elif set_item.variant_group_id:
-                    # Variant group in set - get all products from the group
-                    vg_products = Product.query.join(
-                        Product.variant_groups
-                    ).filter(
-                        VariantGroup.id == set_item.variant_group_id,
-                        Product.is_active == True
-                    ).all()
-                    for product in vg_products:
-                        section_products[product.id] = product_limit
+            for item in set_items_by_section.get(section.id, []):
+                if item.product_id:
+                    section_products[item.product_id] = product_limit
+                elif item.variant_group_id:
+                    for product_id in vg_to_product_ids.get(item.variant_group_id, []):
+                        section_products[product_id] = product_limit
 
     products_data, session_info = get_availability_snapshot(
         page_id=page.id,
