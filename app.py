@@ -12,7 +12,7 @@ import os
 import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort
+from flask import Flask, render_template, redirect, url_for as flask_url_for, request, abort, jsonify
 from werkzeug.middleware.proxy_fix import ProxyFix
 url_for = flask_url_for  # alias dla reszty kodu w app.py
 
