@@ -16,40 +16,24 @@ from flask import request as flask_request
 from flask_socketio import join_room, leave_room, emit
 
 from extensions import socketio, db
+from .redis_state import get_state
 
 # =============================================
-# STRUKTURY TRACKINGU POŁĄCZEŃ
+# SHARED STATE — Redis (z fallbackiem na in-memory)
 # =============================================
+# Wszystkie struktury per-page (visitors, admins, reservation dedup, last availability)
+# są w Redis przez warstwę redis_state.py. Backend ma własne lockowanie więc
+# zewnętrzne locki nie są potrzebne.
+#
+# WYJĄTKI (zostają per-worker, bo to obiekty Python a nie dane):
+# - _expiry_timers (threading.Timer per page) — każdy worker odpala swój timer,
+#   to OK bo finalnie i tak rezerwacja ma TTL w DB i Redis-state
+# - _broadcast_threads, _broadcast_stop_events (visitor count broadcast loops) —
+#   per worker, dedup w przyszłości przez SETNX(broadcast_owner:{page_id})
 
-# Tracking odwiedzających per strona offer
-# Struktura: { page_id: { 'countdown': set(sid), 'order': set(sid) } }
-_visitor_rooms = {}
-_visitor_lock = threading.Lock()
-
-# Połączenia adminów per strona
-# Struktura: { page_id: set(sid) }
-_admin_rooms = {}
-_admin_lock = threading.Lock()
-
-# Mapping sid → { page_id, role ('countdown'|'order'|'admin'|'reservation') }
-_connected_clients = {}
-
-# Deduplikacja rezerwacji: (page_id, session_id) → sid
-_reservation_sessions = {}
-# Deduplikacja po user_id: (page_id, user_id) → sid
-_user_sessions = {}
-_reservation_lock = threading.RLock()  # RLock — reentrant, bo _cleanup_reservation_client też go używa
-
-# =============================================
-# EXPIRY TIMER — wygaszanie rezerwacji
-# =============================================
-
-# { page_id: threading.Timer }
-_expiry_timers = {}
+# Per-worker timers/threads (nie udostępniane między workerami)
+_expiry_timers = {}        # { page_id: threading.Timer }
 _expiry_lock = threading.Lock()
-
-# Ostatnia znana dostępność per strona (do detekcji zmian w powiadomieniach)
-_last_availability = {}
 
 
 # =============================================
@@ -72,12 +56,7 @@ def _get_admin_room(page_id):
 
 def _get_visitor_counts(page_id):
     """Pobiera liczbę odwiedzających i aktywnych rezerwacji dla strony."""
-    with _visitor_lock:
-        rooms = _visitor_rooms.get(page_id, {})
-        counts = {
-            'countdown': len(rooms.get('countdown', set())),
-            'order': len(rooms.get('order', set())),
-        }
+    counts = get_state().get_visitor_counts(page_id)
 
     # Aktywne rezerwacje (odświeżane przy każdym cyklu broadcastu)
     try:
@@ -132,9 +111,8 @@ def _start_broadcast_thread(page_id):
 
 def _stop_broadcast_thread(page_id):
     """Zatrzymuje wątek broadcastu jeśli nie ma więcej adminów."""
-    with _admin_lock:
-        if page_id in _admin_rooms and len(_admin_rooms[page_id]) > 0:
-            return
+    if get_state().has_admins(page_id):
+        return
 
     stop_event = _broadcast_stop_events.pop(page_id, None)
     if stop_event:
@@ -226,10 +204,9 @@ def _check_notification_subscriptions(page_id, current_availability):
     Sprawdza czy produkty, które były niedostępne, stały się ponownie dostępne.
     Jeśli tak — wysyła SocketIO push lub email fallback.
     """
-    global _last_availability
-
-    old = _last_availability.get(page_id, {})
-    _last_availability[page_id] = current_availability
+    state = get_state()
+    old = state.get_last_availability(page_id) or {}
+    state.set_last_availability(page_id, current_availability)
 
     if not old:
         return  # Pierwsza iteracja — brak porównania
@@ -270,11 +247,9 @@ def _check_notification_subscriptions(page_id, current_availability):
 
             # Sprawdź czy user ma aktywne połączenie SocketIO
             if sub.user_id:
-                key = (page_id, sub.user_id)
-                with _reservation_lock:
-                    user_sid = _user_sessions.get(key)
+                user_sid = state.get_user_session(page_id, sub.user_id)
 
-            if user_sid and user_sid in _connected_clients:
+            if user_sid and state.get_client(user_sid):
                 # Push SocketIO — user jest na stronie
                 socketio.emit('product_available', {
                     'product_id': sub.product_id,
@@ -432,13 +407,9 @@ def handle_join_offer(data):
     room = _get_visitor_room(page_id, page_type)
     join_room(room)
 
-    # Śledzenie odwiedzających
-    with _visitor_lock:
-        if page_id not in _visitor_rooms:
-            _visitor_rooms[page_id] = {'countdown': set(), 'order': set()}
-        _visitor_rooms[page_id][page_type].add(sid)
-
-    _connected_clients[sid] = {'page_id': page_id, 'role': page_type}
+    state = get_state()
+    state.add_visitor(page_id, page_type, sid)
+    state.set_client(sid, page_id, page_type)
 
     # Broadcast zaktualizowanych liczb do admina
     _broadcast_visitor_counts(page_id)
@@ -461,13 +432,9 @@ def handle_join_offer_admin(data):
     room = _get_admin_room(page_id)
     join_room(room)
 
-    # Śledzenie adminów
-    with _admin_lock:
-        if page_id not in _admin_rooms:
-            _admin_rooms[page_id] = set()
-        _admin_rooms[page_id].add(sid)
-
-    _connected_clients[sid] = {'page_id': page_id, 'role': 'admin'}
+    state = get_state()
+    state.add_admin(page_id, sid)
+    state.set_client(sid, page_id, 'admin')
 
     # Wyślij początkowe statystyki odwiedzających
     counts = _get_visitor_counts(page_id)
@@ -519,45 +486,43 @@ def handle_join_offer_reservation(data):
             return {'success': False, 'error': 'invalid_page'}
 
         transferred_from_session = None
+        state = get_state()
 
-        with _reservation_lock:
-            # Sprawdź duplikat po session_id
-            session_key = (page_id, session_id)
-            old_sid = _reservation_sessions.get(session_key)
-            if old_sid and old_sid != sid and old_sid in _connected_clients:
+        # Sprawdź duplikat po session_id
+        old_sid = state.get_reservation_session(page_id, session_id)
+        if old_sid and old_sid != sid and state.get_client(old_sid):
+            socketio.emit('force_disconnect', {
+                'reason': 'Sesja została przejęta w innej karcie.'
+            }, to=old_sid)
+            # Usuń stary SID z rooma żeby nie dostawał broadcastów
+            old_room = _get_visitor_room(page_id, 'order')
+            leave_room(old_room, sid=old_sid)
+            _cleanup_reservation_client(old_sid)
+
+        # Sprawdź duplikat po user_id (zalogowany user)
+        if user_id:
+            old_user_sid = state.get_user_session(page_id, user_id)
+            if old_user_sid and old_user_sid != sid and state.get_client(old_user_sid):
+                # Pobierz stary session_id do transferu rezerwacji
+                old_client = state.get_client(old_user_sid)
+                old_session_id = old_client.get('session_id') if old_client else None
+
                 socketio.emit('force_disconnect', {
                     'reason': 'Sesja została przejęta w innej karcie.'
-                }, to=old_sid)
+                }, to=old_user_sid)
                 # Usuń stary SID z rooma żeby nie dostawał broadcastów
                 old_room = _get_visitor_room(page_id, 'order')
-                leave_room(old_room, sid=old_sid)
-                _cleanup_reservation_client(old_sid)
+                leave_room(old_room, sid=old_user_sid)
+                _cleanup_reservation_client(old_user_sid)
 
-            # Sprawdź duplikat po user_id (zalogowany user)
-            if user_id:
-                user_key = (page_id, user_id)
-                old_user_sid = _user_sessions.get(user_key)
-                if old_user_sid and old_user_sid != sid and old_user_sid in _connected_clients:
-                    # Pobierz stary session_id do transferu rezerwacji
-                    old_client = _connected_clients.get(old_user_sid)
-                    old_session_id = old_client.get('session_id') if old_client else None
+                # Zapamiętaj stary session_id do transferu (jeśli inny niż nowy)
+                if old_session_id and old_session_id != session_id:
+                    transferred_from_session = old_session_id
 
-                    socketio.emit('force_disconnect', {
-                        'reason': 'Sesja została przejęta w innej karcie.'
-                    }, to=old_user_sid)
-                    # Usuń stary SID z rooma żeby nie dostawał broadcastów
-                    old_room = _get_visitor_room(page_id, 'order')
-                    leave_room(old_room, sid=old_user_sid)
-                    _cleanup_reservation_client(old_user_sid)
-
-                    # Zapamiętaj stary session_id do transferu (jeśli inny niż nowy)
-                    if old_session_id and old_session_id != session_id:
-                        transferred_from_session = old_session_id
-
-            # Rejestracja nowej sesji
-            _reservation_sessions[session_key] = sid
-            if user_id:
-                _user_sessions[(page_id, user_id)] = sid
+        # Rejestracja nowej sesji
+        state.set_reservation_session(page_id, session_id, sid)
+        if user_id:
+            state.set_user_session(page_id, user_id, sid)
 
         # Transfer rezerwacji ze starej sesji na nową (z lockowaniem DB)
         if transferred_from_session:
@@ -603,18 +568,9 @@ def handle_join_offer_reservation(data):
         join_room(room)
 
         # Śledzenie (nadpisz jeśli był visitor)
-        _connected_clients[sid] = {
-            'page_id': page_id,
-            'role': 'reservation',
-            'session_id': session_id,
-            'user_id': user_id,
-        }
-
-        # Śledzenie odwiedzających (reuse handle_join_offer)
-        with _visitor_lock:
-            if page_id not in _visitor_rooms:
-                _visitor_rooms[page_id] = {'countdown': set(), 'order': set()}
-            _visitor_rooms[page_id]['order'].add(sid)
+        state.set_client(sid, page_id, 'reservation',
+                         session_id=session_id, user_id=user_id)
+        state.add_visitor(page_id, 'order', sid)
 
         _broadcast_visitor_counts(page_id)
 
@@ -674,7 +630,7 @@ def handle_reserve_product(data):
     quantity = int(quantity)
 
     # Walidacja — czy ten sid jest zarejestrowany
-    client = _connected_clients.get(sid)
+    client = get_state().get_client(sid)
     if not client or client.get('role') != 'reservation':
         return {'success': False, 'error': 'not_connected'}
 
@@ -740,7 +696,7 @@ def handle_release_product(data):
     product_id = int(product_id)
     quantity = int(quantity)
 
-    client = _connected_clients.get(sid)
+    client = get_state().get_client(sid)
     if not client or client.get('role') != 'reservation':
         return
 
@@ -776,7 +732,7 @@ def handle_extend_reservation(data):
     # Normalizacja typów
     page_id = int(page_id)
 
-    client = _connected_clients.get(sid)
+    client = get_state().get_client(sid)
     if not client or client.get('role') != 'reservation':
         return {'success': False, 'error': 'not_connected'}
 
@@ -831,40 +787,32 @@ def _cleanup_reservation_client(sid):
     Uwaga: disconnect NIE usuwa rezerwacji z bazy —
     wygasają naturalnie po expires_at.
     """
-    client = _connected_clients.pop(sid, None)
+    state = get_state()
+    client = state.get_client(sid)
     if not client:
         return
 
     page_id = client.get('page_id')
     role = client.get('role')
 
+    state.del_client(sid)
+
     # Cleanup z dedup map
     if role == 'reservation':
         session_id = client.get('session_id')
         user_id = client.get('user_id')
 
-        with _reservation_lock:
-            if session_id:
-                key = (page_id, session_id)
-                if _reservation_sessions.get(key) == sid:
-                    del _reservation_sessions[key]
+        if session_id and state.get_reservation_session(page_id, session_id) == sid:
+            state.del_reservation_session(page_id, session_id)
 
-            if user_id:
-                key = (page_id, user_id)
-                if _user_sessions.get(key) == sid:
-                    del _user_sessions[key]
+        if user_id and state.get_user_session(page_id, user_id) == sid:
+            state.del_user_session(page_id, user_id)
 
     # Cleanup visitor tracking (usunięcie z licznika odwiedzających)
     if page_id:
         room_role = 'order' if role == 'reservation' else role
         if room_role in ('countdown', 'order'):
-            with _visitor_lock:
-                if page_id in _visitor_rooms and room_role in _visitor_rooms[page_id]:
-                    _visitor_rooms[page_id][room_role].discard(sid)
-
-                    if (not _visitor_rooms[page_id].get('countdown') and
-                            not _visitor_rooms[page_id].get('order')):
-                        del _visitor_rooms[page_id]
+            state.remove_visitor(page_id, room_role, sid)
 
 
 def handle_offer_disconnect(sid=None):
@@ -876,7 +824,8 @@ def handle_offer_disconnect(sid=None):
     """
     if sid is None:
         sid = flask_request.sid
-    client = _connected_clients.get(sid)
+    state = get_state()
+    client = state.get_client(sid)
     if not client:
         return
 
@@ -894,13 +843,8 @@ def handle_offer_disconnect(sid=None):
         _broadcast_visitor_counts(page_id)
 
     elif role == 'admin':
-        # Usunięcie admina
-        _connected_clients.pop(sid, None)
-        with _admin_lock:
-            if page_id in _admin_rooms:
-                _admin_rooms[page_id].discard(sid)
-                if not _admin_rooms[page_id]:
-                    del _admin_rooms[page_id]
+        state.del_client(sid)
+        state.remove_admin(page_id, sid)
 
         # Zatrzymaj broadcast jeśli brak adminów
         _stop_broadcast_thread(page_id)

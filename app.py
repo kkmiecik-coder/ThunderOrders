@@ -96,6 +96,12 @@ def create_app(config_name=None):
     # Rejestracja blueprintów (modułów)
     register_blueprints(app)
 
+    # Shared state w Redis (z fallbackiem na in-memory).
+    # Init PO register_blueprints, bo modules.offers.__init__ ładuje routes
+    # które mają wewnętrzne zależności (uniknięcie circular import).
+    from modules.offers.redis_state import init_state
+    init_state(app.config.get('REDIS_URL'))
+
     # Error handlers (strony błędów)
     register_error_handlers(app)
 
