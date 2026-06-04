@@ -167,36 +167,48 @@ def broadcast_availability_update(page_id):
 
     section_products = get_section_products_map(page_id)
     now = int(time.time())
+    product_ids = list(section_products.keys())
     products_data = {}
 
-    for product_id, section_max in section_products.items():
-        # Suma zarezerwowanych (wszystkich)
-        total_reserved = db.session.query(
+    # Batch: total_reserved per product (1 query zamiast N)
+    total_reserved_by_pid = {}
+    if product_ids:
+        rows = db.session.query(
+            OfferReservation.product_id,
             func.sum(OfferReservation.quantity)
         ).filter(
             OfferReservation.offer_page_id == page_id,
-            OfferReservation.product_id == product_id,
+            OfferReservation.product_id.in_(product_ids),
             OfferReservation.expires_at > now
-        ).scalar() or 0
+        ).group_by(OfferReservation.product_id).all()
+        total_reserved_by_pid = {pid: int(qty or 0) for pid, qty in rows}
 
-        # Suma zamówionych (permanentne)
-        total_ordered = db.session.query(
+    # Batch: total_ordered per product (1 query zamiast N)
+    total_ordered_by_pid = {}
+    if product_ids:
+        rows = db.session.query(
+            OrderItem.product_id,
             func.sum(OrderItem.quantity)
         ).join(Order).filter(
             Order.offer_page_id == page_id,
             Order.status != 'anulowane',
-            OrderItem.product_id == product_id
-        ).scalar() or 0
+            OrderItem.product_id.in_(product_ids)
+        ).group_by(OrderItem.product_id).all()
+        total_ordered_by_pid = {pid: int(qty or 0) for pid, qty in rows}
+
+    for product_id, section_max in section_products.items():
+        total_reserved = total_reserved_by_pid.get(product_id, 0)
+        total_ordered = total_ordered_by_pid.get(product_id, 0)
 
         if section_max and section_max > 0:
-            available = max(0, section_max - int(total_reserved) - int(total_ordered))
+            available = max(0, section_max - total_reserved - total_ordered)
         else:
             available = 999999  # Bez limitu
 
         products_data[str(product_id)] = {
             'available': available,
-            'total_reserved': int(total_reserved),
-            'total_ordered': int(total_ordered),
+            'total_reserved': total_reserved,
+            'total_ordered': total_ordered,
         }
 
     room = _get_visitor_room(page_id, 'order')
