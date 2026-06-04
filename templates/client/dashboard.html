@@ -989,11 +989,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Add new rows as buffered (hidden)
                     data.pages.forEach(page => {
                         // Add table row
+                        // Uwaga: <tr>/<td> wstawione do innerHTML zwykłego <div> są
+                        // usuwane przez parser HTML (dozwolone tylko wewnątrz <table>),
+                        // co rozbijało wiersz na gołe <span>-y. <template> parsuje
+                        // samodzielny <tr> poprawnie.
                         if (tableBody) {
-                            const rowHTML = createTableRowHTML(page);
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = rowHTML;
-                            const newRow = tempDiv.firstElementChild;
+                            const tpl = document.createElement('template');
+                            tpl.innerHTML = createTableRowHTML(page).trim();
+                            const newRow = tpl.content.firstElementChild;
                             newRow.classList.add('offer-buffered');
                             newRow.style.display = 'none';
                             tableBody.appendChild(newRow);
