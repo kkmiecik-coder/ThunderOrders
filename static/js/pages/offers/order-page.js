@@ -1426,7 +1426,7 @@ function decreaseQtyWithReservation(btn) {
     }
 }
 
-// Polling dostępności — FALLBACK gdy SocketIO niedostępne (co 1s)
+// Polling dostępności — FALLBACK gdy SocketIO niedostępne (co 3s, redukcja obciążenia)
 function startPolling() {
     if (reservationState.pollingInterval) return;
     // Nie uruchamiaj jeśli socket jest gotowy
@@ -1442,7 +1442,7 @@ function startPolling() {
             return;
         }
         await checkAvailability();
-    }, 1000);
+    }, 3000);
 }
 
 async function checkAvailability() {
