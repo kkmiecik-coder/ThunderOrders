@@ -22,8 +22,18 @@
         document.getElementById('cookieBanner').style.display = 'block';
     }
 
+    // Aktualizacja zgody w Google Consent Mode v2 (skrypt GA jest już załadowany)
+    function updateAnalyticsConsent(granted) {
+        if (typeof window.gtag === 'function') {
+            window.gtag('consent', 'update', {
+                'analytics_storage': granted ? 'granted' : 'denied'
+            });
+        }
+    }
+
     // Akceptuj
     document.getElementById('cookieAccept')?.addEventListener('click', function() {
+        updateAnalyticsConsent(true);
         {% if current_user.is_authenticated %}
             // Zapisz zgodę w bazie
             fetch('/api/analytics-consent', {
@@ -34,23 +44,18 @@
                 },
                 body: JSON.stringify({ consent: true })
             }).then(() => {
-                if (typeof loadGoogleAnalytics === 'function') {
-                    loadGoogleAnalytics();
-                }
                 document.getElementById('cookieBanner').style.display = 'none';
             });
         {% else %}
             // Gość → localStorage
             localStorage.setItem('analytics_consent', 'accepted');
-            if (typeof loadGoogleAnalytics === 'function') {
-                loadGoogleAnalytics();
-            }
             document.getElementById('cookieBanner').style.display = 'none';
         {% endif %}
     });
 
     // Odrzuć
     document.getElementById('cookieReject')?.addEventListener('click', function() {
+        updateAnalyticsConsent(false);
         {% if current_user.is_authenticated %}
             fetch('/api/analytics-consent', {
                 method: 'POST',

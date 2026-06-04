@@ -70,6 +70,11 @@
                 cartData = data;
                 renderItems(data.items);
                 updateSummary(data);
+
+                // GA4: begin_checkout (wejście na stronę checkout z produktami)
+                if (typeof window.trackBeginCheckout === 'function' && data.items && data.items.length) {
+                    window.trackBeginCheckout(gaItemsFromCart(data.items), data.total);
+                }
             })
             .catch(function () {
                 if (loadingEl) loadingEl.textContent = 'Błąd ładowania koszyka.';
@@ -158,6 +163,15 @@
                 .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
                 .then(function (res) {
                     if (res.data.success) {
+                        // GA4: purchase (items[] z backendu, przed przekierowaniem)
+                        if (typeof window.trackOrderPlaced === 'function') {
+                            window.trackOrderPlaced(
+                                res.data.order_number,
+                                res.data.total_amount,
+                                res.data.items || [],
+                                'standard'
+                            );
+                        }
                         window.location.href = res.data.redirect_url;
                     } else {
                         // Show errors
@@ -182,6 +196,17 @@
     }
 
     // --- Helpers ---
+    function gaItemsFromCart(items) {
+        return (items || []).map(function (it) {
+            return {
+                item_id: it.product_id || it.sku || it.id || '',
+                item_name: it.name || '',
+                price: Number(it.price || 0),
+                quantity: Number(it.quantity || 1),
+            };
+        });
+    }
+
     function formatPrice(val) {
         return Number(val).toFixed(2).replace('.', ',');
     }

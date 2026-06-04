@@ -4,6 +4,56 @@
  */
 
 // ============================================
+// Google Analytics 4 — Ecommerce funnel helpers
+// ============================================
+function buildGaItemsFromCart() {
+    return cart.map(item => ({
+        item_id: item.product_id,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+    }));
+}
+
+// view_item_list best-effort z DOM: karty produktów, zestawy (.set-item), warianty (.variant-product)
+function collectOfferItems() {
+    const items = [];
+    const seen = new Set();
+
+    function readPrice(el) {
+        if (!el) return 0;
+        const parsed = parseFloat(el.textContent.replace(/[^\d.,]/g, '').replace(',', '.'));
+        return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function addFrom(selector, nameSel, priceSels) {
+        document.querySelectorAll(selector).forEach(el => {
+            const id = el.dataset.productId;
+            if (!id || seen.has(id)) return;
+            seen.add(id);
+            const nameEl = el.querySelector(nameSel);
+            let priceEl = null;
+            for (const s of priceSels) { priceEl = el.querySelector(s); if (priceEl) break; }
+            items.push({ item_id: id, item_name: nameEl ? nameEl.textContent.trim() : '', price: readPrice(priceEl), quantity: 1 });
+        });
+    }
+
+    addFrom('.section-product', '.product-name', ['.product-price']);
+    addFrom('.set-item[data-product-id]', '.set-item-name', ['.set-item-price', '.set-item-price-mobile']);
+    addFrom('.variant-product[data-product-id]', '.variant-product-name', ['.variant-product-price']);
+    return items;
+}
+
+function trackPreorderPageViewed() {
+    if (typeof window.trackOfferPageView === 'function' && window.offerToken && window.offerName) {
+        window.trackOfferPageView(window.offerToken, window.offerName);
+    }
+    if (typeof window.trackViewItemList === 'function') {
+        window.trackViewItemList(collectOfferItems(), window.offerName || 'Preorder');
+    }
+}
+
+// ============================================
 // Set Image Toggle (shared with exclusive)
 // ============================================
 function toggleSetImage(el) {
@@ -44,6 +94,9 @@ document.addEventListener('DOMContentLoaded', function() {
     loadCart();
     updateCartUI();
     initLightbox();
+
+    // GA4: view_item_list + view_offer_page
+    trackPreorderPageViewed();
 });
 
 // ============================================
@@ -111,6 +164,11 @@ function addToPreorderCart(productId, productName, price, btn) {
 
     // Reset qty input
     if (qtyInput) qtyInput.value = 1;
+
+    // GA4: add_to_cart
+    if (typeof window.trackAddToCart === 'function') {
+        window.trackAddToCart(productName, productId, parseFloat(price), qty);
+    }
 
     // Visual feedback
     const originalHTML = btn.innerHTML;
@@ -305,6 +363,12 @@ function openOrderModal() {
     if (cart.length === 0) return;
     const modal = document.getElementById('orderModal');
     if (modal) modal.classList.add('active');
+
+    // GA4: begin_checkout
+    if (typeof window.trackBeginCheckout === 'function') {
+        const value = cart.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        window.trackBeginCheckout(buildGaItemsFromCart(), value);
+    }
 }
 
 function closeOrderModal() {
@@ -366,9 +430,9 @@ async function submitOrder() {
 
             updateCartUI();
 
-            // Track with GA4
+            // Track with GA4 (purchase z items[] z backendu — koszyk jest już wyczyszczony)
             if (typeof window.trackOrderPlaced === 'function') {
-                window.trackOrderPlaced(data.order_number, data.total_amount, getCartItemCount(), 'preorder');
+                window.trackOrderPlaced(data.order_number, data.total_amount, data.items || [], 'preorder');
             }
         } else {
             alert(data.message || data.error || 'Wystąpił błąd podczas składania zamówienia.');

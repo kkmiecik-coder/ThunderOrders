@@ -1184,6 +1184,16 @@ def register_context_processors(app):
         return flask_url_for(endpoint, **values)
 
     @app.context_processor
+    def inject_ga_pending_event():
+        """
+        Jednorazowy event GA4 (np. login / sign_up) ustawiony po stronie serwera
+        przy redirectach (POST→redirect). Zdejmowany z sesji przy renderze następnej
+        strony i emitowany w components/ga4_head.html.
+        """
+        from flask import session
+        return {'ga_pending_event': session.pop('ga_pending_event', None)}
+
+    @app.context_processor
     def inject_globals():
         """Wstrzykuje zmienne globalne do wszystkich szablonów"""
         from modules.payments.models import PaymentMethod

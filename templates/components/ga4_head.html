@@ -1,0 +1,49 @@
+{# Google Analytics 4 (GA4) + Google Consent Mode v2 (RODO) #}
+{# Wspólny partial dla wszystkich <head> — jedno źródło prawdy. #}
+{% if config.GA_MEASUREMENT_ID %}
+<script>
+    // dataLayer + gtag definiowane SYNCHRONICZNIE — eliminuje gubienie wczesnych eventów.
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    window.gtag = gtag;
+
+    // Consent Mode v2 — domyślnie wszystko ZABRONIONE (przed zgodą: pingi cookieless).
+    gtag('consent', 'default', {
+        'ad_storage': 'denied',
+        'ad_user_data': 'denied',
+        'ad_personalization': 'denied',
+        'analytics_storage': 'denied',
+        'wait_for_update': 500
+    });
+
+    gtag('js', new Date());
+    gtag('config', '{{ config.GA_MEASUREMENT_ID }}', {
+        'anonymize_ip': true,
+        'cookie_flags': 'SameSite=None;Secure'
+    });
+
+    // Zastosuj zapisaną zgodę użytkownika.
+    {% if current_user.is_authenticated %}
+        {% if current_user.analytics_consent %}
+            gtag('consent', 'update', { 'analytics_storage': 'granted' });
+        {% elif current_user.should_show_cookie_banner %}
+            window.showCookieBanner = true;
+        {% endif %}
+    {% else %}
+        (function() {
+            var consent = localStorage.getItem('analytics_consent');
+            if (consent === 'accepted') {
+                gtag('consent', 'update', { 'analytics_storage': 'granted' });
+            } else if (consent !== 'rejected') {
+                window.showCookieBanner = true;
+            }
+        })();
+    {% endif %}
+
+    {# Jednorazowy event serwerowy (login / sign_up) po redirectach #}
+    {% if ga_pending_event %}
+        gtag('event', {{ ga_pending_event.name | tojson }}, {{ ga_pending_event.params | tojson }});
+    {% endif %}
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ config.GA_MEASUREMENT_ID }}"></script>
+{% endif %}

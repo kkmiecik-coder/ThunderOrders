@@ -6,25 +6,78 @@
 // ============================================
 // Google Analytics Tracking Helpers
 // ============================================
+// Zbiera produkty widoczne na stronie oferty do view_item_list (best-effort z DOM).
+// Obsługuje karty produktów, produkty w zestawach (.set-item) i wariantach (.variant-product).
+function collectOfferItems() {
+    const items = [];
+    const seen = new Set();
+
+    function readPrice(el) {
+        if (!el) return 0;
+        const parsed = parseFloat(el.textContent.replace(/[^\d.,]/g, '').replace(',', '.'));
+        return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function addFrom(selector, nameSel, priceSels) {
+        document.querySelectorAll(selector).forEach(el => {
+            const id = el.dataset.productId;
+            if (!id || seen.has(id)) return;
+            seen.add(id);
+            const nameEl = el.querySelector(nameSel);
+            let priceEl = null;
+            for (const s of priceSels) { priceEl = el.querySelector(s); if (priceEl) break; }
+            items.push({ item_id: id, item_name: nameEl ? nameEl.textContent.trim() : '', price: readPrice(priceEl), quantity: 1 });
+        });
+    }
+
+    addFrom('.section-product', '.product-name', ['.product-price']);
+    addFrom('.set-item[data-product-id]', '.set-item-name', ['.set-item-price', '.set-item-price-mobile']);
+    addFrom('.variant-product[data-product-id]', '.variant-product-name', ['.variant-product-price']);
+    return items;
+}
+
+// Buduje items[] (format GA4) z aktualnego koszyka
+function buildGaItemsFromCart() {
+    return cart.map(item => ({
+        item_id: item.productId,
+        item_name: item.name,
+        price: item.price,
+        quantity: item.qty,
+    }));
+}
+
 function trackOfferPageViewed() {
-    // Track page view with offer page info
+    // Custom event (zachowany) + GA4 view_item_list (lista produktów oferty)
     if (typeof window.trackOfferPageView === 'function' && window.offerToken && window.offerName) {
         window.trackOfferPageView(window.offerToken, window.offerName);
+    }
+    if (typeof window.trackViewItemList === 'function') {
+        window.trackViewItemList(collectOfferItems(), window.offerName || 'Oferta');
     }
 }
 
 function trackProductAddedToCart(productName, productId, price, quantity) {
-    // Track add to cart event
+    // GA4 add_to_cart (z items[])
     if (typeof window.trackAddToCart === 'function') {
         window.trackAddToCart(productName, productId, price, quantity);
     }
 }
 
-function trackOrderSubmitted(orderNumber, totalAmount) {
-    // Track order placement
+function trackCheckoutStarted() {
+    // GA4 begin_checkout — otwarcie modala zamówienia
+    if (typeof window.trackBeginCheckout === 'function' && cart.length > 0) {
+        const value = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
+        window.trackBeginCheckout(buildGaItemsFromCart(), value);
+    }
+}
+
+function trackOrderSubmitted(responseData, totalAmount) {
+    // GA4 purchase — preferuj items[] z backendu, fallback na koszyk
     if (typeof window.trackOrderPlaced === 'function') {
-        const itemsCount = cart.reduce((sum, item) => sum + item.qty, 0);
-        window.trackOrderPlaced(orderNumber, totalAmount, itemsCount, 'offer');
+        const items = (responseData && Array.isArray(responseData.items) && responseData.items.length)
+            ? responseData.items
+            : buildGaItemsFromCart();
+        window.trackOrderPlaced(responseData.order_number, totalAmount, items, 'exclusive');
     }
 }
 
@@ -471,6 +524,9 @@ function openOrderModal() {
     }
     const modal = document.getElementById('orderModal');
     modal.classList.add('active');
+
+    // GA4: begin_checkout
+    trackCheckoutStarted();
 }
 
 function closeOrderModal() {
@@ -746,9 +802,9 @@ async function submitOrder() {
         const data = await response.json();
 
         if (data.success) {
-            // GA4: Track order submission
+            // GA4: Track order submission (purchase z items[] z backendu)
             const totalAmount = cart.reduce((sum, item) => sum + (item.qty * item.price), 0);
-            trackOrderSubmitted(data.order_number, totalAmount);
+            trackOrderSubmitted(data, totalAmount);
 
             // Clear localStorage reservation (storage key set by template)
             localStorage.removeItem(window.reservationStorageKey);

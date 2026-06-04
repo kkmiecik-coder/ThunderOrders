@@ -429,6 +429,9 @@ function submitShippingRequest() {
         submitBtn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; border-width: 2px;"></div> Tworzenie...';
     }
 
+    // Liczba zamówień (zapisana przed wysłaniem — dla GA4)
+    const ordersCount = selectedOrders.length;
+
     // Submit request
     fetch('/client/shipping/requests/create', {
         method: 'POST',
@@ -444,6 +447,10 @@ function submitShippingRequest() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // GA4: shipping_requested
+            if (typeof window.trackShippingRequested === 'function') {
+                window.trackShippingRequested(ordersCount);
+            }
             showToast('Zlecenie wysyłki zostało utworzone', 'success');
             closeCreateModal();
             // Reload page to refresh the list

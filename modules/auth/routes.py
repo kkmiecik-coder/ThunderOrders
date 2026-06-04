@@ -205,6 +205,9 @@ def login():
         user.update_login_streak()
         record_login_attempt(email, ip_address, success=True)
 
+        # GA4: event login po przeładowaniu strony
+        session['ga_pending_event'] = {'name': 'login', 'params': {'method': 'email'}}
+
         return jsonify({
             'success': True,
             'user': {
@@ -265,6 +268,9 @@ def login():
         user.update_last_login()
         user.update_login_streak()
         record_login_attempt(email, ip_address, success=True)
+
+        # GA4: event login po przeładowaniu strony
+        session['ga_pending_event'] = {'name': 'login', 'params': {'method': 'email'}}
 
         # Sprawdź czy profil jest kompletny
         if not user.profile_completed:
@@ -580,6 +586,9 @@ def verify_email_code(token):
             # Wyślij email powitalny
             from utils.email_manager import EmailManager
             EmailManager.send_welcome(user)
+
+            # GA4: event sign_up (rejestracja zakończona po weryfikacji email)
+            session['ga_pending_event'] = {'name': 'sign_up', 'params': {'method': 'email'}}
 
             if is_ajax:
                 return jsonify({

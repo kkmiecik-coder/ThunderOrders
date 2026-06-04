@@ -25,6 +25,29 @@ logger = logging.getLogger(__name__)
 _PLACE_ORDER_MAX_DEADLOCK_RETRIES = 3
 
 
+def build_ga_items(order_id):
+    """
+    Buduje listę pozycji zamówienia w formacie GA4 Enhanced Ecommerce (items[]).
+    Wywoływane po commit — czyta pozycje z bazy joinując Product (nazwa + SKU).
+    """
+    from modules.products.models import Product
+    rows = (
+        db.session.query(OrderItem, Product)
+        .join(Product, OrderItem.product_id == Product.id)
+        .filter(OrderItem.order_id == order_id)
+        .all()
+    )
+    items = []
+    for order_item, product in rows:
+        items.append({
+            'item_id': product.sku or str(product.id),
+            'item_name': product.name,
+            'price': float(order_item.price or 0),
+            'quantity': int(order_item.quantity or 0),
+        })
+    return items
+
+
 def _is_deadlock(exc):
     """Sprawdza czy wyjątek to MySQL deadlock (errno 1213)."""
     msg = str(exc).lower()
@@ -684,6 +707,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         'order_number': order.order_number,
         'total_amount': float(order.total_amount),
         'items_count': total_items_count,
+        'items': build_ga_items(order.id),
     }
 
 
@@ -929,4 +953,5 @@ def place_preorder_order(page, cart_items, order_note=None):
         'order_number': order.order_number,
         'total_amount': float(order.total_amount),
         'items_count': total_items_count,
+        'items': build_ga_items(order.id),
     }

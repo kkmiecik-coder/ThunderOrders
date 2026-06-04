@@ -712,6 +712,8 @@ def checkout_place():
 
         # 5. Create order items, decrease stock, record interaction
         # Re-validate stock with row lock to prevent race conditions
+        ga_items = []          # GA4 Enhanced Ecommerce items[]
+        total_items_count = 0
         for item in items:
             product = Product.query.with_for_update().get(item.product_id)
             if not product or product.quantity < item.quantity:
@@ -729,6 +731,14 @@ def checkout_place():
                 selected_size=selected_size,
             )
             db.session.add(order_item)
+
+            ga_items.append({
+                'item_id': product.sku or str(product.id),
+                'item_name': product.name,
+                'price': float(product.sale_price or 0),
+                'quantity': item.quantity,
+            })
+            total_items_count += item.quantity
 
             product.quantity -= item.quantity
 
@@ -788,6 +798,9 @@ def checkout_place():
             success=True,
             order_id=order.id,
             order_number=order_number,
+            total_amount=float(total),
+            items_count=total_items_count,
+            items=ga_items,
             shipping_request_number=shipping_request_number,
             redirect_url=url_for('shop.order_success', order_id=order.id),
         )
