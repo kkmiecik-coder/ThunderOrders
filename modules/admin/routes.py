@@ -245,23 +245,9 @@ def dashboard():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # Sort by priority: 1. active (LIVE), 2. scheduled, 3. ended (not closed), 4. closed, 5. paused, 6. draft
-    def get_sort_priority(page):
-        if page.status == 'active':
-            return 0
-        elif page.status == 'scheduled':
-            return 1
-        elif page.status == 'ended' and not page.is_fully_closed:
-            return 2  # Zakończona
-        elif page.status == 'ended' and page.is_fully_closed:
-            return 3  # Zamknięta
-        elif page.status == 'paused':
-            return 4
-        elif page.status == 'draft':
-            return 5
-        return 99
-
-    offer_pages_all.sort(key=get_sort_priority)
+    # Sort wyłącznie po dacie startu sprzedaży malejąco (najnowsze górą).
+    # Status nie ma znaczenia; strony bez daty startu trafiają na koniec.
+    offer_pages_all.sort(key=lambda p: -p.starts_at.timestamp() if p.starts_at else float('inf'))
 
     offer_pages = {
         'visible': offer_pages_all[:5],  # First 5 visible
@@ -535,23 +521,9 @@ def get_offer_pages():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # Sort by priority
-    def get_sort_priority(page):
-        if page.status == 'active':
-            return 0
-        elif page.status == 'scheduled':
-            return 1
-        elif page.status == 'ended' and not page.is_fully_closed:
-            return 2
-        elif page.status == 'ended' and page.is_fully_closed:
-            return 3
-        elif page.status == 'paused':
-            return 4
-        elif page.status == 'draft':
-            return 5
-        return 99
-
-    offer_pages_all.sort(key=get_sort_priority)
+    # Sort wyłącznie po dacie startu sprzedaży malejąco (najnowsze górą).
+    # Ta sama logika co na dashboardzie admina — kolejność musi być identyczna.
+    offer_pages_all.sort(key=lambda p: -p.starts_at.timestamp() if p.starts_at else float('inf'))
 
     # Paginacja
     pages_slice = offer_pages_all[offset:offset + limit]

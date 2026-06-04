@@ -17,6 +17,43 @@ from decimal import Decimal
 from modules.client import client_bp
 
 
+def sort_offer_pages(pages):
+    """
+    Sortuje strony ofertowe dla widoku klienta — wspólna logika dla dashboardu
+    i API paginacji (muszą dawać identyczną kolejność, inaczej "Pokaż więcej"
+    się rozjeżdża).
+
+    Kryteria:
+    1. Grupa statusu: active (LIVE) > scheduled > wstrzymana > zakończona >
+       zamknięta
+    2. Wewnątrz grupy: data startu malejąco (najnowsze górą); strony bez daty
+       startu trafiają na koniec grupy.
+
+    Sortuje listę w miejscu i zwraca ją.
+    """
+    def sort_key(page):
+        if page.status == 'active':
+            priority = 0
+        elif page.status == 'scheduled':
+            priority = 1
+        elif page.status == 'paused':
+            priority = 2  # Wstrzymana
+        elif page.status == 'ended' and not page.is_fully_closed:
+            priority = 3  # Zakończona
+        elif page.status == 'ended' and page.is_fully_closed:
+            priority = 4  # Zamknięta
+        else:
+            priority = 99
+
+        # Data startu malejąco: użyj ujemnego timestampu, żeby przy sortowaniu
+        # rosnącym najnowsze były pierwsze. Brak daty -> +inf -> koniec grupy.
+        starts = -page.starts_at.timestamp() if page.starts_at else float('inf')
+        return (priority, starts)
+
+    pages.sort(key=sort_key)
+    return pages
+
+
 @client_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -123,21 +160,8 @@ def dashboard():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # Sort by priority: 1. active (LIVE), 2. scheduled, 3. ended (not closed), 4. closed, 5. paused
-    def get_sort_priority(page):
-        if page.status == 'active':
-            return 0
-        elif page.status == 'scheduled':
-            return 1
-        elif page.status == 'ended' and not page.is_fully_closed:
-            return 2  # Zakończona
-        elif page.status == 'ended' and page.is_fully_closed:
-            return 3  # Zamknięta
-        elif page.status == 'paused':
-            return 4
-        return 99
-
-    offer_pages_all.sort(key=get_sort_priority)
+    # Sort: grupa statusu, a wewnątrz po dacie startu malejąco (patrz sort_offer_pages)
+    sort_offer_pages(offer_pages_all)
 
     # Pre-compute has_sets for each page
     for page in offer_pages_all:
@@ -323,21 +347,8 @@ def get_offer_pages():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # Sort by priority
-    def get_sort_priority(page):
-        if page.status == 'active':
-            return 0
-        elif page.status == 'scheduled':
-            return 1
-        elif page.status == 'ended' and not page.is_fully_closed:
-            return 2
-        elif page.status == 'ended' and page.is_fully_closed:
-            return 3
-        elif page.status == 'paused':
-            return 4
-        return 99
-
-    offer_pages_all.sort(key=get_sort_priority)
+    # Sort: ta sama logika co na dashboardzie (kolejność musi być identyczna)
+    sort_offer_pages(offer_pages_all)
 
     # Paginacja
     pages_slice = offer_pages_all[offset:offset + limit]
