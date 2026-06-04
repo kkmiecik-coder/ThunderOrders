@@ -36,3 +36,4 @@ __pycache__/
 # macOS junk (AppleDouble resource forks z tara)
 ._*
 .AppleDouble/
+db_dumps/

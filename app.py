@@ -66,8 +66,16 @@ def create_app(config_name=None):
     limiter.init_app(app)
     socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', ['https://thunderorders.cloud', 'http://localhost:5001'])
     async_mode = 'eventlet' if 'eventlet' in sys.modules else 'threading'
-    socketio.init_app(app, async_mode=async_mode, cors_allowed_origins=socketio_origins,
-                      ping_timeout=60, ping_interval=25)
+    socketio_kwargs = dict(
+        async_mode=async_mode,
+        cors_allowed_origins=socketio_origins,
+        ping_timeout=60,
+        ping_interval=25,
+    )
+    message_queue = app.config.get('SOCKETIO_MESSAGE_QUEUE')
+    if message_queue:
+        socketio_kwargs['message_queue'] = message_queue
+    socketio.init_app(app, **socketio_kwargs)
 
     # OAuth (Google, Facebook login)
     from utils.oauth import init_oauth
