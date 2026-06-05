@@ -54,6 +54,23 @@ def sort_offer_pages(pages):
     return pages
 
 
+def filter_offer_pages(pages, filter_type):
+    """
+    Dzieli strony ofertowe na "bieżące" i "zamknięte" dla przełącznika
+    na dashboardzie klienta. Jedno źródło prawdy dla dashboard() i API.
+
+    - 'closed': strony zakończone (status == 'ended', obejmuje też
+      is_fully_closed, bo to nadal status 'ended').
+    - 'current' (domyślnie): zaplanowane / aktywne (LIVE) / wstrzymane.
+
+    Zachowuje kolejność wejściową (zakładamy, że lista jest już posortowana
+    przez sort_offer_pages).
+    """
+    if filter_type == 'closed':
+        return [p for p in pages if p.status == 'ended']
+    return [p for p in pages if p.status in ('scheduled', 'active', 'paused')]
+
+
 @client_bp.route('/dashboard')
 @login_required
 def dashboard():
