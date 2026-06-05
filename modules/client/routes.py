@@ -187,7 +187,6 @@ def dashboard():
     # Podział na bieżące/zamknięte dla przełącznika (sales-pages-toggle).
     # Domyślnie dashboard renderuje bieżące; zamknięte dociąga JS przez API.
     current_pages = filter_offer_pages(offer_pages_all, 'current')
-    closed_pages = filter_offer_pages(offer_pages_all, 'closed')
 
     offer_pages = {
         'visible': current_pages[:5],          # First 5 visible (bieżące)
@@ -196,7 +195,7 @@ def dashboard():
         'remaining': max(0, len(current_pages) - 5),
         'has_any': len(offer_pages_all) > 0,   # czy pokazać widget w ogóle
         'has_current': len(current_pages) > 0, # pusty stan zakładki bieżące
-        'has_closed': len(closed_pages) > 0,   # pusty stan zakładki zamknięte
+        'has_closed': any(p.status == 'ended' for p in offer_pages_all),  # pusty stan zakładki zamknięte
     }
 
     return render_template(
