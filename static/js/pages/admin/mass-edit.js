@@ -329,6 +329,22 @@ function attachResizeHandles() {
     });
 }
 
+function resizeScrollOffset(colIndex, scroll) {
+    // Sticky columns (0=ID, 1=Nazwa) are pinned to the viewport during horizontal scroll,
+    // so their handle position does not shift with scrollLeft.
+    return colIndex <= 1 ? 0 : scroll.scrollLeft;
+}
+
+function cancelResize() {
+    if (!resizeState) return;
+    resizeState = null;
+    document.body.classList.remove('col-resizing');
+    const line = document.querySelector('.col-resize-line');
+    if (line) line.classList.remove('visible');
+    document.removeEventListener('mousemove', onResizeMove);
+    document.removeEventListener('mouseup', onResizeEnd);
+}
+
 function onResizeStart(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -346,7 +362,7 @@ function onResizeStart(e) {
     const scroll = document.querySelector('.grid-scroll-container');
     if (line && scroll) {
         const rect = scroll.getBoundingClientRect();
-        line.style.left = (e.clientX - rect.left + scroll.scrollLeft) + 'px';
+        line.style.left = (e.clientX - rect.left + resizeScrollOffset(colIndex, scroll)) + 'px';
         line.classList.add('visible');
     }
 
@@ -364,7 +380,7 @@ function onResizeMove(e) {
     const newWidth = Math.max(MIN_COL_WIDTH, resizeState.startWidth + delta);
 
     const rect = scroll.getBoundingClientRect();
-    const handleStartLeft = resizeState.startX - rect.left + scroll.scrollLeft;
+    const handleStartLeft = resizeState.startX - rect.left + resizeScrollOffset(resizeState.colIndex, scroll);
     const lineLeft = handleStartLeft - resizeState.startWidth + newWidth;
     line.style.left = lineLeft + 'px';
 }
@@ -528,6 +544,7 @@ function saveUndoState() {
 }
 
 function undo() {
+    cancelResize();
     if (undoStack.length === 0) return;
     redoStack.push(JSON.parse(JSON.stringify(productsData)));
     productsData = undoStack.pop();
@@ -535,6 +552,7 @@ function undo() {
 }
 
 function redo() {
+    cancelResize();
     if (redoStack.length === 0) return;
     undoStack.push(JSON.parse(JSON.stringify(productsData)));
     productsData = redoStack.pop();

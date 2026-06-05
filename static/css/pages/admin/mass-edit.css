@@ -263,6 +263,7 @@
 .grid-scroll-container {
     overflow: auto;
     max-height: calc(100vh - 120px);
+    position: relative; /* kontekst dla linii podglądu */
 }
 
 /* Grid is now one flat CSS Grid inside .grid-body */
@@ -340,10 +341,6 @@
 }
 
 /* Linia podglądu podczas resize */
-.grid-scroll-container {
-    position: relative; /* kontekst dla linii podglądu */
-}
-
 .col-resize-line {
     position: absolute;
     top: 0;
