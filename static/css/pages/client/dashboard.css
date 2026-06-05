@@ -958,6 +958,44 @@ a.metric-card-clickable.metric-card-info:hover {
     color: rgba(255, 255, 255, 0.6);
 }
 
+/* Loading state widgetu stron */
+.offer-loading-cell,
+.offer-card-loading {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.offer-loading-text {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    margin-left: var(--space-2);
+    vertical-align: middle;
+}
+
+.offer-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--gray-200);
+    border-top-color: #FF8500;
+    border-radius: 50%;
+    vertical-align: middle;
+    animation: offer-spin 0.7s linear infinite;
+}
+
+@keyframes offer-spin {
+    to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .offer-spinner {
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-top-color: #f093fb;
+}
+
+[data-theme="dark"] .offer-loading-text {
+    color: rgba(255, 255, 255, 0.6);
+}
+
 .offer-table {
     width: 100%;
     border-collapse: collapse;
