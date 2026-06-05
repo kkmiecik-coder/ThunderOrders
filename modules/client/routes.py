@@ -499,6 +499,7 @@ def get_offer_matrix(page_id):
                 })
 
         # Full set product row
+        own_full_sets = 0  # Pełne sety (produkt-komplet) kupione przez zalogowanego użytkownika
         if section.set_product_id and section.set_product:
             full_set_qty = db.session.query(
                 db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
@@ -513,6 +514,22 @@ def get_offer_matrix(page_id):
                 )
             ).scalar()
             full_set_qty = int(full_set_qty)
+
+            # Ile pełnych setów kupił sam zalogowany użytkownik
+            own_full_sets = db.session.query(
+                db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
+            ).filter(
+                OrderItem.product_id == section.set_product_id,
+                OrderItem.is_bonus != True,
+                OrderItem.order_id.in_(
+                    db.session.query(Order.id).filter(
+                        Order.offer_page_id == page_id,
+                        Order.status != 'anulowane',
+                        Order.user_id == current_user.id
+                    )
+                )
+            ).scalar()
+            own_full_sets = int(own_full_sets)
 
             products_data.append({
                 'product_name': section.set_product.name,
@@ -550,6 +567,7 @@ def get_offer_matrix(page_id):
             'has_limit': max_sets > 0,
             'total_sets_sold': ordered_sets + full_set_sold,
             'full_set_sold': full_set_sold,
+            'own_full_sets': own_full_sets,
             'products': products_data,
         })
 

@@ -1809,6 +1809,34 @@ a.metric-card-clickable.metric-card-info:hover {
     opacity: 1;
 }
 
+/* Footer: pełne sety kupione przez zalogowanego użytkownika */
+.client-matrix-modal .set-matrix-own-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 16px 16px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(123, 44, 191, 0.08);
+    border: 1px solid rgba(123, 44, 191, 0.2);
+    color: #7B2CBF;
+    font-size: 0.875rem;
+}
+
+.client-matrix-modal .set-matrix-own-footer .own-footer-icon {
+    flex-shrink: 0;
+    color: #7B2CBF;
+}
+
+.client-matrix-modal .set-matrix-own-footer .own-footer-text {
+    color: var(--text-primary, #212121);
+}
+
+.client-matrix-modal .set-matrix-own-footer .own-footer-text strong {
+    color: #7B2CBF;
+    font-weight: 700;
+}
+
 /* Summary sections */
 .client-matrix-modal .full-set-summary {
     display: flex;
@@ -1924,6 +1952,16 @@ a.metric-card-clickable.metric-card-info:hover {
     border-top-color: rgba(255, 255, 255, 0.08);
     color: rgba(255, 255, 255, 0.6);
 }
+
+[data-theme="dark"] .client-matrix-modal .set-matrix-own-footer {
+    background: rgba(192, 132, 252, 0.12);
+    border-color: rgba(192, 132, 252, 0.25);
+    color: #c084fc;
+}
+
+[data-theme="dark"] .client-matrix-modal .set-matrix-own-footer .own-footer-icon { color: #c084fc; }
+[data-theme="dark"] .client-matrix-modal .set-matrix-own-footer .own-footer-text { color: #ffffff; }
+[data-theme="dark"] .client-matrix-modal .set-matrix-own-footer .own-footer-text strong { color: #c084fc; }
 
 [data-theme="dark"] .client-matrix-modal .full-set-count,
 [data-theme="dark"] .client-matrix-modal .set-total-count { color: #ffffff; }
