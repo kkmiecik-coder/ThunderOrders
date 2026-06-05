@@ -25,6 +25,7 @@ let maxImages = 5;
 let selectedColumns = [];
 let columnWidths = []; // px, indeksowane jak selectedColumns
 const MIN_COL_WIDTH = 30;
+const COL_WIDTHS_STORAGE_KEY = 'massEdit:colWidths';
 let resizeState = null; // { colIndex, startX, startWidth }
 let pendingImageUploads = {};
 let pendingImageRemovals = []; // [{productId, slot}]
@@ -254,7 +255,15 @@ function defaultColumnWidth(col) {
 }
 
 function buildColumnWidths() {
-    columnWidths = selectedColumns.map(col => defaultColumnWidth(col));
+    const stored = loadStoredWidthsMap();
+    columnWidths = selectedColumns.map(col => {
+        const fallback = defaultColumnWidth(col);
+        const saved = stored[col.key];
+        if (typeof saved === 'number' && isFinite(saved)) {
+            return Math.max(MIN_COL_WIDTH, saved);
+        }
+        return fallback;
+    });
 }
 
 function applyColumnWidths() {
@@ -405,7 +414,26 @@ function onResizeEnd(e) {
 }
 
 function saveColumnWidths() {
-    // wypełnione w Task 5 (localStorage)
+    try {
+        const map = {};
+        selectedColumns.forEach((col, i) => {
+            map[col.key] = columnWidths[i];
+        });
+        localStorage.setItem(COL_WIDTHS_STORAGE_KEY, JSON.stringify(map));
+    } catch (e) {
+        // localStorage niedostępny / pełny — ignorujemy, szerokości zostają tylko w sesji
+    }
+}
+
+function loadStoredWidthsMap() {
+    try {
+        const raw = localStorage.getItem(COL_WIDTHS_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (e) {
+        return {};
+    }
 }
 
 function renderCellInput(col, product, rowIndex) {
