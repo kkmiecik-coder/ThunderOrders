@@ -184,11 +184,19 @@ def dashboard():
     for page in offer_pages_all:
         page._has_sets = len(page.get_set_sections()) > 0
 
+    # Podział na bieżące/zamknięte dla przełącznika (sales-pages-toggle).
+    # Domyślnie dashboard renderuje bieżące; zamknięte dociąga JS przez API.
+    current_pages = filter_offer_pages(offer_pages_all, 'current')
+    closed_pages = filter_offer_pages(offer_pages_all, 'closed')
+
     offer_pages = {
-        'visible': offer_pages_all[:5],  # First 5 visible
-        'buffer': offer_pages_all[5:10],  # Next 5 in buffer (hidden)
-        'total': len(offer_pages_all),
-        'remaining': max(0, len(offer_pages_all) - 5)
+        'visible': current_pages[:5],          # First 5 visible (bieżące)
+        'buffer': current_pages[5:10],         # Next 5 in buffer (hidden)
+        'total': len(current_pages),           # total dla zakładki bieżące
+        'remaining': max(0, len(current_pages) - 5),
+        'has_any': len(offer_pages_all) > 0,   # czy pokazać widget w ogóle
+        'has_current': len(current_pages) > 0, # pusty stan zakładki bieżące
+        'has_closed': len(closed_pages) > 0,   # pusty stan zakładki zamknięte
     }
 
     return render_template(
@@ -354,6 +362,7 @@ def get_offer_pages():
 
     offset = request.args.get('offset', 0, type=int)
     limit = request.args.get('limit', 5, type=int)
+    filter_type = request.args.get('filter', 'current')
 
     # Pobierz wszystkie strony (bez drafts)
     offer_pages_all = OfferPage.query.filter(
@@ -367,10 +376,14 @@ def get_offer_pages():
     # Sort: ta sama logika co na dashboardzie (kolejność musi być identyczna)
     sort_offer_pages(offer_pages_all)
 
+    # Filtruj wg zakładki PRZED paginacją, żeby offset/remaining liczyły się
+    # względem przefiltrowanego zbioru.
+    filtered_pages = filter_offer_pages(offer_pages_all, filter_type)
+
     # Paginacja
-    pages_slice = offer_pages_all[offset:offset + limit]
-    has_more = len(offer_pages_all) > offset + limit
-    remaining = max(0, len(offer_pages_all) - offset - limit)
+    pages_slice = filtered_pages[offset:offset + limit]
+    has_more = len(filtered_pages) > offset + limit
+    remaining = max(0, len(filtered_pages) - offset - limit)
 
     # Serialize pages
     pages_data = []
@@ -421,7 +434,7 @@ def get_offer_pages():
         'pages': pages_data,
         'has_more': has_more,
         'remaining': remaining,
-        'total': len(offer_pages_all)
+        'total': len(filtered_pages)
     })
 
 
