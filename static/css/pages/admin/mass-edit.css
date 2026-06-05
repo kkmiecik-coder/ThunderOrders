@@ -273,6 +273,10 @@
 
 .grid-body {
     display: grid;
+    /* Rozciągnij grid do pełnej sumy szerokości kolumn — bez tego box .grid-body
+       ma szerokość kontenera, przez co position:sticky kolumn (ID, Nazwa) liczy
+       offset względem za wąskiego bloku i kolumny odklejają się przy przewijaniu. */
+    min-width: max-content;
 }
 
 /* Header cells — sticky top + optionally sticky left */
