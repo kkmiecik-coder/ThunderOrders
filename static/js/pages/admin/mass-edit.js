@@ -29,6 +29,8 @@ const COL_WIDTHS_STORAGE_KEY = 'massEdit:colWidths';
 let resizeState = null; // { colIndex, startX, startWidth }
 let pendingImageUploads = {};
 let pendingImageRemovals = []; // [{productId, slot}]
+let cellErrorSeq = 0;
+let errorScrollClearBound = false;
 
 // Undo/Redo
 const MAX_HISTORY = 50;
@@ -279,6 +281,8 @@ function applyColumnWidths() {
 }
 
 function renderGrid() {
+    clearAllCellErrors();
+
     const container = document.getElementById('gridBody');
     const colCount = selectedColumns.length;
 
@@ -320,6 +324,15 @@ function renderGrid() {
     applyColumnWidths();
     ensureResizeLine();
     attachResizeHandles();
+    attachErrorScrollClear();
+}
+
+function attachErrorScrollClear() {
+    if (errorScrollClearBound) return;
+    const scroll = document.querySelector('.grid-scroll-container');
+    if (!scroll) return;
+    scroll.addEventListener('scroll', clearAllCellErrors);
+    errorScrollClearBound = true;
 }
 
 function ensureResizeLine() {
@@ -751,6 +764,43 @@ function removeImage(productId, slot, event) {
 // VALIDATION
 // =============================================
 
+// Dymek błędu walidacji renderowany w document.body, by uniknąć przycięcia
+// przez overflow:hidden komórki. Powiązany z inputem przez data-error-id.
+function showCellError(el, message) {
+    const id = 'cellerr-' + (++cellErrorSeq);
+    el.dataset.errorId = id;
+
+    const msg = document.createElement('div');
+    msg.className = 'cell-error-msg';
+    msg.dataset.forError = id;
+    msg.textContent = message;
+    document.body.appendChild(msg);
+
+    positionCellError(el, msg);
+}
+
+function positionCellError(el, msg) {
+    const rect = el.getBoundingClientRect();
+    // nad polem; jeśli brak miejsca u góry, pokaż pod polem
+    const msgHeight = msg.offsetHeight || 24;
+    let top = rect.top - msgHeight - 4;
+    if (top < 0) top = rect.bottom + 4;
+    msg.style.left = rect.left + 'px';
+    msg.style.top = top + 'px';
+}
+
+function removeCellError(el) {
+    const id = el.dataset.errorId;
+    if (!id) return;
+    const msg = document.querySelector('.cell-error-msg[data-for-error="' + id + '"]');
+    if (msg) msg.remove();
+    delete el.dataset.errorId;
+}
+
+function clearAllCellErrors() {
+    document.querySelectorAll('.cell-error-msg').forEach(m => m.remove());
+}
+
 function validateCell(el) {
     if (el.type === 'file' || el.type === 'checkbox') return true;
 
@@ -772,14 +822,10 @@ function validateCell(el) {
 
     el.classList.toggle('input-error', !!error);
 
-    const existing = el.parentNode.querySelector('.cell-error-msg');
-    if (existing) existing.remove();
+    removeCellError(el);
 
     if (error) {
-        const msg = document.createElement('div');
-        msg.className = 'cell-error-msg';
-        msg.textContent = error;
-        el.parentNode.appendChild(msg);
+        showCellError(el, error);
     }
 
     return !error;

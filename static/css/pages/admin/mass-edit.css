@@ -464,16 +464,14 @@ body.col-resizing {
 
 /* Error tooltip */
 .cell-error-msg {
-    position: absolute;
-    bottom: 100%;
-    left: 4px;
+    position: fixed;
     background: var(--error);
     color: white;
     font-size: var(--text-xs);
     padding: 4px 8px;
     border-radius: var(--radius-sm);
     white-space: nowrap;
-    z-index: 200;
+    z-index: 9999;
     pointer-events: none;
 }
 
