@@ -33,11 +33,15 @@ klienta (filtrowany już dziś).
 
 | Zagadnienie | Decyzja |
 |---|---|
-| Mechanizm filtrowania | Backend filtruje przez `?filter=current\|closed`; frontend cache'uje pobrane dane |
-| Cache frontend | Przełączanie tam-z-powrotem nie powoduje ponownego fetcha; przeładowanie strony resetuje do domyślnej zakładki |
-| Domyślna zakładka | **Bieżące** (renderowane server-side przy pierwszym wejściu) |
+| Mechanizm filtrowania | Backend filtruje przez `?filter=current\|closed`; frontend cache'uje pobrane dane i stan paginacji |
+| Render stron | **JS renderuje obie zakładki od startu** przez API (`dashboard()` nie renderuje wierszy SSR — tylko flagi widoczności). Przy pierwszym pobraniu widget pokazuje stan **loading** (spinner). |
+| Paginacja | **Jednolita dla obu zakładek**: pierwsze 5 stron + przycisk „Pokaż więcej" dociągający kolejne po 5 z API (`?filter=&offset=&limit=5`) |
+| Cache frontend (stan) | Cache per zakładka trzyma pobrane strony ORAZ liczbę rozłożonych (`shownCount`). Przełączanie tam-z-powrotem nie powoduje ponownego fetcha i **zachowuje liczbę rozłożonych stron** (np. 2× „Pokaż więcej" = 15 stron → powrót pokazuje znów 15, nie reset do 5, nie wszystkie). Przeładowanie strony resetuje stan do domyślnej zakładki. |
+| Domyślna zakładka | **Bieżące** (JS pobiera i renderuje przy starcie, z loading state) |
 | Pusty stan | Komunikat w widgecie dla obu zakładek; przełącznik pozostaje widoczny |
-| Widoczność widgetu | Widget widoczny gdy istnieje ≥1 strona jakiegokolwiek typu (bieżąca LUB zamknięta) |
+| Widoczność widgetu | Widget widoczny gdy istnieje ≥1 strona jakiegokolwiek typu (bieżąca LUB zamknięta) — sterowane flagą `has_any` z backendu |
+
+> **Uwaga (rewizja 2026-06-05):** Pierwotny projekt zakładał render bieżących SSR + bufor DOM, a zakładki ładowane jednorazowo `limit=100`. Zostało to zastąpione jednolitym modelem paginacji per zakładka z cache `shownCount` (powyżej), bo poprzednie podejście gubiło stan paginacji przy przełączaniu (zakładka pokazywała wszystkie strony zamiast zapamiętanej liczby) i nie miało „Pokaż więcej" dla zamkniętych.
 
 ---
 
