@@ -415,7 +415,7 @@ function onResizeEnd(e) {
 
 function saveColumnWidths() {
     try {
-        const map = {};
+        const map = loadStoredWidthsMap(); // start from what's already persisted
         selectedColumns.forEach((col, i) => {
             map[col.key] = columnWidths[i];
         });
