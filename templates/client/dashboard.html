@@ -71,11 +71,15 @@
     </div>
 
     <!-- Offers Pages Widget -->
-    {% if offer_pages.visible|length > 0 %}
+    {% if offer_pages.has_any %}
     <div class="offer-widget-container">
         <div class="widget widget-offers" id="offersWidget">
-            <div class="widget-header">
+            <div class="widget-header widget-header-offers">
                 <h2 class="widget-title">✨ Strony sprzedaży</h2>
+                <div class="offer-filter-tabs" role="tablist" aria-label="Filtr stron sprzedaży">
+                    <button type="button" class="offer-filter-tab active" data-filter="current" role="tab" aria-selected="true">Bieżące</button>
+                    <button type="button" class="offer-filter-tab" data-filter="closed" role="tab" aria-selected="false">Zamknięte</button>
+                </div>
             </div>
             <div class="widget-body widget-body-table">
                 <!-- Desktop: Table view -->
@@ -204,6 +208,12 @@
                             </td>
                         </tr>
                         {% endfor %}
+                        {# Pusty stan zakładki — sterowany przez JS #}
+                        <tr class="offer-empty-row"{% if offer_pages.has_current %} style="display: none;"{% endif %}>
+                            <td colspan="5" class="offer-empty-cell">
+                                <span class="offer-empty-text">Brak bieżących stron sprzedaży</span>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -319,6 +329,10 @@
                         </div>
                     </div>
                     {% endfor %}
+                    {# Pusty stan mobile — sterowany przez JS #}
+                    <div class="offer-card-empty"{% if offer_pages.has_current %} style="display: none;"{% endif %}>
+                        <span class="offer-empty-text">Brak bieżących stron sprzedaży</span>
+                    </div>
                 </div>
 
                 {% if offer_pages.remaining > 0 %}
