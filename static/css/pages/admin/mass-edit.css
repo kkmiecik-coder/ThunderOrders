@@ -307,6 +307,46 @@
     background: var(--bg-tertiary);
 }
 
+/* Header label — obcinanie tekstu nagłówka */
+.grid-header-label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Resize handle — niewidoczny, hover pokazuje linię akcentu */
+.col-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 90;
+    user-select: none;
+}
+
+.col-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 2px;
+    width: 2px;
+    height: 100%;
+    background: transparent;
+    transition: background var(--transition-fast);
+}
+
+.col-resize-handle:hover::after {
+    background: var(--primary-color);
+}
+
+/* Dark mode */
+[data-theme="dark"] .col-resize-handle:hover::after {
+    background: #f093fb;
+}
+
 /* Data cells */
 .grid-cell {
     padding: 4px;

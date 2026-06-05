@@ -283,7 +283,10 @@ function renderGrid() {
     // Header cells
     selectedColumns.forEach((col, i) => {
         const stickyClass = i === 0 ? 'sticky-col-0' : i === 1 ? 'sticky-col-1' : '';
-        html += `<div class="grid-header-cell ${stickyClass}">${col.label}</div>`;
+        html += `<div class="grid-header-cell ${stickyClass}">`
+              + `<span class="grid-header-label">${col.label}</span>`
+              + `<div class="col-resize-handle" data-col-index="${i}"></div>`
+              + `</div>`;
     });
 
     // Data rows
