@@ -889,6 +889,83 @@ a.metric-card-clickable.metric-card-info:hover {
     backdrop-filter: blur(10px);
 }
 
+/* --- Przełącznik Bieżące/Zamknięte --- */
+.widget-header-offers {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.offer-filter-tabs {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    background: var(--gray-100);
+    border-radius: 8px;
+}
+
+.offer-filter-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    padding: 8px 16px;
+    min-height: 44px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.offer-filter-tab:hover {
+    color: var(--text-primary);
+}
+
+.offer-filter-tab.active {
+    background: var(--card-bg);
+    color: #FF8500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Pusty stan zakładki */
+.offer-empty-cell {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.offer-card-empty {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.offer-empty-text {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+/* Dark mode */
+[data-theme="dark"] .offer-filter-tabs {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .offer-filter-tab {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .offer-filter-tab:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .offer-filter-tab.active {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .offer-empty-text {
+    color: rgba(255, 255, 255, 0.6);
+}
+
 .offer-table {
     width: 100%;
     border-collapse: collapse;
