@@ -180,22 +180,14 @@ def dashboard():
     # Sort: grupa statusu, a wewnątrz po dacie startu malejąco (patrz sort_offer_pages)
     sort_offer_pages(offer_pages_all)
 
-    # Pre-compute has_sets for each page
-    for page in offer_pages_all:
-        page._has_sets = len(page.get_set_sections()) > 0
-
-    # Podział na bieżące/zamknięte dla przełącznika (sales-pages-toggle).
-    # Domyślnie dashboard renderuje bieżące; zamknięte dociąga JS przez API.
-    current_pages = filter_offer_pages(offer_pages_all, 'current')
+    # JS renderuje obie zakładki przez API; tutaj liczymy tylko flagi widoczności.
+    has_current = any(p.status in ('scheduled', 'active', 'paused') for p in offer_pages_all)
+    has_closed = any(p.status == 'ended' for p in offer_pages_all)
 
     offer_pages = {
-        'visible': current_pages[:5],          # First 5 visible (bieżące)
-        'buffer': current_pages[5:10],         # Next 5 in buffer (hidden)
-        'total': len(current_pages),           # total dla zakładki bieżące
-        'remaining': max(0, len(current_pages) - 5),
-        'has_any': len(offer_pages_all) > 0,   # czy pokazać widget w ogóle
-        'has_current': len(current_pages) > 0, # pusty stan zakładki bieżące
-        'has_closed': any(p.status == 'ended' for p in offer_pages_all),  # pusty stan zakładki zamknięte
+        'has_any': len(offer_pages_all) > 0,
+        'has_current': has_current,
+        'has_closed': has_closed,
     }
 
     return render_template(
