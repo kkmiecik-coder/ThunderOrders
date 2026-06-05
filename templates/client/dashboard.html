@@ -94,122 +94,15 @@
                         </tr>
                     </thead>
                     <tbody id="offersTableBody">
-                        {# Visible pages #}
-                        {% for page in offer_pages.visible %}
-                        <tr>
-                            <td>
-                                <span class="offer-name">{{ page.name }}</span>
-                            </td>
-                            <td>
-                                <span class="offer-type-badge offer-type-{{ page.page_type }}">
-                                    {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
-                                </span>
-                            </td>
-                            <td>
-                                {% if page.status == 'active' %}
-                                    <span class="offer-status offer-status-live">
-                                        <span class="live-dot"></span>LIVE
-                                    </span>
-                                {% elif page.status == 'ended' and page.is_fully_closed %}
-                                    <span class="offer-status offer-status-closed">Zamknięta</span>
-                                {% elif page.status == 'ended' %}
-                                    <span class="offer-status offer-status-ended">Zakończona</span>
-                                {% else %}
-                                    <span class="offer-status offer-status-{{ page.status }}">
-                                        {% if page.status == 'scheduled' %}Zaplanowana
-                                        {% elif page.status == 'paused' %}Wstrzymana
-                                        {% endif %}
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
-                                      data-status="{{ page.status }}"
-                                      data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
-                                      data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
-                                </span>
-                            </td>
-                            <td>
-                                <div class="offer-card-actions">
-                                {% if page._has_sets %}
-                                <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                    </svg>
-                                </button>
-                                {% endif %}
-                                {% if page.status == 'ended' and page.is_fully_closed %}
-                                <a class="offer-action-btn" disabled aria-disabled="true">
-                                    Otwórz →
-                                </a>
-                                {% else %}
-                                <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
-                                    Otwórz →
-                                </a>
-                                {% endif %}
-                                </div>
+                        {# Loading — widoczny do pierwszego renderu JS #}
+                        <tr class="offer-loading-row">
+                            <td colspan="5" class="offer-loading-cell">
+                                <span class="offer-spinner"></span>
+                                <span class="offer-loading-text">Ładowanie stron…</span>
                             </td>
                         </tr>
-                        {% endfor %}
-                        {# Buffer pages (hidden) #}
-                        {% for page in offer_pages.buffer %}
-                        <tr class="offer-buffered" style="display: none;">
-                            <td>
-                                <span class="offer-name">{{ page.name }}</span>
-                            </td>
-                            <td>
-                                <span class="offer-type-badge offer-type-{{ page.page_type }}">
-                                    {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
-                                </span>
-                            </td>
-                            <td>
-                                {% if page.status == 'active' %}
-                                    <span class="offer-status offer-status-live">
-                                        <span class="live-dot"></span>LIVE
-                                    </span>
-                                {% elif page.status == 'ended' and page.is_fully_closed %}
-                                    <span class="offer-status offer-status-closed">Zamknięta</span>
-                                {% elif page.status == 'ended' %}
-                                    <span class="offer-status offer-status-ended">Zakończona</span>
-                                {% else %}
-                                    <span class="offer-status offer-status-{{ page.status }}">
-                                        {% if page.status == 'scheduled' %}Zaplanowana
-                                        {% elif page.status == 'paused' %}Wstrzymana
-                                        {% endif %}
-                                    </span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
-                                      data-status="{{ page.status }}"
-                                      data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
-                                      data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
-                                </span>
-                            </td>
-                            <td>
-                                <div class="offer-card-actions">
-                                {% if page._has_sets %}
-                                <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
-                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                    </svg>
-                                </button>
-                                {% endif %}
-                                {% if page.status == 'ended' and page.is_fully_closed %}
-                                <a class="offer-action-btn" disabled aria-disabled="true">
-                                    Otwórz →
-                                </a>
-                                {% else %}
-                                <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn" target="_blank">
-                                    Otwórz →
-                                </a>
-                                {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
                         {# Pusty stan zakładki — sterowany przez JS #}
-                        <tr class="offer-empty-row"{% if offer_pages.has_current %} style="display: none;"{% endif %}>
+                        <tr class="offer-empty-row" style="display: none;">
                             <td colspan="5" class="offer-empty-cell">
                                 <span class="offer-empty-text">Brak bieżących stron sprzedaży</span>
                             </td>
@@ -219,133 +112,20 @@
 
                 <!-- Mobile: Cards view -->
                 <div class="offer-cards offer-mobile" id="offersCardsBody">
-                    {# Visible pages #}
-                    {% for page in offer_pages.visible %}
-                    <div class="offer-card">
-                        <div class="offer-card-name">
-                            <span class="offer-name">{{ page.name }}</span>
-                        </div>
-                        <div class="offer-card-badges">
-                            <span class="offer-type-badge offer-type-{{ page.page_type }}">
-                                {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
-                            </span>
-                            {% if page.status == 'active' %}
-                                <span class="offer-status offer-status-live">
-                                    <span class="live-dot"></span>LIVE
-                                </span>
-                            {% elif page.status == 'ended' and page.is_fully_closed %}
-                                <span class="offer-status offer-status-closed">Zamknięta</span>
-                            {% elif page.status == 'ended' %}
-                                <span class="offer-status offer-status-ended">Zakończona</span>
-                            {% else %}
-                                <span class="offer-status offer-status-{{ page.status }}">
-                                    {% if page.status == 'scheduled' %}Zaplanowana
-                                    {% elif page.status == 'paused' %}Wstrzymana
-                                    {% endif %}
-                                </span>
-                            {% endif %}
-                        </div>
-                        <div class="offer-card-timing">
-                            <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
-                                  data-status="{{ page.status }}"
-                                  data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
-                                  data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
-                            </span>
-                        </div>
-                        <div class="offer-card-footer">
-                            <div class="offer-card-actions">
-                            {% if page._has_sets %}
-                            <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                </svg>
-                            </button>
-                            {% endif %}
-                            {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="offer-action-btn offer-action-btn-grow" disabled aria-disabled="true">
-                                Otwórz →
-                            </a>
-                            {% else %}
-                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn offer-action-btn-grow" target="_blank">
-                                Otwórz →
-                            </a>
-                            {% endif %}
-                            </div>
-                        </div>
+                    {# Loading mobile #}
+                    <div class="offer-card-loading">
+                        <span class="offer-spinner"></span>
+                        <span class="offer-loading-text">Ładowanie stron…</span>
                     </div>
-                    {% endfor %}
-                    {# Buffer pages (hidden) #}
-                    {% for page in offer_pages.buffer %}
-                    <div class="offer-card offer-buffered" style="display: none;">
-                        <div class="offer-card-name">
-                            <span class="offer-name">{{ page.name }}</span>
-                        </div>
-                        <div class="offer-card-badges">
-                            <span class="offer-type-badge offer-type-{{ page.page_type }}">
-                                {% if page.page_type == 'exclusive' %}Exclusive{% elif page.page_type == 'preorder' %}Pre-order{% endif %}
-                            </span>
-                            {% if page.status == 'active' %}
-                                <span class="offer-status offer-status-live">
-                                    <span class="live-dot"></span>LIVE
-                                </span>
-                            {% elif page.status == 'ended' and page.is_fully_closed %}
-                                <span class="offer-status offer-status-closed">Zamknięta</span>
-                            {% elif page.status == 'ended' %}
-                                <span class="offer-status offer-status-ended">Zakończona</span>
-                            {% else %}
-                                <span class="offer-status offer-status-{{ page.status }}">
-                                    {% if page.status == 'scheduled' %}Zaplanowana
-                                    {% elif page.status == 'paused' %}Wstrzymana
-                                    {% endif %}
-                                </span>
-                            {% endif %}
-                        </div>
-                        <div class="offer-card-timing">
-                            <span class="offer-timing{% if page.status in ['active', 'scheduled'] %} offer-timing-important{% endif %}"
-                                  data-status="{{ page.status }}"
-                                  data-starts="{{ page.starts_at.isoformat() if page.starts_at else '' }}"
-                                  data-ends="{{ page.ends_at.isoformat() if page.ends_at else '' }}">
-                            </span>
-                        </div>
-                        <div class="offer-card-footer">
-                            <div class="offer-card-actions">
-                            {% if page._has_sets %}
-                            <button type="button" class="offer-matrix-btn" data-page-id="{{ page.id }}" title="Macierz setów">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                </svg>
-                            </button>
-                            {% endif %}
-                            {% if page.status == 'ended' and page.is_fully_closed %}
-                            <a class="offer-action-btn offer-action-btn-grow" disabled aria-disabled="true">
-                                Otwórz →
-                            </a>
-                            {% else %}
-                            <a href="{{ url_for('offers.order_page', token=page.token) }}" class="offer-action-btn offer-action-btn-grow" target="_blank">
-                                Otwórz →
-                            </a>
-                            {% endif %}
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
                     {# Pusty stan mobile — sterowany przez JS #}
-                    <div class="offer-card-empty"{% if offer_pages.has_current %} style="display: none;"{% endif %}>
+                    <div class="offer-card-empty" style="display: none;">
                         <span class="offer-empty-text">Brak bieżących stron sprzedaży</span>
                     </div>
                 </div>
 
-                {% if offer_pages.remaining > 0 %}
-                <div class="offer-show-more" id="offersShowMore">
-                    <button type="button" class="show-more-btn" id="offersLoadMoreBtn"
-                            data-visible="{{ offer_pages.visible|length }}"
-                            data-buffer="{{ offer_pages.buffer|length }}"
-                            data-total="{{ offer_pages.total }}"
-                            data-remaining="{{ offer_pages.remaining }}">
-                        Pokaż {{ [offer_pages.remaining, 5]|min }} więcej →
-                    </button>
+                <div class="offer-show-more" id="offersShowMore" style="display: none;">
+                    <button type="button" class="show-more-btn" id="offersLoadMoreBtn">Pokaż więcej →</button>
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>
