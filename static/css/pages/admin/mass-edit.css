@@ -339,6 +339,32 @@
     background: var(--primary-color);
 }
 
+/* Linia podglądu podczas resize */
+.grid-scroll-container {
+    position: relative; /* kontekst dla linii podglądu */
+}
+
+.col-resize-line {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: var(--primary-color);
+    z-index: 150;
+    pointer-events: none;
+    display: none;
+}
+
+.col-resize-line.visible {
+    display: block;
+}
+
+/* Body podczas drag — bez zaznaczania tekstu */
+body.col-resizing {
+    user-select: none;
+    cursor: col-resize;
+}
+
 /* Data cells */
 .grid-cell {
     padding: 4px;

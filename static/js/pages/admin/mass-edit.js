@@ -25,6 +25,7 @@ let maxImages = 5;
 let selectedColumns = [];
 let columnWidths = []; // px, indeksowane jak selectedColumns
 const MIN_COL_WIDTH = 30;
+let resizeState = null; // { colIndex, startX, startWidth }
 let pendingImageUploads = {};
 let pendingImageRemovals = []; // [{productId, slot}]
 
@@ -308,6 +309,87 @@ function renderGrid() {
 
     attachInputListeners();
     applyColumnWidths();
+    ensureResizeLine();
+    attachResizeHandles();
+}
+
+function ensureResizeLine() {
+    const scroll = document.querySelector('.grid-scroll-container');
+    if (!scroll) return;
+    if (!scroll.querySelector('.col-resize-line')) {
+        const line = document.createElement('div');
+        line.className = 'col-resize-line';
+        scroll.appendChild(line);
+    }
+}
+
+function attachResizeHandles() {
+    document.querySelectorAll('#gridBody .col-resize-handle').forEach(handle => {
+        handle.addEventListener('mousedown', onResizeStart);
+    });
+}
+
+function onResizeStart(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const colIndex = parseInt(e.currentTarget.dataset.colIndex, 10);
+    resizeState = {
+        colIndex: colIndex,
+        startX: e.clientX,
+        startWidth: columnWidths[colIndex]
+    };
+
+    document.body.classList.add('col-resizing');
+
+    const line = document.querySelector('.col-resize-line');
+    const scroll = document.querySelector('.grid-scroll-container');
+    if (line && scroll) {
+        const rect = scroll.getBoundingClientRect();
+        line.style.left = (e.clientX - rect.left + scroll.scrollLeft) + 'px';
+        line.classList.add('visible');
+    }
+
+    document.addEventListener('mousemove', onResizeMove);
+    document.addEventListener('mouseup', onResizeEnd);
+}
+
+function onResizeMove(e) {
+    if (!resizeState) return;
+    const line = document.querySelector('.col-resize-line');
+    const scroll = document.querySelector('.grid-scroll-container');
+    if (!line || !scroll) return;
+
+    const delta = e.clientX - resizeState.startX;
+    const newWidth = Math.max(MIN_COL_WIDTH, resizeState.startWidth + delta);
+
+    const rect = scroll.getBoundingClientRect();
+    const handleStartLeft = resizeState.startX - rect.left + scroll.scrollLeft;
+    const lineLeft = handleStartLeft - resizeState.startWidth + newWidth;
+    line.style.left = lineLeft + 'px';
+}
+
+function onResizeEnd(e) {
+    if (!resizeState) return;
+
+    const delta = e.clientX - resizeState.startX;
+    const newWidth = Math.max(MIN_COL_WIDTH, resizeState.startWidth + delta);
+    columnWidths[resizeState.colIndex] = newWidth;
+
+    resizeState = null;
+    document.body.classList.remove('col-resizing');
+    const line = document.querySelector('.col-resize-line');
+    if (line) line.classList.remove('visible');
+
+    document.removeEventListener('mousemove', onResizeMove);
+    document.removeEventListener('mouseup', onResizeEnd);
+
+    applyColumnWidths();
+    saveColumnWidths();
+}
+
+function saveColumnWidths() {
+    // wypełnione w Task 5 (localStorage)
 }
 
 function renderCellInput(col, product, rowIndex) {
