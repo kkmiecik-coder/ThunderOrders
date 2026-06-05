@@ -335,8 +335,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // leniwie. Cache trzyma surowe dane stron i offset paginacji per zakładka.
         let activeFilter = 'current';
         const tabCache = {
-            current: { loaded: true, pages: null, total: null, fetchedAll: false },
-            closed: { loaded: false, pages: [], total: null, fetchedAll: false }
+            current: { pages: null, total: null, fetchedAll: false },
+            closed: { pages: [], total: null, fetchedAll: false }
         };
 
         // Create table row HTML from page data
@@ -529,14 +529,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // raz (cała zakładka, limit=100) i zapamiętaj.
             if (!cache.fetchedAll) {
                 const data = await fetchTabData(filter, 0, 100);
+                // Jeśli użytkownik przełączył zakładkę w trakcie pobierania,
+                // porzuć nieaktualną odpowiedź (race przy szybkim klikaniu).
+                if (activeFilter !== filter) return;
                 cache.pages = data ? data.pages : [];
                 cache.total = data ? data.total : cache.pages.length;
-                cache.loaded = true;
+                if (cache.total != null && cache.total > 100) {
+                    console.warn(`Zakładka "${filter}" ma ${cache.total} stron — wyświetlono pierwsze 100.`);
+                }
                 cache.fetchedAll = true;
             }
 
             renderPages(cache.pages || []);
-            syncShowMore(cache.total != null ? cache.total : (cache.pages || []).length, (cache.pages || []).length);
+            // Pełen zbiór zakładki jest już w cache (pobrany jednym fetchem),
+            // więc "Pokaż więcej" dla cache'owanej zakładki nie ma sensu —
+            // przekaż długość renderowanego zbioru jako total, żeby przycisk
+            // nie pojawił się fantomowo nawet gdyby backendowy total był większy.
+            const shown = (cache.pages || []).length;
+            syncShowMore(shown, shown);
         }
 
         // Fetch more pages from API
