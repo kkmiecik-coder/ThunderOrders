@@ -7,8 +7,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const ordersCtx = document.getElementById('ordersChart');
     if (ordersCtx) {
         const isMobile = window.innerWidth <= 768;
-        const chartLabels = JSON.parse(ordersCtx.dataset.labels || '[]');
-        const chartValues = JSON.parse(ordersCtx.dataset.values || '[]');
+        let chartLabels = [];
+        let chartValues = [];
+        try {
+            chartLabels = JSON.parse(ordersCtx.dataset.labels || '[]');
+            chartValues = JSON.parse(ordersCtx.dataset.values || '[]');
+        } catch (e) {
+            console.error('Nieprawidłowe dane wykresu:', e);
+        }
 
         const ordersChart = new Chart(ordersCtx.getContext('2d'), {
             type: 'line',
