@@ -368,6 +368,29 @@ fetch('/client/orders/new', { method: 'POST', body: formData })
 
 ### 🚀 Jak Aktualizować Aplikację na Serwerze
 
+> ### ⚠️⚠️ KRYTYCZNE: Nazwa usługi do restartu (od 2026-06-04)
+>
+> Architektura produkcji została **rozdzielona na dwie usługi systemd**:
+> - **`thunderorders-http`** — HTTP (gthread workers), `wsgi:application`, port 8000
+> - **`thunderorders-ws`** — Socket.IO/eventlet, `wsgi_ws:application`, port 8001
+>
+> **ZAWSZE restartuj OBIE:**
+> ```bash
+> sudo systemctl restart thunderorders-http thunderorders-ws
+> ```
+>
+> **NIE restartuj `thunderorders`** (bez sufiksu) — to STARA, martwa usługa (monolit
+> `app:create_app()`). Jej restart FAILUJE z `Connection in use: 8000` (port zajęty przez
+> żywy `thunderorders-http`) i **NIE przeładowuje działających procesów** → wdrożony kod
+> nie wchodzi mimo `git pull`. Wszystkie komendy `thunderorders` poniżej w tym dokumencie
+> są NIEAKTUALNE — zamień na `thunderorders-http` / `thunderorders-ws`.
+>
+> Weryfikacja że restart zadziałał: `ps -eo pid,etime,cmd | grep '[g]unicorn'` —
+> `etime` musi być w sekundach, nie w dniach.
+>
+> Auto-deploy (`deploy.sh` wołany przez webhook) restartuje już właściwe usługi.
+> Wymaga wpisu sudoers NOPASSWD na `restart thunderorders-http` i `thunderorders-ws`.
+
 #### **Scenariusz 1: Zmiany w KODZIE (bez zmian w bazie danych)**
 
 **Na Macu (lokalnie):**

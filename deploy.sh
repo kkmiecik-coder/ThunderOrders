@@ -31,6 +31,12 @@ echo "$LOG_PREFIX Running migrations..."
 flask db upgrade 2>&1
 
 echo "$LOG_PREFIX Restarting application..."
-sudo systemctl restart thunderorders 2>&1
+# Architektura rozdzielona (2026-06-04): HTTP (gthread) + WS (eventlet/Socket.IO).
+# Stara monolityczna usługa `thunderorders` jest martwa (disabled) — NIE restartować jej tutaj,
+# bo failuje z "Connection in use: 8000" i nie przeładowuje żywych procesów.
+# UWAGA: dwie osobne komendy, bo reguła sudoers NOPASSWD dopasowuje dokładne wywołanie
+# per usługa (`systemctl restart thunderorders-http` i `...-ws` osobno).
+sudo systemctl restart thunderorders-http 2>&1
+sudo systemctl restart thunderorders-ws 2>&1
 
 echo "$LOG_PREFIX Deploy complete!"
