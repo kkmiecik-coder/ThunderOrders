@@ -326,17 +326,12 @@ document.addEventListener('DOMContentLoaded', function() {
         // nie istnieć (gdy zakładka bieżące jest pusta).
         if (!tableBody) return;
 
-        let currentOffset = loadMoreBtn
-            ? parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer)
-            : 0;
+        const PAGE_SIZE = 5;
         let isLoading = false;
-
-        // Stan zakładek: 'current' wyrenderowane server-side; 'closed' dociągane
-        // leniwie. Cache trzyma surowe dane stron i offset paginacji per zakładka.
         let activeFilter = 'current';
         const tabCache = {
-            current: { pages: null, total: null, fetchedAll: false },
-            closed: { pages: [], total: null, fetchedAll: false }
+            current: { pages: [], shownCount: 0, total: null, initialized: false },
+            closed:  { pages: [], shownCount: 0, total: null, initialized: false }
         };
 
         // Create table row HTML from page data
@@ -431,15 +426,39 @@ document.addEventListener('DOMContentLoaded', function() {
             return `<span class="offer-status offer-status-${page.status_class}">${page.status_text}</span>`;
         }
 
+        // Pokazuje spinner i czyści dynamiczne wiersze/karty (przy pierwszym
+        // pobraniu zakładki).
+        function showLoading() {
+            const loadingRow = tableBody.querySelector('.offer-loading-row');
+            const loadingCard = cardsBody ? cardsBody.querySelector('.offer-card-loading') : null;
+            const emptyRow = tableBody.querySelector('.offer-empty-row');
+            const emptyCard = cardsBody ? cardsBody.querySelector('.offer-card-empty') : null;
+            tableBody.querySelectorAll('tr').forEach(tr => {
+                if (!tr.classList.contains('offer-empty-row') &&
+                    !tr.classList.contains('offer-loading-row')) tr.remove();
+            });
+            if (cardsBody) cardsBody.querySelectorAll('.offer-card').forEach(c => c.remove());
+            if (emptyRow) emptyRow.style.display = 'none';
+            if (emptyCard) emptyCard.style.display = 'none';
+            if (loadingRow) loadingRow.style.display = '';
+            if (loadingCard) loadingCard.style.display = '';
+            if (showMoreContainer) showMoreContainer.style.display = 'none';
+        }
+
         // Czyści dynamiczne wiersze/karty (zostawia pusty stan) i renderuje
         // podany zbiór stron. Używane przy przełączaniu zakładek.
         function renderPages(pages) {
             const emptyRow = tableBody.querySelector('.offer-empty-row');
             const emptyCard = cardsBody ? cardsBody.querySelector('.offer-card-empty') : null;
+            const loadingRow = tableBody.querySelector('.offer-loading-row');
+            const loadingCard = cardsBody ? cardsBody.querySelector('.offer-card-loading') : null;
+            if (loadingRow) loadingRow.style.display = 'none';
+            if (loadingCard) loadingCard.style.display = 'none';
 
-            // Usuń wszystkie wiersze oprócz pustego stanu
+            // Usuń wszystkie wiersze oprócz pustego stanu i loadingu
             tableBody.querySelectorAll('tr').forEach(tr => {
-                if (!tr.classList.contains('offer-empty-row')) tr.remove();
+                if (!tr.classList.contains('offer-empty-row') &&
+                    !tr.classList.contains('offer-loading-row')) tr.remove();
             });
             if (cardsBody) {
                 cardsBody.querySelectorAll('.offer-card').forEach(c => c.remove());
@@ -486,14 +505,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Pokazuje/ukrywa i ustawia tekst "Pokaż więcej" wg stanu zakładki.
         function syncShowMore(total, shownCount) {
             if (!showMoreContainer || !loadMoreBtn) return;
-            const remaining = Math.max(0, total - shownCount);
+            const remaining = Math.max(0, (total || 0) - shownCount);
             if (remaining <= 0) {
                 showMoreContainer.style.display = 'none';
             } else {
                 showMoreContainer.style.display = '';
-                loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, 5)} więcej →`;
-                loadMoreBtn.dataset.remaining = remaining;
-                loadMoreBtn.dataset.total = total;
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, PAGE_SIZE)} więcej →`;
             }
         }
 
@@ -512,152 +530,75 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        // Pobiera pierwsze PAGE_SIZE stron zakładki przy pierwszym wejściu.
+        async function ensureTab(filter) {
+            const cache = tabCache[filter];
+            if (cache.initialized) return;
+            showLoading();
+            const data = await fetchTabData(filter, 0, PAGE_SIZE);
+            if (activeFilter !== filter) return;       // stale guard
+            cache.pages = data ? data.pages.slice() : [];
+            cache.total = data ? data.total : cache.pages.length;
+            cache.shownCount = cache.pages.length;
+            cache.initialized = true;
+        }
+
+        // Renderuje aktualnie aktywną zakładkę z cache.
+        function renderActive() {
+            const cache = tabCache[activeFilter];
+            renderPages(cache.pages.slice(0, cache.shownCount));
+            syncShowMore(cache.total, cache.shownCount);
+        }
+
         async function switchTab(filter) {
             if (filter === activeFilter) return;
             activeFilter = filter;
-
-            // Aktualizuj wygląd i aria przycisków
             document.querySelectorAll('.offer-filter-tab').forEach(btn => {
                 const isActive = btn.dataset.filter === filter;
                 btn.classList.toggle('active', isActive);
                 btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
             });
-
-            const cache = tabCache[filter];
-
-            // Jeśli zakładka nie ma jeszcze pełnych danych w pamięci, pobierz je
-            // raz (cała zakładka, limit=100) i zapamiętaj.
-            if (!cache.fetchedAll) {
-                const data = await fetchTabData(filter, 0, 100);
-                // Jeśli użytkownik przełączył zakładkę w trakcie pobierania,
-                // porzuć nieaktualną odpowiedź (race przy szybkim klikaniu).
-                if (activeFilter !== filter) return;
-                cache.pages = data ? data.pages : [];
-                cache.total = data ? data.total : cache.pages.length;
-                if (cache.total != null && cache.total > 100) {
-                    console.warn(`Zakładka "${filter}" ma ${cache.total} stron — wyświetlono pierwsze 100.`);
-                }
-                cache.fetchedAll = true;
-            }
-
-            renderPages(cache.pages || []);
-            // Pełen zbiór zakładki jest już w cache (pobrany jednym fetchem),
-            // więc "Pokaż więcej" dla cache'owanej zakładki nie ma sensu —
-            // przekaż długość renderowanego zbioru jako total, żeby przycisk
-            // nie pojawił się fantomowo nawet gdyby backendowy total był większy.
-            const shown = (cache.pages || []).length;
-            syncShowMore(shown, shown);
+            await ensureTab(filter);
+            if (activeFilter !== filter) return;        // stale guard
+            renderActive();
         }
 
-        // Fetch more pages from API
-        async function fetchMorePages(offset, limit = 5) {
-            try {
-                const response = await fetch(`/client/api/offer-pages?offset=${offset}&limit=${limit}`);
-                const data = await response.json();
-                return data;
-            } catch (error) {
-                console.error('Error fetching offer pages:', error);
-                return null;
-            }
-        }
-
-        // Update button text
-        function updateButtonText(remaining) {
-            if (remaining <= 0) {
-                showMoreContainer.style.display = 'none';
-            } else {
-                loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, 5)} więcej →`;
-                loadMoreBtn.dataset.remaining = remaining;
-            }
-        }
-
-        // Handle load more click (bufor istnieje tylko dla zakładki bieżące)
-        if (loadMoreBtn) loadMoreBtn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            if (activeFilter !== 'current') return;  // zamknięte ładowane w całości
-
+        // "Pokaż więcej" — dociąga kolejne PAGE_SIZE stron aktywnej zakładki.
+        async function loadMore() {
             if (isLoading) return;
+            const cache = tabCache[activeFilter];
+            const filterAtStart = activeFilter;
 
-            // 1. Show buffered items first (both table rows and cards)
-            const bufferedRows = tableBody ? tableBody.querySelectorAll('.offer-buffered') : [];
-            const bufferedCards = cardsBody ? cardsBody.querySelectorAll('.offer-buffered') : [];
-            let shownFromBuffer = 0;
-
-            bufferedRows.forEach((row, index) => {
-                if (index < 5 && row.style.display === 'none') {
-                    row.style.display = '';
-                    row.classList.remove('offer-buffered');
-                    shownFromBuffer++;
-                }
-            });
-
-            bufferedCards.forEach((card, index) => {
-                if (index < 5 && card.style.display === 'none') {
-                    card.style.display = '';
-                    card.classList.remove('offer-buffered');
-                }
-            });
-
-            // Calculate new remaining
-            let remaining = parseInt(loadMoreBtn.dataset.remaining) - shownFromBuffer;
-
-            // 2. If we showed buffered items, fetch more for the buffer in background
-            if (shownFromBuffer > 0 && remaining > 0) {
-                isLoading = true;
-                loadMoreBtn.textContent = 'Ładowanie...';
-
-                const data = await fetchMorePages(currentOffset, 5);
-
-                if (data && data.success && data.pages.length > 0) {
-                    // Add new rows as buffered (hidden)
-                    data.pages.forEach(page => {
-                        // Add table row
-                        // Uwaga: <tr>/<td> wstawione do innerHTML zwykłego <div> są
-                        // usuwane przez parser HTML (dozwolone tylko wewnątrz <table>),
-                        // co rozbijało wiersz na gołe <span>-y. <template> parsuje
-                        // samodzielny <tr> poprawnie.
-                        if (tableBody) {
-                            const tpl = document.createElement('template');
-                            tpl.innerHTML = createTableRowHTML(page).trim();
-                            const newRow = tpl.content.firstElementChild;
-                            newRow.classList.add('offer-buffered');
-                            newRow.style.display = 'none';
-                            tableBody.appendChild(newRow);
-                        }
-
-                        // Add card
-                        if (cardsBody) {
-                            const cardHTML = createCardHTML(page);
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = cardHTML;
-                            const newCard = tempDiv.firstElementChild;
-                            newCard.classList.add('offer-buffered');
-                            newCard.style.display = 'none';
-                            cardsBody.appendChild(newCard);
-                        }
-                    });
-
-                    currentOffset += data.pages.length;
-
-                    // Update timing displays for newly added elements
-                    updateOfferTimings();
-                }
-
-                isLoading = false;
+            // Jeśli mamy już więcej w cache niż pokazujemy — odsłoń bez fetcha.
+            if (cache.pages.length > cache.shownCount) {
+                cache.shownCount = Math.min(cache.shownCount + PAGE_SIZE, cache.pages.length);
+                renderActive();
+                return;
             }
 
-            // Recalculate remaining based on actual visible items
-            const visibleRows = tableBody ? tableBody.querySelectorAll('tr:not([style*="display: none"])').length : 0;
-            const total = parseInt(loadMoreBtn.dataset.total);
-            remaining = Math.max(0, total - visibleRows);
+            // Brak zapasu — dociągnij kolejne PAGE_SIZE z API.
+            isLoading = true;
+            if (loadMoreBtn) { loadMoreBtn.disabled = true; loadMoreBtn.textContent = 'Ładowanie…'; }
+            const data = await fetchTabData(activeFilter, cache.pages.length, PAGE_SIZE);
+            isLoading = false;
+            if (activeFilter !== filterAtStart) return; // stale guard (user switched mid-fetch)
+            if (data && data.pages.length) {
+                cache.pages.push(...data.pages);
+                cache.total = data.total;
+                cache.shownCount = cache.pages.length;
+            }
+            renderActive();
+        }
 
-            updateButtonText(remaining);
-        });
-
-        // Przełączanie zakładek Bieżące/Zamknięte
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', (e) => { e.preventDefault(); loadMore(); });
+        }
         document.querySelectorAll('.offer-filter-tab').forEach(btn => {
             btn.addEventListener('click', () => switchTab(btn.dataset.filter));
         });
+
+        // Start: pobierz i renderuj domyślną zakładkę (bieżące) z loading state.
+        ensureTab('current').then(() => { if (activeFilter === 'current') renderActive(); });
     })();
 
     // ====================================
