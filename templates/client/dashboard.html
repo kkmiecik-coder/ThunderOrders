@@ -1170,11 +1170,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
             }
 
-            // Licznik pełnych setów kupionych przez zalogowanego użytkownika
-            if (set.own_full_sets && set.own_full_sets > 0) {
+            // Licznik produktów-kompletów kupionych przez zalogowanego użytkownika.
+            // Pokazujemy zawsze gdy sekcja ma produkt-komplet — nawet z wartością 0.
+            if (fullSetProduct) {
+                const ownFullSets = set.own_full_sets || 0;
                 html += '<div class="set-matrix-own-footer">';
                 html += '<svg class="own-footer-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>';
-                html += `<span class="own-footer-text">Kupione pełne sety przez Ciebie: <strong>${set.own_full_sets}</strong></span>`;
+                html += `<span class="own-footer-text">Kupione pełne sety przez Ciebie: <strong>${ownFullSets}</strong></span>`;
                 html += '</div>';
             }
 
