@@ -23,6 +23,8 @@ let productsData = [];
 let selectOptions = {};
 let maxImages = 5;
 let selectedColumns = [];
+let columnWidths = []; // px, indeksowane jak selectedColumns
+const MIN_COL_WIDTH = 30;
 let pendingImageUploads = {};
 let pendingImageRemovals = []; // [{productId, slot}]
 
@@ -182,6 +184,7 @@ function getSelectedColumns() {
 function startEditing() {
     // Capture selected columns BEFORE hiding stage 1
     selectedColumns = getSelectedColumns();
+    buildColumnWidths();
 
     if (selectedColumns.length <= 2) {
         if (typeof window.showToast === 'function') {
@@ -240,23 +243,29 @@ function updateImageColumns() {
 // GRID RENDERING
 // =============================================
 
+function defaultColumnWidth(col) {
+    if (col.width) return parseInt(col.width, 10);
+    if (col.type === 'textarea') return 200;
+    if (col.type === 'select') return 160;
+    if (col.type === 'image') return 64;
+    if (col.type === 'checkbox') return 60;
+    return 130;
+}
+
+function buildColumnWidths() {
+    columnWidths = selectedColumns.map(col => defaultColumnWidth(col));
+}
+
 function renderGrid() {
     const container = document.getElementById('gridBody');
     const colCount = selectedColumns.length;
 
     // Build one flat grid: header cells + all row cells
-    const colWidths = selectedColumns.map(col => {
-        if (col.width) return col.width;
-        if (col.type === 'textarea') return '200px';
-        if (col.type === 'select') return '160px';
-        if (col.type === 'image') return '64px';
-        if (col.type === 'checkbox') return '60px';
-        return '130px';
-    }).join(' ');
-
-    // Calculate min-width to ensure horizontal scroll
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = colWidths;
+    if (columnWidths.length !== selectedColumns.length) {
+        buildColumnWidths();
+    }
+    container.style.gridTemplateColumns = columnWidths.map(w => w + 'px').join(' ');
 
     let html = '';
 
