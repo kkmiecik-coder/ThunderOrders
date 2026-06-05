@@ -168,6 +168,27 @@
                 </a>
                 {% endif %}
                 {% endif %}
+                {# Pobierz raport (mobile) — tylko admin, tylko gdy są dane #}
+                {% if current_user.role == 'admin' %}
+                    {% if page.status in ['active', 'paused'] or (page.status == 'ended' and not page.is_fully_closed) %}
+                    <a href="{{ url_for('admin.offers_live_export_excel', page_id=page.id) }}" class="btn-report-mobile" title="Pobierz raport na żywo">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        </svg>
+                        Raport
+                        <span class="report-live-dot"></span>
+                    </a>
+                    {% elif page.status == 'ended' and page.is_fully_closed %}
+                    <a href="{{ url_for('admin.offers_export_excel', page_id=page.id) }}" class="btn-report-mobile" title="Pobierz raport">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                        </svg>
+                        Raport
+                    </a>
+                    {% endif %}
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -323,6 +344,30 @@
                                         <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
                                     </svg>
                                 </button>
+                                {% endif %}
+
+                                {# Pobierz raport — tylko admin, tylko gdy są dane #}
+                                {% if current_user.role == 'admin' %}
+                                    {% if page.status in ['active', 'paused'] or (page.status == 'ended' and not page.is_fully_closed) %}
+                                    <!-- Report LIVE - active/paused/ended (not closed) -->
+                                    <a href="{{ url_for('admin.offers_live_export_excel', page_id=page.id) }}"
+                                       class="btn-action btn-report" title="Pobierz raport na żywo">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                        </svg>
+                                        <span class="report-live-dot"></span>
+                                    </a>
+                                    {% elif page.status == 'ended' and page.is_fully_closed %}
+                                    <!-- Report podsumowania - fully closed -->
+                                    <a href="{{ url_for('admin.offers_export_excel', page_id=page.id) }}"
+                                       class="btn-action btn-report" title="Pobierz raport">
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                        </svg>
+                                    </a>
+                                    {% endif %}
                                 {% endif %}
 
                                 {% if not page.is_fully_closed %}
