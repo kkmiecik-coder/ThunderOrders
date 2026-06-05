@@ -322,10 +322,22 @@ document.addEventListener('DOMContentLoaded', function() {
         const cardsBody = document.getElementById('offersCardsBody');
         const showMoreContainer = document.getElementById('offersShowMore');
 
-        if (!loadMoreBtn) return;
+        // tableBody jest wymagane do działania przełącznika; loadMoreBtn może
+        // nie istnieć (gdy zakładka bieżące jest pusta).
+        if (!tableBody) return;
 
-        let currentOffset = parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer);
+        let currentOffset = loadMoreBtn
+            ? parseInt(loadMoreBtn.dataset.visible) + parseInt(loadMoreBtn.dataset.buffer)
+            : 0;
         let isLoading = false;
+
+        // Stan zakładek: 'current' wyrenderowane server-side; 'closed' dociągane
+        // leniwie. Cache trzyma surowe dane stron i offset paginacji per zakładka.
+        let activeFilter = 'current';
+        const tabCache = {
+            current: { loaded: true, pages: null, total: null, fetchedAll: false },
+            closed: { loaded: false, pages: [], total: null, fetchedAll: false }
+        };
 
         // Create table row HTML from page data
         function createTableRowHTML(page) {
@@ -419,6 +431,114 @@ document.addEventListener('DOMContentLoaded', function() {
             return `<span class="offer-status offer-status-${page.status_class}">${page.status_text}</span>`;
         }
 
+        // Czyści dynamiczne wiersze/karty (zostawia pusty stan) i renderuje
+        // podany zbiór stron. Używane przy przełączaniu zakładek.
+        function renderPages(pages) {
+            const emptyRow = tableBody.querySelector('.offer-empty-row');
+            const emptyCard = cardsBody ? cardsBody.querySelector('.offer-card-empty') : null;
+
+            // Usuń wszystkie wiersze oprócz pustego stanu
+            tableBody.querySelectorAll('tr').forEach(tr => {
+                if (!tr.classList.contains('offer-empty-row')) tr.remove();
+            });
+            if (cardsBody) {
+                cardsBody.querySelectorAll('.offer-card').forEach(c => c.remove());
+            }
+
+            if (!pages || pages.length === 0) {
+                const emptyText = activeFilter === 'closed'
+                    ? 'Brak zamkniętych stron sprzedaży'
+                    : 'Brak bieżących stron sprzedaży';
+                if (emptyRow) {
+                    emptyRow.style.display = '';
+                    const cell = emptyRow.querySelector('.offer-empty-text');
+                    if (cell) cell.textContent = emptyText;
+                }
+                if (emptyCard) {
+                    emptyCard.style.display = '';
+                    const span = emptyCard.querySelector('.offer-empty-text');
+                    if (span) span.textContent = emptyText;
+                }
+                return;
+            }
+            if (emptyRow) emptyRow.style.display = 'none';
+            if (emptyCard) emptyCard.style.display = 'none';
+
+            pages.forEach(page => {
+                const tpl = document.createElement('template');
+                tpl.innerHTML = createTableRowHTML(page).trim();
+                const newRow = tpl.content.firstElementChild;
+                if (emptyRow) tableBody.insertBefore(newRow, emptyRow);
+                else tableBody.appendChild(newRow);
+
+                if (cardsBody) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = createCardHTML(page);
+                    const newCard = tempDiv.firstElementChild;
+                    if (emptyCard) cardsBody.insertBefore(newCard, emptyCard);
+                    else cardsBody.appendChild(newCard);
+                }
+            });
+
+            updateOfferTimings();
+        }
+
+        // Pokazuje/ukrywa i ustawia tekst "Pokaż więcej" wg stanu zakładki.
+        function syncShowMore(total, shownCount) {
+            if (!showMoreContainer || !loadMoreBtn) return;
+            const remaining = Math.max(0, total - shownCount);
+            if (remaining <= 0) {
+                showMoreContainer.style.display = 'none';
+            } else {
+                showMoreContainer.style.display = '';
+                loadMoreBtn.textContent = `Pokaż ${Math.min(remaining, 5)} więcej →`;
+                loadMoreBtn.dataset.remaining = remaining;
+                loadMoreBtn.dataset.total = total;
+            }
+        }
+
+        // Pobiera dane zakładki z API (z parametrem filter).
+        async function fetchTabData(filter, offset, limit) {
+            try {
+                const response = await fetch(
+                    `/client/api/offer-pages?filter=${filter}&offset=${offset}&limit=${limit}`
+                );
+                const data = await response.json();
+                return data && data.success ? data : null;
+            } catch (err) {
+                console.error('Błąd pobierania stron zakładki:', err);
+                if (window.Toast) window.Toast.show('Nie udało się załadować stron', 'error');
+                return null;
+            }
+        }
+
+        async function switchTab(filter) {
+            if (filter === activeFilter) return;
+            activeFilter = filter;
+
+            // Aktualizuj wygląd i aria przycisków
+            document.querySelectorAll('.offer-filter-tab').forEach(btn => {
+                const isActive = btn.dataset.filter === filter;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            const cache = tabCache[filter];
+
+            // Jeśli zakładka nie ma jeszcze pełnych danych w pamięci, pobierz je
+            // raz (cała zakładka, limit=100) i zapamiętaj.
+            if (!cache.fetchedAll) {
+                const data = await fetchTabData(filter, 0, 100);
+                cache.pages = data ? data.pages : [];
+                cache.total = data ? data.total : cache.pages.length;
+                cache.loaded = true;
+                cache.fetchedAll = true;
+            }
+
+            renderPages(cache.pages || []);
+            syncShowMore(cache.total != null ? cache.total : (cache.pages || []).length, (cache.pages || []).length);
+        }
+
         // Fetch more pages from API
         async function fetchMorePages(offset, limit = 5) {
             try {
@@ -441,9 +561,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Handle load more click
-        loadMoreBtn.addEventListener('click', async function(e) {
+        // Handle load more click (bufor istnieje tylko dla zakładki bieżące)
+        if (loadMoreBtn) loadMoreBtn.addEventListener('click', async function(e) {
             e.preventDefault();
+            if (activeFilter !== 'current') return;  // zamknięte ładowane w całości
 
             if (isLoading) return;
 
@@ -521,6 +642,11 @@ document.addEventListener('DOMContentLoaded', function() {
             remaining = Math.max(0, total - visibleRows);
 
             updateButtonText(remaining);
+        });
+
+        // Przełączanie zakładek Bieżące/Zamknięte
+        document.querySelectorAll('.offer-filter-tab').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.filter));
         });
     })();
 
