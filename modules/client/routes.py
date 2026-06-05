@@ -54,6 +54,23 @@ def sort_offer_pages(pages):
     return pages
 
 
+def filter_offer_pages(pages, filter_type):
+    """
+    Dzieli strony ofertowe na "bieżące" i "zamknięte" dla przełącznika
+    na dashboardzie klienta. Jedno źródło prawdy dla dashboard() i API.
+
+    - 'closed': strony zakończone (status == 'ended', obejmuje też
+      is_fully_closed, bo to nadal status 'ended').
+    - 'current' (domyślnie): zaplanowane / aktywne (LIVE) / wstrzymane.
+
+    Zachowuje kolejność wejściową (zakładamy, że lista jest już posortowana
+    przez sort_offer_pages).
+    """
+    if filter_type == 'closed':
+        return [p for p in pages if p.status == 'ended']
+    return [p for p in pages if p.status in ('scheduled', 'active', 'paused')]
+
+
 @client_bp.route('/dashboard')
 @login_required
 def dashboard():
@@ -163,15 +180,14 @@ def dashboard():
     # Sort: grupa statusu, a wewnątrz po dacie startu malejąco (patrz sort_offer_pages)
     sort_offer_pages(offer_pages_all)
 
-    # Pre-compute has_sets for each page
-    for page in offer_pages_all:
-        page._has_sets = len(page.get_set_sections()) > 0
+    # JS renderuje obie zakładki przez API; tutaj liczymy tylko flagi widoczności.
+    has_current = any(p.status in ('scheduled', 'active', 'paused') for p in offer_pages_all)
+    has_closed = any(p.status == 'ended' for p in offer_pages_all)
 
     offer_pages = {
-        'visible': offer_pages_all[:5],  # First 5 visible
-        'buffer': offer_pages_all[5:10],  # Next 5 in buffer (hidden)
-        'total': len(offer_pages_all),
-        'remaining': max(0, len(offer_pages_all) - 5)
+        'has_any': len(offer_pages_all) > 0,
+        'has_current': has_current,
+        'has_closed': has_closed,
     }
 
     return render_template(
@@ -337,6 +353,7 @@ def get_offer_pages():
 
     offset = request.args.get('offset', 0, type=int)
     limit = request.args.get('limit', 5, type=int)
+    filter_type = request.args.get('filter', 'current')
 
     # Pobierz wszystkie strony (bez drafts)
     offer_pages_all = OfferPage.query.filter(
@@ -350,10 +367,14 @@ def get_offer_pages():
     # Sort: ta sama logika co na dashboardzie (kolejność musi być identyczna)
     sort_offer_pages(offer_pages_all)
 
+    # Filtruj wg zakładki PRZED paginacją, żeby offset/remaining liczyły się
+    # względem przefiltrowanego zbioru.
+    filtered_pages = filter_offer_pages(offer_pages_all, filter_type)
+
     # Paginacja
-    pages_slice = offer_pages_all[offset:offset + limit]
-    has_more = len(offer_pages_all) > offset + limit
-    remaining = max(0, len(offer_pages_all) - offset - limit)
+    pages_slice = filtered_pages[offset:offset + limit]
+    has_more = len(filtered_pages) > offset + limit
+    remaining = max(0, len(filtered_pages) - offset - limit)
 
     # Serialize pages
     pages_data = []
@@ -404,7 +425,7 @@ def get_offer_pages():
         'pages': pages_data,
         'has_more': has_more,
         'remaining': remaining,
-        'total': len(offer_pages_all)
+        'total': len(filtered_pages)
     })
 
 
