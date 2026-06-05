@@ -928,11 +928,7 @@ a.metric-card-clickable.metric-card-info:hover {
 }
 
 /* Pusty stan zakładki */
-.offer-empty-cell {
-    text-align: center;
-    padding: var(--space-8) var(--space-4);
-}
-
+.offer-empty-cell,
 .offer-card-empty {
     text-align: center;
     padding: var(--space-8) var(--space-4);
@@ -944,10 +940,6 @@ a.metric-card-clickable.metric-card-info:hover {
 }
 
 /* Dark mode */
-[data-theme="dark"] .offer-filter-tabs {
-    background: rgba(255, 255, 255, 0.05);
-}
-
 [data-theme="dark"] .offer-filter-tab {
     color: rgba(255, 255, 255, 0.6);
 }
