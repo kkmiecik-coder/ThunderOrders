@@ -531,6 +531,17 @@ def get_offer_matrix(page_id):
             ).scalar()
             own_full_sets = int(own_full_sets)
 
+            # === TEMP DEBUG (usunąć po diagnozie) ===
+            import logging as _dbg_logging
+            _dbg = _dbg_logging.getLogger('matrix_debug')
+            _dbg.warning(
+                "[MATRIX_DEBUG] page_id=%s section_id=%s set_product_id=%s "
+                "current_user.id=%s full_set_qty=%s own_full_sets=%s",
+                page_id, section.id, section.set_product_id,
+                getattr(current_user, 'id', None), full_set_qty, own_full_sets
+            )
+            # === /TEMP DEBUG ===
+
             products_data.append({
                 'product_name': section.set_product.name,
                 'is_full_set': True,
