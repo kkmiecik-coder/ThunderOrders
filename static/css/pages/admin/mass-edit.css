@@ -284,9 +284,6 @@
     text-transform: uppercase;
     border-bottom: 2px solid var(--border-primary);
     border-right: 1px solid var(--border-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     position: sticky;
     top: 0;
     z-index: 50;
@@ -340,11 +337,6 @@
 
 .col-resize-handle:hover::after {
     background: var(--primary-color);
-}
-
-/* Dark mode */
-[data-theme="dark"] .col-resize-handle:hover::after {
-    background: #f093fb;
 }
 
 /* Data cells */
