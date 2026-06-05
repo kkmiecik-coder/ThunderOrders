@@ -302,7 +302,6 @@
 
 .grid-header-cell.sticky-col-1 {
     position: sticky;
-    left: 50px;
     top: 0;
     z-index: 80;
     background: var(--bg-tertiary);
@@ -331,7 +330,6 @@
 
 .grid-cell.sticky-col-1 {
     position: sticky;
-    left: 50px;
     z-index: 20;
     background: var(--bg-primary);
 }

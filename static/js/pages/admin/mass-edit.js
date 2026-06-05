@@ -256,6 +256,18 @@ function buildColumnWidths() {
     columnWidths = selectedColumns.map(col => defaultColumnWidth(col));
 }
 
+function applyColumnWidths() {
+    const container = document.getElementById('gridBody');
+    if (!container) return;
+    container.style.gridTemplateColumns = columnWidths.map(w => w + 'px').join(' ');
+
+    // Kolumna 0 (ID) jest resizowalna → przelicz left dla sticky-col-1 (Nazwa)
+    const col1Left = (columnWidths[0] || 0) + 'px';
+    document.querySelectorAll('#gridBody .sticky-col-1').forEach(el => {
+        el.style.left = col1Left;
+    });
+}
+
 function renderGrid() {
     const container = document.getElementById('gridBody');
     const colCount = selectedColumns.length;
@@ -265,7 +277,6 @@ function renderGrid() {
     if (columnWidths.length !== selectedColumns.length) {
         buildColumnWidths();
     }
-    container.style.gridTemplateColumns = columnWidths.map(w => w + 'px').join(' ');
 
     let html = '';
 
@@ -293,6 +304,7 @@ function renderGrid() {
     document.getElementById('gridHeader').style.display = 'none';
 
     attachInputListeners();
+    applyColumnWidths();
 }
 
 function renderCellInput(col, product, rowIndex) {
