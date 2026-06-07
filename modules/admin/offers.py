@@ -694,6 +694,38 @@ def _send_notifications_for_limit_changes(page_id, limit_changes):
 
 
 # ============================================
+# Edycja masowa stron (bulk)
+# ============================================
+
+def bulk_eligibility_error(pages, action):
+    """
+    Waliduje, czy akcja masowa może zostać wykonana na WSZYSTKICH podanych stronach
+    (polityka „zablokuj całą akcję"). Zwraca komunikat błędu (str) albo None gdy OK.
+
+    pages: iterowalne obiektów z atrybutami .status oraz .is_fully_closed
+    action: 'publish' | 'end' | 'set-dates' | 'delete'
+    """
+    pages = list(pages)
+
+    if action in ('publish', 'set-dates'):
+        if any(getattr(p, 'is_fully_closed', False) for p in pages):
+            return 'Nie można wykonać akcji na stronie całkowicie zamkniętej.'
+        return None
+
+    if action == 'end':
+        if not all(p.status in ('active', 'paused') for p in pages):
+            return 'Zamknąć można tylko strony o statusie aktywnym lub wstrzymanym.'
+        return None
+
+    if action == 'delete':
+        if any(p.status == 'active' for p in pages):
+            return 'Nie można usunąć aktywnej strony. Najpierw ją zamknij.'
+        return None
+
+    return 'Nieznana akcja masowa.'
+
+
+# ============================================
 # Zmiana statusu strony
 # ============================================
 
