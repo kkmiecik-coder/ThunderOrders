@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/offer-list.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -216,6 +217,9 @@
             <table class="data-table offer-table">
                 <thead>
                     <tr>
+                        <th class="offer-checkbox-col">
+                            <input type="checkbox" id="selectAll" class="offer-select-all" aria-label="Zaznacz wszystkie">
+                        </th>
                         <th>Nazwa</th>
                         <th>Typ</th>
                         <th>Typ wysyłki</th>
@@ -230,6 +234,13 @@
                 <tbody>
                     {% for page in pages %}
                     <tr data-search-name="{{ page.name }}">
+                        <td class="offer-checkbox-col">
+                            <input type="checkbox" class="offer-checkbox"
+                                   value="{{ page.id }}"
+                                   data-status="{{ page.status }}"
+                                   data-fully-closed="{{ '1' if page.is_fully_closed else '0' }}"
+                                   aria-label="Zaznacz stronę {{ page.name }}">
+                        </td>
                         <td>
                             <div class="page-name-cell">
                                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="page-name-link">
