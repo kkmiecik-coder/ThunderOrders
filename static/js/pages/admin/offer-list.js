@@ -420,7 +420,8 @@ function initializeOfferSearch() {
     const containers = document.querySelectorAll('.offer-cards-mobile, .table-container');
     const items = document.querySelectorAll('[data-search-name]');
 
-    // lowercase + usunięcie polskich ogonków, żeby "lacie" znajdowało "Łacie"
+    // lowercase + usunięcie znaków diakrytycznych (m.in. polskich ogonków),
+    // żeby "lacie" znajdowało "Łacie"
     const normalize = (str) => (str || '')
         .toLowerCase()
         .normalize('NFD')
@@ -429,16 +430,18 @@ function initializeOfferSearch() {
 
     input.addEventListener('input', function() {
         const query = normalize(input.value);
-        let visibleCount = 0;
+        // Liczy węzły DOM, nie strony — każda strona ma 2 wpisy (karta + wiersz).
+        // Do logiki braku wyników liczy się tylko 0 vs >0, więc to wystarcza.
+        let visibleNodeCount = 0;
 
         items.forEach(item => {
             const name = normalize(item.getAttribute('data-search-name'));
             const matches = query === '' || name.includes(query);
             item.classList.toggle('is-hidden', !matches);
-            if (matches) visibleCount++;
+            if (matches) visibleNodeCount++;
         });
 
-        const noResults = query !== '' && visibleCount === 0;
+        const noResults = query !== '' && visibleNodeCount === 0;
         containers.forEach(c => c.classList.toggle('is-hidden', noResults));
 
         if (emptyMessage) {
