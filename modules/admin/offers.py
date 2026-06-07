@@ -783,7 +783,7 @@ def offers_bulk_status():
     except Exception:
         pass
 
-    verb = 'aktywowano' if action == 'publish' else 'zamknięto'
+    verb = 'aktywowano' if action == 'publish' else 'zakończono'
     return jsonify({
         'success': True,
         'message': f'Pomyślnie {verb} {len(pages)} {_plural_strony(len(pages))}.',

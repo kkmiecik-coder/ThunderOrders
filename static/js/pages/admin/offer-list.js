@@ -517,10 +517,12 @@ function initializeBulkActions() {
         const allActiveOrPaused = selected.length > 0 &&
             selected.every(cb => cb.dataset.status === 'active' || cb.dataset.status === 'paused');
         const anyActive = selected.some(cb => cb.dataset.status === 'active');
+        const allEnded = selected.length > 0 && selected.every(cb => cb.dataset.status === 'ended');
 
         setBtn('activate', !anyFullyClosed, 'Nie można aktywować — w zaznaczeniu jest strona całkowicie zamknięta.');
         setBtn('set-dates', !anyFullyClosed, 'Nie można ustawić dat — w zaznaczeniu jest strona całkowicie zamknięta.');
         setBtn('close', allActiveOrPaused, 'Zamknąć można tylko strony aktywne lub wstrzymane.');
+        setBtn('close-complete', allEnded && !anyFullyClosed, 'Całkowicie zamknąć można tylko strony o statusie „Zakończona", które nie są jeszcze zamknięte.');
         setBtn('delete', !anyActive, 'Nie można usunąć aktywnej strony.');
     }
 
@@ -668,12 +670,17 @@ function initializeBulkActions() {
                         break;
                     case 'close':
                         openBulkConfirm(
-                            'Zamknij sprzedaż',
-                            `Zamknąć sprzedaż na ${ids.length} stronach? Zmienią status na „Zakończona".`,
-                            'Zamknij sprzedaż',
+                            'Zakończ sprzedaż',
+                            `Zakończyć sprzedaż na ${ids.length} stronach? Zmienią status na „Zakończona".`,
+                            'Zakończ sprzedaż',
                             false,
-                            () => bulkStatus(ids, 'end', 'Zamknięto')
+                            () => bulkStatus(ids, 'end', 'Zakończono')
                         );
+                        break;
+                    case 'close-complete':
+                        if (typeof window.openBulkCloseModal === 'function') {
+                            window.openBulkCloseModal(ids);
+                        }
                         break;
                     case 'delete':
                         openBulkConfirm(
