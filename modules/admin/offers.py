@@ -841,6 +841,69 @@ def offers_bulk_set_dates():
     })
 
 
+@admin_bp.route('/offers/bulk/delete', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_delete():
+    """Masowe usuwanie stron (odrzuca aktywne)."""
+    import os
+    from flask import current_app
+    from utils.activity_logger import log_activity
+
+    data = request.get_json() or {}
+    page_ids = data.get('page_ids') or []
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
+
+    err = bulk_eligibility_error(pages, 'delete')
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+
+    deleted = 0
+    for page in pages:
+        name = page.name
+        page_id_for_log = page.id
+        orders_count = page.orders.count()
+
+        # Usuń pliki graficzne setów
+        for section in page.sections:
+            if section.set_image:
+                file_path = os.path.join(current_app.static_folder, section.set_image)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except OSError:
+                        pass
+
+        db.session.delete(page)
+        log_activity(
+            user=current_user,
+            action='offer_deleted',
+            entity_type='offer',
+            entity_id=page_id_for_log,
+            old_value={'name': name, 'orders_count': orders_count},
+            new_value=None
+        )
+        deleted += 1
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': f'Usunięto {deleted} {_plural_strony(deleted)}.',
+        'count': deleted
+    })
+
+
 # ============================================
 # Zmiana statusu strony
 # ============================================
