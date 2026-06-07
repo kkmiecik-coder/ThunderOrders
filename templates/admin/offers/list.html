@@ -15,48 +15,62 @@
             <p class="header-subtitle">Zarządzaj formularzami zamówień pre-order</p>
         </div>
         <div class="header-right">
-            <button type="button" class="btn btn-primary" onclick="openCreateModal()">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                </svg>
-                Dodaj stronę
-            </button>
+            <!-- Stats (pigułki) -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <span class="stat-value">{{ pages|length }}</span>
+                    <span class="stat-label">Wszystkie</span>
+                </div>
+                <div class="stat-card stat-draft">
+                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'draft')|list|length }}</span>
+                    <span class="stat-label">Drafty</span>
+                </div>
+                <div class="stat-card stat-scheduled">
+                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'scheduled')|list|length }}</span>
+                    <span class="stat-label">Zaplanowane</span>
+                </div>
+                <div class="stat-card stat-active">
+                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'active')|list|length }}</span>
+                    <span class="stat-label">Aktywne</span>
+                </div>
+                <div class="stat-card stat-paused">
+                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'paused')|list|length }}</span>
+                    <span class="stat-label">Wstrzymane</span>
+                </div>
+                <div class="stat-card stat-ended">
+                    <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'ended')|list|length }}</span>
+                    <span class="stat-label">Zakończone</span>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Stats -->
-    <div class="stats-row">
-        <div class="stat-card">
-            <span class="stat-value">{{ pages|length }}</span>
-            <span class="stat-label">Wszystkie</span>
+    <!-- Toolbar: szukajka + dodaj stronę -->
+    {% if pages %}
+    <div class="offer-toolbar">
+        <div class="offer-search-bar">
+            <svg class="offer-search-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+            </svg>
+            <input type="text" id="offerSearchInput" class="offer-search-input"
+                   placeholder="Szukaj strony po nazwie..." autocomplete="off"
+                   aria-label="Szukaj strony sprzedaży po nazwie">
         </div>
-        <div class="stat-card stat-draft">
-            <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'draft')|list|length }}</span>
-            <span class="stat-label">Drafty</span>
-        </div>
-        <div class="stat-card stat-scheduled">
-            <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'scheduled')|list|length }}</span>
-            <span class="stat-label">Zaplanowane</span>
-        </div>
-        <div class="stat-card stat-active">
-            <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'active')|list|length }}</span>
-            <span class="stat-label">Aktywne</span>
-        </div>
-        <div class="stat-card stat-paused">
-            <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'paused')|list|length }}</span>
-            <span class="stat-label">Wstrzymane</span>
-        </div>
-        <div class="stat-card stat-ended">
-            <span class="stat-value">{{ pages|selectattr('status', 'equalto', 'ended')|list|length }}</span>
-            <span class="stat-label">Zakończone</span>
-        </div>
+        <button type="button" class="btn btn-primary offer-toolbar-add" onclick="openCreateModal()">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Dodaj stronę
+        </button>
     </div>
+    <div class="offer-search-empty is-hidden" id="offerSearchEmpty"></div>
+    {% endif %}
 
     <!-- Mobile Cards -->
     {% if pages %}
     <div class="offer-cards-mobile">
         {% for page in pages %}
-        <div class="offer-card">
+        <div class="offer-card" data-search-name="{{ page.name }}">
             <div class="offer-card-header">
                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="offer-card-title">
                     {{ page.name }}
@@ -215,7 +229,7 @@
                 </thead>
                 <tbody>
                     {% for page in pages %}
-                    <tr>
+                    <tr data-search-name="{{ page.name }}">
                         <td>
                             <div class="page-name-cell">
                                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="page-name-link">
