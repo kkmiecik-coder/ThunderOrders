@@ -1218,11 +1218,37 @@ def _format_product_cell(entries):
     return sum(qty for _, qty in entries) or None
 
 
-def _build_preorder_summary_sheet(wb, page, s):
-    """Zakładka 'Podsumowanie' — macierz klient × sekcja z cenami, sumami i kursem."""
-    ws = wb.create_sheet(title='Podsumowanie', index=0)
-    ws.sheet_properties.tabColor = _PURPLE
+def _write_quantities_matrix(ws, page, s, start_row=1):
+    """
+    Wpisuje macierz ILOŚCI (klient × sekcja, sumy sztuk) do arkusza ws,
+    poczynając od wiersza start_row. NIE ustawia szerokości kolumn ani freeze.
+    Zwraca krotkę (next_free_row, num_sections).
+    """
+    data = _preorder_collect_data(page)
+    sections = data['sections']
+    customers = data['customers']
+    matrix = data['matrix']
 
+    headers = ['Klient'] + [_section_column_name(sec) for sec in sections]
+    _write_header_row(ws, start_row, headers, s)
+
+    for i, customer in enumerate(customers):
+        row = start_row + 1 + i
+        _write_cell(ws, row, 1, customer['name'], s, align='left')
+        for j, sec in enumerate(sections):
+            entries = matrix.get((customer['key'], sec.id), [])
+            qty_total = sum(q for _, q in entries) if entries else None
+            _write_cell(ws, row, 2 + j, qty_total, s, align='center')
+
+    return start_row + 1 + len(customers), len(sections)
+
+
+def _write_values_matrix(ws, page, s, start_row=1):
+    """
+    Wpisuje macierz WARTOŚCI (klient × sekcja, ceny PLN/KRW, sumy, kurs) do ws
+    od wiersza start_row. NIE ustawia szerokości kolumn ani freeze.
+    Zwraca krotkę (next_free_row, num_sections).
+    """
     data = _preorder_collect_data(page)
     sections = data['sections']
     customers = data['customers']
@@ -1231,37 +1257,36 @@ def _build_preorder_summary_sheet(wb, page, s):
     price_fill = PatternFill(start_color=_PREORDER_PRICE_FILL, end_color=_PREORDER_PRICE_FILL, fill_type='solid')
     suma_fill = PatternFill(start_color=_PREORDER_SUMA_FILL, end_color=_PREORDER_SUMA_FILL, fill_type='solid')
 
-    # Row 1: headers
+    header_row = start_row
     headers = ['Klient'] + [_section_column_name(sec) for sec in sections] + ['Suma (PLN)', 'Suma (KRW)']
-    _write_header_row(ws, 1, headers, s)
+    _write_header_row(ws, header_row, headers, s)
 
-    # Precompute section prices + product sets
     section_products = [_section_products(sec) for sec in sections]
     pln_prices = [_price_pln_for_section(prods) for prods in section_products]
     krw_prices = [_price_krw_for_section(prods) for prods in section_products]
 
-    # Row 2: pln
-    _write_cell(ws, 2, 1, 'pln', s, align='center', bold=True, fill=price_fill)
+    pln_row = header_row + 1
+    _write_cell(ws, pln_row, 1, 'pln', s, align='center', bold=True, fill=price_fill)
     for idx, val in enumerate(pln_prices, start=2):
-        _write_cell(ws, 2, idx, val, s, align='center', fill=price_fill)
-    _write_cell(ws, 2, len(sections) + 2, None, s, fill=price_fill)
-    _write_cell(ws, 2, len(sections) + 3, None, s, fill=price_fill)
+        _write_cell(ws, pln_row, idx, val, s, align='center', fill=price_fill)
+    _write_cell(ws, pln_row, len(sections) + 2, None, s, fill=price_fill)
+    _write_cell(ws, pln_row, len(sections) + 3, None, s, fill=price_fill)
 
-    # Row 3: krw
-    _write_cell(ws, 3, 1, 'krw', s, align='center', bold=True, fill=price_fill)
+    krw_row = header_row + 2
+    _write_cell(ws, krw_row, 1, 'krw', s, align='center', bold=True, fill=price_fill)
     for idx, val in enumerate(krw_prices, start=2):
-        _write_cell(ws, 3, idx, val, s, align='center', fill=price_fill)
-    _write_cell(ws, 3, len(sections) + 2, None, s, fill=price_fill)
-    _write_cell(ws, 3, len(sections) + 3, None, s, fill=price_fill)
+        _write_cell(ws, krw_row, idx, val, s, align='center', fill=price_fill)
+    _write_cell(ws, krw_row, len(sections) + 2, None, s, fill=price_fill)
+    _write_cell(ws, krw_row, len(sections) + 3, None, s, fill=price_fill)
 
-    # Rows: customers
     customer_totals_pln = []
     customer_totals_krw = []
     col_totals_pln = [0.0] * len(sections)
     col_totals_krw = [0.0] * len(sections)
 
+    first_customer_row = header_row + 3
     for i, customer in enumerate(customers):
-        row = 4 + i
+        row = first_customer_row + i
         _write_cell(ws, row, 1, customer['name'], s, align='left')
         total_pln = 0.0
         total_krw = 0.0
@@ -1280,7 +1305,6 @@ def _build_preorder_summary_sheet(wb, page, s):
 
             _write_cell(ws, row, col, cell_value, s, align='center')
 
-            # money totals (use actual item prices)
             for product, qty in entries:
                 if product and product.sale_price is not None:
                     val_pln = float(product.sale_price) * qty
@@ -1299,8 +1323,7 @@ def _build_preorder_summary_sheet(wb, page, s):
         customer_totals_pln.append(total_pln)
         customer_totals_krw.append(total_krw)
 
-    # SUMA (PLN) row
-    suma_row = 4 + len(customers)
+    suma_row = first_customer_row + len(customers)
     _write_cell(ws, suma_row, 1, 'SUMA (PLN)', s, align='left', bold=True, fill=suma_fill)
     for j, total in enumerate(col_totals_pln):
         _write_cell(ws, suma_row, 2 + j, _fmt_price(total) if total else None,
@@ -1314,19 +1337,27 @@ def _build_preorder_summary_sheet(wb, page, s):
                 _fmt_price(total_all_krw, decimals=0) if total_all_krw else None,
                 s, align='center', bold=True, fill=suma_fill)
 
-    # Blank row then Kurs
     rate = _get_krw_pln_rate()
     rate_row = suma_row + 2
     _write_cell(ws, rate_row, 1, 'Kurs KRW/PLN:', s, align='left', bold=True)
     if rate:
         _write_cell(ws, rate_row, 2, round(rate), s, align='center', bold=True)
 
-    # Column widths
+    return rate_row + 1, len(sections)
+
+
+def _build_preorder_summary_sheet(wb, page, s):
+    """Zakładka 'Podsumowanie' — macierz klient × sekcja z cenami, sumami i kursem."""
+    ws = wb.create_sheet(title='Podsumowanie', index=0)
+    ws.sheet_properties.tabColor = _PURPLE
+
+    _, n_sections = _write_values_matrix(ws, page, s, start_row=1)
+
     ws.column_dimensions['A'].width = 24
-    for j in range(len(sections)):
+    for j in range(n_sections):
         ws.column_dimensions[get_column_letter(2 + j)].width = 20
-    ws.column_dimensions[get_column_letter(len(sections) + 2)].width = 12
-    ws.column_dimensions[get_column_letter(len(sections) + 3)].width = 14
+    ws.column_dimensions[get_column_letter(n_sections + 2)].width = 12
+    ws.column_dimensions[get_column_letter(n_sections + 3)].width = 14
 
     ws.freeze_panes = 'B4'
 
@@ -1336,24 +1367,10 @@ def _build_preorder_quantities_sheet(wb, page, s):
     ws = wb.create_sheet(title='Ilości', index=1)
     ws.sheet_properties.tabColor = _PURPLE_LIGHT
 
-    data = _preorder_collect_data(page)
-    sections = data['sections']
-    customers = data['customers']
-    matrix = data['matrix']
-
-    headers = ['Klient'] + [_section_column_name(sec) for sec in sections]
-    _write_header_row(ws, 1, headers, s)
-
-    for i, customer in enumerate(customers):
-        row = 2 + i
-        _write_cell(ws, row, 1, customer['name'], s, align='left')
-        for j, sec in enumerate(sections):
-            entries = matrix.get((customer['key'], sec.id), [])
-            qty_total = sum(q for _, q in entries) if entries else None
-            _write_cell(ws, row, 2 + j, qty_total, s, align='center')
+    _, n_sections = _write_quantities_matrix(ws, page, s, start_row=1)
 
     ws.column_dimensions['A'].width = 24
-    for j in range(len(sections)):
+    for j in range(n_sections):
         ws.column_dimensions[get_column_letter(2 + j)].width = 16
 
     ws.freeze_panes = 'B2'
