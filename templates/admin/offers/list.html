@@ -809,8 +809,16 @@ async function changePageStatus(pageId, action) {
 let closePageId = null;
 let bulkCloseIds = null; // gdy ustawione → modal #closeModal działa w trybie zbiorczym
 
+// Poprawna forma rzeczownika 'strona' w bierniku dla liczby n (dla komunikatów).
+function pluralStrony(n) {
+    if (n === 1) return 'stronę';
+    if (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) return 'strony';
+    return 'stron';
+}
+
 function openCloseModal(pageId, pageName, pageType) {
     closePageId = pageId;
+    bulkCloseIds = null; // tryb pojedynczy — wyzeruj ewentualny stan zbiorczy
     document.getElementById('closePageName').textContent = pageName;
 
     // Toggle exclusive vs preorder info
@@ -990,8 +998,8 @@ async function executeBulkCloseComplete() {
     }
 
     showToast(fail === 0
-        ? `Zamknięto całkowicie ${ok} stron.`
-        : `Zamknięto ${ok}, błędów: ${fail}.`);
+        ? `Zamknięto całkowicie ${ok} ${pluralStrony(ok)}.`
+        : `Zamknięto ${ok} ${pluralStrony(ok)}, błędów: ${fail}.`);
     setTimeout(() => { window.location.href = '/admin/offers'; }, 700);
 }
 
