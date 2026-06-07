@@ -1051,6 +1051,151 @@ def _build_live_orders_sheet(wb, summary, s):
 
 
 # ============================================
+# Raport zbiorowy ofert (bulk, multi-offer)
+# ============================================
+
+def _offer_stats(page, data=None):
+    """
+    Zwraca statystyki jednej oferty dla raportu zbiorczego:
+        status_label, type_label, period, orders_count, revenue_pln (float), sets_count
+    Przychód liczony z tych samych danych co macierz wartości (spójność).
+    """
+    from modules.orders.models import Order
+
+    status_labels = {
+        'draft': 'Szkic', 'scheduled': 'Zaplanowana', 'active': 'Aktywna',
+        'paused': 'Wstrzymana', 'ended': 'Zakończona',
+    }
+    type_labels = {'exclusive': 'Exclusive', 'preorder': 'Pre-order'}
+
+    status_label = status_labels.get(page.status, page.status or '-')
+    if page.is_fully_closed:
+        status_label += ' (zamknięta)'
+
+    orders_count = Order.query.filter_by(offer_page_id=page.id).filter(
+        Order.status != 'anulowane'
+    ).count()
+
+    if data is None:
+        data = _preorder_collect_data(page)
+    revenue = 0.0
+    for entries in data['matrix'].values():
+        for product, qty in entries:
+            if product and product.sale_price is not None:
+                revenue += float(product.sale_price) * qty
+
+    sets_count = sum(1 for sec in page.sections if sec.section_type == 'set')
+
+    return {
+        'status_label': status_label,
+        'type_label': type_labels.get(page.page_type, page.page_type or '-'),
+        'period': _format_period(page.starts_at, page.ends_at),
+        'orders_count': orders_count,
+        'revenue_pln': revenue,
+        'sets_count': sets_count,
+    }
+
+
+def _build_bulk_overview_sheet(wb, pages, s):
+    """Pierwszy arkusz: zestawienie wszystkich zaznaczonych ofert + wiersz SUMA."""
+    ws = wb.create_sheet(title='Podsumowanie', index=0)
+    ws.sheet_properties.tabColor = _PURPLE
+
+    headers = ['Oferta', 'Status', 'Typ', 'Okres',
+               'Liczba zamówień', 'Przychód (PLN)', 'Liczba setów']
+    _write_header_row(ws, 1, headers, s)
+
+    suma_fill = PatternFill(start_color=_PREORDER_SUMA_FILL, end_color=_PREORDER_SUMA_FILL, fill_type='solid')
+
+    total_orders = 0
+    total_revenue = 0.0
+    for i, page in enumerate(pages):
+        st = _offer_stats(page)
+        row = 2 + i
+        _write_cell(ws, row, 1, page.name, s, align='left')
+        _write_cell(ws, row, 2, st['status_label'], s, align='center')
+        _write_cell(ws, row, 3, st['type_label'], s, align='center')
+        _write_cell(ws, row, 4, st['period'], s, align='center')
+        _write_cell(ws, row, 5, st['orders_count'], s, align='center')
+        _write_cell(ws, row, 6, _fmt_price(st['revenue_pln']) if st['revenue_pln'] else None,
+                    s, align='center')
+        _write_cell(ws, row, 7, st['sets_count'], s, align='center')
+        total_orders += st['orders_count']
+        total_revenue += st['revenue_pln']
+
+    suma_row = 2 + len(pages)
+    _write_cell(ws, suma_row, 1, 'SUMA', s, align='left', bold=True, fill=suma_fill)
+    for col in (2, 3, 4):
+        _write_cell(ws, suma_row, col, None, s, fill=suma_fill)
+    _write_cell(ws, suma_row, 5, total_orders, s, align='center', bold=True, fill=suma_fill)
+    _write_cell(ws, suma_row, 6, _fmt_price(total_revenue) if total_revenue else None,
+                s, align='center', bold=True, fill=suma_fill)
+    _write_cell(ws, suma_row, 7, None, s, fill=suma_fill)
+
+    _set_col_widths(ws, {1: 32, 2: 18, 3: 12, 4: 22, 5: 16, 6: 16, 7: 14})
+    ws.freeze_panes = 'A2'
+
+
+def _build_bulk_offer_sheet(ws, page, s):
+    """Zakładka jednej oferty: nagłówek statystyk + macierz ilości + macierz wartości."""
+    ws.sheet_properties.tabColor = _PURPLE_LIGHT
+    data = _preorder_collect_data(page)
+    st = _offer_stats(page, data=data)
+
+    _write_cell(ws, 1, 1, page.name, s, align='left', bold=True)
+    _write_cell(ws, 2, 1, f"Status: {st['status_label']}", s, align='left')
+    _write_cell(ws, 3, 1, f"Typ: {st['type_label']}", s, align='left')
+    _write_cell(ws, 4, 1, f"Okres: {st['period']}", s, align='left')
+    _write_cell(ws, 5, 1, f"Liczba zamówień: {st['orders_count']}", s, align='left')
+    revenue_txt = _fmt_price(st['revenue_pln']) if st['revenue_pln'] else 0
+    _write_cell(ws, 6, 1, f"Przychód (PLN): {revenue_txt}", s, align='left')
+
+    title_row = 8
+    _write_cell(ws, title_row, 1, 'ILOŚCI (sztuki)', s, align='left', bold=True)
+    next_row, n1 = _write_quantities_matrix(ws, page, s, start_row=title_row + 1, data=data)
+
+    title2_row = next_row + 1
+    _write_cell(ws, title2_row, 1, 'WARTOŚCI (PLN)', s, align='left', bold=True)
+    _, n2 = _write_values_matrix(ws, page, s, start_row=title2_row + 1, data=data)
+
+    ws.column_dimensions['A'].width = 24
+    for j in range(max(n1, n2)):
+        ws.column_dimensions[get_column_letter(2 + j)].width = 18
+
+
+def generate_offers_bulk_report(pages):
+    """
+    Generuje zbiorczy plik Excel dla wielu ofert.
+    Arkusz 1: 'Podsumowanie' (zestawienie wszystkich ofert).
+    Kolejne arkusze: jedna zakładka per oferta (statystyki + 2 macierze).
+
+    Args:
+        pages: lista obiektów OfferPage (w żądanej kolejności).
+    Returns:
+        BytesIO z plikiem .xlsx.
+    """
+    wb = Workbook()
+    default_ws = wb.active  # domyślny 'Sheet' — usuniemy na końcu
+    s = _styles()
+
+    _build_bulk_overview_sheet(wb, pages, s)
+
+    used_titles = {'podsumowanie'}
+    for page in pages:
+        title = _safe_sheet_title(page.name, used_titles)
+        used_titles.add(title.lower())
+        ws = wb.create_sheet(title=title)
+        _build_bulk_offer_sheet(ws, page, s)
+
+    wb.remove(default_ws)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+# ============================================
 # Pre-order matrix report (Podsumowanie + Ilości)
 # ============================================
 
@@ -1218,13 +1363,14 @@ def _format_product_cell(entries):
     return sum(qty for _, qty in entries) or None
 
 
-def _write_quantities_matrix(ws, page, s, start_row=1):
+def _write_quantities_matrix(ws, page, s, start_row=1, data=None):
     """
     Wpisuje macierz ILOŚCI (klient × sekcja, sumy sztuk) do arkusza ws,
     poczynając od wiersza start_row. NIE ustawia szerokości kolumn ani freeze.
     Zwraca krotkę (next_free_row, num_sections).
     """
-    data = _preorder_collect_data(page)
+    if data is None:
+        data = _preorder_collect_data(page)
     sections = data['sections']
     customers = data['customers']
     matrix = data['matrix']
@@ -1243,13 +1389,14 @@ def _write_quantities_matrix(ws, page, s, start_row=1):
     return start_row + 1 + len(customers), len(sections)
 
 
-def _write_values_matrix(ws, page, s, start_row=1):
+def _write_values_matrix(ws, page, s, start_row=1, data=None):
     """
     Wpisuje macierz WARTOŚCI (klient × sekcja, ceny PLN/KRW, sumy, kurs) do ws
     od wiersza start_row. NIE ustawia szerokości kolumn ani freeze.
     Zwraca krotkę (next_free_row, num_sections).
     """
-    data = _preorder_collect_data(page)
+    if data is None:
+        data = _preorder_collect_data(page)
     sections = data['sections']
     customers = data['customers']
     matrix = data['matrix']
