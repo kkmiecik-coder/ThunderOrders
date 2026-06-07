@@ -1096,7 +1096,7 @@ def _offer_stats(page, data=None):
     }
 
 
-def _build_bulk_overview_sheet(wb, pages, s):
+def _build_bulk_overview_sheet(wb, pages, s, all_data):
     """Pierwszy arkusz: zestawienie wszystkich zaznaczonych ofert + wiersz SUMA."""
     ws = wb.create_sheet(title='Podsumowanie', index=0)
     ws.sheet_properties.tabColor = _PURPLE
@@ -1110,7 +1110,7 @@ def _build_bulk_overview_sheet(wb, pages, s):
     total_orders = 0
     total_revenue = 0.0
     for i, page in enumerate(pages):
-        st = _offer_stats(page)
+        st = _offer_stats(page, data=all_data[page.id])
         row = 2 + i
         _write_cell(ws, row, 1, page.name, s, align='left')
         _write_cell(ws, row, 2, st['status_label'], s, align='center')
@@ -1136,10 +1136,9 @@ def _build_bulk_overview_sheet(wb, pages, s):
     ws.freeze_panes = 'A2'
 
 
-def _build_bulk_offer_sheet(ws, page, s):
+def _build_bulk_offer_sheet(ws, page, s, data):
     """Zakładka jednej oferty: nagłówek statystyk + macierz ilości + macierz wartości."""
     ws.sheet_properties.tabColor = _PURPLE_LIGHT
-    data = _preorder_collect_data(page)
     st = _offer_stats(page, data=data)
 
     _write_cell(ws, 1, 1, page.name, s, align='left', bold=True)
@@ -1178,14 +1177,15 @@ def generate_offers_bulk_report(pages):
     default_ws = wb.active  # domyślny 'Sheet' — usuniemy na końcu
     s = _styles()
 
-    _build_bulk_overview_sheet(wb, pages, s)
+    all_data = {page.id: _preorder_collect_data(page) for page in pages}
+    _build_bulk_overview_sheet(wb, pages, s, all_data)
 
     used_titles = {'podsumowanie'}
     for page in pages:
         title = _safe_sheet_title(page.name, used_titles)
         used_titles.add(title.lower())
         ws = wb.create_sheet(title=title)
-        _build_bulk_offer_sheet(ws, page, s)
+        _build_bulk_offer_sheet(ws, page, s, all_data[page.id])
 
     wb.remove(default_ws)
 
