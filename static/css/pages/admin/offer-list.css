@@ -241,6 +241,7 @@
 }
 
 .btn-action.btn-edit:hover { color: var(--primary-color); }
+.btn-action.btn-copy:hover { color: var(--primary-color); }
 .btn-action.btn-duplicate:hover { color: var(--info); }
 .btn-action.btn-external-link:hover { color: var(--success); }
 .btn-action.btn-live-dashboard { color: #8b5cf6; }
@@ -1082,6 +1083,11 @@
 }
 
 [data-theme="dark"] .btn-action.btn-edit:hover {
+    color: #f093fb;
+    background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .btn-action.btn-copy:hover {
     color: #f093fb;
     background: rgba(240, 147, 251, 0.1);
 }
