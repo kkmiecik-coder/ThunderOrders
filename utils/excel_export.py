@@ -425,7 +425,7 @@ def _build_orders_sheet(wb, summary, s):
     ws.sheet_properties.tabColor = "4A90D9"
 
     # Title
-    ws.merge_cells('A1:K1')
+    ws.merge_cells('A1:I1')
     cell = ws['A1']
     cell.value = "Szczegóły zamówień"
     cell.font = s['title_font']
@@ -435,7 +435,7 @@ def _build_orders_sheet(wb, summary, s):
 
     # Headers
     headers = [
-        "Nr zamówienia", "Klient", "Email", "Telefon", "Data",
+        "Nr zamówienia", "Klient", "Data",
         "Produkt", "Typ", "Ilość", "Status realizacji",
     ]
     if has_financials:
@@ -475,24 +475,22 @@ def _build_orders_sheet(wb, summary, s):
 
                 customer_name = order.get('customer_name') or 'Gość'
                 _write_cell(ws, row, 2, customer_name, s, align='left')
-                _write_cell(ws, row, 3, order.get('customer_email') or '-', s, align='left')
-                _write_cell(ws, row, 4, order.get('customer_phone') or '-', s, align='left')
 
                 created_at = order.get('created_at')
                 if created_at and hasattr(created_at, 'strftime'):
                     date_str = created_at.strftime('%d.%m.%Y %H:%M')
                 else:
                     date_str = str(created_at) if created_at else '-'
-                _write_cell(ws, row, 5, date_str, s, align='center')
+                _write_cell(ws, row, 3, date_str, s, align='center')
             else:
                 # Empty cells for repeated order columns
-                for col in range(1, 6):
+                for col in range(1, 4):
                     _write_cell(ws, row, col, '', s, align='left')
 
             # Item columns
             if item:
                 product_name = item.get('product_name', '-')
-                _write_cell(ws, row, 6, product_name, s, align='left')
+                _write_cell(ws, row, 4, product_name, s, align='left')
 
                 # Type
                 if item.get('is_bonus'):
@@ -507,11 +505,11 @@ def _build_orders_sheet(wb, summary, s):
                 else:
                     type_label = "Zwykły"
                     type_fill = None
-                type_cell = _write_cell(ws, row, 7, type_label, s, align='center')
+                type_cell = _write_cell(ws, row, 5, type_label, s, align='center')
                 if type_fill:
                     type_cell.fill = type_fill
 
-                _write_cell(ws, row, 8, item.get('quantity', 0), s, align='center', bold=True)
+                _write_cell(ws, row, 6, item.get('quantity', 0), s, align='center', bold=True)
 
                 # Fulfillment status
                 fulfilled = item.get('is_set_fulfilled')
@@ -532,17 +530,17 @@ def _build_orders_sheet(wb, summary, s):
                     status_text = "Ręczny"
                     status_fill = s['custom_fill']
 
-                status_cell = _write_cell(ws, row, 9, status_text, s, align='center')
+                status_cell = _write_cell(ws, row, 7, status_text, s, align='center')
                 status_cell.fill = status_fill
 
                 if has_financials:
                     price = item.get('price', 0) or 0
                     total = item.get('total', 0) or 0
-                    _write_cell(ws, row, 10, price, s, align='right', fmt='#,##0.00')
-                    _write_cell(ws, row, 11, total, s, align='right', fmt='#,##0.00')
+                    _write_cell(ws, row, 8, price, s, align='right', fmt='#,##0.00')
+                    _write_cell(ws, row, 9, total, s, align='right', fmt='#,##0.00')
             else:
                 # No items - empty product columns
-                for col in range(6, len(headers) + 1):
+                for col in range(4, len(headers) + 1):
                     _write_cell(ws, row, col, '-', s, align='center')
 
             row += 1
@@ -567,12 +565,12 @@ def _build_orders_sheet(wb, summary, s):
 
     # Column widths
     widths = {
-        'A': 18, 'B': 25, 'C': 28, 'D': 16, 'E': 18,
-        'F': 30, 'G': 12, 'H': 10, 'I': 18,
+        'A': 18, 'B': 25, 'C': 18, 'D': 30, 'E': 12,
+        'F': 10, 'G': 18,
     }
     if has_financials:
-        widths['J'] = 16
-        widths['K'] = 16
+        widths['H'] = 16
+        widths['I'] = 16
     _set_col_widths(ws, widths)
     ws.freeze_panes = 'A4'
 
@@ -933,7 +931,7 @@ def _build_live_orders_sheet(wb, summary, s):
     ws = wb.create_sheet("Zamówienia")
     ws.sheet_properties.tabColor = "4A90D9"
 
-    ws.merge_cells('A1:K1')
+    ws.merge_cells('A1:H1')
     cell = ws['A1']
     cell.value = "Szczegóły zamówień — LIVE"
     cell.font = s['title_font']
@@ -942,7 +940,7 @@ def _build_live_orders_sheet(wb, summary, s):
     has_financials = summary.get('total_revenue') is not None
 
     headers = [
-        "Nr zamówienia", "Klient", "Email", "Telefon", "Data",
+        "Nr zamówienia", "Klient", "Data",
         "Produkt", "Typ", "Ilość",
     ]
     if has_financials:
@@ -979,22 +977,20 @@ def _build_live_orders_sheet(wb, summary, s):
 
                 customer_name = order.get('customer_name') or 'Gość'
                 _write_cell(ws, row, 2, customer_name, s, align='left')
-                _write_cell(ws, row, 3, order.get('customer_email') or '-', s, align='left')
-                _write_cell(ws, row, 4, order.get('customer_phone') or '-', s, align='left')
 
                 created_at = order.get('created_at')
                 if created_at and hasattr(created_at, 'strftime'):
                     date_str = created_at.strftime('%d.%m.%Y %H:%M')
                 else:
                     date_str = str(created_at) if created_at else '-'
-                _write_cell(ws, row, 5, date_str, s, align='center')
+                _write_cell(ws, row, 3, date_str, s, align='center')
             else:
-                for col in range(1, 6):
+                for col in range(1, 4):
                     _write_cell(ws, row, col, '', s, align='left')
 
             if item:
                 product_name = item.get('product_name', '-')
-                _write_cell(ws, row, 6, product_name, s, align='left')
+                _write_cell(ws, row, 4, product_name, s, align='left')
 
                 if item.get('is_bonus'):
                     type_label = "Gratis"
@@ -1008,19 +1004,19 @@ def _build_live_orders_sheet(wb, summary, s):
                 else:
                     type_label = "Zwykły"
                     type_fill = None
-                type_cell = _write_cell(ws, row, 7, type_label, s, align='center')
+                type_cell = _write_cell(ws, row, 5, type_label, s, align='center')
                 if type_fill:
                     type_cell.fill = type_fill
 
-                _write_cell(ws, row, 8, item.get('quantity', 0), s, align='center', bold=True)
+                _write_cell(ws, row, 6, item.get('quantity', 0), s, align='center', bold=True)
 
                 if has_financials:
                     price = item.get('price', 0) or 0
                     total = item.get('total', 0) or 0
-                    _write_cell(ws, row, 9, price, s, align='right', fmt='#,##0.00')
-                    _write_cell(ws, row, 10, total, s, align='right', fmt='#,##0.00')
+                    _write_cell(ws, row, 7, price, s, align='right', fmt='#,##0.00')
+                    _write_cell(ws, row, 8, total, s, align='right', fmt='#,##0.00')
             else:
-                for col in range(6, len(headers) + 1):
+                for col in range(4, len(headers) + 1):
                     _write_cell(ws, row, col, '-', s, align='center')
 
             row += 1
@@ -1044,12 +1040,12 @@ def _build_live_orders_sheet(wb, summary, s):
             c.number_format = '#,##0.00'
 
     widths = {
-        'A': 18, 'B': 25, 'C': 28, 'D': 16, 'E': 18,
-        'F': 30, 'G': 12, 'H': 10,
+        'A': 18, 'B': 25, 'C': 18, 'D': 30, 'E': 12,
+        'F': 10,
     }
     if has_financials:
-        widths['I'] = 16
-        widths['J'] = 16
+        widths['G'] = 16
+        widths['H'] = 16
     _set_col_widths(ws, widths)
     ws.freeze_panes = 'A4'
 
