@@ -73,6 +73,11 @@
         {% for page in pages %}
         <div class="offer-card" data-search-name="{{ page.name }}">
             <div class="offer-card-header">
+                <input type="checkbox" class="offer-checkbox offer-card-checkbox"
+                       value="{{ page.id }}"
+                       data-status="{{ page.status }}"
+                       data-fully-closed="{{ '1' if page.is_fully_closed else '0' }}"
+                       aria-label="Zaznacz stronę {{ page.name }}">
                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="offer-card-title">
                     {{ page.name }}
                 </a>

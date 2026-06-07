@@ -487,6 +487,8 @@ function initializeBulkActions() {
     function syncRowHighlight(cb) {
         const row = cb.closest('tr');
         if (row) row.classList.toggle('row-selected', cb.checked);
+        const card = cb.closest('.offer-card');
+        if (card) card.classList.toggle('card-selected', cb.checked);
     }
 
     function updateToolbar() {

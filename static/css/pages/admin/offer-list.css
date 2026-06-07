@@ -2677,6 +2677,17 @@
     background: rgba(157, 78, 221, 0.08);
 }
 
+/* Checkbox w karcie mobilnej (przed nazwą) */
+.offer-card-checkbox {
+    flex-shrink: 0;
+}
+
+/* Podświetlenie zaznaczonej karty mobilnej */
+.offer-card.card-selected {
+    background: rgba(157, 78, 221, 0.08);
+    border-color: rgba(157, 78, 221, 0.35);
+}
+
 /* Dropdown „Ustaw" — otwiera się w GÓRĘ (toolbar jest na dole ekranu) */
 .bulk-set-wrapper {
     position: relative;
@@ -2729,6 +2740,11 @@
 /* Dark mode */
 [data-theme="dark"] .offer-table tbody tr.row-selected {
     background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .offer-card.card-selected {
+    background: rgba(240, 147, 251, 0.12);
+    border-color: rgba(240, 147, 251, 0.35);
 }
 
 [data-theme="dark"] .offer-checkbox,
