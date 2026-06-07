@@ -33,4 +33,10 @@ def test_duplicate_suffix_fits_31_chars():
 
 
 def test_empty_name_gets_fallback():
-    assert _safe_sheet_title('', set()) != ''
+    assert _safe_sheet_title('', set()) == 'Oferta'
+
+
+def test_does_not_mutate_used_titles():
+    used = {'lato 2026'}
+    _safe_sheet_title('Lato 2026', used)
+    assert used == {'lato 2026'}

@@ -1393,7 +1393,8 @@ def _safe_sheet_title(name, used_titles):
     n = 2
     while True:
         suffix = f' ({n})'
-        trimmed = base[:31 - len(suffix)].rstrip()
+        trim_to = max(0, 31 - len(suffix))
+        trimmed = base[:trim_to].rstrip()
         candidate = f'{trimmed}{suffix}'
         if candidate.lower() not in used_titles:
             return candidate
