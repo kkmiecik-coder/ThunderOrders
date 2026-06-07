@@ -1154,7 +1154,7 @@ def _build_bulk_offer_sheet(ws, page, s, data):
     next_row, n1 = _write_quantities_matrix(ws, page, s, start_row=title_row + 1, data=data)
 
     title2_row = next_row + 1
-    _write_cell(ws, title2_row, 1, 'WARTOŚCI (PLN)', s, align='left', bold=True)
+    _write_cell(ws, title2_row, 1, 'WARTOŚCI (PLN / KRW)', s, align='left', bold=True)
     _, n2 = _write_values_matrix(ws, page, s, start_row=title2_row + 1, data=data)
 
     ws.column_dimensions['A'].width = 24
@@ -1293,7 +1293,7 @@ def _preorder_collect_data(page):
 
     Returns:
         dict z kluczami:
-            - orderable_sections: lista OfferSection (tylko product/variant_group/set)
+            - sections: lista OfferSection (tylko product/variant_group/set)
             - customers: listę krotek (klucz, nazwa, user_id, email) w kolejności 1-go zakupu
             - matrix: {(customer_key, section_id): [(product_obj, quantity), ...]}
     """
