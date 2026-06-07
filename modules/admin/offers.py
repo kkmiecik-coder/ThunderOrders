@@ -791,6 +791,56 @@ def offers_bulk_status():
     })
 
 
+@admin_bp.route('/offers/bulk/set-dates', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_set_dates():
+    """Masowe ustawienie daty rozpoczęcia lub zakończenia."""
+    from datetime import datetime
+
+    data = request.get_json() or {}
+    page_ids = data.get('page_ids') or []
+    field = data.get('field')
+    value = data.get('value')
+
+    if field not in ('starts_at', 'ends_at'):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe pole daty.'}), 400
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+    if not value:
+        return jsonify({'success': False, 'error': 'Data jest wymagana.'}), 400
+
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
+
+    err = bulk_eligibility_error(pages, 'set-dates')
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+
+    for page in pages:
+        setattr(page, field, parsed)
+
+    db.session.commit()
+
+    label = 'rozpoczęcia' if field == 'starts_at' else 'zakończenia'
+    return jsonify({
+        'success': True,
+        'message': f'Ustawiono datę {label} dla zaznaczonych stron ({len(pages)}).',
+        'count': len(pages)
+    })
+
+
 # ============================================
 # Zmiana statusu strony
 # ============================================
