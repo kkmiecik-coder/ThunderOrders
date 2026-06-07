@@ -666,6 +666,22 @@
     border-radius: var(--radius-xl);
     padding: 14px;
     box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Akcje przeniesione na dół karty (mobile) */
+.offer-card-actions {
+    order: 99;
+    margin-left: 0;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-primary);
+    flex-wrap: wrap;
+}
+
+[data-theme="dark"] .offer-card-actions {
+    border-top-color: rgba(240, 147, 251, 0.15);
 }
 
 .offer-card-header {
