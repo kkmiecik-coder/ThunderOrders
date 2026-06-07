@@ -868,7 +868,8 @@ def offers_bulk_delete():
     if err:
         return jsonify({'success': False, 'error': err}), 400
 
-    deleted = 0
+    # 1. Usuń strony (pliki + delete) — zbierz dane do logu, BEZ commitu w pętli
+    log_entries = []
     for page in pages:
         name = page.name
         page_id_for_log = page.id
@@ -885,18 +886,23 @@ def offers_bulk_delete():
                         pass
 
         db.session.delete(page)
+        log_entries.append({'id': page_id_for_log, 'name': name, 'orders_count': orders_count})
+
+    # 2. Atomowy commit wszystkich usunięć
+    db.session.commit()
+
+    # 3. Log aktywności PO commicie (log_activity sam commituje — jak w offers_delete)
+    for entry in log_entries:
         log_activity(
             user=current_user,
             action='offer_deleted',
             entity_type='offer',
-            entity_id=page_id_for_log,
-            old_value={'name': name, 'orders_count': orders_count},
+            entity_id=entry['id'],
+            old_value={'name': entry['name'], 'orders_count': entry['orders_count']},
             new_value=None
         )
-        deleted += 1
 
-    db.session.commit()
-
+    deleted = len(log_entries)
     return jsonify({
         'success': True,
         'message': f'Usunięto {deleted} {_plural_strony(deleted)}.',
