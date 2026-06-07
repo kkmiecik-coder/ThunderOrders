@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeDeleteForm();
     initializePaymentReminders();
     initializeOfferSearch();
+    initializeBulkActions();
 });
 
 /**
@@ -451,4 +452,333 @@ function initializeOfferSearch() {
             }
         }
     });
+}
+
+/**
+ * Edycja masowa stron sprzedaży: checkboxy, pływający pasek, akcje.
+ * Guard: jeśli na stronie nie ma paska (#bulkToolbar), nic nie robi.
+ */
+function initializeBulkActions() {
+    const bulkToolbar = document.getElementById('bulkToolbar');
+    if (!bulkToolbar) return;
+
+    const selectAll = document.getElementById('selectAll');
+    const selectedCount = document.getElementById('selectedCount');
+
+    function getCsrfToken() {
+        const el = document.querySelector('input[name="csrf_token"]');
+        return el ? el.value : '';
+    }
+
+    // Tylko widoczne checkboxy (uwzględnia szukajkę chowającą wiersze klasą .is-hidden)
+    function getVisibleCheckboxes() {
+        return Array.from(document.querySelectorAll('.offer-checkbox'))
+            .filter(cb => cb.offsetParent !== null);
+    }
+
+    function getSelected() {
+        return getVisibleCheckboxes().filter(cb => cb.checked);
+    }
+
+    function getSelectedIds() {
+        return getSelected().map(cb => cb.value);
+    }
+
+    function syncRowHighlight(cb) {
+        const row = cb.closest('tr');
+        if (row) row.classList.toggle('row-selected', cb.checked);
+        const card = cb.closest('.offer-card');
+        if (card) card.classList.toggle('card-selected', cb.checked);
+    }
+
+    function updateToolbar() {
+        const selected = getSelected();
+        const count = selected.length;
+
+        if (count > 0) {
+            bulkToolbar.classList.remove('hidden');
+            selectedCount.textContent = `${count} zaznaczonych`;
+        } else {
+            bulkToolbar.classList.add('hidden');
+        }
+
+        if (selectAll) {
+            const visible = getVisibleCheckboxes();
+            const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
+            const someChecked = visible.some(cb => cb.checked);
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = someChecked && !allChecked;
+        }
+
+        updateButtonAvailability(selected);
+    }
+
+    // Polityka „zablokuj całą akcję" — lustro reguł backendu
+    function updateButtonAvailability(selected) {
+        const anyFullyClosed = selected.some(cb => cb.dataset.fullyClosed === '1');
+        const allActiveOrPaused = selected.length > 0 &&
+            selected.every(cb => cb.dataset.status === 'active' || cb.dataset.status === 'paused');
+        const anyActive = selected.some(cb => cb.dataset.status === 'active');
+        const allEnded = selected.length > 0 && selected.every(cb => cb.dataset.status === 'ended');
+
+        setBtn('activate', !anyFullyClosed, 'Nie można aktywować — w zaznaczeniu jest strona całkowicie zamknięta.');
+        setBtn('set-dates', !anyFullyClosed, 'Nie można ustawić dat — w zaznaczeniu jest strona całkowicie zamknięta.');
+        setBtn('close', allActiveOrPaused, 'Zamknąć można tylko strony aktywne lub wstrzymane.');
+        setBtn('close-complete', allEnded && !anyFullyClosed, 'Całkowicie zamknąć można tylko strony o statusie „Zakończona", które nie są jeszcze zamknięte.');
+        setBtn('delete', !anyActive, 'Nie można usunąć aktywnej strony.');
+    }
+
+    function setBtn(action, enabled, reasonIfDisabled) {
+        const btn = bulkToolbar.querySelector(`.btn-bulk[data-action="${action}"]`);
+        if (!btn) return;
+        btn.classList.toggle('is-disabled', !enabled);
+        btn.title = enabled ? '' : reasonIfDisabled;
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            getVisibleCheckboxes().forEach(cb => {
+                cb.checked = this.checked;
+                syncRowHighlight(cb);
+            });
+            updateToolbar();
+        });
+    }
+
+    document.querySelectorAll('.offer-checkbox').forEach(cb => {
+        cb.addEventListener('change', function() {
+            syncRowHighlight(this);
+            updateToolbar();
+        });
+    });
+
+    // Odśwież pasek po filtrowaniu szukajką — zaznaczenia w ukrytych wierszach
+    // przestają się liczyć (licznik, select-all i dostępność przycisków na bieżąco).
+    const bulkSearchInput = document.getElementById('offerSearchInput');
+    if (bulkSearchInput) {
+        bulkSearchInput.addEventListener('input', updateToolbar);
+    }
+
+    // ---- Dropdown „Ustaw" + modal daty ----
+    let bulkDateField = null;
+
+    function setupBulkSetDropdown() {
+        const wrapper = bulkToolbar.querySelector('.bulk-set-wrapper');
+        const trigger = bulkToolbar.querySelector('.btn-bulk[data-action="set-dates"]');
+        const dropdown = document.getElementById('bulkSetDropdown');
+        if (!wrapper || !trigger || !dropdown) return;
+
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (trigger.classList.contains('is-disabled')) return;
+            dropdown.classList.toggle('show');
+            wrapper.classList.toggle('open');
+        });
+
+        dropdown.querySelectorAll('.bulk-set-option').forEach(opt => {
+            opt.addEventListener('click', function() {
+                const field = this.dataset.field;
+                dropdown.classList.remove('show');
+                wrapper.classList.remove('open');
+                openBulkDateModal(field);
+            });
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!wrapper.contains(e.target)) {
+                dropdown.classList.remove('show');
+                wrapper.classList.remove('open');
+            }
+        });
+    }
+
+    function openBulkDateModal(field) {
+        bulkDateField = field;
+        const modal = document.getElementById('bulkDateModal');
+        const title = document.getElementById('bulkDateTitle');
+        const countEl = document.getElementById('bulkDateCount');
+        const input = document.getElementById('bulkDateInput');
+
+        title.textContent = field === 'starts_at' ? 'Ustaw datę rozpoczęcia' : 'Ustaw datę zakończenia';
+        countEl.textContent = getSelectedIds().length;
+        input.value = '';
+        modal.classList.add('active');
+    }
+
+    window.closeBulkDateModal = function() {
+        const modal = document.getElementById('bulkDateModal');
+        modal.classList.add('closing');
+        setTimeout(() => modal.classList.remove('active', 'closing'), 350);
+        bulkDateField = null;
+    };
+
+    document.getElementById('bulkDateApply').addEventListener('click', function() {
+        const input = document.getElementById('bulkDateInput');
+        const value = input.value;
+        const ids = getSelectedIds();
+
+        if (!value) {
+            showToast('Wybierz datę.', 'error');
+            return;
+        }
+        if (ids.length === 0) {
+            window.closeBulkDateModal();
+            return;
+        }
+
+        fetch('/admin/offers/bulk/set-dates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ page_ids: ids, field: bulkDateField, value: value })
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                showToast(result.error || 'Błąd ustawiania daty.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('bulk set-dates error:', err);
+            showToast('Wystąpił błąd.', 'error');
+        });
+    });
+
+    document.getElementById('bulkDateModal').addEventListener('click', function(e) {
+        if (e.target === this) window.closeBulkDateModal();
+    });
+
+    // ---- Akcje: Aktywuj / Zamknij / Usuń + modal potwierdzenia ----
+    let bulkConfirmCallback = null;
+
+    function setupBulkButtons() {
+        bulkToolbar.querySelectorAll('.btn-bulk').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.dataset.action;
+                if (this.classList.contains('is-disabled')) return;
+                if (action === 'set-dates') return; // obsłużone przez dropdown
+
+                const ids = getSelectedIds();
+                if (ids.length === 0) return;
+
+                switch (action) {
+                    case 'report':
+                        showToast('Raport zbiorowy — funkcja w przygotowaniu.', 'info');
+                        break;
+                    case 'activate':
+                        bulkStatus(ids, 'publish', 'Aktywowano');
+                        break;
+                    case 'close':
+                        openBulkConfirm(
+                            'Zakończ sprzedaż',
+                            `Zakończyć sprzedaż na ${ids.length} stronach? Zmienią status na „Zakończona".`,
+                            'Zakończ sprzedaż',
+                            false,
+                            () => bulkStatus(ids, 'end', 'Zakończono')
+                        );
+                        break;
+                    case 'close-complete':
+                        if (typeof window.openBulkCloseModal === 'function') {
+                            window.openBulkCloseModal(ids);
+                        }
+                        break;
+                    case 'delete':
+                        openBulkConfirm(
+                            'Usuń strony',
+                            `Usunąć ${ids.length} stron? Tej operacji nie można cofnąć.`,
+                            'Usuń',
+                            true,
+                            () => bulkDelete(ids)
+                        );
+                        break;
+                }
+            });
+        });
+    }
+
+    function bulkStatus(ids, backendAction, verb) {
+        fetch('/admin/offers/bulk/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ page_ids: ids, action: backendAction })
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                showToast(result.error || `Błąd: ${verb.toLowerCase()} nie powiodło się.`, 'error');
+            }
+        })
+        .catch(err => {
+            console.error('bulk status error:', err);
+            showToast('Wystąpił błąd.', 'error');
+        });
+    }
+
+    function bulkDelete(ids) {
+        fetch('/admin/offers/bulk/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ page_ids: ids })
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                showToast(result.message, 'success');
+                setTimeout(() => window.location.reload(), 500);
+            } else {
+                showToast(result.error || 'Błąd usuwania.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('bulk delete error:', err);
+            showToast('Wystąpił błąd.', 'error');
+        });
+    }
+
+    function openBulkConfirm(title, text, okLabel, danger, onConfirm) {
+        const modal = document.getElementById('bulkConfirmModal');
+        document.getElementById('bulkConfirmTitle').textContent = title;
+        document.getElementById('bulkConfirmText').textContent = text;
+        const okBtn = document.getElementById('bulkConfirmOk');
+        okBtn.textContent = okLabel;
+        okBtn.classList.toggle('btn-danger', !!danger);
+        bulkConfirmCallback = onConfirm;
+        modal.classList.add('active');
+    }
+
+    window.closeBulkConfirmModal = function() {
+        const modal = document.getElementById('bulkConfirmModal');
+        modal.classList.add('closing');
+        setTimeout(() => modal.classList.remove('active', 'closing'), 350);
+        bulkConfirmCallback = null;
+    };
+
+    document.getElementById('bulkConfirmOk').addEventListener('click', function() {
+        const cb = bulkConfirmCallback;
+        window.closeBulkConfirmModal();
+        if (typeof cb === 'function') cb();
+    });
+
+    document.getElementById('bulkConfirmModal').addEventListener('click', function(e) {
+        if (e.target === this) window.closeBulkConfirmModal();
+    });
+
+    // Escape zamyka nowe modale
+    document.addEventListener('keydown', function(e) {
+        if (e.key !== 'Escape') return;
+        const dateModal = document.getElementById('bulkDateModal');
+        const confirmModal = document.getElementById('bulkConfirmModal');
+        if (dateModal && dateModal.classList.contains('active')) window.closeBulkDateModal();
+        if (confirmModal && confirmModal.classList.contains('active')) window.closeBulkConfirmModal();
+    });
+
+    // Inicjalizacja
+    setupBulkSetDropdown();
+    setupBulkButtons();
+    updateToolbar();
 }

@@ -694,6 +694,223 @@ def _send_notifications_for_limit_changes(page_id, limit_changes):
 
 
 # ============================================
+# Edycja masowa stron (bulk)
+# ============================================
+
+def bulk_eligibility_error(pages, action):
+    """
+    Waliduje, czy akcja masowa może zostać wykonana na WSZYSTKICH podanych stronach
+    (polityka „zablokuj całą akcję"). Zwraca komunikat błędu (str) albo None gdy OK.
+
+    pages: iterowalne obiektów z atrybutami .status oraz .is_fully_closed
+    action: 'publish' | 'end' | 'set-dates' | 'delete'
+    """
+    pages = list(pages)
+
+    if action in ('publish', 'set-dates'):
+        if any(getattr(p, 'is_fully_closed', False) for p in pages):
+            return 'Nie można wykonać akcji na stronie całkowicie zamkniętej.'
+        return None
+
+    if action == 'end':
+        if not all(p.status in ('active', 'paused') for p in pages):
+            return 'Zamknąć można tylko strony o statusie aktywnym lub wstrzymanym.'
+        return None
+
+    if action == 'delete':
+        if any(p.status == 'active' for p in pages):
+            return 'Nie można usunąć aktywnej strony. Najpierw ją zamknij.'
+        return None
+
+    return 'Nieznana akcja masowa.'
+
+
+def _plural_strony(n):
+    """Zwraca poprawną formę rzeczownika 'strona' w bierniku dla liczby n."""
+    if n == 1:
+        return 'stronę'
+    if 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
+        return 'strony'
+    return 'stron'
+
+
+@admin_bp.route('/offers/bulk/status', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_status():
+    """Masowa zmiana statusu stron: action='publish'|'end'."""
+    data = request.get_json() or {}
+    page_ids = data.get('page_ids') or []
+    action = data.get('action')
+
+    if action not in ('publish', 'end'):
+        return jsonify({'success': False, 'error': 'Nieprawidłowa akcja.'}), 400
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
+
+    err = bulk_eligibility_error(pages, action)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+
+    for page in pages:
+        if action == 'publish':
+            page.publish()
+            if page.notify_clients_on_publish:
+                page._send_publish_notifications()
+        else:  # end
+            page.end()
+
+    db.session.commit()
+
+    # Broadcast zmian statusu (best-effort)
+    try:
+        from modules.offers.socket_events import broadcast_page_status
+        for page in pages:
+            broadcast_page_status(
+                page.id,
+                page.status,
+                ends_at=page.ends_at.isoformat() if page.ends_at else None
+            )
+    except Exception:
+        pass
+
+    verb = 'aktywowano' if action == 'publish' else 'zakończono'
+    return jsonify({
+        'success': True,
+        'message': f'Pomyślnie {verb} {len(pages)} {_plural_strony(len(pages))}.',
+        'count': len(pages)
+    })
+
+
+@admin_bp.route('/offers/bulk/set-dates', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_set_dates():
+    """Masowe ustawienie daty rozpoczęcia lub zakończenia."""
+    from datetime import datetime
+
+    data = request.get_json() or {}
+    page_ids = data.get('page_ids') or []
+    field = data.get('field')
+    value = data.get('value')
+
+    if field not in ('starts_at', 'ends_at'):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe pole daty.'}), 400
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+    if not value:
+        return jsonify({'success': False, 'error': 'Data jest wymagana.'}), 400
+
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
+    try:
+        parsed = datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowy format daty.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
+
+    err = bulk_eligibility_error(pages, 'set-dates')
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+
+    for page in pages:
+        setattr(page, field, parsed)
+
+    db.session.commit()
+
+    label = 'rozpoczęcia' if field == 'starts_at' else 'zakończenia'
+    return jsonify({
+        'success': True,
+        'message': f'Ustawiono datę {label} dla zaznaczonych stron ({len(pages)}).',
+        'count': len(pages)
+    })
+
+
+@admin_bp.route('/offers/bulk/delete', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_delete():
+    """Masowe usuwanie stron (odrzuca aktywne)."""
+    import os
+    from flask import current_app
+    from utils.activity_logger import log_activity
+
+    data = request.get_json() or {}
+    page_ids = data.get('page_ids') or []
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
+
+    err = bulk_eligibility_error(pages, 'delete')
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+
+    # 1. Usuń strony (pliki + delete) — zbierz dane do logu, BEZ commitu w pętli
+    log_entries = []
+    for page in pages:
+        name = page.name
+        page_id_for_log = page.id
+        orders_count = page.orders.count()
+
+        # Usuń pliki graficzne setów
+        for section in page.sections:
+            if section.set_image:
+                file_path = os.path.join(current_app.static_folder, section.set_image)
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except OSError:
+                        pass
+
+        db.session.delete(page)
+        log_entries.append({'id': page_id_for_log, 'name': name, 'orders_count': orders_count})
+
+    # 2. Atomowy commit wszystkich usunięć
+    db.session.commit()
+
+    # 3. Log aktywności PO commicie (log_activity sam commituje — jak w offers_delete)
+    for entry in log_entries:
+        log_activity(
+            user=current_user,
+            action='offer_deleted',
+            entity_type='offer',
+            entity_id=entry['id'],
+            old_value={'name': entry['name'], 'orders_count': entry['orders_count']},
+            new_value=None
+        )
+
+    deleted = len(log_entries)
+    return jsonify({
+        'success': True,
+        'message': f'Usunięto {deleted} {_plural_strony(deleted)}.',
+        'count': deleted
+    })
+
+
+# ============================================
 # Zmiana statusu strony
 # ============================================
 

@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/offer-list.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -72,6 +73,11 @@
         {% for page in pages %}
         <div class="offer-card" data-search-name="{{ page.name }}">
             <div class="offer-card-header">
+                <input type="checkbox" class="offer-checkbox offer-card-checkbox"
+                       value="{{ page.id }}"
+                       data-status="{{ page.status }}"
+                       data-fully-closed="{{ '1' if page.is_fully_closed else '0' }}"
+                       aria-label="Zaznacz stronę {{ page.name }}">
                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="offer-card-title">
                     {{ page.name }}
                 </a>
@@ -93,45 +99,6 @@
                     <span class="status-badge status-ended">Zakończona</span>
                     {% endif %}
                 {% endif %}
-                <div class="offer-card-actions">
-                    {% if page.status == 'active' %}
-                    <button type="button" class="btn-icon" onclick="changePageStatus({{ page.id }}, 'pause')" title="Wstrzymaj">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>
-                    </button>
-                    <button type="button" class="btn-icon" onclick="changePageStatus({{ page.id }}, 'end')" title="Zakończ">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/></svg>
-                    </button>
-                    {% elif page.status == 'ended' %}
-                        {% if page.is_fully_closed %}
-                        <a href="{{ url_for('admin.offers_summary', page_id=page.id) }}" class="btn-icon" title="Podsumowanie">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/></svg>
-                        </a>
-                        {% else %}
-                            {% if current_user.role == 'admin' %}
-                            <button type="button" class="btn-icon" onclick="openCloseModal({{ page.id }}, '{{ page.name }}', '{{ page.page_type }}')" title="Zamknij całkowicie">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
-                            </button>
-                            {% endif %}
-                            <button type="button" class="btn-icon" onclick="changePageStatus({{ page.id }}, 'publish')" title="Wznów">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/></svg>
-                            </button>
-                        {% endif %}
-                    {% else %}
-                    <button type="button" class="btn-icon" onclick="changePageStatus({{ page.id }}, 'publish')" title="Aktywuj">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
-                    </button>
-                    {% endif %}
-                    {% if not page.is_fully_closed %}
-                    <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="btn-icon" title="Edytuj">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
-                    </a>
-                    {% endif %}
-                    {% if page.status != 'active' %}
-                    <button type="button" class="btn-icon btn-danger-icon" onclick="openDeleteModal({{ page.id }}, '{{ page.name }}')" title="Usuń">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
-                    </button>
-                    {% endif %}
-                </div>
             </div>
             <div class="offer-card-details">
                 <div class="offer-card-detail">
@@ -165,6 +132,51 @@
                 </div>
             </div>
             <div class="offer-card-footer">
+                {% if page.status == 'active' %}
+                <button type="button" class="btn-action-mobile" onclick="changePageStatus({{ page.id }}, 'pause')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z"/></svg>
+                    Wstrzymaj
+                </button>
+                <button type="button" class="btn-action-mobile" onclick="changePageStatus({{ page.id }}, 'end')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/></svg>
+                    Zakończ
+                </button>
+                {% elif page.status == 'ended' %}
+                    {% if page.is_fully_closed %}
+                    <a href="{{ url_for('admin.offers_summary', page_id=page.id) }}" class="btn-action-mobile">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/></svg>
+                        Podsumowanie
+                    </a>
+                    {% else %}
+                        {% if current_user.role == 'admin' %}
+                        <button type="button" class="btn-action-mobile" onclick="openCloseModal({{ page.id }}, '{{ page.name }}', '{{ page.page_type }}')">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+                            Zamknij
+                        </button>
+                        {% endif %}
+                        <button type="button" class="btn-action-mobile" onclick="changePageStatus({{ page.id }}, 'publish')">
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466z"/></svg>
+                            Wznów
+                        </button>
+                    {% endif %}
+                {% else %}
+                <button type="button" class="btn-action-mobile" onclick="changePageStatus({{ page.id }}, 'publish')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+                    Aktywuj
+                </button>
+                {% endif %}
+                {% if not page.is_fully_closed %}
+                <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="btn-action-mobile">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
+                    Edytuj
+                </a>
+                {% endif %}
+                {% if page.status != 'active' %}
+                <button type="button" class="btn-action-mobile btn-action-mobile-danger" onclick="openDeleteModal({{ page.id }}, '{{ page.name }}')">
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                    Usuń
+                </button>
+                {% endif %}
                 <button type="button" class="btn-copy-link-mobile" onclick="copyLink('{{ page.token }}')" title="Kopiuj link">
                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1.002 1.002 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4.018 4.018 0 0 1-.128-1.287z"/>
@@ -216,6 +228,9 @@
             <table class="data-table offer-table">
                 <thead>
                     <tr>
+                        <th class="offer-checkbox-col">
+                            <input type="checkbox" id="selectAll" class="offer-select-all" aria-label="Zaznacz wszystkie">
+                        </th>
                         <th>Nazwa</th>
                         <th>Typ</th>
                         <th>Typ wysyłki</th>
@@ -230,6 +245,13 @@
                 <tbody>
                     {% for page in pages %}
                     <tr data-search-name="{{ page.name }}">
+                        <td class="offer-checkbox-col">
+                            <input type="checkbox" class="offer-checkbox"
+                                   value="{{ page.id }}"
+                                   data-status="{{ page.status }}"
+                                   data-fully-closed="{{ '1' if page.is_fully_closed else '0' }}"
+                                   aria-label="Zaznacz stronę {{ page.name }}">
+                        </td>
                         <td>
                             <div class="page-name-cell">
                                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="page-name-link">
@@ -551,6 +573,108 @@
 <div id="copyToast" class="toast toast-success" style="display: none;">
     Link skopiowany do schowka!
 </div>
+
+<!-- Pływający pasek akcji masowych -->
+<div id="bulkToolbar" class="bulk-toolbar hidden">
+    <div class="bulk-toolbar-content">
+        <span class="selected-count" id="selectedCount">0 zaznaczonych</span>
+        <div class="bulk-actions">
+            <!-- Raport zbiorowy (placeholder, bez logiki) -->
+            <button type="button" class="btn-bulk" data-action="report">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4 11H2v3h2v-3zm5-4H7v7h2V7zm5-5h-2v12h2V2zm-2-1a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1h-2zM6 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm-5 4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-3z"/>
+                </svg>
+                <span class="btn-bulk-text">Raport zbiorowy</span>
+            </button>
+
+            <!-- Ustaw (dropdown dat) -->
+            <div class="bulk-set-wrapper">
+                <button type="button" class="btn-bulk" data-action="set-dates">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                    </svg>
+                    <span class="btn-bulk-text">Ustaw</span>
+                    <svg class="dropdown-arrow" width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M7.247 4.86l-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/>
+                    </svg>
+                </button>
+                <div class="bulk-set-dropdown" id="bulkSetDropdown">
+                    <div class="bulk-set-option" data-field="starts_at">Data rozpoczęcia</div>
+                    <div class="bulk-set-option" data-field="ends_at">Data zakończenia</div>
+                </div>
+            </div>
+
+            <!-- Aktywuj -->
+            <button type="button" class="btn-bulk" data-action="activate">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                </svg>
+                <span class="btn-bulk-text">Aktywuj</span>
+            </button>
+
+            <!-- Zakończ sprzedaż (status -> Zakończona) -->
+            <button type="button" class="btn-bulk" data-action="close">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+                </svg>
+                <span class="btn-bulk-text">Zakończ</span>
+            </button>
+
+            <!-- Zamknij całkowicie (close-complete) -->
+            <button type="button" class="btn-bulk" data-action="close-complete">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                </svg>
+                <span class="btn-bulk-text">Zamknij</span>
+            </button>
+
+            <!-- Usuń -->
+            <button type="button" class="btn-bulk btn-bulk-danger" data-action="delete">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                <span class="btn-bulk-text">Usuń</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: ustaw datę masowo -->
+<div id="bulkDateModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3 id="bulkDateTitle">Ustaw datę</h3>
+            <button type="button" class="modal-close" onclick="closeBulkDateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="bulk-modal-info">Dotyczy <strong id="bulkDateCount">0</strong> zaznaczonych stron.</p>
+            <label class="bulk-date-label" for="bulkDateInput">Wybierz datę i godzinę</label>
+            <input type="datetime-local" id="bulkDateInput" class="bulk-date-input">
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeBulkDateModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" id="bulkDateApply">Zastosuj</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: potwierdzenie akcji masowej (Zamknij / Usuń) -->
+<div id="bulkConfirmModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3 id="bulkConfirmTitle">Potwierdź</h3>
+            <button type="button" class="modal-close" onclick="closeBulkConfirmModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="bulkConfirmText">Czy na pewno?</p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeBulkConfirmModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" id="bulkConfirmOk">Potwierdź</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -694,9 +818,18 @@ async function changePageStatus(pageId, action) {
 
 // Close Complete Modal
 let closePageId = null;
+let bulkCloseIds = null; // gdy ustawione → modal #closeModal działa w trybie zbiorczym
+
+// Poprawna forma rzeczownika 'strona' w bierniku dla liczby n (dla komunikatów).
+function pluralStrony(n) {
+    if (n === 1) return 'stronę';
+    if (n % 10 >= 2 && n % 10 <= 4 && !(n % 100 >= 12 && n % 100 <= 14)) return 'strony';
+    return 'stron';
+}
 
 function openCloseModal(pageId, pageName, pageType) {
     closePageId = pageId;
+    bulkCloseIds = null; // tryb pojedynczy — wyzeruj ewentualny stan zbiorczy
     document.getElementById('closePageName').textContent = pageName;
 
     // Toggle exclusive vs preorder info
@@ -715,12 +848,30 @@ function openCloseModal(pageId, pageName, pageType) {
     document.getElementById('closeModal').classList.add('active');
 }
 
+// Tryb zbiorczy całkowitego zamknięcia — reużywa #closeModal
+window.openBulkCloseModal = function(ids) {
+    bulkCloseIds = ids;
+    closePageId = null;
+    document.getElementById('closePageName').textContent = `zaznaczone strony (${ids.length})`;
+    // Mieszane typy dozwolone — pokaż info exclusive (z opcją maili), ukryj wariant preorder.
+    document.getElementById('closeInfoExclusive').style.display = '';
+    document.getElementById('closeInfoPreorder').style.display = 'none';
+    document.getElementById('closeWarningText').textContent =
+        'Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.';
+    // Reset deadline
+    document.getElementById('paymentDeadlineDate').value = '';
+    document.getElementById('paymentDeadlineTime').value = '23:59';
+    document.getElementById('deadlineError').style.display = 'none';
+    document.getElementById('closeModal').classList.add('active');
+};
+
 function closeCloseModal() {
     const modal = document.getElementById('closeModal');
     modal.classList.add('closing');
     setTimeout(() => {
         modal.classList.remove('active', 'closing');
         closePageId = null;
+        bulkCloseIds = null;
         // Reset button state
         const btn = document.getElementById('closeCompleteBtn');
         btn.querySelector('.btn-text').style.display = 'inline';
@@ -730,6 +881,9 @@ function closeCloseModal() {
 }
 
 async function executeCloseComplete() {
+    if (bulkCloseIds && bulkCloseIds.length) {
+        return executeBulkCloseComplete();
+    }
     if (!closePageId) return;
 
     const btn = document.getElementById('closeCompleteBtn');
@@ -802,6 +956,62 @@ async function executeCloseComplete() {
         btn.querySelector('.btn-loading').style.display = 'none';
         btn.disabled = false;
     }
+}
+
+async function executeBulkCloseComplete() {
+    const btn = document.getElementById('closeCompleteBtn');
+
+    const deadlineDate = document.getElementById('paymentDeadlineDate').value;
+    const deadlineTime = document.getElementById('paymentDeadlineTime').value;
+    const deadlineError = document.getElementById('deadlineError');
+
+    if (!deadlineDate || !deadlineTime) {
+        deadlineError.textContent = 'Termin płatności jest wymagany.';
+        deadlineError.style.display = 'block';
+        return;
+    }
+    const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
+    if (deadlineDatetime <= new Date()) {
+        deadlineError.textContent = 'Termin płatności musi być w przyszłości.';
+        deadlineError.style.display = 'block';
+        return;
+    }
+    deadlineError.style.display = 'none';
+
+    const sendEmailsCheckbox = document.getElementById('sendEmailsCheckbox');
+    const sendEmails = sendEmailsCheckbox ? sendEmailsCheckbox.checked : false;
+
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    btn.disabled = true;
+
+    const ids = bulkCloseIds.slice();
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const resp = await fetch(`/admin/offers/${id}/close-complete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    send_emails: sendEmails,
+                    payment_deadline: `${deadlineDate}T${deadlineTime}`
+                })
+            });
+            const data = await resp.json();
+            if (data.success) { ok++; } else { fail++; console.error('close-complete failed for', id, data.error); }
+        } catch (e) {
+            fail++;
+            console.error('bulk close-complete error', id, e);
+        }
+    }
+
+    showToast(fail === 0
+        ? `Zamknięto całkowicie ${ok} ${pluralStrony(ok)}.`
+        : `Zamknięto ${ok} ${pluralStrony(ok)}, błędów: ${fail}.`);
+    setTimeout(() => { window.location.href = '/admin/offers'; }, 700);
 }
 
 // Add event listeners for close modal

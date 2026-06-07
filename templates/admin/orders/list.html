@@ -1,6 +1,7 @@
 {% extends "admin/base_admin.html" %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/orders-list.css') }}">
 {% endblock %}
 

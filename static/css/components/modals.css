@@ -3767,3 +3767,57 @@
     color: #f093fb;
     border-color: rgba(240, 147, 251, 0.4);
 }
+
+/* ====================================================================
+   Modale edycji masowej offers (data / potwierdzenie)
+   ==================================================================== */
+
+.bulk-modal-info {
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+    color: #555555;
+}
+
+.bulk-date-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333333;
+}
+
+.bulk-date-input {
+    width: 100%;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #d0d0d0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    color: #333333;
+    background: #ffffff;
+}
+
+.bulk-date-input:focus {
+    outline: none;
+    border-color: #9D4EDD;
+    box-shadow: 0 0 0 3px rgba(157, 78, 221, 0.15);
+}
+
+/* Dark mode */
+[data-theme="dark"] .bulk-modal-info {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .bulk-date-label {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .bulk-date-input {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(240, 147, 251, 0.2);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .bulk-date-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2);
+}
