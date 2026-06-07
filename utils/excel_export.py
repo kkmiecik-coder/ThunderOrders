@@ -1374,6 +1374,32 @@ def _format_period(starts_at, ends_at):
     return "-"
 
 
+def _safe_sheet_title(name, used_titles):
+    """
+    Zwraca nazwę arkusza bezpieczną dla Excela: max 31 znaków, bez znaków
+    []:*?/\\, unikalną względem used_titles (porównanie case-insensitive).
+    used_titles — kolekcja już użytych tytułów (lowercase). Funkcja NIE mutuje
+    used_titles; po użyciu wywołujący powinien dodać zwrócony tytuł (lowercase).
+    """
+    base = (name or 'Oferta').strip()
+    for ch in '[]:*?/\\':
+        base = base.replace(ch, ' ')
+    base = base.strip() or 'Oferta'
+    base = base[:31]
+
+    if base.lower() not in used_titles:
+        return base
+
+    n = 2
+    while True:
+        suffix = f' ({n})'
+        trimmed = base[:31 - len(suffix)].rstrip()
+        candidate = f'{trimmed}{suffix}'
+        if candidate.lower() not in used_titles:
+            return candidate
+        n += 1
+
+
 # ============================================
 # General Orders Excel (unchanged)
 # ============================================
