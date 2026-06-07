@@ -548,6 +548,13 @@ function initializeBulkActions() {
         });
     });
 
+    // Odśwież pasek po filtrowaniu szukajką — zaznaczenia w ukrytych wierszach
+    // przestają się liczyć (licznik, select-all i dostępność przycisków na bieżąco).
+    const bulkSearchInput = document.getElementById('offerSearchInput');
+    if (bulkSearchInput) {
+        bulkSearchInput.addEventListener('input', updateToolbar);
+    }
+
     // ---- Dropdown „Ustaw" + modal daty ----
     let bulkDateField = null;
 

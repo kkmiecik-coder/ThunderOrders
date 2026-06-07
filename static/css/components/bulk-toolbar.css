@@ -77,12 +77,13 @@
     background: rgba(244, 67, 54, 0.3);
 }
 
-/* Stan wyłączony (polityka „zablokuj całą akcję") */
+/* Stan wyłączony (polityka „zablokuj całą akcję").
+   Bez pointer-events:none — dzięki temu pokazuje się tooltip z powodem blokady;
+   kliknięcie i tak blokuje guard `is-disabled` w JS. */
 .btn-bulk:disabled,
 .btn-bulk.is-disabled {
     opacity: 0.4;
     cursor: not-allowed;
-    pointer-events: none;
 }
 
 /* Responsywność */
