@@ -52,11 +52,23 @@
         </div>
     </div>
 
+    <!-- Search -->
+    {% if pages %}
+    <div class="offer-search-bar">
+        <svg class="offer-search-icon" width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/>
+        </svg>
+        <input type="text" id="offerSearchInput" class="offer-search-input"
+               placeholder="Szukaj strony po nazwie..." autocomplete="off">
+    </div>
+    <div class="offer-search-empty is-hidden" id="offerSearchEmpty"></div>
+    {% endif %}
+
     <!-- Mobile Cards -->
     {% if pages %}
     <div class="offer-cards-mobile">
         {% for page in pages %}
-        <div class="offer-card">
+        <div class="offer-card" data-search-name="{{ page.name }}">
             <div class="offer-card-header">
                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="offer-card-title">
                     {{ page.name }}
@@ -215,7 +227,7 @@
                 </thead>
                 <tbody>
                     {% for page in pages %}
-                    <tr>
+                    <tr data-search-name="{{ page.name }}">
                         <td>
                             <div class="page-name-cell">
                                 <a href="{{ url_for('admin.offers_edit', page_id=page.id) }}" class="page-name-link">
