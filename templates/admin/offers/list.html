@@ -601,10 +601,18 @@
                 <span class="btn-bulk-text">Aktywuj</span>
             </button>
 
-            <!-- Zamknij -->
+            <!-- Zakończ sprzedaż (status -> Zakończona) -->
             <button type="button" class="btn-bulk" data-action="close">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M5 3.5h6A1.5 1.5 0 0 1 12.5 5v6a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 11V5A1.5 1.5 0 0 1 5 3.5z"/>
+                </svg>
+                <span class="btn-bulk-text">Zakończ</span>
+            </button>
+
+            <!-- Zamknij całkowicie (close-complete) -->
+            <button type="button" class="btn-bulk" data-action="close-complete">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
                 </svg>
                 <span class="btn-bulk-text">Zamknij</span>
             </button>
@@ -799,6 +807,7 @@ async function changePageStatus(pageId, action) {
 
 // Close Complete Modal
 let closePageId = null;
+let bulkCloseIds = null; // gdy ustawione → modal #closeModal działa w trybie zbiorczym
 
 function openCloseModal(pageId, pageName, pageType) {
     closePageId = pageId;
@@ -820,12 +829,30 @@ function openCloseModal(pageId, pageName, pageType) {
     document.getElementById('closeModal').classList.add('active');
 }
 
+// Tryb zbiorczy całkowitego zamknięcia — reużywa #closeModal
+window.openBulkCloseModal = function(ids) {
+    bulkCloseIds = ids;
+    closePageId = null;
+    document.getElementById('closePageName').textContent = `zaznaczone strony (${ids.length})`;
+    // Mieszane typy dozwolone — pokaż info exclusive (z opcją maili), ukryj wariant preorder.
+    document.getElementById('closeInfoExclusive').style.display = '';
+    document.getElementById('closeInfoPreorder').style.display = 'none';
+    document.getElementById('closeWarningText').textContent =
+        'Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.';
+    // Reset deadline
+    document.getElementById('paymentDeadlineDate').value = '';
+    document.getElementById('paymentDeadlineTime').value = '23:59';
+    document.getElementById('deadlineError').style.display = 'none';
+    document.getElementById('closeModal').classList.add('active');
+};
+
 function closeCloseModal() {
     const modal = document.getElementById('closeModal');
     modal.classList.add('closing');
     setTimeout(() => {
         modal.classList.remove('active', 'closing');
         closePageId = null;
+        bulkCloseIds = null;
         // Reset button state
         const btn = document.getElementById('closeCompleteBtn');
         btn.querySelector('.btn-text').style.display = 'inline';
@@ -835,6 +862,9 @@ function closeCloseModal() {
 }
 
 async function executeCloseComplete() {
+    if (bulkCloseIds && bulkCloseIds.length) {
+        return executeBulkCloseComplete();
+    }
     if (!closePageId) return;
 
     const btn = document.getElementById('closeCompleteBtn');
@@ -907,6 +937,62 @@ async function executeCloseComplete() {
         btn.querySelector('.btn-loading').style.display = 'none';
         btn.disabled = false;
     }
+}
+
+async function executeBulkCloseComplete() {
+    const btn = document.getElementById('closeCompleteBtn');
+
+    const deadlineDate = document.getElementById('paymentDeadlineDate').value;
+    const deadlineTime = document.getElementById('paymentDeadlineTime').value;
+    const deadlineError = document.getElementById('deadlineError');
+
+    if (!deadlineDate || !deadlineTime) {
+        deadlineError.textContent = 'Termin płatności jest wymagany.';
+        deadlineError.style.display = 'block';
+        return;
+    }
+    const deadlineDatetime = new Date(`${deadlineDate}T${deadlineTime}`);
+    if (deadlineDatetime <= new Date()) {
+        deadlineError.textContent = 'Termin płatności musi być w przyszłości.';
+        deadlineError.style.display = 'block';
+        return;
+    }
+    deadlineError.style.display = 'none';
+
+    const sendEmailsCheckbox = document.getElementById('sendEmailsCheckbox');
+    const sendEmails = sendEmailsCheckbox ? sendEmailsCheckbox.checked : false;
+
+    btn.querySelector('.btn-text').style.display = 'none';
+    btn.querySelector('.btn-loading').style.display = 'inline-flex';
+    btn.disabled = true;
+
+    const ids = bulkCloseIds.slice();
+    let ok = 0, fail = 0;
+    for (const id of ids) {
+        try {
+            const resp = await fetch(`/admin/offers/${id}/close-complete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    send_emails: sendEmails,
+                    payment_deadline: `${deadlineDate}T${deadlineTime}`
+                })
+            });
+            const data = await resp.json();
+            if (data.success) { ok++; } else { fail++; console.error('close-complete failed for', id, data.error); }
+        } catch (e) {
+            fail++;
+            console.error('bulk close-complete error', id, e);
+        }
+    }
+
+    showToast(fail === 0
+        ? `Zamknięto całkowicie ${ok} stron.`
+        : `Zamknięto ${ok}, błędów: ${fail}.`);
+    setTimeout(() => { window.location.href = '/admin/offers'; }, 700);
 }
 
 // Add event listeners for close modal
