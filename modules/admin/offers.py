@@ -725,6 +725,15 @@ def bulk_eligibility_error(pages, action):
     return 'Nieznana akcja masowa.'
 
 
+def _plural_strony(n):
+    """Zwraca poprawną formę rzeczownika 'strona' w bierniku dla liczby n."""
+    if n == 1:
+        return 'stronę'
+    if 2 <= n % 10 <= 4 and not (12 <= n % 100 <= 14):
+        return 'strony'
+    return 'stron'
+
+
 @admin_bp.route('/offers/bulk/status', methods=['POST'])
 @login_required
 @admin_required
@@ -739,6 +748,11 @@ def offers_bulk_status():
     if not page_ids:
         return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
 
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
     pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
     if not pages:
         return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
@@ -750,6 +764,8 @@ def offers_bulk_status():
     for page in pages:
         if action == 'publish':
             page.publish()
+            if page.notify_clients_on_publish:
+                page._send_publish_notifications()
         else:  # end
             page.end()
 
@@ -770,7 +786,7 @@ def offers_bulk_status():
     verb = 'aktywowano' if action == 'publish' else 'zamknięto'
     return jsonify({
         'success': True,
-        'message': f'Pomyślnie {verb} {len(pages)} stron.',
+        'message': f'Pomyślnie {verb} {len(pages)} {_plural_strony(len(pages))}.',
         'count': len(pages)
     })
 
