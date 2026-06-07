@@ -878,7 +878,7 @@
     }
 
     .stat-card {
-        justify-content: center;
+        justify-content: space-between;
     }
 
     .offer-toolbar {
