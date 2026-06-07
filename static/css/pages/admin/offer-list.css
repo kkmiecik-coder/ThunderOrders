@@ -666,22 +666,6 @@
     border-radius: var(--radius-xl);
     padding: 14px;
     box-shadow: var(--shadow-sm);
-    display: flex;
-    flex-direction: column;
-}
-
-/* Akcje przeniesione na dół karty (mobile) */
-.offer-card-actions {
-    order: 99;
-    margin-left: 0;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--border-primary);
-    flex-wrap: wrap;
-}
-
-[data-theme="dark"] .offer-card-actions {
-    border-top-color: rgba(240, 147, 251, 0.15);
 }
 
 .offer-card-header {
@@ -784,6 +768,8 @@
     align-items: center;
     gap: 8px;
     padding-top: 10px;
+    flex-wrap: wrap;
+    row-gap: 8px;
 }
 
 .btn-copy-link-mobile,
@@ -861,6 +847,36 @@
 .btn-report-mobile .report-live-dot {
     top: -3px;
     right: -3px;
+}
+
+/* Przyciski akcji w stopce karty (mobile) — styl jak pozostałe przyciski stopki */
+.btn-action-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    box-sizing: border-box;
+    padding: 0 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.btn-action-mobile:hover {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+    color: var(--text-primary);
+}
+
+.btn-action-mobile-danger:hover {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* ==========================================
@@ -1265,6 +1281,23 @@
     background: rgba(52, 211, 153, 0.12);
     border-color: rgba(52, 211, 153, 0.4);
     color: #34d399;
+}
+
+[data-theme="dark"] .btn-action-mobile {
+    border-color: rgba(240, 147, 251, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .btn-action-mobile:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .btn-action-mobile-danger:hover {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.4);
 }
 
 /* Empty State */
