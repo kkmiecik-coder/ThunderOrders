@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeAutoIncreaseForm();
     initializeDeleteForm();
     initializePaymentReminders();
+    initializeOfferSearch();
 });
 
 /**
@@ -404,4 +405,47 @@ async function deleteReminderRule(ruleId, rowElement) {
         console.error('Error deleting rule:', error);
         showToast('Błąd połączenia z serwerem.', 'error');
     }
+}
+
+/**
+ * Live-filtr listy stron sprzedaży po nazwie.
+ * Chowa/pokazuje już wyrenderowane karty mobile i wiersze tabeli.
+ * Guard: jeśli na stronie nie ma pola szukajki, nic nie robi.
+ */
+function initializeOfferSearch() {
+    const input = document.getElementById('offerSearchInput');
+    if (!input) return;
+
+    const emptyMessage = document.getElementById('offerSearchEmpty');
+    const containers = document.querySelectorAll('.offer-cards-mobile, .table-container');
+    const items = document.querySelectorAll('[data-search-name]');
+
+    // lowercase + usunięcie polskich ogonków, żeby "lacie" znajdowało "Łacie"
+    const normalize = (str) => (str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .trim();
+
+    input.addEventListener('input', function() {
+        const query = normalize(input.value);
+        let visibleCount = 0;
+
+        items.forEach(item => {
+            const name = normalize(item.getAttribute('data-search-name'));
+            const matches = query === '' || name.includes(query);
+            item.classList.toggle('is-hidden', !matches);
+            if (matches) visibleCount++;
+        });
+
+        const noResults = query !== '' && visibleCount === 0;
+        containers.forEach(c => c.classList.toggle('is-hidden', noResults));
+
+        if (emptyMessage) {
+            emptyMessage.classList.toggle('is-hidden', !noResults);
+            if (noResults) {
+                emptyMessage.textContent = `Brak stron pasujących do „${input.value.trim()}"`;
+            }
+        }
+    });
 }
