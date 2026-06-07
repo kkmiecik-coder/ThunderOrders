@@ -725,6 +725,56 @@ def bulk_eligibility_error(pages, action):
     return 'Nieznana akcja masowa.'
 
 
+@admin_bp.route('/offers/bulk/status', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_status():
+    """Masowa zmiana statusu stron: action='publish'|'end'."""
+    data = request.get_json() or {}
+    page_ids = data.get('page_ids') or []
+    action = data.get('action')
+
+    if action not in ('publish', 'end'):
+        return jsonify({'success': False, 'error': 'Nieprawidłowa akcja.'}), 400
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono stron.'}), 404
+
+    err = bulk_eligibility_error(pages, action)
+    if err:
+        return jsonify({'success': False, 'error': err}), 400
+
+    for page in pages:
+        if action == 'publish':
+            page.publish()
+        else:  # end
+            page.end()
+
+    db.session.commit()
+
+    # Broadcast zmian statusu (best-effort)
+    try:
+        from modules.offers.socket_events import broadcast_page_status
+        for page in pages:
+            broadcast_page_status(
+                page.id,
+                page.status,
+                ends_at=page.ends_at.isoformat() if page.ends_at else None
+            )
+    except Exception:
+        pass
+
+    verb = 'aktywowano' if action == 'publish' else 'zamknięto'
+    return jsonify({
+        'success': True,
+        'message': f'Pomyślnie {verb} {len(pages)} stron.',
+        'count': len(pages)
+    })
+
+
 # ============================================
 # Zmiana statusu strony
 # ============================================
