@@ -27,12 +27,12 @@
 
     {% elif section.is_set %}
     <section class="preview-section preview-set">
-        <h3 class="preview-set-name">{{ section.set_name }}</h3>
         {% if section.set_image %}
         <div class="preview-set-image">
             <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.set_name }}" loading="lazy">
         </div>
         {% endif %}
+        <h3 class="preview-set-name">{{ section.set_name }}</h3>
         <div class="preview-set-items">
             {% for item in section.get_set_items_ordered() %}
                 {% if item.is_product and item.product %}
