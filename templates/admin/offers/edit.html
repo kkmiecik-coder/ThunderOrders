@@ -166,6 +166,17 @@
                         <small class="form-hint">Jednorazowe powiadomienie o nowym dropie. Toggle resetuje się po wysłaniu.</small>
                     </div>
 
+                    <!-- Podgląd oferty na countdownie -->
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox"
+                                   id="previewEnabled"
+                                   {% if page.preview_enabled %}checked{% endif %}>
+                            <span class="checkbox-text">Preview na stronie odliczania</span>
+                        </label>
+                        <small class="form-hint">Klient przed startem zobaczy przycisk „Co jest w sprzedaży?" z podglądem oferty (bez możliwości zamawiania).</small>
+                    </div>
+
                     <!-- Typ realizacji zamówień -->
                     <div class="form-group">
                         <label>Zamówienie do:</label>

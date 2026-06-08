@@ -268,6 +268,9 @@ def offers_save(page_id):
         if 'notify_clients_on_publish' in data:
             page.notify_clients_on_publish = bool(data['notify_clients_on_publish'])
 
+        if 'preview_enabled' in data:
+            page.preview_enabled = bool(data['preview_enabled'])
+
         # Aktualizacja sekcji
         limit_changes = []
         if 'sections' in data:
