@@ -257,10 +257,10 @@
 
 {% if show_preview %}
 <!-- Offer Preview Modal -->
-<div id="offerPreviewModal" class="modal-overlay">
+<div id="offerPreviewModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="offerPreviewTitle">
     <div class="modal-content modal-xl offer-preview-modal">
         <div class="modal-header">
-            <h2 class="modal-title">Co jest w sprzedaży?</h2>
+            <h2 class="modal-title" id="offerPreviewTitle">Co jest w sprzedaży?</h2>
             <button type="button" class="modal-close" onclick="closeOfferPreview()" aria-label="Zamknij">
                 <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
