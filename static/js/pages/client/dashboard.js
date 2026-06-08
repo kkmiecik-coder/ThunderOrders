@@ -323,15 +323,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const showMoreContainer = document.getElementById('offersShowMore');
 
         // tableBody jest wymagane do działania przełącznika; loadMoreBtn może
-        // nie istnieć (gdy zakładka bieżące jest pusta).
+        // nie istnieć (gdy domyślna zakładka jest pusta).
         if (!tableBody) return;
 
         const PAGE_SIZE = 5;
         let isLoading = false;
-        let activeFilter = 'current';
+        let activeFilter = 'live';
         const tabCache = {
-            current: { pages: [], shownCount: 0, total: null, initialized: false },
-            closed:  { pages: [], shownCount: 0, total: null, initialized: false }
+            live:     { pages: [], shownCount: 0, total: null, initialized: false },
+            upcoming: { pages: [], shownCount: 0, total: null, initialized: false },
+            closed:   { pages: [], shownCount: 0, total: null, initialized: false }
         };
 
         // Create table row HTML from page data
@@ -465,9 +466,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (!pages || pages.length === 0) {
-                const emptyText = activeFilter === 'closed'
-                    ? 'Brak zamkniętych stron sprzedaży'
-                    : 'Brak bieżących stron sprzedaży';
+                const emptyTexts = {
+                    live: 'Brak stron sprzedaży na żywo',
+                    upcoming: 'Brak nadchodzących stron sprzedaży',
+                    closed: 'Brak zamkniętych stron sprzedaży'
+                };
+                const emptyText = emptyTexts[activeFilter] || emptyTexts.live;
                 if (emptyRow) {
                     emptyRow.style.display = '';
                     const cell = emptyRow.querySelector('.offer-empty-text');
@@ -597,8 +601,8 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', () => switchTab(btn.dataset.filter));
         });
 
-        // Start: pobierz i renderuj domyślną zakładkę (bieżące) z loading state.
-        ensureTab('current').then(() => { if (activeFilter === 'current') renderActive(); });
+        // Start: pobierz i renderuj domyślną zakładkę (live) z loading state.
+        ensureTab('live').then(() => { if (activeFilter === 'live') renderActive(); });
     })();
 
     // ====================================

@@ -56,19 +56,22 @@ def sort_offer_pages(pages):
 
 def filter_offer_pages(pages, filter_type):
     """
-    Dzieli strony ofertowe na "bieżące" i "zamknięte" dla przełącznika
-    na dashboardzie klienta. Jedno źródło prawdy dla dashboard() i API.
+    Dzieli strony ofertowe na zakładki przełącznika na dashboardzie klienta.
+    Jedno źródło prawdy dla dashboard() i API.
 
     - 'closed': strony zakończone (status == 'ended', obejmuje też
       is_fully_closed, bo to nadal status 'ended').
-    - 'current' (domyślnie): zaplanowane / aktywne (LIVE) / wstrzymane.
+    - 'upcoming': strony zaplanowane (status == 'scheduled').
+    - 'live' (domyślnie): aktywne (LIVE) / wstrzymane.
 
     Zachowuje kolejność wejściową (zakładamy, że lista jest już posortowana
     przez sort_offer_pages).
     """
     if filter_type == 'closed':
         return [p for p in pages if p.status == 'ended']
-    return [p for p in pages if p.status in ('scheduled', 'active', 'paused')]
+    if filter_type == 'upcoming':
+        return [p for p in pages if p.status == 'scheduled']
+    return [p for p in pages if p.status in ('active', 'paused')]
 
 
 @client_bp.route('/dashboard')
@@ -353,7 +356,7 @@ def get_offer_pages():
 
     offset = request.args.get('offset', 0, type=int)
     limit = request.args.get('limit', 5, type=int)
-    filter_type = request.args.get('filter', 'current')
+    filter_type = request.args.get('filter', 'live')
 
     # Pobierz wszystkie strony (bez drafts)
     offer_pages_all = OfferPage.query.filter(

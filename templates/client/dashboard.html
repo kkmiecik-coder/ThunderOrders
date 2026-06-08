@@ -77,7 +77,8 @@
             <div class="widget-header widget-header-offers">
                 <h2 class="widget-title">✨ Strony sprzedaży</h2>
                 <div class="offer-filter-tabs" role="tablist" aria-label="Filtr stron sprzedaży">
-                    <button type="button" class="offer-filter-tab active" data-filter="current" role="tab" aria-selected="true">Bieżące</button>
+                    <button type="button" class="offer-filter-tab active" data-filter="live" role="tab" aria-selected="true">Live</button>
+                    <button type="button" class="offer-filter-tab" data-filter="upcoming" role="tab" aria-selected="false">Wkrótce</button>
                     <button type="button" class="offer-filter-tab" data-filter="closed" role="tab" aria-selected="false">Zamknięte</button>
                 </div>
             </div>
@@ -104,7 +105,7 @@
                         {# Pusty stan zakładki — sterowany przez JS #}
                         <tr class="offer-empty-row" style="display: none;">
                             <td colspan="5" class="offer-empty-cell">
-                                <span class="offer-empty-text">Brak bieżących stron sprzedaży</span>
+                                <span class="offer-empty-text">Brak stron sprzedaży na żywo</span>
                             </td>
                         </tr>
                     </tbody>
@@ -119,7 +120,7 @@
                     </div>
                     {# Pusty stan mobile — sterowany przez JS #}
                     <div class="offer-card-empty" style="display: none;">
-                        <span class="offer-empty-text">Brak bieżących stron sprzedaży</span>
+                        <span class="offer-empty-text">Brak stron sprzedaży na żywo</span>
                     </div>
                 </div>
 
