@@ -41,7 +41,7 @@ sprawia, że istniejące oferty od razu mają podgląd włączony.
 ### 2. Page builder (edytor oferty)
 
 - `templates/admin/offers/edit.html` — w sekcji „Ustawienia strony" (obecnie linie ~124-188)
-  dodać przełącznik **„Podgląd oferty na countdownie"** (checkbox, domyślnie zaznaczony),
+  dodać przełącznik **„Preview na stronie odliczania"** (checkbox, domyślnie zaznaczony),
   wzorowany na istniejącym `notifyClientsOnPublish`.
 - `modules/admin/offers.py` — `offers_save()` (POST `/admin/offers/<id>/save`): odczyt
   `data['preview_enabled']` → `page.preview_enabled = bool(data['preview_enabled'])`.
