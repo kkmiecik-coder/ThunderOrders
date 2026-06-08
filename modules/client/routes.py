@@ -17,38 +17,51 @@ from decimal import Decimal
 from modules.client import client_bp
 
 
-def sort_offer_pages(pages):
+def sort_offer_pages(pages, filter_type):
     """
-    Sortuje strony ofertowe dla widoku klienta — wspólna logika dla dashboardu
-    i API paginacji (muszą dawać identyczną kolejność, inaczej "Pokaż więcej"
-    się rozjeżdża).
+    Sortuje strony ofertowe dla danej zakładki dashboardu klienta. Wywoływane
+    po filter_offer_pages, na już przefiltrowanym zbiorze. Dashboard i API
+    paginacji muszą dawać identyczną kolejność, więc obie strony używają tej
+    samej funkcji.
 
-    Kryteria:
-    1. Grupa statusu: active (LIVE) > scheduled > wstrzymana > zakończona >
-       zamknięta
-    2. Wewnątrz grupy: data startu malejąco (najnowsze górą); strony bez daty
-       startu trafiają na koniec grupy.
+    Kryteria per zakładka:
+    - 'live' (active/paused): najpierw strony z datą zamknięcia, rosnąco po
+      ends_at (najszybciej zamykane górą); poniżej strony bez ends_at, rosnąco
+      po starts_at (najwcześniej otwarte górą), a bez starts_at na samym końcu.
+    - 'upcoming' (scheduled): rosnąco po starts_at (najwcześniejszy start górą),
+      bez starts_at na końcu.
+    - 'closed' (ended): malejąco po dacie zamknięcia (najnowsze górą). Datą
+      zamknięcia jest closed_at (gdy strona zamknięta ręcznie), inaczej ends_at;
+      bez żadnej z nich — na końcu.
 
     Sortuje listę w miejscu i zwraca ją.
     """
-    def sort_key(page):
-        if page.status == 'active':
-            priority = 0
-        elif page.status == 'scheduled':
-            priority = 1
-        elif page.status == 'paused':
-            priority = 2  # Wstrzymana
-        elif page.status == 'ended' and not page.is_fully_closed:
-            priority = 3  # Zakończona
-        elif page.status == 'ended' and page.is_fully_closed:
-            priority = 4  # Zamknięta
-        else:
-            priority = 99
+    INF = float('inf')
 
-        # Data startu malejąco: użyj ujemnego timestampu, żeby przy sortowaniu
-        # rosnącym najnowsze były pierwsze. Brak daty -> +inf -> koniec grupy.
-        starts = -page.starts_at.timestamp() if page.starts_at else float('inf')
-        return (priority, starts)
+    def ts(dt):
+        return dt.timestamp() if dt else None
+
+    if filter_type == 'upcoming':
+        def sort_key(page):
+            t = ts(page.starts_at)
+            return t if t is not None else INF
+    elif filter_type == 'closed':
+        def sort_key(page):
+            # Czas zamknięcia: closed_at (ręczne zamknięcie) lub ends_at.
+            t = ts(page.closed_at)
+            if t is None:
+                t = ts(page.ends_at)
+            # Malejąco: ujemny timestamp; brak daty -> koniec listy.
+            return -t if t is not None else INF
+    else:  # 'live' i domyślnie
+        def sort_key(page):
+            ends = ts(page.ends_at)
+            if ends is not None:
+                # Grupa 0: z datą zamknięcia, rosnąco po ends_at.
+                return (0, ends)
+            # Grupa 1: bez daty zamknięcia, rosnąco po starcie (brak -> koniec).
+            starts = ts(page.starts_at)
+            return (1, starts if starts is not None else INF)
 
     pages.sort(key=sort_key)
     return pages
@@ -64,8 +77,8 @@ def filter_offer_pages(pages, filter_type):
     - 'upcoming': strony zaplanowane (status == 'scheduled').
     - 'live' (domyślnie): aktywne (LIVE) / wstrzymane.
 
-    Zachowuje kolejność wejściową (zakładamy, że lista jest już posortowana
-    przez sort_offer_pages).
+    Zachowuje kolejność wejściową — sortowanie per zakładka robi
+    sort_offer_pages, wywoływane na wyniku tej funkcji.
     """
     if filter_type == 'closed':
         return [p for p in pages if p.status == 'ended']
@@ -180,10 +193,8 @@ def dashboard():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # Sort: grupa statusu, a wewnątrz po dacie startu malejąco (patrz sort_offer_pages)
-    sort_offer_pages(offer_pages_all)
-
-    # JS renderuje obie zakładki przez API; tutaj liczymy tylko flagi widoczności.
+    # JS renderuje obie zakładki przez API (z sortowaniem per zakładka);
+    # tutaj liczymy tylko flagi widoczności — kolejność jest nieistotna.
     has_current = any(p.status in ('scheduled', 'active', 'paused') for p in offer_pages_all)
     has_closed = any(p.status == 'ended' for p in offer_pages_all)
 
@@ -367,12 +378,12 @@ def get_offer_pages():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # Sort: ta sama logika co na dashboardzie (kolejność musi być identyczna)
-    sort_offer_pages(offer_pages_all)
-
     # Filtruj wg zakładki PRZED paginacją, żeby offset/remaining liczyły się
     # względem przefiltrowanego zbioru.
     filtered_pages = filter_offer_pages(offer_pages_all, filter_type)
+
+    # Sortowanie per zakładka (na przefiltrowanym zbiorze).
+    sort_offer_pages(filtered_pages, filter_type)
 
     # Paginacja
     pages_slice = filtered_pages[offset:offset + limit]
