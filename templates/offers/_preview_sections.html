@@ -1,0 +1,107 @@
+{# Read-only podgląd oferty na countdownie. Renderuje sekcje bez kontrolek zamawiania. #}
+{% for section in sections %}
+    {% if section.is_heading %}
+    <section class="preview-section preview-heading">
+        <h2>{{ section.content }}</h2>
+    </section>
+
+    {% elif section.is_paragraph %}
+    <section class="preview-section preview-paragraph">
+        <p>{{ section.content }}</p>
+    </section>
+
+    {% elif section.is_product and section.product %}
+    <section class="preview-section preview-product">
+        <div class="preview-product-media">
+            {% if section.product.primary_image %}
+            <img src="{{ url_for('static', filename=section.product.primary_image.path_compressed) }}" alt="{{ section.product.name }}" loading="lazy">
+            {% else %}
+            <div class="preview-no-image"></div>
+            {% endif %}
+        </div>
+        <div class="preview-product-info">
+            <span class="preview-product-name">{{ section.product.name }}</span>
+            <span class="preview-product-price">{{ "%.2f"|format(section.product.sale_price) }} PLN</span>
+        </div>
+    </section>
+
+    {% elif section.is_set %}
+    <section class="preview-section preview-set">
+        <h3 class="preview-set-name">{{ section.set_name }}</h3>
+        {% if section.set_image %}
+        <div class="preview-set-image">
+            <img src="{{ url_for('static', filename=section.set_image) }}" alt="{{ section.set_name }}" loading="lazy">
+        </div>
+        {% endif %}
+        <div class="preview-set-items">
+            {% for item in section.get_set_items_ordered() %}
+                {% if item.is_product and item.product %}
+                <div class="preview-set-item">
+                    <span class="preview-set-item-name">{{ item.product.name }}</span>
+                    <span class="preview-set-item-price">{{ "%.2f"|format(item.product.sale_price) }} PLN</span>
+                </div>
+                {% elif item.is_variant_group and item.variant_group %}
+                    {% for product in item.get_products() %}
+                    <div class="preview-set-item">
+                        <span class="preview-set-item-name">{{ product.name }}</span>
+                        <span class="preview-set-item-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% if section.set_product %}
+        <div class="preview-full-set">
+            <span class="preview-full-set-label">Pełny set</span>
+            <span class="preview-full-set-price">{{ "%.2f"|format(section.set_product.sale_price) }} PLN</span>
+        </div>
+        {% endif %}
+    </section>
+
+    {% elif section.is_variant_group and section.variant_group %}
+    <section class="preview-section preview-variant-group">
+        <h3 class="preview-set-name">{{ section.variant_group.name }}</h3>
+        <div class="preview-variant-products">
+            {% for product in section.get_variant_group_products() %}
+            {% if product.is_active %}
+            <div class="preview-variant-product">
+                <div class="preview-product-media">
+                    {% if product.primary_image %}
+                    <img src="{{ url_for('static', filename=product.primary_image.path_compressed) }}" alt="{{ product.name }}" loading="lazy">
+                    {% else %}
+                    <div class="preview-no-image"></div>
+                    {% endif %}
+                </div>
+                <div class="preview-product-info">
+                    <span class="preview-product-name">{{ product.name }}</span>
+                    <span class="preview-product-price">{{ "%.2f"|format(product.sale_price) }} PLN</span>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </section>
+
+    {% elif section.is_bonus %}
+        {% set bonus = section.bonuses.first() %}
+        {% if bonus and bonus.is_active and bonus.bonus_product %}
+        <section class="preview-section preview-bonus">
+            <div class="preview-bonus-card">
+                <span class="preview-bonus-icon">&#x1F381;</span>
+                <div class="preview-bonus-details">
+                    <h3 class="preview-bonus-title">Bonus: {{ bonus.bonus_product.name }}</h3>
+                    <p class="preview-bonus-condition">
+                        {% if bonus.trigger_type == 'buy_products' %}
+                            Kup wymagane produkty, a otrzymasz gratis!
+                        {% elif bonus.trigger_type == 'price_threshold' %}
+                            Zamów za min. {{ "%.0f"|format(bonus.threshold_value) }} PLN, a otrzymasz gratis!
+                        {% elif bonus.trigger_type == 'quantity_threshold' %}
+                            Zamów min. {{ bonus.threshold_value|int }} szt., a otrzymasz gratis!
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+    {% endif %}
+{% endfor %}
