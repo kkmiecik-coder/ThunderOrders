@@ -910,6 +910,48 @@ def offers_bulk_delete():
     })
 
 
+@admin_bp.route('/offers/bulk/report', methods=['POST'])
+@login_required
+@admin_required
+def offers_bulk_report():
+    """Generuje zbiorczy raport Excel dla zaznaczonych ofert."""
+    from utils.excel_export import generate_offers_bulk_report
+
+    data = request.get_json(silent=True) or {}
+    page_ids = data.get('page_ids') or []
+    if not page_ids:
+        return jsonify({'success': False, 'error': 'Nie wybrano żadnych stron.'}), 400
+
+    try:
+        page_ids = [int(pid) for pid in page_ids]
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Nieprawidłowe identyfikatory stron.'}), 400
+
+    pages = OfferPage.query.filter(OfferPage.id.in_(page_ids)).all()
+    if not pages:
+        return jsonify({'success': False, 'error': 'Nie znaleziono wybranych stron.'}), 404
+
+    # zachowaj kolejność zaznaczenia z frontu
+    order = {pid: i for i, pid in enumerate(page_ids)}
+    pages.sort(key=lambda p: order.get(p.id, 0))
+
+    try:
+        excel_buffer = generate_offers_bulk_report(pages)
+        filename = f'raport_zbiorczy_ofert_{datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        return Response(
+            excel_buffer.getvalue(),
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename="{filename}"',
+                'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            }
+        )
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Błąd generowania raportu: {str(e)}'}), 500
+
+
 # ============================================
 # Zmiana statusu strony
 # ============================================

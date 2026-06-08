@@ -621,14 +621,129 @@ _MATRIX_EMPTY = "F8F9FA"        # light gray for empty slot
 _MATRIX_HEADER = "E8DAEF"       # light violet for set column headers
 
 
+def _write_sets_matrix(ws, sets_info, s, start_row):
+    """Pisze sekcję 'MACIERZ SETÓW' (Produkt × Set N z nazwami klientów) od `start_row`.
+
+    Współdzielona przez raport LIVE pojedynczej strony i raport zbiorczy — dzięki temu
+    macierz setów wygląda identycznie w obu miejscach.
+
+    Zwraca (next_free_row, max_set_cols). Nie ustawia szerokości kolumn ani freeze_panes —
+    to należy do wywołującego.
+    """
+    filled_fill = PatternFill(start_color=_MATRIX_FILLED, end_color=_MATRIX_FILLED, fill_type="solid")
+    empty_fill = PatternFill(start_color=_MATRIX_EMPTY, end_color=_MATRIX_EMPTY, fill_type="solid")
+    matrix_header_fill = PatternFill(start_color=_MATRIX_HEADER, end_color=_MATRIX_HEADER, fill_type="solid")
+
+    row = start_row
+    ws.merge_cells(f'A{row}:F{row}')
+    cell = ws.cell(row=row, column=1, value="MACIERZ SETÓW")
+    cell.font = s['section_font']
+    cell.fill = s['section_fill']
+    cell.alignment = s['left']
+    row += 1
+
+    for set_data in sets_info:
+        set_name = set_data.get('set_name', 'Set')
+        max_sets = set_data.get('set_max_sets', 0)
+        has_limit = set_data.get('has_limit', True)
+        ordered_sets = set_data.get('ordered_sets', 0)
+        total_sets_sold = set_data.get('total_sets_sold', 0)
+        full_set_sold = set_data.get('full_set_sold', 0)
+
+        # Set header
+        if has_limit:
+            set_header = f"{set_name}  —  {ordered_sets} / {max_sets} kompletnych setów"
+        else:
+            set_header = f"{set_name}  —  {ordered_sets} kompletnych setów (bez limitu)"
+
+        total_cols = 1 + max_sets  # product name + set columns
+        if has_limit:
+            total_cols += 1  # locked column
+
+        end_col_letter = get_column_letter(max(total_cols, 2))
+        ws.merge_cells(f'A{row}:{end_col_letter}{row}')
+        cell = ws.cell(row=row, column=1, value=set_header)
+        cell.font = Font(bold=True, size=11)
+        row += 1
+
+        products = set_data.get('products', [])
+        non_full_set = [p for p in products if not p.get('is_full_set')]
+        full_set_products = [p for p in products if p.get('is_full_set')]
+
+        if non_full_set and max_sets > 0:
+            # Matrix header row: Produkt | Set 1 | Set 2 | ... | Set N
+            cell = ws.cell(row=row, column=1, value="Produkt")
+            cell.font = s['header_font']
+            cell.fill = s['header_fill']
+            cell.alignment = s['header_align']
+            cell.border = s['border']
+
+            for col_idx in range(max_sets):
+                cell = ws.cell(row=row, column=col_idx + 2, value=f"Set {col_idx + 1}")
+                cell.font = Font(bold=True, size=10)
+                cell.fill = matrix_header_fill
+                cell.alignment = s['center']
+                cell.border = s['border']
+
+            ws.row_dimensions[row].height = 28
+            row += 1
+
+            # Product rows with customer names in slots
+            for prod in non_full_set:
+                cell = ws.cell(row=row, column=1, value=prod.get('product_name', ''))
+                cell.font = s['bold']
+                cell.alignment = s['left']
+                cell.border = s['border']
+
+                slots = prod.get('slots', [])
+                for sl_idx in range(max_sets):
+                    slot = slots[sl_idx] if sl_idx < len(slots) else None
+                    is_filled = slot and (slot.get('filled') if isinstance(slot, dict) else slot)
+                    customer = slot.get('customer', '') if isinstance(slot, dict) else ''
+
+                    cell = ws.cell(row=row, column=sl_idx + 2)
+                    cell.border = s['border']
+                    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+                    if is_filled:
+                        cell.value = customer or "✓"
+                        cell.fill = filled_fill
+                        if customer:
+                            cell.font = Font(size=9)
+                        else:
+                            cell.font = Font(size=12, color=_GREEN_DARK)
+                    else:
+                        cell.value = ""
+                        cell.fill = empty_fill
+
+                row += 1
+
+        # Full set product line
+        if full_set_products:
+            fp = full_set_products[0]
+            row += 1
+            ws.merge_cells(f'A{row}:B{row}')
+            cell = ws.cell(row=row, column=1, value=f"SET: {fp.get('product_name', '')}  —  {fp.get('total_ordered', 0)} szt. sprzedanych")
+            cell.font = Font(bold=True, size=10, color=_PURPLE)
+            cell.fill = s['fullset_fill']
+            cell.border = s['border']
+            row += 1
+
+        # Total sets sold summary
+        ws.merge_cells(f'A{row}:B{row}')
+        cell = ws.cell(row=row, column=1, value=f"Łącznie setów: {total_sets_sold} ({ordered_sets} kompletnych + {full_set_sold} pojedynczych)")
+        cell.font = Font(bold=True, size=10)
+        cell.border = s['border']
+        row += 2
+
+    max_set_cols = max((sd.get('set_max_sets', 0) for sd in sets_info), default=0)
+    return row, max_set_cols
+
+
 def _build_live_overview_sheet(wb, page, summary, s):
     ws = wb.active
     ws.title = "Przegląd"
     ws.sheet_properties.tabColor = _PURPLE
-
-    filled_fill = PatternFill(start_color=_MATRIX_FILLED, end_color=_MATRIX_FILLED, fill_type="solid")
-    empty_fill = PatternFill(start_color=_MATRIX_EMPTY, end_color=_MATRIX_EMPTY, fill_type="solid")
-    matrix_header_fill = PatternFill(start_color=_MATRIX_HEADER, end_color=_MATRIX_HEADER, fill_type="solid")
 
     # --- Page title ---
     ws.merge_cells('A1:F1')
@@ -734,111 +849,13 @@ def _build_live_overview_sheet(wb, page, summary, s):
     sets_info = summary.get('sets', [])
     if sets_info:
         row += 1
-        ws.merge_cells(f'A{row}:F{row}')
-        cell = ws.cell(row=row, column=1, value="MACIERZ SETÓW")
-        cell.font = s['section_font']
-        cell.fill = s['section_fill']
-        cell.alignment = s['left']
-        row += 1
-
-        for set_data in sets_info:
-            set_name = set_data.get('set_name', 'Set')
-            max_sets = set_data.get('set_max_sets', 0)
-            has_limit = set_data.get('has_limit', True)
-            ordered_sets = set_data.get('ordered_sets', 0)
-            total_sets_sold = set_data.get('total_sets_sold', 0)
-            full_set_sold = set_data.get('full_set_sold', 0)
-
-            # Set header
-            if has_limit:
-                set_header = f"{set_name}  —  {ordered_sets} / {max_sets} kompletnych setów"
-            else:
-                set_header = f"{set_name}  —  {ordered_sets} kompletnych setów (bez limitu)"
-
-            total_cols = 1 + max_sets  # product name + set columns
-            if has_limit:
-                total_cols += 1  # locked column
-
-            end_col_letter = get_column_letter(max(total_cols, 2))
-            ws.merge_cells(f'A{row}:{end_col_letter}{row}')
-            cell = ws.cell(row=row, column=1, value=set_header)
-            cell.font = Font(bold=True, size=11)
-            row += 1
-
-            products = set_data.get('products', [])
-            non_full_set = [p for p in products if not p.get('is_full_set')]
-            full_set_products = [p for p in products if p.get('is_full_set')]
-
-            if non_full_set and max_sets > 0:
-                # Matrix header row: Produkt | Set 1 | Set 2 | ... | Set N
-                cell = ws.cell(row=row, column=1, value="Produkt")
-                cell.font = s['header_font']
-                cell.fill = s['header_fill']
-                cell.alignment = s['header_align']
-                cell.border = s['border']
-
-                for col_idx in range(max_sets):
-                    cell = ws.cell(row=row, column=col_idx + 2, value=f"Set {col_idx + 1}")
-                    cell.font = Font(bold=True, size=10)
-                    cell.fill = matrix_header_fill
-                    cell.alignment = s['center']
-                    cell.border = s['border']
-
-                ws.row_dimensions[row].height = 28
-                row += 1
-
-                # Product rows with customer names in slots
-                for prod in non_full_set:
-                    cell = ws.cell(row=row, column=1, value=prod.get('product_name', ''))
-                    cell.font = s['bold']
-                    cell.alignment = s['left']
-                    cell.border = s['border']
-
-                    slots = prod.get('slots', [])
-                    for sl_idx in range(max_sets):
-                        slot = slots[sl_idx] if sl_idx < len(slots) else None
-                        is_filled = slot and (slot.get('filled') if isinstance(slot, dict) else slot)
-                        customer = slot.get('customer', '') if isinstance(slot, dict) else ''
-
-                        cell = ws.cell(row=row, column=sl_idx + 2)
-                        cell.border = s['border']
-                        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
-                        if is_filled:
-                            cell.value = customer or "✓"
-                            cell.fill = filled_fill
-                            if customer:
-                                cell.font = Font(size=9)
-                            else:
-                                cell.font = Font(size=12, color=_GREEN_DARK)
-                        else:
-                            cell.value = ""
-                            cell.fill = empty_fill
-
-                    row += 1
-
-            # Full set product line
-            if full_set_products:
-                fp = full_set_products[0]
-                row += 1
-                ws.merge_cells(f'A{row}:B{row}')
-                cell = ws.cell(row=row, column=1, value=f"SET: {fp.get('product_name', '')}  —  {fp.get('total_ordered', 0)} szt. sprzedanych")
-                cell.font = Font(bold=True, size=10, color=_PURPLE)
-                cell.fill = s['fullset_fill']
-                cell.border = s['border']
-                row += 1
-
-            # Total sets sold summary
-            ws.merge_cells(f'A{row}:B{row}')
-            cell = ws.cell(row=row, column=1, value=f"Łącznie setów: {total_sets_sold} ({ordered_sets} kompletnych + {full_set_sold} pojedynczych)")
-            cell.font = Font(bold=True, size=10)
-            cell.border = s['border']
-            row += 2
+        row, max_set_cols = _write_sets_matrix(ws, sets_info, s, start_row=row)
+    else:
+        max_set_cols = 0
 
     # Column widths - dynamic based on sets
     _set_col_widths(ws, {'A': 30, 'B': 20, 'C': 20, 'D': 20, 'E': 20, 'F': 20})
     # Wider columns for set matrices
-    max_set_cols = max((sd.get('set_max_sets', 0) for sd in sets_info), default=0) if sets_info else 0
     for i in range(2, max_set_cols + 2):
         ws.column_dimensions[get_column_letter(i)].width = 18
     ws.freeze_panes = 'A3'
@@ -1051,6 +1068,184 @@ def _build_live_orders_sheet(wb, summary, s):
 
 
 # ============================================
+# Raport zbiorowy ofert (bulk, multi-offer)
+# ============================================
+
+def _offer_stats(page, data=None):
+    """
+    Zwraca statystyki jednej oferty dla raportu zbiorczego:
+        status_label, type_label, period, orders_count, revenue_pln (float), sets_count
+    Przychód liczony z tych samych danych co macierz wartości (spójność).
+    """
+    from modules.orders.models import Order
+
+    status_labels = {
+        'draft': 'Szkic', 'scheduled': 'Zaplanowana', 'active': 'Aktywna',
+        'paused': 'Wstrzymana', 'ended': 'Zakończona',
+    }
+    type_labels = {'exclusive': 'Exclusive', 'preorder': 'Pre-order'}
+
+    status_label = status_labels.get(page.status, page.status or '-')
+    if page.is_fully_closed:
+        status_label += ' (zamknięta)'
+
+    orders_count = Order.query.filter_by(offer_page_id=page.id).filter(
+        Order.status != 'anulowane'
+    ).count()
+
+    if data is None:
+        data = _preorder_collect_data(page)
+    revenue = 0.0
+    for entries in data['matrix'].values():
+        for product, qty in entries:
+            if product and product.sale_price is not None:
+                revenue += float(product.sale_price) * qty
+
+    sets_count = sum(1 for sec in page.sections if sec.section_type == 'set')
+
+    return {
+        'status_label': status_label,
+        'type_label': type_labels.get(page.page_type, page.page_type or '-'),
+        'period': _format_period(page.starts_at, page.ends_at),
+        'orders_count': orders_count,
+        'revenue_pln': revenue,
+        'sets_count': sets_count,
+    }
+
+
+# Szerokość kolumny A we wszystkich arkuszach raportu zbiorczego.
+# openpyxl liczy szerokość w jednostkach znaków: width = (piksele - 5) / 7.
+# (280 - 5) / 7 ≈ 39.29 → ~280px.
+_BULK_COL_A_WIDTH = 39.29
+
+
+def _build_bulk_overview_sheet(wb, pages, s, all_data):
+    """Pierwszy arkusz: zestawienie wszystkich zaznaczonych ofert + wiersz SUMA."""
+    ws = wb.create_sheet(title='Podsumowanie', index=0)
+    ws.sheet_properties.tabColor = _PURPLE
+
+    headers = ['Oferta', 'Status', 'Typ', 'Okres',
+               'Liczba zamówień', 'Przychód (PLN)', 'Liczba setów']
+    _write_header_row(ws, 1, headers, s)
+
+    suma_fill = PatternFill(start_color=_PREORDER_SUMA_FILL, end_color=_PREORDER_SUMA_FILL, fill_type='solid')
+
+    total_orders = 0
+    total_revenue = 0.0
+    for i, page in enumerate(pages):
+        st = _offer_stats(page, data=all_data[page.id])
+        row = 2 + i
+        _write_cell(ws, row, 1, page.name, s, align='left')
+        _write_cell(ws, row, 2, st['status_label'], s, align='center')
+        _write_cell(ws, row, 3, st['type_label'], s, align='center')
+        _write_cell(ws, row, 4, st['period'], s, align='center')
+        _write_cell(ws, row, 5, st['orders_count'], s, align='center')
+        _write_cell(ws, row, 6, _fmt_price(st['revenue_pln']) if st['revenue_pln'] else None,
+                    s, align='center')
+        _write_cell(ws, row, 7, st['sets_count'], s, align='center')
+        total_orders += st['orders_count']
+        total_revenue += st['revenue_pln']
+
+    suma_row = 2 + len(pages)
+    _write_cell(ws, suma_row, 1, 'SUMA', s, align='left', bold=True, fill=suma_fill)
+    for col in (2, 3, 4):
+        _write_cell(ws, suma_row, col, None, s, fill=suma_fill)
+    _write_cell(ws, suma_row, 5, total_orders, s, align='center', bold=True, fill=suma_fill)
+    _write_cell(ws, suma_row, 6, _fmt_price(total_revenue) if total_revenue else None,
+                s, align='center', bold=True, fill=suma_fill)
+    _write_cell(ws, suma_row, 7, None, s, fill=suma_fill)
+
+    _set_col_widths(ws, {1: _BULK_COL_A_WIDTH, 2: 18, 3: 12, 4: 22, 5: 16, 6: 16, 7: 14})
+    ws.freeze_panes = 'A2'
+
+
+def _build_bulk_offer_sheet(ws, page, s, data, summary):
+    """Zakładka jednej oferty w raporcie zbiorczym.
+
+    Macierze są takie same jak w raporcie pojedynczej strony:
+      - każdy typ: MACIERZ SETÓW (Produkt × Set N z nazwami klientów),
+      - pre-order dodatkowo: macierz ILOŚCI (sztuki) + macierz WARTOŚCI (PLN / KRW).
+    """
+    ws.sheet_properties.tabColor = _PURPLE_LIGHT
+    st = _offer_stats(page, data=data)
+
+    _write_cell(ws, 1, 1, page.name, s, align='left', bold=True)
+    _write_cell(ws, 2, 1, f"Status: {st['status_label']}", s, align='left')
+    _write_cell(ws, 3, 1, f"Typ: {st['type_label']}", s, align='left')
+    _write_cell(ws, 4, 1, f"Okres: {st['period']}", s, align='left')
+    _write_cell(ws, 5, 1, f"Liczba zamówień: {st['orders_count']}", s, align='left')
+    revenue_txt = _fmt_price(st['revenue_pln']) if st['revenue_pln'] else 0
+    _write_cell(ws, 6, 1, f"Przychód (PLN): {revenue_txt}", s, align='left')
+
+    row = 8
+    max_set_cols = 0
+    sets_info = (summary or {}).get('sets', [])
+    if sets_info:
+        row, max_set_cols = _write_sets_matrix(ws, sets_info, s, start_row=row)
+        row += 1
+
+    n1 = n2 = 0
+    if page.page_type == 'preorder':
+        _write_cell(ws, row, 1, 'ILOŚCI (sztuki)', s, align='left', bold=True)
+        next_row, n1 = _write_quantities_matrix(ws, page, s, start_row=row + 1, data=data)
+
+        title2_row = next_row + 1
+        _write_cell(ws, title2_row, 1, 'WARTOŚCI (PLN / KRW)', s, align='left', bold=True)
+        _, n2 = _write_values_matrix(ws, page, s, start_row=title2_row + 1, data=data)
+
+    ws.column_dimensions['A'].width = _BULK_COL_A_WIDTH
+    for j in range(max(max_set_cols, n1, n2)):
+        ws.column_dimensions[get_column_letter(2 + j)].width = 18
+
+
+def generate_offers_bulk_report(pages):
+    """
+    Generuje zbiorczy plik Excel dla wielu ofert.
+    Arkusz 1: 'Podsumowanie' (zestawienie wszystkich ofert).
+    Kolejne arkusze: jedna zakładka per oferta (statystyki + 2 macierze).
+
+    Args:
+        pages: lista obiektów OfferPage (w żądanej kolejności).
+    Returns:
+        BytesIO z plikiem .xlsx.
+    """
+    from utils.offer_closure import get_live_summary
+
+    wb = Workbook()
+    default_ws = wb.active  # domyślny 'Sheet' — usuniemy na końcu
+    s = _styles()
+
+    all_data = {page.id: _preorder_collect_data(page) for page in pages}
+
+    # MACIERZ SETÓW bierzemy z get_live_summary (działa dla aktywnych i zamkniętych stron).
+    # Błąd dla jednej strony nie może wywrócić całego raportu — wtedy ta zakładka bez macierzy setów.
+    summaries = {}
+    for page in pages:
+        try:
+            summaries[page.id] = get_live_summary(page.id, include_financials=True)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            summaries[page.id] = {}
+
+    _build_bulk_overview_sheet(wb, pages, s, all_data)
+
+    used_titles = {'podsumowanie'}
+    for page in pages:
+        title = _safe_sheet_title(page.name, used_titles)
+        used_titles.add(title.lower())
+        ws = wb.create_sheet(title=title)
+        _build_bulk_offer_sheet(ws, page, s, all_data[page.id], summaries[page.id])
+
+    wb.remove(default_ws)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+# ============================================
 # Pre-order matrix report (Podsumowanie + Ilości)
 # ============================================
 
@@ -1148,7 +1343,7 @@ def _preorder_collect_data(page):
 
     Returns:
         dict z kluczami:
-            - orderable_sections: lista OfferSection (tylko product/variant_group/set)
+            - sections: lista OfferSection (tylko product/variant_group/set)
             - customers: listę krotek (klucz, nazwa, user_id, email) w kolejności 1-go zakupu
             - matrix: {(customer_key, section_id): [(product_obj, quantity), ...]}
     """
@@ -1218,12 +1413,40 @@ def _format_product_cell(entries):
     return sum(qty for _, qty in entries) or None
 
 
-def _build_preorder_summary_sheet(wb, page, s):
-    """Zakładka 'Podsumowanie' — macierz klient × sekcja z cenami, sumami i kursem."""
-    ws = wb.create_sheet(title='Podsumowanie', index=0)
-    ws.sheet_properties.tabColor = _PURPLE
+def _write_quantities_matrix(ws, page, s, start_row=1, data=None):
+    """
+    Wpisuje macierz ILOŚCI (klient × sekcja, sumy sztuk) do arkusza ws,
+    poczynając od wiersza start_row. NIE ustawia szerokości kolumn ani freeze.
+    Zwraca krotkę (next_free_row, num_sections).
+    """
+    if data is None:
+        data = _preorder_collect_data(page)
+    sections = data['sections']
+    customers = data['customers']
+    matrix = data['matrix']
 
-    data = _preorder_collect_data(page)
+    headers = ['Klient'] + [_section_column_name(sec) for sec in sections]
+    _write_header_row(ws, start_row, headers, s)
+
+    for i, customer in enumerate(customers):
+        row = start_row + 1 + i
+        _write_cell(ws, row, 1, customer['name'], s, align='left')
+        for j, sec in enumerate(sections):
+            entries = matrix.get((customer['key'], sec.id), [])
+            qty_total = sum(q for _, q in entries) if entries else None
+            _write_cell(ws, row, 2 + j, qty_total, s, align='center')
+
+    return start_row + 1 + len(customers), len(sections)
+
+
+def _write_values_matrix(ws, page, s, start_row=1, data=None):
+    """
+    Wpisuje macierz WARTOŚCI (klient × sekcja, ceny PLN/KRW, sumy, kurs) do ws
+    od wiersza start_row. NIE ustawia szerokości kolumn ani freeze.
+    Zwraca krotkę (next_free_row, num_sections).
+    """
+    if data is None:
+        data = _preorder_collect_data(page)
     sections = data['sections']
     customers = data['customers']
     matrix = data['matrix']
@@ -1231,37 +1454,36 @@ def _build_preorder_summary_sheet(wb, page, s):
     price_fill = PatternFill(start_color=_PREORDER_PRICE_FILL, end_color=_PREORDER_PRICE_FILL, fill_type='solid')
     suma_fill = PatternFill(start_color=_PREORDER_SUMA_FILL, end_color=_PREORDER_SUMA_FILL, fill_type='solid')
 
-    # Row 1: headers
+    header_row = start_row
     headers = ['Klient'] + [_section_column_name(sec) for sec in sections] + ['Suma (PLN)', 'Suma (KRW)']
-    _write_header_row(ws, 1, headers, s)
+    _write_header_row(ws, header_row, headers, s)
 
-    # Precompute section prices + product sets
     section_products = [_section_products(sec) for sec in sections]
     pln_prices = [_price_pln_for_section(prods) for prods in section_products]
     krw_prices = [_price_krw_for_section(prods) for prods in section_products]
 
-    # Row 2: pln
-    _write_cell(ws, 2, 1, 'pln', s, align='center', bold=True, fill=price_fill)
+    pln_row = header_row + 1
+    _write_cell(ws, pln_row, 1, 'pln', s, align='center', bold=True, fill=price_fill)
     for idx, val in enumerate(pln_prices, start=2):
-        _write_cell(ws, 2, idx, val, s, align='center', fill=price_fill)
-    _write_cell(ws, 2, len(sections) + 2, None, s, fill=price_fill)
-    _write_cell(ws, 2, len(sections) + 3, None, s, fill=price_fill)
+        _write_cell(ws, pln_row, idx, val, s, align='center', fill=price_fill)
+    _write_cell(ws, pln_row, len(sections) + 2, None, s, fill=price_fill)
+    _write_cell(ws, pln_row, len(sections) + 3, None, s, fill=price_fill)
 
-    # Row 3: krw
-    _write_cell(ws, 3, 1, 'krw', s, align='center', bold=True, fill=price_fill)
+    krw_row = header_row + 2
+    _write_cell(ws, krw_row, 1, 'krw', s, align='center', bold=True, fill=price_fill)
     for idx, val in enumerate(krw_prices, start=2):
-        _write_cell(ws, 3, idx, val, s, align='center', fill=price_fill)
-    _write_cell(ws, 3, len(sections) + 2, None, s, fill=price_fill)
-    _write_cell(ws, 3, len(sections) + 3, None, s, fill=price_fill)
+        _write_cell(ws, krw_row, idx, val, s, align='center', fill=price_fill)
+    _write_cell(ws, krw_row, len(sections) + 2, None, s, fill=price_fill)
+    _write_cell(ws, krw_row, len(sections) + 3, None, s, fill=price_fill)
 
-    # Rows: customers
     customer_totals_pln = []
     customer_totals_krw = []
     col_totals_pln = [0.0] * len(sections)
     col_totals_krw = [0.0] * len(sections)
 
+    first_customer_row = header_row + 3
     for i, customer in enumerate(customers):
-        row = 4 + i
+        row = first_customer_row + i
         _write_cell(ws, row, 1, customer['name'], s, align='left')
         total_pln = 0.0
         total_krw = 0.0
@@ -1280,7 +1502,6 @@ def _build_preorder_summary_sheet(wb, page, s):
 
             _write_cell(ws, row, col, cell_value, s, align='center')
 
-            # money totals (use actual item prices)
             for product, qty in entries:
                 if product and product.sale_price is not None:
                     val_pln = float(product.sale_price) * qty
@@ -1299,8 +1520,7 @@ def _build_preorder_summary_sheet(wb, page, s):
         customer_totals_pln.append(total_pln)
         customer_totals_krw.append(total_krw)
 
-    # SUMA (PLN) row
-    suma_row = 4 + len(customers)
+    suma_row = first_customer_row + len(customers)
     _write_cell(ws, suma_row, 1, 'SUMA (PLN)', s, align='left', bold=True, fill=suma_fill)
     for j, total in enumerate(col_totals_pln):
         _write_cell(ws, suma_row, 2 + j, _fmt_price(total) if total else None,
@@ -1314,19 +1534,27 @@ def _build_preorder_summary_sheet(wb, page, s):
                 _fmt_price(total_all_krw, decimals=0) if total_all_krw else None,
                 s, align='center', bold=True, fill=suma_fill)
 
-    # Blank row then Kurs
     rate = _get_krw_pln_rate()
     rate_row = suma_row + 2
     _write_cell(ws, rate_row, 1, 'Kurs KRW/PLN:', s, align='left', bold=True)
     if rate:
         _write_cell(ws, rate_row, 2, round(rate), s, align='center', bold=True)
 
-    # Column widths
+    return rate_row + 1, len(sections)
+
+
+def _build_preorder_summary_sheet(wb, page, s):
+    """Zakładka 'Podsumowanie' — macierz klient × sekcja z cenami, sumami i kursem."""
+    ws = wb.create_sheet(title='Podsumowanie', index=0)
+    ws.sheet_properties.tabColor = _PURPLE
+
+    _, n_sections = _write_values_matrix(ws, page, s, start_row=1)
+
     ws.column_dimensions['A'].width = 24
-    for j in range(len(sections)):
+    for j in range(n_sections):
         ws.column_dimensions[get_column_letter(2 + j)].width = 20
-    ws.column_dimensions[get_column_letter(len(sections) + 2)].width = 12
-    ws.column_dimensions[get_column_letter(len(sections) + 3)].width = 14
+    ws.column_dimensions[get_column_letter(n_sections + 2)].width = 12
+    ws.column_dimensions[get_column_letter(n_sections + 3)].width = 14
 
     ws.freeze_panes = 'B4'
 
@@ -1336,24 +1564,10 @@ def _build_preorder_quantities_sheet(wb, page, s):
     ws = wb.create_sheet(title='Ilości', index=1)
     ws.sheet_properties.tabColor = _PURPLE_LIGHT
 
-    data = _preorder_collect_data(page)
-    sections = data['sections']
-    customers = data['customers']
-    matrix = data['matrix']
-
-    headers = ['Klient'] + [_section_column_name(sec) for sec in sections]
-    _write_header_row(ws, 1, headers, s)
-
-    for i, customer in enumerate(customers):
-        row = 2 + i
-        _write_cell(ws, row, 1, customer['name'], s, align='left')
-        for j, sec in enumerate(sections):
-            entries = matrix.get((customer['key'], sec.id), [])
-            qty_total = sum(q for _, q in entries) if entries else None
-            _write_cell(ws, row, 2 + j, qty_total, s, align='center')
+    _, n_sections = _write_quantities_matrix(ws, page, s, start_row=1)
 
     ws.column_dimensions['A'].width = 24
-    for j in range(len(sections)):
+    for j in range(n_sections):
         ws.column_dimensions[get_column_letter(2 + j)].width = 16
 
     ws.freeze_panes = 'B2'
@@ -1372,6 +1586,33 @@ def _format_period(starts_at, ends_at):
     elif ends_at:
         return f"do {ends_at.strftime('%d.%m.%Y')}"
     return "-"
+
+
+def _safe_sheet_title(name, used_titles):
+    """
+    Zwraca nazwę arkusza bezpieczną dla Excela: max 31 znaków, bez znaków
+    []:*?/\\, unikalną względem used_titles (porównanie case-insensitive).
+    used_titles — kolekcja już użytych tytułów (lowercase). Funkcja NIE mutuje
+    used_titles; po użyciu wywołujący powinien dodać zwrócony tytuł (lowercase).
+    """
+    base = (name or 'Oferta').strip()
+    for ch in '[]:*?/\\':
+        base = base.replace(ch, ' ')
+    base = base.strip() or 'Oferta'
+    base = base[:31]
+
+    if base.lower() not in used_titles:
+        return base
+
+    n = 2
+    while True:
+        suffix = f' ({n})'
+        trim_to = max(0, 31 - len(suffix))
+        trimmed = base[:trim_to].rstrip()
+        candidate = f'{trimmed}{suffix}'
+        if candidate.lower() not in used_titles:
+            return candidate
+        n += 1
 
 
 # ============================================

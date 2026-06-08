@@ -665,7 +665,7 @@ function initializeBulkActions() {
 
                 switch (action) {
                     case 'report':
-                        showToast('Raport zbiorowy — funkcja w przygotowaniu.', 'info');
+                        bulkReport(ids, this);
                         break;
                     case 'activate':
                         bulkStatus(ids, 'publish', 'Aktywowano');
@@ -737,6 +737,48 @@ function initializeBulkActions() {
         .catch(err => {
             console.error('bulk delete error:', err);
             showToast('Wystąpił błąd.', 'error');
+        });
+    }
+
+    function bulkReport(ids, btn) {
+        const textEl = btn.querySelector('.btn-bulk-text');
+        const originalText = textEl ? textEl.textContent : null;
+        btn.classList.add('is-disabled');
+        if (textEl) textEl.textContent = 'Generuję...';
+
+        fetch('/admin/offers/bulk/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ page_ids: ids })
+        })
+        .then(async (response) => {
+            const ct = response.headers.get('content-type') || '';
+            if (response.ok && ct.includes('spreadsheetml')) {
+                const blob = await response.blob();
+                const disposition = response.headers.get('content-disposition') || '';
+                const match = disposition.match(/filename="?([^"]+)"?/);
+                const filename = match ? match[1] : 'raport_zbiorczy_ofert.xlsx';
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                showToast('Raport zbiorowy pobrany.', 'success');
+            } else {
+                const result = await response.json().catch(() => ({}));
+                showToast(result.error || 'Błąd generowania raportu.', 'error');
+            }
+        })
+        .catch(err => {
+            console.error('bulk report error:', err);
+            showToast('Wystąpił błąd.', 'error');
+        })
+        .finally(() => {
+            btn.classList.remove('is-disabled');
+            if (textEl && originalText !== null) textEl.textContent = originalText;
         });
     }
 
