@@ -161,3 +161,6 @@
     background: rgba(240, 147, 251, 0.08);
     border-color: rgba(240, 147, 251, 0.3);
 }
+[data-theme="dark"] .preview-product-price,
+[data-theme="dark"] .preview-set-item-price,
+[data-theme="dark"] .preview-full-set-price { color: #f093fb; }
