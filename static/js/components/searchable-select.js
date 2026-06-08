@@ -44,6 +44,11 @@
         panel.style.left = rect.left + 'px';
         panel.style.width = rect.width + 'px';
 
+        // Zdjęcie ograniczenia maxHeight (pomiar niżej) usuwa overflow listy, przez co
+        // przeglądarka zeruje jej scrollTop. Zapamiętaj pozycję, by ją odtworzyć na końcu.
+        const optionsList = panel.querySelector('.searchable-select-options');
+        const keepScrollTop = optionsList ? optionsList.scrollTop : 0;
+
         // Zmierz naturalną wysokość zawartości (bez ograniczenia), ograniczoną do maxH.
         panel.style.maxHeight = 'none';
         const desired = Math.min(panel.scrollHeight, maxH);
@@ -66,13 +71,19 @@
             panel.style.top = (rect.bottom + gap) + 'px';
             panel.style.maxHeight = Math.min(maxH, spaceBelow) + 'px';
         }
+
+        // Przywróć pozycję scrolla listy (utraconą przy zdjęciu maxHeight powyżej).
+        if (optionsList) optionsList.scrollTop = keepScrollTop;
     }
 
     // Przy scrollu/resize: przesuń panel za triggerem; zamknij dopiero gdy
     // trigger wyjdzie poza widok. Dzięki temu scroll w samej liście opcji
     // (ani scroll strony) nie zamyka panelu.
-    function handleViewportChange() {
+    function handleViewportChange(e) {
         if (!openWrapper || !openPanelEl) return;
+        // Listener jest w fazie przechwytywania (capture), więc łapie też scroll
+        // wewnątrz samej listy opcji. Taki scroll nie ma repozycjonować panelu.
+        if (e && e.target && openPanelEl.contains(e.target)) return;
         const rect = openWrapper.getBoundingClientRect();
         if (rect.bottom < 0 || rect.top > window.innerHeight) {
             closePanel();
