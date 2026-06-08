@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/offers/countdown.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/offers/countdown-preview.css') }}">
 {% if not current_user.is_authenticated %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/offers/order-page.css') }}">
 {% endif %}
@@ -127,6 +128,16 @@
             <p>Przygotuj się na ekskluzywną ofertę!</p>
         </div>
 
+        {% if show_preview %}
+        <button type="button" class="countdown-preview-btn" onclick="openOfferPreview()">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8zM1.173 8a13.133 13.133 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5c2.12 0 3.879 1.168 5.168 2.457A13.133 13.133 0 0 1 14.828 8c-.058.087-.122.183-.195.288-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5c-2.12 0-3.879-1.168-5.168-2.457A13.134 13.134 0 0 1 1.172 8z"/>
+                <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0z"/>
+            </svg>
+            Co jest w sprzedaży?
+        </button>
+        {% endif %}
+
         <!-- Auth Info -->
         <div class="countdown-auth-info">
             {% if current_user.is_authenticated %}
@@ -239,6 +250,25 @@
                     <button type="button" class="offer-btn-cancel-text" onclick="closeCountdownLoginModal()">Anuluj</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if show_preview %}
+<!-- Offer Preview Modal -->
+<div id="offerPreviewModal" class="modal-overlay">
+    <div class="modal-content modal-xl offer-preview-modal">
+        <div class="modal-header">
+            <h2 class="modal-title">Co jest w sprzedaży?</h2>
+            <button type="button" class="modal-close" onclick="closeOfferPreview()" aria-label="Zamknij">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body offer-preview-body">
+            {% include 'offers/_preview_sections.html' %}
         </div>
     </div>
 </div>
@@ -428,6 +458,8 @@
     }, { once: true });
 })();
 </script>
+
+<script src="{{ url_for('static', filename='js/pages/offers/countdown-preview.js') }}"></script>
 
 <!-- Socket.IO for visitor tracking -->
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
