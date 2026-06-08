@@ -97,6 +97,9 @@ class OfferPage(db.Model):
     # Powiadomienie klientów przy publikacji
     notify_clients_on_publish = db.Column(db.Boolean, default=False)
 
+    # Czy pokazywać podgląd oferty (read-only) na stronie countdown
+    preview_enabled = db.Column(db.Boolean, default=True, nullable=False)
+
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)
     closed_at = db.Column(db.DateTime, nullable=True)
