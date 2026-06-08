@@ -836,6 +836,7 @@ function collectPageData() {
         ends_at: document.getElementById('endsAt').value || null,
         payment_stages: paymentStagesInput ? parseInt(paymentStagesInput.value) || 4 : 4,
         notify_clients_on_publish: document.getElementById('notifyClientsOnPublish')?.checked || false,
+        preview_enabled: document.getElementById('previewEnabled')?.checked ?? true,
         sections: []
     };
 
