@@ -1,4 +1,55 @@
-from utils.excel_export import _safe_sheet_title
+from openpyxl import Workbook
+
+from utils.excel_export import _safe_sheet_title, _styles, _write_sets_matrix
+
+
+# --- _write_sets_matrix (współdzielona MACIERZ SETÓW: LIVE + raport zbiorczy) ---
+
+def _cells_text(ws):
+    out = []
+    for r in ws.iter_rows(values_only=True):
+        for c in r:
+            if isinstance(c, str):
+                out.append(c)
+    return out
+
+
+def test_sets_matrix_writes_header_columns_and_customers():
+    wb = Workbook()
+    ws = wb.active
+    sets_info = [{
+        'set_name': 'Set A',
+        'set_max_sets': 2,
+        'has_limit': True,
+        'ordered_sets': 1,
+        'total_sets_sold': 1,
+        'full_set_sold': 0,
+        'products': [{
+            'product_name': 'Photocard',
+            'is_full_set': False,
+            'slots': [
+                {'filled': True, 'customer': 'Anna'},
+                {'filled': False, 'customer': None},
+            ],
+        }],
+    }]
+    next_row, max_cols = _write_sets_matrix(ws, sets_info, _styles(), start_row=1)
+    text = _cells_text(ws)
+    assert 'MACIERZ SETÓW' in text
+    assert 'Produkt' in text
+    assert 'Set 1' in text and 'Set 2' in text
+    assert 'Photocard' in text
+    assert 'Anna' in text          # nazwa klienta w wypełnionym slocie
+    assert max_cols == 2
+    assert next_row > 1
+
+
+def test_sets_matrix_empty_returns_start_row():
+    wb = Workbook()
+    ws = wb.active
+    next_row, max_cols = _write_sets_matrix(ws, [], _styles(), start_row=5)
+    # brak setów: nic nie wpisujemy poza nagłówkiem sekcji; kolumny = 0
+    assert max_cols == 0
 
 
 def test_short_name_unchanged():
