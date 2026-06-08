@@ -148,6 +148,11 @@ def get_cached_rate(currency_code, allow_stale=False):
                 # Try ISO format as fallback
                 cached_at = datetime.fromisoformat(last_update)
 
+            # Timestamp zapisywany jako czas lokalny Polski bez offsetu (naiwny) —
+            # dołącz strefę, by nie odejmować naiwnego od świadomego (TypeError).
+            if cached_at.tzinfo is None:
+                cached_at = cached_at.replace(tzinfo=POLAND_TZ)
+
             age = datetime.now(tz=POLAND_TZ) - cached_at
 
             # Check if cache is still fresh based on update frequency
@@ -179,6 +184,8 @@ def get_cached_rate(currency_code, allow_stale=False):
 
         # Check if cache is fresh based on update frequency
         cached_at = datetime.fromisoformat(timestamp_setting.value)
+        if cached_at.tzinfo is None:
+            cached_at = cached_at.replace(tzinfo=POLAND_TZ)
         age = datetime.now(tz=POLAND_TZ) - cached_at
 
         if not allow_stale and age > timedelta(hours=update_frequency):
