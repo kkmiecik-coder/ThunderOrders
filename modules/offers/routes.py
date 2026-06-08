@@ -205,6 +205,14 @@ def _build_bonuses_config(page, sections):
     return json.dumps(config, ensure_ascii=False)
 
 
+def should_show_preview(page, sections):
+    """Czy pokazać przycisk podglądu oferty na countdownie.
+
+    True tylko gdy podgląd włączony per oferta ORAZ są jakieś sekcje do pokazania.
+    """
+    return bool(page.preview_enabled) and len(sections) > 0
+
+
 @offers_bp.route('/countdown')
 def countdown_page():
     """
@@ -237,7 +245,16 @@ def countdown_page():
     if page.is_active or page.is_ended or page.is_paused:
         return redirect(url_for('offers.order_page', token=token))
 
-    return render_template('offers/countdown.html', page=page)
+    # Podgląd oferty (read-only) — tylko gdy włączony i są sekcje
+    sections = page.get_sections_ordered() if page.preview_enabled else []
+    show_preview = should_show_preview(page, sections)
+
+    return render_template(
+        'offers/countdown.html',
+        page=page,
+        sections=sections,
+        show_preview=show_preview,
+    )
 
 
 @offers_bp.route('/<token>')
