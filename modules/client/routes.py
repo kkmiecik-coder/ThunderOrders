@@ -193,8 +193,8 @@ def dashboard():
     for page in offer_pages_all:
         page.check_and_update_status()
 
-    # JS renderuje obie zakładki przez API (z sortowaniem per zakładka);
-    # tutaj liczymy tylko flagi widoczności — kolejność jest nieistotna.
+    # JS renderuje zakładki (Live / Wkrótce / Zamknięte) przez API, z sortowaniem
+    # per zakładka; tutaj liczymy tylko flagi widoczności — kolejność nieistotna.
     has_current = any(p.status in ('scheduled', 'active', 'paused') for p in offer_pages_all)
     has_closed = any(p.status == 'ended' for p in offer_pages_all)
 
@@ -368,6 +368,8 @@ def get_offer_pages():
     offset = request.args.get('offset', 0, type=int)
     limit = request.args.get('limit', 5, type=int)
     filter_type = request.args.get('filter', 'live')
+    if filter_type not in ('live', 'upcoming', 'closed'):
+        filter_type = 'live'
 
     # Pobierz wszystkie strony (bez drafts)
     offer_pages_all = OfferPage.query.filter(

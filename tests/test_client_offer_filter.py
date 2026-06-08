@@ -82,6 +82,15 @@ def test_sort_live_undated_without_starts_at_goes_last():
     assert _names(pages) == ['A', 'B']
 
 
+def test_sort_live_without_any_dates_goes_last():
+    a = FakePage(name='A', starts_at=datetime(2026, 6, 1), ends_at=datetime(2026, 6, 10))
+    b = FakePage(name='B', starts_at=datetime(2026, 6, 3), ends_at=None)
+    c = FakePage(name='C', starts_at=None, ends_at=None)
+    pages = [c, b, a]
+    sort_offer_pages(pages, 'live')
+    assert _names(pages) == ['A', 'B', 'C']
+
+
 def test_sort_upcoming_by_starts_ascending():
     a = FakePage(name='A', starts_at=datetime(2026, 7, 1))
     b = FakePage(name='B', starts_at=datetime(2026, 6, 15))
@@ -101,6 +110,15 @@ def test_sort_closed_newest_first_using_closed_at_or_ends_at():
     sort_offer_pages(pages, 'closed')
     # Czas zamknięcia: A=6/1, B=6/5 (closed_at), C=6/3 -> malejąco: B, C, A
     assert _names(pages) == ['B', 'C', 'A']
+
+
+def test_sort_closed_uses_closed_at_when_ends_at_missing():
+    a = FakePage(name='A', ends_at=datetime(2026, 6, 2))
+    b = FakePage(name='B', ends_at=None, closed_at=datetime(2026, 6, 4))
+    pages = [a, b]
+    sort_offer_pages(pages, 'closed')
+    # B zamknięta 6/4 (closed_at, brak ends_at), A 6/2 -> malejąco: B, A
+    assert _names(pages) == ['B', 'A']
 
 
 def test_sort_closed_without_dates_goes_last():
