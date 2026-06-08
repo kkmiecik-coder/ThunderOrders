@@ -36,6 +36,13 @@ echo "$LOG_PREFIX Restarting application..."
 # bo failuje z "Connection in use: 8000" i nie przeładowuje żywych procesów.
 # UWAGA: dwie osobne komendy, bo reguła sudoers NOPASSWD dopasowuje dokładne wywołanie
 # per usługa (`systemctl restart thunderorders-http` i `...-ws` osobno).
+#
+# Zwolnij lock PRZED restartem: ten skrypt biegnie w cgroupie usługi thunderorders-http
+# (webhook obsługiwany przez tę samą usługę), więc restart ubija deploy.sh (SIGTERM,
+# "Terminated") zanim trap EXIT zdąży usunąć lock. Bez tego lock zostaje osierocony i
+# blokuje WSZYSTKIE kolejne deploye ("Already deploying, skipping"). Usuwamy go tutaj,
+# żeby kolejny push wszedł nawet gdy ten proces nie dożyje do trap-a.
+rm -f "$LOCK_FILE"
 sudo systemctl restart thunderorders-http 2>&1
 sudo systemctl restart thunderorders-ws 2>&1
 
