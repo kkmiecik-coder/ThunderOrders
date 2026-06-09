@@ -2572,14 +2572,24 @@ def _build_effective_pln_map(products_to_order=None, proxy_orders=None, poland_o
             return
         products_seen[product.id] = product
 
+    # Materializujemy pozycje raz (items to lazy='dynamic' — każdy dostęp do
+    # order.items to osobne zapytanie) i bulk-preload produktów jednym SELECT-em.
+    # Dzięki temu it.product (tutaj ORAZ w szablonie) rozwiązuje się z identity
+    # map sesji zamiast N+1 lazy-loadów po products.id.
+    proxy_items = [it for order in (proxy_orders or []) for it in order.items]
+    poland_items = [it for order in (poland_orders or []) for it in order.items]
+
+    product_ids = {it.product_id for it in proxy_items}
+    product_ids |= {it.product_id for it in poland_items}
+    if product_ids:
+        Product.query.filter(Product.id.in_(product_ids)).all()
+
     for item in (products_to_order or []):
         _add_product(item.get('product'))
-    for order in (proxy_orders or []):
-        for it in order.items:
-            _add_product(it.product)
-    for order in (poland_orders or []):
-        for it in order.items:
-            _add_product(it.product)
+    for it in proxy_items:
+        _add_product(it.product)
+    for it in poland_items:
+        _add_product(it.product)
 
     # Cache exchange rates per currency code (avoid repeated lookups)
     rate_cache = {}
