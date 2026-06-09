@@ -309,7 +309,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/vendor/chart.umd.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/client/dashboard.js') }}"></script>
 <script src="{{ url_for('static', filename='js/vendor/shepherd.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/components/onboarding-tour.js') }}"></script>
