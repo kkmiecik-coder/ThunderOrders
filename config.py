@@ -136,12 +136,23 @@ class ProductionConfig(Config):
 
 
 class TestingConfig(Config):
-    """Konfiguracja dla testów (opcjonalnie, na przyszłość)"""
+    """Konfiguracja dla testów"""
 
     TESTING = True
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'  # Baza w pamięci dla testów
     WTF_CSRF_ENABLED = False  # Wyłącz CSRF w testach
+    RATELIMIT_ENABLED = False  # Wyłącz rate limiting w testach (brak Redis)
+
+    # StaticPool: wszystkie operacje używają tej samej in-memory konekcji SQLite.
+    # Nadpisuje pool_size/max_overflow z bazowego Config, które są niekompatybilne z SQLite.
+    # Import lokalny — StaticPool potrzebny tylko tutaj; nie ładujemy go na poziomie modułu.
+    from sqlalchemy.pool import StaticPool as _StaticPool
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'connect_args': {'check_same_thread': False},
+        'poolclass': _StaticPool,
+    }
+    del _StaticPool
 
 
 # Słownik wyboru konfiguracji
