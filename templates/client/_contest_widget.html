@@ -21,7 +21,13 @@
         {% if contest_widget.contest.prizes %}
           {% for entry in contest_widget.contest.prizes %}
             {% if entry.is_set %}
-              <span class="contest-widget__prize-chip contest-widget__prize-chip--set">🎁 {{ entry.quantity }}× {{ entry.name }}</span>
+              <div class="contest-widget__prize-set">
+                <span class="contest-widget__prize-set-head">🎁 {{ entry.quantity }}× {{ entry.name }}</span>
+                {% set set_items = entry.items | selectattr('product') | list %}
+                {% if set_items %}
+                <span class="contest-widget__prize-set-items">{% for it in set_items %}{{ it.quantity }}× {{ it.product.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+                {% endif %}
+              </div>
             {% else %}
               <span class="contest-widget__prize-chip">{{ entry.quantity }}× {{ entry.items[0].product.name if entry.items and entry.items[0].product else 'nagroda' }}</span>
             {% endif %}
@@ -37,7 +43,7 @@
   <div class="contest-widget__action">
     <div class="contest-widget__tickets">
       <b id="widgetTickets">{{ contest_widget.my_tickets }}</b>
-      <span>Twoich losów</span>
+      <span>losów</span>
     </div>
     {% if not contest_widget.eligible %}
       <div class="contest-widget__cool">Nie spełniasz warunków udziału</div>

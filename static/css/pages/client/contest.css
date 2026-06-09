@@ -54,6 +54,29 @@
   z-index: 1;
 }
 
+/* Subtelny, wolno dryfujący poblask w tle */
+.contest-widget::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(35% 45% at 25% 35%, rgba(240, 147, 251, 0.14), transparent 70%),
+    radial-gradient(30% 40% at 80% 70%, rgba(245, 87, 108, 0.10), transparent 70%);
+  animation: cw-drift 22s ease-in-out infinite alternate;
+}
+
+@keyframes cw-drift {
+  0%   { transform: translate(-4%, -3%) scale(1); }
+  50%  { transform: translate(5%, 4%) scale(1.06); }
+  100% { transform: translate(-2%, 6%) scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contest-widget::after { animation: none; }
+}
+
 /* ---- Media region ---- */
 .contest-widget__media {
   flex-shrink: 0;
@@ -145,6 +168,30 @@
   font-weight: 700;
 }
 
+/* Prize set — box with name + its items */
+.contest-widget__prize-set {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 13px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.12), rgba(245, 87, 108, 0.08));
+  border: 1px solid rgba(240, 147, 251, 0.40);
+}
+
+.contest-widget__prize-set-head {
+  font-size: 13px;
+  font-weight: 700;
+  color: #d03090;
+}
+
+.contest-widget__prize-set-items {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #6b5b80;
+  line-height: 1.35;
+}
+
 /* Hint */
 .contest-widget__hint {
   margin-top: 2px;
@@ -156,13 +203,13 @@
 /* ---- Action panel (right) ---- */
 .contest-widget__action {
   flex-shrink: 0;
-  width: 240px;
+  width: 320px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding-left: 24px;
+  padding-left: 28px;
   border-left: 1px solid rgba(0, 0, 0, 0.07);
 }
 
@@ -544,6 +591,19 @@
   background: linear-gradient(135deg, rgba(240, 147, 251, 0.18), rgba(245, 87, 108, 0.14));
   border-color: rgba(240, 147, 251, 0.50);
   color: #f093fb;
+}
+
+[data-theme="dark"] .contest-widget__prize-set {
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.16), rgba(245, 87, 108, 0.12));
+  border-color: rgba(240, 147, 251, 0.45);
+}
+
+[data-theme="dark"] .contest-widget__prize-set-head {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .contest-widget__prize-set-items {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="dark"] .contest-widget__action {
