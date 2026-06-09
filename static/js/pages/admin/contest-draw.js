@@ -46,12 +46,13 @@
 
   var DR = {
     pool: [],
+    names: [],       // nazwy uczestników do przewijania w bębnie
     p: 0,
     speed: 0,
     maxSpeed: 25,
     accel: 0.5,
     state: 'idle',   // idle | spinning | braking | done
-    drawn: null,     // ticket number to land on (or winner index)
+    drawn: null,     // nazwa zwycięzcy, na której bęben ma wyhamować
     targetK: null,   // forced slot; val(targetK) returns DR.drawn
     brake: null,     // { from, to, dur, t0 }
     last: null,
@@ -59,15 +60,16 @@
   };
 
   /**
-   * Deterministic pseudo-random for slot k.
-   * If targetK is set and k === targetK, returns DR.drawn directly.
-   * This guarantees the reel lands on the correct value without any search loop.
+   * Wartość slotu k — NAZWA uczestnika (pseudo-losowo z DR.names).
+   * Jeśli targetK ustawione i k === targetK, zwraca DR.drawn (nazwę zwycięzcy)
+   * — gwarantuje wyhamowanie na właściwej osobie bez pętli szukającej.
    */
   function val(k) {
     if (DR.targetK !== null && k === DR.targetK) return DR.drawn;
+    if (!DR.names.length) return '—';
     var x = Math.sin(k * 127.1 + 311.7) * 43758.5453;
     x = x - Math.floor(x);
-    return 1 + Math.floor(x * 99);
+    return DR.names[Math.floor(x * DR.names.length) % DR.names.length];
   }
 
   function renderReel() {
@@ -255,7 +257,7 @@
     var w = winners[idx];
     var spinMs = 1400 + Math.random() * 400; // 1.4–1.8s spinning
 
-    startReel(w.tickets, spinMs, function () {
+    startReel(w.name, spinMs, function () {
       // Reel landed — show winner card
       addWinnerCard(w);
 
@@ -325,6 +327,9 @@
           // Clear previous winners area
           var area = document.getElementById('winnersArea');
           if (area) area.innerHTML = '';
+
+          // Nazwy uczestników do przewijania w bębnie
+          DR.names = (data.breakdown || []).map(function (b) { return b.name; });
 
           // Reveal winners sequentially, then show breakdown
           revealWinners(data.winners || [], 0, function () {

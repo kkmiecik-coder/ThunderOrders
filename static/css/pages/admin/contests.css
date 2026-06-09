@@ -989,7 +989,8 @@
 .ca-reel-wrap {
     position: relative;
     height: 252px;
-    width: 170px;
+    width: 320px;
+    max-width: 100%;
     margin: 0 auto 8px;
     border-radius: 16px;
     background: linear-gradient(#f5f3fa, #ede9f5, #f5f3fa);
@@ -1041,13 +1042,16 @@
     left: 0;
     right: 0;
     height: 84px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 46px;
-    font-weight: 900;
+    line-height: 84px;
+    padding: 0 16px;
+    box-sizing: border-box;
+    text-align: center;
+    font-size: 21px;
+    font-weight: 800;
     color: rgba(26, 26, 46, 0.75);
-    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     will-change: transform;
 }
 
