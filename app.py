@@ -19,6 +19,23 @@ url_for = flask_url_for  # alias dla reszty kodu w app.py
 # Sentry - error tracking (inicjalizacja przed create_app)
 import sentry_sdk
 
+def _sentry_before_send(event, hint):
+    """
+    Odfiltrowuje szum z bezczynnych/zerwanych połączeń WebSocket: eventlet rzuca
+    TimeoutError na recv() w /socket.io/ gdy klient zniknie. To nie jest błąd
+    aplikacji (cały stacktrace jest w warstwie engineio/eventlet) — nie
+    raportujemy. Pozostałe TimeoutError-y przechodzą normalnie.
+    """
+    exc_info = hint.get('exc_info') if hint else None
+    if exc_info:
+        exc_type = exc_info[0]
+        if exc_type is not None and issubclass(exc_type, TimeoutError):
+            url = (event.get('request') or {}).get('url') or ''
+            if '/socket.io/' in url:
+                return None
+    return event
+
+
 sentry_dsn = os.getenv('SENTRY_DSN')
 if sentry_dsn:
     sentry_sdk.init(
@@ -26,6 +43,7 @@ if sentry_dsn:
         traces_sample_rate=0.2,
         environment=os.getenv('FLASK_ENV', 'production'),
         send_default_pii=False,
+        before_send=_sentry_before_send,
     )
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
