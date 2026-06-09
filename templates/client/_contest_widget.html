@@ -109,7 +109,7 @@
         {% for w in contest_widget.winners %}
         <li class="contest-widget__winner{% if w.user_id == current_user.id %} contest-widget__winner--me{% endif %}">
           <span class="contest-widget__winner-place">#{{ w.place }}</span>
-          <span class="contest-widget__winner-name">{{ w.user.first_name or w.user.email }}</span>
+          <span class="contest-widget__winner-name">{{ w.user.full_name }}</span>
         </li>
         {% else %}
         <li class="contest-widget__winner">Brak danych o zwycięzcach.</li>

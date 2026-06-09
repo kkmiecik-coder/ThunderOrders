@@ -16,7 +16,7 @@ from modules.contests import utils as cu
 
 
 def _display_name(user):
-    return user.first_name or user.email
+    return user.full_name  # imię + nazwisko, fallback na email
 
 
 def _count_participants(contest):
