@@ -152,23 +152,28 @@
 
   function finishSpin() {
     var drawn = S.drawn;
-    // Show result text
-    S.resEl.innerHTML = 'Zdobywasz <b>' + drawn + ' los' + pluralLosow(drawn) + '</b>! 🎉';
-    S.resEl.classList.add('contest-spin-result--show');
-    // Update button to ZAMKNIJ
-    S.btnEl.textContent = 'ZAMKNIJ';
+    var modal = S.overlay;
+    // Zwiń bęben
+    var reelWrap = modal.querySelector('.contest-reel-wrap');
+    if (reelWrap) reelWrap.classList.add('contest-reel-wrap--out');
+    // Ukryj podpowiedzi (już niepotrzebne)
+    var sub = modal.querySelector('.contest-spin-sub');
+    var hint = modal.querySelector('.contest-spin-hint');
+    if (sub) sub.style.display = 'none';
+    if (hint) hint.style.display = 'none';
+    // Wyskakująca, powiększona liczba + etykieta
+    var revealNum = modal.querySelector('#contestRevealNum');
+    var reveal = modal.querySelector('#contestModalReveal');
+    if (revealNum) revealNum.textContent = drawn;
+    if (reveal) reveal.classList.add('contest-spin-reveal--show');
+    // Przycisk → Zamknij
+    S.btnEl.textContent = 'Zamknij';
     S.btnEl.disabled = false;
     S.btnEl.className = 'contest-spin-btn';
-    // Update UI outside the modal immediately
+    // Aktualizacja UI poza modalem
     if (S.serverData) {
       afterSpinDone(S.serverData);
     }
-  }
-
-  function pluralLosow(n) {
-    if (n === 1) return '';
-    if (n >= 2 && n <= 4) return 'y';
-    return 'ów';
   }
 
   /* ----- Modal lifecycle ----- */
@@ -207,6 +212,10 @@
       '<div class="contest-reel-wrap">' +
         '<div class="contest-marker"></div>' +
         '<div class="contest-reel" id="contestReelInner"></div>' +
+      '</div>' +
+      '<div class="contest-spin-reveal" id="contestModalReveal">' +
+        '<div class="contest-spin-reveal-num" id="contestRevealNum"></div>' +
+        '<div class="contest-spin-reveal-label">Twoje zdobyte losy</div>' +
       '</div>' +
       '<div class="contest-spin-ctrl">' +
         '<button class="contest-spin-btn" id="contestModalBtn">START</button>' +

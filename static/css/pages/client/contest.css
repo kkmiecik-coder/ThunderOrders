@@ -166,7 +166,15 @@
   border-left: 1px solid rgba(0, 0, 0, 0.07);
 }
 
-/* Badge */
+/* Badge + deadline row */
+.contest-widget__badge-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-self: flex-start;
+}
+
 .contest-widget__badge {
   display: inline-block;
   font-size: 11px;
@@ -176,7 +184,13 @@
   font-weight: 800;
   color: #fff;
   letter-spacing: 0.05em;
-  align-self: flex-start;
+}
+
+.contest-widget__deadline {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a8398;
+  white-space: nowrap;
 }
 
 /* Title — hero headline */
@@ -452,8 +466,9 @@
     align-items: center;
   }
 
-  .contest-widget__badge {
+  .contest-widget__badge-row {
     align-self: center;
+    justify-content: center;
   }
 
   .contest-widget__prize-col {
@@ -722,6 +737,10 @@
 
 [data-theme="dark"] .contest-widget__desc {
   color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .contest-widget__deadline {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="dark"] .contest-widget__prize-label {

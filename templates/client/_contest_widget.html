@@ -20,7 +20,12 @@
   {% endif %}
 
   <div class="contest-widget__info">
-    <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
+    <div class="contest-widget__badge-row">
+      <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
+      {% if contest_widget.contest.ends_at %}
+      <span class="contest-widget__deadline">⏳ do {{ contest_widget.contest.ends_at.strftime('%d.%m %H:%M') }}</span>
+      {% endif %}
+    </div>
     <h3 class="contest-widget__title">{{ contest_widget.contest.name }}</h3>
     {% if contest_widget.contest.description %}
     <p class="contest-widget__desc">{{ contest_widget.contest.description }}</p>

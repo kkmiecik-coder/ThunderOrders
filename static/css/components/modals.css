@@ -3890,6 +3890,16 @@
   /* Always dark — the reel experience */
   background: linear-gradient(#0c0a11, #171221, #0c0a11);
   border: 1px solid rgba(240, 147, 251, 0.22);
+
+  transition: height 0.45s ease, opacity 0.4s ease, transform 0.45s ease, margin 0.45s ease;
+}
+
+/* Zwijanie bębna po wylosowaniu (reveal liczby) */
+.contest-reel-wrap--out {
+  height: 0;
+  opacity: 0;
+  transform: scale(0.7);
+  margin-bottom: 0;
 }
 
 .contest-reel-wrap::before,
@@ -4017,6 +4027,45 @@
   opacity: 0.45;
 }
 
+/* Reveal wylosowanej liczby (po zatrzymaniu bębna) */
+.contest-spin-reveal {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 6px 0 2px;
+}
+
+.contest-spin-reveal--show {
+  display: flex;
+}
+
+.contest-spin-reveal-num {
+  font-size: 78px;
+  font-weight: 900;
+  line-height: 1;
+  color: #e35ec6;
+  text-shadow: 0 6px 24px rgba(227, 94, 198, 0.35);
+  animation: cw-reveal-pop 0.65s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+.contest-spin-reveal-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: #5b5570;
+  animation: cw-reveal-fade 0.4s 0.28s ease both;
+}
+
+@keyframes cw-reveal-pop {
+  0%   { transform: scale(0.2); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes cw-reveal-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* === Contest spinner modal — Dark mode === */
 [data-theme="dark"] .contest-spin-modal {
   background: #16121d;
@@ -4031,6 +4080,14 @@
 
 [data-theme="dark"] .contest-spin-result b {
   color: #f6a6ec;
+}
+
+[data-theme="dark"] .contest-spin-reveal-num {
+  color: #f6a6ec;
+}
+
+[data-theme="dark"] .contest-spin-reveal-label {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* ==========================================
