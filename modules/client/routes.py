@@ -205,8 +205,8 @@ def dashboard():
     }
 
     from modules.contests import utils as contest_utils
-    _active_contest = contest_utils.get_active_contest()
-    contest_widget = contest_utils.widget_context(_active_contest, current_user) if _active_contest else None
+    _display_contest = contest_utils.get_display_contest()
+    contest_widget = contest_utils.widget_context(_display_contest, current_user) if _display_contest else None
 
     return render_template(
         'client/dashboard.html',

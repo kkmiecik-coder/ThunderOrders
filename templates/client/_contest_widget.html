@@ -21,16 +21,27 @@
 
   <div class="contest-widget__info">
     <div class="contest-widget__badge-row">
-      <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
-      {% if contest_widget.contest.ends_at %}
-      <span class="contest-widget__deadline">⏳ do {{ contest_widget.contest.ends_at.strftime('%d.%m %H:%M') }}</span>
+      {% if contest_widget.state == 'trwa' %}
+        <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
+        {% if contest_widget.contest.ends_at %}
+        <span class="contest-widget__deadline">⏳ do {{ contest_widget.contest.ends_at.strftime('%d.%m %H:%M') }}</span>
+        {% endif %}
+      {% elif contest_widget.state == 'zamkniete' %}
+        <span class="contest-widget__badge contest-widget__badge--closed">⏳ PRZYJMOWANIE LOSÓW ZAKOŃCZONE</span>
+        {% if contest_widget.contest.ends_at %}
+        <span class="contest-widget__deadline">zakończono {{ contest_widget.contest.ends_at.strftime('%d.%m %H:%M') }}</span>
+        {% endif %}
+      {% else %}{# rozstrzygniete #}
+        <span class="contest-widget__badge contest-widget__badge--resolved">🏆 ROZSTRZYGNIĘTY</span>
       {% endif %}
     </div>
     <h3 class="contest-widget__title">{{ contest_widget.contest.name }}</h3>
     {% if contest_widget.contest.description %}
     <p class="contest-widget__desc">{{ contest_widget.contest.description }}</p>
     {% endif %}
+    {% if contest_widget.state == 'trwa' %}
     <div class="contest-widget__hint">Pula i szanse ujawnią się przy losowaniu 🤫</div>
+    {% endif %}
   </div>
 
   <div class="contest-widget__prize-col">
@@ -61,19 +72,49 @@
   </div>
 
   <div class="contest-widget__action">
-    {% set p = contest_widget.participants %}
-    <div class="contest-widget__stat">👥 {{ p }} {% if p == 1 %}osoba bierze{% elif p % 10 in [2, 3, 4] and p % 100 not in [12, 13, 14] %}osoby biorą{% else %}osób bierze{% endif %} udział</div>
-    <div class="contest-widget__tickets">
-      <b id="widgetTickets">{{ contest_widget.my_tickets }}</b>
-      <span>losów</span>
-    </div>
-    {% if not contest_widget.eligible %}
-      <div class="contest-widget__cool">Nie spełniasz warunków udziału</div>
+    {% if contest_widget.state == 'trwa' %}
+      {# ---- STAN TRWA: pełny panel ze spinboxem ---- #}
+      {% set p = contest_widget.participants %}
+      <div class="contest-widget__stat">👥 {{ p }} {% if p == 1 %}osoba bierze{% elif p % 10 in [2, 3, 4] and p % 100 not in [12, 13, 14] %}osoby biorą{% else %}osób bierze{% endif %} udział</div>
+      <div class="contest-widget__tickets">
+        <b id="widgetTickets">{{ contest_widget.my_tickets }}</b>
+        <span>losów</span>
+      </div>
+      {% if not contest_widget.eligible %}
+        <div class="contest-widget__cool">Nie spełniasz warunków udziału</div>
+      {% else %}
+        <button class="contest-widget__btn" id="widgetSpinBtn"
+                {{ 'hidden' if not contest_widget.can_spin else '' }}>🎲 LOSUJ</button>
+        <div class="contest-widget__cool" id="widgetCooldown"
+             {{ 'hidden' if contest_widget.can_spin else '' }}>⏳ Następny los za <span id="widgetClock">--:--:--</span></div>
+      {% endif %}
+
+    {% elif contest_widget.state == 'zamkniete' %}
+      {# ---- STAN ZAMKNIETE: statystyki + komunikat ---- #}
+      {% set p = contest_widget.participants %}
+      <div class="contest-widget__stat">👥 {{ p }} {% if p == 1 %}osoba bierze{% elif p % 10 in [2, 3, 4] and p % 100 not in [12, 13, 14] %}osoby biorą{% else %}osób bierze{% endif %} udział</div>
+      <div class="contest-widget__tickets">
+        <b>{{ contest_widget.my_tickets }}</b>
+        <span>Twoich losów</span>
+      </div>
+      <div class="contest-widget__cool contest-widget__cool--closed">⏳ Przyjmowanie losów zakończone — czekaj na losowanie zwycięzców.</div>
+
     {% else %}
-      <button class="contest-widget__btn" id="widgetSpinBtn"
-              {{ 'hidden' if not contest_widget.can_spin else '' }}>🎲 LOSUJ</button>
-      <div class="contest-widget__cool" id="widgetCooldown"
-           {{ 'hidden' if contest_widget.can_spin else '' }}>⏳ Następny los za <span id="widgetClock">--:--:--</span></div>
+      {# ---- STAN ROZSTRZYGNIETE: wyniki i zwycięzcy ---- #}
+      {% if contest_widget.did_i_win %}
+        <div class="contest-widget__congrats">🎉 Gratulacje, wygrałeś!</div>
+      {% endif %}
+      <div class="contest-widget__winners-heading">Zwycięzcy</div>
+      <ul class="contest-widget__winners">
+        {% for w in contest_widget.winners %}
+        <li class="contest-widget__winner{% if w.user_id == current_user.id %} contest-widget__winner--me{% endif %}">
+          <span class="contest-widget__winner-place">#{{ w.place }}</span>
+          <span class="contest-widget__winner-name">{{ w.user.first_name or w.user.email }}</span>
+        </li>
+        {% else %}
+        <li class="contest-widget__winner">Brak danych o zwycięzcach.</li>
+        {% endfor %}
+      </ul>
     {% endif %}
   </div>
 </div>

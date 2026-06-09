@@ -94,6 +94,22 @@ def get_active_contest():
     return Contest.query.filter_by(status='aktywny').first()
 
 
+def get_display_contest():
+    """Konkurs do pokazania w widgecie: aktywny, a jeśli brak — ostatni rozstrzygnięty (do 14 dni)."""
+    from modules.contests.models import Contest
+    active = Contest.query.filter_by(status='aktywny').first()
+    if active:
+        return active
+    cutoff = get_local_now() - timedelta(days=14)
+    return Contest.query.filter(Contest.status == 'rozlosowany', Contest.updated_at >= cutoff) \
+        .order_by(Contest.id.desc()).first()
+
+
+def get_winners(contest):
+    from modules.contests.models import ContestWinner
+    return ContestWinner.query.filter_by(contest_id=contest.id).order_by(ContestWinner.place).all()
+
+
 def participants(contest):
     """Lista (user, tickets) z losami > 0 i wciąż spełniających eligibility."""
     from modules.contests.models import ContestSpin
@@ -212,7 +228,16 @@ def widget_context(contest, user):
     is_open = spins_open(contest)
     eligible = is_eligible(contest, user)
     cooldown_ok = (nxt is None or get_local_now() >= nxt)
-    return {
+
+    # Determine display state
+    if contest.status == 'rozlosowany':
+        state = 'rozstrzygniete'
+    elif not is_open:
+        state = 'zamkniete'
+    else:
+        state = 'trwa'
+
+    ctx = {
         'contest': contest,
         'my_tickets': get_user_tickets(contest, user),
         'participants': count_participants(contest),
@@ -220,4 +245,12 @@ def widget_context(contest, user):
         'can_spin': is_open and eligible and cooldown_ok,
         'next_spin_at': nxt.isoformat() if nxt else None,
         'spins_open': is_open,
+        'state': state,
     }
+
+    if state == 'rozstrzygniete':
+        winners = get_winners(contest)
+        ctx['winners'] = winners
+        ctx['did_i_win'] = any(w.user_id == user.id for w in winners)
+
+    return ctx

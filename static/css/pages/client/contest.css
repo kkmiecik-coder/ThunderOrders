@@ -295,6 +295,17 @@
   opacity: 0.5;
 }
 
+/* Badge variants */
+.contest-widget__badge--closed {
+  background: linear-gradient(135deg, #c4a000, #a07800);
+  color: #fff;
+}
+
+.contest-widget__badge--resolved {
+  background: linear-gradient(135deg, #d4a800, #4caf50);
+  color: #fff;
+}
+
 /* Hint */
 .contest-widget__hint {
   margin-top: 2px;
@@ -444,6 +455,79 @@
 .contest-widget__cool span {
   font-variant-numeric: tabular-nums;
   font-weight: 800;
+}
+
+/* ---- Closed-state message variant ---- */
+.contest-widget__cool--closed {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+/* ---- Resolved state: winners list ---- */
+.contest-widget__congrats {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: #d03090;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.contest-widget__winners-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.contest-widget__winners {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contest-widget__winner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(240, 147, 251, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.12);
+  color: #4a4458;
+}
+
+.contest-widget__winner--me {
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.15), rgba(245, 87, 108, 0.10));
+  border-color: rgba(240, 147, 251, 0.40);
+  color: #d03090;
+  font-weight: 800;
+}
+
+.contest-widget__winner-place {
+  font-size: 12px;
+  font-weight: 800;
+  color: #f093fb;
+  flex-shrink: 0;
+  min-width: 24px;
+}
+
+.contest-widget__winner-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ==========================================
@@ -801,6 +885,47 @@
 
 [data-theme="dark"] .contest-widget__hint {
   color: rgba(255, 255, 255, 0.55);
+}
+
+/* Badge variants — dark */
+[data-theme="dark"] .contest-widget__badge--closed {
+  background: linear-gradient(135deg, #b89000, #8a6600);
+}
+
+[data-theme="dark"] .contest-widget__badge--resolved {
+  background: linear-gradient(135deg, #c49a00, #3d8b40);
+}
+
+/* Closed-state message — dark */
+[data-theme="dark"] .contest-widget__cool--closed {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.18);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Resolved state — dark */
+[data-theme="dark"] .contest-widget__congrats {
+  color: #f093fb;
+}
+
+[data-theme="dark"] .contest-widget__winners-heading {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .contest-widget__winner {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(240, 147, 251, 0.15);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="dark"] .contest-widget__winner--me {
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.18), rgba(245, 87, 108, 0.14));
+  border-color: rgba(240, 147, 251, 0.50);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .contest-widget__winner-place {
+  color: #f093fb;
 }
 
 [data-theme="dark"] .contest-widget__media {
