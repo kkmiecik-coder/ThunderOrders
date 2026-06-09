@@ -15,15 +15,22 @@
 }
 
 /* ==========================================
-   Contest Widget
+   Contest Widget — Horizontal Hero Banner
    ========================================== */
 .contest-widget {
   position: relative;
   overflow: hidden;
   border-radius: 16px;
-  padding: 18px;
+  padding: 20px 24px;
   margin: 0 0 24px;
-  text-align: center;
+
+  /* Horizontal hero layout */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 24px;
+  text-align: left;
+  width: 100%;
 
   /* Light mode */
   background: #ffffff;
@@ -47,6 +54,33 @@
   z-index: 1;
 }
 
+/* ---- Media region ---- */
+.contest-widget__media {
+  flex-shrink: 0;
+  width: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  align-self: stretch;
+}
+
+.contest-widget__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+}
+
+/* ---- Info region ---- */
+.contest-widget__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+}
+
 /* Badge */
 .contest-widget__badge {
   display: inline-block;
@@ -57,21 +91,79 @@
   font-weight: 800;
   color: #fff;
   letter-spacing: 0.05em;
+  align-self: flex-start;
 }
 
-/* Title */
+/* Title — hero headline */
 .contest-widget__title {
-  margin: 12px 0 3px;
-  font-size: 18px;
+  margin: 0;
+  font-size: 28px;
   font-weight: 800;
+  line-height: 1.2;
   color: #1d1d28;
 }
 
-/* Subtitle */
-.contest-widget__sub {
+/* Prize display */
+.contest-widget__prize {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contest-widget__prize-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  opacity: 0.8;
+}
+
+.contest-widget__prize-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.contest-widget__prize-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border-radius: 999px;
   font-size: 13px;
-  opacity: 0.7;
+  font-weight: 600;
+  background: rgba(240, 147, 251, 0.07);
+  border: 1px solid rgba(240, 147, 251, 0.25);
+  color: #5b3080;
+}
+
+.contest-widget__prize-chip--set {
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.12), rgba(245, 87, 108, 0.10));
+  border: 1px solid rgba(240, 147, 251, 0.40);
+  color: #d03090;
+  font-weight: 700;
+}
+
+/* Hint */
+.contest-widget__hint {
+  margin-top: 2px;
+  font-size: 12px;
+  opacity: 0.55;
   color: #1d1d28;
+}
+
+/* ---- Action panel (right) ---- */
+.contest-widget__action {
+  flex-shrink: 0;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-left: 24px;
+  border-left: 1px solid rgba(0, 0, 0, 0.07);
 }
 
 /* Tickets row */
@@ -80,7 +172,7 @@
   align-items: baseline;
   justify-content: center;
   gap: 9px;
-  margin: 15px 0 4px;
+  width: 100%;
 }
 
 /* Atrybut hidden musi wygrać z display:flex przycisku/licznika
@@ -110,7 +202,7 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 6px;
   padding: 14px;
   border: 0;
   border-radius: 12px;
@@ -139,7 +231,7 @@
   justify-content: center;
   gap: 8px;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 6px;
   padding: 14px;
   border-radius: 12px;
   text-align: center;
@@ -159,13 +251,41 @@
   font-weight: 800;
 }
 
-/* Hint */
-.contest-widget__hint {
-  margin-top: 11px;
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.55;
-  color: #1d1d28;
+/* ==========================================
+   Responsive — Mobile (stack vertically)
+   ========================================== */
+@media (max-width: 768px) {
+  .contest-widget {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .contest-widget__media {
+    width: 100%;
+    height: 160px;
+  }
+
+  .contest-widget__info {
+    align-items: center;
+  }
+
+  .contest-widget__badge {
+    align-self: center;
+  }
+
+  .contest-widget__prize-list {
+    justify-content: center;
+  }
+
+  .contest-widget__action {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.07);
+  }
 }
 
 /* ==========================================
@@ -410,8 +530,31 @@
   color: #fff;
 }
 
-[data-theme="dark"] .contest-widget__sub {
-  color: rgba(255, 255, 255, 0.7);
+[data-theme="dark"] .contest-widget__prize-label {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .contest-widget__prize-chip {
+  background: rgba(240, 147, 251, 0.10);
+  border-color: rgba(240, 147, 251, 0.28);
+  color: rgba(240, 147, 251, 0.9);
+}
+
+[data-theme="dark"] .contest-widget__prize-chip--set {
+  background: linear-gradient(135deg, rgba(240, 147, 251, 0.18), rgba(245, 87, 108, 0.14));
+  border-color: rgba(240, 147, 251, 0.50);
+  color: #f093fb;
+}
+
+[data-theme="dark"] .contest-widget__action {
+  border-left-color: rgba(240, 147, 251, 0.15);
+}
+
+@media (max-width: 768px) {
+  [data-theme="dark"] .contest-widget__action {
+    border-top-color: rgba(240, 147, 251, 0.15);
+    border-left-color: transparent;
+  }
 }
 
 [data-theme="dark"] .contest-widget__tickets span {
@@ -426,6 +569,10 @@
 
 [data-theme="dark"] .contest-widget__hint {
   color: rgba(255, 255, 255, 0.55);
+}
+
+[data-theme="dark"] .contest-widget__media {
+  border: 1px solid rgba(240, 147, 251, 0.18);
 }
 
 /* ==========================================
