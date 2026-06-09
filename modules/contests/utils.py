@@ -1,3 +1,4 @@
+import random as _random
 from datetime import timedelta
 
 from sqlalchemy import func
@@ -86,3 +87,73 @@ def can_spin(contest, user):
 def get_active_contest():
     from modules.contests.models import Contest
     return Contest.query.filter_by(status='aktywny').first()
+
+
+def _participants(contest):
+    """Lista (user, tickets) z losami > 0 i wciąż spełniających eligibility."""
+    from modules.contests.models import ContestSpin
+    from modules.auth.models import User
+    rows = db.session.query(ContestSpin.user_id,
+                            func.sum(ContestSpin.tickets_won)) \
+        .filter(ContestSpin.contest_id == contest.id) \
+        .group_by(ContestSpin.user_id).all()
+    out = []
+    for uid, total in rows:
+        total = int(total or 0)
+        if total <= 0:
+            continue
+        user = db.session.get(User, uid)
+        if user and is_eligible(contest, user):
+            out.append((user, total))
+    return out
+
+
+def _weighted_pick(remaining, rng):
+    """Zwraca indeks wylosowanego elementu z listy (user, tickets) ważony liczbą losów."""
+    total = sum(t for _, t in remaining)
+    pick = rng.uniform(0, total)
+    acc = 0
+    for idx, (_, t) in enumerate(remaining):
+        acc += t
+        if pick <= acc:
+            return idx
+    return len(remaining) - 1   # fallback dla edge'a zmiennoprzecinkowego pick==total
+
+
+def draw_winners(contest, rng=None):
+    """Autorytatywne, ważone losowanie bez powtórzeń. Idempotentne."""
+    from modules.contests.models import ContestWinner
+    if contest.status == 'rozlosowany':
+        return ContestWinner.query.filter_by(contest_id=contest.id) \
+            .order_by(ContestWinner.place).all()
+
+    rng = rng or _random.SystemRandom()
+    participants = _participants(contest)
+    initial_pool_total = sum(t for _, t in participants)
+    n = min(contest.num_winners, len(participants))
+
+    remaining = list(participants)
+    winners = []
+    for place in range(1, n + 1):
+        chosen_idx = _weighted_pick(remaining, rng)
+        user, tickets = remaining.pop(chosen_idx)
+        chance = round(tickets / initial_pool_total * 100, 3) if initial_pool_total else 0
+        w = ContestWinner(
+            contest_id=contest.id, user_id=user.id, place=place,
+            tickets_at_draw=tickets, chance_pct=chance,
+            prize_product_id=contest.prize_product_id, drawn_at=get_local_now(),
+        )
+        db.session.add(w)
+        winners.append(w)
+
+    contest.status = 'rozlosowany'
+    db.session.commit()
+
+    for w in winners:
+        _notify_winner(contest, w)
+    return winners
+
+
+def _notify_winner(contest, winner):
+    """Powiadomienie + e-mail. Pełna implementacja w Task 9."""
+    return None
