@@ -85,8 +85,8 @@
     resEl: null,
     p: 0,           // current reel position (in slot units), decreases = reel moves down
     speed: 0,       // px/frame equivalent
-    maxSpeed: 30,
-    accel: 0.6,
+    maxSpeed: 15,
+    accel: 0.4,
     state: 'idle',  // idle | spinning | braking | done
     drawn: null,    // server result (tickets_won)
     targetK: null,  // slot index forced to show S.drawn; set on brake, reset on next spin
@@ -119,7 +119,7 @@
    * returns S.drawn regardless of range — no searching, no infinite loop.
    */
   function targetSlot() {
-    return Math.floor(S.p) - 46; // minimalny overshoot w slotach przed hamowaniem
+    return Math.floor(S.p) - 23; // dobieg hamowania w slotach (dopasowany do wolniejszego spinu)
   }
 
   function frame(ts) {
@@ -135,7 +135,7 @@
       renderReel();
     } else if (S.state === 'braking') {
       var pr = Math.min(1, (ts - S.brake.t0) / S.brake.dur);
-      var ease = 1 - Math.pow(1 - pr, 4);  // easeOutQuart — long slow tail
+      var ease = 1 - Math.pow(1 - pr, 3);  // easeOutCubic — start hamowania nie przekracza prędkości spinu (~1800 px/s), płynne zwalnianie
       S.p = S.brake.from + (S.brake.to - S.brake.from) * ease;
       renderReel();
       if (pr >= 1) {
