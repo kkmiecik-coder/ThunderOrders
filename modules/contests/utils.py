@@ -157,3 +157,21 @@ def draw_winners(contest, rng=None):
 def _notify_winner(contest, winner):
     """Powiadomienie + e-mail. Pełna implementacja w Task 9."""
     return None
+
+
+def widget_context(contest, user):
+    """Dane dla widgetu/strony klienta (bez puli i %)."""
+    if contest is None:
+        return None
+    nxt = get_next_spin_at(contest, user)
+    is_open = spins_open(contest)
+    eligible = is_eligible(contest, user)
+    cooldown_ok = (nxt is None or get_local_now() >= nxt)
+    return {
+        'contest': contest,
+        'my_tickets': get_user_tickets(contest, user),
+        'eligible': eligible,
+        'can_spin': is_open and eligible and cooldown_ok,
+        'next_spin_at': nxt.isoformat() if nxt else None,
+        'spins_open': is_open,
+    }

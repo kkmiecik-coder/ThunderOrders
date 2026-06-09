@@ -1,3 +1,5 @@
+import random
+
 from flask import render_template, redirect, url_for, flash, request, abort, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func, distinct
@@ -128,3 +130,40 @@ def admin_results(cid):
     c = Contest.query.get_or_404(cid)
     winners = ContestWinner.query.filter_by(contest_id=cid).order_by(ContestWinner.place).all()
     return render_template('admin/contests/results.html', contest=c, winners=winners)
+
+
+# ---------------------------------------------------------------------------
+# Trasy klienckie
+# ---------------------------------------------------------------------------
+
+@contests_bp.route('/konkurs')
+@login_required
+def client_contest():
+    c = cu.get_active_contest()
+    ctx = cu.widget_context(c, current_user) if c else None
+    return render_template('client/contest.html', contest=c, ctx=ctx)
+
+
+@contests_bp.route('/konkurs/spin', methods=['POST'])
+@login_required
+def client_spin():
+    c = cu.get_active_contest()
+    if c is None:
+        return jsonify(success=False, error='Brak aktywnego konkursu.'), 200
+    if not cu.spins_open(c):
+        return jsonify(success=False, error='Konkurs nie przyjmuje losów.'), 200
+    if not cu.is_eligible(c, current_user):
+        return jsonify(success=False, error='Nie spełniasz warunków udziału.'), 200
+    if not cu.can_spin(c, current_user):
+        nxt = cu.get_next_spin_at(c, current_user)
+        return jsonify(success=False, error='Następny los dostępny później.',
+                       next_spin_at=nxt.isoformat() if nxt else None), 200
+
+    # TODO: przy większym ruchu rozważyć blokadę DB na podwójny spin w oknie cooldownu (TOCTOU)
+    tickets = random.SystemRandom().randint(c.ticket_min, c.ticket_max)
+    db.session.add(ContestSpin(contest_id=c.id, user_id=current_user.id, tickets_won=tickets))
+    db.session.commit()
+    nxt = cu.get_next_spin_at(c, current_user)
+    return jsonify(success=True, tickets_won=tickets,
+                   my_total=cu.get_user_tickets(c, current_user),
+                   next_spin_at=nxt.isoformat() if nxt else None)

@@ -1,0 +1,10 @@
+{% extends "client/base_client.html" %}
+{% block title %}Konkurs - ThunderOrders{% endblock %}
+{% block content %}
+{% if contest %}
+  <h1>{{ contest.name }}</h1>
+  <p>Twoich losów: <b id="myTickets">{{ ctx.my_tickets }}</b></p>
+{% else %}
+  <p>Aktualnie brak aktywnego konkursu.</p>
+{% endif %}
+{% endblock %}
