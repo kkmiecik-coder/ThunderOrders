@@ -45,6 +45,11 @@ if sentry_dsn:
         send_default_pii=False,
         before_send=_sentry_before_send,
     )
+    # engineio.server loguje na ERROR czysto protokołowy szum (np. "Invalid
+    # session <sid>" gdy klient ma nieaktualne socket.io session id po
+    # restarcie). To nie błąd aplikacji — niech Sentry tego nie zbiera.
+    from sentry_sdk.integrations.logging import ignore_logger
+    ignore_logger('engineio.server')
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
 from extensions import db, migrate, login_manager, mail, csrf, executor, limiter, socketio
