@@ -240,7 +240,7 @@
 
                 <!-- Thumbnail -->
                 {% if first.proof_file %}
-                <div class="pc-card-thumbnail" onclick="openLightboxFromRow(this.closest('.pc-card'))">
+                <div class="pc-card-thumbnail">
                     {% if is_pdf %}
                         <div class="pc-thumbnail pc-thumbnail-pdf">PDF</div>
                     {% else %}
@@ -424,7 +424,7 @@
                     <!-- Plik (ukryty na mobile) -->
                     <td class="col-proof hide-mobile">
                         {% if first.proof_file %}
-                            <div class="pc-thumbnail-wrapper" onclick="openLightboxFromRow(this)">
+                            <div class="pc-thumbnail-wrapper">
                                 {% if is_pdf_row %}
                                     <div class="pc-thumbnail pc-thumbnail-pdf">PDF</div>
                                 {% else %}
