@@ -68,7 +68,8 @@ def upgrade():
 
 
 def downgrade():
+    # DROP TABLE usuwa indeksy i FK atomowo — nie dropujemy ręcznie indeksu
+    # podtrzymującego FK (MariaDB: "Cannot drop index needed in a foreign key constraint").
     op.drop_table('contest_winners')
-    op.drop_index('ix_contest_spins_contest_user', table_name='contest_spins')
     op.drop_table('contest_spins')
     op.drop_table('contests')

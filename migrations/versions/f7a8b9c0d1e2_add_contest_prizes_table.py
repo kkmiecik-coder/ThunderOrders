@@ -28,5 +28,6 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index('ix_contest_prizes_contest', table_name='contest_prizes')
+    # DROP TABLE usuwa indeks i FK atomowo (MariaDB odrzuca ręczny DROP INDEX
+    # indeksu podtrzymującego FK przed usunięciem constraintu).
     op.drop_table('contest_prizes')

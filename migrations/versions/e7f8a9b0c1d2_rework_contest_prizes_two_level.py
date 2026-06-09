@@ -20,10 +20,8 @@ depends_on = None
 
 def upgrade():
     # Drop old flat table (was never in production; added only in local migration f7a8b9c0d1e2).
-    # MariaDB: must drop FK constraint before dropping its backing index.
-    # Auto-generated FK name follows the _ibfk_N pattern.
-    op.drop_constraint('contest_prizes_ibfk_1', 'contest_prizes', type_='foreignkey')
-    op.drop_index('ix_contest_prizes_contest', table_name='contest_prizes')
+    # DROP TABLE usuwa FK i indeksy atomowo — nie dropujemy ręcznie constraintu ani
+    # indeksu (unikamy kruchego zgadywania nazwy FK i błędu MariaDB o indeksie FK).
     op.drop_table('contest_prizes')
 
     # New two-level structure
@@ -52,9 +50,8 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_index('ix_contest_prize_items_prize', table_name='contest_prize_items')
+    # DROP TABLE usuwa indeksy i FK atomowo — bez ręcznego DROP INDEX.
     op.drop_table('contest_prize_items')
-    op.drop_index('ix_contest_prizes_contest', table_name='contest_prizes')
     op.drop_table('contest_prizes')
 
     # Restore old flat contest_prizes
