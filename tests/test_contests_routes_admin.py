@@ -282,3 +282,26 @@ def test_prize_entry_with_no_valid_product_skipped(client, db, make_user, make_p
     c = Contest.query.filter_by(name='Bez Produktu').first()
     assert c is not None
     assert ContestPrize.query.filter_by(contest_id=c.id).count() == 0
+
+
+def test_edit_clears_unchecked_eligibility(client, db, make_user, make_product, login):
+    """Odznaczone kryterium (input disabled => nieobecne w POST) ma się WYCZYŚCIĆ, nie zostać.
+
+    Regresja: edycja przez ContestForm(obj=c) zachowywała starą wartość dla pól
+    nieobecnych w danych formularza — odznaczenie warunku nie czyściło go.
+    """
+    from modules.contests.models import Contest
+    login(_admin(make_user)); prod = make_product()
+    c = Contest(name='K', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='aktywny',
+                eligibility_min_orders=3)
+    db.session.add(c); db.session.commit()
+    cid = c.id
+    # POST bez pola eligibility_min_orders (symuluje odznaczony, wyłączony input)
+    resp = client.post(f'/admin/konkursy/{cid}/edytuj', data={
+        'name': 'K', 'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    db.session.refresh(c)
+    assert c.eligibility_min_orders is None

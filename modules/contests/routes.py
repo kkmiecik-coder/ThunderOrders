@@ -165,7 +165,9 @@ def admin_new():
 @role_required('admin', 'mod')
 def admin_edit(cid):
     c = Contest.query.get_or_404(cid)
-    form = ContestForm(obj=c)
+    # GET: prefill z obiektu. POST: TYLKO z danych formularza — bez obj, aby odznaczone
+    # (disabled, niewysłane) kryteria stały się None, a nie zachowywały starej wartości z obj.
+    form = ContestForm(obj=c) if request.method == 'GET' else ContestForm()
     if form.validate_on_submit():
         _apply_form(form, c)
         _apply_prizes(c)
