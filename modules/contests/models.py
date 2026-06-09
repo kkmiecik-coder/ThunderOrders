@@ -25,9 +25,36 @@ class Contest(db.Model):
     created_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
 
     prize_product = db.relationship('Product', foreign_keys=[prize_product_id])
+    prizes = db.relationship('ContestPrize', backref='contest', cascade='all, delete-orphan',
+                             order_by='ContestPrize.id')
+
+    @property
+    def prize_summary(self):
+        """Czytelny opis nagrody-zestawu, np. '2× Album, 1× Photocard'."""
+        if self.prizes:
+            return ', '.join(f'{p.quantity}× {p.product.name}' for p in self.prizes if p.product)
+        if self.prize_product:
+            return self.prize_product.name
+        return None
 
     def __repr__(self):
         return f'<Contest {self.id}: {self.name} [{self.status}]>'
+
+
+class ContestPrize(db.Model):
+    __tablename__ = 'contest_prizes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contest_id = db.Column(db.Integer, db.ForeignKey('contests.id', ondelete='CASCADE'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    product = db.relationship('Product', foreign_keys=[product_id])
+
+    __table_args__ = (db.Index('ix_contest_prizes_contest', 'contest_id'),)
+
+    def __repr__(self):
+        return f'<ContestPrize contest={self.contest_id} product={self.product_id} x{self.quantity}>'
 
 
 class ContestSpin(db.Model):

@@ -32,13 +32,7 @@
                 {% for it in items %}
                 <tr>
                     <td class="ca-table-name">{{ it.c.name }}</td>
-                    <td class="ca-table-prize">
-                        {% if it.c.prize_product %}
-                            {{ it.c.prize_product.name }}
-                        {% else %}
-                            —
-                        {% endif %}
-                    </td>
+                    <td class="ca-table-prize">{{ it.c.prize_summary or '—' }}</td>
                     <td>
                         {% if it.c.status == 'aktywny' %}
                             <span class="ca-pill ca-pill--active">Aktywny</span>

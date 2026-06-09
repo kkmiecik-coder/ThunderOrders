@@ -13,15 +13,17 @@
     </h1>
 
     <div class="ca-form-card">
-        <form method="post" id="contestForm" novalidate>
+        <form method="post" id="contestForm" enctype="multipart/form-data" novalidate>
             {{ form.hidden_tag() }}
+            {# Zachowaj bieżący image_path aby _apply_form go nie wyzerował gdy nie przesyłamy nowego pliku #}
+            <input type="hidden" name="image_path" value="{{ contest.image_path or '' if contest else '' }}">
 
             {# ---------------------------------------------------------------- #}
             {# Nazwa                                                             #}
             {# ---------------------------------------------------------------- #}
             <div class="ca-row">
                 {{ form.name.label(class="ca-label") }}
-                {{ form.name(class="ca-input", placeholder="np. Wygraj klawiaturę Keychron Q1") }}
+                {{ form.name(class="ca-input", placeholder="np. Wygraj album Stray Kids – ATE (wersja losowa)") }}
                 {% if form.name.errors %}
                 <ul class="ca-field-errors">
                     {% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}
@@ -30,10 +32,10 @@
             </div>
 
             {# ---------------------------------------------------------------- #}
-            {# Nagroda — product picker                                          #}
+            {# Nagroda — zestaw produktów                                        #}
             {# ---------------------------------------------------------------- #}
             <div class="ca-row">
-                <label class="ca-label">Nagroda — produkt z magazynu</label>
+                <label class="ca-label">Nagroda — zestaw produktów</label>
                 <div class="ca-picker">
                     <div class="ca-picker-search">
                         <span class="ca-picker-search-icon">🔍</span>
@@ -41,27 +43,42 @@
                                id="prizeSearch"
                                class="ca-picker-input"
                                placeholder="Szukaj produktu po nazwie lub SKU…"
-                               autocomplete="off"
-                               value="{{ contest.prize_product.name if contest and contest.prize_product else '' }}">
+                               autocomplete="off">
                     </div>
                     <div id="prizeResults" class="ca-picker-results">
-                        {% if contest and contest.prize_product %}
-                        <div class="ca-picker-result ca-picker-result--selected"
-                             data-id="{{ contest.prize_product.id }}"
-                             data-name="{{ contest.prize_product.name }}">
-                            <div class="ca-picker-thumb-placeholder">📦</div>
-                            <div>
-                                <div class="ca-picker-meta">{{ contest.prize_product.name }}</div>
-                                <div class="ca-picker-meta-sub">Aktualnie wybrano</div>
-                            </div>
-                        </div>
-                        {% else %}
                         <div class="ca-picker-hint">Wpisz co najmniej 2 znaki, by wyszukać produkt.</div>
-                        {% endif %}
                     </div>
                 </div>
-                {# Visually hidden — value set by JS; WTForms renders name="prize_product_id" #}
+
+                {# WTForms field zachowany (hidden) dla back-compat z testami i _apply_form #}
                 {{ form.prize_product_id(id="prizeProductId", style="display:none") }}
+
+                {# Lista wybranych produktów nagrody #}
+                <div id="prizeSelected" class="ca-prize-selected">
+                    {% if contest and contest.prizes %}
+                        {% for p in contest.prizes %}
+                        <div class="ca-prize-item" data-id="{{ p.product_id }}">
+                            {% if p.product and p.product.primary_image %}
+                            <img class="ca-prize-thumb"
+                                 src="{{ url_for('static', filename='uploads/products/compressed/' + p.product.primary_image.filename) }}"
+                                 alt="">
+                            {% else %}
+                            <div class="ca-prize-thumb-placeholder">📦</div>
+                            {% endif %}
+                            <span class="ca-prize-name">{{ p.product.name if p.product else '—' }}</span>
+                            <div class="ca-prize-stepper">
+                                <button type="button" class="ca-stepper-btn ca-stepper-minus">−</button>
+                                <input type="number" class="ca-stepper-inp" value="{{ p.quantity }}" min="1">
+                                <button type="button" class="ca-stepper-btn ca-stepper-plus">+</button>
+                            </div>
+                            <button type="button" class="ca-prize-remove" aria-label="Usuń">×</button>
+                            <input type="hidden" name="prize_product_id[]" value="{{ p.product_id }}">
+                            <input type="hidden" name="prize_quantity[]" value="{{ p.quantity }}">
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
                 {% if form.prize_product_id.errors %}
                 <ul class="ca-field-errors">
                     {% for e in form.prize_product_id.errors %}<li>{{ e }}</li>{% endfor %}
@@ -202,7 +219,7 @@
             </div>
 
             {# ---------------------------------------------------------------- #}
-            {# Opis + grafika                                                    #}
+            {# Opis                                                              #}
             {# ---------------------------------------------------------------- #}
             <div class="ca-row">
                 {{ form.description.label(class="ca-label") }}
@@ -214,14 +231,29 @@
                 {% endif %}
             </div>
 
+            {# ---------------------------------------------------------------- #}
+            {# Grafika — dropzone                                                #}
+            {# ---------------------------------------------------------------- #}
             <div class="ca-row">
-                {{ form.image_path.label(class="ca-label") }}
-                {{ form.image_path(class="ca-input", placeholder="URL do grafiki (opcjonalnie)") }}
-                {% if form.image_path.errors %}
-                <ul class="ca-field-errors">
-                    {% for e in form.image_path.errors %}<li>{{ e }}</li>{% endfor %}
-                </ul>
-                {% endif %}
+                <label class="ca-label">Grafika konkursu (opcjonalnie)</label>
+                <div id="imageDrop" class="ca-image-drop">
+                    <input type="file" id="imageFile" name="image_file"
+                           accept="image/png,image/jpeg,image/gif,image/webp"
+                           style="display:none">
+                    {% if contest and contest.image_path %}
+                    <img id="imagePreview" class="ca-image-preview"
+                         src="{{ url_for('static', filename=contest.image_path) }}" alt="">
+                    {% else %}
+                    <img id="imagePreview" class="ca-image-preview" style="display:none" alt="">
+                    {% endif %}
+                    <div id="imageDropPrompt" class="ca-image-drop-prompt
+                         {% if contest and contest.image_path %}ca-image-drop-prompt--hidden{% endif %}">
+                        <span class="ca-image-drop-icon">🖼️</span>
+                        <span class="ca-image-drop-text">Przeciągnij grafikę lub kliknij, aby wybrać</span>
+                        <span class="ca-image-drop-hint">PNG, JPG, GIF, WEBP</span>
+                    </div>
+                    <div id="imageDropError" class="ca-image-drop-error"></div>
+                </div>
             </div>
 
             {# ---------------------------------------------------------------- #}

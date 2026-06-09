@@ -1,13 +1,15 @@
+import os
 import random
+import secrets
 
-from flask import render_template, redirect, url_for, flash, request, abort, jsonify
+from flask import render_template, redirect, url_for, flash, request, abort, jsonify, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import func, distinct
 
 from extensions import db
 from utils.decorators import role_required
 from modules.contests import contests_bp
-from modules.contests.models import Contest, ContestSpin, ContestWinner
+from modules.contests.models import Contest, ContestPrize, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
 
@@ -39,6 +41,86 @@ def _apply_form(form, contest):
         setattr(contest, f, getattr(form, f).data)
 
 
+def _apply_prizes(contest):
+    """Przebuduj zestaw nagród z surowych pól tablicowych prize_product_id[] i prize_quantity[]."""
+    from modules.products.models import Product
+    ids = request.form.getlist('prize_product_id[]')
+    qtys = request.form.getlist('prize_quantity[]')
+    contest.prizes.clear()  # cascade delete-orphan usuwa stare wiersze
+    for i, pid in enumerate(ids):
+        try:
+            pid_int = int(pid)
+            qty = int(qtys[i]) if i < len(qtys) else 1
+        except (ValueError, IndexError):
+            continue
+        if qty < 1:
+            continue
+        if db.session.get(Product, pid_int):
+            contest.prizes.append(ContestPrize(product_id=pid_int, quantity=qty))
+
+
+def _delete_contest_image_files(relative_path, static_dir):
+    """Usuń stary plik grafiki z dysku (defensywnie — błędy ignorowane)."""
+    if not relative_path:
+        return
+    # Sanity guard: usuwaj tylko pliki z uploads/contests/
+    norm = relative_path.replace('\\', '/')
+    if not norm.startswith('uploads/contests/'):
+        return
+    comp_abs = os.path.join(static_dir, norm)
+    orig_abs = comp_abs.replace(
+        os.path.join('uploads', 'contests', 'compressed'),
+        os.path.join('uploads', 'contests', 'original'),
+    )
+    for path in (comp_abs, orig_abs):
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception as exc:
+            current_app.logger.warning('[_delete_contest_image_files] nie usunięto %s: %s', path, exc)
+
+
+def _handle_contest_image(contest):
+    """Zapisz przesłany plik grafiki i ustaw contest.image_path. Bez pliku — brak zmian."""
+    from utils.image_processor import allowed_file, compress_image
+    from PIL import Image, ImageOps
+    import shutil
+
+    file = request.files.get('image_file')
+    if not file or not file.filename:
+        return
+    if not allowed_file(file.filename):
+        return
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    fname = secrets.token_urlsafe(16) + '.' + ext
+    static_dir = os.path.join(current_app.root_path, 'static')
+    orig_dir = os.path.join(static_dir, 'uploads', 'contests', 'original')
+    comp_dir = os.path.join(static_dir, 'uploads', 'contests', 'compressed')
+    os.makedirs(orig_dir, exist_ok=True)
+    os.makedirs(comp_dir, exist_ok=True)
+    orig_path = os.path.join(orig_dir, fname)
+    comp_path = os.path.join(comp_dir, fname)
+    try:
+        file.save(orig_path)
+        img = Image.open(orig_path)
+        img = ImageOps.exif_transpose(img)
+        img.save(orig_path)
+        shutil.copy2(orig_path, comp_path)
+        compress_image(comp_path)
+        old_path = contest.image_path
+        contest.image_path = os.path.join('uploads', 'contests', 'compressed', fname)
+        _delete_contest_image_files(old_path, static_dir)
+    except Exception as exc:
+        current_app.logger.warning('[_handle_contest_image] błąd uploadu: %s', exc)
+        for path in (orig_path, comp_path):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception:
+                pass
+        flash('Nie udało się zapisać grafiki — spróbuj ponownie lub wybierz inny plik.', 'error')
+
+
 @contests_bp.route('/admin/konkursy/nowy', methods=['GET', 'POST'])
 @login_required
 @role_required('admin', 'mod')
@@ -48,6 +130,9 @@ def admin_new():
         c = Contest(status='szkic', created_by_admin_id=current_user.id)
         _apply_form(form, c)
         db.session.add(c)
+        db.session.flush()  # generuje c.id potrzebne dla ContestPrize FK
+        _apply_prizes(c)
+        _handle_contest_image(c)
         db.session.commit()
         flash('Konkurs utworzony.', 'success')
         return redirect(url_for('contests.admin_list'))
@@ -62,6 +147,8 @@ def admin_edit(cid):
     form = ContestForm(obj=c)
     if form.validate_on_submit():
         _apply_form(form, c)
+        _apply_prizes(c)
+        _handle_contest_image(c)
         db.session.commit()
         flash('Zapisano.', 'success')
         return redirect(url_for('contests.admin_list'))

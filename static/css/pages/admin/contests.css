@@ -10,6 +10,7 @@
 .ca-list-page {
     padding: 24px;
     max-width: 1100px;
+    margin: 0 auto;
 }
 
 .ca-list-header {
@@ -184,7 +185,8 @@
 
 .ca-form-wrap {
     padding: 24px;
-    max-width: 820px;
+    max-width: 1100px;
+    margin: 0 auto;
 }
 
 .ca-form-title {
@@ -414,6 +416,199 @@
     font-style: italic;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Prize selected list (multi-picker)                                          */
+/* -------------------------------------------------------------------------- */
+
+.ca-prize-selected {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ca-prize-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #f8f8fc;
+    border: 1px solid #e0e0ec;
+    border-radius: 10px;
+    padding: 9px 12px;
+}
+
+.ca-prize-thumb {
+    width: 38px;
+    height: 38px;
+    border-radius: 7px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.18), rgba(245, 87, 108, 0.18));
+}
+
+.ca-prize-thumb-placeholder {
+    width: 38px;
+    height: 38px;
+    border-radius: 7px;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(240, 147, 251, 0.18), rgba(245, 87, 108, 0.18));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+}
+
+.ca-prize-name {
+    flex: 1;
+    font-size: 13px;
+    color: #222;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Quantity stepper */
+.ca-prize-stepper {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.ca-stepper-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    background: #fff;
+    color: #555;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.12s, border-color 0.12s;
+    padding: 0;
+}
+
+.ca-stepper-btn:hover {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.4);
+    color: #f093fb;
+}
+
+.ca-stepper-inp {
+    width: 48px;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #e0e0ec;
+    border-radius: 7px;
+    padding: 5px 4px;
+    font-size: 13px;
+    color: #222;
+    outline: none;
+    -moz-appearance: textfield;
+}
+
+.ca-stepper-inp::-webkit-inner-spin-button,
+.ca-stepper-inp::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.ca-stepper-inp:focus { border-color: #f093fb; }
+
+.ca-prize-remove {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #bbb;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background 0.12s, color 0.12s;
+}
+
+.ca-prize-remove:hover {
+    background: rgba(245, 87, 108, 0.1);
+    color: #f5576c;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Image dropzone                                                               */
+/* -------------------------------------------------------------------------- */
+
+.ca-image-drop {
+    position: relative;
+    min-height: 110px;
+    border: 2px dashed #e0e0ec;
+    border-radius: 12px;
+    background: #f8f8fc;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.ca-image-drop:hover {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.04);
+}
+
+.ca-image-drop--dragover {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.08);
+}
+
+.ca-image-preview {
+    max-width: 100%;
+    max-height: 220px;
+    border-radius: 8px;
+    object-fit: contain;
+    display: block;
+}
+
+.ca-image-drop-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 20px;
+    pointer-events: none;
+}
+
+.ca-image-drop-prompt--hidden { display: none; }
+
+.ca-image-drop-icon { font-size: 28px; opacity: 0.5; }
+
+.ca-image-drop-text {
+    font-size: 13px;
+    color: #888;
+    text-align: center;
+}
+
+.ca-image-drop-hint {
+    font-size: 11px;
+    color: #bbb;
+    text-align: center;
+}
+
+.ca-image-drop-error {
+    font-size: 12px;
+    color: #e53e3e;
+    padding: 4px 12px 8px;
+    text-align: center;
+}
+
 /* Eligibility criteria */
 .ca-crit {
     background: #f8f8fc;
@@ -506,6 +701,7 @@
 .ca-draw-wrap {
     padding: 24px;
     max-width: 700px;
+    margin: 0 auto;
 }
 
 .ca-draw-back {
@@ -774,6 +970,7 @@
 .ca-results-wrap {
     padding: 24px;
     max-width: 680px;
+    margin: 0 auto;
 }
 
 .ca-results-header {
@@ -1109,3 +1306,70 @@
 
 [data-theme="dark"] .ca-results-back { color: rgba(255, 255, 255, 0.35); }
 [data-theme="dark"] .ca-results-back:hover { color: #f093fb; }
+
+/* Prize selected list (dark) */
+[data-theme="dark"] .ca-prize-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .ca-prize-name {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .ca-stepper-btn {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .ca-stepper-btn:hover {
+    background: rgba(240, 147, 251, 0.12);
+    border-color: rgba(240, 147, 251, 0.45);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .ca-stepper-inp {
+    background: rgba(255, 255, 255, 0.07);
+    border-color: rgba(240, 147, 251, 0.18);
+    color: #fff;
+}
+
+[data-theme="dark"] .ca-stepper-inp:focus { border-color: #f093fb; }
+
+[data-theme="dark"] .ca-prize-remove {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+[data-theme="dark"] .ca-prize-remove:hover {
+    background: rgba(245, 87, 108, 0.14);
+    color: #f5576c;
+}
+
+/* Image dropzone (dark) */
+[data-theme="dark"] .ca-image-drop {
+    border-color: rgba(240, 147, 251, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .ca-image-drop:hover {
+    border-color: rgba(240, 147, 251, 0.45);
+    background: rgba(240, 147, 251, 0.06);
+}
+
+[data-theme="dark"] .ca-image-drop--dragover {
+    border-color: #f093fb;
+    background: rgba(240, 147, 251, 0.1);
+}
+
+[data-theme="dark"] .ca-image-drop-text { color: rgba(255, 255, 255, 0.45); }
+[data-theme="dark"] .ca-image-drop-hint { color: rgba(255, 255, 255, 0.25); }
+[data-theme="dark"] .ca-image-drop-error { color: #f5576c; }
+
+[data-theme="dark"] .ca-picker-thumb-placeholder {
+    background: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .ca-prize-thumb-placeholder {
+    background: rgba(240, 147, 251, 0.12);
+}

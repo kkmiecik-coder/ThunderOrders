@@ -104,3 +104,52 @@ def test_draw_blocked_when_spins_open(client, db, make_user, make_product, login
     db.session.commit()
     resp = client.post(f'/admin/konkursy/{c.id}/losuj')
     assert resp.get_json()['success'] is False   # spiny jeszcze otwarte (ends_at w przyszłości)
+
+
+def test_create_contest_with_prize_set(client, db, make_user, make_product, login):
+    """POST prize_product_id[] + prize_quantity[] tworzy ContestPrize z poprawnymi ilościami."""
+    from modules.contests.models import Contest, ContestPrize
+    login(_admin(make_user))
+    prod1 = make_product(name='Album A')
+    prod2 = make_product(name='Photocard B')
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Konkurs Kpop',
+        'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+        'prize_product_id[]': [str(prod1.id), str(prod2.id)],
+        'prize_quantity[]': ['2', '3'],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Konkurs Kpop').first()
+    assert c is not None
+    prizes = ContestPrize.query.filter_by(contest_id=c.id).order_by(ContestPrize.id).all()
+    assert len(prizes) == 2
+    assert prizes[0].product_id == prod1.id and prizes[0].quantity == 2
+    assert prizes[1].product_id == prod2.id and prizes[1].quantity == 3
+    assert '2×' in c.prize_summary and 'Album A' in c.prize_summary
+
+
+def test_prize_set_replaced_on_edit(client, db, make_user, make_product, login):
+    """Edycja konkursu przebudowuje zestaw nagród."""
+    from modules.contests.models import Contest, ContestPrize
+    login(_admin(make_user))
+    prod1 = make_product(name='Stare')
+    prod2 = make_product(name='Nowe')
+    c = Contest(name='Test', prize_product_id=prod1.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='szkic')
+    db.session.add(c); db.session.commit()
+    # Dodaj stary ContestPrize
+    from modules.contests.models import ContestPrize as CP
+    db.session.add(CP(contest_id=c.id, product_id=prod1.id, quantity=1))
+    db.session.commit()
+    # Edytuj — zastąp zestawem z prod2
+    resp = client.post(f'/admin/konkursy/{c.id}/edytuj', data={
+        'name': 'Test', 'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+        'prize_product_id[]': [str(prod2.id)],
+        'prize_quantity[]': ['5'],
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    prizes = ContestPrize.query.filter_by(contest_id=c.id).all()
+    assert len(prizes) == 1
+    assert prizes[0].product_id == prod2.id and prizes[0].quantity == 5

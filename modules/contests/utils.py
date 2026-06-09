@@ -164,7 +164,7 @@ def _notify_winner(contest, winner):
     from modules.notifications.models import Notification
     from modules.auth.models import User
     user = db.session.get(User, winner.user_id)
-    prize_name = contest.prize_product.name if contest.prize_product else 'nagroda'
+    prize_name = contest.prize_summary or 'nagroda'
     try:
         link = url_for('contests.client_contest', _external=True)
     except Exception:

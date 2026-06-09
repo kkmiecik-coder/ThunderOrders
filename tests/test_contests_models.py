@@ -1,6 +1,43 @@
 from datetime import datetime
 
 
+def test_prize_summary_with_prizes(db, make_product, make_user):
+    """prize_summary zwraca 'q× name' dla ContestPrize rows."""
+    from modules.contests.models import Contest, ContestPrize
+    admin = make_user(role='admin')
+    p1 = make_product(name='Album ATE')
+    p2 = make_product(name='Photocard HH')
+    c = Contest(name='KSummary', ticket_min=1, ticket_max=50, created_by_admin_id=admin.id)
+    db.session.add(c); db.session.commit()
+    db.session.add(ContestPrize(contest_id=c.id, product_id=p1.id, quantity=2))
+    db.session.add(ContestPrize(contest_id=c.id, product_id=p2.id, quantity=1))
+    db.session.commit()
+    db.session.refresh(c)
+    summary = c.prize_summary
+    assert '2× Album ATE' in summary
+    assert '1× Photocard HH' in summary
+
+
+def test_prize_summary_falls_back_to_prize_product(db, make_product, make_user):
+    """prize_summary bez ContestPrize zwraca nazwę legacy prize_product."""
+    from modules.contests.models import Contest
+    admin = make_user(role='admin')
+    prod = make_product(name='Legacy Klawiatura')
+    c = Contest(name='LegacyContest', prize_product_id=prod.id,
+                ticket_min=1, ticket_max=50, created_by_admin_id=admin.id)
+    db.session.add(c); db.session.commit()
+    assert c.prize_summary == 'Legacy Klawiatura'
+
+
+def test_prize_summary_returns_none_when_empty(db, make_user):
+    """prize_summary bez nagród i bez prize_product → None."""
+    from modules.contests.models import Contest
+    admin = make_user(role='admin')
+    c = Contest(name='Empty', ticket_min=1, ticket_max=50, created_by_admin_id=admin.id)
+    db.session.add(c); db.session.commit()
+    assert c.prize_summary is None
+
+
 def test_contest_defaults(db, make_product, make_user):
     from modules.contests.models import Contest
     admin = make_user(role='admin')

@@ -26,6 +26,33 @@
       <span class="contest-page__badge">🎰 KONKURS TRWA</span>
       <h1 class="contest-page__name">{{ contest.name }}</h1>
 
+      {# Nagroda — widoczna dla klienta; pula/% ukryte #}
+      {% if contest.prizes %}
+        <div class="contest-page__prize-set">
+          <div class="contest-page__prize-label">Nagroda</div>
+          {% for p in contest.prizes if p.product %}
+          <div class="contest-page__prize-item">
+            {% if p.product.primary_image %}
+            <img class="contest-page__prize-thumb"
+                 src="{{ url_for('static', filename='uploads/products/compressed/' + p.product.primary_image.filename) }}"
+                 alt="{{ p.product.name }}">
+            {% else %}
+            <div class="contest-page__prize-thumb contest-page__prize-thumb--placeholder">📦</div>
+            {% endif %}
+            <span class="contest-page__prize-qty">{{ p.quantity }}×</span>
+            <span class="contest-page__prize-name">{{ p.product.name }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      {% elif contest.prize_product %}
+        <div class="contest-page__prize-set">
+          <div class="contest-page__prize-label">Nagroda</div>
+          <div class="contest-page__prize-item">
+            <span class="contest-page__prize-name">{{ contest.prize_product.name }}</span>
+          </div>
+        </div>
+      {% endif %}
+
       {% if contest.description %}
         <p class="contest-page__desc">{{ contest.description }}</p>
       {% endif %}

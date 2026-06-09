@@ -10,14 +10,7 @@
 <div class="ca-results-wrap">
     <div class="ca-results-header">
         <h1 class="ca-results-title">{{ contest.name }}</h1>
-        <p class="ca-results-prize">
-            Nagroda:
-            {% if contest.prize_product %}
-                {{ contest.prize_product.name }}
-            {% else %}
-                —
-            {% endif %}
-        </p>
+        <p class="ca-results-prize">Nagroda: {{ contest.prize_summary or '—' }}</p>
     </div>
 
     {% if winners %}
