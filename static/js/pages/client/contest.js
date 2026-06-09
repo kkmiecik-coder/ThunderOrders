@@ -220,7 +220,6 @@
       '<div class="contest-spin-ctrl">' +
         '<button class="contest-spin-btn" id="contestModalBtn">START</button>' +
       '</div>' +
-      '<div class="contest-spin-result" id="contestModalResult"></div>' +
       '<div class="contest-spin-hint">Naciśnij <b>START</b>, aby zakręcić bębnem. Gdy będziesz gotów, naciśnij <b>STOP</b> — bęben zwolni i zatrzyma się na liczbie losów, które zdobywasz w tej turze.</div>';
 
     overlay.appendChild(modal);
@@ -235,7 +234,6 @@
 
     S.overlay = overlay;
     S.btnEl = modal.querySelector('#contestModalBtn');
-    S.resEl = modal.querySelector('#contestModalResult');
 
     /* Build reel pool */
     var reelInner = modal.querySelector('#contestReelInner');
