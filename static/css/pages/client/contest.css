@@ -186,6 +186,19 @@
   color: #1d1d28;
 }
 
+/* Description under the title */
+.contest-widget__desc {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #4a4458;
+  opacity: 0.85;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* Prize display */
 .contest-widget__prize {
   display: flex;
@@ -694,6 +707,10 @@
 
 [data-theme="dark"] .contest-widget__title {
   color: #fff;
+}
+
+[data-theme="dark"] .contest-widget__desc {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 [data-theme="dark"] .contest-widget__prize-label {

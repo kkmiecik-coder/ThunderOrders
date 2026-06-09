@@ -22,6 +22,9 @@
   <div class="contest-widget__info">
     <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
     <h3 class="contest-widget__title">{{ contest_widget.contest.name }}</h3>
+    {% if contest_widget.contest.description %}
+    <p class="contest-widget__desc">{{ contest_widget.contest.description }}</p>
+    {% endif %}
     <div class="contest-widget__hint">Pula i szanse ujawnią się przy losowaniu 🤫</div>
   </div>
 
