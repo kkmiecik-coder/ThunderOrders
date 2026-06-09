@@ -302,6 +302,15 @@
   border-left: 1px solid rgba(0, 0, 0, 0.07);
 }
 
+/* Participants stat (nad liczbą losów) */
+.contest-widget__stat {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a8398;
+  margin-bottom: 2px;
+  text-align: center;
+}
+
 /* Tickets row */
 .contest-widget__tickets {
   display: flex;
@@ -755,6 +764,10 @@
     border-top-color: rgba(240, 147, 251, 0.15);
     border-left-color: transparent;
   }
+}
+
+[data-theme="dark"] .contest-widget__stat {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 [data-theme="dark"] .contest-widget__tickets span {

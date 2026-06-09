@@ -56,6 +56,8 @@
   </div>
 
   <div class="contest-widget__action">
+    {% set p = contest_widget.participants %}
+    <div class="contest-widget__stat">👥 {{ p }} {% if p == 1 %}osoba bierze{% elif p % 10 in [2, 3, 4] and p % 100 not in [12, 13, 14] %}osoby biorą{% else %}osób bierze{% endif %} udział</div>
     <div class="contest-widget__tickets">
       <b id="widgetTickets">{{ contest_widget.my_tickets }}</b>
       <span>losów</span>

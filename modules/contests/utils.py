@@ -197,6 +197,13 @@ def _notify_winner(contest, winner):
                        winner.user_id, type(exc).__name__, exc)
 
 
+def count_participants(contest):
+    """Liczba unikalnych uczestników (osób, które zakręciły) w konkursie."""
+    from modules.contests.models import ContestSpin
+    return db.session.query(func.count(func.distinct(ContestSpin.user_id))) \
+        .filter(ContestSpin.contest_id == contest.id).scalar() or 0
+
+
 def widget_context(contest, user):
     """Dane dla widgetu/strony klienta (bez puli i %)."""
     if contest is None:
@@ -208,6 +215,7 @@ def widget_context(contest, user):
     return {
         'contest': contest,
         'my_tickets': get_user_tickets(contest, user),
+        'participants': count_participants(contest),
         'eligible': eligible,
         'can_spin': is_open and eligible and cooldown_ok,
         'next_spin_at': nxt.isoformat() if nxt else None,
