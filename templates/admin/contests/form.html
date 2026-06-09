@@ -19,6 +19,26 @@
             <input type="hidden" name="image_path" value="{{ contest.image_path or '' if contest else '' }}">
 
             {# ---------------------------------------------------------------- #}
+            {# Nagroda — panel (NA GÓRZE formularza)                             #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row" id="prizePanel">
+                <label class="ca-label">Nagroda</label>
+                <p class="ca-prize-helper">Dodaj pojedyncze produkty lub gotowe zestawy jako nagrody w konkursie.</p>
+
+                {# JSON przechowuje stan nagród; prefill z serwera przy edycji #}
+                <input type="hidden" name="prizes_json" id="prizesJson"
+                       value="{{ contest.prizes | tojson_prizes if contest and contest.prizes else '[]' }}">
+
+                {# Lista wpisów nagród — renderowana przez JS #}
+                <div id="prizeList"></div>
+
+                <div class="ca-prize-actions">
+                    <button type="button" id="btnAddProduct" class="ca-btn-prize-add">＋ Dodaj produkt</button>
+                    <button type="button" id="btnAddSet" class="ca-btn-prize-add ca-btn-prize-add--set">＋ Dodaj zestaw</button>
+                </div>
+            </div>
+
+            {# ---------------------------------------------------------------- #}
             {# Nazwa                                                             #}
             {# ---------------------------------------------------------------- #}
             <div class="ca-row">
@@ -27,61 +47,6 @@
                 {% if form.name.errors %}
                 <ul class="ca-field-errors">
                     {% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}
-                </ul>
-                {% endif %}
-            </div>
-
-            {# ---------------------------------------------------------------- #}
-            {# Nagroda — zestaw produktów                                        #}
-            {# ---------------------------------------------------------------- #}
-            <div class="ca-row">
-                <label class="ca-label">Nagroda — zestaw produktów</label>
-                <div class="ca-picker">
-                    <div class="ca-picker-search">
-                        <span class="ca-picker-search-icon">🔍</span>
-                        <input type="text"
-                               id="prizeSearch"
-                               class="ca-picker-input"
-                               placeholder="Szukaj produktu po nazwie lub SKU…"
-                               autocomplete="off">
-                    </div>
-                    <div id="prizeResults" class="ca-picker-results">
-                        <div class="ca-picker-hint">Wpisz co najmniej 2 znaki, by wyszukać produkt.</div>
-                    </div>
-                </div>
-
-                {# WTForms field zachowany (hidden) dla back-compat z testami i _apply_form #}
-                {{ form.prize_product_id(id="prizeProductId", style="display:none") }}
-
-                {# Lista wybranych produktów nagrody #}
-                <div id="prizeSelected" class="ca-prize-selected">
-                    {% if contest and contest.prizes %}
-                        {% for p in contest.prizes %}
-                        <div class="ca-prize-item" data-id="{{ p.product_id }}">
-                            {% if p.product and p.product.primary_image %}
-                            <img class="ca-prize-thumb"
-                                 src="{{ url_for('static', filename='uploads/products/compressed/' + p.product.primary_image.filename) }}"
-                                 alt="">
-                            {% else %}
-                            <div class="ca-prize-thumb-placeholder">📦</div>
-                            {% endif %}
-                            <span class="ca-prize-name">{{ p.product.name if p.product else '—' }}</span>
-                            <div class="ca-prize-stepper">
-                                <button type="button" class="ca-stepper-btn ca-stepper-minus">−</button>
-                                <input type="number" class="ca-stepper-inp" value="{{ p.quantity }}" min="1">
-                                <button type="button" class="ca-stepper-btn ca-stepper-plus">+</button>
-                            </div>
-                            <button type="button" class="ca-prize-remove" aria-label="Usuń">×</button>
-                            <input type="hidden" name="prize_product_id[]" value="{{ p.product_id }}">
-                            <input type="hidden" name="prize_quantity[]" value="{{ p.quantity }}">
-                        </div>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-
-                {% if form.prize_product_id.errors %}
-                <ul class="ca-field-errors">
-                    {% for e in form.prize_product_id.errors %}<li>{{ e }}</li>{% endfor %}
                 </ul>
                 {% endif %}
             </div>
@@ -267,6 +232,63 @@
             </div>
 
         </form>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- #}
+{# Modal: Dodaj produkt                                              #}
+{# ---------------------------------------------------------------- #}
+<div class="modal-overlay" id="prizeProductModal" role="dialog" aria-modal="true" aria-label="Dodaj produkt jako nagrodę">
+    <div class="modal-content ca-prize-modal">
+        <div class="modal-header">
+            <span class="modal-title">Dodaj produkt</span>
+            <button type="button" class="modal-close" id="btnCloseProductModal" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="ca-modal-search-wrap">
+                <span class="ca-picker-search-icon">🔍</span>
+                <input type="text" id="productModalSearch" class="ca-picker-input ca-modal-search-inp"
+                       placeholder="Szukaj produktu po nazwie lub SKU…" autocomplete="off">
+            </div>
+            <div id="productModalResults" class="ca-modal-results">
+                <div class="ca-picker-hint">Wpisz co najmniej 2 znaki, by wyszukać produkt.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- #}
+{# Modal: Dodaj zestaw                                               #}
+{# ---------------------------------------------------------------- #}
+<div class="modal-overlay" id="prizeSetModal" role="dialog" aria-modal="true" aria-label="Dodaj zestaw nagród">
+    <div class="modal-content ca-prize-modal ca-prize-modal--set">
+        <div class="modal-header">
+            <span class="modal-title">Dodaj zestaw</span>
+            <button type="button" class="modal-close" id="btnCloseSetModal" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="ca-modal-field">
+                <label class="ca-label" for="setModalName">Nazwa zestawu</label>
+                <input type="text" id="setModalName" class="ca-input"
+                       placeholder="np. Zestaw debiutancki" autocomplete="off">
+            </div>
+            <div class="ca-modal-field">
+                <label class="ca-label">Produkty w zestawie</label>
+                <div class="ca-modal-search-wrap">
+                    <span class="ca-picker-search-icon">🔍</span>
+                    <input type="text" id="setModalSearch" class="ca-picker-input ca-modal-search-inp"
+                           placeholder="Szukaj produktu…" autocomplete="off">
+                </div>
+                <div id="setModalResults" class="ca-modal-results">
+                    <div class="ca-picker-hint">Wpisz co najmniej 2 znaki.</div>
+                </div>
+                <div id="setModalItems" class="ca-prize-selected ca-modal-items-list"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="btnConfirmSet" class="ca-btn-submit" disabled>Dodaj zestaw</button>
+            <button type="button" id="btnCancelSet" class="ca-btn-cancel">Anuluj</button>
+        </div>
     </div>
 </div>
 {% endblock %}

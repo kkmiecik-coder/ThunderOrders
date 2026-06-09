@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import secrets
@@ -9,7 +10,7 @@ from sqlalchemy import func, distinct
 from extensions import db
 from utils.decorators import role_required
 from modules.contests import contests_bp
-from modules.contests.models import Contest, ContestPrize, ContestSpin, ContestWinner
+from modules.contests.models import Contest, ContestPrize, ContestPrizeItem, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
 
@@ -35,28 +36,48 @@ def admin_list():
 
 def _apply_form(form, contest):
     # Uwaga: lista pól musi być zsynchronizowana z ContestForm (status i created_by_admin_id celowo pominięte)
-    for f in ['name', 'description', 'image_path', 'prize_product_id', 'num_winners',
+    for f in ['name', 'description', 'image_path', 'num_winners',
               'ticket_min', 'ticket_max', 'cooldown_minutes', 'eligibility_min_orders',
               'eligibility_min_total_value', 'eligibility_active_within_days', 'ends_at']:
         setattr(contest, f, getattr(form, f).data)
 
 
 def _apply_prizes(contest):
-    """Przebuduj zestaw nagród z surowych pól tablicowych prize_product_id[] i prize_quantity[]."""
+    """Przebuduj zestaw nagród z pola prizes_json (JSON)."""
     from modules.products.models import Product
-    ids = request.form.getlist('prize_product_id[]')
-    qtys = request.form.getlist('prize_quantity[]')
+    raw = request.form.get('prizes_json', '').strip()
     contest.prizes.clear()  # cascade delete-orphan usuwa stare wiersze
-    for i, pid in enumerate(ids):
+    if not raw:
+        return
+    try:
+        entries = json.loads(raw)
+    except (ValueError, TypeError):
+        return
+    for e in entries or []:
         try:
-            pid_int = int(pid)
-            qty = int(qtys[i]) if i < len(qtys) else 1
-        except (ValueError, IndexError):
-            continue
+            qty = int(e.get('quantity', 1))
+        except (ValueError, TypeError):
+            qty = 1
         if qty < 1:
-            continue
-        if db.session.get(Product, pid_int):
-            contest.prizes.append(ContestPrize(product_id=pid_int, quantity=qty))
+            qty = 1
+        name = (e.get('name') or None)
+        items_raw = e.get('items') or []
+        valid_items = []
+        for it in items_raw:
+            try:
+                pid = int(it.get('product_id'))
+                iqty = int(it.get('quantity', 1))
+            except (ValueError, TypeError):
+                continue
+            if iqty < 1:
+                iqty = 1
+            if db.session.get(Product, pid):
+                valid_items.append(ContestPrizeItem(product_id=pid, quantity=iqty))
+        if not valid_items:
+            continue   # pomiń wpisy bez prawidłowych produktów
+        prize = ContestPrize(name=(name if name else None), quantity=qty)
+        prize.items = valid_items
+        contest.prizes.append(prize)
 
 
 def _delete_contest_image_files(relative_path, static_dir):

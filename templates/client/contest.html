@@ -30,18 +30,47 @@
       {% if contest.prizes %}
         <div class="contest-page__prize-set">
           <div class="contest-page__prize-label">Nagroda</div>
-          {% for p in contest.prizes if p.product %}
-          <div class="contest-page__prize-item">
-            {% if p.product.primary_image %}
-            <img class="contest-page__prize-thumb"
-                 src="{{ url_for('static', filename='uploads/products/compressed/' + p.product.primary_image.filename) }}"
-                 alt="{{ p.product.name }}">
+          {% for entry in contest.prizes %}
+            {% if entry.is_set %}
+              {# Zestaw #}
+              <div class="contest-page__prize-entry">
+                <div class="contest-page__prize-entry-header">
+                  <span class="contest-page__prize-qty">{{ entry.quantity }}×</span>
+                  <span class="contest-page__prize-set-name">{{ entry.name }}</span>
+                </div>
+                <div class="contest-page__prize-entry-items">
+                  {% for it in entry.items if it.product %}
+                  <div class="contest-page__prize-item">
+                    {% if it.product.primary_image %}
+                    <img class="contest-page__prize-thumb"
+                         src="{{ url_for('static', filename='uploads/products/compressed/' + it.product.primary_image.filename) }}"
+                         alt="{{ it.product.name }}">
+                    {% else %}
+                    <div class="contest-page__prize-thumb contest-page__prize-thumb--placeholder">📦</div>
+                    {% endif %}
+                    <span class="contest-page__prize-qty contest-page__prize-qty--inner">{{ it.quantity }}×</span>
+                    <span class="contest-page__prize-name">{{ it.product.name }}</span>
+                  </div>
+                  {% endfor %}
+                </div>
+              </div>
             {% else %}
-            <div class="contest-page__prize-thumb contest-page__prize-thumb--placeholder">📦</div>
+              {# Pojedynczy produkt #}
+              {% set it0 = entry.items[0] if entry.items else none %}
+              {% if it0 and it0.product %}
+              <div class="contest-page__prize-item">
+                {% if it0.product.primary_image %}
+                <img class="contest-page__prize-thumb"
+                     src="{{ url_for('static', filename='uploads/products/compressed/' + it0.product.primary_image.filename) }}"
+                     alt="{{ it0.product.name }}">
+                {% else %}
+                <div class="contest-page__prize-thumb contest-page__prize-thumb--placeholder">📦</div>
+                {% endif %}
+                <span class="contest-page__prize-qty">{{ entry.quantity }}×</span>
+                <span class="contest-page__prize-name">{{ it0.product.name }}</span>
+              </div>
+              {% endif %}
             {% endif %}
-            <span class="contest-page__prize-qty">{{ p.quantity }}×</span>
-            <span class="contest-page__prize-name">{{ p.product.name }}</span>
-          </div>
           {% endfor %}
         </div>
       {% elif contest.prize_product %}

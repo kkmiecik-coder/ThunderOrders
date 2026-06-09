@@ -4032,3 +4032,44 @@
 [data-theme="dark"] .contest-spin-result b {
   color: #f6a6ec;
 }
+
+/* ==========================================
+   Contest Prize Modals (admin form)
+   Styles for #prizeProductModal and #prizeSetModal
+   ========================================== */
+
+.ca-prize-modal {
+  max-width: 520px;
+}
+
+.ca-prize-modal--set {
+  max-width: 560px;
+}
+
+.ca-prize-modal .modal-body {
+  padding: 16px 20px 20px;
+}
+
+.ca-prize-modal .ca-picker-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ca-prize-modal .ca-picker-result:hover {
+  background: rgba(240, 147, 251, 0.08);
+}
+
+/* Dark mode for prize modals */
+[data-theme="dark"] .ca-prize-modal .ca-picker-result:hover {
+  background: rgba(240, 147, 251, 0.12);
+}
+
+[data-theme="dark"] .ca-prize-modal .modal-footer {
+  border-top-color: rgba(240, 147, 251, 0.15);
+  background: transparent;
+}

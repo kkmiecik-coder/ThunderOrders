@@ -106,50 +106,153 @@ def test_draw_blocked_when_spins_open(client, db, make_user, make_product, login
     assert resp.get_json()['success'] is False   # spiny jeszcze otwarte (ends_at w przyszłości)
 
 
-def test_create_contest_with_prize_set(client, db, make_user, make_product, login):
-    """POST prize_product_id[] + prize_quantity[] tworzy ContestPrize z poprawnymi ilościami."""
-    from modules.contests.models import Contest, ContestPrize
+def test_create_contest_with_single_prize(client, db, make_user, make_product, login):
+    """POST prizes_json z pojedynczą pozycją tworzy ContestPrize + ContestPrizeItem."""
+    import json
+    from modules.contests.models import Contest, ContestPrize, ContestPrizeItem
+    login(_admin(make_user))
+    prod = make_product(name='Album A')
+    prizes_json = json.dumps([
+        {'name': None, 'quantity': 2, 'items': [{'product_id': prod.id, 'quantity': 1}]},
+    ])
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Konkurs Single',
+        'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+        'prizes_json': prizes_json,
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Konkurs Single').first()
+    assert c is not None
+    prizes = ContestPrize.query.filter_by(contest_id=c.id).all()
+    assert len(prizes) == 1
+    assert prizes[0].name is None
+    assert prizes[0].quantity == 2
+    items = ContestPrizeItem.query.filter_by(prize_id=prizes[0].id).all()
+    assert len(items) == 1
+    assert items[0].product_id == prod.id
+    assert '2× Album A' in c.prize_summary
+
+
+def test_create_contest_with_set_prize(client, db, make_user, make_product, login):
+    """POST prizes_json z zestawem (2 produkty) tworzy prawidłową strukturę."""
+    import json
+    from modules.contests.models import Contest, ContestPrize, ContestPrizeItem
     login(_admin(make_user))
     prod1 = make_product(name='Album A')
     prod2 = make_product(name='Photocard B')
+    prizes_json = json.dumps([{
+        'name': 'Zestaw debiutancki',
+        'quantity': 1,
+        'items': [
+            {'product_id': prod1.id, 'quantity': 2},
+            {'product_id': prod2.id, 'quantity': 3},
+        ],
+    }])
     resp = client.post('/admin/konkursy/nowy', data={
-        'name': 'Konkurs Kpop',
+        'name': 'Konkurs Set',
         'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
         'cooldown_minutes': 1440,
-        'prize_product_id[]': [str(prod1.id), str(prod2.id)],
-        'prize_quantity[]': ['2', '3'],
+        'prizes_json': prizes_json,
     }, follow_redirects=True)
     assert resp.status_code == 200
-    c = Contest.query.filter_by(name='Konkurs Kpop').first()
+    c = Contest.query.filter_by(name='Konkurs Set').first()
     assert c is not None
-    prizes = ContestPrize.query.filter_by(contest_id=c.id).order_by(ContestPrize.id).all()
-    assert len(prizes) == 2
-    assert prizes[0].product_id == prod1.id and prizes[0].quantity == 2
-    assert prizes[1].product_id == prod2.id and prizes[1].quantity == 3
-    assert '2×' in c.prize_summary and 'Album A' in c.prize_summary
+    prizes = ContestPrize.query.filter_by(contest_id=c.id).all()
+    assert len(prizes) == 1
+    assert prizes[0].name == 'Zestaw debiutancki'
+    assert prizes[0].quantity == 1
+    items = ContestPrizeItem.query.filter_by(prize_id=prizes[0].id).order_by(ContestPrizeItem.id).all()
+    assert len(items) == 2
+    assert items[0].product_id == prod1.id and items[0].quantity == 2
+    assert items[1].product_id == prod2.id and items[1].quantity == 3
+    summary = c.prize_summary
+    assert 'Zestaw debiutancki' in summary
+    assert '2× Album A' in summary
 
 
-def test_prize_set_replaced_on_edit(client, db, make_user, make_product, login):
-    """Edycja konkursu przebudowuje zestaw nagród."""
-    from modules.contests.models import Contest, ContestPrize
+def test_prize_replaced_on_edit(client, db, make_user, make_product, login):
+    """Edycja konkursu zastępuje nagrody na podstawie prizes_json."""
+    import json
+    from modules.contests.models import Contest, ContestPrize, ContestPrizeItem
     login(_admin(make_user))
     prod1 = make_product(name='Stare')
     prod2 = make_product(name='Nowe')
     c = Contest(name='Test', prize_product_id=prod1.id, ticket_min=1, ticket_max=50,
                 num_winners=1, cooldown_minutes=1440, status='szkic')
     db.session.add(c); db.session.commit()
-    # Dodaj stary ContestPrize
-    from modules.contests.models import ContestPrize as CP
-    db.session.add(CP(contest_id=c.id, product_id=prod1.id, quantity=1))
+    # Dodaj stary ContestPrize (single)
+    old_prize = ContestPrize(contest_id=c.id, name=None, quantity=1)
+    db.session.add(old_prize); db.session.flush()
+    from modules.contests.models import ContestPrizeItem as CPI
+    db.session.add(CPI(prize_id=old_prize.id, product_id=prod1.id, quantity=1))
     db.session.commit()
-    # Edytuj — zastąp zestawem z prod2
+
+    # Edytuj — zastąp nową pozycją z prod2, quantity=5
+    prizes_json = json.dumps([
+        {'name': None, 'quantity': 5, 'items': [{'product_id': prod2.id, 'quantity': 1}]},
+    ])
     resp = client.post(f'/admin/konkursy/{c.id}/edytuj', data={
         'name': 'Test', 'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
         'cooldown_minutes': 1440,
-        'prize_product_id[]': [str(prod2.id)],
-        'prize_quantity[]': ['5'],
+        'prizes_json': prizes_json,
     }, follow_redirects=True)
     assert resp.status_code == 200
     prizes = ContestPrize.query.filter_by(contest_id=c.id).all()
     assert len(prizes) == 1
-    assert prizes[0].product_id == prod2.id and prizes[0].quantity == 5
+    assert prizes[0].quantity == 5
+    items = ContestPrizeItem.query.filter_by(prize_id=prizes[0].id).all()
+    assert len(items) == 1
+    assert items[0].product_id == prod2.id
+
+
+def test_prizes_empty_json_clears_prizes(client, db, make_user, make_product, login):
+    """prizes_json pusty/brak → brak nagród po zapisie."""
+    from modules.contests.models import Contest, ContestPrize
+    login(_admin(make_user))
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Bez Nagrody',
+        'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+        'prizes_json': '',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Bez Nagrody').first()
+    assert c is not None
+    assert ContestPrize.query.filter_by(contest_id=c.id).count() == 0
+
+
+def test_prizes_invalid_json_skipped(client, db, make_user, make_product, login):
+    """Nieprawidłowy JSON → brak nagród, konkurs tworzony normalnie."""
+    from modules.contests.models import Contest, ContestPrize
+    login(_admin(make_user))
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Zly JSON',
+        'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+        'prizes_json': 'not-valid-json',
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Zly JSON').first()
+    assert c is not None
+    assert ContestPrize.query.filter_by(contest_id=c.id).count() == 0
+
+
+def test_prize_entry_with_no_valid_product_skipped(client, db, make_user, make_product, login):
+    """Pozycja z nieistniejącym product_id jest pomijana."""
+    import json
+    from modules.contests.models import Contest, ContestPrize
+    login(_admin(make_user))
+    prizes_json = json.dumps([
+        {'name': None, 'quantity': 1, 'items': [{'product_id': 99999999, 'quantity': 1}]},
+    ])
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Bez Produktu',
+        'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440,
+        'prizes_json': prizes_json,
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Bez Produktu').first()
+    assert c is not None
+    assert ContestPrize.query.filter_by(contest_id=c.id).count() == 0

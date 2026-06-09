@@ -547,6 +547,47 @@
   flex: 1;
 }
 
+/* Set entry container */
+.contest-page__prize-entry {
+  border: 1px solid rgba(240, 147, 251, 0.22);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.contest-page__prize-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(240, 147, 251, 0.08);
+  border-bottom: 1px solid rgba(240, 147, 251, 0.14);
+}
+
+.contest-page__prize-set-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1d1d28;
+}
+
+.contest-page__prize-entry-items {
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contest-page__prize-entry-items .contest-page__prize-item {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 5px 4px;
+}
+
+.contest-page__prize-qty--inner {
+  font-size: 12px;
+  color: rgba(240, 147, 251, 0.8);
+}
+
 /* Prize set — dark */
 [data-theme="dark"] .contest-page__prize-label {
   color: rgba(255, 255, 255, 0.4);
@@ -559,4 +600,22 @@
 
 [data-theme="dark"] .contest-page__prize-name {
   color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .contest-page__prize-entry {
+  border-color: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .contest-page__prize-entry-header {
+  background: rgba(240, 147, 251, 0.1);
+  border-bottom-color: rgba(240, 147, 251, 0.18);
+}
+
+[data-theme="dark"] .contest-page__prize-set-name {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .contest-page__prize-entry-items .contest-page__prize-item {
+  background: transparent;
+  border: none;
 }

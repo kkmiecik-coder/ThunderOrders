@@ -1396,6 +1396,34 @@ def register_template_filters(app):
                     result[k] = values
         return result
 
+    @app.template_filter('tojson_prizes')
+    def tojson_prizes_filter(prizes):
+        """
+        Serializuje listę ContestPrize do JSON dla inicjalizacji JS na stronie edycji.
+        Format: [{"name": null|str, "quantity": int, "items": [{"product_id": int, "quantity": int, "_name": str, "_img": str|null}]}]
+        Użycie: {{ contest.prizes|tojson_prizes }}
+        """
+        import json as _json
+        result = []
+        for p in prizes:
+            items = []
+            for it in p.items:
+                img = None
+                if it.product and it.product.primary_image:
+                    img = '/static/uploads/products/compressed/' + it.product.primary_image.filename
+                items.append({
+                    'product_id': it.product_id,
+                    'quantity': it.quantity,
+                    '_name': it.product.name if it.product else '',
+                    '_img': img,
+                })
+            result.append({
+                'name': p.name,
+                'quantity': p.quantity,
+                'items': items,
+            })
+        return _json.dumps(result, ensure_ascii=False)
+
 
 # Uruchomienie aplikacji (tylko dla development)
 if __name__ == '__main__':

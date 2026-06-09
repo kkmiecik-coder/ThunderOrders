@@ -12,7 +12,9 @@ def test_form_page_renders(client, make_user, login):
     login(_admin(make_user))
     resp = client.get('/admin/konkursy/nowy')
     assert resp.status_code == 200
-    assert b'prizeSearch' in resp.data  # picker obecny
+    assert b'btnAddProduct' in resp.data  # nowy przycisk "Dodaj produkt"
+    assert b'btnAddSet' in resp.data      # nowy przycisk "Dodaj zestaw"
+    assert b'prizesJson' in resp.data     # ukryte pole JSON
 
 
 def test_list_renders_with_pills(client, db, make_user, make_product, login):
@@ -62,7 +64,7 @@ def test_edit_form_renders_existing(client, db, make_user, make_product, login):
     resp = client.get(f'/admin/konkursy/{c.id}/edytuj')
     assert resp.status_code == 200
     assert b'EditTest' in resp.data
-    assert b'prizeSearch' in resp.data
+    assert b'btnAddProduct' in resp.data  # panel nagrody obecny
 
 
 def test_results_page_renders(client, db, make_user, make_product, login):
