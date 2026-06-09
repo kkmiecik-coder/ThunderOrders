@@ -19,7 +19,58 @@
             <input type="hidden" name="image_path" value="{{ contest.image_path or '' if contest else '' }}">
 
             {# ---------------------------------------------------------------- #}
-            {# Nagroda — panel (NA GÓRZE formularza)                             #}
+            {# Nazwa                                                             #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                {{ form.name.label(class="ca-label") }}
+                {{ form.name(class="ca-input", placeholder="np. Wygraj album Stray Kids – ATE (wersja losowa)") }}
+                {% if form.name.errors %}
+                <ul class="ca-field-errors">
+                    {% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Opis                                                              #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                {{ form.description.label(class="ca-label") }}
+                {{ form.description(class="ca-input", rows="3", placeholder="Opcjonalny opis nagrody…") }}
+                {% if form.description.errors %}
+                <ul class="ca-field-errors">
+                    {% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Grafika — dropzone                                                #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                <label class="ca-label">Grafika konkursu (opcjonalnie)</label>
+                <div id="imageDrop" class="ca-image-drop">
+                    <input type="file" id="imageFile" name="image_file"
+                           accept="image/png,image/jpeg,image/gif,image/webp"
+                           style="display:none">
+                    {% if contest and contest.image_path %}
+                    <img id="imagePreview" class="ca-image-preview"
+                         src="{{ url_for('static', filename=contest.image_path) }}" alt="">
+                    {% else %}
+                    <img id="imagePreview" class="ca-image-preview" style="display:none" alt="">
+                    {% endif %}
+                    <div id="imageDropPrompt" class="ca-image-drop-prompt
+                         {% if contest and contest.image_path %}ca-image-drop-prompt--hidden{% endif %}">
+                        <span class="ca-image-drop-icon">🖼️</span>
+                        <span class="ca-image-drop-text">Przeciągnij grafikę lub kliknij, aby wybrać</span>
+                        <span class="ca-image-drop-hint">PNG, JPG, GIF, WEBP</span>
+                    </div>
+                    <div id="imageDropError" class="ca-image-drop-error"></div>
+                </div>
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Nagroda — panel                                                   #}
             {# ---------------------------------------------------------------- #}
             <div class="ca-row" id="prizePanel">
                 <label class="ca-label">Nagroda</label>
@@ -36,19 +87,6 @@
                     <button type="button" id="btnAddProduct" class="ca-btn-prize-add">＋ Dodaj produkt</button>
                     <button type="button" id="btnAddSet" class="ca-btn-prize-add ca-btn-prize-add--set">＋ Dodaj zestaw</button>
                 </div>
-            </div>
-
-            {# ---------------------------------------------------------------- #}
-            {# Nazwa                                                             #}
-            {# ---------------------------------------------------------------- #}
-            <div class="ca-row">
-                {{ form.name.label(class="ca-label") }}
-                {{ form.name(class="ca-input", placeholder="np. Wygraj album Stray Kids – ATE (wersja losowa)") }}
-                {% if form.name.errors %}
-                <ul class="ca-field-errors">
-                    {% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}
-                </ul>
-                {% endif %}
             </div>
 
             {# ---------------------------------------------------------------- #}
@@ -180,44 +218,6 @@
                 </div>
                 <div class="ca-crit-hint">
                     Nic nie zaznaczone = każdy zalogowany klient może brać udział.
-                </div>
-            </div>
-
-            {# ---------------------------------------------------------------- #}
-            {# Opis                                                              #}
-            {# ---------------------------------------------------------------- #}
-            <div class="ca-row">
-                {{ form.description.label(class="ca-label") }}
-                {{ form.description(class="ca-input", rows="3", placeholder="Opcjonalny opis nagrody…") }}
-                {% if form.description.errors %}
-                <ul class="ca-field-errors">
-                    {% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}
-                </ul>
-                {% endif %}
-            </div>
-
-            {# ---------------------------------------------------------------- #}
-            {# Grafika — dropzone                                                #}
-            {# ---------------------------------------------------------------- #}
-            <div class="ca-row">
-                <label class="ca-label">Grafika konkursu (opcjonalnie)</label>
-                <div id="imageDrop" class="ca-image-drop">
-                    <input type="file" id="imageFile" name="image_file"
-                           accept="image/png,image/jpeg,image/gif,image/webp"
-                           style="display:none">
-                    {% if contest and contest.image_path %}
-                    <img id="imagePreview" class="ca-image-preview"
-                         src="{{ url_for('static', filename=contest.image_path) }}" alt="">
-                    {% else %}
-                    <img id="imagePreview" class="ca-image-preview" style="display:none" alt="">
-                    {% endif %}
-                    <div id="imageDropPrompt" class="ca-image-drop-prompt
-                         {% if contest and contest.image_path %}ca-image-drop-prompt--hidden{% endif %}">
-                        <span class="ca-image-drop-icon">🖼️</span>
-                        <span class="ca-image-drop-text">Przeciągnij grafikę lub kliknij, aby wybrać</span>
-                        <span class="ca-image-drop-hint">PNG, JPG, GIF, WEBP</span>
-                    </div>
-                    <div id="imageDropError" class="ca-image-drop-error"></div>
                 </div>
             </div>
 
