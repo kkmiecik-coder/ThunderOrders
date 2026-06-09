@@ -51,7 +51,7 @@
 
 .contest-widget > * {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 /* Subtelny, wolno dryfujący poblask w tle */
@@ -84,7 +84,7 @@
   overflow: hidden;
   pointer-events: none;
 }
-.contest-widget > .contest-widget__particles { z-index: 0; }
+.contest-widget > .contest-widget__particles { z-index: 1; }
 
 .contest-widget__particle {
   position: absolute;
@@ -92,7 +92,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(240, 147, 251, 0.95), rgba(245, 87, 108, 0) 70%);
+  background: radial-gradient(circle, rgba(240, 147, 251, 1), rgba(245, 87, 108, 0) 70%);
+  box-shadow: 0 0 8px rgba(240, 147, 251, 0.7);
   opacity: 0;
   animation: cw-particle 13s ease-in-out infinite;
 }
@@ -114,10 +115,10 @@
 
 @keyframes cw-particle {
   0%   { transform: translateY(0) translateX(0); opacity: 0; }
-  12%  { opacity: 0.65; }
-  50%  { transform: translateY(-70px) translateX(14px); opacity: 0.8; }
-  88%  { opacity: 0.4; }
-  100% { transform: translateY(-140px) translateX(-8px); opacity: 0; }
+  12%  { opacity: 0.85; }
+  50%  { transform: translateY(-90px) translateX(14px); opacity: 1; }
+  88%  { opacity: 0.6; }
+  100% { transform: translateY(-170px) translateX(-8px); opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -143,12 +144,24 @@
 
 /* ---- Info region ---- */
 .contest-widget__info {
-  flex: 1;
+  flex: 1 1 200px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
   justify-content: center;
+}
+
+/* ---- Prize column (osobna kolumna "Do wygrania") ---- */
+.contest-widget__prize-col {
+  flex: 1.3 1 260px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  padding-left: 24px;
+  border-left: 1px solid rgba(0, 0, 0, 0.07);
 }
 
 /* Badge */
@@ -191,7 +204,8 @@
 
 .contest-widget__prize-list {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
 }
 
@@ -418,8 +432,17 @@
     align-self: center;
   }
 
+  .contest-widget__prize-col {
+    width: 100%;
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: none;
+    border-top: 1px solid rgba(0, 0, 0, 0.07);
+    align-items: center;
+  }
+
   .contest-widget__prize-list {
-    justify-content: center;
+    align-items: center;
   }
 
   .contest-widget__action {
@@ -702,12 +725,14 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-[data-theme="dark"] .contest-widget__action {
+[data-theme="dark"] .contest-widget__action,
+[data-theme="dark"] .contest-widget__prize-col {
   border-left-color: rgba(240, 147, 251, 0.15);
 }
 
 @media (max-width: 768px) {
-  [data-theme="dark"] .contest-widget__action {
+  [data-theme="dark"] .contest-widget__action,
+  [data-theme="dark"] .contest-widget__prize-col {
     border-top-color: rgba(240, 147, 251, 0.15);
     border-left-color: transparent;
   }

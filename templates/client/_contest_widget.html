@@ -22,33 +22,34 @@
   <div class="contest-widget__info">
     <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
     <h3 class="contest-widget__title">{{ contest_widget.contest.name }}</h3>
-    <div class="contest-widget__prize">
-      <div class="contest-widget__prize-label">Do wygrania</div>
-      <div class="contest-widget__prize-list">
-        {% if contest_widget.contest.prizes %}
-          {% for entry in contest_widget.contest.prizes %}
-            {% if entry.is_set %}
-              <div class="contest-widget__prize-set">
-                <span class="contest-widget__prize-set-head">🎁 {{ entry.quantity }}× {{ entry.name }}</span>
-                {% set set_items = entry.items | selectattr('product') | list %}
-                {% if set_items %}
-                <div class="contest-widget__prize-set-items">
-                  {% for it in set_items %}
-                  <span class="contest-widget__prize-set-item">{{ it.quantity }}× {{ it.product.name }}</span>
-                  {% endfor %}
-                </div>
-                {% endif %}
-              </div>
-            {% else %}
-              <span class="contest-widget__prize-chip">{{ entry.quantity }}× {{ entry.items[0].product.name if entry.items and entry.items[0].product else 'nagroda' }}</span>
-            {% endif %}
-          {% endfor %}
-        {% else %}
-          <span class="contest-widget__prize-chip">Nagroda • {{ contest_widget.contest.num_winners }} zwycięzca(ów)</span>
-        {% endif %}
-      </div>
-    </div>
     <div class="contest-widget__hint">Pula i szanse ujawnią się przy losowaniu 🤫</div>
+  </div>
+
+  <div class="contest-widget__prize-col">
+    <div class="contest-widget__prize-label">Do wygrania</div>
+    <div class="contest-widget__prize-list">
+      {% if contest_widget.contest.prizes %}
+        {% for entry in contest_widget.contest.prizes %}
+          {% if entry.is_set %}
+            <div class="contest-widget__prize-set">
+              <span class="contest-widget__prize-set-head">🎁 {{ entry.quantity }}× {{ entry.name }}</span>
+              {% set set_items = entry.items | selectattr('product') | list %}
+              {% if set_items %}
+              <div class="contest-widget__prize-set-items">
+                {% for it in set_items %}
+                <span class="contest-widget__prize-set-item">{{ it.quantity }}× {{ it.product.name }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
+            </div>
+          {% else %}
+            <span class="contest-widget__prize-chip">{{ entry.quantity }}× {{ entry.items[0].product.name if entry.items and entry.items[0].product else 'nagroda' }}</span>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        <span class="contest-widget__prize-chip">Nagroda • {{ contest_widget.contest.num_winners }} zwycięzca(ów)</span>
+      {% endif %}
+    </div>
   </div>
 
   <div class="contest-widget__action">
