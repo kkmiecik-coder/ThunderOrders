@@ -182,9 +182,14 @@ def create_app(config_name=None):
         if not app.maintenance_cache['enabled']:
             return None
 
-        # Przepuść statyczne pliki i auth endpointy
+        # Przepuść statyczne pliki, auth endpointy ORAZ webhook deployu.
+        # /deploy/ MUSI działać w trybie konserwacji — inaczej maintenance blokuje
+        # auto-deploy (GitHub webhook dostaje 503), czyli tryb włączony właśnie po to,
+        # by spokojnie wdrożyć kod, uniemożliwia jego pobranie. Webhook ma własną
+        # weryfikację podpisu GitHub, więc wyłączenie z maintenance jest bezpieczne.
         path = request.path
         if (path.startswith('/static/') or
+            path.startswith('/deploy/') or
             path in ('/auth/login', '/auth/logout') or
             path.startswith('/auth/callback')):
             return None
