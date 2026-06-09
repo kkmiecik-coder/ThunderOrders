@@ -566,4 +566,17 @@
     syncCrit(j);
   }
 
+  /* ====================================================================== */
+  /* Delete draft form — confirm before submit                               */
+  /* ====================================================================== */
+
+  var deleteContestForm = document.getElementById('deleteContestForm');
+  if (deleteContestForm) {
+    deleteContestForm.addEventListener('submit', function (e) {
+      if (!confirm('Na pewno usunąć ten konkurs? Tej operacji nie można cofnąć.')) {
+        e.preventDefault();
+      }
+    });
+  }
+
 }());

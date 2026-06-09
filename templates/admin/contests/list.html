@@ -32,7 +32,28 @@
                 {% for it in items %}
                 <tr>
                     <td class="ca-table-name">{{ it.c.name }}</td>
-                    <td class="ca-table-prize">{{ it.c.prize_summary or '—' }}</td>
+                    <td class="ca-table-prize">
+                        {% if it.c.prizes %}
+                        <div class="ca-prize-cell">
+                            {% for entry in it.c.prizes %}
+                                {% if entry.is_set %}
+                                <div class="ca-prize-set">
+                                    <div class="ca-prize-set-head">{{ entry.quantity }}× {{ entry.name }}</div>
+                                    {% for item in entry.items %}
+                                    <div class="ca-prize-set-item-row">{{ item.quantity }}× {{ item.product.name if item.product else '—' }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="ca-prize-single">{{ entry.quantity }}× {{ entry.items[0].product.name if entry.items and entry.items[0].product else '—' }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% elif it.c.prize_product %}
+                        {{ it.c.prize_product.name }}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
                     <td>
                         {% if it.c.status == 'aktywny' %}
                             <span class="ca-pill ca-pill--active">Aktywny</span>
@@ -73,7 +94,7 @@
         </table>
         {% else %}
         <div class="ca-empty">
-            <p>Brak konkursów. <a href="{{ url_for('contests.admin_new') }}">Utwórz pierwszy</a>.</p>
+            <p>Brak konkursów.</p>
         </div>
         {% endif %}
     </div>

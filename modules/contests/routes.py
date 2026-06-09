@@ -176,6 +176,20 @@ def admin_edit(cid):
     return render_template('admin/contests/form.html', form=form, contest=c)
 
 
+@contests_bp.route('/admin/konkursy/<int:cid>/usun', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_delete(cid):
+    c = Contest.query.get_or_404(cid)
+    if c.status != 'szkic':
+        flash('Można usuwać tylko konkursy w statusie szkic.', 'error')
+        return redirect(url_for('contests.admin_list'))
+    db.session.delete(c)   # ContestPrize/items cascade via ORM; draft has no spins/winners
+    db.session.commit()
+    flash('Konkurs usunięty.', 'success')
+    return redirect(url_for('contests.admin_list'))
+
+
 @contests_bp.route('/admin/konkursy/<int:cid>/aktywuj', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')

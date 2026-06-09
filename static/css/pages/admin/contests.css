@@ -172,6 +172,38 @@
 
 .ca-activate-form { margin: 0; display: inline; }
 
+/* Prize cell — structured display */
+.ca-prize-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ca-prize-set {
+    border: 1px solid #e8e8f0;
+    border-radius: 8px;
+    background: #faf8fd;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.ca-prize-set-head {
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 3px;
+}
+
+.ca-prize-set-item-row {
+    font-size: 11px;
+    color: #777;
+    padding-left: 8px;
+}
+
+.ca-prize-single {
+    font-size: 13px;
+    color: #555;
+}
+
 /* Empty state */
 .ca-empty {
     text-align: center;
@@ -208,6 +240,31 @@
     display: flex;
     gap: 12px;
     align-items: center;
+    justify-content: flex-end;
+}
+
+.ca-delete-form {
+    display: inline;
+    margin: 0;
+    margin-right: auto;  /* "Usuń" po lewej, Anuluj/Zapisz po prawej */
+}
+
+.ca-btn-delete {
+    padding: 12px 20px;
+    border: 1.5px solid rgba(245, 87, 108, 0.5);
+    border-radius: 12px;
+    background: transparent;
+    color: #e03050;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.ca-btn-delete:hover {
+    background: rgba(245, 87, 108, 0.08);
+    border-color: #f5576c;
+    color: #c0102a;
 }
 
 .ca-btn-submit {
@@ -406,7 +463,9 @@
 .ca-picker-hint {
     font-size: 12px;
     color: #bbb;
-    padding: 10px 12px;
+    padding: 6px 4px;
+    border: none;
+    background: none;
 }
 
 .ca-picker-loading {
@@ -698,8 +757,6 @@
 .ca-modal-results {
     max-height: 280px;
     overflow-y: auto;
-    border: 1px solid #e8e8f0;
-    border-radius: 10px;
     padding: 4px;
 }
 
@@ -1278,6 +1335,23 @@
     color: rgba(255, 255, 255, 0.55);
 }
 
+[data-theme="dark"] .ca-prize-set {
+    border-color: rgba(240, 147, 251, 0.15);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .ca-prize-set-head {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .ca-prize-set-item-row {
+    color: rgba(255, 255, 255, 0.45);
+}
+
+[data-theme="dark"] .ca-prize-single {
+    color: rgba(255, 255, 255, 0.55);
+}
+
 [data-theme="dark"] .ca-mini-btn {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(240, 147, 251, 0.2);
@@ -1391,6 +1465,17 @@
 [data-theme="dark"] .ca-btn-cancel:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #fff;
+}
+
+[data-theme="dark"] .ca-btn-delete {
+    border-color: rgba(245, 87, 108, 0.35);
+    color: rgba(245, 87, 108, 0.85);
+}
+
+[data-theme="dark"] .ca-btn-delete:hover {
+    background: rgba(245, 87, 108, 0.12);
+    border-color: #f5576c;
+    color: #f5576c;
 }
 
 /* Draw stage */
@@ -1538,10 +1623,6 @@
 
 [data-theme="dark"] .ca-modal-search-inp::placeholder {
     color: rgba(255, 255, 255, 0.25);
-}
-
-[data-theme="dark"] .ca-modal-results {
-    border-color: rgba(240, 147, 251, 0.15);
 }
 
 /* Prize selected list (dark) */

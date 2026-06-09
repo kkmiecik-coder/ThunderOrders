@@ -221,17 +221,21 @@
                 </div>
             </div>
 
-            {# ---------------------------------------------------------------- #}
-            {# Actions                                                           #}
-            {# ---------------------------------------------------------------- #}
-            <div class="ca-form-actions">
-                <button type="submit" class="ca-btn-submit">
-                    {% if contest %}Zapisz zmiany{% else %}Utwórz konkurs{% endif %}
-                </button>
-                <a href="{{ url_for('contests.admin_list') }}" class="ca-btn-cancel">Anuluj</a>
-            </div>
-
         </form>
+    </div>
+
+    {# ---------------------------------------------------------------- #}
+    {# Actions — poza formularzem, submit powiązany przez form="contestForm" #}
+    {# ---------------------------------------------------------------- #}
+    <div class="ca-form-actions">
+        {% if contest and contest.status == 'szkic' %}
+        <form method="post" action="{{ url_for('contests.admin_delete', cid=contest.id) }}" id="deleteContestForm" class="ca-delete-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="ca-btn-delete">🗑 Usuń konkurs</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('contests.admin_list') }}" class="ca-btn-cancel">Anuluj</a>
+        <button type="submit" form="contestForm" class="ca-btn-submit">{% if contest %}Zapisz zmiany{% else %}Utwórz konkurs{% endif %}</button>
     </div>
 </div>
 

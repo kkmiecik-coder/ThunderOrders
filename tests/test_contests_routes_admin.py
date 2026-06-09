@@ -238,6 +238,32 @@ def test_prizes_invalid_json_skipped(client, db, make_user, make_product, login)
     assert ContestPrize.query.filter_by(contest_id=c.id).count() == 0
 
 
+def test_delete_draft(client, db, make_user, make_product, login):
+    """DELETE /usun na szkicu usuwa konkurs i przekierowuje na listę."""
+    from modules.contests.models import Contest
+    login(_admin(make_user)); prod = make_product()
+    c = Contest(name='DoUsuniecia', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='szkic')
+    db.session.add(c); db.session.commit()
+    cid = c.id
+    resp = client.post(f'/admin/konkursy/{cid}/usun', follow_redirects=True)
+    assert resp.status_code == 200
+    assert Contest.query.get(cid) is None
+
+
+def test_delete_non_draft_blocked(client, db, make_user, make_product, login):
+    """DELETE /usun na aktywnym konkursie nie usuwa go."""
+    from modules.contests.models import Contest
+    login(_admin(make_user)); prod = make_product()
+    c = Contest(name='Aktywny', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='aktywny')
+    db.session.add(c); db.session.commit()
+    cid = c.id
+    resp = client.post(f'/admin/konkursy/{cid}/usun', follow_redirects=True)
+    assert resp.status_code == 200
+    assert Contest.query.get(cid) is not None  # zablokowane — nie szkic
+
+
 def test_prize_entry_with_no_valid_product_skipped(client, db, make_user, make_product, login):
     """Pozycja z nieistniejącym product_id jest pomijana."""
     import json
