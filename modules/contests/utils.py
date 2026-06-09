@@ -89,6 +89,18 @@ def can_spin(contest, user):
     return True
 
 
+def draw_ticket_count(contest, rng=None):
+    """Losowa liczba losów dla pojedynczego spinu.
+
+    Rozkład SKOŚNY ku ticket_min (wierzchołek trójkąta przy minimum) — niższe
+    wartości są częstsze, wyższe rzadsze. Np. dla 1–500 wartości >400 wypadają
+    kilka %, a nie ~20% jak przy rozkładzie równomiernym. rng wstrzykiwalny dla testów.
+    """
+    rng = rng or _random.SystemRandom()
+    n = int(round(rng.triangular(contest.ticket_min, contest.ticket_max, contest.ticket_min)))
+    return max(contest.ticket_min, min(contest.ticket_max, n))
+
+
 def get_active_contest():
     from modules.contests.models import Contest
     return Contest.query.filter_by(status='aktywny').first()

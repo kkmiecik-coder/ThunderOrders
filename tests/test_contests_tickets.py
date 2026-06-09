@@ -52,3 +52,24 @@ def test_spins_open(db, make_product, make_user):
     assert spins_open(c) is False
     c.ends_at = None; c.status = 'szkic'; db.session.commit()
     assert spins_open(c) is False
+
+
+def test_draw_ticket_count_skewed_low(db, make_product, make_user):
+    """Rozkład skośny ku ticket_min — niższe wartości częstsze, wyższe rzadsze."""
+    import random
+    from modules.contests.models import Contest
+    from modules.contests.utils import draw_ticket_count
+    prod = make_product()
+    c = Contest(name='C', prize_product_id=prod.id, ticket_min=1, ticket_max=500, status='aktywny')
+    db.session.add(c); db.session.commit()
+
+    rng = random.Random(42)
+    vals = [draw_ticket_count(c, rng=rng) for _ in range(2000)]
+    assert all(1 <= v <= 500 for v in vals)                       # w zakresie
+    assert sum(vals) / len(vals) < 220                            # średnia poniżej środka (uniform ~250)
+    assert sum(1 for v in vals if v > 400) / len(vals) < 0.10     # wysokie rzadkie (uniform ~20%)
+
+    # min == max => deterministyczne
+    c2 = Contest(name='C2', prize_product_id=prod.id, ticket_min=7, ticket_max=7, status='aktywny')
+    db.session.add(c2); db.session.commit()
+    assert draw_ticket_count(c2, rng=random.Random(1)) == 7

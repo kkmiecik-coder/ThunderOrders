@@ -282,7 +282,7 @@ def client_spin():
                        next_spin_at=nxt.isoformat() if nxt else None), 200
 
     # TODO: przy większym ruchu rozważyć blokadę DB na podwójny spin w oknie cooldownu (TOCTOU)
-    tickets = random.SystemRandom().randint(c.ticket_min, c.ticket_max)
+    tickets = cu.draw_ticket_count(c)  # rozkład skośny ku ticket_min (wyższe rzadsze)
     db.session.add(ContestSpin(contest_id=c.id, user_id=current_user.id, tickets_won=tickets))
     db.session.commit()
     nxt = cu.get_next_spin_at(c, current_user)
