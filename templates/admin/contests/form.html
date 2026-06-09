@@ -1,0 +1,12 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Konkurs — formularz{% endblock %}
+{% block content %}
+<form method="post">
+  {{ form.hidden_tag() }}
+  {{ form.name() }} {{ form.prize_product_id() }} {{ form.num_winners() }}
+  {{ form.ticket_min() }} {{ form.ticket_max() }} {{ form.cooldown_minutes() }}
+  {{ form.eligibility_min_orders() }} {{ form.eligibility_min_total_value() }}
+  {{ form.eligibility_active_within_days() }} {{ form.ends_at() }}
+  <button type="submit">Zapisz</button>
+</form>
+{% endblock %}

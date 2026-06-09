@@ -1,0 +1,12 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Konkursy{% endblock %}
+{% block content %}
+<h1>Konkursy</h1>
+<a href="{{ url_for('contests.admin_new') }}">Nowy konkurs</a>
+<table>
+  {% for it in items %}
+  <tr><td>{{ it.c.name }}</td><td>{{ it.c.status }}</td>
+      <td>{{ it.participants }}</td><td>{{ it.pool }}</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
