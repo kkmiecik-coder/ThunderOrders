@@ -572,6 +572,9 @@
   .contest-widget__badge-row {
     align-self: center;
     justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
   }
 
   .contest-widget__prize-col {
