@@ -298,9 +298,12 @@ def offers_save(page_id):
             notifications_sent['email'] = len(email_user_ids)
             notifications_sent['push'] = len(push_user_ids)
 
-            # Faktyczna wysyłka w tle
+            # Faktyczna wysyłka w tle. base_url przechwycony tutaj (w request
+            # kontekście), bo w background threadzie url_for(_external=True)
+            # nie ma SERVER_NAME i inaczej rzuca wyjątkiem.
             _dispatch_end_date_change_notifications(
                 app=current_app._get_current_object(),
+                base_url=request.url_root,
                 page_id=page.id,
                 old_ends_at=old_ends_at,
                 new_ends_at=page.ends_at,
@@ -1997,7 +2000,7 @@ def _resolve_end_date_change_recipients(page):
     }
 
 
-def _dispatch_end_date_change_notifications(app, page_id, old_ends_at, new_ends_at,
+def _dispatch_end_date_change_notifications(app, base_url, page_id, old_ends_at, new_ends_at,
                                              email_user_ids, push_user_ids):
     """
     Uruchamia wysyłki w background thread. Każdy kanał ma osłonę try/except,
@@ -2005,6 +2008,9 @@ def _dispatch_end_date_change_notifications(app, page_id, old_ends_at, new_ends_
 
     Args:
         app: Flask app instance (do app_context w threadzie)
+        base_url (str): request.url_root z oryginalnego żądania — używany do
+                        test_request_context, by url_for(_external=True) działał
+                        w threadzie bez skonfigurowanego SERVER_NAME
         page_id (int): ID strony (re-load wewnątrz threadu, bo obiekty SA
                        z głównego requestu mogą być detached)
         old_ends_at: datetime lub None
@@ -2015,7 +2021,10 @@ def _dispatch_end_date_change_notifications(app, page_id, old_ends_at, new_ends_
     import threading
 
     def _run():
-        with app.app_context():
+        # test_request_context dostarcza app context ORAZ kontekst żądania z
+        # podanym base_url — dzięki temu url_for(_external=True) w mailach/push
+        # buduje pełne linki mimo braku SERVER_NAME w configu.
+        with app.test_request_context(base_url=base_url):
             try:
                 from modules.auth.models import User
                 page = OfferPage.query.get(page_id)

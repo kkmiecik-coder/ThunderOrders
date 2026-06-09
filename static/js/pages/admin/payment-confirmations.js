@@ -985,6 +985,15 @@
 
     // Event delegation for OCR info buttons
     document.addEventListener('click', function(e) {
+        // Otwórz lightbox po kliknięciu miniatury dowodu. Delegacja zamiast
+        // inline onclick — odporna na klik przed załadowaniem skryptu (dawniej
+        // dawało ReferenceError: openLightboxFromRow is not defined).
+        var thumb = e.target.closest('.pc-card-thumbnail, .pc-thumbnail-wrapper');
+        if (thumb) {
+            window.openLightboxFromRow(thumb);
+            return;
+        }
+
         var btn = e.target.closest('.ocr-info-btn');
         if (btn) {
             e.preventDefault();
