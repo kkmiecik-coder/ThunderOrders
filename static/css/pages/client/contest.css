@@ -77,6 +77,53 @@
   .contest-widget::after { animation: none; }
 }
 
+/* ---- Floating particles (stała liczba, czysty CSS) ---- */
+.contest-widget__particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.contest-widget > .contest-widget__particles { z-index: 0; }
+
+.contest-widget__particle {
+  position: absolute;
+  bottom: -10px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(240, 147, 251, 0.95), rgba(245, 87, 108, 0) 70%);
+  opacity: 0;
+  animation: cw-particle 13s ease-in-out infinite;
+}
+
+.contest-widget__particle:nth-child(1)  { left: 6%;  animation-delay: 0s;    animation-duration: 14s; }
+.contest-widget__particle:nth-child(2)  { left: 14%; animation-delay: 4s;    animation-duration: 11s; width: 5px; height: 5px; }
+.contest-widget__particle:nth-child(3)  { left: 22%; animation-delay: 8s;    animation-duration: 16s; }
+.contest-widget__particle:nth-child(4)  { left: 30%; animation-delay: 2s;    animation-duration: 12s; width: 9px; height: 9px; }
+.contest-widget__particle:nth-child(5)  { left: 38%; animation-delay: 6s;    animation-duration: 15s; width: 4px; height: 4px; }
+.contest-widget__particle:nth-child(6)  { left: 46%; animation-delay: 1s;    animation-duration: 13s; }
+.contest-widget__particle:nth-child(7)  { left: 54%; animation-delay: 9s;    animation-duration: 17s; width: 6px; height: 6px; }
+.contest-widget__particle:nth-child(8)  { left: 62%; animation-delay: 3s;    animation-duration: 11s; width: 5px; height: 5px; }
+.contest-widget__particle:nth-child(9)  { left: 70%; animation-delay: 7s;    animation-duration: 14s; }
+.contest-widget__particle:nth-child(10) { left: 78%; animation-delay: 5s;    animation-duration: 16s; width: 8px; height: 8px; }
+.contest-widget__particle:nth-child(11) { left: 85%; animation-delay: 10s;   animation-duration: 12s; width: 4px; height: 4px; }
+.contest-widget__particle:nth-child(12) { left: 91%; animation-delay: 2.5s;  animation-duration: 15s; }
+.contest-widget__particle:nth-child(13) { left: 50%; animation-delay: 11s;   animation-duration: 18s; width: 5px; height: 5px; }
+.contest-widget__particle:nth-child(14) { left: 18%; animation-delay: 6.5s;  animation-duration: 13s; width: 6px; height: 6px; }
+
+@keyframes cw-particle {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  12%  { opacity: 0.65; }
+  50%  { transform: translateY(-70px) translateX(14px); opacity: 0.8; }
+  88%  { opacity: 0.4; }
+  100% { transform: translateY(-140px) translateX(-8px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contest-widget__particle { animation: none; opacity: 0.25; }
+}
+
 /* ---- Media region ---- */
 .contest-widget__media {
   flex-shrink: 0;
@@ -186,10 +233,23 @@
 }
 
 .contest-widget__prize-set-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 1px;
+}
+
+.contest-widget__prize-set-item {
   font-size: 11.5px;
   font-weight: 500;
   color: #6b5b80;
-  line-height: 1.35;
+  line-height: 1.4;
+}
+
+.contest-widget__prize-set-item::before {
+  content: "•";
+  margin-right: 5px;
+  opacity: 0.5;
 }
 
 /* Hint */
@@ -244,6 +304,8 @@
 
 /* Spin button */
 .contest-widget__btn {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -261,6 +323,40 @@
   cursor: pointer;
   box-shadow: 0 8px 22px rgba(245, 87, 108, 0.35);
   transition: opacity 0.2s, transform 0.1s;
+}
+
+/* Pętlowy błysk biegnący po obrysie aktywnego przycisku */
+@property --cw-beam {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.contest-widget__btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--cw-beam),
+    transparent 0deg,
+    transparent 60deg,
+    rgba(255, 255, 255, 0.95) 90deg,
+    transparent 120deg,
+    transparent 360deg);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: cw-beam 2.6s linear infinite;
+}
+
+@keyframes cw-beam {
+  to { --cw-beam: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contest-widget__btn::before { animation: none; }
 }
 
 .contest-widget__btn:hover {
@@ -602,7 +698,7 @@
   color: #f093fb;
 }
 
-[data-theme="dark"] .contest-widget__prize-set-items {
+[data-theme="dark"] .contest-widget__prize-set-item {
   color: rgba(255, 255, 255, 0.7);
 }
 

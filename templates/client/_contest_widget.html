@@ -6,6 +6,13 @@
      data-next-spin="{{ contest_widget.next_spin_at or '' }}"
      data-eligible="{{ '1' if contest_widget.eligible else '0' }}">{# data-eligible reserved; eligibility enforced server-side, not read by JS #}
 
+  {# Unoszące się cząsteczki w tle (stała liczba, czysty CSS) #}
+  <div class="contest-widget__particles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span>
+  </div>
+
   {% if contest_widget.contest.image_path %}
   <div class="contest-widget__media">
     <img src="{{ url_for('static', filename=contest_widget.contest.image_path) }}" alt="Konkurs">
@@ -25,7 +32,11 @@
                 <span class="contest-widget__prize-set-head">🎁 {{ entry.quantity }}× {{ entry.name }}</span>
                 {% set set_items = entry.items | selectattr('product') | list %}
                 {% if set_items %}
-                <span class="contest-widget__prize-set-items">{% for it in set_items %}{{ it.quantity }}× {{ it.product.name }}{% if not loop.last %} · {% endif %}{% endfor %}</span>
+                <div class="contest-widget__prize-set-items">
+                  {% for it in set_items %}
+                  <span class="contest-widget__prize-set-item">{{ it.quantity }}× {{ it.product.name }}</span>
+                  {% endfor %}
+                </div>
                 {% endif %}
               </div>
             {% else %}
