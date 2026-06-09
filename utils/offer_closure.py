@@ -697,6 +697,7 @@ def get_page_summary(page_id, include_financials=True):
 
         # Full set product (set_product_id) — dodatkowy wiersz
         full_set_sold = 0
+        full_set_customers = []  # lista kupujących pełny set: [{'name', 'quantity'}]
         if section.set_product_id and section.set_product:
             full_set_qty = db.session.query(
                 db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
@@ -711,6 +712,23 @@ def get_page_summary(page_id, include_financials=True):
             ).scalar()
             full_set_qty = int(full_set_qty)
             full_set_sold = full_set_qty
+
+            # Lista osób, które zakupiły pełny set — per użytkownik z sumą szt.
+            full_set_buyer_rows = db.session.query(
+                User.first_name,
+                User.last_name,
+                User.email,
+                db.func.coalesce(db.func.sum(OrderItem.quantity), 0).label('qty')
+            ).join(Order, OrderItem.order_id == Order.id
+            ).join(User, Order.user_id == User.id
+            ).filter(
+                OrderItem.product_id == section.set_product_id,
+                Order.offer_page_id == page_id,
+                Order.status != 'anulowane',
+            ).group_by(User.id).order_by(db.func.min(OrderItem.id).asc()).all()
+            for fname, lname, email, qty in full_set_buyer_rows:
+                name = f'{fname} {lname}'.strip() if (fname or lname) else email
+                full_set_customers.append({'name': name, 'quantity': int(qty)})
 
             products_in_set.append({
                 'product_id': section.set_product_id,
@@ -760,6 +778,7 @@ def get_page_summary(page_id, include_financials=True):
             'has_limit': max_sets > 0,
             'ordered_sets': ordered_sets,
             'full_set_sold': full_set_sold,
+            'full_set_customers': full_set_customers,
             'total_sets_sold': total_sets_sold,
             'bonus_items_count': bonus_items_count,
             'complete_sets': ordered_sets,
@@ -1093,6 +1112,7 @@ def get_live_summary(page_id, include_financials=True):
                 })
 
         # Full set product (set_product_id) — dodatkowy wiersz
+        full_set_customers = []  # lista kupujących pełny set: [{'name', 'quantity'}]
         if section.set_product_id and section.set_product:
             full_set_qty = db.session.query(
                 db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
@@ -1106,6 +1126,24 @@ def get_live_summary(page_id, include_financials=True):
                 )
             ).scalar()
             full_set_qty = int(full_set_qty)
+
+            # Lista osób, które zakupiły pełny set — per użytkownik z sumą szt.
+            # (bez filtra is_bonus, by suma zgadzała się z full_set_qty wyżej)
+            full_set_buyer_rows = db.session.query(
+                User.first_name,
+                User.last_name,
+                User.email,
+                db.func.coalesce(db.func.sum(OrderItem.quantity), 0).label('qty')
+            ).join(Order, OrderItem.order_id == Order.id
+            ).join(User, Order.user_id == User.id
+            ).filter(
+                OrderItem.product_id == section.set_product_id,
+                Order.offer_page_id == page_id,
+                Order.status != 'anulowane',
+            ).group_by(User.id).order_by(db.func.min(OrderItem.id).asc()).all()
+            for fname, lname, email, qty in full_set_buyer_rows:
+                name = f'{fname} {lname}'.strip() if (fname or lname) else email
+                full_set_customers.append({'name': name, 'quantity': int(qty)})
 
             full_set_reserved = active_reservations_by_product.get(section.set_product_id, 0)
 
@@ -1159,6 +1197,7 @@ def get_live_summary(page_id, include_financials=True):
             'has_limit': max_sets > 0,
             'ordered_sets': ordered_sets,
             'full_set_sold': full_set_sold,
+            'full_set_customers': full_set_customers,
             'total_sets_sold': total_sets_sold,
             'bonus_items_count': bonus_items_count,
             'progress_pct': round((ordered_sets / max_sets) * 100, 1) if max_sets > 0 else 0,

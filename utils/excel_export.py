@@ -722,7 +722,6 @@ def _write_sets_matrix(ws, sets_info, s, start_row):
         if full_set_products:
             fp = full_set_products[0]
             row += 1
-            ws.merge_cells(f'A{row}:B{row}')
             cell = ws.cell(row=row, column=1, value=f"SET: {fp.get('product_name', '')}  —  {fp.get('total_ordered', 0)} szt. sprzedanych")
             cell.font = Font(bold=True, size=10, color=_PURPLE)
             cell.fill = s['fullset_fill']
@@ -730,11 +729,31 @@ def _write_sets_matrix(ws, sets_info, s, start_row):
             row += 1
 
         # Total sets sold summary
-        ws.merge_cells(f'A{row}:B{row}')
         cell = ws.cell(row=row, column=1, value=f"Łącznie setów: {total_sets_sold} ({ordered_sets} kompletnych + {full_set_sold} pojedynczych)")
         cell.font = Font(bold=True, size=10)
         cell.border = s['border']
-        row += 2
+        row += 1
+
+        # Lista osób, które zakupiły pełny set (produkt set_product_id) — jedna osoba na wiersz
+        full_set_customers = set_data.get('full_set_customers', [])
+        if full_set_customers:
+            cell = ws.cell(row=row, column=1, value="Kupili pełny set:")
+            cell.font = Font(bold=True, size=10, color=_PURPLE)
+            cell.alignment = s['left']
+            row += 1
+            for cust in full_set_customers:
+                if isinstance(cust, dict):
+                    name = cust.get('name', '')
+                    qty = cust.get('quantity', 1) or 1
+                else:
+                    name, qty = str(cust), 1
+                label = f"{name} ×{qty}" if qty > 1 else name
+                cell = ws.cell(row=row, column=1, value=label)
+                cell.font = Font(size=9)
+                cell.alignment = s['left']
+                row += 1
+
+        row += 1
 
     max_set_cols = max((sd.get('set_max_sets', 0) for sd in sets_info), default=0)
     return row, max_set_cols
@@ -1117,6 +1136,8 @@ def _offer_stats(page, data=None):
 # openpyxl liczy szerokość w jednostkach znaków: width = (piksele - 5) / 7.
 # (280 - 5) / 7 ≈ 39.29 → ~280px.
 _BULK_COL_A_WIDTH = 39.29
+# Zakładki per oferta (z macierzą setów): szersza kolumna A na nazwiska. (480 - 5) / 7 ≈ 67.86 → ~480px.
+_BULK_OFFER_COL_A_WIDTH = 67.86
 
 
 def _build_bulk_overview_sheet(wb, pages, s, all_data):
@@ -1193,7 +1214,7 @@ def _build_bulk_offer_sheet(ws, page, s, data, summary):
         _write_cell(ws, title2_row, 1, 'WARTOŚCI (PLN / KRW)', s, align='left', bold=True)
         _, n2 = _write_values_matrix(ws, page, s, start_row=title2_row + 1, data=data)
 
-    ws.column_dimensions['A'].width = _BULK_COL_A_WIDTH
+    ws.column_dimensions['A'].width = _BULK_OFFER_COL_A_WIDTH
     for j in range(max(max_set_cols, n1, n2)):
         ws.column_dimensions[get_column_letter(2 + j)].width = 18
 
