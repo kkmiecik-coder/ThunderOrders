@@ -948,6 +948,28 @@ def send_account_deletion_requested_email(user_email, user_name):
     )
 
 
+def send_contest_win_email(user_email, user_name, contest_name, prize_name, url):
+    """
+    Wysyła email do zwycięzcy konkursu.
+
+    Args:
+        user_email (str): Email zwycięzcy
+        user_name (str): Imię zwycięzcy
+        contest_name (str): Nazwa konkursu
+        prize_name (str): Nazwa nagrody
+        url (str): URL do strony konkursu
+    """
+    return send_email(
+        to=user_email,
+        subject=f'Wygrałeś w konkursie {contest_name} - ThunderOrders',
+        template='contest_win',
+        user_name=user_name,
+        contest_name=contest_name,
+        prize_name=prize_name,
+        url=url,
+    )
+
+
 def send_account_deactivated_email(user_email, user_name, reason=''):
     """
     Wysyła email informujący klienta o dezaktywacji konta.

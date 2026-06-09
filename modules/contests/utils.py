@@ -1,3 +1,4 @@
+import logging
 import random as _random
 from datetime import timedelta
 
@@ -5,6 +6,10 @@ from sqlalchemy import func
 
 from extensions import db
 from modules.orders.models import Order, get_local_now
+from flask import url_for
+from utils.email_sender import send_contest_win_email
+
+logger = logging.getLogger(__name__)
 
 
 def _orders_base(user_id):
@@ -155,8 +160,41 @@ def draw_winners(contest, rng=None):
 
 
 def _notify_winner(contest, winner):
-    """Powiadomienie + e-mail. Pełna implementacja w Task 9."""
-    return None
+    """Powiadomienie in-app + e-mail do zwycięzcy. Błąd nigdy nie blokuje losowania."""
+    from modules.notifications.models import Notification
+    from modules.auth.models import User
+    user = db.session.get(User, winner.user_id)
+    prize_name = contest.prize_product.name if contest.prize_product else 'nagroda'
+    try:
+        link = url_for('contests.client_contest', _external=True)
+    except Exception:
+        link = 'https://thunderorders.cloud/konkurs'
+
+    try:
+        db.session.add(Notification(
+            user_id=winner.user_id,
+            title='Wygrałeś w konkursie!',
+            body=f'Twoja nagroda: {prize_name}.',
+            url=link,
+            notification_type='contest_win',
+        ))
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("[_notify_winner] powiadomienie dla user_id=%s nieutworzone: %s: %s",
+                       winner.user_id, type(exc).__name__, exc)
+
+    try:
+        send_contest_win_email(
+            user_email=user.email,
+            user_name=getattr(user, 'first_name', None),
+            contest_name=contest.name,
+            prize_name=prize_name,
+            url=link,
+        )
+    except Exception as exc:
+        logger.warning("[_notify_winner] email do user_id=%s niewyslany: %s: %s",
+                       winner.user_id, type(exc).__name__, exc)
 
 
 def widget_context(contest, user):

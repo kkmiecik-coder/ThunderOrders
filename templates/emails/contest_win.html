@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wygrałeś w konkursie - ThunderOrders</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F5F5; line-height: 1.6;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F5F5F5; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; background-color: #FFFFFF; border-radius: 8px; overflow: hidden;">
+
+                    <!-- Header with logo -->
+                    <tr>
+                        <td align="center" style="padding: 40px 40px 20px 40px;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 40px; width: auto; display: block;" />
+                        </td>
+                    </tr>
+
+                    <!-- Main content -->
+                    <tr>
+                        <td style="padding: 20px 40px;">
+                            <!-- Trophy icon -->
+                            <div style="text-align: center; font-size: 48px; margin: 20px 0;">
+                                🏆
+                            </div>
+
+                            <h1 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #240046; text-align: center;">
+                                Gratulacje — wygrałeś!
+                            </h1>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                {% if user_name %}Cześć <strong>{{ user_name }}</strong>!{% else %}Cześć!{% endif %}
+                            </p>
+
+                            <p style="margin: 0 0 20px 0; font-size: 16px; color: #212121;">
+                                Gratulacje — wygrałeś w konkursie <strong>{{ contest_name }}</strong>!
+                            </p>
+
+                            <!-- Prize box -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 20px 0;">
+                                <tr>
+                                    <td style="background-color: #F5F5F5; padding: 24px; border-radius: 8px; text-align: center;">
+                                        <p style="margin: 0 0 8px 0; font-size: 14px; color: #616161;">Twoja nagroda:</p>
+                                        <p style="margin: 0; font-size: 20px; font-weight: 700; color: #240046;">
+                                            {{ prize_name }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- CTA Button -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ url }}" style="display: inline-block; background: linear-gradient(135deg, #7B2CBF 0%, #240046 100%); color: #FFFFFF; text-decoration: none; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 18px; text-align: center;">
+                                            Zobacz szczegóły
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 10px 0 20px 0; font-size: 14px; color: #616161; text-align: center;">
+                                Lub przejdź bezpośrednio pod adres:<br>
+                                <a href="{{ url }}" style="color: #7B2CBF; text-decoration: underline; font-size: 14px; word-break: break-all;">
+                                    {{ url }}
+                                </a>
+                            </p>
+
+                            <p style="margin: 20px 0 0 0; font-size: 16px; color: #212121;">
+                                Pozdrawiamy,<br>
+                                ThunderOrders
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td style="padding: 30px 40px; background-color: #F5F5F5; border-top: 1px solid #E0E0E0; text-align: center;">
+                            <img src="cid:logo@thunderorders" alt="ThunderOrders" style="height: 32px; width: auto; display: block; margin: 0 auto 12px auto;" />
+                            <p style="margin: 0; font-size: 12px; color: #9E9E9E;">
+                                <a href="https://thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">thunderorders.cloud</a> |
+                                <a href="mailto:noreply@thunderorders.cloud" style="color: #7B2CBF; text-decoration: none;">noreply@thunderorders.cloud</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

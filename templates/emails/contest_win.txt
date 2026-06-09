@@ -1,0 +1,8 @@
+Cześć {{ user_name or '' }}!
+
+Gratulacje — wygrałeś w konkursie {{ contest_name }}!
+Twoja nagroda: {{ prize_name }}.
+Szczegóły: {{ url }}
+
+Pozdrawiamy,
+ThunderOrders
