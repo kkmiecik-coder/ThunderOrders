@@ -36,6 +36,9 @@
         <span class="contest-widget__badge contest-widget__badge--resolved">🏆 ROZSTRZYGNIĘTY</span>
       {% endif %}
     </div>
+    {% if contest_widget.state == 'zamkniete' %}
+    <div class="contest-widget__closed-note">⏳ Przyjmowanie losów zakończone — czekaj na losowanie zwycięzców.</div>
+    {% endif %}
     <h3 class="contest-widget__title">{{ contest_widget.contest.name }}</h3>
     {% if contest_widget.contest.description %}
     <p class="contest-widget__desc">{{ contest_widget.contest.description }}</p>
@@ -98,7 +101,6 @@
         <b>{{ contest_widget.my_tickets }}</b>
         <span>Twoich losów</span>
       </div>
-      <div class="contest-widget__cool contest-widget__cool--closed">⏳ Przyjmowanie losów zakończone — czekaj na losowanie zwycięzców.</div>
 
     {% else %}
       {# ---- STAN ROZSTRZYGNIETE: wyniki i zwycięzcy ---- #}

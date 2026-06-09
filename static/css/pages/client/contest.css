@@ -315,6 +315,14 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* Komunikat o zamknięciu przyjmowania losów (pod badge) */
+.contest-widget__closed-note {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f0b85a;
+}
+
 /* ---- Action panel (right) ---- */
 .contest-widget__action {
   flex-shrink: 0;
@@ -542,6 +550,14 @@
     text-align: center;
     gap: 16px;
     padding: 18px;
+  }
+
+  /* W kolumnie flex-basis stawał się WYSOKOŚCIĄ (200/260px) → puste sekcje.
+     Resetujemy do wysokości treści. */
+  .contest-widget__info,
+  .contest-widget__prize-col,
+  .contest-widget__action {
+    flex: 0 0 auto;
   }
 
   .contest-widget__media {
