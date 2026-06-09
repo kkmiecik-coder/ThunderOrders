@@ -72,3 +72,35 @@ def test_edit_saves_changes(client, db, make_user, make_product, login):
     assert resp.status_code == 200
     db.session.refresh(c)
     assert c.name == 'Nowa' and c.num_winners == 2 and c.ticket_max == 25
+
+
+def test_draw_endpoint(client, db, make_user, make_product, login):
+    from modules.contests.models import Contest, ContestSpin, ContestWinner
+    login(make_user(role='admin')); prod = make_product()
+    c = Contest(name='A', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, status='aktywny')
+    db.session.add(c); db.session.commit()
+    u = make_user()
+    db.session.add(ContestSpin(contest_id=c.id, user_id=u.id, tickets_won=10))
+    db.session.commit()
+    resp = client.post(f'/admin/konkursy/{c.id}/losuj')
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body['success'] is True
+    assert len(body['winners']) == 1
+    assert ContestWinner.query.filter_by(contest_id=c.id).count() == 1
+    db.session.refresh(c); assert c.status == 'rozlosowany'
+
+
+def test_draw_blocked_when_spins_open(client, db, make_user, make_product, login):
+    from datetime import timedelta
+    from modules.auth.models import get_local_now
+    from modules.contests.models import Contest, ContestSpin
+    login(make_user(role='admin')); prod = make_product()
+    c = Contest(name='A', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                status='aktywny', ends_at=get_local_now() + timedelta(hours=1))
+    db.session.add(c); db.session.commit()
+    db.session.add(ContestSpin(contest_id=c.id, user_id=make_user().id, tickets_won=5))
+    db.session.commit()
+    resp = client.post(f'/admin/konkursy/{c.id}/losuj')
+    assert resp.get_json()['success'] is False   # spiny jeszcze otwarte (ends_at w przyszłości)

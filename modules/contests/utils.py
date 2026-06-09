@@ -89,7 +89,7 @@ def get_active_contest():
     return Contest.query.filter_by(status='aktywny').first()
 
 
-def _participants(contest):
+def participants(contest):
     """Lista (user, tickets) z losami > 0 i wciąż spełniających eligibility."""
     from modules.contests.models import ContestSpin
     from modules.auth.models import User
@@ -128,11 +128,11 @@ def draw_winners(contest, rng=None):
             .order_by(ContestWinner.place).all()
 
     rng = rng or _random.SystemRandom()
-    participants = _participants(contest)
-    initial_pool_total = sum(t for _, t in participants)
-    n = min(contest.num_winners, len(participants))
+    pool_participants = participants(contest)
+    initial_pool_total = sum(t for _, t in pool_participants)
+    n = min(contest.num_winners, len(pool_participants))
 
-    remaining = list(participants)
+    remaining = list(pool_participants)
     winners = []
     for place in range(1, n + 1):
         chosen_idx = _weighted_pick(remaining, rng)

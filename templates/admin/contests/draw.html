@@ -1,0 +1,10 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Losowanie — {{ contest.name }}{% endblock %}
+{% block content %}
+<div id="drawRoot" data-contest-id="{{ contest.id }}"
+     data-draw-url="{{ url_for('contests.admin_draw', cid=contest.id) }}">
+  <h1>Losowanie: {{ contest.name }}</h1>
+  <button id="btnDraw">LOSUJ ZWYCIĘZCĘ</button>
+  <div id="drawResult"></div>
+</div>
+{% endblock %}

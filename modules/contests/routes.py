@@ -1,4 +1,4 @@
-from flask import render_template, redirect, url_for, flash, request, abort
+from flask import render_template, redirect, url_for, flash, request, abort, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import func, distinct
 
@@ -8,6 +8,10 @@ from modules.contests import contests_bp
 from modules.contests.models import Contest, ContestSpin, ContestWinner
 from modules.contests.forms import ContestForm
 from modules.contests import utils as cu
+
+
+def _display_name(user):
+    return user.first_name or user.email
 
 
 def _count_participants(contest):
@@ -75,3 +79,52 @@ def admin_activate(cid):
     db.session.commit()
     flash('Konkurs aktywny.', 'success')
     return redirect(url_for('contests.admin_list'))
+
+
+@contests_bp.route('/admin/konkursy/<int:cid>/losowanie')
+@login_required
+@role_required('admin', 'mod')
+def admin_draw_screen(cid):
+    c = Contest.query.get_or_404(cid)
+    return render_template('admin/contests/draw.html', contest=c, pool=cu.get_pool(c))
+
+
+@contests_bp.route('/admin/konkursy/<int:cid>/losuj', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_draw(cid):
+    c = Contest.query.get_or_404(cid)
+    if c.status not in ('aktywny', 'rozlosowany'):
+        return jsonify(success=False, error='Konkurs nie jest aktywny.'), 200
+    # Blokuj losowanie dopóki trwa zaplanowane okno (ends_at w przyszłości).
+    # Gdy ends_at jest None lub minął, admin może losować "na żywo".
+    if c.status == 'aktywny' and c.ends_at is not None and cu.get_local_now() < c.ends_at:
+        return jsonify(success=False,
+                       error='Spiny wciąż otwarte — poczekaj na koniec konkursu (ends_at).'), 200
+
+    winners = cu.draw_winners(c)
+    pool = cu.get_pool(c)
+    # pełne rozbicie puli z procentami — TYLKO dla admina (klient tego nie widzi)
+    breakdown = []
+    for user, tickets in cu.participants(c):
+        breakdown.append({
+            'user_id': user.id,
+            'name': _display_name(user),
+            'tickets': tickets,
+            'pct': round(tickets / pool * 100, 2) if pool else 0,
+        })
+    breakdown.sort(key=lambda x: x['tickets'], reverse=True)
+    return jsonify(success=True, pool=pool, breakdown=breakdown, winners=[{
+        'user_id': w.user_id, 'place': w.place, 'tickets': w.tickets_at_draw,
+        'pct': float(w.chance_pct or 0),
+        'name': _display_name(w.user),
+    } for w in winners])
+
+
+@contests_bp.route('/admin/konkursy/<int:cid>/wyniki')
+@login_required
+@role_required('admin', 'mod')
+def admin_results(cid):
+    c = Contest.query.get_or_404(cid)
+    winners = ContestWinner.query.filter_by(contest_id=cid).order_by(ContestWinner.place).all()
+    return render_template('admin/contests/results.html', contest=c, winners=winners)

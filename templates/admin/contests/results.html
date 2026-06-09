@@ -1,0 +1,10 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Wyniki — {{ contest.name }}{% endblock %}
+{% block content %}
+<h1>Wyniki: {{ contest.name }}</h1>
+<ol>
+  {% for w in winners %}
+  <li>#{{ w.place }} — {{ w.user.first_name or w.user.email }} ({{ w.tickets_at_draw }} losów, {{ w.chance_pct }}%)</li>
+  {% endfor %}
+</ol>
+{% endblock %}
