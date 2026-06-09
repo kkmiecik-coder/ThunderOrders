@@ -356,6 +356,44 @@ class Order(db.Model):
         return remaining if remaining > Decimal('0.00') else Decimal('0.00')
 
     @property
+    def total_to_pay(self):
+        """
+        Pełna kwota do zapłaty przez klienta — suma wszystkich należnych etapów:
+        E1 produkt (total_amount) + E2 wysyłka KR (proxy_shipping_cost, tylko
+        4-etapowe) + E3 cło/VAT (customs_vat_sale_cost, nie dotyczy on_hand) +
+        E4 wysyłka PL (shipping_cost). Mirror logiki etapów z payment_icon_state.
+
+        Uwaga: grand_total/remaining_amount obejmują tylko E1+E4 — ta właściwość
+        jest ich pełnym (wszystkie etapy) odpowiednikiem.
+        """
+        from decimal import Decimal
+        total = Decimal(str(self.total_amount)) if self.total_amount else Decimal('0.00')  # E1
+        # E2: wysyłka z Korei — tylko zamówienia 4-etapowe
+        if self.payment_stages == 4 and self.proxy_shipping_cost:
+            total += Decimal(str(self.proxy_shipping_cost))
+        # E3: cło/VAT — nie dotyczy on_hand
+        if self.order_type != 'on_hand' and self.customs_vat_sale_cost:
+            total += Decimal(str(self.customs_vat_sale_cost))
+        # E4: wysyłka lokalna PL — zawsze
+        if self.shipping_cost:
+            total += Decimal(str(self.shipping_cost))
+        return total
+
+    @property
+    def remaining_to_pay(self):
+        """
+        Pozostało do zapłaty łącznie ze wszystkich etapów: total_to_pay − paid_amount,
+        podłoga 0 (nadpłata nie generuje wartości ujemnej).
+
+        paid_amount akumuluje sumę WSZYSTKICH zatwierdzonych etapów (E1–E4),
+        więc odejmujemy ją od pełnej należności total_to_pay.
+        """
+        from decimal import Decimal
+        paid = Decimal(str(self.paid_amount)) if self.paid_amount else Decimal('0.00')
+        remaining = self.total_to_pay - paid
+        return remaining if remaining > Decimal('0.00') else Decimal('0.00')
+
+    @property
     def delivery_method_display(self):
         """Returns human-readable delivery method name"""
         methods = {

@@ -109,13 +109,22 @@ def dashboard():
         sql_func.coalesce(sql_func.sum(Order.paid_amount), 0)
     ).filter_by(user_id=current_user.id).scalar() or Decimal('0.00')
 
+    # Pełna należność klienta obejmuje wszystkie etapy płatności:
+    # E1 produkt + E2 wysyłka KR + E3 cło/VAT + E4 wysyłka PL (patrz Order.total_to_pay).
+    # Filtr DB to bezpieczny nadzbiór (suma kolumn bez warunków etapowych ≥ total_to_pay),
+    # a precyzyjne „pozostało" liczy remaining_to_pay w Pythonie.
     to_pay_orders = Order.query.filter_by(user_id=current_user.id).filter(
-        Order.total_amount > Order.paid_amount
+        Order.paid_amount < (
+            Order.total_amount
+            + Order.shipping_cost
+            + sql_func.coalesce(Order.proxy_shipping_cost, 0)
+            + sql_func.coalesce(Order.customs_vat_sale_cost, 0)
+        )
     ).all()
     # Exclusive orders are not payable until the offer page is fully closed —
     # exclude them so the widget doesn't show amounts the client can't yet pay.
     to_pay_total = sum(
-        (o.total_amount - o.paid_amount)
+        o.remaining_to_pay
         for o in to_pay_orders
         if not (o.order_type == 'exclusive' and o.offer_page and not o.offer_page.is_fully_closed)
     )
