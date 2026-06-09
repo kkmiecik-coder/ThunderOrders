@@ -274,7 +274,7 @@
             S.drawn = data.tickets_won;
             /* Ustaw cel — val(S.targetK) zwróci S.drawn dla dowolnej liczby */
             S.targetK = targetSlot();
-            S.brake = { from: S.p, to: S.targetK, dur: 3800, t0: performance.now() };
+            S.brake = { from: S.p, to: S.targetK, dur: 7600, t0: performance.now() };
             S.state = 'braking';
             S.last = null;
             /* pętla rAF wciąż działa (była 'spinning') — przejdzie w 'braking' */
