@@ -11,7 +11,8 @@
     <a href="{{ url_for('contests.admin_list') }}" class="ca-draw-back">← Powrót do listy</a>
 
     <div id="drawRoot"
-         data-draw-url="{{ url_for('contests.admin_draw', cid=contest.id) }}">
+         data-draw-url="{{ url_for('contests.admin_draw', cid=contest.id) }}"
+         data-participants='{{ participant_names | tojson }}'>
 
         <div class="ca-stage">
             <div class="ca-stage-title">{{ contest.name }}</div>

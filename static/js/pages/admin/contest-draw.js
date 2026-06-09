@@ -287,6 +287,13 @@
 
     if (!btnDraw || !reelEl) return;
 
+    // Nazwy uczestników przekazane z serwera — bęben pokazuje je od razu
+    try {
+      DR.names = JSON.parse(root.dataset.participants || '[]');
+    } catch (e) {
+      DR.names = [];
+    }
+
     // Build reel DOM pool
     for (var n = 0; n < POOL_SIZE; n++) {
       var d = document.createElement('div');

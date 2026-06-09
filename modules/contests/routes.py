@@ -210,7 +210,10 @@ def admin_activate(cid):
 @role_required('admin', 'mod')
 def admin_draw_screen(cid):
     c = Contest.query.get_or_404(cid)
-    return render_template('admin/contests/draw.html', contest=c, pool=cu.get_pool(c))
+    # Nazwy uczestników do pokazania w bębnie od razu (przed losowaniem)
+    participant_names = [_display_name(u) for u, _ in cu.participants(c)]
+    return render_template('admin/contests/draw.html', contest=c, pool=cu.get_pool(c),
+                           participant_names=participant_names)
 
 
 @contests_bp.route('/admin/konkursy/<int:cid>/losuj', methods=['POST'])
