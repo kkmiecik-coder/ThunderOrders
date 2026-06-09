@@ -1,12 +1,244 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}Konkurs — formularz{% endblock %}
+
+{% block title %}{% if contest %}Edycja: {{ contest.name }}{% else %}Nowy konkurs{% endif %}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/contests.css') }}">
+{% endblock %}
+
 {% block content %}
-<form method="post">
-  {{ form.hidden_tag() }}
-  {{ form.name() }} {{ form.prize_product_id() }} {{ form.num_winners() }}
-  {{ form.ticket_min() }} {{ form.ticket_max() }} {{ form.cooldown_minutes() }}
-  {{ form.eligibility_min_orders() }} {{ form.eligibility_min_total_value() }}
-  {{ form.eligibility_active_within_days() }} {{ form.ends_at() }}
-  <button type="submit">Zapisz</button>
-</form>
+<div class="ca-form-wrap">
+    <h1 class="ca-form-title">
+        {% if contest %}Edycja konkursu{% else %}Nowy konkurs{% endif %}
+    </h1>
+
+    <div class="ca-form-card">
+        <form method="post" id="contestForm" novalidate>
+            {{ form.hidden_tag() }}
+
+            {# ---------------------------------------------------------------- #}
+            {# Nazwa                                                             #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                {{ form.name.label(class="ca-label") }}
+                {{ form.name(class="ca-input", placeholder="np. Wygraj klawiaturę Keychron Q1") }}
+                {% if form.name.errors %}
+                <ul class="ca-field-errors">
+                    {% for e in form.name.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Nagroda — product picker                                          #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                <label class="ca-label">Nagroda — produkt z magazynu</label>
+                <div class="ca-picker">
+                    <div class="ca-picker-search">
+                        <span class="ca-picker-search-icon">🔍</span>
+                        <input type="text"
+                               id="prizeSearch"
+                               class="ca-picker-input"
+                               placeholder="Szukaj produktu po nazwie lub SKU…"
+                               autocomplete="off"
+                               value="{{ contest.prize_product.name if contest and contest.prize_product else '' }}">
+                    </div>
+                    <div id="prizeResults" class="ca-picker-results">
+                        {% if contest and contest.prize_product %}
+                        <div class="ca-picker-result ca-picker-result--selected"
+                             data-id="{{ contest.prize_product.id }}"
+                             data-name="{{ contest.prize_product.name }}">
+                            <div class="ca-picker-thumb-placeholder">📦</div>
+                            <div>
+                                <div class="ca-picker-meta">{{ contest.prize_product.name }}</div>
+                                <div class="ca-picker-meta-sub">Aktualnie wybrano</div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="ca-picker-hint">Wpisz co najmniej 2 znaki, by wyszukać produkt.</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {# Visually hidden — value set by JS; WTForms renders name="prize_product_id" #}
+                {{ form.prize_product_id(id="prizeProductId", style="display:none") }}
+                {% if form.prize_product_id.errors %}
+                <ul class="ca-field-errors">
+                    {% for e in form.prize_product_id.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Zwycięzcy + zakres losów                                          #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row-two">
+                <div>
+                    {{ form.num_winners.label(class="ca-label") }}
+                    {{ form.num_winners(class="ca-input", style="width:120px", min="1") }}
+                    {% if form.num_winners.errors %}
+                    <ul class="ca-field-errors">
+                        {% for e in form.num_winners.errors %}<li>{{ e }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                <div>
+                    <label class="ca-label">Zakres losowanych losów (min – max)</label>
+                    <div class="ca-input-range">
+                        {{ form.ticket_min(class="ca-input ca-input--sm", min="1", placeholder="min") }}
+                        <span class="ca-input-dash">–</span>
+                        {{ form.ticket_max(class="ca-input ca-input--sm", min="1", placeholder="max") }}
+                    </div>
+                    {% if form.ticket_min.errors or form.ticket_max.errors %}
+                    <ul class="ca-field-errors">
+                        {% for e in form.ticket_min.errors %}<li>{{ e }}</li>{% endfor %}
+                        {% for e in form.ticket_max.errors %}<li>{{ e }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Cooldown + koniec                                                 #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row-two">
+                <div>
+                    {{ form.cooldown_minutes.label(class="ca-label") }}
+                    <div class="ca-input-unit">
+                        {{ form.cooldown_minutes(class="ca-input", style="width:130px", min="1") }}
+                        <span class="ca-input-unit-sfx">minut (1440 = 24h)</span>
+                    </div>
+                    {% if form.cooldown_minutes.errors %}
+                    <ul class="ca-field-errors">
+                        {% for e in form.cooldown_minutes.errors %}<li>{{ e }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                <div>
+                    {{ form.ends_at.label(class="ca-label") }}
+                    <div class="ca-input-date-row">
+                        <span class="ca-input-date-icon">📅</span>
+                        {{ form.ends_at(class="ca-input") }}
+                    </div>
+                    {% if form.ends_at.errors %}
+                    <ul class="ca-field-errors">
+                        {% for e in form.ends_at.errors %}<li>{{ e }}</li>{% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Kryteria udziału                                                  #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                <label class="ca-label">Kryteria udziału — łączne (zaznaczone muszą być spełnione)</label>
+                <div class="ca-crit">
+
+                    {# Kryterium 1: min. zamówień #}
+                    <div class="ca-crow" data-crit-row
+                         tabindex="0" role="checkbox"
+                         aria-checked="{{ 'true' if form.eligibility_min_orders.data else 'false' }}"
+                         aria-label="Min. liczba zamówień">
+                        <span class="ca-cbox {% if form.eligibility_min_orders.data %}ca-cbox--on{% endif %}"
+                              id="critBox0">
+                            {% if form.eligibility_min_orders.data %}✓{% endif %}
+                        </span>
+                        <span class="ca-ctext {% if not form.eligibility_min_orders.data %}ca-ctext--off{% endif %}"
+                              id="critText0">
+                            Min. liczba zamówień
+                        </span>
+                        {{ form.eligibility_min_orders(
+                              id="critInp0",
+                              class="ca-cinp" + (" ca-cinp--disabled" if not form.eligibility_min_orders.data else ""),
+                              placeholder="—",
+                              **{"data-crit-toggle": "0"}) }}
+                    </div>
+
+                    {# Kryterium 2: min. wartość #}
+                    <div class="ca-crow" data-crit-row
+                         tabindex="0" role="checkbox"
+                         aria-checked="{{ 'true' if form.eligibility_min_total_value.data else 'false' }}"
+                         aria-label="Min. łączna wartość zamówień (zł)">
+                        <span class="ca-cbox {% if form.eligibility_min_total_value.data %}ca-cbox--on{% endif %}"
+                              id="critBox1">
+                            {% if form.eligibility_min_total_value.data %}✓{% endif %}
+                        </span>
+                        <span class="ca-ctext {% if not form.eligibility_min_total_value.data %}ca-ctext--off{% endif %}"
+                              id="critText1">
+                            Min. łączna wartość zamówień (zł)
+                        </span>
+                        {{ form.eligibility_min_total_value(
+                              id="critInp1",
+                              class="ca-cinp" + (" ca-cinp--disabled" if not form.eligibility_min_total_value.data else ""),
+                              placeholder="—",
+                              **{"data-crit-toggle": "1"}) }}
+                    </div>
+
+                    {# Kryterium 3: aktywny w dniach #}
+                    <div class="ca-crow" data-crit-row
+                         tabindex="0" role="checkbox"
+                         aria-checked="{{ 'true' if form.eligibility_active_within_days.data else 'false' }}"
+                         aria-label="Aktywny w ostatnich … dniach">
+                        <span class="ca-cbox {% if form.eligibility_active_within_days.data %}ca-cbox--on{% endif %}"
+                              id="critBox2">
+                            {% if form.eligibility_active_within_days.data %}✓{% endif %}
+                        </span>
+                        <span class="ca-ctext {% if not form.eligibility_active_within_days.data %}ca-ctext--off{% endif %}"
+                              id="critText2">
+                            Aktywny w ostatnich … dniach
+                        </span>
+                        {{ form.eligibility_active_within_days(
+                              id="critInp2",
+                              class="ca-cinp" + (" ca-cinp--disabled" if not form.eligibility_active_within_days.data else ""),
+                              placeholder="—",
+                              **{"data-crit-toggle": "2"}) }}
+                    </div>
+
+                </div>
+                <div class="ca-crit-hint">
+                    Nic nie zaznaczone = każdy zalogowany klient może brać udział.
+                </div>
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Opis + grafika                                                    #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-row">
+                {{ form.description.label(class="ca-label") }}
+                {{ form.description(class="ca-input", rows="3", placeholder="Opcjonalny opis nagrody…") }}
+                {% if form.description.errors %}
+                <ul class="ca-field-errors">
+                    {% for e in form.description.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+
+            <div class="ca-row">
+                {{ form.image_path.label(class="ca-label") }}
+                {{ form.image_path(class="ca-input", placeholder="URL do grafiki (opcjonalnie)") }}
+                {% if form.image_path.errors %}
+                <ul class="ca-field-errors">
+                    {% for e in form.image_path.errors %}<li>{{ e }}</li>{% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+
+            {# ---------------------------------------------------------------- #}
+            {# Actions                                                           #}
+            {# ---------------------------------------------------------------- #}
+            <div class="ca-form-actions">
+                <button type="submit" class="ca-btn-submit">
+                    {% if contest %}Zapisz zmiany{% else %}Utwórz konkurs{% endif %}
+                </button>
+                <a href="{{ url_for('contests.admin_list') }}" class="ca-btn-cancel">Anuluj</a>
+            </div>
+
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/contest-form.js') }}"></script>
 {% endblock %}

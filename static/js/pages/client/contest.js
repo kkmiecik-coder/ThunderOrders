@@ -3,6 +3,7 @@
  * Handles the spin button, the vertical carousel modal, and the cooldown countdown.
  * Vanilla JS, no inline scripts required in HTML.
  */
+// TODO: reel/carousel physics (val/renderReel/targetSlot/frame) jest zduplikowany z static/js/pages/admin/contest-draw.js — do wyciągnięcia do static/js/components/contest-reel.js w osobnym follow-upie. Zmiany trzymać zsynchronizowane.
 (function () {
   'use strict';
 

@@ -1,10 +1,46 @@
 {% extends "admin/base_admin.html" %}
+
 {% block title %}Wyniki — {{ contest.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/contests.css') }}">
+{% endblock %}
+
 {% block content %}
-<h1>Wyniki: {{ contest.name }}</h1>
-<ol>
-  {% for w in winners %}
-  <li>#{{ w.place }} — {{ w.user.first_name or w.user.email }} ({{ w.tickets_at_draw }} losów, {{ w.chance_pct }}%)</li>
-  {% endfor %}
-</ol>
+<div class="ca-results-wrap">
+    <div class="ca-results-header">
+        <h1 class="ca-results-title">{{ contest.name }}</h1>
+        <p class="ca-results-prize">
+            Nagroda:
+            {% if contest.prize_product %}
+                {{ contest.prize_product.name }}
+            {% else %}
+                —
+            {% endif %}
+        </p>
+    </div>
+
+    {% if winners %}
+    <div class="ca-results-list">
+        {% for w in winners %}
+        <div class="ca-result-row">
+            <div class="ca-result-place {% if w.place == 2 %}ca-result-place--2nd{% elif w.place == 3 %}ca-result-place--3rd{% endif %}">
+                {{ w.place }}
+            </div>
+            <div class="ca-result-name">
+                {{ w.user.first_name or w.user.email }}
+            </div>
+            <div class="ca-result-detail">
+                {{ w.tickets_at_draw }} losów
+                {% if w.chance_pct is not none %} • {{ w.chance_pct }}%{% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="ca-empty">Brak wylosowanych zwycięzców.</p>
+    {% endif %}
+
+    <a href="{{ url_for('contests.admin_list') }}" class="ca-results-back">← Powrót do listy</a>
+</div>
 {% endblock %}

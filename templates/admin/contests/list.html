@@ -1,12 +1,88 @@
 {% extends "admin/base_admin.html" %}
+
 {% block title %}Konkursy{% endblock %}
-{% block content %}
-<h1>Konkursy</h1>
-<a href="{{ url_for('contests.admin_new') }}">Nowy konkurs</a>
-<table>
-  {% for it in items %}
-  <tr><td>{{ it.c.name }}</td><td>{{ it.c.status }}</td>
-      <td>{{ it.participants }}</td><td>{{ it.pool }}</td></tr>
-  {% endfor %}
-</table>
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/contests.css') }}">
 {% endblock %}
+
+{% block content %}
+<div class="ca-list-page">
+    <div class="ca-list-header">
+        <h1 class="ca-list-title">Konkursy</h1>
+        <a href="{{ url_for('contests.admin_new') }}" class="ca-btn-new">
+            ＋ Nowy konkurs
+        </a>
+    </div>
+
+    <div class="ca-table-wrap">
+        {% if items %}
+        <table class="ca-table">
+            <thead>
+                <tr>
+                    <th>Konkurs</th>
+                    <th>Nagroda</th>
+                    <th>Status</th>
+                    <th>Uczestnicy</th>
+                    <th>Pula losów</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in items %}
+                <tr>
+                    <td class="ca-table-name">{{ it.c.name }}</td>
+                    <td class="ca-table-prize">
+                        {% if it.c.prize_product %}
+                            {{ it.c.prize_product.name }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if it.c.status == 'aktywny' %}
+                            <span class="ca-pill ca-pill--active">Aktywny</span>
+                        {% elif it.c.status == 'szkic' %}
+                            <span class="ca-pill ca-pill--draft">Szkic</span>
+                        {% else %}
+                            <span class="ca-pill ca-pill--done">Rozlosowany</span>
+                        {% endif %}
+                    </td>
+                    <td class="ca-table-num">
+                        {% if it.participants %}{{ it.participants }}{% else %}—{% endif %}
+                    </td>
+                    <td class="ca-table-num">
+                        {% if it.pool %}{{ it.pool }}{% else %}—{% endif %}
+                    </td>
+                    <td>
+                        <div class="ca-table-actions">
+                            {% if it.c.status == 'aktywny' %}
+                                <a href="{{ url_for('contests.admin_draw_screen', cid=it.c.id) }}"
+                                   class="ca-mini-btn ca-mini-btn--primary">🎰 Losowanie</a>
+                            {% elif it.c.status == 'szkic' %}
+                                <form action="{{ url_for('contests.admin_activate', cid=it.c.id) }}"
+                                      method="post" class="ca-activate-form">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="ca-mini-btn ca-mini-btn--primary">▶ Aktywuj</button>
+                                </form>
+                            {% elif it.c.status == 'rozlosowany' %}
+                                <a href="{{ url_for('contests.admin_results', cid=it.c.id) }}"
+                                   class="ca-mini-btn ca-mini-btn--primary">🏆 Wyniki</a>
+                            {% endif %}
+                            <a href="{{ url_for('contests.admin_edit', cid=it.c.id) }}"
+                               class="ca-mini-btn">✏️ Edytuj</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="ca-empty">
+            <p>Brak konkursów. <a href="{{ url_for('contests.admin_new') }}">Utwórz pierwszy</a>.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

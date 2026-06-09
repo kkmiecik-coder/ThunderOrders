@@ -1,10 +1,60 @@
 {% extends "admin/base_admin.html" %}
+
 {% block title %}Losowanie — {{ contest.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/contests.css') }}">
+{% endblock %}
+
 {% block content %}
-<div id="drawRoot" data-contest-id="{{ contest.id }}"
-     data-draw-url="{{ url_for('contests.admin_draw', cid=contest.id) }}">
-  <h1>Losowanie: {{ contest.name }}</h1>
-  <button id="btnDraw">LOSUJ ZWYCIĘZCĘ</button>
-  <div id="drawResult"></div>
+<div class="ca-draw-wrap">
+    <a href="{{ url_for('contests.admin_list') }}" class="ca-draw-back">← Powrót do listy</a>
+
+    <div id="drawRoot"
+         data-draw-url="{{ url_for('contests.admin_draw', cid=contest.id) }}">
+
+        <div class="ca-stage">
+            <div class="ca-stage-title">{{ contest.name }}</div>
+
+            {# Stats row — pool from server context; rest filled/updated by JS after draw #}
+            <div class="ca-stats">
+                <div class="ca-stat">
+                    <div class="ca-stat-n" id="statParticipants">—</div>
+                    <div class="ca-stat-l">Uczestnicy</div>
+                </div>
+                <div class="ca-stat">
+                    <div class="ca-stat-n" id="statPool">{{ pool }}</div>
+                    <div class="ca-stat-l">Pula losów</div>
+                </div>
+                <div class="ca-stat">
+                    <div class="ca-stat-n">{{ contest.num_winners }}</div>
+                    <div class="ca-stat-l">Zwycięzców</div>
+                </div>
+            </div>
+
+            {# Reel window #}
+            <div class="ca-reel-wrap">
+                <div class="ca-reel-marker"></div>
+                <div class="ca-reel-inner" id="drawReel"></div>
+            </div>
+
+            {# Winners area — cards appear here after animation #}
+            <div class="ca-winners-area" id="winnersArea"></div>
+
+            {# Draw button #}
+            <button class="ca-btn-draw" id="btnDraw">🎲 LOSUJ ZWYCIĘZCĘ</button>
+
+            {# Pool breakdown — hidden until after draw #}
+            <div id="poolBreakdown" class="ca-bars" style="display:none">
+                <div class="ca-bars-title">Rozkład puli (admin)</div>
+                <div id="breakdownBars"></div>
+            </div>
+        </div>
+
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/contest-draw.js') }}"></script>
 {% endblock %}
