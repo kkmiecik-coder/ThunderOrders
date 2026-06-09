@@ -3821,3 +3821,214 @@
     border-color: #f093fb;
     box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2);
 }
+
+
+/* === Contest spinner modal === */
+/* Prefix: .contest-spin-  (wszystkie style tego modalu, light + dark) */
+
+.contest-spin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 6, 12, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  padding: 20px;
+}
+
+.contest-spin-overlay--active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.contest-spin-overlay--closing {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.contest-spin-modal {
+  width: 380px;
+  max-width: 100%;
+  border-radius: 20px;
+  padding: 24px;
+  text-align: center;
+
+  /* Light mode */
+  background: #ffffff;
+  border: 1px solid rgba(240, 147, 251, 0.30);
+  color: #1d1d28;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.20);
+}
+
+.contest-spin-modal h3 {
+  margin: 0 0 2px;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.contest-spin-sub {
+  font-size: 13px;
+  opacity: 0.6;
+  margin-bottom: 18px;
+}
+
+/* Reel container */
+.contest-reel-wrap {
+  position: relative;
+  height: 252px;
+  margin: 0 auto 6px;
+  width: 170px;
+  border-radius: 16px;
+  overflow: hidden;
+
+  /* Always dark — the reel experience */
+  background: linear-gradient(#0c0a11, #171221, #0c0a11);
+  border: 1px solid rgba(240, 147, 251, 0.22);
+}
+
+.contest-reel-wrap::before,
+.contest-reel-wrap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 84px;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.contest-reel-wrap::before {
+  top: 0;
+  background: linear-gradient(#0c0a11, transparent);
+}
+
+.contest-reel-wrap::after {
+  bottom: 0;
+  background: linear-gradient(transparent, #0c0a11);
+}
+
+.contest-marker {
+  position: absolute;
+  top: 84px;
+  left: 0;
+  right: 0;
+  height: 84px;
+  z-index: 2;
+  pointer-events: none;
+  border-top: 2px solid rgba(240, 147, 251, 0.55);
+  border-bottom: 2px solid rgba(240, 147, 251, 0.55);
+  background: radial-gradient(120% 100% at 50% 50%, rgba(240, 147, 251, 0.12), transparent 70%);
+}
+
+.contest-reel {
+  position: absolute;
+  inset: 0;
+}
+
+.contest-num {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 46px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.82);
+  font-variant-numeric: tabular-nums;
+  will-change: transform;
+}
+
+.contest-num--hot {
+  color: #fff;
+  text-shadow: 0 0 18px rgba(240, 147, 251, 0.6);
+}
+
+/* Buttons */
+.contest-spin-ctrl {
+  margin-top: 16px;
+}
+
+.contest-spin-btn {
+  width: 100%;
+  padding: 14px;
+  border: 0;
+  border-radius: 13px;
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: 0.05em;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  box-shadow: 0 10px 26px rgba(245, 87, 108, 0.4);
+  transition: opacity 0.2s;
+}
+
+.contest-spin-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.contest-spin-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.contest-spin-btn--loading {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  opacity: 0.6;
+}
+
+.contest-stop-btn {
+  background: #241b30;
+  border: 1px solid rgba(240, 147, 251, 0.3);
+  box-shadow: none;
+}
+
+/* Result */
+.contest-spin-result {
+  margin-top: 14px;
+  font-size: 14px;
+  min-height: 22px;
+  opacity: 0;
+  transition: opacity 0.4s;
+  color: #1d1d28;
+}
+
+.contest-spin-result--show {
+  opacity: 1;
+}
+
+.contest-spin-result b {
+  color: #e35ec6;
+  font-size: 17px;
+}
+
+/* Hint */
+.contest-spin-hint {
+  margin-top: 10px;
+  font-size: 11px;
+  opacity: 0.45;
+}
+
+/* === Contest spinner modal — Dark mode === */
+[data-theme="dark"] .contest-spin-modal {
+  background: #16121d;
+  border: 1px solid rgba(240, 147, 251, 0.22);
+  color: #fff;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+
+[data-theme="dark"] .contest-spin-result {
+  color: #fff;
+}
+
+[data-theme="dark"] .contest-spin-result b {
+  color: #f6a6ec;
+}

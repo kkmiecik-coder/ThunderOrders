@@ -204,6 +204,10 @@ def dashboard():
         'has_closed': has_closed,
     }
 
+    from modules.contests import utils as contest_utils
+    _active_contest = contest_utils.get_active_contest()
+    contest_widget = contest_utils.widget_context(_active_contest, current_user) if _active_contest else None
+
     return render_template(
         'client/dashboard.html',
         title='Panel Klienta',
@@ -220,7 +224,8 @@ def dashboard():
         recent_orders=recent_orders,
         chart_data=chart_data,
         offer_pages=offer_pages,
-        show_tour=not current_user.has_seen_tour
+        show_tour=not current_user.has_seen_tour,
+        contest_widget=contest_widget,
     )
 
 

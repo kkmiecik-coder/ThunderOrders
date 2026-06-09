@@ -1,10 +1,73 @@
 {% extends "client/base_client.html" %}
+
 {% block title %}Konkurs - ThunderOrders{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/contest.css') }}">
+{% endblock %}
+
 {% block content %}
-{% if contest %}
-  <h1>{{ contest.name }}</h1>
-  <p>Twoich losów: <b id="myTickets">{{ ctx.my_tickets }}</b></p>
-{% else %}
-  <p>Aktualnie brak aktywnego konkursu.</p>
-{% endif %}
+<div class="contest-page">
+  {% if contest and ctx %}
+    {# Hero card #}
+    <div class="contest-page__hero"
+         id="contestPage"
+         data-spin-url="{{ url_for('contests.client_spin') }}"
+         data-can-spin="{{ '1' if ctx.can_spin else '0' }}"
+         data-next-spin="{{ ctx.next_spin_at or '' }}"
+         data-eligible="{{ '1' if ctx.eligible else '0' }}">{# data-eligible reserved; eligibility enforced server-side, not read by JS #}
+
+      {% if contest.image_path %}
+        <img src="{{ url_for('static', filename=contest.image_path) }}"
+             alt="{{ contest.name }}"
+             class="contest-page__image">
+      {% endif %}
+
+      <span class="contest-page__badge">🎰 KONKURS TRWA</span>
+      <h1 class="contest-page__name">{{ contest.name }}</h1>
+
+      {% if contest.description %}
+        <p class="contest-page__desc">{{ contest.description }}</p>
+      {% endif %}
+
+      {% if contest.ends_at %}
+        <div class="contest-page__ends">Trwa do: {{ contest.ends_at.strftime('%d.%m.%Y %H:%M') }}</div>
+      {% endif %}
+    </div>
+
+    {# Spinbox card #}
+    <div class="contest-page__spinbox">
+      <div class="contest-page__tickets-label">Twoje losy</div>
+      <div class="contest-page__tickets-num" id="myTickets">{{ ctx.my_tickets }}</div>
+      <div class="contest-page__tickets-sub">zebranych losów</div>
+
+      {% if not ctx.eligible %}
+        <div class="contest-page__ineligible">
+          Nie spełniasz warunków udziału w tym konkursie.
+        </div>
+      {% else %}
+        <button class="contest-page__spin-btn" id="pageSpinBtn"
+                {{ 'hidden' if not ctx.can_spin else '' }}>🎲 LOSUJ</button>
+        <div class="contest-page__cooldown" id="pageCooldown"
+             {{ 'hidden' if ctx.can_spin else '' }}>
+          ⏳ Następny los za <span id="pageClock">--:--:--</span>
+        </div>
+      {% endif %}
+
+      <div class="contest-page__hint">Pula i szanse na wygraną ujawnią się przy losowaniu 🤫</div>
+    </div>
+
+  {% else %}
+    {# Empty state — no active contest #}
+    <div class="contest-page__empty">
+      <div class="contest-page__empty-icon">🎰</div>
+      <p class="contest-page__empty-text">Brak aktywnego konkursu</p>
+      <p class="contest-page__empty-sub">Wróć wkrótce — nowe losowania pojawiają się regularnie!</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/client/contest.js') }}"></script>
 {% endblock %}

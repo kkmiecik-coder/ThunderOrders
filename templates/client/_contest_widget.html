@@ -1,0 +1,25 @@
+{% if contest_widget %}
+<div class="contest-widget" id="contestWidget"
+     data-spin-url="{{ url_for('contests.client_spin') }}"
+     data-contest-url="{{ url_for('contests.client_contest') }}"
+     data-can-spin="{{ '1' if contest_widget.can_spin else '0' }}"
+     data-next-spin="{{ contest_widget.next_spin_at or '' }}"
+     data-eligible="{{ '1' if contest_widget.eligible else '0' }}">{# data-eligible reserved; eligibility enforced server-side, not read by JS #}
+  <span class="contest-widget__badge">🎰 KONKURS TRWA</span>
+  <h3 class="contest-widget__title">{{ contest_widget.contest.name }}</h3>
+  <div class="contest-widget__sub">Nagroda • {{ contest_widget.contest.num_winners }} zwycięzca(ów)</div>
+  <div class="contest-widget__tickets">
+    <b id="widgetTickets">{{ contest_widget.my_tickets }}</b>
+    <span>Twoich losów</span>
+  </div>
+  {% if not contest_widget.eligible %}
+    <div class="contest-widget__cool">Nie spełniasz warunków udziału</div>
+  {% else %}
+    <button class="contest-widget__btn" id="widgetSpinBtn"
+            {{ 'hidden' if not contest_widget.can_spin else '' }}>🎲 LOSUJ</button>
+    <div class="contest-widget__cool" id="widgetCooldown"
+         {{ 'hidden' if contest_widget.can_spin else '' }}>⏳ Następny los za <span id="widgetClock">--:--:--</span></div>
+  {% endif %}
+  <div class="contest-widget__hint">Pula i szanse ujawnią się przy losowaniu 🤫</div>
+</div>
+{% endif %}

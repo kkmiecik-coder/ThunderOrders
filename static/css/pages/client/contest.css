@@ -1,0 +1,489 @@
+/**
+ * ThunderOrders - Contest Widget & Page
+ * Styles for the contest dashboard widget and client contest page.
+ * Light + Dark mode required per CLAUDE.md.
+ */
+
+/* ==========================================
+   CSS Custom Properties
+   ========================================== */
+.contest-widget,
+.contest-page {
+  --cw-pink: #f093fb;
+  --cw-red: #f5576c;
+  --cw-num: #e35ec6;
+}
+
+/* ==========================================
+   Contest Widget
+   ========================================== */
+.contest-widget {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 18px;
+  margin: 0 0 24px;
+
+  /* Light mode */
+  background: #ffffff;
+  border: 1px solid #ececf3;
+  color: #1d1d28;
+  box-shadow: 0 8px 26px rgba(80, 40, 120, 0.08);
+}
+
+.contest-widget::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Light mode accent gradient */
+  background: radial-gradient(120% 100% at 100% 0, rgba(240, 147, 251, 0.12), transparent 60%);
+}
+
+.contest-widget > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Badge */
+.contest-widget__badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cw-pink), var(--cw-red));
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+/* Title */
+.contest-widget__title {
+  margin: 12px 0 3px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1d1d28;
+}
+
+/* Subtitle */
+.contest-widget__sub {
+  font-size: 13px;
+  opacity: 0.7;
+  color: #1d1d28;
+}
+
+/* Tickets row */
+.contest-widget__tickets {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 15px 0 4px;
+}
+
+.contest-widget__tickets b {
+  font-size: 38px;
+  line-height: 1;
+  color: var(--cw-num);
+}
+
+.contest-widget__tickets span {
+  opacity: 0.85;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1d1d28;
+}
+
+/* Spin button */
+.contest-widget__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  border: 0;
+  border-radius: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  font-size: 16px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--cw-pink), var(--cw-red));
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(245, 87, 108, 0.35);
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.contest-widget__btn:hover {
+  opacity: 0.9;
+}
+
+.contest-widget__btn:active {
+  transform: scale(0.98);
+}
+
+/* Cooldown / ineligible */
+.contest-widget__cool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+
+  /* Light mode */
+  background: #f4f2f8;
+  border: 1px solid #e7e4ee;
+  color: #5b5570;
+}
+
+/* Tabular clock digits */
+.contest-widget__cool span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+/* Hint */
+.contest-widget__hint {
+  margin-top: 11px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.55;
+  color: #1d1d28;
+}
+
+/* ==========================================
+   Contest Page
+   ========================================== */
+.contest-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+/* Hero card */
+.contest-page__hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  margin-bottom: 24px;
+
+  /* Light mode */
+  background: #ffffff;
+  border: 1px solid #ececf3;
+  color: #1d1d28;
+  box-shadow: 0 10px 32px rgba(80, 40, 120, 0.09);
+}
+
+.contest-page__hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 100% 0, rgba(240, 147, 251, 0.12), transparent 60%);
+}
+
+.contest-page__hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.contest-page__image {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.contest-page__badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--cw-pink), var(--cw-red));
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+.contest-page__name {
+  font-size: 24px;
+  font-weight: 900;
+  color: #1d1d28;
+  margin: 0 0 8px;
+}
+
+.contest-page__desc {
+  font-size: 14px;
+  line-height: 1.6;
+  opacity: 0.75;
+  margin: 0 0 12px;
+}
+
+.contest-page__ends {
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+/* Spinbox card */
+.contest-page__spinbox {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 22px;
+
+  /* Light mode */
+  background: #ffffff;
+  border: 1px solid #ececf3;
+  color: #1d1d28;
+  box-shadow: 0 8px 26px rgba(80, 40, 120, 0.08);
+  text-align: center;
+}
+
+.contest-page__spinbox::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(120% 100% at 50% 0, rgba(240, 147, 251, 0.10), transparent 60%);
+}
+
+.contest-page__spinbox > * {
+  position: relative;
+  z-index: 1;
+}
+
+.contest-page__tickets-label {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+
+.contest-page__tickets-num {
+  font-size: 56px;
+  font-weight: 900;
+  color: var(--cw-num);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.contest-page__tickets-sub {
+  font-size: 17px;
+  font-weight: 700;
+  opacity: 0.85;
+  margin-bottom: 20px;
+}
+
+.contest-page__spin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  padding: 16px 24px;
+  border: 0;
+  border-radius: 14px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  font-size: 18px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--cw-pink), var(--cw-red));
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(245, 87, 108, 0.4);
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.contest-page__spin-btn:hover {
+  opacity: 0.9;
+}
+
+.contest-page__spin-btn:active {
+  transform: scale(0.98);
+}
+
+.contest-page__cooldown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  border-radius: 14px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+
+  /* Light mode */
+  background: #f4f2f8;
+  border: 1px solid #e7e4ee;
+  color: #5b5570;
+}
+
+.contest-page__cooldown span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.contest-page__hint {
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+.contest-page__ineligible {
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+
+  /* Light mode */
+  background: #fdf0f2;
+  border: 1px solid #f5c0c8;
+  color: #a03050;
+}
+
+/* Empty state */
+.contest-page__empty {
+  text-align: center;
+  padding: 64px 24px;
+}
+
+.contest-page__empty-icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+
+.contest-page__empty-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1d1d28;
+  margin-bottom: 8px;
+}
+
+.contest-page__empty-sub {
+  font-size: 14px;
+  opacity: 0.6;
+}
+
+/* ==========================================
+   Dark Mode — Contest Widget
+   ========================================== */
+[data-theme="dark"] .contest-widget {
+  background: #15121c;
+  border: 1px solid rgba(240, 147, 251, 0.18);
+  color: #fff;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .contest-widget::before {
+  background: radial-gradient(120% 100% at 100% 0, rgba(240, 147, 251, 0.20), transparent 60%);
+}
+
+[data-theme="dark"] .contest-widget__title {
+  color: #fff;
+}
+
+[data-theme="dark"] .contest-widget__sub {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .contest-widget__tickets span {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .contest-widget__cool {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .contest-widget__hint {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ==========================================
+   Dark Mode — Contest Page
+   ========================================== */
+[data-theme="dark"] .contest-page__hero {
+  background: #15121c;
+  border: 1px solid rgba(240, 147, 251, 0.18);
+  color: #fff;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .contest-page__hero::before {
+  background: radial-gradient(120% 100% at 100% 0, rgba(240, 147, 251, 0.20), transparent 60%);
+}
+
+[data-theme="dark"] .contest-page__name {
+  color: #fff;
+}
+
+[data-theme="dark"] .contest-page__desc {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .contest-page__ends {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .contest-page__spinbox {
+  background: #15121c;
+  border: 1px solid rgba(240, 147, 251, 0.18);
+  color: #fff;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .contest-page__spinbox::before {
+  background: radial-gradient(120% 100% at 50% 0, rgba(240, 147, 251, 0.15), transparent 60%);
+}
+
+[data-theme="dark"] .contest-page__tickets-label {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .contest-page__tickets-sub {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .contest-page__cooldown {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(240, 147, 251, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .contest-page__hint {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .contest-page__ineligible {
+  background: rgba(245, 87, 108, 0.12);
+  border: 1px solid rgba(245, 87, 108, 0.3);
+  color: #f5a0b0;
+}
+
+[data-theme="dark"] .contest-page__empty-text {
+  color: #fff;
+}
+
+[data-theme="dark"] .contest-page__empty-sub {
+  color: rgba(255, 255, 255, 0.6);
+}
