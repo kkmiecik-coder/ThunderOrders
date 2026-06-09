@@ -92,6 +92,15 @@
             </li>
 
             <li class="sidebar-item">
+                <a href="{{ url_for('contests.client_contest') }}"
+                   class="sidebar-link {% if request.endpoint and 'contest' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Konkurs">
+                    <img src="{{ url_for('static', filename='img/icons/bell.svg') }}" alt="Konkurs" class="sidebar-icon">
+                    <span class="sidebar-text">Konkurs</span>
+                </a>
+            </li>
+
+            <li class="sidebar-item">
                 <a href="{{ url_for('client.help_index') }}"
                    class="sidebar-link {% if request.endpoint and 'help' in request.endpoint %}active{% endif %}"
                    data-tooltip="Pomoc">

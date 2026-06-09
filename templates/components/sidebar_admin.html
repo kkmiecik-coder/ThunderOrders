@@ -157,6 +157,17 @@
             </li>
             {% endif %}
 
+            {% if current_user.role in ('admin', 'mod') %}
+            <li class="sidebar-item">
+                <a href="{{ url_for('contests.admin_list') }}"
+                   class="sidebar-link {% if request.endpoint and 'contest' in request.endpoint %}active{% endif %}"
+                   data-tooltip="Konkursy">
+                    <img src="{{ url_for('static', filename='img/icons/achievements.svg') }}" alt="Konkursy" class="sidebar-icon">
+                    <span class="sidebar-text">Konkursy</span>
+                </a>
+            </li>
+            {% endif %}
+
             <li class="sidebar-item">
                 <a href="{{ url_for('admin.tasks_list') }}"
                    class="sidebar-link {% if request.endpoint and 'task' in request.endpoint %}active{% endif %}"
