@@ -203,16 +203,16 @@
     modal.className = 'contest-spin-modal';
     modal.innerHTML =
       '<h3>🎲 Twoje losowanie</h3>' +
-      '<div class="contest-spin-sub">Zatrzymaj karuzelę i odbierz losy</div>' +
+      '<div class="contest-spin-sub">Naciśnij START, a potem STOP, gdy zechcesz</div>' +
       '<div class="contest-reel-wrap">' +
         '<div class="contest-marker"></div>' +
         '<div class="contest-reel" id="contestReelInner"></div>' +
       '</div>' +
       '<div class="contest-spin-ctrl">' +
-        '<button class="contest-spin-btn contest-spin-btn--loading" id="contestModalBtn" disabled>Losowanie…</button>' +
+        '<button class="contest-spin-btn" id="contestModalBtn">START</button>' +
       '</div>' +
       '<div class="contest-spin-result" id="contestModalResult"></div>' +
-      '<div class="contest-spin-hint">Wynik liczy serwer — „Stop” jest dla emocji, hamowanie zawsze ląduje na wylosowanej liczbie.</div>';
+      '<div class="contest-spin-hint">Wynik losuje serwer w momencie naciśnięcia STOP — hamowanie zawsze ląduje na wylosowanej liczbie.</div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
@@ -239,17 +239,50 @@
     }
     renderReel();
 
-    /* Button click handler */
+    /* Button: START -> STOP -> ZAMKNIJ */
     S.btnEl.addEventListener('click', function () {
-      if (S.state === 'spinning') {
-        /* STOP — decelerate to drawn value.
-           Set S.targetK first so val(S.targetK) returns S.drawn for any value (e.g. 73). */
-        S.targetK = targetSlot();
-        S.brake = { from: S.p, to: S.targetK, dur: 3800, t0: performance.now() };
-        S.state = 'braking';
+      if (S.state === 'idle') {
+        /* START — wolny rozruch karuzeli, bez losowania */
+        S.state = 'spinning';
+        S.speed = 2;
         S.last = null;
-        S.btnEl.disabled = true;
+        S.btnEl.textContent = 'STOP';
+        S.btnEl.className = 'contest-spin-btn contest-stop-btn';
         requestAnimationFrame(frame);
+      } else if (S.state === 'spinning') {
+        /* STOP — dopiero teraz serwer losuje liczbę; karuzela kręci się dalej
+           dopóki czekamy na odpowiedź, potem hamuje do wylosowanej liczby. */
+        S.btnEl.disabled = true;
+        S.btnEl.textContent = 'Losowanie…';
+        fetch(spinUrl, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCsrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+          },
+          body: '{}',
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.success) {
+              destroyModal();
+              showError(data.error || 'Błąd losowania.');
+              return;
+            }
+            S.serverData = data;
+            S.drawn = data.tickets_won;
+            /* Ustaw cel — val(S.targetK) zwróci S.drawn dla dowolnej liczby */
+            S.targetK = targetSlot();
+            S.brake = { from: S.p, to: S.targetK, dur: 3800, t0: performance.now() };
+            S.state = 'braking';
+            S.last = null;
+            /* pętla rAF wciąż działa (była 'spinning') — przejdzie w 'braking' */
+          })
+          .catch(function () {
+            destroyModal();
+            showError('Błąd połączenia z serwerem.');
+          });
       } else if (S.state === 'done') {
         destroyModal();
       }
@@ -261,40 +294,6 @@
         destroyModal();
       }
     });
-
-    /* POST to server */
-    fetch(spinUrl, {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': getCsrfToken(),
-        'X-Requested-With': 'XMLHttpRequest',
-        'Content-Type': 'application/json',
-      },
-      body: '{}',
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.success) {
-          destroyModal();
-          showError(data.error || 'Błąd losowania.');
-          return;
-        }
-        /* Success: store data and start spinning */
-        S.serverData = data;
-        S.drawn = data.tickets_won;
-        S.state = 'spinning';
-        S.speed = 2;
-        S.last = null;
-        requestAnimationFrame(frame);
-        /* Update button to STOP */
-        S.btnEl.textContent = 'STOP';
-        S.btnEl.className = 'contest-spin-btn contest-stop-btn';
-        S.btnEl.disabled = false;
-      })
-      .catch(function () {
-        destroyModal();
-        showError('Błąd połączenia z serwerem.');
-      });
   }
 
   /* ----- After-spin UI update ----- */
