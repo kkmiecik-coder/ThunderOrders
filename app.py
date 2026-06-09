@@ -299,6 +299,10 @@ def register_blueprints(app):
     from modules.achievements import achievements_bp
     app.register_blueprint(achievements_bp, url_prefix='/achievements')
 
+    # Contests module (losowania dla klientów)
+    from modules.contests import contests_bp
+    app.register_blueprint(contests_bp)
+
     # Shop module (client on-hand shop — no url_prefix, routes have full paths)
     from modules.client.shop import shop_bp
     app.register_blueprint(shop_bp)
