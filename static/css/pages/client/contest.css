@@ -23,6 +23,7 @@
   border-radius: 16px;
   padding: 18px;
   margin: 0 0 24px;
+  text-align: center;
 
   /* Light mode */
   background: #ffffff;
@@ -77,8 +78,16 @@
 .contest-widget__tickets {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 9px;
   margin: 15px 0 4px;
+}
+
+/* Atrybut hidden musi wygrać z display:flex przycisku/licznika
+   (LOSUJ i odliczanie nigdy nie pokazują się jednocześnie) */
+.contest-widget__btn[hidden],
+.contest-widget__cool[hidden] {
+  display: none;
 }
 
 .contest-widget__tickets b {
