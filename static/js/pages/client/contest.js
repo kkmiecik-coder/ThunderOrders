@@ -63,6 +63,7 @@
   var ITEM_H = 84;         // px height of one slot
   var CENTER_Y = 126;      // px — centre of the marker window (126 = 252/2, reel window is 3×84)
   var POOL_SIZE = 5;       // visible DOM nodes in the reel
+  var reelMax = 50;        // górny zakres kosmetycznych liczb na bębnie (z ticket_max konkursu)
 
   /**
    * Deterministic pseudo-random value for reel slot k.
@@ -74,7 +75,7 @@
     if (S.targetK !== null && k === S.targetK) return S.drawn;
     var x = Math.sin(k * 127.1 + 311.7) * 43758.5453;
     x = x - Math.floor(x);
-    return 1 + Math.floor(x * 50);
+    return 1 + Math.floor(x * reelMax);
   }
 
   /* Shared spinner state — only one modal can be open at a time */
@@ -350,6 +351,7 @@
     if (!widget && !page) return;
 
     var spinUrl = (widget || page).dataset.spinUrl;
+    reelMax = parseInt((widget || page).dataset.reelMax, 10) || 50;
 
     /* Initial cooldown countdown if spin not yet available */
     function initCountdown(root, clockId, spinBtnId, cooldownId) {

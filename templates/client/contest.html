@@ -15,6 +15,7 @@
          data-spin-url="{{ url_for('contests.client_spin') }}"
          data-can-spin="{{ '1' if ctx.can_spin else '0' }}"
          data-next-spin="{{ ctx.next_spin_at or '' }}"
+         data-reel-max="{{ contest.ticket_max }}"
          data-eligible="{{ '1' if ctx.eligible else '0' }}">{# data-eligible reserved; eligibility enforced server-side, not read by JS #}
 
       {% if contest.image_path %}

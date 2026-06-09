@@ -4,6 +4,7 @@
      data-contest-url="{{ url_for('contests.client_contest') }}"
      data-can-spin="{{ '1' if contest_widget.can_spin else '0' }}"
      data-next-spin="{{ contest_widget.next_spin_at or '' }}"
+     data-reel-max="{{ contest_widget.contest.ticket_max }}"
      data-eligible="{{ '1' if contest_widget.eligible else '0' }}">{# data-eligible reserved; eligibility enforced server-side, not read by JS #}
 
   {# Unoszące się cząsteczki w tle (stała liczba, czysty CSS) #}
