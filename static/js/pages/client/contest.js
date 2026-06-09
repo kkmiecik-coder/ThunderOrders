@@ -212,7 +212,7 @@
         '<button class="contest-spin-btn" id="contestModalBtn">START</button>' +
       '</div>' +
       '<div class="contest-spin-result" id="contestModalResult"></div>' +
-      '<div class="contest-spin-hint">Wynik losuje serwer w momencie naciśnięcia STOP — hamowanie zawsze ląduje na wylosowanej liczbie.</div>';
+      '<div class="contest-spin-hint">START kręci bębnem, STOP zatrzymuje go i przyznaje Twoje losy.</div>';
 
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
