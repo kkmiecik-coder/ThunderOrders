@@ -1401,6 +1401,24 @@
 /* Strona wyników                                                               */
 /* -------------------------------------------------------------------------- */
 
+/* Badge nad tytułem — odpowiednik „na żywo" z ekranu losowania */
+.ca-results-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    margin-bottom: var(--space-2);
+}
+
+.ca-results-badge svg {
+    color: var(--orange-300);
+    flex-shrink: 0;
+}
+
 .ca-results-prize {
     display: inline-flex;
     align-items: center;
@@ -1415,21 +1433,45 @@
     flex-shrink: 0;
 }
 
+/* Miejsce #1 — powiększona karta hero */
+.ca-winner-card--hero {
+    padding: 24px 52px 20px;
+    margin-top: var(--space-2);
+}
+
+.ca-winner-card--hero .ca-winner-icon {
+    width: 54px;
+    height: 54px;
+}
+
+.ca-winner-card--hero .ca-winner-who {
+    font-size: 30px;
+}
+
+/* Pozostałe miejsca — wycentrowana lista w scenie */
 .ca-results-list {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    max-width: 480px;
+    margin: var(--space-4) auto 0;
+    text-align: left;
 }
 
 .ca-result-row {
     display: flex;
     align-items: center;
     gap: var(--space-4);
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
     border-radius: 14px;
-    padding: var(--space-4) var(--space-5);
-    box-shadow: var(--shadow-sm);
+    padding: var(--space-3) var(--space-4);
+}
+
+.ca-results-date {
+    margin-top: var(--space-5);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
 }
 
 .ca-result-place {
@@ -1452,6 +1494,12 @@
 
 .ca-result-place--3rd {
     background: linear-gradient(135deg, #cd7f32, #a0522d);
+}
+
+/* Miejsca 4+ — neutralne kółko */
+.ca-result-place--nth {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
 }
 
 .ca-result-name {
