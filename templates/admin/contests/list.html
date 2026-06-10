@@ -7,15 +7,20 @@
 {% endblock %}
 
 {% block content %}
-<div class="ca-list-page">
-    <div class="ca-list-header">
-        <h1 class="ca-list-title">Konkursy</h1>
-        <a href="{{ url_for('contests.admin_new') }}" class="ca-btn-new">
-            ＋ Nowy konkurs
-        </a>
+<div class="ca-page">
+    <div class="ca-page-header">
+        <h1>Konkursy</h1>
+        <div class="ca-header-actions">
+            <a href="{{ url_for('contests.admin_new') }}" class="ca-action-btn ca-action--add">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 2a.5.5 0 01.5.5v5h5a.5.5 0 010 1h-5v5a.5.5 0 01-1 0v-5h-5a.5.5 0 010-1h5v-5A.5.5 0 018 2z"/>
+                </svg>
+                <span>Nowy konkurs</span>
+            </a>
+        </div>
     </div>
 
-    <div class="ca-table-wrap">
+    <div class="ca-table-card">
         {% if items %}
         <table class="ca-table">
             <thead>
@@ -32,7 +37,7 @@
                 {% for it in items %}
                 <tr>
                     <td class="ca-table-name">{{ it.c.name }}</td>
-                    <td class="ca-table-prize">
+                    <td>
                         {% if it.c.prizes %}
                         <div class="ca-prize-cell">
                             {% for entry in it.c.prizes %}
@@ -73,19 +78,40 @@
                         <div class="ca-table-actions">
                             {% if it.c.status == 'aktywny' %}
                                 <a href="{{ url_for('contests.admin_draw_screen', cid=it.c.id) }}"
-                                   class="ca-mini-btn ca-mini-btn--primary">🎰 Losowanie</a>
+                                   class="ca-action-btn ca-action-btn--sm ca-action--draw">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M13 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM3 0a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3z"/>
+                                        <path d="M5.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
+                                    </svg>
+                                    <span>Losowanie</span>
+                                </a>
                             {% elif it.c.status == 'szkic' %}
                                 <form action="{{ url_for('contests.admin_activate', cid=it.c.id) }}"
                                       method="post" class="ca-activate-form">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="ca-mini-btn ca-mini-btn--primary">▶ Aktywuj</button>
+                                    <button type="submit" class="ca-action-btn ca-action-btn--sm ca-action--add">
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                            <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393"/>
+                                        </svg>
+                                        <span>Aktywuj</span>
+                                    </button>
                                 </form>
                             {% elif it.c.status == 'rozlosowany' %}
                                 <a href="{{ url_for('contests.admin_results', cid=it.c.id) }}"
-                                   class="ca-mini-btn ca-mini-btn--primary">🏆 Wyniki</a>
+                                   class="ca-action-btn ca-action-btn--sm ca-action--results">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M2.5.5A.5.5 0 0 1 3 0h10a.5.5 0 0 1 .5.5q0 .807-.034 1.536a3 3 0 1 1-1.133 5.89c-.79 1.865-1.878 2.777-2.833 3.011v2.173l1.425.356c.194.048.377.135.537.255L13.3 15.1a.5.5 0 0 1-.3.9H3a.5.5 0 0 1-.3-.9l1.838-1.379c.16-.12.343-.207.537-.255L6.5 13.11v-2.173c-.955-.234-2.043-1.146-2.833-3.012a3 3 0 1 1-1.132-5.89A33 33 0 0 1 2.5.5m.099 2.54a2 2 0 0 0 .72 3.935c-.333-1.05-.588-2.346-.72-3.935m10.083 3.935a2 2 0 0 0 .72-3.935c-.133 1.59-.388 2.885-.72 3.935"/>
+                                    </svg>
+                                    <span>Wyniki</span>
+                                </a>
                             {% endif %}
                             <a href="{{ url_for('contests.admin_edit', cid=it.c.id) }}"
-                               class="ca-mini-btn">✏️ Edytuj</a>
+                               class="ca-action-btn ca-action-btn--sm ca-action--edit">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>
+                                </svg>
+                                <span>Edytuj</span>
+                            </a>
                         </div>
                     </td>
                 </tr>
@@ -94,10 +120,12 @@
         </table>
         {% else %}
         <div class="ca-empty">
-            <p>Brak konkursów.</p>
+            <svg width="40" height="40" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M2.5.5A.5.5 0 0 1 3 0h10a.5.5 0 0 1 .5.5q0 .807-.034 1.536a3 3 0 1 1-1.133 5.89c-.79 1.865-1.878 2.777-2.833 3.011v2.173l1.425.356c.194.048.377.135.537.255L13.3 15.1a.5.5 0 0 1-.3.9H3a.5.5 0 0 1-.3-.9l1.838-1.379c.16-.12.343-.207.537-.255L6.5 13.11v-2.173c-.955-.234-2.043-1.146-2.833-3.012a3 3 0 1 1-1.132-5.89A33 33 0 0 1 2.5.5m.099 2.54a2 2 0 0 0 .72 3.935c-.333-1.05-.588-2.346-.72-3.935m10.083 3.935a2 2 0 0 0 .72-3.935c-.133 1.59-.388 2.885-.72 3.935"/>
+            </svg>
+            <p>Brak konkursów — utwórz pierwszy przyciskiem „Nowy konkurs”.</p>
         </div>
         {% endif %}
     </div>
 </div>
 {% endblock %}
-

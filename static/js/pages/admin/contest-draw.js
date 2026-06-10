@@ -36,6 +36,92 @@
   }
 
   /* ---------------------------------------------------------------------- */
+  /* Konfetti — lekki canvas bez zależności (kolory brandowe)                */
+  /* ---------------------------------------------------------------------- */
+
+  var REDUCED_MOTION = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var CONFETTI_COLORS = ['#f093fb', '#f5576c', '#ff8500', '#ffd166', '#a78bfa', '#34d399'];
+  var confettiCanvas = null;
+  var confettiCtx = null;
+  var confettiParts = [];
+  var confettiRaf = null;
+
+  function confettiBurst() {
+    if (REDUCED_MOTION) return;
+    var stage = document.querySelector('.ca-stage');
+    if (!stage) return;
+    if (!confettiCanvas) {
+      confettiCanvas = document.createElement('canvas');
+      confettiCanvas.className = 'ca-confetti';
+      stage.appendChild(confettiCanvas);
+      confettiCtx = confettiCanvas.getContext('2d');
+    }
+    var w = confettiCanvas.width = stage.clientWidth;
+    var h = confettiCanvas.height = stage.clientHeight;
+    // Wybuch ze środka okna bębna
+    var reel = stage.querySelector('.ca-reel-wrap');
+    var cx = w / 2;
+    var cy = h * 0.4;
+    if (reel) {
+      var sr = stage.getBoundingClientRect();
+      var rr = reel.getBoundingClientRect();
+      cx = rr.left - sr.left + rr.width / 2;
+      cy = rr.top - sr.top + rr.height / 2;
+    }
+    for (var i = 0; i < 140; i++) {
+      var ang = Math.random() * Math.PI * 2;
+      var spd = 4 + Math.random() * 9;
+      confettiParts.push({
+        x: cx, y: cy,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd - 3,
+        g: 0.16 + Math.random() * 0.1,
+        size: 4 + Math.random() * 5,
+        rot: Math.random() * Math.PI,
+        vr: (Math.random() - 0.5) * 0.3,
+        color: CONFETTI_COLORS[(Math.random() * CONFETTI_COLORS.length) | 0],
+        life: 80 + Math.random() * 60,
+      });
+    }
+    if (!confettiRaf) confettiRaf = requestAnimationFrame(confettiFrame);
+  }
+
+  function confettiFrame() {
+    var w = confettiCanvas.width;
+    var h = confettiCanvas.height;
+    confettiCtx.clearRect(0, 0, w, h);
+    var alive = [];
+    for (var i = 0; i < confettiParts.length; i++) {
+      var p = confettiParts[i];
+      p.vx *= 0.985;
+      p.vy = p.vy * 0.985 + p.g;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.rot += p.vr;
+      p.life -= 1;
+      if (p.life > 0 && p.y < h + 20) {
+        confettiCtx.save();
+        confettiCtx.translate(p.x, p.y);
+        confettiCtx.rotate(p.rot);
+        confettiCtx.globalAlpha = Math.min(1, p.life / 30);
+        confettiCtx.fillStyle = p.color;
+        confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        confettiCtx.restore();
+        alive.push(p);
+      }
+    }
+    confettiParts = alive;
+    if (confettiParts.length) {
+      confettiRaf = requestAnimationFrame(confettiFrame);
+    } else {
+      confettiRaf = null;
+      confettiCtx.clearRect(0, 0, w, h);
+    }
+  }
+
+  /* ---------------------------------------------------------------------- */
   /* Reel carousel engine (adapted from client/contest.js)                   */
   /* No infinite loops: targetK forces val(targetK) to return DR.drawn.      */
   /* ---------------------------------------------------------------------- */
@@ -58,6 +144,14 @@
     last: null,
     _onDone: null,
   };
+
+  // Klasy stanu na oknie bębna — sterują efektami CSS (blur, puls, błysk)
+  function setReelState(state) {
+    var wrap = document.querySelector('.ca-reel-wrap');
+    if (!wrap) return;
+    wrap.classList.remove('ca-reel-wrap--spinning', 'ca-reel-wrap--braking', 'ca-reel-wrap--landed');
+    if (state) wrap.classList.add('ca-reel-wrap--' + state);
+  }
 
   /**
    * Wartość slotu k — NAZWA uczestnika (pseudo-losowo z DR.names).
@@ -115,6 +209,8 @@
       renderReel();
       if (pr >= 1) {
         DR.state = 'done';
+        setReelState('landed');
+        setTimeout(function () { setReelState(null); }, 900);
         var cb = DR._onDone;
         DR._onDone = null;
         if (typeof cb === 'function') cb();
@@ -140,6 +236,7 @@
     DR.targetK = null;
     DR.brake = null;
     DR._onDone = null;
+    setReelState('spinning');
     renderReel();
     requestAnimationFrame(reelFrame);
 
@@ -150,6 +247,7 @@
       DR.state = 'braking';
       DR.last = null;
       DR._onDone = onDone;
+      setReelState('braking');
       // rAF already running via the spinning branch; it will pick up 'braking' state
     }, spinMs);
   }
@@ -158,11 +256,24 @@
   /* Winner card rendering                                                    */
   /* ---------------------------------------------------------------------- */
 
+  // Ikona trofeum (bootstrap trophy) — zamiast emoji
+  var TROPHY_SVG = '<svg width="__PX__" height="__PX__" viewBox="0 0 16 16" fill="currentColor">' +
+    '<path d="M2.5.5A.5.5 0 0 1 3 0h10a.5.5 0 0 1 .5.5q0 .807-.034 1.536a3 3 0 1 1-1.133 5.89c-.79 1.865-1.878 2.777-2.833 3.011v2.173l1.425.356c.194.048.377.135.537.255L13.3 15.1a.5.5 0 0 1-.3.9H3a.5.5 0 0 1-.3-.9l1.838-1.379c.16-.12.343-.207.537-.255L6.5 13.11v-2.173c-.955-.234-2.043-1.146-2.833-3.012a3 3 0 1 1-1.132-5.89A33 33 0 0 1 2.5.5m.099 2.54a2 2 0 0 0 .72 3.935c-.333-1.05-.588-2.346-.72-3.935m10.083 3.935a2 2 0 0 0 .72-3.935c-.133 1.59-.388 2.885-.72 3.935"/>' +
+    '</svg>';
+
+  function trophySvg(px) {
+    return TROPHY_SVG.replace(/__PX__/g, String(px));
+  }
+
   function addWinnerCard(winner) {
     var area = document.getElementById('winnersArea');
     if (!area) return;
     var card = document.createElement('div');
     card.className = 'ca-winner-card';
+
+    var icon = document.createElement('div');
+    icon.className = 'ca-winner-icon';
+    icon.innerHTML = trophySvg(20);
 
     var place = document.createElement('div');
     place.className = 'ca-winner-place';
@@ -170,16 +281,19 @@
 
     var who = document.createElement('div');
     who.className = 'ca-winner-who';
-    who.textContent = '🏆 ' + (winner.name || 'Uczestnik ' + winner.user_id);
+    who.textContent = winner.name || 'Uczestnik ' + winner.user_id;
 
     var meta = document.createElement('div');
     meta.className = 'ca-winner-meta';
     meta.textContent = winner.tickets + ' losów • ' + winner.pct.toFixed(1) + '% szansy';
 
+    card.appendChild(icon);
     card.appendChild(place);
     card.appendChild(who);
     card.appendChild(meta);
     area.appendChild(card);
+
+    confettiBurst();
   }
 
   /* ---------------------------------------------------------------------- */
@@ -214,7 +328,10 @@
       var name = document.createElement('div');
       name.className = 'ca-bar-name';
       name.title = entry.name;
-      name.textContent = entry.name + (isWinner ? ' 🏆' : '');
+      name.textContent = entry.name;
+      if (isWinner) {
+        name.insertAdjacentHTML('beforeend', trophySvg(12));
+      }
 
       var track = document.createElement('div');
       track.className = 'ca-bar-track';

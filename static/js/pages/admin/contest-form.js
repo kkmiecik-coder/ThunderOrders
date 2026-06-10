@@ -90,13 +90,20 @@
 
   var prizeList = document.getElementById('prizeList');
 
+  // Placeholder miniatury — ikona SVG (bootstrap box-seam)
+  function boxIconSvg(px) {
+    return '<svg width="' + px + '" height="' + px + '" viewBox="0 0 16 16" fill="currentColor">' +
+      '<path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464z"/>' +
+      '</svg>';
+  }
+
   function thumbHtml(imgUrl, size) {
     size = size || 38;
     if (imgUrl) {
       return '<img class="ca-prize-thumb" src="' + escHtml(imgUrl) + '" alt="" ' +
              'width="' + size + '" height="' + size + '">';
     }
-    return '<div class="ca-prize-thumb-placeholder">📦</div>';
+    return '<div class="ca-prize-thumb-placeholder">' + boxIconSvg(size > 30 ? 16 : 12) + '</div>';
   }
 
   function stepperHtml(qty, dataAttr) {
@@ -225,7 +232,7 @@
         data.products.forEach(function (p) {
           var imgHtml = p.image_url
             ? '<img class="ca-picker-thumb" src="' + escHtml(p.image_url) + '" alt="">'
-            : '<div class="ca-picker-thumb-placeholder">📦</div>';
+            : '<div class="ca-picker-thumb-placeholder">' + boxIconSvg(14) + '</div>';
           var sub = [];
           if (p.sku) sub.push('SKU ' + escHtml(p.sku));
           if (p.price !== undefined && p.price !== null) sub.push(escHtml(String(p.price)) + ' zł');
@@ -518,14 +525,13 @@
     var inp = document.getElementById('critInp' + idx);
     if (!box || !text || !inp) return;
     if (active) {
+      // Znacznik „check" rysuje CSS (.ca-cbox--on::after) — bez treści tekstowej
       box.classList.add('ca-cbox--on');
-      box.textContent = '✓';
       text.classList.remove('ca-ctext--off');
       inp.classList.remove('ca-cinp--disabled');
       inp.disabled = false;
     } else {
       box.classList.remove('ca-cbox--on');
-      box.textContent = '';
       text.classList.add('ca-ctext--off');
       inp.classList.add('ca-cinp--disabled');
       inp.disabled = true;

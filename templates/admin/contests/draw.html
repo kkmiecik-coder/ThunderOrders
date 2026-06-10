@@ -8,13 +8,22 @@
 
 {% block content %}
 <div class="ca-draw-wrap">
-    <a href="{{ url_for('contests.admin_list') }}" class="ca-draw-back">← Powrót do listy</a>
+    <a href="{{ url_for('contests.admin_list') }}" class="ca-back-link">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"/>
+        </svg>
+        <span>Powrót do listy</span>
+    </a>
 
     <div id="drawRoot"
          data-draw-url="{{ url_for('contests.admin_draw', cid=contest.id) }}"
          data-participants='{{ participant_names | tojson }}'>
 
         <div class="ca-stage">
+            <div class="ca-live-badge">
+                <span class="ca-live-dot"></span>
+                <span>Losowanie na żywo</span>
+            </div>
             <div class="ca-stage-title">{{ contest.name }}</div>
 
             {# Stats row — pool from server context; rest filled/updated by JS after draw #}
@@ -43,7 +52,13 @@
             <div class="ca-winners-area" id="winnersArea"></div>
 
             {# Draw button #}
-            <button class="ca-btn-draw" id="btnDraw">🎲 LOSUJ ZWYCIĘZCĘ</button>
+            <button class="ca-btn-draw" id="btnDraw">
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M13 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM3 0a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3z"/>
+                    <path d="M5.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
+                </svg>
+                <span>LOSUJ ZWYCIĘZCĘ</span>
+            </button>
 
             {# Pool breakdown — hidden until after draw #}
             <div id="poolBreakdown" class="ca-bars" style="display:none">
