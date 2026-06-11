@@ -108,9 +108,13 @@ def verify_email_code():
     success, error_message = user.verify_code(code)
     db.session.commit()  # verify_code mutuje attempts/lock/verified — utrwalamy zawsze
     if not success:
-        expired = (not user.email_verification_code_expires
-                   or get_local_now() > user.email_verification_code_expires)
-        slug = 'code_expired' if expired else 'invalid_code'
+        if user.is_verification_locked():
+            slug = 'invalid_code'  # lockout świadomie mapowany na invalid_code (komunikat niesie szczegóły)
+        elif (not user.email_verification_code_expires
+              or get_local_now() > user.email_verification_code_expires):
+            slug = 'code_expired'
+        else:
+            slug = 'invalid_code'
         return json_err(slug, error_message, 400)
 
     identity = str(user.id)

@@ -155,3 +155,20 @@ def test_verify_email_wrong_code(client, db, make_user):
                     json={'email': 'verbad@example.com', 'code': '000000'})
     assert r.status_code == 400
     assert r.get_json()['error']['code'] in ('invalid_code', 'code_expired')
+
+
+def test_verify_email_locked_with_expired_code_reports_invalid_code(client, db, make_user):
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    u = make_user(email='lock@example.com')
+    u.email_verified = False
+    db.session.commit()
+    u.generate_verification_code()
+    # symuluj lockout + wygasły kod
+    u.email_verification_locked_until = get_local_now() + timedelta(minutes=15)
+    u.email_verification_code_expires = get_local_now() - timedelta(minutes=1)
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/verify-email',
+                    json={'email': 'lock@example.com', 'code': '123456'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_code'
