@@ -6,6 +6,7 @@ from flask import current_app, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
 from extensions import db
 from modules.auth.models import User
+from modules.orders.models import get_local_now
 from utils.email_manager import EmailManager
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, serialize_user
@@ -90,6 +91,34 @@ def resend_code():
             db.session.commit()
             EmailManager.send_verification_code(user, code)
     return json_ok({'message': 'Jeśli konto wymaga weryfikacji, wysłaliśmy nowy kod.'})
+
+
+@api_mobile_bp.route('/auth/verify-email', methods=['POST'])
+def verify_email_code():
+    p = request.get_json(silent=True) or {}
+    email = (p.get('email') or '').strip().lower()
+    code = (p.get('code') or '').strip()
+
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    if user is None:
+        return json_err('invalid_code', 'Nieprawidłowy kod.', 400)
+    if user.email_verified:
+        return json_err('already_verified', 'Konto jest już zweryfikowane.', 400)
+
+    success, error_message = user.verify_code(code)
+    db.session.commit()  # verify_code mutuje attempts/lock/verified — utrwalamy zawsze
+    if not success:
+        expired = (not user.email_verification_code_expires
+                   or get_local_now() > user.email_verification_code_expires)
+        slug = 'code_expired' if expired else 'invalid_code'
+        return json_err(slug, error_message, 400)
+
+    identity = str(user.id)
+    return json_ok({
+        'access_token': create_access_token(identity=identity),
+        'refresh_token': create_refresh_token(identity=identity),
+        'user': serialize_user(user),
+    })
 
 
 @api_mobile_bp.route('/auth/me', methods=['GET'])

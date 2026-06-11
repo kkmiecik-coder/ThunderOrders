@@ -127,3 +127,31 @@ def test_register_duplicate_email(client, db, make_user, monkeypatch):
     })
     assert r.status_code == 409
     assert r.get_json()['error']['code'] == 'email_taken'
+
+
+def test_verify_email_success(client, db, make_user):
+    u = make_user(email='ver@example.com')
+    u.set_password('Haslo123!'); u.email_verified = False
+    db.session.commit()
+    code, _ = u.generate_verification_code()
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/auth/verify-email',
+                    json={'email': 'ver@example.com', 'code': code})
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert 'access_token' in data and 'refresh_token' in data
+    db.session.refresh(u)
+    assert u.email_verified is True
+
+
+def test_verify_email_wrong_code(client, db, make_user):
+    u = make_user(email='verbad@example.com')
+    u.email_verified = False
+    db.session.commit()
+    u.generate_verification_code()
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/verify-email',
+                    json={'email': 'verbad@example.com', 'code': '000000'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] in ('invalid_code', 'code_expired')
