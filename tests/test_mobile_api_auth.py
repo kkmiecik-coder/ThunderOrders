@@ -172,3 +172,27 @@ def test_verify_email_locked_with_expired_code_reports_invalid_code(client, db, 
                     json={'email': 'lock@example.com', 'code': '123456'})
     assert r.status_code == 400
     assert r.get_json()['error']['code'] == 'invalid_code'
+
+
+def test_google_login_new_user(client, db, monkeypatch):
+    import modules.api_mobile.auth_routes as ar
+    monkeypatch.setattr(ar, 'verify_google_id_token', lambda t: {
+        'email': 'gphone@example.com', 'sub': 'google-uid-1',
+        'given_name': 'Goo', 'family_name': 'Gle', 'email_verified': True,
+    })
+    r = client.post('/api/mobile/v1/auth/google', json={'id_token': 'fake'})
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert 'access_token' in data and data['user']['email'] == 'gphone@example.com'
+
+    from modules.auth.models import User
+    u = User.query.filter_by(email='gphone@example.com').first()
+    assert u is not None and u.google_id == 'google-uid-1' and u.email_verified is True
+
+
+def test_google_login_invalid_token(client, db, monkeypatch):
+    import modules.api_mobile.auth_routes as ar
+    monkeypatch.setattr(ar, 'verify_google_id_token', lambda t: None)
+    r = client.post('/api/mobile/v1/auth/google', json={'id_token': 'bad'})
+    assert r.status_code == 401
+    assert r.get_json()['error']['code'] == 'invalid_google_token'

@@ -9,6 +9,7 @@ from modules.auth.models import User
 from modules.orders.models import get_local_now
 from utils.email_manager import EmailManager
 from . import api_mobile_bp
+from .google_auth import verify_google_id_token
 from .helpers import json_ok, json_err, serialize_user
 from .models import MobileTokenBlocklist
 
@@ -116,6 +117,42 @@ def verify_email_code():
         else:
             slug = 'invalid_code'
         return json_err(slug, error_message, 400)
+
+    identity = str(user.id)
+    return json_ok({
+        'access_token': create_access_token(identity=identity),
+        'refresh_token': create_refresh_token(identity=identity),
+        'user': serialize_user(user),
+    })
+
+
+@api_mobile_bp.route('/auth/google', methods=['POST'])
+def google_login():
+    p = request.get_json(silent=True) or {}
+    token = p.get('id_token') or ''
+    info = verify_google_id_token(token)
+    if info is None:
+        return json_err('invalid_google_token', 'Nieprawidłowy token Google.', 401)
+
+    email = (info.get('email') or '').strip().lower()
+    google_sub = info.get('sub')
+
+    user = (User.query.filter_by(google_id=google_sub).first()
+            or User.query.filter(db.func.lower(User.email) == email).first())
+
+    if user is None:
+        user = User(email=email, first_name=info.get('given_name'),
+                    last_name=info.get('family_name'), role='client',
+                    is_active=True, email_verified=True, google_id=google_sub)
+        db.session.add(user)
+    else:
+        if not user.google_id:
+            user.google_id = google_sub
+        user.email_verified = True
+    db.session.commit()
+
+    if not user.is_active:
+        return json_err('account_inactive', 'Konto jest nieaktywne.', 403)
 
     identity = str(user.id)
     return json_ok({
