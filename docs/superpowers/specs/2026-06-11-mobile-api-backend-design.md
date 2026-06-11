@@ -124,11 +124,14 @@ POST /verify-email      { email, code }                  → aktywuje konto, zwr
 POST /resend-code       { email }
 POST /login             { email, password }              → { access, refresh, user }
 POST /google            { id_token }                     → { access, refresh, user }
-POST /refresh           { refresh_token }                → { access }
-POST /logout            (Bearer)                         → unieważnia refresh (blocklist)
+POST /refresh           (Bearer refresh)                 → { access }
+POST /logout            (Bearer refresh)                 → unieważnia refresh (blocklist)
 GET  /me                (Bearer)                         → { user }
 ```
 `user = { id, email, first_name, last_name, full_name, phone, role, avatar_url, email_verified }`
+
+> **Korekta kontraktu (E0):** `refresh` i `logout` przyjmują refresh token w nagłówku
+> `Authorization: Bearer <refresh_token>` (standard flask-jwt-extended), nie w body.
 
 ### Sklep on-hand — `/shop/`
 ```
