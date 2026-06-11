@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 # Załaduj zmienne z pliku .env
@@ -83,6 +84,20 @@ class Config:
     GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
     FACEBOOK_CLIENT_ID = os.getenv('FACEBOOK_CLIENT_ID', '')
     FACEBOOK_CLIENT_SECRET = os.getenv('FACEBOOK_CLIENT_SECRET', '')
+
+    # --- Mobile API (JWT) ---
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY') or os.getenv('SECRET_KEY', 'dev-jwt-secret-change-me')
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=int(os.getenv('JWT_ACCESS_MINUTES', '30')))
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=int(os.getenv('JWT_REFRESH_DAYS', '30')))
+
+    # Minimalna i najnowsza wersja aplikacji mobilnej (wymuszanie aktualizacji)
+    MOBILE_MIN_APP_VERSION = os.getenv('MOBILE_MIN_APP_VERSION', '1.0.0')
+    MOBILE_LATEST_APP_VERSION = os.getenv('MOBILE_LATEST_APP_VERSION', '1.0.0')
+
+    # Dozwolone Google OAuth client ID (z aplikacji mobilnej). Lista po przecinku.
+    GOOGLE_OAUTH_CLIENT_IDS = [
+        c.strip() for c in os.getenv('GOOGLE_OAUTH_CLIENT_IDS', '').split(',') if c.strip()
+    ]
 
     # VAPID (Web Push Notifications)
     VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')

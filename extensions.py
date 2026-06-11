@@ -13,6 +13,7 @@ from flask_executor import Executor
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_socketio import SocketIO
+from flask_jwt_extended import JWTManager
 
 # Inicjalizacja rozszerzeń (bez app - zostanie zrobione w app.py)
 db = SQLAlchemy()
@@ -23,3 +24,4 @@ csrf = CSRFProtect()
 executor = Executor()
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
 socketio = SocketIO()
+jwt = JWTManager()
