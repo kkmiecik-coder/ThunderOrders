@@ -6,6 +6,7 @@ from flask import current_app, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
 from extensions import db
 from modules.auth.models import User
+from utils.email_manager import EmailManager
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, serialize_user
 from .models import MobileTokenBlocklist
@@ -47,6 +48,48 @@ def login():
         'refresh_token': create_refresh_token(identity=identity),
         'user': serialize_user(user),
     })
+
+
+@api_mobile_bp.route('/auth/register', methods=['POST'])
+def register():
+    p = request.get_json(silent=True) or {}
+    email = (p.get('email') or '').strip().lower()
+    password = p.get('password') or ''
+    first_name = (p.get('first_name') or '').strip()
+    last_name = (p.get('last_name') or '').strip()
+    phone = (p.get('phone') or '').strip()
+
+    if not email or not password:
+        return json_err('missing_fields', 'E-mail i hasło są wymagane.', 400)
+    if User.query.filter(db.func.lower(User.email) == email).first():
+        return json_err('email_taken', 'Konto z tym adresem już istnieje.', 409)
+
+    user = User(email=email, first_name=first_name, last_name=last_name,
+                phone=phone, role='client', is_active=True, email_verified=False)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    code, _ = user.generate_verification_code()
+    db.session.commit()
+    EmailManager.send_verification_code(user, code)
+
+    return json_ok({'email': email, 'message': 'Wysłaliśmy kod weryfikacyjny na e-mail.'}, 201)
+
+
+@api_mobile_bp.route('/auth/resend-code', methods=['POST'])
+def resend_code():
+    p = request.get_json(silent=True) or {}
+    email = (p.get('email') or '').strip().lower()
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    # Nie zdradzamy, czy konto istnieje — zawsze 200.
+    if user and not user.email_verified:
+        can_resend, _secs = user.can_resend_code()
+        if can_resend:
+            code, _ = user.generate_verification_code()
+            db.session.commit()
+            EmailManager.send_verification_code(user, code)
+    return json_ok({'message': 'Jeśli konto wymaga weryfikacji, wysłaliśmy nowy kod.'})
 
 
 @api_mobile_bp.route('/auth/me', methods=['GET'])

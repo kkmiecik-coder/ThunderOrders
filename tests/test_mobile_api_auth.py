@@ -95,3 +95,35 @@ def test_logout_revokes_refresh(client, db, make_user):
     r2 = client.post('/api/mobile/v1/auth/refresh',
                      headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
     assert r2.status_code == 401
+
+
+def test_register_creates_unverified_user(client, db, monkeypatch):
+    sent = {}
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: sent.update(code=code) or True))
+
+    r = client.post('/api/mobile/v1/auth/register', json={
+        'email': 'new@example.com', 'password': 'Haslo123!',
+        'first_name': 'Jan', 'last_name': 'Kowalski', 'phone': '+48500500500',
+    })
+    assert r.status_code == 201
+    assert r.get_json()['data']['email'] == 'new@example.com'
+
+    from modules.auth.models import User
+    u = User.query.filter_by(email='new@example.com').first()
+    assert u is not None and u.email_verified is False
+    assert sent.get('code')  # kod został "wysłany"
+
+
+def test_register_duplicate_email(client, db, make_user, monkeypatch):
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: True))
+    make_user(email='dup@example.com')
+    r = client.post('/api/mobile/v1/auth/register', json={
+        'email': 'dup@example.com', 'password': 'Haslo123!',
+        'first_name': 'A', 'last_name': 'B', 'phone': '+48500',
+    })
+    assert r.status_code == 409
+    assert r.get_json()['error']['code'] == 'email_taken'
