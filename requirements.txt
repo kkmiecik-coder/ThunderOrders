@@ -26,6 +26,7 @@ et_xmlfile==2.0.0
 eventlet==0.41.0
 Flask==3.0.0
 Flask-Executor==1.0.0
+Flask-JWT-Extended==4.6.0
 Flask-Limiter==3.11.0
 Flask-Login==0.6.3
 Flask-Mail==0.9.1
@@ -35,6 +36,7 @@ Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.1
 frozenlist==1.8.0
 geoip2==5.1.0
+google-auth==2.35.0
 greenlet==3.2.5
 gunicorn==21.2.0
 h11==0.16.0
