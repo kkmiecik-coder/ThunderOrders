@@ -52,7 +52,7 @@ if sentry_dsn:
     ignore_logger('engineio.server')
 
 # Import rozszerzeń z extensions.py (rozwiązuje circular imports)
-from extensions import db, migrate, login_manager, mail, csrf, executor, limiter, socketio
+from extensions import db, migrate, login_manager, mail, csrf, executor, limiter, socketio, jwt
 
 # Strefa czasowa dla Polski
 POLAND_TZ = ZoneInfo('Europe/Warsaw')
@@ -89,6 +89,13 @@ def create_app(config_name=None):
     login_manager.init_app(app)
     mail.init_app(app)
     csrf.init_app(app)
+    jwt.init_app(app)
+
+    @jwt.token_in_blocklist_loader
+    def _mobile_token_revoked(jwt_header, jwt_payload):
+        from modules.api_mobile.models import MobileTokenBlocklist
+        return MobileTokenBlocklist.contains(jwt_payload['jti'])
+
     executor.init_app(app)
     limiter.init_app(app)
     socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', [
@@ -339,6 +346,11 @@ def register_blueprints(app):
     from modules.deploy import deploy_bp
     app.register_blueprint(deploy_bp)
     csrf.exempt(deploy_bp)
+
+    # Mobile API (JWT, no session/CSRF) — url_prefix wbudowany w blueprint
+    from modules.api_mobile import api_mobile_bp
+    csrf.exempt(api_mobile_bp)
+    app.register_blueprint(api_mobile_bp)
 
     # Service Worker served from root scope
     @app.route('/sw.js')
