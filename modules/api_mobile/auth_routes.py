@@ -1,11 +1,14 @@
 """Trasy auth + meta (health, app-version) dla mobilnego API."""
 
+from datetime import datetime, timezone
+
 from flask import current_app, request
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
 from extensions import db
 from modules.auth.models import User
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, serialize_user
+from .models import MobileTokenBlocklist
 
 
 @api_mobile_bp.route('/health', methods=['GET'])
@@ -60,3 +63,18 @@ def me():
 def refresh():
     identity = get_jwt_identity()
     return json_ok({'access_token': create_access_token(identity=identity)})
+
+
+@api_mobile_bp.route('/auth/logout', methods=['POST'])
+@jwt_required(refresh=True)
+def logout():
+    token = get_jwt()
+    exp = datetime.fromtimestamp(token['exp'], tz=timezone.utc).replace(tzinfo=None)
+    db.session.add(MobileTokenBlocklist(
+        jti=token['jti'],
+        token_type='refresh',
+        user_id=int(get_jwt_identity()),
+        expires_at=exp,
+    ))
+    db.session.commit()
+    return json_ok({'message': 'Wylogowano.'})

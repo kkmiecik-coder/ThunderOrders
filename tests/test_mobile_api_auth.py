@@ -83,3 +83,15 @@ def test_refresh_issues_new_access(client, db, make_user):
                     headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
     assert r.status_code == 200
     assert 'access_token' in r.get_json()['data']
+
+
+def test_logout_revokes_refresh(client, db, make_user):
+    tokens, u = _login_tokens(client, db, make_user, email='out@example.com')
+    # logout używa refresh tokenu
+    r = client.post('/api/mobile/v1/auth/logout',
+                    headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r.status_code == 200
+    # ponowny refresh tym samym tokenem ma być odrzucony
+    r2 = client.post('/api/mobile/v1/auth/refresh',
+                     headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r2.status_code == 401
