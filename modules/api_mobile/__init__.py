@@ -11,4 +11,4 @@ api_mobile_bp = Blueprint('api_mobile', __name__, url_prefix='/api/mobile/v1')
 from . import models  # noqa: E402,F401  (żeby Alembic wykrył tabelę)
 
 # Trasy importujemy na końcu, aby uniknąć cyklicznych importów.
-# from . import auth_routes  # odkomentowane w Task 5
+from . import auth_routes  # noqa: E402,F401
