@@ -26,3 +26,31 @@ def test_app_version(client):
     assert r.status_code == 200
     data = r.get_json()['data']
     assert 'min_version' in data and 'latest_version' in data
+
+
+def _make_verified_user_with_password(db, make_user, email='log@example.com', pw='Haslo123!'):
+    u = make_user(email=email)
+    u.set_password(pw)
+    u.email_verified = True
+    u.is_active = True
+    db.session.commit()
+    return u
+
+
+def test_login_success(client, db, make_user):
+    _make_verified_user_with_password(db, make_user)
+    r = client.post('/api/mobile/v1/auth/login',
+                    json={'email': 'log@example.com', 'password': 'Haslo123!'})
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert 'access_token' in data and 'refresh_token' in data
+    assert data['user']['email'] == 'log@example.com'
+
+
+def test_login_wrong_password(client, db, make_user):
+    _make_verified_user_with_password(db, make_user)
+    r = client.post('/api/mobile/v1/auth/login',
+                    json={'email': 'log@example.com', 'password': 'zle'})
+    assert r.status_code == 401
+    assert r.get_json()['success'] is False
+    assert r.get_json()['error']['code'] == 'invalid_credentials'
