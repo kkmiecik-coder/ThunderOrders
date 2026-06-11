@@ -54,3 +54,32 @@ def test_login_wrong_password(client, db, make_user):
     assert r.status_code == 401
     assert r.get_json()['success'] is False
     assert r.get_json()['error']['code'] == 'invalid_credentials'
+
+
+def _login_tokens(client, db, make_user, email='me@example.com', pw='Haslo123!'):
+    u = make_user(email=email)
+    u.set_password(pw); u.email_verified = True; u.is_active = True
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/login', json={'email': email, 'password': pw})
+    return r.get_json()['data'], u
+
+
+def test_me_requires_token(client):
+    r = client.get('/api/mobile/v1/auth/me')
+    assert r.status_code == 401
+
+
+def test_me_returns_user(client, db, make_user):
+    tokens, u = _login_tokens(client, db, make_user)
+    r = client.get('/api/mobile/v1/auth/me',
+                   headers={'Authorization': f'Bearer {tokens["access_token"]}'})
+    assert r.status_code == 200
+    assert r.get_json()['data']['user']['email'] == 'me@example.com'
+
+
+def test_refresh_issues_new_access(client, db, make_user):
+    tokens, u = _login_tokens(client, db, make_user, email='ref@example.com')
+    r = client.post('/api/mobile/v1/auth/refresh',
+                    headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r.status_code == 200
+    assert 'access_token' in r.get_json()['data']

@@ -1,7 +1,7 @@
 """Trasy auth + meta (health, app-version) dla mobilnego API."""
 
 from flask import current_app, request
-from flask_jwt_extended import create_access_token, create_refresh_token
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from extensions import db
 from modules.auth.models import User
 from . import api_mobile_bp
@@ -44,3 +44,19 @@ def login():
         'refresh_token': create_refresh_token(identity=identity),
         'user': serialize_user(user),
     })
+
+
+@api_mobile_bp.route('/auth/me', methods=['GET'])
+@jwt_required()
+def me():
+    user = User.query.get(int(get_jwt_identity()))
+    if user is None:
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    return json_ok({'user': serialize_user(user)})
+
+
+@api_mobile_bp.route('/auth/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    identity = get_jwt_identity()
+    return json_ok({'access_token': create_access_token(identity=identity)})
