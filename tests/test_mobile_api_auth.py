@@ -342,3 +342,39 @@ def test_verify_email_inactive_account_gets_no_tokens(client, db, make_user):
     assert r.status_code == 403
     assert r.get_json()['error']['code'] == 'account_inactive'
     assert 'access_token' not in (r.get_json().get('data') or {})
+
+
+def test_jwt_errors_use_api_envelope(client, db, make_user):
+    # Brak tokenu
+    r = client.get('/api/mobile/v1/auth/me')
+    assert r.status_code == 401
+    body = r.get_json()
+    assert body['success'] is False and body['error']['code'] == 'authorization_required'
+
+    # Zły typ tokenu (access na trasie refresh) — 422 w kopercie
+    tokens, u = _login_tokens(client, db, make_user, email='env@example.com')
+    r2 = client.post('/api/mobile/v1/auth/refresh',
+                     headers={'Authorization': f'Bearer {tokens["access_token"]}'})
+    assert r2.status_code == 422
+    assert r2.get_json()['error']['code'] == 'invalid_token'
+
+    # Unieważniony refresh (po logout) — 401 token_revoked
+    client.post('/api/mobile/v1/auth/logout',
+                headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    r3 = client.post('/api/mobile/v1/auth/refresh',
+                     headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r3.status_code == 401
+    assert r3.get_json()['error']['code'] == 'token_revoked'
+
+
+def test_jwt_expired_token_envelope(client, db, make_user, app):
+    from datetime import timedelta
+    from flask_jwt_extended import create_access_token
+    u = make_user(email='exp@example.com')
+    with app.test_request_context():
+        expired = create_access_token(identity=str(u.id),
+                                      expires_delta=timedelta(seconds=-1))
+    r = client.get('/api/mobile/v1/auth/me',
+                   headers={'Authorization': f'Bearer {expired}'})
+    assert r.status_code == 401
+    assert r.get_json()['error']['code'] == 'token_expired'

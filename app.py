@@ -96,6 +96,28 @@ def create_app(config_name=None):
         from modules.api_mobile.models import MobileTokenBlocklist
         return MobileTokenBlocklist.contains(jwt_payload['jti'])
 
+    # Błędy warstwy JWT w kopercie API mobilnego ({"success": false, "error": {...}})
+    # zamiast domyślnego {"msg": ...}. Statusy bez zmian (401/422) — interceptor
+    # w aplikacji mobilnej odświeża token tylko na 401.
+    def _jwt_err(code, message, status):
+        return jsonify({'success': False, 'error': {'code': code, 'message': message}}), status
+
+    @jwt.unauthorized_loader
+    def _jwt_missing(reason):
+        return _jwt_err('authorization_required', 'Wymagana autoryzacja.', 401)
+
+    @jwt.invalid_token_loader
+    def _jwt_invalid(reason):
+        return _jwt_err('invalid_token', 'Nieprawidłowy token.', 422)
+
+    @jwt.expired_token_loader
+    def _jwt_expired(jwt_header, jwt_payload):
+        return _jwt_err('token_expired', 'Token wygasł.', 401)
+
+    @jwt.revoked_token_loader
+    def _jwt_revoked(jwt_header, jwt_payload):
+        return _jwt_err('token_revoked', 'Token został unieważniony.', 401)
+
     executor.init_app(app)
     limiter.init_app(app)
     socketio_origins = app.config.get('SOCKETIO_CORS_ORIGINS', [
