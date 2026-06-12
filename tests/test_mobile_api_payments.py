@@ -71,3 +71,42 @@ def test_payment_methods_absolute_logo_url(client, db, make_user):
     assert m['logo_light_url'].startswith('http')
     assert m['logo_light_url'].endswith('/static/uploads/payment_methods/rev.png')
     assert m['logo_dark_url'] is None
+
+
+def test_proof_requires_jwt(client, db, make_user, make_order):
+    u = make_user(); o = make_order(u)
+    _add_payment(db, o, 'domestic_shipping', proof_file='abc.png')
+    assert client.get('/api/mobile/v1/payment-confirmations/proof/abc.png').status_code == 401
+
+
+def test_proof_owner_gets_file(client, db, make_user, make_order, app):
+    import os
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, order_type='on_hand', shipping_cost=Decimal('10.00'))
+    folder = os.path.join(app.root_path, 'uploads', 'payment_confirmations')
+    os.makedirs(folder, exist_ok=True)
+    fname = 'e6test_owner.png'
+    with open(os.path.join(folder, fname), 'wb') as f:
+        f.write(_tiny_png().read())
+    _add_payment(db, o, 'domestic_shipping', proof_file=fname)
+    try:
+        r = client.get(f'/api/mobile/v1/payment-confirmations/proof/{fname}', headers=h)
+        assert r.status_code == 200
+        assert r.data[:8] == b'\x89PNG\r\n\x1a\n'
+    finally:
+        os.remove(os.path.join(folder, fname))
+
+
+def test_proof_other_user_404(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    other = make_user()
+    o = make_order(other, order_type='on_hand', shipping_cost=Decimal('10.00'))
+    _add_payment(db, o, 'domestic_shipping', proof_file='secret.png')
+    r = client.get('/api/mobile/v1/payment-confirmations/proof/secret.png', headers=h)
+    assert r.status_code == 404                               # maskowanie istnienia
+
+
+def test_proof_missing_404(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    assert client.get('/api/mobile/v1/payment-confirmations/proof/nope.png',
+                      headers=h).status_code == 404

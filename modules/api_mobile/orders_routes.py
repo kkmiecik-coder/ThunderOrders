@@ -4,6 +4,7 @@ from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from modules.orders.models import Order
+from modules.client.payment_confirmation_service import order_stage_keys
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze
 from .validators import parse_int, ValidationError
@@ -72,6 +73,7 @@ _STAGE_LABELS = {
 
 
 def _stage_entry(stage, stage_index, name, amount, status, can_upload, deadline, conf):
+    from .payments_routes import _proof_url   # import LOKALNY (uniknięcie cyklu modułów)
     return {
         'stage': stage,
         'stage_index': stage_index,
@@ -81,6 +83,7 @@ def _stage_entry(stage, stage_index, name, amount, status, can_upload, deadline,
         'can_upload': bool(can_upload),
         'deadline': deadline.isoformat() if deadline else None,
         'has_proof': bool(conf.has_proof) if conf else False,
+        'proof_url': _proof_url(conf.proof_file) if (conf and conf.proof_file) else None,  # [D1=a]
         'rejection_reason': conf.rejection_reason if conf else None,
     }
 
@@ -90,6 +93,7 @@ def _serialize_payment_stages(order):
 
     on_hand: E1+E4 (2). exclusive/pre_order: E1(+E2 gdy payment_stages==4)+E3+E4 (3 lub 4).
     """
+    keys = order_stage_keys(order)                        # kanon obecności etapów (serwis)
     stages = []
     # E1 — zawsze
     stages.append(_stage_entry(
@@ -97,13 +101,13 @@ def _serialize_payment_stages(order):
         order.product_payment_status, order.can_upload_product_payment,
         None, order.product_payment_confirmation))
     # E2 — tylko 4-etapowe
-    if order.payment_stages == 4:
+    if 'korean_shipping' in keys:
         stages.append(_stage_entry(
             'korean_shipping', 'E2', _STAGE_LABELS['korean_shipping'], order.proxy_shipping_total,
             order.stage_2_status, order.can_upload_stage_2,
             order.get_shipping_kr_deadline(), order.stage_2_confirmation))
     # E3 — nie dotyczy on_hand
-    if order.order_type != 'on_hand':
+    if 'customs_vat' in keys:
         stages.append(_stage_entry(
             'customs_vat', 'E3', _STAGE_LABELS['customs_vat'], order.customs_vat_total,
             order.stage_3_status, order.can_upload_stage_3,

@@ -228,6 +228,18 @@ def test_payment_stage_rejected_reason(client, db, make_user, make_order):
     assert e4['rejection_reason'] == 'Nieczytelny dowód'
 
 
+def test_payment_stage_proof_url(client, db, make_user, make_order):
+    """[D1=a] Etap z proof_file ma absolutny proof_url (trasa JWT); bez dowodu → None."""
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=50.00, order_type='on_hand', shipping_cost=Decimal('10.00'))
+    _add_payment(db, o, 'domestic_shipping', proof_file='dowod_e4.png')
+    d = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
+    by = {s['stage']: s for s in d['payment_stages']}
+    assert by['domestic_shipping']['proof_url'].startswith('http')
+    assert by['domestic_shipping']['proof_url'].endswith('dowod_e4.png')
+    assert by['product']['proof_url'] is None             # brak dowodu
+
+
 def test_dashboard_requires_jwt(client, db, make_user):
     assert client.get('/api/mobile/v1/dashboard').status_code == 401
 
