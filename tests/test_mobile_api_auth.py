@@ -237,6 +237,7 @@ def test_google_verifier_fail_closed_without_allowlist(app, monkeypatch):
     called = []
     monkeypatch.setattr(ga.google_id_token, 'verify_oauth2_token',
                         lambda *a, **k: called.append(1) or {})
+    app.config['GOOGLE_OAUTH_CLIENT_IDS'] = []  # jawny warunek, niezależny od .env
     with app.test_request_context():
         assert ga.verify_google_id_token('whatever') is None
     assert called == []  # weryfikator (sieć) nie został dotknięty
