@@ -107,7 +107,7 @@ rate-limiting. Endpointy: `register`, `verify-email`, `resend-code`.
 ## 5. Kontrakt API (źródło prawdy dla obu repo)
 
 Wszystkie ścieżki z prefiksem **`/api/mobile/v1`**. Format odpowiedzi spójny:
-`{ "success": true, "data": {...} }` lub `{ "success": false, "error": {code, message} }`.
+`{ "success": true, "data": {...} }` lub `{ "success": false, "error": {code, message, details?} }`.
 
 ### Konwencje
 - **Paginacja:** `?page=N&per_page=M` → `{ data: [...], pagination: {page, per_page, total, has_next} }`.
@@ -139,13 +139,21 @@ GET    /products        ?q=&category=&size=&price_min=&price_max=&sort=&page=&pe
 GET    /products/<id>                                          → szczegóły + zdjęcia + rozmiary
 GET    /filters                                                → kategorie / rozmiary / zakres cen
 GET    /cart                                                   → koszyk (CartItem z bazy)
-POST   /cart/items      { product_id, quantity, selected_size }
+POST   /cart/items      { product_id, quantity }
 PATCH  /cart/items/<id> { quantity }
 DELETE /cart/items/<id>
 GET    /checkout/summary                                       → podsumowanie + adresy + metody
-POST   /checkout        { create_shipping, address_id, delivery_method, payment_method }
+POST   /checkout        { create_shipping, address_id }
                                                               → atomowa walidacja stocku → Order(OH)
 ```
+
+> **Korekty kontraktu (E2):** pozycje koszyka nie przyjmują `selected_size` — `CartItem` nie
+> przechowuje rozmiaru; produkty on-hand mają jeden rozmiar, zwracany w pozycjach koszyka jako
+> `size` (read-only) i zapisywany na `OrderItem` przy checkout. Checkout nie przyjmuje
+> `delivery_method`/`payment_method` (płatności = etapy E1–E4 obsługiwane osobno; dostawa =
+> opcjonalny ShippingRequest przez `create_shipping` + `address_id`). Kwoty w API mobilnym
+> w groszach (int). Koperta błędu może zawierać opcjonalne `details`
+> (np. `stock_errors` przy checkout, `available` przy przekroczeniu stanu).
 
 > **Korekta kontraktu (E1):** lista przyjmuje też `size`, `price_min`, `price_max` (parytet z webem; wartości dostarcza `GET /filters`). `category` to nazwa producenta (tak modeluje to webowy sklep). Szczegóły produktu zawierają dodatkowo `variants` (inne produkty z grupy wariantów).
 
