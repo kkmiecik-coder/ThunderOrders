@@ -168,3 +168,61 @@ def test_order_detail_financial_summary_grosze(client, db, make_user, make_order
     assert d['total_to_pay'] == 11500          # on_hand: E1 100 + E4 15
     assert d['paid_amount'] == 0
     assert d['remaining_to_pay'] == 11500
+
+
+def test_payment_stages_preorder_4(client, db, make_user, make_order):
+    """Pre-order 4-etapowy: E1+E2+E3+E4 ze statusami i kwotami."""
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=100.00, order_type='pre_order', payment_stages=4,
+                   proxy_shipping_cost=Decimal('30.00'),
+                   customs_vat_sale_cost=Decimal('20.00'),
+                   shipping_cost=Decimal('15.00'))
+    _add_payment(db, o, 'product', status='approved')
+    _add_payment(db, o, 'korean_shipping', status='pending')
+    d = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
+    by = {s['stage']: s for s in d['payment_stages']}
+    assert set(by) == {'product', 'korean_shipping', 'customs_vat', 'domestic_shipping'}
+    assert [s['stage_index'] for s in d['payment_stages']] == ['E1', 'E2', 'E3', 'E4']
+    assert by['product']['status'] == 'approved'
+    assert by['korean_shipping']['status'] == 'pending'
+    assert by['customs_vat']['status'] == 'none'         # brak rekordu
+    assert by['korean_shipping']['amount'] == 3000        # grosze
+    assert by['domestic_shipping']['amount'] == 1500
+    assert by['product']['has_proof'] is True             # _add_payment ma proof_file
+
+
+def test_payment_stages_onhand_2(client, db, make_user, make_order):
+    """On-hand: TYLKO 2 etapy E1+E4 (brak E2/E3)."""
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=80.00, order_type='on_hand', shipping_cost=Decimal('15.00'))
+    d = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
+    assert {s['stage'] for s in d['payment_stages']} == {'product', 'domestic_shipping'}
+    assert [s['stage_index'] for s in d['payment_stages']] == ['E1', 'E4']
+
+
+def test_payment_stages_exclusive_3(client, db, make_user, make_order):
+    """Exclusive 3-etapowy: E1+E3+E4 (brak E2 bo payment_stages != 4)."""
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=80.00, order_type='exclusive', payment_stages=3,
+                   customs_vat_sale_cost=Decimal('20.00'), shipping_cost=Decimal('10.00'))
+    d = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
+    assert {s['stage'] for s in d['payment_stages']} == {'product', 'customs_vat', 'domestic_shipping'}
+    assert (by_customs := next(s for s in d['payment_stages'] if s['stage'] == 'customs_vat'))
+    assert by_customs['amount'] == 2000                   # grosze
+    assert by_customs['status'] == 'none'
+    # każdy etap ma komplet pól kontraktu
+    for s in d['payment_stages']:
+        assert set(s) >= {'stage', 'stage_index', 'name', 'amount', 'status',
+                          'can_upload', 'deadline', 'has_proof', 'rejection_reason'}
+
+
+def test_payment_stage_rejected_reason(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=50.00, order_type='on_hand', shipping_cost=Decimal('10.00'))
+    pc = _add_payment(db, o, 'domestic_shipping', status='rejected')
+    pc.rejection_reason = 'Nieczytelny dowód'
+    db.session.commit()
+    d = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
+    e4 = next(s for s in d['payment_stages'] if s['stage'] == 'domestic_shipping')
+    assert e4['status'] == 'rejected'
+    assert e4['rejection_reason'] == 'Nieczytelny dowód'

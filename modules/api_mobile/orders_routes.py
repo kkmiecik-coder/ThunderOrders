@@ -63,9 +63,57 @@ def orders_list():
     )
 
 
+_STAGE_LABELS = {
+    'product': 'Płatność za produkt',
+    'korean_shipping': 'Wysyłka z Korei',
+    'customs_vat': 'Cło i VAT',
+    'domestic_shipping': 'Wysyłka krajowa',
+}
+
+
+def _stage_entry(stage, stage_index, name, amount, status, can_upload, deadline, conf):
+    return {
+        'stage': stage,
+        'stage_index': stage_index,
+        'name': name,
+        'amount': to_grosze(amount),
+        'status': status,                                 # 'none'|'pending'|'approved'|'rejected'
+        'can_upload': bool(can_upload),
+        'deadline': deadline.isoformat() if deadline else None,
+        'has_proof': bool(conf.has_proof) if conf else False,
+        'rejection_reason': conf.rejection_reason if conf else None,
+    }
+
+
 def _serialize_payment_stages(order):
-    """Stub — pełna implementacja w Task 3."""
-    return []
+    """Lista etapów OBECNYCH dla zamówienia (czyta properties Order — jedno źródło prawdy).
+
+    on_hand: E1+E4 (2). exclusive/pre_order: E1(+E2 gdy payment_stages==4)+E3+E4 (3 lub 4).
+    """
+    stages = []
+    # E1 — zawsze
+    stages.append(_stage_entry(
+        'product', 'E1', _STAGE_LABELS['product'], order.effective_total,
+        order.product_payment_status, order.can_upload_product_payment,
+        None, order.product_payment_confirmation))
+    # E2 — tylko 4-etapowe
+    if order.payment_stages == 4:
+        stages.append(_stage_entry(
+            'korean_shipping', 'E2', _STAGE_LABELS['korean_shipping'], order.proxy_shipping_total,
+            order.stage_2_status, order.can_upload_stage_2,
+            order.get_shipping_kr_deadline(), order.stage_2_confirmation))
+    # E3 — nie dotyczy on_hand
+    if order.order_type != 'on_hand':
+        stages.append(_stage_entry(
+            'customs_vat', 'E3', _STAGE_LABELS['customs_vat'], order.customs_vat_total,
+            order.stage_3_status, order.can_upload_stage_3,
+            order.get_customs_vat_deadline(), order.stage_3_confirmation))
+    # E4 — zawsze
+    stages.append(_stage_entry(
+        'domestic_shipping', 'E4', _STAGE_LABELS['domestic_shipping'], order.shipping_cost,
+        order.stage_4_status, order.can_upload_stage_4,
+        order.get_shipping_pl_deadline(), order.stage_4_confirmation))
+    return stages
 
 
 def _serialize_order_item(item):
