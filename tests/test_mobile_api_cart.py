@@ -537,3 +537,103 @@ def test_cart_item_of_other_user_not_found(client, db, make_user, make_product):
     r = client.delete(f'/api/mobile/v1/shop/cart/items/{item_id}', headers=h_b)
     assert r.status_code == 404
     assert r.get_json()['error']['code'] == 'item_not_found'
+
+
+# ---------------------------------------------------------------------------
+# HTTP checkout summary (Task 8)
+# ---------------------------------------------------------------------------
+
+def test_checkout_summary_requires_token(client):
+    assert client.get('/api/mobile/v1/shop/checkout/summary').status_code == 401
+
+
+def test_checkout_summary_with_cart_and_addresses(client, db, make_user, make_product):
+    from modules.auth.models import ShippingAddress
+    h, user = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('99.00'))
+    # dodaj do koszyka
+    client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                json={'product_id': p.id, 'quantity': 2})
+    # utwórz adres usera
+    addr = ShippingAddress(
+        user_id=user.id,
+        address_type='home',
+        name='Dom',
+        shipping_name='Jan Kowalski',
+        shipping_address='ul. Testowa 1',
+        shipping_postal_code='00-001',
+        shipping_city='Warszawa',
+        shipping_voivodeship='mazowieckie',
+        shipping_country='Polska',
+        is_active=True,
+    )
+    db.session.add(addr)
+    db.session.commit()
+
+    r = client.get('/api/mobile/v1/shop/checkout/summary', headers=h)
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert data['count'] == 2
+    assert data['total'] == 19800  # grosze
+    assert len(data['items']) == 1
+    assert data['items'][0]['price'] == 9900  # grosze
+    assert len(data['addresses']) == 1
+    a = data['addresses'][0]
+    assert a['id'] == addr.id
+    assert a['address_type'] == 'home'
+    assert a['name'] == 'Dom'
+    assert a['shipping_name'] == 'Jan Kowalski'
+    assert a['shipping_city'] == 'Warszawa'
+    # pola pickup obecne (None gdy home)
+    assert 'pickup_courier' in a
+    assert 'pickup_point_id' in a
+
+
+def test_checkout_summary_other_user_address_not_visible(client, db, make_user):
+    from modules.auth.models import ShippingAddress
+    h_a, user_a = _auth(client, db, make_user)
+    _, user_b = _auth(client, db, make_user)
+    # adres użytkownika B
+    addr_b = ShippingAddress(
+        user_id=user_b.id, address_type='home', name='B Dom',
+        shipping_name='User B', shipping_address='ul. B 1',
+        shipping_postal_code='11-111', shipping_city='Kraków',
+        shipping_voivodeship='małopolskie', shipping_country='Polska',
+        is_active=True,
+    )
+    db.session.add(addr_b)
+    db.session.commit()
+
+    r = client.get('/api/mobile/v1/shop/checkout/summary', headers=h_a)
+    assert r.status_code == 200
+    assert r.get_json()['data']['addresses'] == []
+
+
+def test_checkout_summary_inactive_address_not_visible(client, db, make_user):
+    from modules.auth.models import ShippingAddress
+    h, user = _auth(client, db, make_user)
+    addr = ShippingAddress(
+        user_id=user.id, address_type='home', name='Stary dom',
+        shipping_name='Jan', shipping_address='ul. Stara 1',
+        shipping_postal_code='22-222', shipping_city='Gdańsk',
+        shipping_voivodeship='pomorskie', shipping_country='Polska',
+        is_active=False,  # nieaktywny
+    )
+    db.session.add(addr)
+    db.session.commit()
+
+    r = client.get('/api/mobile/v1/shop/checkout/summary', headers=h)
+    assert r.status_code == 200
+    assert r.get_json()['data']['addresses'] == []
+
+
+def test_checkout_summary_empty_cart_ok(client, db, make_user):
+    """Pusty koszyk → 200 z items=[]."""
+    h, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/shop/checkout/summary', headers=h)
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert data['items'] == []
+    assert data['total'] == 0
+    assert data['count'] == 0

@@ -93,3 +93,45 @@ def cart_remove(item_id):
     if not result.ok:
         return _err(result)
     return json_ok({'cart_count': result.extras['cart_count']})
+
+
+# ---------------------------------------------------------------------------
+# GET /shop/checkout/summary — koszyk + adresy dostawy
+# ---------------------------------------------------------------------------
+
+@api_mobile_bp.route('/shop/checkout/summary', methods=['GET'])
+@jwt_required()
+def checkout_summary():
+    from modules.auth.models import ShippingAddress
+    user_id = int(get_jwt_identity())
+    cart_data, total, count = cart_service.build_cart_data(user_id)
+
+    addresses = ShippingAddress.query.filter_by(
+        user_id=user_id,
+        is_active=True,
+    ).all()
+
+    def _serialize_address(a):
+        return {
+            'id': a.id,
+            'address_type': a.address_type,
+            'name': a.name,
+            'shipping_name': a.shipping_name,
+            'shipping_address': a.shipping_address,
+            'shipping_postal_code': a.shipping_postal_code,
+            'shipping_city': a.shipping_city,
+            'shipping_voivodeship': a.shipping_voivodeship,
+            'shipping_country': a.shipping_country,
+            'pickup_courier': a.pickup_courier,
+            'pickup_point_id': a.pickup_point_id,
+            'pickup_address': a.pickup_address,
+            'pickup_postal_code': a.pickup_postal_code,
+            'pickup_city': a.pickup_city,
+        }
+
+    return json_ok({
+        'items': [_serialize_item(d) for d in cart_data],
+        'total': to_grosze(total),
+        'count': count,
+        'addresses': [_serialize_address(a) for a in addresses],
+    })
