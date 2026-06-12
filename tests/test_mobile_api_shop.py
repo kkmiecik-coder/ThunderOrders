@@ -213,3 +213,43 @@ def test_shop_product_detail_requires_token(client, db, make_product):
     p = make_product()
     r = client.get(f'/api/mobile/v1/shop/products/{p.id}')
     assert r.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# GET /shop/filters (Task 6)
+# ---------------------------------------------------------------------------
+
+def test_shop_filters_requires_token(client):
+    r = client.get('/api/mobile/v1/shop/filters')
+    assert r.status_code == 401
+
+
+def test_shop_filters_data_in_grosze(client, db, make_user, make_product):
+    from modules.products.models import Manufacturer, Size
+    headers, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    mfr = Manufacturer(name='Bratz')
+    size = Size(name='M')
+    db.session.add_all([mfr, size])
+    db.session.commit()
+    p = make_product(product_type_id=pt.id, manufacturer_id=mfr.id,
+                     sale_price=Decimal('50.00'))
+    p.sizes.append(size)
+    make_product(product_type_id=pt.id, sale_price=Decimal('150.00'))
+    db.session.commit()
+
+    r = client.get('/api/mobile/v1/shop/filters', headers=headers)
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert data['categories'] == ['Bratz']
+    assert data['sizes'] == ['M']
+    assert data['price_min'] == 5000    # grosze
+    assert data['price_max'] == 15000   # grosze
+
+
+def test_shop_filters_empty_catalog(client, db, make_user):
+    headers, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/shop/filters', headers=headers)
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert data == {'categories': [], 'sizes': [], 'price_min': 0, 'price_max': 0}

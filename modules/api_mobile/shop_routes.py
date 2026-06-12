@@ -92,3 +92,15 @@ def shop_product_detail(product_id):
     db.session.commit()
 
     return json_ok({'product': _serialize_product_detail(product)})
+
+
+@api_mobile_bp.route('/shop/filters', methods=['GET'])
+@jwt_required()
+def shop_filters():
+    data = shop_service.get_filters_data()
+    return json_ok({
+        'categories': data['categories'],
+        'sizes': data['sizes'],
+        'price_min': to_grosze(data['price_min']) if data['price_min'] is not None else 0,
+        'price_max': to_grosze(data['price_max']) if data['price_max'] is not None else 0,
+    })
