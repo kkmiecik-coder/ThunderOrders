@@ -125,3 +125,82 @@ def test_offer_availability_snapshot(client, db, make_user, make_product):
     assert r.status_code == 200
     pdata = r.get_json()['data']['products'][str(prod.id)]
     assert pdata['available'] == 3 and pdata['total_reserved'] == 2   # SZTUKI, nie grosze
+
+
+# ---------------------------------------------------------------------------
+# Task 6: POST /offers/<token>/{reserve,extend,release} (+ emisje Socket.IO)
+# ---------------------------------------------------------------------------
+
+def test_reserve_requires_token(client, db, make_user):
+    page = _make_page(db, 'active')
+    assert client.post(f'/api/mobile/v1/offers/{page.token}/reserve', json={}).status_code == 401
+
+
+def test_reserve_then_availability_reflects(client, db, make_user, make_product):
+    from modules.offers.models import OfferSection
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=5, sort_order=0)); db.session.commit()
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                    json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 2})
+    assert r.status_code == 200 and r.get_json()['data']['reservation']['quantity'] == 2
+    a = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}/availability?session_id=mine',
+                   headers=h)
+    assert a.get_json()['data']['products'][str(prod.id)]['available'] == 3
+
+
+def test_reserve_insufficient_409(client, db, make_user, make_product):
+    from modules.offers.models import OfferSection, OfferReservation
+    import time
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=1, sort_order=0))
+    now = int(time.time())
+    db.session.add(OfferReservation(session_id='other', offer_page_id=page.id, product_id=prod.id,
+                                    quantity=1, reserved_at=now, expires_at=now + 120))
+    db.session.commit()
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                    json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 1})
+    assert r.status_code == 409
+    assert r.get_json()['error']['code'] == 'insufficient_availability'
+
+
+def test_extend_once_then_already_extended(client, db, make_user, make_product):
+    # reserve → extend (200) → extend ponownie (400 already_extended)
+    from modules.offers.models import OfferSection
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=5, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 1})
+    r1 = client.post(f'/api/mobile/v1/offers/{page.token}/extend', headers=h,
+                     json={'session_id': 'mine'})
+    assert r1.status_code == 200 and 'new_expires_at' in r1.get_json()['data']
+    r2 = client.post(f'/api/mobile/v1/offers/{page.token}/extend', headers=h,
+                     json={'session_id': 'mine'})
+    assert r2.status_code == 400
+    assert r2.get_json()['error']['code'] == 'already_extended'
+
+
+def test_release_reduces_reservation(client, db, make_user, make_product):
+    # reserve qty=2 → release qty=2 → availability wraca do max
+    from modules.offers.models import OfferSection
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=5, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 2})
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/release', headers=h,
+                    json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 2})
+    assert r.status_code == 200
+    a = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}/availability?session_id=mine',
+                   headers=h)
+    assert a.get_json()['data']['products'][str(prod.id)]['available'] == 5

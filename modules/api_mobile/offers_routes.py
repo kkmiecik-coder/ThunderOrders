@@ -1,6 +1,6 @@
 """Trasy stron ofertowych (exclusive + preorder read + availability) dla mobilnego API — E3."""
-from flask import request
-from flask_jwt_extended import jwt_required
+from flask import request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import limiter
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
@@ -176,3 +176,90 @@ def offer_availability(token):
     section_products = get_section_products_map(page.id)
     products_data, session_info = get_availability_snapshot(page.id, section_products, session_id)
     return json_ok({'products': products_data, 'session': session_info})
+
+
+# ---------------------------------------------------------------------------
+# Task 6: POST /offers/<token>/{reserve,extend,release} (+ emisje Socket.IO)
+# ---------------------------------------------------------------------------
+
+def _emit_safe(page_id, *, reservations=False, availability=False, schedule=False):
+    """Powtarza emisje Socket.IO tras webowych (best-effort, try/except dla testów)."""
+    try:
+        from modules.offers.socket_events import (
+            emit_reservations_update, broadcast_availability_update, _schedule_expiry_timer)
+        if reservations:
+            emit_reservations_update(page_id)
+        if availability:
+            broadcast_availability_update(page_id)
+        if schedule:
+            _schedule_expiry_timer(page_id)
+    except Exception:
+        pass
+
+
+@api_mobile_bp.route('/offers/<token>/reserve', methods=['POST'])
+@jwt_required()
+@limiter.limit("120 per minute")
+def offer_reserve(token):
+    from modules.offers.reservation import reserve_product, get_section_max_for_product
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    body = request.get_json(silent=True) or {}
+    session_id = body.get('session_id')
+    product_id = parse_int(body.get('product_id'), 'product_id', required=True)
+    quantity = parse_int(body.get('quantity'), 'quantity', default=1, min_value=1)
+    selected_size = body.get('selected_size')
+    if not session_id:
+        return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
+    user_id = int(get_jwt_identity())
+    section_max = get_section_max_for_product(page.id, product_id)
+    ok, result = reserve_product(session_id=session_id, page_id=page.id, product_id=product_id,
+                                 quantity=quantity, section_max=section_max, user_id=user_id,
+                                 selected_size=selected_size)
+    if ok:
+        _emit_safe(page.id, reservations=True, availability=True, schedule=True)
+        return json_ok(result)
+    details = {k: result[k] for k in ('available_quantity', 'check_back_at') if k in result}
+    return jsonify({'success': False, 'error': {
+        'code': result.get('error', 'reserve_failed'), 'message': result.get('message', ''),
+        **({'details': details} if details else {})}}), 409
+
+
+@api_mobile_bp.route('/offers/<token>/release', methods=['POST'])
+@jwt_required()
+@limiter.limit("120 per minute")
+def offer_release(token):
+    from modules.offers.reservation import release_product
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    body = request.get_json(silent=True) or {}
+    session_id = body.get('session_id')
+    product_id = parse_int(body.get('product_id'), 'product_id', required=True)
+    quantity = parse_int(body.get('quantity'), 'quantity', default=1, min_value=1)
+    if not session_id:
+        return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
+    ok, result = release_product(session_id, page.id, product_id, quantity)
+    if ok:
+        _emit_safe(page.id, reservations=True, availability=True)
+    return json_ok(result)
+
+
+@api_mobile_bp.route('/offers/<token>/extend', methods=['POST'])
+@jwt_required()
+@limiter.limit("60 per minute")
+def offer_extend(token):
+    from modules.offers.reservation import extend_reservation
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    body = request.get_json(silent=True) or {}
+    session_id = body.get('session_id')
+    if not session_id:
+        return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
+    ok, result = extend_reservation(session_id, page.id)
+    if not ok:
+        return json_err(result.get('error', 'extend_failed'), result.get('message', ''), 400)
+    _emit_safe(page.id, schedule=True)   # D4(a): tylko korekta timera serwera
+    return json_ok(result)
