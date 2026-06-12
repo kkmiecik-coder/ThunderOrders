@@ -22,3 +22,4 @@ from . import models  # noqa: E402,F401  (żeby Alembic wykrył tabelę)
 # Trasy importujemy na końcu, aby uniknąć cyklicznych importów.
 from . import auth_routes  # noqa: E402,F401
 from . import shop_routes  # noqa: E402,F401
+from . import cart_routes  # noqa: E402,F401

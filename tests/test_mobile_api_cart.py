@@ -474,3 +474,66 @@ def test_web_checkout_empty_cart_parity(client, db, make_user, login):
     body = r.get_json()
     assert body['success'] is False
     assert body['error'] == 'Koszyk jest pusty.'
+
+
+# ---------------------------------------------------------------------------
+# HTTP koszyk (Task 7)
+# ---------------------------------------------------------------------------
+
+def test_cart_requires_token(client):
+    assert client.get('/api/mobile/v1/shop/cart').status_code == 401
+
+
+def test_cart_flow_add_get_update_delete(client, db, make_user, make_product):
+    h, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('99.00'))
+    r = client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                    json={'product_id': p.id, 'quantity': 2})
+    assert r.status_code == 201 and r.get_json()['data']['cart_count'] == 2
+    r = client.get('/api/mobile/v1/shop/cart', headers=h)
+    data = r.get_json()['data']
+    assert data['count'] == 2 and data['total'] == 19800          # grosze
+    item = data['items'][0]
+    assert item['price'] == 9900                                   # grosze
+    assert item['image_url'] is None or item['image_url'].startswith('http')
+    item_id = item['id']
+    r = client.patch(f'/api/mobile/v1/shop/cart/items/{item_id}', headers=h, json={'quantity': 1})
+    assert r.status_code == 200 and r.get_json()['data']['cart_count'] == 1
+    r = client.delete(f'/api/mobile/v1/shop/cart/items/{item_id}', headers=h)
+    assert r.status_code == 200
+    assert client.get('/api/mobile/v1/shop/cart', headers=h).get_json()['data']['count'] == 0
+
+
+def test_cart_add_exceeds_stock(client, db, make_user, make_product):
+    h, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    p = make_product(product_type_id=pt.id, quantity=1, sale_price=Decimal('10.00'))
+    r = client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                    json={'product_id': p.id, 'quantity': 5})
+    assert r.status_code == 400
+    body = r.get_json()
+    assert body['error']['code'] == 'exceeds_stock'
+    assert body['error']['details']['available'] == 1
+
+
+def test_cart_item_of_other_user_not_found(client, db, make_user, make_product):
+    """User A dodaje produkt, user B robi PATCH i DELETE na item A → 404 item_not_found."""
+    pt = _onhand_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('10.00'))
+    h_a, _ = _auth(client, db, make_user)
+    h_b, _ = _auth(client, db, make_user)
+    # user A dodaje produkt
+    client.post('/api/mobile/v1/shop/cart/items', headers=h_a,
+                json={'product_id': p.id, 'quantity': 1})
+    # pobierz item_id z koszyka użytkownika A
+    cart = client.get('/api/mobile/v1/shop/cart', headers=h_a).get_json()['data']
+    item_id = cart['items'][0]['id']
+    # user B próbuje PATCH
+    r = client.patch(f'/api/mobile/v1/shop/cart/items/{item_id}', headers=h_b, json={'quantity': 1})
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'item_not_found'
+    # user B próbuje DELETE
+    r = client.delete(f'/api/mobile/v1/shop/cart/items/{item_id}', headers=h_b)
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'item_not_found'
