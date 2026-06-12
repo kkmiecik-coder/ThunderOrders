@@ -177,3 +177,24 @@ def order_detail(order_id):
     if order is None:
         return json_err('order_not_found', 'Zamówienie nie istnieje.', 404)
     return json_ok(_serialize_order_detail(order))
+
+
+@api_mobile_bp.route('/dashboard', methods=['GET'])
+@jwt_required()
+def client_dashboard():
+    from modules.auth.models import User
+    from modules.client.dashboard_service import get_client_dashboard_stats
+    user = User.query.get(int(get_jwt_identity()))
+    if user is None:
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    stats = get_client_dashboard_stats(user)
+    return json_ok({
+        'orders': stats['orders'],
+        'payment': {
+            'paid': to_grosze(stats['payment']['paid']),
+            'to_pay': to_grosze(stats['payment']['to_pay']),
+        },
+        'recent_orders': [_serialize_order_brief(o) for o in stats['recent_orders']['visible']],
+        'recent_orders_total': stats['recent_orders']['total'],
+        'chart': stats['chart_data'],
+    })

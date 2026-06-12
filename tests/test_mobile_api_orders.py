@@ -226,3 +226,28 @@ def test_payment_stage_rejected_reason(client, db, make_user, make_order):
     e4 = next(s for s in d['payment_stages'] if s['stage'] == 'domestic_shipping')
     assert e4['status'] == 'rejected'
     assert e4['rejection_reason'] == 'Nieczytelny dowód'
+
+
+def test_dashboard_requires_jwt(client, db, make_user):
+    assert client.get('/api/mobile/v1/dashboard').status_code == 401
+
+
+def test_dashboard_counts_and_recent(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    make_order(u, status='nowe')
+    make_order(u, status='oczekujace')
+    make_order(u, status='dostarczone')
+    make_user()  # cudzy bez zamówień
+    d = client.get('/api/mobile/v1/dashboard', headers=h).get_json()['data']
+    assert d['orders'] == {'all': 3, 'in_progress': 2, 'delivered': 1, 'awaiting_shipping': 0}
+    assert d['recent_orders_total'] == 3
+    assert 'order_number' in d['recent_orders'][0] and 'total' in d['recent_orders'][0]
+    assert len(d['chart']['labels']) == 31
+
+
+def test_dashboard_to_pay_grosze(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    make_order(u, total_amount=100.00, order_type='on_hand', shipping_cost=Decimal('20.00'))
+    d = client.get('/api/mobile/v1/dashboard', headers=h).get_json()['data']
+    assert d['payment']['to_pay'] == 12000          # grosze (120 PLN)
+    assert d['payment']['paid'] == 0

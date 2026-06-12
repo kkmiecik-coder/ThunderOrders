@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 from modules.client import client_bp
+from modules.client.dashboard_service import get_client_dashboard_stats
 
 
 def sort_offer_pages(pages, filter_type):
@@ -94,104 +95,10 @@ def dashboard():
     Client Dashboard
     Główny panel klienta z rzeczywistymi danymi z bazy
     """
-    today = datetime.now().date()
-    thirty_days_ago = today - timedelta(days=30)
-
-    # 1. Orders stats
-    orders_all = Order.query.filter_by(user_id=current_user.id).count()
-    orders_in_progress = Order.query.filter_by(user_id=current_user.id).filter(
-        Order.status.in_(['nowe', 'oczekujace', 'w_realizacji', 'spakowane', 'wyslane'])
-    ).count()
-    orders_delivered = Order.query.filter_by(user_id=current_user.id).filter_by(status='dostarczone').count()
-
-    # 2. Payment stats
-    paid_total = db.session.query(
-        sql_func.coalesce(sql_func.sum(Order.paid_amount), 0)
-    ).filter_by(user_id=current_user.id).scalar() or Decimal('0.00')
-
-    # Pełna należność klienta obejmuje wszystkie etapy płatności:
-    # E1 produkt + E2 wysyłka KR + E3 cło/VAT + E4 wysyłka PL (patrz Order.total_to_pay).
-    # Filtr DB to bezpieczny nadzbiór (suma kolumn bez warunków etapowych ≥ total_to_pay),
-    # a precyzyjne „pozostało" liczy remaining_to_pay w Pythonie.
-    to_pay_orders = Order.query.filter_by(user_id=current_user.id).filter(
-        Order.paid_amount < (
-            Order.total_amount
-            + Order.shipping_cost
-            + sql_func.coalesce(Order.proxy_shipping_cost, 0)
-            + sql_func.coalesce(Order.customs_vat_sale_cost, 0)
-        )
-    ).all()
-    # Exclusive orders are not payable until the offer page is fully closed —
-    # exclude them so the widget doesn't show amounts the client can't yet pay.
-    to_pay_total = sum(
-        o.remaining_to_pay
-        for o in to_pay_orders
-        if not (o.order_type == 'exclusive' and o.offer_page and not o.offer_page.is_fully_closed)
-    )
-
-    # 3. Orders waiting for shipping request
-    # Get allowed order statuses from settings
-    setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
-    allowed_statuses = []
-    if setting and setting.value:
-        try:
-            allowed_statuses = json.loads(setting.value)
-        except (json.JSONDecodeError, TypeError):
-            allowed_statuses = ['dostarczone_gom']
-    else:
-        allowed_statuses = ['dostarczone_gom']
-
-    # Subquery to check if order is in any shipping request
-    in_shipping_request = db.session.query(ShippingRequestOrder.order_id).filter(
-        ShippingRequestOrder.order_id == Order.id
-    ).exists()
-
-    orders_awaiting_shipping = Order.query.filter(
-        and_(
-            Order.user_id == current_user.id,
-            Order.status.in_(allowed_statuses),
-            ~in_shipping_request
-        )
-    ).count()
-
-    # 4. Recent orders (with lazy loading support)
-    recent_orders_all = Order.query.filter_by(user_id=current_user.id).order_by(
-        Order.created_at.desc()
-    ).limit(15).all()  # Fetch up to 15 for initial load (5 visible + 5 buffer + 5 for API)
-
-    total_orders = Order.query.filter_by(user_id=current_user.id).count()
-
-    recent_orders = {
-        'visible': recent_orders_all[:5],  # First 5 visible
-        'buffer': recent_orders_all[5:10],  # Next 5 in buffer (hidden)
-        'total': total_orders,
-        'remaining': max(0, total_orders - 5)
-    }
-
-    # 5. Chart data (30 days)
-    # Grupuj zamówienia po dniach (ostatnie 30 dni)
-    orders_by_day = db.session.query(
-        sql_func.date(Order.created_at).label('order_date'),
-        sql_func.count(Order.id).label('count')
-    ).filter(
-        Order.user_id == current_user.id,
-        sql_func.date(Order.created_at) >= thirty_days_ago
-    ).group_by(sql_func.date(Order.created_at)).all()
-
-    # Wypełnij puste dni zerami
-    chart_data = {
-        'labels': [],  # ['2025-12-01', '2025-12-02', ...]
-        'values': []   # [3, 0, 5, ...]
-    }
-
-    # Wszystkie dni ostatniego miesiąca
-    all_dates = [(thirty_days_ago + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(31)]
-    # Użyj indeksowania zamiast atrybutów (row[0] = date, row[1] = count)
-    orders_dict = {str(row[0]): row[1] for row in orders_by_day}
-
-    for date_str in all_dates:
-        chart_data['labels'].append(date_str)
-        chart_data['values'].append(orders_dict.get(date_str, 0))
+    # Sekcje 1–5 (liczniki, płatności, oczekujące na wysyłkę, ostatnie zamówienia,
+    # wykres 30 dni) wyekstrahowane do współdzielonego serwisu — jedno źródło prawdy
+    # dla weba i mobilnego API (patrz modules/client/dashboard_service.py).
+    stats = get_client_dashboard_stats(current_user._get_current_object())
 
     # 6. Offer pages (client sees all except drafts)
     offer_pages_all = OfferPage.query.filter(
@@ -220,18 +127,13 @@ def dashboard():
     return render_template(
         'client/dashboard.html',
         title='Panel Klienta',
-        orders={
-            'all': orders_all,
-            'in_progress': orders_in_progress,
-            'delivered': orders_delivered,
-            'awaiting_shipping': orders_awaiting_shipping
-        },
+        orders=stats['orders'],
         payment={
-            'paid': float(paid_total),
-            'to_pay': float(to_pay_total)
+            'paid': float(stats['payment']['paid']),
+            'to_pay': float(stats['payment']['to_pay'])
         },
-        recent_orders=recent_orders,
-        chart_data=chart_data,
+        recent_orders=stats['recent_orders'],
+        chart_data=stats['chart_data'],
         offer_pages=offer_pages,
         show_tour=not current_user.has_seen_tour,
         contest_widget=contest_widget,
