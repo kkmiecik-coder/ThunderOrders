@@ -6,7 +6,7 @@ from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
 from .validators import parse_int
 from modules.offers.models import OfferPage
-from modules.client import shop_service
+from modules.client import shop_service  # slugify
 
 # Mapowanie kontrakt → enum bazy (D1: live obejmuje active + paused)
 _STATUS_MAP = {
@@ -68,3 +68,111 @@ def offer_pages_list():
         total=pagination.total,
         has_next=pagination.has_next,
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 5: GET /offers/offer-pages/<token> (struktura) + GET .../availability
+# ---------------------------------------------------------------------------
+
+def _brief(p):
+    """Zwięzła serializacja produktu (cena→grosze, obraz absolutny)."""
+    img = p.primary_image
+    return {
+        'id': p.id,
+        'name': p.name,
+        'slug': shop_service.slugify(p.name),
+        'sku': p.sku,
+        'price': to_grosze(p.sale_price),
+        'quantity': p.quantity,
+        'image_url': absolute_static_url(img.path_compressed) if img else None,
+        'sizes': [s.name for s in p.sizes],
+    }
+
+
+def _serialize_bonus(b):
+    bp = b.bonus_product
+    return {
+        'id': b.id,
+        'trigger_type': b.trigger_type,
+        'threshold_value': float(b.threshold_value) if b.threshold_value is not None else None,
+        'bonus_product': _brief(bp) if bp else None,
+        'bonus_quantity': b.bonus_quantity,
+        'max_available': b.max_available,
+        'when_exhausted': b.when_exhausted,
+        'count_full_set': b.count_full_set,
+        'repeatable': b.repeatable,
+        'required_products': [
+            {'product_id': rp.product_id, 'min_quantity': rp.min_quantity}
+            for rp in b.required_products
+        ],
+    }
+
+
+def _serialize_section(s):
+    base = {'id': s.id, 'section_type': s.section_type, 'sort_order': s.sort_order}
+    if s.section_type in ('heading', 'paragraph'):
+        base['content'] = s.content
+    elif s.section_type == 'product':
+        base.update({
+            'product': _brief(s.product) if s.product else None,
+            'min_quantity': s.min_quantity,
+            'max_quantity': s.max_quantity,
+        })
+    elif s.section_type == 'variant_group':
+        vg = s.variant_group
+        base.update({
+            'variant_group': {'id': vg.id, 'name': vg.name} if vg else None,
+            'max_quantity': s.max_quantity,
+            'products': [_brief(p) for p in s.get_variant_group_products() if p.is_active],
+        })
+    elif s.section_type == 'set':
+        base.update({
+            'set_name': s.set_name,
+            'set_image': absolute_static_url(s.set_image) if s.set_image else None,
+            'set_max_sets': s.set_max_sets,
+            'set_max_per_product': s.set_max_per_product,
+            'set_product': _brief(s.set_product) if s.set_product else None,
+            'set_items': [
+                {
+                    'quantity_per_set': it.quantity_per_set,
+                    'products': [_brief(p) for p in it.get_products()],
+                }
+                for it in s.get_set_items_ordered()
+            ],
+            'bonuses': [_serialize_bonus(b) for b in s.bonuses if b.is_active],
+        })
+    elif s.section_type == 'bonus':
+        base['bonuses'] = [_serialize_bonus(b) for b in s.bonuses if b.is_active]
+    return base
+
+
+@api_mobile_bp.route('/offers/offer-pages/<token>', methods=['GET'])
+@jwt_required()
+def offer_page_detail(token):
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    page.check_and_update_status()
+    if page.status == 'draft':              # niepubliczny — nigdy nie eksponowany
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    return json_ok({
+        **_serialize_page_summary(page),
+        'description': page.description,
+        'footer_content': page.footer_content,
+        'payment_deadline': page.payment_deadline.isoformat() if page.payment_deadline else None,
+        'sections': [_serialize_section(s) for s in page.get_sections_ordered()],
+    })
+
+
+@api_mobile_bp.route('/offers/offer-pages/<token>/availability', methods=['GET'])
+@jwt_required()
+@limiter.limit("120 per minute")
+def offer_availability(token):
+    from modules.offers.reservation import get_section_products_map, get_availability_snapshot
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    session_id = request.args.get('session_id')
+    section_products = get_section_products_map(page.id)
+    products_data, session_info = get_availability_snapshot(page.id, section_products, session_id)
+    return json_ok({'products': products_data, 'session': session_info})

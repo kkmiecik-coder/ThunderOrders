@@ -70,3 +70,58 @@ def test_offer_pages_includes_both_types(client, db, make_user):
     r = client.get('/api/mobile/v1/offers/offer-pages?status=live', headers=h)
     types = {p['page_type'] for p in r.get_json()['data']}
     assert types == {'exclusive', 'preorder'}
+
+
+# ---------------------------------------------------------------------------
+# Task 5: GET /offers/offer-pages/<token> (struktura) + GET .../availability
+# ---------------------------------------------------------------------------
+
+def test_offer_page_structure_draft_404(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'draft')
+    assert client.get(
+        f'/api/mobile/v1/offers/offer-pages/{page.token}', headers=h
+    ).status_code == 404
+
+
+def test_offer_page_structure_product_section(client, db, make_user, make_product):
+    from modules.offers.models import OfferSection
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='50.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=10, sort_order=0))
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='heading',
+                                content='Nagłówek', sort_order=1))
+    db.session.commit()
+    r = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}', headers=h)
+    assert r.status_code == 200
+    d = r.get_json()['data']
+    assert d['page_type'] == 'exclusive' and d['payment_stages'] in (3, 4)
+    secs = d['sections']
+    prod_sec = next(s for s in secs if s['section_type'] == 'product')
+    assert prod_sec['product']['price'] == 5000          # grosze
+    assert prod_sec['max_quantity'] == 10
+    head_sec = next(s for s in secs if s['section_type'] == 'heading')
+    assert head_sec['content'] == 'Nagłówek'
+
+
+def test_offer_availability_snapshot(client, db, make_user, make_product):
+    from modules.offers.models import OfferSection, OfferReservation
+    import time
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=5, sort_order=0))
+    now = int(time.time())
+    db.session.add(OfferReservation(session_id='other', offer_page_id=page.id, product_id=prod.id,
+                                    quantity=2, reserved_at=now, expires_at=now + 120))
+    db.session.commit()
+    r = client.get(
+        f'/api/mobile/v1/offers/offer-pages/{page.token}/availability?session_id=mine',
+        headers=h,
+    )
+    assert r.status_code == 200
+    pdata = r.get_json()['data']['products'][str(prod.id)]
+    assert pdata['available'] == 3 and pdata['total_reserved'] == 2   # SZTUKI, nie grosze
