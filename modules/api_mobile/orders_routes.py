@@ -61,3 +61,71 @@ def orders_list():
         page=pagination.page, per_page=pagination.per_page,
         total=pagination.total, has_next=pagination.has_next,
     )
+
+
+def _serialize_payment_stages(order):
+    """Stub — pełna implementacja w Task 3."""
+    return []
+
+
+def _serialize_order_item(item):
+    return {
+        'id': item.id,
+        'product_id': item.product_id,
+        'name': item.product_name,
+        'sku': item.product_sku,
+        'image_url': _abs_image(item.product_image_url),
+        'selected_size': item.selected_size,
+        'quantity': item.quantity,
+        'price': to_grosze(item.price),
+        'total': to_grosze(item.total),
+        'is_bonus': bool(item.is_bonus),
+        'is_full_set': bool(item.is_full_set),
+        'set_number': item.set_number,
+        'is_set_fulfilled': item.is_set_fulfilled,        # True / False / None
+        'fulfilled_quantity': item.fulfilled_quantity,
+    }
+
+
+def _serialize_order_detail(order):
+    return {
+        'id': order.id,
+        'order_number': order.order_number,
+        'order_type': order.order_type,
+        'order_type_display': order.type_display_name,
+        'status': order.status,
+        'status_display_name': order.status_display_name,
+        'status_badge_color': order.status_badge_color,
+        'created_at': order.created_at.isoformat() if order.created_at else None,
+        'offer_page_name': order.offer_page_name,
+        'custom_name': order.custom_name,
+        'notes': order.notes,
+        'payment_stages_count': order.payment_stages,
+        # Finanse (grosze)
+        'total_amount': to_grosze(order.total_amount),
+        'shipping_cost': to_grosze(order.shipping_cost),
+        'proxy_shipping_cost': to_grosze(order.proxy_shipping_cost),
+        'customs_vat_cost': to_grosze(order.customs_vat_sale_cost),
+        'total_to_pay': to_grosze(order.total_to_pay),
+        'paid_amount': to_grosze(order.paid_amount),
+        'remaining_to_pay': to_grosze(order.remaining_to_pay),
+        'items': [_serialize_order_item(i) for i in order.sorted_items],
+        'payment_stages': _serialize_payment_stages(order),   # Task 3
+    }
+
+
+def _get_owned_order_or_404(order_id):
+    """Zamówienie usera z JWT albo None — cudze/nieistniejące traktujemy identycznie (bez wycieku)."""
+    order = Order.query.get(order_id)
+    if order is None or order.user_id != int(get_jwt_identity()):
+        return None
+    return order
+
+
+@api_mobile_bp.route('/orders/<int:order_id>', methods=['GET'])
+@jwt_required()
+def order_detail(order_id):
+    order = _get_owned_order_or_404(order_id)
+    if order is None:
+        return json_err('order_not_found', 'Zamówienie nie istnieje.', 404)
+    return json_ok(_serialize_order_detail(order))

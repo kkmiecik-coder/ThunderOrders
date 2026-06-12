@@ -106,3 +106,65 @@ def test_orders_pagination(client, db, make_user, make_order):
     assert r.get_json()['pagination'] == {'page': 1, 'per_page': 2, 'total': 3, 'has_next': True}
     r2 = client.get('/api/mobile/v1/orders?per_page=2&page=2', headers=h)
     assert r2.get_json()['pagination']['has_next'] is False
+
+
+def test_order_detail_requires_jwt(client, db, make_user, make_order):
+    u = make_user()
+    o = make_order(u)
+    assert client.get(f'/api/mobile/v1/orders/{o.id}').status_code == 401
+
+
+def test_order_detail_not_found_404(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/orders/999999', headers=h)
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'order_not_found'
+
+
+def test_order_detail_other_user_404(client, db, make_user, make_order):
+    # Korekta 4: cudze zamówienie → 404 (NIE 403) — bez wycieku istnienia.
+    h, u = _auth(client, db, make_user)
+    other = make_user()
+    o = make_order(other, total_amount=100.00)
+    r = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h)
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'order_not_found'
+
+
+def test_order_detail_items_sets_bonuses(client, db, make_user, make_order, make_product):
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=60.00, order_type='pre_order', payment_stages=3)
+    p1 = make_product(name='Bluza', sale_price=Decimal('50.00'))
+    gift = make_product(name='Gratis', sale_price=Decimal('0.00'))
+    _add_item(db, o, product=p1, quantity=1, price=Decimal('50.00'))
+    _add_item(db, o, product=gift, quantity=1, price=Decimal('0.00'), is_bonus=True)
+    _add_item(db, o, product=None, quantity=1, price=Decimal('10.00'),
+              is_full_set=True, custom_name='Set niespodzianka', set_number=1)
+    r = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h)
+    assert r.status_code == 200
+    d = r.get_json()['data']
+    assert d['id'] == o.id
+    assert d['order_type'] == 'pre_order'
+    assert 'status_display_name' in d and 'remaining_to_pay' in d
+    assert len(d['items']) == 3
+    bluza = next(i for i in d['items'] if i['name'] == 'Bluza')
+    assert bluza['price'] == 5000 and bluza['total'] == 5000     # grosze
+    assert bluza['is_bonus'] is False and bluza['is_full_set'] is False
+    assert bluza['image_url'].startswith('http')                 # absolutny URL
+    bonus = next(i for i in d['items'] if i['is_bonus'])
+    assert bonus['name'] == 'Gratis'
+    full_set = next(i for i in d['items'] if i['is_full_set'])
+    assert full_set['name'] == 'Set niespodzianka' and full_set['set_number'] == 1
+
+
+def test_order_detail_financial_summary_grosze(client, db, make_user, make_order, make_product):
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, total_amount=100.00, order_type='on_hand', shipping_cost=Decimal('15.00'))
+    p = make_product(sale_price=Decimal('100.00'))
+    _add_item(db, o, product=p, quantity=1, price=Decimal('100.00'))
+    d = client.get(f'/api/mobile/v1/orders/{o.id}', headers=h).get_json()['data']
+    assert d['total_amount'] == 10000          # E1, grosze
+    assert d['shipping_cost'] == 1500          # E4
+    assert d['total_to_pay'] == 11500          # on_hand: E1 100 + E4 15
+    assert d['paid_amount'] == 0
+    assert d['remaining_to_pay'] == 11500
