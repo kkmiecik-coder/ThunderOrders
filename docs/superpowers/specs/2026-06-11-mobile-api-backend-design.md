@@ -112,7 +112,7 @@ Wszystkie ścieżki z prefiksem **`/api/mobile/v1`**. Format odpowiedzi spójny:
 ### Konwencje
 - **Paginacja:** `?page=N&per_page=M` → `{ data: [...], pagination: {page, per_page, total, has_next} }`.
 - **Daty:** ISO 8601 (UTC); apka formatuje lokalnie.
-- **Kwoty:** w groszach (integer) — unikamy błędów float. (Do potwierdzenia przy implementacji E0.)
+- **Kwoty:** w groszach (integer) — unikamy błędów float. (Potwierdzone w E1; dotyczy też parametrów wejściowych, np. `price_min`/`price_max`. Kursy walut to współczynniki — pozostają floatem.)
 - **Zdjęcia:** pełne URL-e absolutne (nie ścieżki względne).
 - **Auth:** wszystkie poza `health`, `login`, `register`, `verify-email`, `resend-code`, `google`,
   `refresh`, `app-version` wymagają `Bearer`.
@@ -135,7 +135,7 @@ GET  /me                (Bearer)                         → { user }
 
 ### Sklep on-hand — `/shop/`
 ```
-GET    /products        ?q=&category=&sort=&page=&per_page=   → lista on-hand (paginacja)
+GET    /products        ?q=&category=&size=&price_min=&price_max=&sort=&page=&per_page=   → lista on-hand (paginacja; ceny w groszach)
 GET    /products/<id>                                          → szczegóły + zdjęcia + rozmiary
 GET    /filters                                                → kategorie / rozmiary / zakres cen
 GET    /cart                                                   → koszyk (CartItem z bazy)
@@ -146,6 +146,8 @@ GET    /checkout/summary                                       → podsumowanie 
 POST   /checkout        { create_shipping, address_id, delivery_method, payment_method }
                                                               → atomowa walidacja stocku → Order(OH)
 ```
+
+> **Korekta kontraktu (E1):** lista przyjmuje też `size`, `price_min`, `price_max` (parytet z webem; wartości dostarcza `GET /filters`). `category` to nazwa producenta (tak modeluje to webowy sklep). Szczegóły produktu zawierają dodatkowo `variants` (inne produkty z grupy wariantów).
 
 ### Strony ofertowe — wspólne — `/offers/`
 ```
@@ -319,7 +321,7 @@ Każdy etap kończy się czymś testowalnym (pytest) i dostanie **własny plan i
 
 ## 12. Otwarte do potwierdzenia przy implementacji (nie blokują projektu)
 
-- Format kwot: grosze (int) vs string dziesiętny — decyzja w E0, spójnie w całym API.
+- Format kwot: grosze (int) vs string dziesiętny — decyzja w E0, spójnie w całym API. **Rozstrzygnięte w E1: grosze (int).**
 - Dokładny TTL access tokenu (30/60 min) i refresh (30 dni) — kalibracja w E0.
 - Czy `place-order` i `place-order-preorder` finalnie scalić w jeden endpoint z dyskryminatorem typu — do oceny w E4.
 - Strategia migracji FCM vs istniejący Web Push (czy `PushManager` ma jeden wspólny interfejs dla obu kanałów) — w E10.
