@@ -23,3 +23,4 @@ from . import models  # noqa: E402,F401  (żeby Alembic wykrył tabelę)
 from . import auth_routes  # noqa: E402,F401
 from . import shop_routes  # noqa: E402,F401
 from . import cart_routes  # noqa: E402,F401
+from . import offers_routes  # noqa: E402,F401
