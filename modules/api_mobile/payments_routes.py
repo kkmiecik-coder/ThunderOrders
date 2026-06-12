@@ -60,3 +60,130 @@ def serve_proof_mobile(filename):
         return json_err('not_found', 'Plik nie istnieje.', 404)
     folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')
     return send_from_directory(folder, filename)
+
+
+# === Task 4: BULK upload dowodu (multipart) — [D2 bulk, D4=a bez @idempotent] ===
+
+import json as _json
+from extensions import db
+from modules.orders.models import Order
+from modules.client.payment_confirmation_service import (
+    VALID_STAGES, validate_bulk_upload, record_bulk_payment_proofs,
+)
+from modules.client.payment_confirmations import (
+    allowed_proof_file, save_payment_proof_file, MAX_PROOF_FILE_SIZE,
+)
+from utils.file_validation import validate_proof_file
+
+MAX_BULK_PAIRS = 50
+
+
+def _parse_items(raw):
+    """JSON-string płaskich par -> webowy kształt order_stages (grupowanie + dedupe).
+
+    Zwraca (order_stages, None) lub (None, komunikat_błędu).
+    """
+    try:
+        parsed = _json.loads(raw or '')
+    except (ValueError, TypeError):
+        return None, 'Pole items musi być poprawnym JSON-em (lista par).'
+    if not isinstance(parsed, list) or not parsed:
+        return None, 'Pole items musi być niepustą listą par {order_id, payment_stage}.'
+    if len(parsed) > MAX_BULK_PAIRS:
+        return None, f'Maksymalnie {MAX_BULK_PAIRS} par w jednym żądaniu.'
+    pairs = set()
+    for it in parsed:
+        if not isinstance(it, dict):
+            return None, 'Każdy element items musi być obiektem {order_id, payment_stage}.'
+        try:
+            oid = int(it.get('order_id'))
+        except (TypeError, ValueError):
+            return None, 'Pole order_id musi być liczbą całkowitą.'
+        stage = (it.get('payment_stage') or '').strip()
+        if stage not in VALID_STAGES:
+            return None, f'Nieznany etap płatności: {stage or "(brak)"}.'
+        pairs.add((oid, stage))                               # dedupe (Korekta 3)
+    grouped = {}
+    for oid, stage in sorted(pairs):
+        grouped.setdefault(oid, []).append(stage)
+    return [{'order_id': oid, 'stages': stages} for oid, stages in grouped.items()], None
+
+
+@api_mobile_bp.route('/payment-confirmations', methods=['POST'])
+@jwt_required()
+@limiter.limit("10 per minute")            # heavy-write (parytet checkout); D4=a: BEZ @idempotent
+def upload_payment_confirmations():
+    user_id = int(get_jwt_identity())
+    order_stages, parse_err = _parse_items(request.form.get('items'))
+    if parse_err:
+        return json_err('invalid_input', parse_err, 400)
+
+    # Walidacja bulku (wspólny serwis; all-or-nothing — P1)
+    ok, err = validate_bulk_upload(user_id, order_stages)
+    if not ok:
+        if err['code'] == 'orders_not_found':                 # Korekta 4: maskowanie istnienia
+            return _err_with_details('order_not_found', 'Zamówienie nie istnieje.', 404,
+                                     {'missing_order_ids': err['missing_order_ids']})
+        if err['code'] == 'stage_not_applicable':
+            return _err_with_details('stage_not_applicable',
+                                     'Etap nie dotyczy danego zamówienia.', 400,
+                                     {'failures': err['failures']})
+        return _err_with_details('stage_not_uploadable',
+                                 'Nie można teraz wgrać dowodu dla wskazanych etapów.', 409,
+                                 {'failures': err['failures']})
+
+    # Plik (kolejność jak web: walidacja items/zamówień PRZED zapisem pliku)
+    file = request.files.get('file')
+    if file is None or file.filename == '':
+        return json_err('invalid_input', 'Nie przesłano pliku dowodu (pole file).', 400)
+    if not allowed_proof_file(file.filename):
+        return json_err('invalid_file', 'Dozwolone formaty: JPG, PNG, PDF.', 400)
+    file.seek(0, 2); size = file.tell(); file.seek(0)
+    if size > MAX_PROOF_FILE_SIZE:
+        return json_err('file_too_large', 'Maksymalny rozmiar pliku to 5 MB.', 400)
+    saved = save_payment_proof_file(file)
+    if not saved:
+        return json_err('invalid_file', 'Błąd zapisu pliku.', 400)
+    folder = os.path.join(current_app.root_path, 'uploads', 'payment_confirmations')
+    valid, _msg = validate_proof_file(os.path.join(folder, saved))
+    if not valid:
+        _remove_quiet(os.path.join(folder, saved))
+        return json_err('invalid_file', 'Plik jest uszkodzony lub niepełny.', 400)
+
+    # Record + efekty uboczne — WSPÓLNY SERWIS (log_activity, commit, OCR, notify per order)
+    from modules.auth.models import User
+    user = User.query.get(user_id)
+    method_id = request.form.get('payment_method_id', type=int)
+    try:
+        entries = record_bulk_payment_proofs(user, order_stages, saved, method_id)
+    except Exception:
+        db.session.rollback()
+        _remove_quiet(os.path.join(folder, saved))
+        return json_err('database_error', 'Wystąpił błąd zapisu. Spróbuj ponownie.', 500)
+
+    return json_ok({
+        'confirmations': [{
+            'confirmation_id': e['confirmation'].id,
+            'order_id': e['order'].id,
+            'order_number': e['order'].order_number,
+            'payment_stage': e['stage'],
+            'status': 'pending',
+            'amount': to_grosze(e['confirmation'].amount),
+            'action': 'overwritten' if e['action'].endswith('reuploaded') else 'created',
+        } for e in entries],
+        'count': len(entries),
+        'proof_url': _proof_url(saved),
+    })
+
+
+def _remove_quiet(path):
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _err_with_details(code, message, status, details):
+    from flask import jsonify
+    return jsonify({'success': False,
+                    'error': {'code': code, 'message': message, 'details': details}}), status
