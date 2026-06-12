@@ -218,6 +218,15 @@ GET  /orders/<id>                                         → szczegóły: pozyc
 GET  /dashboard                                           → statystyki klienta (ekran główny)
 ```
 
+> **Korekty kontraktu (E5):** Lista: filtr `type` walidowany (nieznany → 400 `invalid_input`),
+> `status` pass-through. Cudze/nieistniejące zamówienie → 404 `order_not_found` (bez wycieku
+> istnienia; web zwraca 403 — świadoma różnica). Szczegóły zawierają `payment_stages[]`
+> (etapy E1–E4 wg typu zamówienia: on-hand 2, exclusive/pre-order 3 lub 4; pola: stage_index,
+> stage, name, status, amount [grosze], deadline, can_upload, has_proof, rejection_reason) oraz
+> `payment_stages_count` = długość tej listy. `/dashboard`: 4 liczniki zamówień,
+> `payment{paid,to_pay}` (grosze), `recent_orders[]` (5), `chart{labels[],values[]}` (30 dni,
+> daty ISO). Kwoty w groszach (int); daty ISO 8601.
+
 ### Płatności wieloetapowe — `/payments/`
 ```
 GET  /payment-methods                                    → dane do przelewu (aktywne metody)
