@@ -19,6 +19,10 @@ from modules.orders.models import Order, PaymentConfirmation
 from modules.payments.models import PaymentMethod
 from utils.activity_logger import log_activity
 from utils.file_validation import validate_proof_file
+from modules.client.payment_confirmation_service import (
+    validate_bulk_upload,
+    record_bulk_payment_proofs,
+)
 
 
 # === HELPER FUNCTIONS ===
@@ -270,41 +274,13 @@ def payment_confirmations_upload():
 
             saved_filename = None
 
-        # === Walidacja zamówień ===
-        all_order_ids = [entry['order_id'] for entry in order_stages]
-
-        orders = Order.query.filter(
-            Order.id.in_(all_order_ids),
-            Order.user_id == current_user.id
-        ).all()
-
-        orders_by_id = {o.id: o for o in orders}
-
-        if len(orders) != len(set(all_order_ids)):
-            return _upload_error('Nie masz uprawnień do wybranych zamówień.')
-
-        # Sprawdź uprawnienia per zamówienie × etap
-        cannot_upload_entries = []
-        for entry in order_stages:
-            order = orders_by_id.get(entry['order_id'])
-            if not order:
-                continue
-            for stage in entry['stages']:
-                can_upload = False
-                if stage == 'product':
-                    can_upload = order.can_upload_product_payment
-                elif stage == 'korean_shipping':
-                    can_upload = order.can_upload_stage_2
-                elif stage == 'customs_vat':
-                    can_upload = order.can_upload_stage_3
-                elif stage == 'domestic_shipping':
-                    can_upload = order.can_upload_stage_4
-                if not can_upload:
-                    cannot_upload_entries.append(order.order_number)
-                    break
-
-        if cannot_upload_entries:
-            order_numbers = ', '.join(set(cannot_upload_entries))
+        # === Walidacja zamówień (ownership + can_upload per para) — wspólny serwis ===
+        ok, err = validate_bulk_upload(current_user.id, order_stages)
+        if not ok:
+            if err['code'] == 'orders_not_found':
+                return _upload_error('Nie masz uprawnień do wybranych zamówień.')
+            # stage_not_applicable / stage_not_uploadable — web skleja w jeden komunikat (parytet)
+            order_numbers = ', '.join(sorted({f['order_number'] for f in err['failures']}))
             return _upload_error(f'Nie można wgrać potwierdzenia dla zamówień: {order_numbers}')
 
         # === Zapisz plik ===
@@ -338,147 +314,12 @@ def payment_confirmations_upload():
         # Metoda płatności wybrana przez klienta
         payment_method_id = request.form.get('payment_method_id', type=int)
 
-        # === Twórz/aktualizuj PaymentConfirmation per zamówienie × etap ===
-        created_count = 0
-        now = get_local_now()
-
-        for entry in order_stages:
-            order = orders_by_id.get(entry['order_id'])
-            if not order:
-                continue
-
-            for stage in entry['stages']:
-                # Kwota zależna od etapu
-                stage_amounts = {
-                    'product': order.effective_total,
-                    'korean_shipping': order.proxy_shipping_total,
-                    'customs_vat': order.customs_vat_total,
-                    'domestic_shipping': Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00'),
-                }
-                amount = stage_amounts.get(stage, order.effective_total)
-
-                # Pobierz istniejące potwierdzenie dla tego etapu
-                existing = PaymentConfirmation.query.filter_by(
-                    order_id=order.id,
-                    payment_stage=stage
-                ).first()
-
-                if existing:
-                    if existing.is_approved:
-                        continue
-
-                    # Nadpisz istniejące (pending lub rejected)
-                    existing.proof_file = saved_filename
-                    existing.uploaded_at = now
-                    existing.status = 'pending'
-                    existing.rejection_reason = None
-                    existing.amount = amount
-                    existing.payment_method_id = payment_method_id
-
-                    log_activity(
-                        user=current_user,
-                        action='payment_confirmation_reuploaded',
-                        entity_type='order',
-                        entity_id=order.id,
-                        new_value={
-                            'order_number': order.order_number,
-                            'payment_stage': stage,
-                            'filename': saved_filename,
-                            'amount': float(amount)
-                        }
-                    )
-                else:
-                    # Nowy rekord
-                    confirmation = PaymentConfirmation(
-                        order_id=order.id,
-                        payment_stage=stage,
-                        amount=amount,
-                        proof_file=saved_filename,
-                        uploaded_at=now,
-                        status='pending',
-                        payment_method_id=payment_method_id,
-                    )
-                    db.session.add(confirmation)
-
-                    log_activity(
-                        user=current_user,
-                        action='payment_confirmation_uploaded',
-                        entity_type='order',
-                        entity_id=order.id,
-                        new_value={
-                            'order_number': order.order_number,
-                            'payment_stage': stage,
-                            'filename': saved_filename,
-                            'amount': float(amount)
-                        }
-                    )
-
-                created_count += 1
-
-        # === Commit: klient widzi "Weryfikacja" ===
-        db.session.commit()
-
-        # === OCR Verification (background) ===
-        from modules.auth.models import Settings
-        ocr_enabled = Settings.get_value('ocr_enabled', False)
-        if ocr_enabled:
-            try:
-                # Przygotuj dane do background task (serializowalne, bez ORM)
-                all_order_numbers = [
-                    orders_by_id[e['order_id']].order_number
-                    for e in order_stages
-                    if e['order_id'] in orders_by_id
-                ]
-
-                total_expected = Decimal('0.00')
-                for entry in order_stages:
-                    order = orders_by_id.get(entry['order_id'])
-                    if not order:
-                        continue
-                    for stage in entry['stages']:
-                        stage_amounts = {
-                            'product': order.effective_total,
-                            'korean_shipping': order.proxy_shipping_total,
-                            'customs_vat': order.customs_vat_total,
-                            'domestic_shipping': Decimal(str(order.shipping_cost)) if order.shipping_cost else Decimal('0.00'),
-                        }
-                        total_expected += stage_amounts.get(stage, Decimal('0.00'))
-
-                ocr_task_data = {
-                    'saved_filename': saved_filename,
-                    'payment_method_id': payment_method_id,
-                    'user_id': current_user.id,
-                    'order_numbers': all_order_numbers,
-                    'total_expected': float(total_expected),
-                }
-
-                from extensions import executor
-                from utils.ocr_background import process_ocr_verification
-                executor.submit(process_ocr_verification, ocr_task_data)
-
-                current_app.logger.info(f"OCR background task submitted for {saved_filename}")
-            except Exception as e:
-                current_app.logger.error(f"Error submitting OCR background task: {e}")
-
-        # Powiadom adminów o nowym potwierdzeniu płatności
-        stage_display_names = {
-            'product': 'Płatność za produkt',
-            'korean_shipping': 'Wysyłka z Korei',
-            'customs_vat': 'Cło i VAT',
-            'domestic_shipping': 'Wysyłka krajowa'
-        }
-        for entry in order_stages:
-            order = orders_by_id.get(entry['order_id'])
-            if not order:
-                continue
-            stage_names = ', '.join(stage_display_names.get(s, s) for s in entry['stages'])
-            try:
-                from utils.email_manager import EmailManager
-                from utils.push_manager import PushManager
-                EmailManager.notify_admin_payment_uploaded(order, stage_names)
-                PushManager.notify_admin_payment_uploaded(order, stage_names)
-            except Exception as e:
-                current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
+        # === Zapis + commit + OCR + notify — wspólny serwis (parytet: commit po pętli,
+        # notify batchowane per zamówienie, jeden task OCR dla bulku) ===
+        entries = record_bulk_payment_proofs(
+            current_user, order_stages, saved_filename, payment_method_id
+        )
+        created_count = len(entries)
 
         if is_ajax:
             # Zwróć JSON — JS zamknie modal i zaktualizuje karty
