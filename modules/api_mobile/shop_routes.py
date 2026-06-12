@@ -11,6 +11,9 @@ from modules.products.models import ProductImage
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
 
+# Parytet z webowym /api/exchange-rate (modules/api/routes.py)
+ALLOWED_CURRENCIES = ('KRW', 'USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CNY')
+
 
 def _serialize_product_brief(p):
     """Pozycja listy / wariantu — parytet pól z webowym gridem + kwoty w groszach."""
@@ -104,3 +107,24 @@ def shop_filters():
         'price_min': to_grosze(data['price_min']) if data['price_min'] is not None else 0,
         'price_max': to_grosze(data['price_max']) if data['price_max'] is not None else 0,
     })
+
+
+@api_mobile_bp.route('/exchange-rate', methods=['GET'])
+@jwt_required()
+def exchange_rate():
+    currency = (request.args.get('currency') or '').strip().upper()
+    if not currency:
+        return json_err('missing_currency', 'Parametr currency jest wymagany.', 400)
+    if currency not in ALLOWED_CURRENCIES:
+        return json_err('unsupported_currency',
+                        f'Nieobsługiwana waluta: {currency}.', 400)
+
+    # Import lazy jak w webowym odpowiedniku — łatwy monkeypatch w testach.
+    from utils.currency import get_exchange_rate
+    try:
+        rate_data = get_exchange_rate(currency)
+    except Exception:
+        return json_err('exchange_rate_unavailable',
+                        'Nie udało się pobrać kursu waluty.', 503)
+
+    return json_ok(rate_data)

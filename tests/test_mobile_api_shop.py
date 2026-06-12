@@ -253,3 +253,52 @@ def test_shop_filters_empty_catalog(client, db, make_user):
     assert r.status_code == 200
     data = r.get_json()['data']
     assert data == {'categories': [], 'sizes': [], 'price_min': 0, 'price_max': 0}
+
+
+# ---------------------------------------------------------------------------
+# GET /exchange-rate (Task 7)
+# ---------------------------------------------------------------------------
+
+def test_exchange_rate_requires_token(client):
+    r = client.get('/api/mobile/v1/exchange-rate?currency=KRW')
+    assert r.status_code == 401
+
+
+def test_exchange_rate_missing_currency(client, db, make_user):
+    headers, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/exchange-rate', headers=headers)
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'missing_currency'
+
+
+def test_exchange_rate_unsupported_currency(client, db, make_user):
+    headers, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/exchange-rate?currency=XXX', headers=headers)
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'unsupported_currency'
+
+
+def test_exchange_rate_success(client, db, make_user, monkeypatch):
+    import utils.currency as cur
+    monkeypatch.setattr(cur, 'get_exchange_rate', lambda c: {
+        'rate': 0.0029, 'currency': c, 'date': '2026-06-12',
+        'cached': True, 'cached_at': '2026-06-12T08:00:00',
+    })
+    headers, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/exchange-rate?currency=krw', headers=headers)
+    assert r.status_code == 200
+    data = r.get_json()['data']
+    assert data['rate'] == 0.0029
+    assert data['currency'] == 'KRW'   # normalizacja do wielkich liter
+
+
+def test_exchange_rate_upstream_failure(client, db, make_user, monkeypatch):
+    import utils.currency as cur
+
+    def _boom(c):
+        raise Exception('NBP down')
+    monkeypatch.setattr(cur, 'get_exchange_rate', _boom)
+    headers, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/exchange-rate?currency=USD', headers=headers)
+    assert r.status_code == 503
+    assert r.get_json()['error']['code'] == 'exchange_rate_unavailable'
