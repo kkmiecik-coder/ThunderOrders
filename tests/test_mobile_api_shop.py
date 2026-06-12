@@ -36,3 +36,105 @@ def test_json_page_envelope(app):
     assert body['success'] is True
     assert body['data'] == [{'id': 1}]
     assert body['pagination'] == {'page': 2, 'per_page': 12, 'total': 25, 'has_next': True}
+
+
+# ---------------------------------------------------------------------------
+# Wspólne helpery testów endpointów (JWT + produkty on-hand)
+# ---------------------------------------------------------------------------
+
+def _auth(client, db, make_user):
+    """Tworzy usera, loguje przez mobile API i zwraca (headers, user)."""
+    u = make_user()
+    u.set_password('Haslo123!')
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/login',
+                    json={'email': u.email, 'password': 'Haslo123!'})
+    token = r.get_json()['data']['access_token']
+    return {'Authorization': f'Bearer {token}'}, u
+
+
+def _onhand_type(db):
+    from modules.products.models import ProductType
+    pt = ProductType.query.filter_by(slug='on-hand').first()
+    if not pt:
+        pt = ProductType(name='On-hand', slug='on-hand')
+        db.session.add(pt)
+        db.session.commit()
+    return pt
+
+
+# ---------------------------------------------------------------------------
+# GET /shop/products (Task 4)
+# ---------------------------------------------------------------------------
+
+def test_shop_products_requires_token(client):
+    r = client.get('/api/mobile/v1/shop/products')
+    assert r.status_code == 401
+
+
+def test_shop_products_envelope_and_grosze(client, db, make_user, make_product):
+    headers, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    make_product(name='Lalka Mimi', product_type_id=pt.id,
+                 sale_price=Decimal('99.00'), quantity=3)
+    make_product(name='Poza sklepem', quantity=10)  # bez typu on-hand
+
+    r = client.get('/api/mobile/v1/shop/products', headers=headers)
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body['success'] is True
+    assert len(body['data']) == 1
+    item = body['data'][0]
+    assert item['name'] == 'Lalka Mimi'
+    assert item['price'] == 9900           # grosze (int)
+    assert item['slug'] == 'lalka-mimi'
+    assert item['quantity'] == 3
+    assert body['pagination'] == {'page': 1, 'per_page': 12, 'total': 1, 'has_next': False}
+
+
+def test_shop_products_q_filter_and_sort(client, db, make_user, make_product):
+    headers, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    make_product(name='Lalka Mimi', product_type_id=pt.id, sale_price=Decimal('50.00'))
+    make_product(name='Figurka Toto', product_type_id=pt.id, sale_price=Decimal('150.00'))
+
+    r = client.get('/api/mobile/v1/shop/products?q=lalka', headers=headers)
+    assert [p['name'] for p in r.get_json()['data']] == ['Lalka Mimi']
+
+    r = client.get('/api/mobile/v1/shop/products?sort=price_desc', headers=headers)
+    assert [p['price'] for p in r.get_json()['data']] == [15000, 5000]
+
+
+def test_shop_products_price_filter_in_grosze(client, db, make_user, make_product):
+    headers, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    make_product(name='Tani', product_type_id=pt.id, sale_price=Decimal('50.00'))
+    make_product(name='Drogi', product_type_id=pt.id, sale_price=Decimal('150.00'))
+
+    # price_min/price_max w groszach — spójnie z resztą kwot w API
+    r = client.get('/api/mobile/v1/shop/products?price_min=10000', headers=headers)
+    assert [p['name'] for p in r.get_json()['data']] == ['Drogi']
+
+
+def test_shop_products_pagination(client, db, make_user, make_product):
+    headers, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    for i in range(3):
+        make_product(product_type_id=pt.id)
+
+    r = client.get('/api/mobile/v1/shop/products?per_page=2&page=1', headers=headers)
+    body = r.get_json()
+    assert len(body['data']) == 2
+    assert body['pagination'] == {'page': 1, 'per_page': 2, 'total': 3, 'has_next': True}
+
+    r2 = client.get('/api/mobile/v1/shop/products?per_page=2&page=2', headers=headers)
+    body2 = r2.get_json()
+    assert len(body2['data']) == 1
+    assert body2['pagination']['has_next'] is False
+
+
+def test_shop_products_per_page_capped(client, db, make_user, make_product):
+    headers, _ = _auth(client, db, make_user)
+    _onhand_type(db)
+    r = client.get('/api/mobile/v1/shop/products?per_page=500', headers=headers)
+    assert r.get_json()['pagination']['per_page'] == 48
