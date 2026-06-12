@@ -229,3 +229,28 @@ def test_resend_code_no_leak_for_unknown_or_verified(client, db, make_user, monk
     assert r1.status_code == 200 and r2.status_code == 200
     assert r1.get_json() == r2.get_json()  # identyczna odpowiedź — brak wycieku istnienia konta
     assert sent == []
+
+
+def test_google_verifier_fail_closed_without_allowlist(app, monkeypatch):
+    # Pusta GOOGLE_OAUTH_CLIENT_IDS => odrzucamy BEZ wołania Google (fail-closed)
+    import modules.api_mobile.google_auth as ga
+    called = []
+    monkeypatch.setattr(ga.google_id_token, 'verify_oauth2_token',
+                        lambda *a, **k: called.append(1) or {})
+    with app.test_request_context():
+        assert ga.verify_google_id_token('whatever') is None
+    assert called == []  # weryfikator (sieć) nie został dotknięty
+
+
+def test_google_verifier_handles_google_auth_error(app, monkeypatch):
+    # Awaria pobierania certów Google (TransportError) => None (401), nie wyjątek/500
+    import modules.api_mobile.google_auth as ga
+    from google.auth.exceptions import TransportError
+
+    def boom(*a, **k):
+        raise TransportError('cert fetch failed')
+
+    monkeypatch.setattr(ga.google_id_token, 'verify_oauth2_token', boom)
+    app.config['GOOGLE_OAUTH_CLIENT_IDS'] = ['client-1']
+    with app.test_request_context():
+        assert ga.verify_google_id_token('tok') is None
