@@ -25,3 +25,4 @@ from . import shop_routes  # noqa: E402,F401
 from . import cart_routes  # noqa: E402,F401
 from . import offers_routes  # noqa: E402,F401
 from . import orders_routes  # noqa: E402,F401
+from . import payments_routes  # noqa: E402,F401
