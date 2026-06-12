@@ -501,3 +501,23 @@ def test_logout_stores_expiry_in_local_time_and_purges_expired(client, db, make_
     # expires_at w czasie lokalnym PL (spójnie z created_at): ~30 dni od teraz
     delta = entry.expires_at - get_local_now()
     assert timedelta(days=29, hours=23) < delta < timedelta(days=30, hours=1)
+
+
+def test_mobile_404_returns_envelope(client):
+    r = client.get('/api/mobile/v1/nope')
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'not_found'
+
+
+def test_mobile_500_returns_envelope(app, db):
+    app.config['PROPAGATE_EXCEPTIONS'] = False
+    app.testing = False
+
+    @app.route('/api/mobile/v1/_boom')
+    def _boom():
+        raise RuntimeError('boom')
+
+    c = app.test_client()
+    r = c.get('/api/mobile/v1/_boom')
+    assert r.status_code == 500
+    assert r.get_json()['error']['code'] == 'server_error'

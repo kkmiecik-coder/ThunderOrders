@@ -1198,6 +1198,9 @@ def register_error_handlers(app):
 
     @app.errorhandler(404)
     def page_not_found(error):
+        if request.path.startswith('/api/mobile/'):
+            return jsonify({'success': False, 'error': {
+                'code': 'not_found', 'message': 'Nie znaleziono zasobu.'}}), 404
         return render_template('errors/404.html'), 404
 
     @app.errorhandler(429)
@@ -1212,6 +1215,9 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_server_error(error):
         db.session.rollback()  # Rollback na wypadek błędu bazy danych
+        if request.path.startswith('/api/mobile/'):
+            return jsonify({'success': False, 'error': {
+                'code': 'server_error', 'message': 'Wewnętrzny błąd serwera.'}}), 500
         return render_template('errors/500.html'), 500
 
     @app.after_request
