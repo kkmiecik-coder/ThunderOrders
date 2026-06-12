@@ -127,4 +127,10 @@ def exchange_rate():
         return json_err('exchange_rate_unavailable',
                         'Nie udało się pobrać kursu waluty.', 503)
 
-    return json_ok(rate_data)
+    return json_ok({
+        'currency': rate_data['currency'],
+        'rate': rate_data['rate'],
+        'date': rate_data.get('date'),
+        'cached': rate_data.get('cached', False),
+        'cached_at': rate_data.get('cached_at'),
+    })

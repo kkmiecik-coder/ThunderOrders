@@ -316,3 +316,16 @@ def test_shop_products_invalid_page_returns_400(client, db, make_user):
     r = client.get('/api/mobile/v1/shop/products?page=x', headers=h)
     assert r.status_code == 400
     assert r.get_json()['error']['code'] == 'invalid_input'
+
+
+def test_exchange_rate_pinned_contract(client, db, make_user, monkeypatch):
+    import utils.currency as uc
+    h, _ = _auth(client, db, make_user)
+    # shop_routes importuje get_exchange_rate WEWNĄTRZ funkcji trasy (l. ~123),
+    # więc patch musi celować w moduł źródłowy utils.currency.
+    monkeypatch.setattr(uc, 'get_exchange_rate', lambda c: {
+        'currency': 'USD', 'rate': 3.7, 'date': '2026-06-12',
+        'cached': True, 'cached_at': 'x', 'EXTRA_INTERNAL': 'leak'})
+    r = client.get('/api/mobile/v1/exchange-rate?currency=USD', headers=h)
+    assert r.status_code == 200
+    assert sorted(r.get_json()['data'].keys()) == ['cached', 'cached_at', 'currency', 'date', 'rate']
