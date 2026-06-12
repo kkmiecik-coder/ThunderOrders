@@ -1,5 +1,6 @@
 """Trasy auth + meta (health, app-version) dla mobilnego API."""
 
+import hashlib
 from datetime import datetime, timezone
 
 from flask import current_app, request
@@ -13,6 +14,20 @@ from . import api_mobile_bp
 from .google_auth import verify_google_id_token
 from .helpers import json_ok, json_err, serialize_user
 from .models import MobileTokenBlocklist
+
+
+def _password_fingerprint(user):
+    """Skrót hasła osadzany w tokenach — zmiana hasła unieważnia refresh tokeny."""
+    return hashlib.sha256((user.password_hash or '').encode()).hexdigest()[:16]
+
+
+def _issue_tokens(user, refresh=True):
+    identity = str(user.id)
+    claims = {'pwd': _password_fingerprint(user)}
+    data = {'access_token': create_access_token(identity=identity, additional_claims=claims)}
+    if refresh:
+        data['refresh_token'] = create_refresh_token(identity=identity, additional_claims=claims)
+    return data
 
 
 @api_mobile_bp.route('/health', methods=['GET'])
@@ -45,12 +60,7 @@ def login():
     if not user.email_verified:
         return json_err('email_not_verified', 'Potwierdź adres e-mail, aby się zalogować.', 403)
 
-    identity = str(user.id)
-    return json_ok({
-        'access_token': create_access_token(identity=identity),
-        'refresh_token': create_refresh_token(identity=identity),
-        'user': serialize_user(user),
-    })
+    return json_ok({**_issue_tokens(user), 'user': serialize_user(user)})
 
 
 @api_mobile_bp.route('/auth/register', methods=['POST'])
@@ -124,12 +134,11 @@ def verify_email_code():
             slug = 'invalid_code'
         return json_err(slug, error_message, 400)
 
-    identity = str(user.id)
-    return json_ok({
-        'access_token': create_access_token(identity=identity),
-        'refresh_token': create_refresh_token(identity=identity),
-        'user': serialize_user(user),
-    })
+    if not user.is_active:
+        # Konto zweryfikowane, ale dezaktywowane — nie wydajemy tokenów (parytet z login).
+        return json_err('account_inactive', 'Konto jest nieaktywne.', 403)
+
+    return json_ok({**_issue_tokens(user), 'user': serialize_user(user)})
 
 
 @api_mobile_bp.route('/auth/google', methods=['POST'])
@@ -160,12 +169,7 @@ def google_login():
     if not user.is_active:
         return json_err('account_inactive', 'Konto jest nieaktywne.', 403)
 
-    identity = str(user.id)
-    return json_ok({
-        'access_token': create_access_token(identity=identity),
-        'refresh_token': create_refresh_token(identity=identity),
-        'user': serialize_user(user),
-    })
+    return json_ok({**_issue_tokens(user), 'user': serialize_user(user)})
 
 
 @api_mobile_bp.route('/auth/me', methods=['GET'])
@@ -174,14 +178,23 @@ def me():
     user = User.query.get(int(get_jwt_identity()))
     if user is None:
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    if not user.is_active:
+        return json_err('account_inactive', 'Konto jest nieaktywne.', 403)
     return json_ok({'user': serialize_user(user)})
 
 
 @api_mobile_bp.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
-    identity = get_jwt_identity()
-    return json_ok({'access_token': create_access_token(identity=identity)})
+    user = User.query.get(int(get_jwt_identity()))
+    if user is None:
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 401)
+    if not user.is_active:
+        return json_err('account_inactive', 'Konto jest nieaktywne.', 403)
+    if get_jwt().get('pwd') != _password_fingerprint(user):
+        # Hasło zmienione po wydaniu tokenu — wymuszamy ponowne logowanie.
+        return json_err('token_revoked', 'Sesja wygasła. Zaloguj się ponownie.', 401)
+    return json_ok(_issue_tokens(user, refresh=False))
 
 
 @api_mobile_bp.route('/auth/logout', methods=['POST'])

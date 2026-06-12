@@ -298,3 +298,47 @@ def test_logout_race_is_idempotent(client, db, make_user, monkeypatch):
     r = client.post('/api/mobile/v1/auth/logout',
                     headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
     assert r.status_code == 200
+
+
+def test_refresh_rejected_after_deactivation(client, db, make_user):
+    tokens, u = _login_tokens(client, db, make_user, email='deact@example.com')
+    u.is_active = False
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/refresh',
+                    headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r.status_code == 403
+    assert r.get_json()['error']['code'] == 'account_inactive'
+
+
+def test_refresh_rejected_after_password_change(client, db, make_user):
+    tokens, u = _login_tokens(client, db, make_user, email='pwchange@example.com')
+    u.set_password('NoweHaslo456!')
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/refresh',
+                    headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r.status_code == 401
+    assert r.get_json()['error']['code'] == 'token_revoked'
+
+
+def test_me_rejected_after_deactivation(client, db, make_user):
+    tokens, u = _login_tokens(client, db, make_user, email='deact-me@example.com')
+    u.is_active = False
+    db.session.commit()
+    r = client.get('/api/mobile/v1/auth/me',
+                   headers={'Authorization': f'Bearer {tokens["access_token"]}'})
+    assert r.status_code == 403
+    assert r.get_json()['error']['code'] == 'account_inactive'
+
+
+def test_verify_email_inactive_account_gets_no_tokens(client, db, make_user):
+    u = make_user(email='inactive-ver@example.com')
+    u.email_verified = False
+    u.is_active = False
+    db.session.commit()
+    code, _ = u.generate_verification_code()
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/verify-email',
+                    json={'email': 'inactive-ver@example.com', 'code': code})
+    assert r.status_code == 403
+    assert r.get_json()['error']['code'] == 'account_inactive'
+    assert 'access_token' not in (r.get_json().get('data') or {})
