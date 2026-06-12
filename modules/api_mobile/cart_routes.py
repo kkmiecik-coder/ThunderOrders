@@ -135,3 +135,32 @@ def checkout_summary():
         'count': count,
         'addresses': [_serialize_address(a) for a in addresses],
     })
+
+
+# ---------------------------------------------------------------------------
+# POST /shop/checkout — złóż zamówienie on-hand
+# ---------------------------------------------------------------------------
+
+@api_mobile_bp.route('/shop/checkout', methods=['POST'])
+@jwt_required()
+@limiter.limit("10 per minute")
+def checkout_place_mobile():
+    p = request.get_json(silent=True) or {}
+    create_shipping = bool(p.get('create_shipping', False))
+    address_id = parse_int(p.get('address_id'), 'address_id', required=False)
+    result = cart_service.place_order_on_hand(
+        int(get_jwt_identity()),
+        create_shipping=create_shipping,
+        address_id=address_id,
+    )
+    if not result.ok:
+        if result.code == 'stock_errors':
+            return _err(result._replace(extras={'stock_errors': result.stock_errors}))
+        return _err(result)
+    return json_ok({
+        'order_id': result.order.id,
+        'order_number': result.extras['order_number'],
+        'total': to_grosze(result.extras['total_amount']),
+        'items_count': result.extras['items_count'],
+        'shipping_request_number': result.extras['shipping_request_number'],
+    }, 201)

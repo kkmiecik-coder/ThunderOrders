@@ -637,3 +637,110 @@ def test_checkout_summary_empty_cart_ok(client, db, make_user):
     assert data['items'] == []
     assert data['total'] == 0
     assert data['count'] == 0
+
+
+# ---------------------------------------------------------------------------
+# HTTP checkout (Task 9)
+# ---------------------------------------------------------------------------
+
+def test_checkout_requires_token(client):
+    assert client.post('/api/mobile/v1/shop/checkout', json={}).status_code == 401
+
+
+def test_checkout_happy_path_no_shipping(client, db, make_user, make_product):
+    from modules.products.models import CartItem
+    h, user = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    _onhand_order_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('99.00'))
+    # dodaj do koszyka
+    client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                json={'product_id': p.id, 'quantity': 2})
+
+    r = client.post('/api/mobile/v1/shop/checkout', headers=h, json={})
+    assert r.status_code == 201
+    data = r.get_json()['data']
+    assert 'order_id' in data
+    assert 'order_number' in data
+    assert data['total'] == 19800          # grosze: 99.00 * 2 = 198.00 -> 19800
+    assert data['items_count'] == 2
+    assert data['shipping_request_number'] is None
+
+    # koszyk pusty
+    assert client.get('/api/mobile/v1/shop/cart', headers=h).get_json()['data']['count'] == 0
+
+    # stock zmniejszony
+    db.session.refresh(p)
+    assert p.quantity == 3
+
+
+def test_checkout_happy_path_with_shipping(client, db, make_user, make_product):
+    from modules.auth.models import ShippingAddress
+    h, user = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    _onhand_order_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('10.00'))
+    client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                json={'product_id': p.id, 'quantity': 1})
+    addr = ShippingAddress(
+        user_id=user.id,
+        address_type='home',
+        name='Dom',
+        shipping_name='Jan Kowalski',
+        shipping_address='ul. Testowa 1',
+        shipping_postal_code='00-001',
+        shipping_city='Warszawa',
+        shipping_voivodeship='mazowieckie',
+        shipping_country='Polska',
+        is_active=True,
+    )
+    db.session.add(addr)
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/shop/checkout', headers=h,
+                    json={'create_shipping': True, 'address_id': addr.id})
+    assert r.status_code == 201
+    data = r.get_json()['data']
+    assert data['shipping_request_number'] is not None
+    assert len(data['shipping_request_number']) > 0
+
+
+def test_checkout_empty_cart(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    _onhand_type(db)
+    r = client.post('/api/mobile/v1/shop/checkout', headers=h, json={})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'cart_empty'
+
+
+def test_checkout_stock_errors(client, db, make_user, make_product):
+    h, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    _onhand_order_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('10.00'))
+    client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                json={'product_id': p.id, 'quantity': 5})
+    # ktoś wykupił stock po dodaniu do koszyka
+    p.quantity = 2
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/shop/checkout', headers=h, json={})
+    assert r.status_code == 400
+    body = r.get_json()
+    assert body['error']['code'] == 'stock_errors'
+    assert isinstance(body['error']['details']['stock_errors'], list)
+    assert len(body['error']['details']['stock_errors']) == 1
+
+
+def test_checkout_create_shipping_without_address_id(client, db, make_user, make_product):
+    h, _ = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    _onhand_order_type(db)
+    p = make_product(product_type_id=pt.id, quantity=5, sale_price=Decimal('10.00'))
+    client.post('/api/mobile/v1/shop/cart/items', headers=h,
+                json={'product_id': p.id, 'quantity': 1})
+
+    r = client.post('/api/mobile/v1/shop/checkout', headers=h,
+                    json={'create_shipping': True})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'address_required'
