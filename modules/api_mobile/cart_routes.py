@@ -7,6 +7,7 @@ from extensions import limiter
 from . import api_mobile_bp
 from .helpers import json_ok, to_grosze, absolute_static_url
 from .validators import parse_int
+from .idempotency import idempotent
 from modules.client import cart_service
 
 
@@ -144,6 +145,7 @@ def checkout_summary():
 @api_mobile_bp.route('/shop/checkout', methods=['POST'])
 @jwt_required()
 @limiter.limit("10 per minute")
+@idempotent('shop_checkout')
 def checkout_place_mobile():
     p = request.get_json(silent=True) or {}
     create_shipping = bool(p.get('create_shipping', False))
