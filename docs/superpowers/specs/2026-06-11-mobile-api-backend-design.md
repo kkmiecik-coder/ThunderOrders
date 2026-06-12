@@ -200,6 +200,16 @@ POST /place-order-preorder { cart_items[], order_note }   → Order(PO) + bonusy
 > Koszyk pre-order żyje w apce (jak localStorage w webie). Backend tylko waliduje i składa.
 > Decyzja: osobny endpoint od `place-order` (inne dane wejściowe: rezerwacje vs koszyk lokalny).
 
+> **Korekty kontraktu (E4):** `validate-cart` nie wymaga aktywnej strony (walidacja koszyka
+> możliwa przed startem i po zamknięciu oferty); odpowiedź: `cart_items` (poprawne pozycje,
+> ceny w groszach) + `removed[{product_id, reason}]` (reason: `not_found` | `not_in_offer` |
+> `inactive`). `place-order-preorder`: strona musi być typu preorder (400 `wrong_page_type`)
+> i aktywna (403 `page_not_active`); wspiera `Idempotency-Key` (opcjonalny — wiele pre-orderów
+> na stronę jest legalne, bez guardu dedup); zamawiać można wyłącznie produkty z sekcji strony
+> (obce pozycje są pomijane). Kwoty w odpowiedziach w groszach (int). Błąd zapisu →
+> 500 `database_error` ze stałym komunikatem (bez szczegółów bazy). Wyjątek wewnątrz tras
+> z `Idempotency-Key` zwalnia klucz (retry tym samym kluczem możliwy).
+
 ### Moje zamówienia — `/orders/`
 ```
 GET  /orders         ?status=&type=&page=&per_page=       → lista (wszystkie typy)
