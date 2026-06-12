@@ -5,7 +5,9 @@ from extensions import limiter
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
 from .validators import parse_int
+from .idempotency import idempotent
 from modules.offers.models import OfferPage
+from modules.auth.models import User
 from modules.client import shop_service  # slugify
 
 # Mapowanie kontrakt → enum bazy (D1: live obejmuje active + paused)
@@ -273,3 +275,68 @@ def offer_extend(token):
         return json_err(result.get('error', 'extend_failed'), result.get('message', ''), 400)
     _emit_safe(page.id, schedule=True)   # D4(a): tylko korekta timera serwera
     return json_ok(result)
+
+
+# ---------------------------------------------------------------------------
+# Task 7: POST /offers/<token>/place-order (exclusive + idempotency)
+# ---------------------------------------------------------------------------
+
+# Mapowanie kodów błędu serwisu place_offer_order -> status HTTP koperty mobilnej.
+_PLACE_ORDER_ERR_STATUS = {
+    'no_reservations': 400,
+    'size_required': 400,
+    'insufficient_availability': 409,
+    'order_number_failed': 500,
+    'database_error': 500,
+    'server_error': 500,
+}
+
+
+@api_mobile_bp.route('/offers/<token>/place-order', methods=['POST'])
+@jwt_required()
+@limiter.limit("15 per minute")
+@idempotent('offer_place_order')
+def offer_place_order(token):
+    """Złożenie zamówienia exclusive (parytet z webowym place_order trasy).
+
+    Bramka strony: draft -> 404 page_not_found (parytet z reserve/detail — niepubliczny),
+    nieaktywna -> 403 page_not_active (parytet z webowym guardem trasy). Idempotency-Key
+    (opcjonalny) gwarantuje jednokrotne złożenie. Serwis sam emituje Socket.IO i wysyła
+    maile/push (apka webowa + dashboard LIVE muszą zobaczyć zamówienie z telefonu).
+    """
+    from modules.offers.place_order import place_offer_order
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    if page.page_type == 'preorder':
+        return json_err('wrong_page_type',
+                        'Ta strona obsługiwana jest osobnym endpointem (pre-order).', 400)
+    if page.status == 'draft':                  # niepubliczny — spójnie z detail/reserve
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    if not page.is_active:
+        return json_err('page_not_active', 'Sprzedaż nie jest aktywna.', 403)
+    body = request.get_json(silent=True) or {}
+    session_id = body.get('session_id')
+    if not session_id:
+        return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
+    order_note = body.get('order_note')
+    full_set_items = body.get('full_set_items', []) or []
+    user = User.query.get(int(get_jwt_identity()))
+    if user is None:                            # spójnie z konwencją /auth/me
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    ok, result = place_offer_order(page=page, session_id=session_id, order_note=order_note,
+                                   full_set_items=full_set_items, user=user)
+    if not ok:
+        code = result.get('error', 'place_order_failed')
+        status = _PLACE_ORDER_ERR_STATUS.get(code, 400)
+        details = {k: result[k] for k in ('available', 'product_name', 'product_id') if k in result}
+        payload = {'code': code, 'message': result.get('message', '')}
+        if details:
+            payload['details'] = details
+        return jsonify({'success': False, 'error': payload}), status
+    return json_ok({
+        'order_id': result['order_id'],
+        'order_number': result['order_number'],
+        'total': to_grosze(result['total_amount']),
+        'items_count': result['items_count'],
+    }, 201)

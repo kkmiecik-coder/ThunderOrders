@@ -281,3 +281,126 @@ def test_extend_requires_ownership(client, db, make_user, make_product):
     r2 = client.post(f'/api/mobile/v1/offers/{page.token}/extend', headers=h_a,
                      json={'session_id': 'sessA'})
     assert r2.status_code == 200 and 'new_expires_at' in r2.get_json()['data']
+
+
+# ---------------------------------------------------------------------------
+# Task 7: POST /offers/<token>/place-order (exclusive + idempotency)
+# ---------------------------------------------------------------------------
+
+def _ex_order_type(db):
+    """Tworzy OrderType slug='exclusive' (prefix EX) wymagany przez generate_order_number."""
+    from modules.orders.models import OrderType
+    ot = OrderType.query.filter_by(slug='exclusive').first()
+    if not ot:
+        ot = OrderType(slug='exclusive', name='Exclusive', prefix='EX')
+        db.session.add(ot); db.session.commit()
+    return ot
+
+
+def test_place_order_requires_token(client, db, make_user):
+    page = _make_page(db, 'active')
+    assert client.post(f'/api/mobile/v1/offers/{page.token}/place-order',
+                       json={'session_id': 'x'}).status_code == 401
+
+
+def test_place_order_happy_path(client, db, make_user, make_product):
+    from modules.offers.models import OfferSection
+    h, user = _auth(client, db, make_user)
+    make_user()  # created_by=1
+    _ex_order_type(db)
+    page = _make_page(db, 'active', payment_stages=3)
+    prod = make_product(sale_price='50.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=10, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 2})
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                    json={'session_id': 'mine', 'order_note': 'proszę szybko'})
+    assert r.status_code == 201
+    d = r.get_json()['data']
+    assert d['order_number'].startswith('EX/')
+    assert d['total'] == 10000          # grosze
+    assert d['items_count'] == 1
+
+
+def test_place_order_page_not_active_403(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'ended')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                    json={'session_id': 'x'})
+    assert r.status_code == 403
+    assert r.get_json()['error']['code'] == 'page_not_active'
+
+
+def test_place_order_draft_404(client, db, make_user):
+    # Parytet bramki z detail/reserve: draft nigdy nie eksponowany (404, nie 403).
+    h, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'draft')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                    json={'session_id': 'x'})
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'page_not_found'
+
+
+def test_place_order_no_reservations_400(client, db, make_user):
+    h, _ = _auth(client, db, make_user); make_user()
+    _ex_order_type(db)
+    page = _make_page(db, 'active')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                    json={'session_id': 'empty'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'no_reservations'
+
+
+def test_place_order_idempotent_replay(client, db, make_user, make_product):
+    # reserve → place-order z Idempotency-Key → powtórka tym samym kluczem zwraca to samo
+    # zamówienie (po 1. place-order rezerwacje usunięte → bez idempotencji byłoby no_reservations).
+    from modules.offers.models import OfferSection
+    from modules.orders.models import Order
+    h, user = _auth(client, db, make_user)
+    make_user()
+    _ex_order_type(db)
+    page = _make_page(db, 'active', payment_stages=3)
+    prod = make_product(sale_price='50.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=10, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 1})
+    key = {'Idempotency-Key': 'po-key-1'}
+    r1 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers={**h, **key},
+                     json={'session_id': 'mine'})
+    r2 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers={**h, **key},
+                     json={'session_id': 'mine'})
+    assert r1.status_code == 201 and r2.status_code == 201
+    assert r1.get_json()['data']['order_id'] == r2.get_json()['data']['order_id']
+    assert Order.query.count() == 1
+
+
+def test_place_order_survives_notification_failure(client, db, make_user, make_product,
+                                                   monkeypatch, caplog):
+    # Pkt 5 hardening: awaria EmailManager/PushManager PO commit NIE może wywołać 500
+    # (a przy idempotencji — zaklinować klucza). Zamówienie zostaje w bazie, błąd zalogowany.
+    import logging
+    from modules.offers.models import OfferSection
+    from modules.orders.models import Order
+    from utils.email_manager import EmailManager
+
+    def _boom(order):
+        raise RuntimeError('SMTP down')
+    monkeypatch.setattr(EmailManager, 'notify_order_confirmation', _boom)
+
+    h, user = _auth(client, db, make_user)
+    make_user()
+    _ex_order_type(db)
+    page = _make_page(db, 'active', payment_stages=3)
+    prod = make_product(sale_price='50.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=10, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 1})
+    with caplog.at_level(logging.ERROR):
+        r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                        json={'session_id': 'mine'})
+    assert r.status_code == 201
+    assert Order.query.count() == 1
+    assert 'notifications failed' in caplog.text.lower()

@@ -622,12 +622,21 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     )
 
     # 12. Send emails + push (async)
-    from utils.email_manager import EmailManager
-    from utils.push_manager import PushManager
-    EmailManager.notify_order_confirmation(order)
-    PushManager.notify_order_confirmation(order)
-    EmailManager.notify_admin_new_order(order)
-    PushManager.notify_admin_new_order(order)
+    # Hardening: zamówienie jest już scommitowane (sekcja 10). Awaria SMTP/push NIE może
+    # wywołać 500 (a na ścieżce mobilnej z Idempotency-Key — zaklinować klucza). Loguj
+    # z tracebackiem i kontynuuj — spójnie z sąsiednimi blokami post-commit (12b/12c/12d).
+    try:
+        from utils.email_manager import EmailManager
+        from utils.push_manager import PushManager
+        EmailManager.notify_order_confirmation(order)
+        PushManager.notify_order_confirmation(order)
+        EmailManager.notify_admin_new_order(order)
+        PushManager.notify_admin_new_order(order)
+    except Exception:
+        from flask import current_app
+        current_app.logger.exception(
+            f"Order notifications failed for order {order.id} (order persisted)"
+        )
 
     # 12b. Broadcast dostępności do kupujących (rezerwacje usunięte → produkty wolne)
     page_id = page.id
