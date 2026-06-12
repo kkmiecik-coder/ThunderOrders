@@ -204,3 +204,80 @@ def test_release_reduces_reservation(client, db, make_user, make_product):
     a = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}/availability?session_id=mine',
                    headers=h)
     assert a.get_json()['data']['products'][str(prod.id)]['available'] == 5
+
+
+def test_reserve_blocked_on_inactive_page(client, db, make_user, make_product):
+    """Fair-access: reserve tylko na aktywnej stronie (parytet z bramką join weba).
+
+    scheduled/paused/ended -> 409 page_not_active; draft -> 404 (spójnie z detail).
+    Żadna rezerwacja nie może powstać w bazie.
+    """
+    from modules.offers.models import OfferSection, OfferReservation
+    from datetime import datetime, timedelta
+    h, _ = _auth(client, db, make_user)
+    prod = make_product(sale_price='10.00')
+
+    cases = [
+        ('scheduled', {}, 409, 'page_not_active'),
+        ('paused', {}, 409, 'page_not_active'),
+        # ends_at w przeszłości — inaczej check_and_update_status wskrzesiłby stronę
+        ('ended', {'ends_at': datetime.now() - timedelta(days=1)}, 409, 'page_not_active'),
+        ('draft', {}, 404, 'page_not_found'),
+    ]
+    for status, attrs, exp_status, exp_code in cases:
+        page = _make_page(db, status)
+        for k, v in attrs.items():
+            setattr(page, k, v)
+        db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                    product_id=prod.id, max_quantity=5, sort_order=0))
+        db.session.commit()
+        r = client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                        json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 1})
+        assert r.status_code == exp_status, (status, r.status_code)
+        assert r.get_json()['error']['code'] == exp_code, status
+    assert OfferReservation.query.count() == 0
+
+
+def test_release_requires_ownership(client, db, make_user, make_product):
+    """User B (inny JWT) nie może zwolnić rezerwacji usera A znając jego session_id."""
+    from modules.offers.models import OfferSection
+    h_a, _ = _auth(client, db, make_user)
+    h_b, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=5, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h_a,
+                json={'session_id': 'sessA', 'product_id': prod.id, 'quantity': 2})
+    # B próbuje zwolnić rezerwację A — istniejąca ścieżka braku rezerwacji (no-op, quantity 0)
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/release', headers=h_b,
+                    json={'session_id': 'sessA', 'product_id': prod.id, 'quantity': 2})
+    assert r.status_code == 200
+    assert r.get_json()['data']['reservation']['quantity'] == 0
+    # Rezerwacja A nietknięta — availability bez zmian
+    a = client.get(f'/api/mobile/v1/offers/offer-pages/{page.token}/availability?session_id=sessA',
+                   headers=h_a)
+    pdata = a.get_json()['data']['products'][str(prod.id)]
+    assert pdata['available'] == 3 and pdata['user_reserved'] == 2
+
+
+def test_extend_requires_ownership(client, db, make_user, make_product):
+    """User B (inny JWT) nie może przedłużyć rezerwacji usera A znając jego session_id."""
+    from modules.offers.models import OfferSection
+    h_a, _ = _auth(client, db, make_user)
+    h_b, _ = _auth(client, db, make_user)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='10.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=5, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h_a,
+                json={'session_id': 'sessA', 'product_id': prod.id, 'quantity': 1})
+    # B: filtr ownership nie znajduje rezerwacji — istniejący kod reservation_expired
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/extend', headers=h_b,
+                    json={'session_id': 'sessA'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'reservation_expired'
+    # Rezerwacja A nieskonsumowana — A nadal może przedłużyć (extended=False)
+    r2 = client.post(f'/api/mobile/v1/offers/{page.token}/extend', headers=h_a,
+                     json={'session_id': 'sessA'})
+    assert r2.status_code == 200 and 'new_expires_at' in r2.get_json()['data']

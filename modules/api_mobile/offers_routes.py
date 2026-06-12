@@ -205,6 +205,13 @@ def offer_reserve(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    # Fair-access: rezerwować można tylko na aktywnej stronie (parytet z bramką
+    # join weba — socket_events.handle_join_offer_reservation odrzuca nieaktywne).
+    page.check_and_update_status()
+    if page.status == 'draft':                  # niepubliczny — spójnie z offer_page_detail
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    if not page.is_active:
+        return json_err('page_not_active', 'Strona ofertowa nie jest aktywna.', 409)
     body = request.get_json(silent=True) or {}
     session_id = body.get('session_id')
     product_id = parse_int(body.get('product_id'), 'product_id', required=True)
@@ -240,7 +247,9 @@ def offer_release(token):
     quantity = parse_int(body.get('quantity'), 'quantity', default=1, min_value=1)
     if not session_id:
         return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
-    ok, result = release_product(session_id, page.id, product_id, quantity)
+    # Wiązanie z właścicielem: zwolnić można tylko własną rezerwację (user_id z JWT)
+    ok, result = release_product(session_id, page.id, product_id, quantity,
+                                 user_id=int(get_jwt_identity()))
     if ok:
         _emit_safe(page.id, reservations=True, availability=True)
     return json_ok(result)
@@ -258,7 +267,8 @@ def offer_extend(token):
     session_id = body.get('session_id')
     if not session_id:
         return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
-    ok, result = extend_reservation(session_id, page.id)
+    # Wiązanie z właścicielem: przedłużyć można tylko własną rezerwację (user_id z JWT)
+    ok, result = extend_reservation(session_id, page.id, user_id=int(get_jwt_identity()))
     if not ok:
         return json_err(result.get('error', 'extend_failed'), result.get('message', ''), 400)
     _emit_safe(page.id, schedule=True)   # D4(a): tylko korekta timera serwera

@@ -322,7 +322,7 @@ def _reserve_product_attempt(session_id, page_id, product_id, quantity, section_
         }
 
 
-def release_product(session_id, page_id, product_id, quantity):
+def release_product(session_id, page_id, product_id, quantity, user_id=None):
     """
     Zwalnia rezerwację produktu
 
@@ -331,11 +331,20 @@ def release_product(session_id, page_id, product_id, quantity):
         page_id: ID strony ofertowej
         product_id: ID produktu
         quantity: Ilość do zwolnienia
+        user_id: Opcjonalne wiązanie z właścicielem — gdy podane, zwalnia tylko
+                 rezerwację należącą do tego usera (mobile API; web woła bez parametru)
 
     Returns:
         tuple: (success: bool, data: dict)
     """
-    user_reservation = get_user_reservation(session_id, page_id, product_id)
+    query = OfferReservation.query.filter_by(
+        session_id=session_id,
+        offer_page_id=page_id,
+        product_id=product_id
+    )
+    if user_id is not None:
+        query = query.filter_by(user_id=user_id)
+    user_reservation = query.first()
 
     if not user_reservation:
         return True, {'reservation': {'quantity': 0}}
@@ -354,13 +363,15 @@ def release_product(session_id, page_id, product_id, quantity):
     }
 
 
-def extend_reservation(session_id, page_id):
+def extend_reservation(session_id, page_id, user_id=None):
     """
     Przedłuża rezerwację o 1 minutę (jednokrotnie)
 
     Args:
         session_id: UUID sesji
         page_id: ID strony ofertowej
+        user_id: Opcjonalne wiązanie z właścicielem — gdy podane, przedłuża tylko
+                 rezerwacje należące do tego usera (mobile API; web woła bez parametru)
 
     Returns:
         tuple: (success: bool, data: dict)
@@ -369,11 +380,14 @@ def extend_reservation(session_id, page_id):
     cleanup_expired_reservations(page_id)
 
     now = int(time.time())
-    reservations = OfferReservation.query.filter(
+    query = OfferReservation.query.filter(
         OfferReservation.session_id == session_id,
         OfferReservation.offer_page_id == page_id,
         OfferReservation.expires_at > now
-    ).all()
+    )
+    if user_id is not None:
+        query = query.filter(OfferReservation.user_id == user_id)
+    reservations = query.all()
 
     if not reservations:
         return False, {
