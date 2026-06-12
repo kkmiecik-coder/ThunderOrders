@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import limiter
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
-from .validators import parse_int
+from .validators import parse_int, ValidationError
 from .idempotency import idempotent
 from modules.offers.models import OfferPage
 from modules.auth.models import User
@@ -396,3 +396,80 @@ def offer_validate_cart(token):
             removed.append({'product_id': pid,
                             'reason': 'not_found' if product is None else 'inactive'})
     return json_ok({'cart_items': valid, 'removed': removed})
+
+
+# ---------------------------------------------------------------------------
+# Task 9 (E4): POST /offers/<token>/place-order-preorder (+ @idempotent)
+# ---------------------------------------------------------------------------
+
+# Mapowanie kodów błędu serwisu place_preorder_order -> status HTTP koperty mobilnej.
+_PREORDER_ERR_STATUS = {
+    'empty_cart': 400,
+    'size_required': 400,
+    'order_number_failed': 500,
+    'database_error': 500,
+    'server_error': 500,
+}
+
+
+@api_mobile_bp.route('/offers/<token>/place-order-preorder', methods=['POST'])
+@jwt_required()
+@limiter.limit("15 per minute")
+@idempotent('offer_place_order_preorder')
+def offer_place_order_preorder(token):
+    """Złożenie zamówienia pre-order (koszyk z body, brak rezerwacji).
+
+    Bramka (parytet/odwrotność E3): page_not_found 404 → exclusive → wrong_page_type 400 →
+    draft 404 → not is_active → 403 page_not_active. Idempotency-Key (opcjonalny) gwarantuje
+    jednokrotne złożenie. Serwis sam emituje Socket.IO i wysyła maile/push (apka webowa +
+    dashboard LIVE muszą zobaczyć zamówienie z telefonu).
+    """
+    from modules.offers.place_order import place_preorder_order
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    if page.page_type != 'preorder':
+        return json_err('wrong_page_type',
+                        'Ta strona obsługiwana jest osobnym endpointem (exclusive).', 400)
+    if page.status == 'draft':                  # niepubliczny — parytet z detail/place-order
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    if not page.is_active:
+        return json_err('page_not_active', 'Sprzedaż nie jest aktywna.', 403)
+    body = request.get_json(silent=True) or {}
+    raw_items = body.get('cart_items') or []
+    if not raw_items:
+        return json_err('empty_cart', 'Koszyk jest pusty.', 400)
+    # Walidacja pozycji koszyka (parytet z E3 reserve): product_id wymagany, quantity >= 1.
+    cart_items = []
+    for it in raw_items:
+        if not isinstance(it, dict):
+            raise ValidationError('Pozycja koszyka musi być obiektem.')
+        entry = {
+            'product_id': parse_int(it.get('product_id'), 'product_id', required=True),
+            'quantity': parse_int(it.get('quantity'), 'quantity', default=1, min_value=1),
+        }
+        selected_size = it.get('selected_size')
+        if selected_size is not None:
+            entry['selected_size'] = selected_size
+        cart_items.append(entry)
+    order_note = body.get('order_note')
+    user = User.query.get(int(get_jwt_identity()))
+    if user is None:                            # spójnie z konwencją /auth/me
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    ok, result = place_preorder_order(page=page, cart_items=cart_items,
+                                      order_note=order_note, user=user)
+    if not ok:
+        code = result.get('error', 'place_order_failed')
+        status = _PREORDER_ERR_STATUS.get(code, 400)
+        details = {k: result[k] for k in ('product_name',) if k in result}
+        payload = {'code': code, 'message': result.get('message', '')}
+        if details:
+            payload['details'] = details
+        return jsonify({'success': False, 'error': payload}), status
+    data = {
+        'order_id': result['order_id'],
+        'order_number': result['order_number'],
+        'total': to_grosze(result['total_amount']),
+        'items_count': result['items_count'],
+    }
+    return json_ok(data, 201)

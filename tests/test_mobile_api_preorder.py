@@ -74,3 +74,96 @@ def test_validate_cart_draft_404(client, db, make_user):
                     json={'cart_items': []})
     assert r.status_code == 404
     assert r.get_json()['error']['code'] == 'page_not_found'
+
+
+# ---------------------------------------------------------------------------
+# Task 3: POST /offers/<token>/place-order-preorder (+ @idempotent)
+# ---------------------------------------------------------------------------
+
+def _po_order_type(db):
+    from modules.orders.models import OrderType
+    ot = OrderType.query.filter_by(slug='pre_order').first()
+    if not ot:
+        ot = OrderType(slug='pre_order', name='Pre-order', prefix='PO')
+        db.session.add(ot); db.session.commit()
+    return ot
+
+
+def test_place_preorder_requires_token(client, db, make_user):
+    page = _preorder_page(db)
+    assert client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder',
+                       json={'cart_items': []}).status_code == 401
+
+
+def test_place_preorder_happy_path(client, db, make_user, make_product):
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db, status='active', payment_stages=3)
+    prod = make_product(sale_price='50.00')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
+                    json={'cart_items': [{'product_id': prod.id, 'quantity': 2}],
+                          'order_note': 'proszę szybko'})
+    assert r.status_code == 201
+    d = r.get_json()['data']
+    assert d['order_number'].startswith('PO/')
+    assert d['total'] == 10000          # grosze
+    assert d['items_count'] == 2
+
+
+def test_place_preorder_wrong_page_type_400(client, db, make_user, make_product):
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _exclusive_page(db, status='active')   # exclusive aktywny → wrong_page_type (przed is_active)
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
+                    json={'cart_items': [{'product_id': 1, 'quantity': 1}]})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'wrong_page_type'
+
+
+def test_place_preorder_page_not_active_403(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db, status='ended')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
+                    json={'cart_items': [{'product_id': 1, 'quantity': 1}]})
+    assert r.status_code == 403
+    assert r.get_json()['error']['code'] == 'page_not_active'
+
+
+def test_place_preorder_draft_404(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db, status='draft')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
+                    json={'cart_items': [{'product_id': 1, 'quantity': 1}]})
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'page_not_found'
+
+
+def test_place_preorder_empty_cart_400(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db, status='active')
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
+                    json={'cart_items': []})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'empty_cart'
+
+
+def test_place_preorder_idempotent_replay(client, db, make_user, make_product):
+    # Bez guardu pre-order (D3a) drugi POST bez klucza tworzyłby drugie zamówienie —
+    # dlatego dedup testujemy przez Idempotency-Key.
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db, status='active')
+    prod = make_product(sale_price='50.00')
+    hk = {**h, 'Idempotency-Key': 'po-idem-123'}
+    body = {'cart_items': [{'product_id': prod.id, 'quantity': 1}]}
+    r1 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=hk, json=body)
+    assert r1.status_code == 201
+    oid1 = r1.get_json()['data']['order_id']
+    r2 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=hk, json=body)
+    assert r2.status_code == 201
+    assert r2.get_json()['data']['order_id'] == oid1
+    from modules.orders.models import Order
+    assert Order.query.filter_by(order_type='pre_order').count() == 1
