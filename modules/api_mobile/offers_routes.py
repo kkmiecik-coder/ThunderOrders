@@ -363,6 +363,7 @@ def offer_validate_cart(token):
     parytet z webowym /restore; odrzuca tylko draft (404). Zero mutacji → bez idempotency.
     """
     from modules.products.models import Product
+    from modules.offers.place_order import preorder_page_product_ids
     page = OfferPage.get_by_token(token)
     if not page:
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
@@ -373,12 +374,19 @@ def offer_validate_cart(token):
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     body = request.get_json(silent=True) or {}
     items = body.get('cart_items') or []
+    allowed_ids = preorder_page_product_ids(page)   # przynależność do sekcji strony
     valid, removed = [], []
     for it in items:
         pid = it.get('product_id')
         qty = it.get('quantity', 1)
         product = Product.query.get(pid) if pid else None
-        if product and product.is_active:
+        if product is None:
+            removed.append({'product_id': pid, 'reason': 'not_found'})
+        elif product.id not in allowed_ids:
+            removed.append({'product_id': pid, 'reason': 'not_in_offer'})
+        elif not product.is_active:
+            removed.append({'product_id': pid, 'reason': 'inactive'})
+        else:
             img = product.primary_image
             entry = {
                 'product_id': product.id,
@@ -392,9 +400,6 @@ def offer_validate_cart(token):
             if it.get('selected_size') is not None:
                 entry['selected_size'] = it.get('selected_size')
             valid.append(entry)
-        else:
-            removed.append({'product_id': pid,
-                            'reason': 'not_found' if product is None else 'inactive'})
     return json_ok({'cart_items': valid, 'removed': removed})
 
 

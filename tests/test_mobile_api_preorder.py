@@ -30,6 +30,15 @@ def _exclusive_page(db, status='active'):
     return p
 
 
+def _product_section(db, page, product):
+    """Sekcja 'product' wiążąca produkt ze stroną (zamawialny na pre-order)."""
+    from modules.offers.models import OfferSection
+    s = OfferSection(offer_page_id=page.id, section_type='product',
+                     product_id=product.id, sort_order=0)
+    db.session.add(s); db.session.commit()
+    return s
+
+
 def test_validate_cart_requires_token(client, db, make_user):
     page = _preorder_page(db)
     assert client.post(f'/api/mobile/v1/offers/{page.token}/validate-cart',
@@ -41,6 +50,8 @@ def test_validate_cart_filters_invalid_and_grosze(client, db, make_user, make_pr
     page = _preorder_page(db)
     active = make_product(sale_price='50.00')
     inactive = make_product(sale_price='30.00'); inactive.is_active = False; db.session.commit()
+    _product_section(db, page, active)
+    _product_section(db, page, inactive)   # w ofercie, ale nieaktywny -> reason 'inactive'
     r = client.post(f'/api/mobile/v1/offers/{page.token}/validate-cart', headers=h,
                     json={'cart_items': [
                         {'product_id': active.id, 'quantity': 2},
@@ -100,6 +111,7 @@ def test_place_preorder_happy_path(client, db, make_user, make_product):
     _po_order_type(db)
     page = _preorder_page(db, status='active', payment_stages=3)
     prod = make_product(sale_price='50.00')
+    _product_section(db, page, prod)
     r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
                     json={'cart_items': [{'product_id': prod.id, 'quantity': 2}],
                           'order_note': 'proszę szybko'})
@@ -157,6 +169,7 @@ def test_place_preorder_idempotent_replay(client, db, make_user, make_product):
     _po_order_type(db)
     page = _preorder_page(db, status='active')
     prod = make_product(sale_price='50.00')
+    _product_section(db, page, prod)
     hk = {**h, 'Idempotency-Key': 'po-idem-123'}
     body = {'cart_items': [{'product_id': prod.id, 'quantity': 1}]}
     r1 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=hk, json=body)
@@ -167,3 +180,37 @@ def test_place_preorder_idempotent_replay(client, db, make_user, make_product):
     assert r2.get_json()['data']['order_id'] == oid1
     from modules.orders.models import Order
     assert Order.query.filter_by(order_type='pre_order').count() == 1
+
+
+# ---------------------------------------------------------------------------
+# Przynależność produktu do strony (pre-order tylko na produkty z oferty)
+# ---------------------------------------------------------------------------
+
+def test_validate_cart_not_in_offer(client, db, make_user, make_product):
+    """Aktywny produkt spoza sekcji strony -> removed z reason='not_in_offer'."""
+    h, _ = _auth(client, db, make_user)
+    page = _preorder_page(db)
+    foreign = make_product(sale_price='20.00')  # aktywny, ale NIE w sekcjach strony
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/validate-cart', headers=h,
+                    json={'cart_items': [{'product_id': foreign.id, 'quantity': 1}]})
+    assert r.status_code == 200
+    d = r.get_json()['data']
+    assert d['cart_items'] == []
+    assert d['removed'] == [{'product_id': foreign.id, 'reason': 'not_in_offer'}]
+
+
+def test_place_preorder_foreign_product_not_ordered(client, db, make_user, make_product):
+    """Produkt spoza oferty nie wchodzi do zamówienia (total/items tylko z oferty)."""
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db, status='active')
+    in_offer = make_product(sale_price='50.00')
+    foreign = make_product(sale_price='30.00')  # NIE w sekcjach strony
+    _product_section(db, page, in_offer)
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=h,
+                    json={'cart_items': [{'product_id': in_offer.id, 'quantity': 1},
+                                         {'product_id': foreign.id, 'quantity': 2}]})
+    assert r.status_code == 201
+    d = r.get_json()['data']
+    assert d['total'] == 5000           # tylko produkt z oferty
+    assert d['items_count'] == 1

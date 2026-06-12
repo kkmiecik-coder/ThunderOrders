@@ -762,6 +762,32 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
 # Pre-order: Place Order (no reservations)
 # ============================================
 
+def preorder_page_product_ids(page):
+    """Zbiór product_id zamawialnych na stronie pre-order (walidacja przynależności).
+
+    Parytet z templatem order_page_preorder.html: zamawialne są wyłącznie sekcje
+    'product' (section.product_id) i 'variant_group' (produkty grupy wariantowej).
+    Sekcje 'set' nie są renderowane na pre-order, a produkt bonusowy dodaje serwis
+    (is_bonus) — nie wchodzi przez koszyk. Bez filtra is_active: aktywność to
+    osobna walidacja (validate-cart raportuje ją precyzyjnie jako 'inactive').
+    """
+    from .models import OfferSection
+
+    allowed = set()
+    sections = OfferSection.query.filter(
+        OfferSection.offer_page_id == page.id,
+        OfferSection.section_type.in_(('product', 'variant_group')),
+    ).all()
+    for section in sections:
+        if section.section_type == 'product':
+            if section.product_id:
+                allowed.add(section.product_id)
+        else:
+            for product in section.get_variant_group_products():
+                allowed.add(product.id)
+    return allowed
+
+
 def place_preorder_order(page, cart_items, order_note=None, user=None):
     """
     Place a pre-order from offer page (no reservations, no limits).
@@ -787,8 +813,12 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
     if not cart_items:
         return False, {'error': 'empty_cart', 'message': 'Koszyk jest pusty'}
 
-    # Filter valid items
-    cart_items = [item for item in cart_items if item.get('product_id') and item.get('quantity', 0) > 0]
+    # Filter valid items (przynależność: pre-order tylko na produkty z sekcji strony —
+    # obcy product_id traktowany jak nieistniejący; wszystkie obce -> empty_cart)
+    allowed_product_ids = preorder_page_product_ids(page)
+    cart_items = [item for item in cart_items
+                  if item.get('product_id') and item.get('quantity', 0) > 0
+                  and item['product_id'] in allowed_product_ids]
     if not cart_items:
         return False, {'error': 'empty_cart', 'message': 'Koszyk jest pusty'}
 
