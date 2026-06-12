@@ -43,7 +43,23 @@ def idempotent(endpoint_name):
                     'code': 'idempotency_in_progress',
                     'message': 'Żądanie z tym kluczem jest właśnie przetwarzane.'}}), 409
             # Wykonaj właściwą logikę
-            rv = fn(*args, **kwargs)
+            try:
+                rv = fn(*args, **kwargs)
+            except Exception:
+                # Wyjątek trasy NIE może zaklinować klucza: claim 'processing'
+                # (status_code=NULL) zostałby na 48h i każdy retry tym samym kluczem
+                # dostawałby 409 idempotency_in_progress. Zwalniamy wiersz świeżym
+                # DELETE (obiekt claim może być w złym stanie po rollbacku) i
+                # propagujemy wyjątek — odpowie errorhandler blueprintu jak zwykle.
+                db.session.rollback()
+                try:
+                    MobileIdempotencyKey.query.filter_by(
+                        user_id=user_id, idempotency_key=key).delete()
+                    db.session.commit()
+                except Exception:
+                    # Best-effort: nie maskujemy oryginalnego wyjątku błędem sprzątania.
+                    db.session.rollback()
+                raise
             if not isinstance(rv, tuple):
                 rv = (rv, 200)
             resp, status = rv

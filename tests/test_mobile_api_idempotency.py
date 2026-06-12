@@ -83,3 +83,71 @@ def test_checkout_different_keys_two_orders(client, db, make_user, make_product)
     client.post('/api/mobile/v1/shop/checkout', headers={**h, 'Idempotency-Key': 'k2'}, json={})
     from modules.orders.models import Order
     assert Order.query.filter_by(order_type='on_hand').count() == 2
+
+
+# ---------------------------------------------------------------------------
+# Wyjątek w trasie @idempotent NIE może zaklinować klucza (claim 'processing' 48h)
+# ---------------------------------------------------------------------------
+
+def _po_order_type(db):
+    from modules.orders.models import OrderType
+    ot = OrderType.query.filter_by(slug='pre_order').first()
+    if not ot:
+        ot = OrderType(slug='pre_order', name='Pre-order', prefix='PO')
+        db.session.add(ot); db.session.commit()
+    return ot
+
+
+def _preorder_page(db):
+    from modules.offers.models import OfferPage
+    p = OfferPage(name='PO idem', token=OfferPage.generate_token(), status='active',
+                  page_type='preorder', payment_stages=3, created_by=1)
+    db.session.add(p); db.session.commit()
+    return p
+
+
+def _product_section(db, page, product):
+    from modules.offers.models import OfferSection
+    s = OfferSection(offer_page_id=page.id, section_type='product',
+                     product_id=product.id, sort_order=0)
+    db.session.add(s); db.session.commit()
+    return s
+
+
+def test_exception_in_idempotent_route_does_not_leave_processing_claim(
+        client, db, make_user, make_product):
+    """ValidationError PO claimie nie zostawia wiersza status_code=NULL (zatruty klucz)."""
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db)
+    prod = make_product(sale_price='10.00')
+    _product_section(db, page, prod)
+    hk = {**h, 'Idempotency-Key': 'poison-1'}
+    # quantity=0 -> parse_int(min_value=1) -> ValidationError wewnątrz trasy @idempotent
+    r1 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=hk,
+                     json={'cart_items': [{'product_id': prod.id, 'quantity': 0}]})
+    assert r1.status_code == 400
+    assert r1.get_json()['error']['code'] == 'invalid_input'
+    from modules.api_mobile.models import MobileIdempotencyKey
+    stale = MobileIdempotencyKey.query.filter_by(
+        idempotency_key='poison-1', status_code=None).first()
+    assert stale is None
+
+
+def test_exception_in_idempotent_route_releases_key_for_retry(
+        client, db, make_user, make_product):
+    """Po wyjątku retry tym samym kluczem działa (nie 409 idempotency_in_progress)."""
+    h, _ = _auth(client, db, make_user)
+    _po_order_type(db)
+    page = _preorder_page(db)
+    prod = make_product(sale_price='10.00')
+    _product_section(db, page, prod)
+    hk = {**h, 'Idempotency-Key': 'poison-2'}
+    r1 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=hk,
+                     json={'cart_items': [{'product_id': prod.id, 'quantity': 0}]})
+    assert r1.status_code == 400
+    r2 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order-preorder', headers=hk,
+                     json={'cart_items': [{'product_id': prod.id, 'quantity': 1}]})
+    assert r2.status_code == 201            # nie 409
+    from modules.orders.models import Order
+    assert Order.query.filter_by(order_type='pre_order').count() == 1
