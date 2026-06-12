@@ -178,6 +178,20 @@ POST /place-order    { session_id, full_set_items[], order_note }
 > Bezpieczeństwo (brak oversellingu) gwarantuje baza: `SELECT FOR UPDATE` + retry na deadlock —
 > niezależnie od Socket.IO. Szczegóły mechanizmu w sekcji 7.
 
+> **Korekty kontraktu (E3):** Lista i struktura stron: mapowanie statusów `live`=active+paused
+> (paused z `can_order=false`), `upcoming`=scheduled, `closed`=ended; `draft` nie jest eksponowany
+> (404). Read-endpointy (`/offer-pages`, `/offer-pages/<token>`, `/availability`) wymagają Bearer
+> (parytet z resztą mobile). `available`/ilości w snapshot dostępności to **sztuki** (int), nie
+> grosze; ceny produktów w strukturze strony w groszach (int). `error.details` opcjonalne w kopercie
+> błędu (np. `available_quantity` przy 409 z `reserve`, `available`/`product_id` przy 400 z
+> `place-order`). `reserve` wymaga strony aktywnej (`403 page_not_active`); `release`/`extend`
+> działają niezależnie od statusu strony. `place-order` wiąże zamówienie z użytkownikiem JWT
+> (użytkownik może złożyć zamówienie tylko ze swoich rezerwacji). Wspiera nagłówek `Idempotency-Key`
+> (opcjonalny, TTL 48h; dotyczy też `POST /shop/checkout`): replay zwraca oryginalną odpowiedź 201.
+> Bez nagłówka — serwisowy guard wykrywa istniejące zamówienie per user+strona → 200 z
+> `already_placed: true` i danymi zamówienia. `extend` przedłuża jednorazowo o +1 min.
+> Pre-order (`validate-cart`, `place-order-preorder`) → E4.
+
 ### Pre-order — koszyk lokalny + zamówienie — `/offers/<token>/`
 ```
 POST /validate-cart       { cart_items[] }                → waliduje pozycje (produkty aktywne?)
