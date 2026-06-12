@@ -77,9 +77,6 @@ def payment_confirmations():
     Panel potwierdzeń płatności - lista zamówień ze stron sprzedaży wymagających potwierdzenia.
     Zakładki: active (domyślna) i archive.
     """
-    from datetime import timedelta
-    from sqlalchemy import func
-
     tab = request.args.get('tab', 'active')
 
     # Kwalifikacja + podział active/recent/archive — wspólny serwis (parytet 1:1)

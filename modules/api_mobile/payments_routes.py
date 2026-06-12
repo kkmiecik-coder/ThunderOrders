@@ -52,7 +52,7 @@ def _proof_url(filename):
 
 @api_mobile_bp.route('/payment-confirmations/proof/<path:filename>', methods=['GET'])
 @jwt_required()
-@limiter.limit("60 per minute")
+@limiter.limit("300 per minute")  # read-only; ekrany z wieloma miniaturami dowodów
 def serve_proof_mobile(filename):
     filename = secure_filename(filename)                      # traversal-guard
     conf = PaymentConfirmation.query.filter_by(proof_file=filename).first()
