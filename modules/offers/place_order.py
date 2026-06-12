@@ -756,7 +756,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
 # Pre-order: Place Order (no reservations)
 # ============================================
 
-def place_preorder_order(page, cart_items, order_note=None):
+def place_preorder_order(page, cart_items, order_note=None, user=None):
     """
     Place a pre-order from offer page (no reservations, no limits).
 
@@ -764,12 +764,18 @@ def place_preorder_order(page, cart_items, order_note=None):
         page (OfferPage): Offer page object (page_type='preorder')
         cart_items (list): [{'product_id': int, 'quantity': int}, ...]
         order_note (str, optional): Order note
+        user (User, optional): Authenticated user; fallback to flask_login.current_user
+            (potrzebne dla mobile API E4 — JWT, bez sesji Flask-Login)
 
     Returns:
         tuple: (success: bool, result: dict)
     """
     from modules.products.models import Product
     from .models import OfferSection, OfferSetBonus, OfferBonusRequiredProduct
+
+    if user is None:
+        from flask_login import current_user as _cu
+        user = _cu._get_current_object()
 
     # 1. Validate cart items
     if not cart_items:
@@ -790,7 +796,7 @@ def place_preorder_order(page, cart_items, order_note=None):
     order = Order(
         order_number=order_number,
         order_type='pre_order',
-        user_id=current_user.id,
+        user_id=user.id,
         status='nowe',
         offer_page_id=page.id,
         offer_page_name=page.name,
@@ -908,12 +914,16 @@ def place_preorder_order(page, cart_items, order_note=None):
 
     # 6. Update total
     order.total_amount = total_amount
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return False, {'error': 'database_error', 'message': str(e)}
 
     # 7. Post-order actions
     try:
         log_activity(
-            user=current_user,
+            user=user,
             action='order_placed',
             entity_type='order',
             entity_id=order.id,
@@ -953,8 +963,8 @@ def place_preorder_order(page, cart_items, order_note=None):
         emit_new_order(page.id, {
             'id': order.id,
             'order_number': order.order_number,
-            'customer_name': f'{current_user.first_name} {current_user.last_name}'.strip() or current_user.email,
-            'customer_email': current_user.email,
+            'customer_name': f'{user.first_name} {user.last_name}'.strip() or user.email,
+            'customer_email': user.email,
             'total_amount': float(order.total_amount),
             'item_count': total_items_count,
             'items': order_items_list,
@@ -979,7 +989,7 @@ def place_preorder_order(page, cart_items, order_note=None):
     # 8. Check achievements
     try:
         from modules.achievements.services import AchievementService
-        AchievementService().check_event(current_user, 'order_placed', {
+        AchievementService().check_event(user, 'order_placed', {
             'items_count': total_items_count,
             'total_amount': float(order.total_amount),
             'is_offer': True,

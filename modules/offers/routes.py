@@ -730,7 +730,7 @@ def place_order(token):
         cart_items = data.get('cart_items', [])
         if not cart_items:
             return jsonify({'success': False, 'error': 'empty_cart', 'message': 'Koszyk jest pusty'}), 400
-        success, result = place_preorder_order(page=page, cart_items=cart_items, order_note=order_note)
+        success, result = place_preorder_order(page=page, cart_items=cart_items, order_note=order_note, user=current_user._get_current_object())
     else:
         # Exclusive: reservation-based
         from .place_order import place_offer_order
