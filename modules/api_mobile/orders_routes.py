@@ -136,6 +136,7 @@ def _serialize_order_item(item):
 
 
 def _serialize_order_detail(order):
+    stages = _serialize_payment_stages(order)
     return {
         'id': order.id,
         'order_number': order.order_number,
@@ -148,7 +149,6 @@ def _serialize_order_detail(order):
         'offer_page_name': order.offer_page_name,
         'custom_name': order.custom_name,
         'notes': order.notes,
-        'payment_stages_count': order.payment_stages,
         # Finanse (grosze)
         'total_amount': to_grosze(order.total_amount),
         'shipping_cost': to_grosze(order.shipping_cost),
@@ -158,7 +158,9 @@ def _serialize_order_detail(order):
         'paid_amount': to_grosze(order.paid_amount),
         'remaining_to_pay': to_grosze(order.remaining_to_pay),
         'items': [_serialize_order_item(i) for i in order.sorted_items],
-        'payment_stages': _serialize_payment_stages(order),   # Task 3
+        'payment_stages': stages,
+        # Faktyczna liczba etapów (surowa kolumna Order.payment_stages bywa NULL dla on_hand)
+        'payment_stages_count': len(stages),
     }
 
 

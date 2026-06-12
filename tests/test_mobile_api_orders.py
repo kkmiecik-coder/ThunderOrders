@@ -251,3 +251,14 @@ def test_dashboard_to_pay_grosze(client, db, make_user, make_order):
     d = client.get('/api/mobile/v1/dashboard', headers=h).get_json()['data']
     assert d['payment']['to_pay'] == 12000          # grosze (120 PLN)
     assert d['payment']['paid'] == 0
+
+
+def test_payment_stages_count_equals_stage_list_length(client, db, make_user, make_order):
+    # on_hand z payment_stages=NULL: count ma odzwierciedlać FAKTYCZNĄ liczbę etapów (2), nie surową kolumnę
+    h, user = _auth(client, db, make_user)
+    order = make_order(user, order_type='on_hand')
+    order.payment_stages = None
+    db.session.commit()
+    r = client.get(f'/api/mobile/v1/orders/{order.id}', headers=h)
+    data = r.get_json()['data']
+    assert data['payment_stages_count'] == len(data['payment_stages']) == 2
