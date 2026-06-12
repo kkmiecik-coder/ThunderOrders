@@ -1,6 +1,6 @@
 """Wspólne helpery odpowiedzi JSON i serializacji dla mobilnego API."""
 
-from flask import jsonify
+from flask import jsonify, request
 
 
 def json_ok(data=None, status=200):
@@ -13,6 +13,10 @@ def json_err(code, message, status=400):
 
 def serialize_user(user):
     full = ' '.join(p for p in [user.first_name, user.last_name] if p).strip() or None
+    avatar = user.avatar_url
+    if avatar and avatar.startswith('/'):
+        # Kontrakt API wymaga absolutnych URL-i; Avatar.url zwraca ścieżkę względną.
+        avatar = request.url_root.rstrip('/') + avatar
     return {
         'id': user.id,
         'email': user.email,
@@ -21,6 +25,6 @@ def serialize_user(user):
         'full_name': full,
         'phone': user.phone,
         'role': user.role,
-        'avatar_url': user.avatar_url,
+        'avatar_url': avatar,
         'email_verified': bool(user.email_verified),
     }

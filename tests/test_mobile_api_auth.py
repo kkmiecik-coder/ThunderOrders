@@ -448,3 +448,18 @@ def test_register_smtp_failure_is_honest_and_allows_instant_resend(client, db, m
     r2 = client.post('/api/mobile/v1/auth/resend-code', json={'email': 'smtp@example.com'})
     assert r2.status_code == 200
     assert len(sent) == 1
+
+
+def test_serialize_user_returns_absolute_avatar_url(app):
+    from types import SimpleNamespace
+    from modules.api_mobile.helpers import serialize_user
+    stub = SimpleNamespace(id=1, email='a@b.pl', first_name='A', last_name='B',
+                           phone=None, role='client', email_verified=True,
+                           avatar_url='/static/uploads/avatars/default/x.png')
+    with app.test_request_context():
+        data = serialize_user(stub)
+    assert data['avatar_url'] == 'http://localhost/static/uploads/avatars/default/x.png'
+
+    stub.avatar_url = None
+    with app.test_request_context():
+        assert serialize_user(stub)['avatar_url'] is None
