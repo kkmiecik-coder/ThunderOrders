@@ -254,3 +254,47 @@ def test_google_verifier_handles_google_auth_error(app, monkeypatch):
     app.config['GOOGLE_OAUTH_CLIENT_IDS'] = ['client-1']
     with app.test_request_context():
         assert ga.verify_google_id_token('tok') is None
+
+
+def test_register_duplicate_race_returns_409(client, db, monkeypatch):
+    # Symulacja wyścigu: pre-check duplikatu przechodzi, ale INSERT łamie unique(email)
+    from sqlalchemy.exc import IntegrityError
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: True))
+    real_commit = db.session.commit
+    state = {'raised': False}
+
+    def racing_commit():
+        if not state['raised']:
+            state['raised'] = True
+            raise IntegrityError('INSERT INTO users', {}, Exception('Duplicate entry'))
+        return real_commit()
+
+    monkeypatch.setattr(db.session, 'commit', racing_commit)
+    r = client.post('/api/mobile/v1/auth/register', json={
+        'email': 'race@example.com', 'password': 'Haslo123!',
+        'first_name': 'A', 'last_name': 'B', 'phone': '+48500',
+    })
+    assert r.status_code == 409
+    assert r.get_json()['error']['code'] == 'email_taken'
+
+
+def test_logout_race_is_idempotent(client, db, make_user, monkeypatch):
+    # Symulacja wyścigu podwójnego logout: INSERT do blocklisty łamie unique(jti)
+    from sqlalchemy.exc import IntegrityError
+    tokens, u = _login_tokens(client, db, make_user, email='race-out@example.com')
+    real_commit = db.session.commit
+    state = {'raised': False}
+
+    def racing_commit():
+        if not state['raised']:
+            state['raised'] = True
+            raise IntegrityError('INSERT INTO mobile_token_blocklist', {},
+                                 Exception('Duplicate entry'))
+        return real_commit()
+
+    monkeypatch.setattr(db.session, 'commit', racing_commit)
+    r = client.post('/api/mobile/v1/auth/logout',
+                    headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r.status_code == 200

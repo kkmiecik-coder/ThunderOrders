@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from flask import current_app, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
+from sqlalchemy.exc import IntegrityError
 from extensions import db
 from modules.auth.models import User
 from modules.orders.models import get_local_now
@@ -70,7 +71,12 @@ def register():
                 phone=phone, role='client', is_active=True, email_verified=False)
     user.set_password(password)
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Wyścig równoległych rejestracji: unikalność email złamana mimo pre-checku.
+        db.session.rollback()
+        return json_err('email_taken', 'Konto z tym adresem już istnieje.', 409)
 
     code, _ = user.generate_verification_code()
     db.session.commit()
@@ -189,5 +195,9 @@ def logout():
         user_id=int(get_jwt_identity()),
         expires_at=exp,
     ))
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Wyścig podwójnego logout tym samym tokenem — wpis już istnieje, cel osiągnięty.
+        db.session.rollback()
     return json_ok({'message': 'Wylogowano.'})
