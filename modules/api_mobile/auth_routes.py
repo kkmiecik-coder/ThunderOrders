@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from flask import current_app, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
-from extensions import db
+from extensions import db, limiter
 from modules.auth.models import User
 from modules.orders.models import get_local_now
 from utils.email_manager import EmailManager
@@ -48,6 +48,7 @@ def app_version():
 
 
 @api_mobile_bp.route('/auth/login', methods=['POST'])
+@limiter.limit("15 per minute")  # parytet z logowaniem webowym
 def login():
     payload = request.get_json(silent=True) or {}
     email = (payload.get('email') or '').strip().lower()
@@ -68,6 +69,7 @@ def login():
 
 
 @api_mobile_bp.route('/auth/register', methods=['POST'])
+@limiter.limit("30 per hour")  # parytet z rejestracją webową
 def register():
     p = request.get_json(silent=True) or {}
     email = (p.get('email') or '').strip().lower()
@@ -113,6 +115,7 @@ def register():
 
 
 @api_mobile_bp.route('/auth/resend-code', methods=['POST'])
+@limiter.limit("30 per hour")  # wysyła e-maile — limit jak rejestracja
 def resend_code():
     p = request.get_json(silent=True) or {}
     email = (p.get('email') or '').strip().lower()
@@ -128,6 +131,7 @@ def resend_code():
 
 
 @api_mobile_bp.route('/auth/verify-email', methods=['POST'])
+@limiter.limit("30 per minute")  # limit IP; per-konto chroni lockout verify_code
 def verify_email_code():
     p = request.get_json(silent=True) or {}
     email = (p.get('email') or '').strip().lower()
@@ -159,6 +163,7 @@ def verify_email_code():
 
 
 @api_mobile_bp.route('/auth/google', methods=['POST'])
+@limiter.limit("15 per minute")  # parytet z logowaniem
 def google_login():
     p = request.get_json(silent=True) or {}
     token = p.get('id_token') or ''

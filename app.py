@@ -1202,6 +1202,11 @@ def register_error_handlers(app):
 
     @app.errorhandler(429)
     def too_many_requests(error):
+        if request.path.startswith('/api/mobile/'):
+            return jsonify({'success': False, 'error': {
+                'code': 'rate_limited',
+                'message': 'Zbyt wiele żądań. Spróbuj ponownie za chwilę.',
+            }}), 429
         return render_template('errors/429.html'), 429
 
     @app.errorhandler(500)

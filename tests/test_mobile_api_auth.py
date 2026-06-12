@@ -463,3 +463,16 @@ def test_serialize_user_returns_absolute_avatar_url(app):
     stub.avatar_url = None
     with app.test_request_context():
         assert serialize_user(stub)['avatar_url'] is None
+
+
+def test_rate_limit_returns_envelope_for_mobile_api(app, db):
+    from extensions import limiter
+    app.config['RATELIMIT_ENABLED'] = True
+    limiter.init_app(app)  # re-init z włączonymi limitami (domyślnie off w testach)
+    c = app.test_client()
+    last = None
+    for _ in range(16):  # limit loginu: 15/min
+        last = c.post('/api/mobile/v1/auth/login',
+                      json={'email': 'x@y.pl', 'password': 'x'})
+    assert last.status_code == 429
+    assert last.get_json()['error']['code'] == 'rate_limited'
