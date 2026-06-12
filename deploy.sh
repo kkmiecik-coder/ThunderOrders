@@ -43,7 +43,12 @@ echo "$LOG_PREFIX Restarting application..."
 # blokuje WSZYSTKIE kolejne deploye ("Already deploying, skipping"). Usuwamy go tutaj,
 # żeby kolejny push wszedł nawet gdy ten proces nie dożyje do trap-a.
 rm -f "$LOCK_FILE"
-sudo systemctl restart thunderorders-http 2>&1
+# KOLEJNOŚĆ KRYTYCZNA: najpierw -ws, potem -http. Ten skrypt biegnie w cgroupie
+# thunderorders-http, więc restart -http ubija go natychmiast (SIGTERM) — linia
+# wykonana PO restarcie -http nigdy się nie wykona. Przy starej kolejności -ws
+# nie był restartowany NIGDY (potwierdzone 2026-06-12: ws działał na kodzie
+# sprzed 10h mimo deployu) i procesy serwowały rozjechane wersje kodu.
 sudo systemctl restart thunderorders-ws 2>&1
+sudo systemctl restart thunderorders-http 2>&1
 
 echo "$LOG_PREFIX Deploy complete!"
