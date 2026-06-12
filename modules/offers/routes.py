@@ -738,7 +738,7 @@ def place_order(token):
         full_set_items = data.get('full_set_items', [])
         if not session_id:
             return jsonify({'success': False, 'error': 'missing_session_id'}), 400
-        success, result = place_offer_order(page=page, session_id=session_id, order_note=order_note, full_set_items=full_set_items)
+        success, result = place_offer_order(page=page, session_id=session_id, order_note=order_note, full_set_items=full_set_items, user=current_user._get_current_object())
 
     if success:
         # Save order data in session for thank_you page

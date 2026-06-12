@@ -124,7 +124,7 @@ def check_product_availability(reservations, page_id, session_id):
     return True, None
 
 
-def place_offer_order(page, session_id, order_note=None, full_set_items=None):
+def place_offer_order(page, session_id, order_note=None, full_set_items=None, user=None):
     """
     Place an order from offer page (requires authenticated user).
 
@@ -145,7 +145,7 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
     for attempt in range(1, _PLACE_ORDER_MAX_DEADLOCK_RETRIES + 1):
         try:
             return _place_offer_order_attempt(
-                page, session_id, order_note, full_set_items
+                page, session_id, order_note, full_set_items, user
             )
         except OperationalError as e:
             last_error = e
@@ -166,7 +166,7 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None):
     raise last_error
 
 
-def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items=None):
+def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items=None, user=None):
     """
     Pojedyncza próba złożenia zamówienia z offer page.
 
@@ -175,11 +175,16 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         session_id (str): User session ID
         order_note (str, optional): Order note/comment
         full_set_items (list, optional): List of full set items [{'product_id': int, 'quantity': int}]
+        user (User, optional): Authenticated user; fallback to flask_login.current_user
 
     Returns:
         tuple: (success: bool, result: dict)
     """
     from modules.products.models import Product
+
+    if user is None:
+        from flask_login import current_user as _cu
+        user = _cu._get_current_object()
 
     if full_set_items is None:
         full_set_items = []
@@ -201,7 +206,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         # Double-submit guard: check if order was already placed for this session
         existing_order = Order.query.filter_by(
             offer_page_id=page.id,
-            user_id=current_user.id
+            user_id=user.id
         ).order_by(Order.created_at.desc()).first()
         if existing_order and existing_order.status != 'anulowane':
             return True, {
@@ -226,7 +231,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     order = Order(
         order_number=order_number,
         order_type='exclusive',
-        user_id=current_user.id,
+        user_id=user.id,
         status='nowe',
         offer_page_id=page.id,
         offer_page_name=page.name,  # Preserve page name for history
@@ -365,7 +370,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     from sqlalchemy import func as bonus_func
     prev_user_orders = db.session.query(Order.id).filter(
         Order.offer_page_id == page.id,
-        Order.user_id == current_user.id,
+        Order.user_id == user.id,
         Order.status != 'anulowane',
         Order.id != order.id,
     ).subquery()
@@ -602,7 +607,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
 
     # 11. Activity log
     log_activity(
-        user=current_user,
+        user=user,
         action='order_created',
         entity_type='order',
         entity_id=order.id,
@@ -655,8 +660,8 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         emit_new_order(page.id, {
             'id': order.id,
             'order_number': order.order_number,
-            'customer_name': f'{current_user.first_name} {current_user.last_name}'.strip() or current_user.email,
-            'customer_email': current_user.email,
+            'customer_name': f'{user.first_name} {user.last_name}'.strip() or user.email,
+            'customer_email': user.email,
             'total_amount': float(order.total_amount),
             'item_count': total_items_count,
             'items': order_items_list,
@@ -691,7 +696,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
             page_entered_at = flask_request.form.get('page_entered_at', type=float)
         except Exception:
             pass
-        AchievementService().check_event(current_user, 'order_placed', {
+        AchievementService().check_event(user, 'order_placed', {
             'items_count': total_items_count,
             'total_amount': float(order.total_amount),
             'is_offer': True,
