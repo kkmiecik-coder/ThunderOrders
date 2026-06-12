@@ -124,7 +124,8 @@ def check_product_availability(reservations, page_id, session_id):
     return True, None
 
 
-def place_offer_order(page, session_id, order_note=None, full_set_items=None, user=None):
+def place_offer_order(page, session_id, order_note=None, full_set_items=None, user=None,
+                      bind_user=False):
     """
     Place an order from offer page (requires authenticated user).
 
@@ -138,6 +139,12 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None, us
     generate_order_number to czysty SELECT — kolejny attempt może wygenerować
     ten sam numer (bo poprzedni nigdy nie został scommitowany).
 
+    Args:
+        bind_user (bool): gdy True, konsumuje wyłącznie rezerwacje należące do
+            `user` (OfferReservation.user_id == user.id) — wzorem D7 dla tras
+            mobilnych, gdzie cudze session_id nie może posłużyć do złożenia
+            zamówienia z nie swoich rezerwacji. Web: False (bez zmian).
+
     Returns:
         tuple: (success: bool, result: dict)
     """
@@ -145,7 +152,7 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None, us
     for attempt in range(1, _PLACE_ORDER_MAX_DEADLOCK_RETRIES + 1):
         try:
             return _place_offer_order_attempt(
-                page, session_id, order_note, full_set_items, user
+                page, session_id, order_note, full_set_items, user, bind_user
             )
         except OperationalError as e:
             last_error = e
@@ -166,7 +173,8 @@ def place_offer_order(page, session_id, order_note=None, full_set_items=None, us
     raise last_error
 
 
-def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items=None, user=None):
+def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items=None, user=None,
+                               bind_user=False):
     """
     Pojedyncza próba złożenia zamówienia z offer page.
 
@@ -176,6 +184,8 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         order_note (str, optional): Order note/comment
         full_set_items (list, optional): List of full set items [{'product_id': int, 'quantity': int}]
         user (User, optional): Authenticated user; fallback to flask_login.current_user
+        bind_user (bool): gdy True, dokłada filtr OfferReservation.user_id == user.id
+            (trasy mobilne — wzorem D7); odsiane wszystko -> naturalna ścieżka no_reservations
 
     Returns:
         tuple: (success: bool, result: dict)
@@ -193,10 +203,13 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     cleanup_expired_reservations(page.id)
 
     # 2. Get user's reservations
-    reservations = OfferReservation.query.filter_by(
+    reservations_q = OfferReservation.query.filter_by(
         session_id=session_id,
         offer_page_id=page.id
-    ).all()
+    )
+    if bind_user:
+        reservations_q = reservations_q.filter(OfferReservation.user_id == user.id)
+    reservations = reservations_q.all()
 
     # Filter full set items to only those with quantity > 0
     full_set_items = [fs for fs in full_set_items if fs.get('product_id') and fs.get('quantity', 0) > 0]
@@ -209,9 +222,15 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
             user_id=user.id
         ).order_by(Order.created_at.desc()).first()
         if existing_order and existing_order.status != 'anulowane':
+            # Addytywnie: order_id/total_amount/items_count jak w pełnym sukcesie,
+            # żeby trasa mobilna mogła zwrócić tę samą strukturę (bez KeyError/500).
+            # 'total' zostaje dla zgodności wstecznej z webem.
             return True, {
+                'order_id': existing_order.id,
                 'order_number': existing_order.order_number,
                 'total': float(existing_order.total_amount),
+                'total_amount': float(existing_order.total_amount),
+                'items_count': len([i for i in existing_order.items if not i.is_bonus]),
                 'already_placed': True
             }
         return False, {'error': 'no_reservations', 'message': 'Brak produktów w koszyku'}
@@ -606,20 +625,28 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
     total_items_count = len(reservations) + len([fs for fs in full_set_items if fs.get('quantity', 0) > 0 and fs.get('product_id') in set_product_ids])
 
     # 11. Activity log
-    log_activity(
-        user=user,
-        action='order_created',
-        entity_type='order',
-        entity_id=order.id,
-        old_value=None,
-        new_value={
-            'order_number': order.order_number,
-            'total': float(order.total_amount),
-            'is_offer': True,
-            'offer_page_id': page.id,
-            'items_count': total_items_count
-        }
-    )
+    # Hardening: post-commit — awaria logu aktywności nie może wywołać 500
+    # (ani zaklinować klucza idempotency); wzorzec jak bloki 12/12b/12c/12d.
+    try:
+        log_activity(
+            user=user,
+            action='order_created',
+            entity_type='order',
+            entity_id=order.id,
+            old_value=None,
+            new_value={
+                'order_number': order.order_number,
+                'total': float(order.total_amount),
+                'is_offer': True,
+                'offer_page_id': page.id,
+                'items_count': total_items_count
+            }
+        )
+    except Exception:
+        from flask import current_app
+        current_app.logger.exception(
+            f"Activity log failed for order {order.id} (order persisted)"
+        )
 
     # 12. Send emails + push (async)
     # Hardening: zamówienie jest już scommitowane (sekcja 10). Awaria SMTP/push NIE może

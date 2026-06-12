@@ -213,7 +213,8 @@ def offer_reserve(token):
     if page.status == 'draft':                  # niepubliczny — spójnie z offer_page_detail
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     if not page.is_active:
-        return json_err('page_not_active', 'Strona ofertowa nie jest aktywna.', 409)
+        # 403 — spójnie z place-order i webowym guardem (kod błędu bez zmian)
+        return json_err('page_not_active', 'Strona ofertowa nie jest aktywna.', 403)
     body = request.get_json(silent=True) or {}
     session_id = body.get('session_id')
     product_id = parse_int(body.get('product_id'), 'product_id', required=True)
@@ -325,7 +326,7 @@ def offer_place_order(token):
     if user is None:                            # spójnie z konwencją /auth/me
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     ok, result = place_offer_order(page=page, session_id=session_id, order_note=order_note,
-                                   full_set_items=full_set_items, user=user)
+                                   full_set_items=full_set_items, user=user, bind_user=True)
     if not ok:
         code = result.get('error', 'place_order_failed')
         status = _PLACE_ORDER_ERR_STATUS.get(code, 400)
@@ -334,9 +335,14 @@ def offer_place_order(token):
         if details:
             payload['details'] = details
         return jsonify({'success': False, 'error': payload}), status
-    return json_ok({
+    data = {
         'order_id': result['order_id'],
         'order_number': result['order_number'],
         'total': to_grosze(result['total_amount']),
         'items_count': result['items_count'],
-    }, 201)
+    }
+    if result.get('already_placed'):
+        # Double-submit guard serwisu: zamówienie już istnieje — 200, nie 201.
+        data['already_placed'] = True
+        return json_ok(data, 200)
+    return json_ok(data, 201)

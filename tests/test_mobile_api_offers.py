@@ -209,8 +209,8 @@ def test_release_reduces_reservation(client, db, make_user, make_product):
 def test_reserve_blocked_on_inactive_page(client, db, make_user, make_product):
     """Fair-access: reserve tylko na aktywnej stronie (parytet z bramką join weba).
 
-    scheduled/paused/ended -> 409 page_not_active; draft -> 404 (spójnie z detail).
-    Żadna rezerwacja nie może powstać w bazie.
+    scheduled/paused/ended -> 403 page_not_active (spójnie z place-order i webem);
+    draft -> 404 (spójnie z detail). Żadna rezerwacja nie może powstać w bazie.
     """
     from modules.offers.models import OfferSection, OfferReservation
     from datetime import datetime, timedelta
@@ -218,10 +218,10 @@ def test_reserve_blocked_on_inactive_page(client, db, make_user, make_product):
     prod = make_product(sale_price='10.00')
 
     cases = [
-        ('scheduled', {}, 409, 'page_not_active'),
-        ('paused', {}, 409, 'page_not_active'),
+        ('scheduled', {}, 403, 'page_not_active'),
+        ('paused', {}, 403, 'page_not_active'),
         # ends_at w przeszłości — inaczej check_and_update_status wskrzesiłby stronę
-        ('ended', {'ends_at': datetime.now() - timedelta(days=1)}, 409, 'page_not_active'),
+        ('ended', {'ends_at': datetime.now() - timedelta(days=1)}, 403, 'page_not_active'),
         ('draft', {}, 404, 'page_not_found'),
     ]
     for status, attrs, exp_status, exp_code in cases:
@@ -404,3 +404,58 @@ def test_place_order_survives_notification_failure(client, db, make_user, make_p
     assert r.status_code == 201
     assert Order.query.count() == 1
     assert 'notifications failed' in caplog.text.lower()
+
+
+def test_place_order_double_submit_returns_existing_order(client, db, make_user, make_product):
+    # Double-submit BEZ Idempotency-Key: po 1. place-order rezerwacje usunięte → serwisowa
+    # gałąź already_placed. Mobile zwraca 200 z pełną strukturą sukcesu (nie 500/KeyError).
+    from modules.offers.models import OfferSection
+    from modules.orders.models import Order
+    h, user = _auth(client, db, make_user)
+    make_user()  # created_by=1
+    _ex_order_type(db)
+    page = _make_page(db, 'active', payment_stages=3)
+    prod = make_product(sale_price='50.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=10, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h,
+                json={'session_id': 'mine', 'product_id': prod.id, 'quantity': 2})
+    r1 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                     json={'session_id': 'mine'})
+    assert r1.status_code == 201
+    order_id = r1.get_json()['data']['order_id']
+    r2 = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h,
+                     json={'session_id': 'mine'})
+    assert r2.status_code == 200
+    d2 = r2.get_json()['data']
+    assert d2['already_placed'] is True
+    assert d2['order_id'] == order_id
+    assert d2['order_number'].startswith('EX/')
+    assert d2['total'] == 10000          # grosze, jak w sukcesie
+    assert d2['items_count'] == 1
+    assert Order.query.count() == 1      # nadal JEDNO zamówienie
+
+
+def test_place_order_binds_reservations_to_user(client, db, make_user, make_product):
+    # Wzorem D7: place-order z mobile wiąże rezerwacje z userem z JWT — user B nie może
+    # złożyć zamówienia z rezerwacji usera A znając jego session_id.
+    from modules.offers.models import OfferSection, OfferReservation
+    from modules.orders.models import Order
+    h_a, user_a = _auth(client, db, make_user)
+    h_b, user_b = _auth(client, db, make_user)
+    _ex_order_type(db)
+    page = _make_page(db, 'active')
+    prod = make_product(sale_price='50.00')
+    db.session.add(OfferSection(offer_page_id=page.id, section_type='product',
+                                product_id=prod.id, max_quantity=10, sort_order=0)); db.session.commit()
+    client.post(f'/api/mobile/v1/offers/{page.token}/reserve', headers=h_a,
+                json={'session_id': 'sessA', 'product_id': prod.id, 'quantity': 2})
+    r = client.post(f'/api/mobile/v1/offers/{page.token}/place-order', headers=h_b,
+                    json={'session_id': 'sessA'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'no_reservations'
+    # Rezerwacja A nietknięta
+    res = OfferReservation.query.filter_by(session_id='sessA').all()
+    assert len(res) == 1 and res[0].quantity == 2 and res[0].user_id == user_a.id
+    # ZERO zamówień B w bazie
+    assert Order.query.filter_by(user_id=user_b.id).count() == 0
