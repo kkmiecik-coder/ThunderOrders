@@ -477,3 +477,27 @@ def test_rate_limit_returns_envelope_for_mobile_api(app, db):
                       json={'email': 'x@y.pl', 'password': 'x'})
     assert last.status_code == 429
     assert last.get_json()['error']['code'] == 'rate_limited'
+
+
+def test_logout_stores_expiry_in_local_time_and_purges_expired(client, db, make_user):
+    from datetime import timedelta
+    from modules.api_mobile.models import MobileTokenBlocklist
+    from modules.orders.models import get_local_now
+
+    # wpis dawno wygasły — powinien zostać sprzątnięty przy logout (lazy cleanup)
+    db.session.add(MobileTokenBlocklist(
+        jti='stale-jti', token_type='refresh', user_id=None,
+        expires_at=get_local_now() - timedelta(hours=2),
+    ))
+    db.session.commit()
+
+    tokens, u = _login_tokens(client, db, make_user, email='tz@example.com')
+    r = client.post('/api/mobile/v1/auth/logout',
+                    headers={'Authorization': f'Bearer {tokens["refresh_token"]}'})
+    assert r.status_code == 200
+
+    assert MobileTokenBlocklist.contains('stale-jti') is False  # sprzątnięte
+    entry = MobileTokenBlocklist.query.one()
+    # expires_at w czasie lokalnym PL (spójnie z created_at): ~30 dni od teraz
+    delta = entry.expires_at - get_local_now()
+    assert timedelta(days=29, hours=23) < delta < timedelta(days=30, hours=1)

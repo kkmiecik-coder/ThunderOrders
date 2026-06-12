@@ -11,9 +11,14 @@ class MobileTokenBlocklist(db.Model):
     jti = db.Column(db.String(36), nullable=False, index=True, unique=True)
     token_type = db.Column(db.String(16), nullable=False)  # 'access' | 'refresh'
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), index=True)
-    expires_at = db.Column(db.DateTime, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)  # czas lokalny PL (spójnie z created_at)
     created_at = db.Column(db.DateTime, default=get_local_now)
 
     @classmethod
     def contains(cls, jti):
         return db.session.query(cls.id).filter_by(jti=jti).first() is not None
+
+    @classmethod
+    def purge_expired(cls):
+        """Lazy cleanup wygasłych wpisów (wołane przy logout). Commit po stronie wołającego."""
+        cls.query.filter(cls.expires_at < get_local_now()).delete(synchronize_session=False)

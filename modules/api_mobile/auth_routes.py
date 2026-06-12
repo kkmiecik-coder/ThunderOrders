@@ -2,7 +2,8 @@
 
 import hashlib
 import re
-from datetime import datetime, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from flask import current_app, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt, jwt_required, get_jwt_identity
@@ -223,7 +224,9 @@ def refresh():
 @jwt_required(refresh=True)
 def logout():
     token = get_jwt()
-    exp = datetime.fromtimestamp(token['exp'], tz=timezone.utc).replace(tzinfo=None)
+    # exp (unix ts, UTC) -> naive czas lokalny PL, spójnie z resztą bazy (get_local_now)
+    exp = datetime.fromtimestamp(token['exp'], tz=ZoneInfo('Europe/Warsaw')).replace(tzinfo=None)
+    MobileTokenBlocklist.purge_expired()
     db.session.add(MobileTokenBlocklist(
         jti=token['jti'],
         token_type='refresh',
