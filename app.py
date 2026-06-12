@@ -223,6 +223,17 @@ def create_app(config_name=None):
             path.startswith('/auth/callback')):
             return None
 
+        # API mobilne: health i app-version działają w maintenance (apka wykrywa
+        # stan serwera), reszta dostaje JSON 503 w kopercie kontraktu — nie HTML.
+        if path.startswith('/api/mobile/'):
+            if path in ('/api/mobile/v1/health', '/api/mobile/v1/app-version'):
+                return None
+            from modules.auth.models import Settings
+            msg = (Settings.get_value('maintenance_message', '')
+                   or 'Przerwa techniczna. Spróbuj ponownie za chwilę.')
+            return jsonify({'success': False,
+                            'error': {'code': 'maintenance', 'message': msg}}), 503
+
         # Przepuść adminów i moderatorów
         if current_user.is_authenticated and current_user.role in ('admin', 'mod'):
             return None

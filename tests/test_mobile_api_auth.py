@@ -378,3 +378,21 @@ def test_jwt_expired_token_envelope(client, db, make_user, app):
                    headers={'Authorization': f'Bearer {expired}'})
     assert r.status_code == 401
     assert r.get_json()['error']['code'] == 'token_expired'
+
+
+def test_maintenance_mode_mobile_api(client, db, app):
+    from modules.auth.models import Settings
+    Settings.set_value('maintenance_mode', True, type='boolean')
+    app.maintenance_cache = {'enabled': False, 'checked_at': 0}  # wymuś świeży odczyt z DB
+
+    # health i app-version działają mimo maintenance (apka wykrywa stan serwera)
+    assert client.get('/api/mobile/v1/health').status_code == 200
+    assert client.get('/api/mobile/v1/app-version').status_code == 200
+
+    # reszta API mobilnego dostaje JSON 503 w kopercie kontraktu (nie HTML)
+    r = client.post('/api/mobile/v1/auth/login',
+                    json={'email': 'x@y.pl', 'password': 'x'})
+    assert r.status_code == 503
+    body = r.get_json()
+    assert body['success'] is False
+    assert body['error']['code'] == 'maintenance'
