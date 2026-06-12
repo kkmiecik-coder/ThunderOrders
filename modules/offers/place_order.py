@@ -19,6 +19,10 @@ from utils.offer_auto_increase import check_and_apply_auto_increase
 
 logger = logging.getLogger(__name__)
 
+# Stały komunikat dla klienta przy padłym commicie — szczegóły wyjątku (SQL,
+# constrainty) zostają wyłącznie w logu; str(e) wyciekał je do alertu w UI.
+DATABASE_ERROR_MESSAGE = 'Błąd zapisu zamówienia. Spróbuj ponownie za chwilę.'
+
 # Retry config dla MySQL 1213 deadlock w place_offer_order.
 # Sortowanie po product_id eliminuje deterministyczne cykle, ale zostają
 # rzadkie kolizje z cleanup, innymi transakcjami na orders, etc.
@@ -608,10 +612,12 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         if _is_deadlock(e):
             # Re-raise żeby wrapper place_offer_order zrobił retry
             raise
-        return False, {'error': 'database_error', 'message': str(e)}
-    except Exception as e:
+        logger.exception('Order commit failed (offer page)')
+        return False, {'error': 'database_error', 'message': DATABASE_ERROR_MESSAGE}
+    except Exception:
         db.session.rollback()
-        return False, {'error': 'database_error', 'message': str(e)}
+        logger.exception('Order commit failed (offer page)')
+        return False, {'error': 'database_error', 'message': DATABASE_ERROR_MESSAGE}
 
     # 10b. Check and apply auto-increase if enabled
     try:
@@ -916,9 +922,10 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
     order.total_amount = total_amount
     try:
         db.session.commit()
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        return False, {'error': 'database_error', 'message': str(e)}
+        logger.exception('Order commit failed (preorder)')
+        return False, {'error': 'database_error', 'message': DATABASE_ERROR_MESSAGE}
 
     # 7. Post-order actions
     try:

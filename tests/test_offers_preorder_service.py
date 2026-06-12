@@ -100,3 +100,31 @@ def test_place_preorder_bonus_quantity_threshold(db, make_user, make_product):
     assert bonus_items[0].product_id == gift.id
     assert bonus_items[0].quantity == 1
     assert result['items_count'] == 2  # bonus nie wlicza się do items_count
+
+
+def test_preorder_database_error_is_logged_and_generic(app, db, make_user, make_product, monkeypatch):
+    """Padły commit: rollback, stały komunikat (bez szczegółów SQL/constraintów)."""
+    from modules.offers.place_order import place_preorder_order
+    _po_order_type(db)
+    user = make_user(); make_user()
+    page = _preorder_page(db)
+    prod = make_product(sale_price=Decimal('50.00'))
+
+    real_commit = db.session.commit
+    state = {'armed': False}
+
+    def boom():
+        if state['armed']:
+            raise RuntimeError('SQL: INSERT INTO orders ... constraint uq_secret')
+        return real_commit()
+
+    monkeypatch.setattr(db.session, 'commit', boom)
+    state['armed'] = True
+    with app.test_request_context():
+        ok, result = place_preorder_order(
+            page=page, cart_items=[{'product_id': prod.id, 'quantity': 1}], user=user)
+    state['armed'] = False
+
+    assert ok is False
+    assert result['error'] == 'database_error'
+    assert 'SQL' not in result.get('message', '') and 'uq_secret' not in result.get('message', '')
