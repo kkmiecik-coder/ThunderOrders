@@ -138,3 +138,78 @@ def test_shop_products_per_page_capped(client, db, make_user, make_product):
     _onhand_type(db)
     r = client.get('/api/mobile/v1/shop/products?per_page=500', headers=headers)
     assert r.get_json()['pagination']['per_page'] == 48
+
+
+# ---------------------------------------------------------------------------
+# GET /shop/products/<id> (Task 5)
+# ---------------------------------------------------------------------------
+
+def test_shop_product_detail_not_found(client, db, make_user, make_product):
+    headers, _ = _auth(client, db, make_user)
+    _onhand_type(db)
+    other = make_product()  # bez typu on-hand — niewidoczny w sklepie
+
+    r = client.get(f'/api/mobile/v1/shop/products/{other.id}', headers=headers)
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'product_not_found'
+
+    r2 = client.get('/api/mobile/v1/shop/products/999999', headers=headers)
+    assert r2.status_code == 404
+
+
+def test_shop_product_detail_full(client, db, make_user, make_product):
+    from modules.products.models import (
+        ProductImage, Size, Manufacturer, VariantGroup, variant_products,
+        ProductInteraction,
+    )
+    headers, user = _auth(client, db, make_user)
+    pt = _onhand_type(db)
+    mfr = Manufacturer(name='Bratz')
+    size = Size(name='M')
+    db.session.add_all([mfr, size])
+    db.session.commit()
+
+    p = make_product(name='Lalka Mimi', product_type_id=pt.id,
+                     manufacturer_id=mfr.id, sale_price=Decimal('99.00'),
+                     description='Opis lalki')
+    p.sizes.append(size)
+    db.session.add(ProductImage(
+        product_id=p.id, filename='mimi.jpg',
+        path_original='uploads/products/mimi_orig.jpg',
+        path_compressed='uploads/products/mimi.jpg',
+        is_primary=True, sort_order=0,
+    ))
+    variant = make_product(name='Lalka Mimi Blond', product_type_id=pt.id)
+    group = VariantGroup(name='Grupa Mimi')
+    db.session.add(group)
+    db.session.commit()
+    db.session.execute(variant_products.insert().values([
+        {'variant_group_id': group.id, 'product_id': p.id},
+        {'variant_group_id': group.id, 'product_id': variant.id},
+    ]))
+    db.session.commit()
+
+    r = client.get(f'/api/mobile/v1/shop/products/{p.id}', headers=headers)
+    assert r.status_code == 200
+    data = r.get_json()['data']['product']
+    assert data['name'] == 'Lalka Mimi'
+    assert data['price'] == 9900
+    assert data['description'] == 'Opis lalki'
+    assert data['brand'] == 'Bratz'
+    assert data['sizes'] == ['M']
+    assert len(data['images']) == 1
+    assert data['images'][0]['url'] == \
+        'http://localhost/static/uploads/products/mimi.jpg'
+    assert data['images'][0]['is_primary'] is True
+    assert [v['name'] for v in data['variants']] == ['Lalka Mimi Blond']
+
+    # Wejście na kartę zapisuje interakcję 'view' (parytet z webem — rekomendacje)
+    inter = ProductInteraction.query.filter_by(
+        user_id=user.id, product_id=p.id, interaction_type='view').count()
+    assert inter == 1
+
+
+def test_shop_product_detail_requires_token(client, db, make_product):
+    p = make_product()
+    r = client.get(f'/api/mobile/v1/shop/products/{p.id}')
+    assert r.status_code == 401

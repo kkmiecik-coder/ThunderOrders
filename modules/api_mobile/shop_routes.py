@@ -28,6 +28,23 @@ def _serialize_product_brief(p):
     }
 
 
+def _serialize_product_detail(p):
+    data = _serialize_product_brief(p)
+    data.update({
+        'description': p.description,
+        'category': p.category.name if p.category else None,
+        'images': [{
+            'id': img.id,
+            'url': absolute_static_url(img.path_compressed),
+            'is_primary': bool(img.is_primary),
+            'sort_order': img.sort_order,
+        } for img in p.images.order_by(ProductImage.sort_order.asc(),
+                                       ProductImage.id.asc())],
+        'variants': [_serialize_product_brief(v) for v in shop_service.get_variants(p)],
+    })
+    return data
+
+
 @api_mobile_bp.route('/shop/products', methods=['GET'])
 @jwt_required()
 def shop_products():
@@ -61,3 +78,17 @@ def shop_products():
         total=pagination.total,
         has_next=pagination.has_next,
     )
+
+
+@api_mobile_bp.route('/shop/products/<int:product_id>', methods=['GET'])
+@jwt_required()
+def shop_product_detail(product_id):
+    product = shop_service.get_active_shop_product(product_id)
+    if product is None:
+        return json_err('product_not_found',
+                        'Produkt nie istnieje lub jest niedostępny.', 404)
+
+    shop_service.record_interaction(int(get_jwt_identity()), product.id, 'view')
+    db.session.commit()
+
+    return json_ok({'product': _serialize_product_detail(product)})
