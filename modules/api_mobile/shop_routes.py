@@ -10,6 +10,7 @@ from modules.client import shop_service
 from modules.products.models import ProductImage
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
+from .validators import parse_int
 
 # Parytet z webowym /api/exchange-rate (modules/api/routes.py)
 ALLOWED_CURRENCIES = ('KRW', 'USD', 'EUR', 'GBP', 'CHF', 'JPY', 'CNY')
@@ -51,15 +52,14 @@ def _serialize_product_detail(p):
 @api_mobile_bp.route('/shop/products', methods=['GET'])
 @jwt_required()
 def shop_products():
-    page = max(request.args.get('page', 1, type=int) or 1, 1)
-    per_page = min(max(request.args.get('per_page', 12, type=int) or 12, 1), 48)
+    page = parse_int(request.args.get('page'), 'page', default=1, min_value=1)
+    per_page = min(parse_int(request.args.get('per_page'), 'per_page', default=12, min_value=1), 48)
+    price_min = parse_int(request.args.get('price_min'), 'price_min', default=None, min_value=0)   # grosze
+    price_max = parse_int(request.args.get('price_max'), 'price_max', default=None, min_value=0)   # grosze
 
     on_hand_type = shop_service.get_on_hand_type()
     if not on_hand_type:
         return json_page([], page=page, per_page=per_page, total=0, has_next=False)
-
-    price_min = request.args.get('price_min', type=int)   # grosze
-    price_max = request.args.get('price_max', type=int)   # grosze
 
     query = shop_service.build_products_query(
         on_hand_type,

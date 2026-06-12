@@ -302,3 +302,17 @@ def test_exchange_rate_upstream_failure(client, db, make_user, monkeypatch):
     r = client.get('/api/mobile/v1/exchange-rate?currency=USD', headers=headers)
     assert r.status_code == 503
     assert r.get_json()['error']['code'] == 'exchange_rate_unavailable'
+
+
+def test_shop_products_invalid_price_param_returns_400(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/shop/products?price_min=abc', headers=h)
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_input'
+
+
+def test_shop_products_invalid_page_returns_400(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/shop/products?page=x', headers=h)
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_input'
