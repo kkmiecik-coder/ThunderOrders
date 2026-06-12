@@ -231,11 +231,26 @@ GET  /dashboard                                           → statystyki klienta
 ```
 GET  /payment-methods                                    → dane do przelewu (aktywne metody)
 GET  /payment-confirmations  ?tab=active|archive          → moje potwierdzenia
-POST /payment-confirmations  (multipart: file + order_id + payment_stage)
-                                                          → upload dowodu dla konkretnego etapu
+POST /payment-confirmations  (multipart: file + items [JSON par {order_id, payment_stage}]
+                              + payment_method_id?)       → BULK upload dowodu (jeden plik,
+                                                            dowolne kombinacje zamówień i etapów)
+GET  /payment-confirmations/proof/<filename>              → pobranie dowodu (JWT, tylko właściciel)
 ```
 > Etapy płatności zależą od typu zamówienia (patrz sekcja 6). Apka pokazuje per zamówienie
 > etapy E1–E4 ze statusem (brak/oczekuje/zatwierdzone/odrzucone), kwotą i deadline'em.
+
+> **Korekty kontraktu (E6):** Upload jest ZBIORCZY (parytet z webem): `items` to JSON-string
+> płaskich par `{order_id, payment_stage}` (duplikaty dedupowane, max 50), jeden plik dowodu
+> współdzielony przez wszystkie utworzone wiersze. Walidacja all-or-nothing: cudze/nieistniejące
+> zamówienie → 404 `order_not_found` + `details.missing_order_ids`; etap nieobecny dla typu
+> zamówienia → 400 `stage_not_applicable` + `details.failures`; etap niedostępny (approved,
+> lub pending dla E2–E4 — E1 pending wolno nadpisać) → 409 `stage_not_uploadable`. Plik:
+> JPG/PNG/PDF, max 5 MB (`invalid_file`/`file_too_large`); `database_error` (500) sprząta plik.
+> Odpowiedź: `confirmations[]` (amount w groszach, action created|overwritten) + `count` +
+> `proof_url` (trasa JWT — webowa trasa dowodów wymaga sesji). `payment_method_id` opcjonalny
+> (pass-through). BEZ nagłówka `Idempotency-Key` — jedyność per parę (nadpis pending/rejected)
+> daje naturalną idempotencję. Lista: `?tab=active|archive` (walidowane), pozycje = zamówienie +
+> etapy + podsumowanie kwot (grosze) + `all_approved`; bez paginacji (parytet web).
 
 ### Wysyłka — `/shipping/`
 ```
