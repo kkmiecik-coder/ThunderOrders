@@ -126,12 +126,7 @@ def product_detail(product_id, slug=None):
         return redirect(url_for('shop.index'))
 
     # Record view interaction
-    interaction = ProductInteraction(
-        user_id=current_user.id,
-        product_id=product.id,
-        interaction_type='view'
-    )
-    db.session.add(interaction)
+    shop_service.record_interaction(current_user.id, product.id, 'view')
     db.session.commit()
 
     # Get variant group products
