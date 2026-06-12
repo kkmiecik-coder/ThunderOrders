@@ -396,3 +396,55 @@ def test_maintenance_mode_mobile_api(client, db, app):
     body = r.get_json()
     assert body['success'] is False
     assert body['error']['code'] == 'maintenance'
+
+
+def test_register_rejects_invalid_email_format(client, db, monkeypatch):
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: True))
+    r = client.post('/api/mobile/v1/auth/register', json={
+        'email': 'notanemail', 'password': 'Haslo123!',
+        'first_name': 'A', 'last_name': 'B', 'phone': '+48500',
+    })
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_email'
+    from modules.auth.models import User
+    assert User.query.filter_by(email='notanemail').first() is None
+
+
+def test_register_rejects_overlong_fields(client, db, monkeypatch):
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: True))
+    r = client.post('/api/mobile/v1/auth/register', json={
+        'email': 'long@example.com', 'password': 'Haslo123!',
+        'first_name': 'A' * 101, 'last_name': 'B', 'phone': '+48500',
+    })
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_input'
+
+
+def test_register_smtp_failure_is_honest_and_allows_instant_resend(client, db, monkeypatch):
+    import utils.email_manager as em
+    sent = []
+    state = {'fail': True}
+
+    def fake_send(user, code):
+        if state['fail']:
+            return False
+        sent.append(code)
+        return True
+
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code', staticmethod(fake_send))
+    r = client.post('/api/mobile/v1/auth/register', json={
+        'email': 'smtp@example.com', 'password': 'Haslo123!',
+        'first_name': 'A', 'last_name': 'B', 'phone': '+48500',
+    })
+    assert r.status_code == 201
+    assert r.get_json()['data']['email_sent'] is False  # uczciwa informacja zamiast ślepego 201
+
+    # nieudana wysyłka nie blokuje natychmiastowego resend (cooldown wyczyszczony)
+    state['fail'] = False
+    r2 = client.post('/api/mobile/v1/auth/resend-code', json={'email': 'smtp@example.com'})
+    assert r2.status_code == 200
+    assert len(sent) == 1

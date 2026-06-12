@@ -1,6 +1,7 @@
 """Trasy auth + meta (health, app-version) dla mobilnego API."""
 
 import hashlib
+import re
 from datetime import datetime, timezone
 
 from flask import current_app, request
@@ -14,6 +15,9 @@ from . import api_mobile_bp
 from .google_auth import verify_google_id_token
 from .helpers import json_ok, json_err, serialize_user
 from .models import MobileTokenBlocklist
+
+
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 
 
 def _password_fingerprint(user):
@@ -74,6 +78,10 @@ def register():
 
     if not email or not password:
         return json_err('missing_fields', 'E-mail i hasło są wymagane.', 400)
+    if not EMAIL_RE.match(email) or len(email) > 255:
+        return json_err('invalid_email', 'Podaj poprawny adres e-mail.', 400)
+    if len(first_name) > 100 or len(last_name) > 100 or len(phone) > 20:
+        return json_err('invalid_input', 'Pola imię/nazwisko/telefon są zbyt długie.', 400)
     if User.query.filter(db.func.lower(User.email) == email).first():
         return json_err('email_taken', 'Konto z tym adresem już istnieje.', 409)
 
@@ -90,9 +98,18 @@ def register():
 
     code, _ = user.generate_verification_code()
     db.session.commit()
-    EmailManager.send_verification_code(user, code)
+    email_sent = bool(EmailManager.send_verification_code(user, code))
+    if not email_sent:
+        # Nieudana wysyłka nie może blokować ponownej próby 60-sekundowym cooldownem.
+        user.email_verification_code_sent_at = None
+        db.session.commit()
 
-    return json_ok({'email': email, 'message': 'Wysłaliśmy kod weryfikacyjny na e-mail.'}, 201)
+    return json_ok({
+        'email': email,
+        'email_sent': email_sent,
+        'message': ('Wysłaliśmy kod weryfikacyjny na e-mail.' if email_sent
+                    else 'Konto utworzone, ale wysyłka kodu się nie powiodła. Poproś o nowy kod.'),
+    }, 201)
 
 
 @api_mobile_bp.route('/auth/resend-code', methods=['POST'])
