@@ -156,3 +156,72 @@ def _notify_admins(entries):
             PushManager.notify_admin_payment_uploaded(group['order'], stage_names)
         except Exception as e:
             current_app.logger.error(f'Błąd powiadomienia admina o płatności: {e}')
+
+
+def get_confirmation_orders(user_id):
+    """Kwalifikacja zamówień do widoku potwierdzeń (przeniesione 1:1 z webowej trasy l. 84-153).
+
+    Zwraca {'payable': [...], 'recent_paid': [...], 'archived': [...]} — kolejność created_at desc.
+    archive = wszystkie etapy approved I ostatnie zatwierdzenie starsze niż 3 dni;
+    recent_paid = wszystkie approved, ale świeższe (zostaje w zakładce aktywnej).
+    Exclusive widoczne dopiero po zamknięciu strony (is_fully_closed).
+    """
+    from datetime import timedelta
+    from sqlalchemy import func
+
+    archive_cutoff = get_local_now() - timedelta(days=3)
+
+    # Dozwolone statusy (te same co w Order.can_upload_product_payment)
+    allowed_statuses = [
+        'oczekujace',
+        'dostarczone_proxy',
+        'w_drodze_polska',
+        'urzad_celny',
+        'dostarczone_gom',
+        'spakowane',
+    ]
+
+    all_orders = Order.query.filter(
+        Order.user_id == user_id,
+        db.or_(
+            Order.offer_page_id.isnot(None),          # offer orders (exclusive, pre-order)
+            Order.order_type == 'on_hand',
+        ),
+        db.or_(
+            Order.status.in_(allowed_statuses),
+            db.and_(Order.order_type.in_(['pre_order', 'on_hand']), Order.status == 'nowe'),
+        )
+    ).order_by(Order.created_at.desc()).all()
+
+    # Exclusive: pokaż tylko gdy strona zamknięta (is_fully_closed)
+    all_orders = [
+        order for order in all_orders
+        if order.order_type != 'exclusive'
+        or not order.offer_page
+        or order.offer_page.is_fully_closed
+    ]
+
+    payable, recent_paid, archived = [], [], []
+    for order in all_orders:
+        statuses = [order.product_payment_status]
+        if order.payment_stages == 4:
+            statuses.append(order.stage_2_status or 'none')
+        if order.order_type != 'on_hand':
+            statuses.append(order.stage_3_status)
+        statuses.append(order.stage_4_status)
+
+        if all(s == 'approved' for s in statuses):
+            last_approval = db.session.query(
+                func.max(PaymentConfirmation.updated_at)
+            ).filter(
+                PaymentConfirmation.order_id == order.id,
+                PaymentConfirmation.status == 'approved',
+            ).scalar()
+            if last_approval and last_approval < archive_cutoff:
+                archived.append(order)
+            else:
+                recent_paid.append(order)
+        else:
+            payable.append(order)
+
+    return {'payable': payable, 'recent_paid': recent_paid, 'archived': archived}

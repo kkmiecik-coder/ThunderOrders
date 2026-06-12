@@ -157,3 +157,36 @@ def test_web_upload_route_rejects_foreign(client, db, make_user, make_order, log
                     headers={'X-Requested-With': 'XMLHttpRequest'})
     assert r.status_code == 400 and r.get_json()['success'] is False    # zachowanie weba BEZ zmian
 
+
+
+# === Task 5: lista active/archive (serwis) ===
+
+def test_confirmation_orders_base_set_and_owner(db, make_user, make_order):
+    from modules.client.payment_confirmation_service import get_confirmation_orders
+    u, other = make_user(), make_user()
+    inscope = make_order(u, order_type='on_hand', status='nowe', shipping_cost=Decimal('10.00'))
+    make_order(u, order_type='on_hand', status='anulowane')        # poza zbiorem statusów
+    make_order(other, order_type='on_hand', status='nowe')         # cudzy
+    groups = get_confirmation_orders(u.id)
+    assert [o.id for o in groups['payable']] == [inscope.id]
+    assert groups['recent_paid'] == [] and groups['archived'] == []
+
+
+def test_confirmation_orders_archive_split(db, make_user, make_order):
+    from modules.client.payment_confirmation_service import get_confirmation_orders
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    from tests.test_mobile_api_payments import _add_payment
+    u = make_user()
+    old = get_local_now() - timedelta(days=5)
+    o_arch = make_order(u, order_type='on_hand', status='dostarczone_gom',
+                        shipping_cost=Decimal('10.00'))
+    _add_payment(db, o_arch, 'product', status='approved', updated_at=old)
+    _add_payment(db, o_arch, 'domestic_shipping', status='approved', updated_at=old)
+    o_recent = make_order(u, order_type='on_hand', status='dostarczone_gom',
+                          shipping_cost=Decimal('10.00'))
+    _add_payment(db, o_recent, 'product', status='approved')       # updated_at = teraz
+    _add_payment(db, o_recent, 'domestic_shipping', status='approved')
+    groups = get_confirmation_orders(u.id)
+    assert [o.id for o in groups['archived']] == [o_arch.id]
+    assert [o.id for o in groups['recent_paid']] == [o_recent.id]

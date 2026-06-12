@@ -187,3 +187,42 @@ def _err_with_details(code, message, status, details):
     from flask import jsonify
     return jsonify({'success': False,
                     'error': {'code': code, 'message': message, 'details': details}}), status
+
+
+# === Task 5: lista potwierdzeń active/archive — [D3=a wspólny serwis] ===
+
+from modules.client.payment_confirmation_service import get_confirmation_orders
+from .orders_routes import _serialize_order_brief, _serialize_payment_stages
+
+ALLOWED_CONFIRMATION_TABS = ('active', 'archive')
+
+
+def _serialize_confirmation_row(order):
+    row = _serialize_order_brief(order)
+    stages = _serialize_payment_stages(order)                 # zawiera proof_url (Task 2)
+    row['payment_stages'] = stages
+    row['payment_summary'] = {
+        'total_to_pay': to_grosze(order.total_to_pay),
+        'paid_amount': to_grosze(order.paid_amount),
+        'remaining_to_pay': to_grosze(order.remaining_to_pay),
+    }
+    row['all_approved'] = all(s['status'] == 'approved' for s in stages)
+    return row
+
+
+@api_mobile_bp.route('/payment-confirmations', methods=['GET'])
+@jwt_required()
+@limiter.limit("60 per minute")
+def list_payment_confirmations():
+    user_id = int(get_jwt_identity())
+    tab = (request.args.get('tab') or 'active').strip()
+    if tab not in ALLOWED_CONFIRMATION_TABS:
+        return json_err('invalid_input', f'Nieznana zakładka: {tab}.', 400)
+    groups = get_confirmation_orders(user_id)
+    shown = groups['archived'] if tab == 'archive' else groups['payable'] + groups['recent_paid']
+    return json_ok({
+        'tab': tab,
+        'orders': [_serialize_confirmation_row(o) for o in shown],
+        'active_total': len(groups['payable']) + len(groups['recent_paid']),
+        'archive_count': len(groups['archived']),
+    })

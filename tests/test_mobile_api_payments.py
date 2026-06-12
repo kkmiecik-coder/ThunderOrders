@@ -306,3 +306,57 @@ def test_upload_optional_payment_method(client, db, make_user, make_order):
     assert r.status_code == 200
     from modules.orders.models import PaymentConfirmation
     assert PaymentConfirmation.query.first().payment_method_id == m.id
+
+
+# === Task 5: lista potwierdzeń (GET, tab=active|archive) ===
+
+def test_confirmations_requires_jwt(client, db, make_user):
+    assert client.get('/api/mobile/v1/payment-confirmations').status_code == 401
+
+
+def test_confirmations_invalid_tab_400(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/payment-confirmations?tab=banana', headers=h)
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_input'
+
+
+def test_confirmations_active_shape(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, order_type='on_hand', status='nowe', shipping_cost=Decimal('10.00'))
+    d = client.get('/api/mobile/v1/payment-confirmations', headers=h).get_json()['data']
+    assert d['tab'] == 'active'
+    row = next(r for r in d['orders'] if r['id'] == o.id)
+    assert 'payment_stages' in row
+    assert {'total_to_pay', 'paid_amount', 'remaining_to_pay'} <= set(row['payment_summary'])
+    assert row['all_approved'] is False
+    assert 'active_total' in d and 'archive_count' in d
+
+
+def test_confirmations_archive_tab(client, db, make_user, make_order):
+    from datetime import timedelta
+    from modules.orders.models import get_local_now
+    h, u = _auth(client, db, make_user)
+    old = get_local_now() - timedelta(days=5)
+    o = make_order(u, order_type='on_hand', status='dostarczone_gom',
+                   shipping_cost=Decimal('10.00'))
+    _add_payment(db, o, 'product', status='approved', updated_at=old)
+    _add_payment(db, o, 'domestic_shipping', status='approved', updated_at=old)
+    active = client.get('/api/mobile/v1/payment-confirmations?tab=active',
+                        headers=h).get_json()['data']
+    archive = client.get('/api/mobile/v1/payment-confirmations?tab=archive',
+                         headers=h).get_json()['data']
+    assert all(r['id'] != o.id for r in active['orders'])
+    assert any(r['id'] == o.id for r in archive['orders'])
+    assert archive['archive_count'] == 1
+
+
+def test_confirmations_recent_paid_stays_active(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    o = make_order(u, order_type='on_hand', status='dostarczone_gom',
+                   shipping_cost=Decimal('10.00'))
+    _add_payment(db, o, 'product', status='approved')
+    _add_payment(db, o, 'domestic_shipping', status='approved')
+    active = client.get('/api/mobile/v1/payment-confirmations?tab=active',
+                        headers=h).get_json()['data']
+    row = next(r for r in active['orders'] if r['id'] == o.id)
+    assert row['all_approved'] is True

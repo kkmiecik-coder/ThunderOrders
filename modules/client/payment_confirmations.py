@@ -22,6 +22,7 @@ from utils.file_validation import validate_proof_file
 from modules.client.payment_confirmation_service import (
     validate_bulk_upload,
     record_bulk_payment_proofs,
+    get_confirmation_orders,
 )
 
 
@@ -81,76 +82,12 @@ def payment_confirmations():
 
     tab = request.args.get('tab', 'active')
 
-    # Granica archiwum: 3 dni od teraz
-    archive_cutoff = get_local_now() - timedelta(days=3)
-
-    # Dozwolone statusy (te same co w Order.can_upload_product_payment)
-    allowed_statuses = [
-        'oczekujace',
-        'dostarczone_proxy',
-        'w_drodze_polska',
-        'urzad_celny',
-        'dostarczone_gom',
-        'spakowane',
-    ]
-
-    # Zamówienia użytkownika w dozwolonych statusach
-    # - Offer orders (exclusive/pre-order): muszą mieć offer_page_id
-    # - On-hand orders: nie mają offer_page_id, ale mają payment_stages=2
-    # - Pre-order/on-hand: 'nowe' też dozwolone (klient płaci od razu)
-    # - Exclusive: widoczne dopiero po zamknięciu strony offer (is_fully_closed)
-    from modules.offers.models import OfferPage
-    all_orders = Order.query.filter(
-        Order.user_id == current_user.id,
-        db.or_(
-            # Offer orders (exclusive, pre-order)
-            Order.offer_page_id.isnot(None),
-            # On-hand orders
-            Order.order_type == 'on_hand'
-        ),
-        db.or_(
-            Order.status.in_(allowed_statuses),
-            db.and_(Order.order_type.in_(['pre_order', 'on_hand']), Order.status == 'nowe')
-        )
-    ).order_by(Order.created_at.desc()).all()
-
-    # Filtruj exclusive zamówienia: pokaż tylko gdy strona jest zamknięta (is_fully_closed)
-    all_orders = [
-        order for order in all_orders
-        if order.order_type != 'exclusive'
-        or not order.offer_page
-        or order.offer_page.is_fully_closed
-    ]
-
-    # Podział: zamówienia do opłacenia vs w pełni opłacone
-    orders = []
+    # Kwalifikacja + podział active/recent/archive — wspólny serwis (parytet 1:1)
+    groups = get_confirmation_orders(current_user.id)
+    orders = groups['payable']
+    fully_paid_recent = groups['recent_paid']
+    archive_orders = groups['archived']
     fully_paid_orders = []
-    fully_paid_recent = []
-    archive_orders = []
-
-    for order in all_orders:
-        statuses = [order.product_payment_status]
-        if order.payment_stages == 4:
-            statuses.append(order.stage_2_status or 'none')
-        if order.order_type != 'on_hand':
-            statuses.append(order.stage_3_status)
-        statuses.append(order.stage_4_status)
-
-        if all(s == 'approved' for s in statuses):
-            # Sprawdź datę ostatniego zatwierdzenia
-            last_approval = db.session.query(
-                func.max(PaymentConfirmation.updated_at)
-            ).filter(
-                PaymentConfirmation.order_id == order.id,
-                PaymentConfirmation.status == 'approved'
-            ).scalar()
-
-            if last_approval and last_approval < archive_cutoff:
-                archive_orders.append(order)
-            else:
-                fully_paid_recent.append(order)
-        else:
-            orders.append(order)
 
     # Liczniki do zakładek
     active_total = len(orders) + len(fully_paid_recent)
