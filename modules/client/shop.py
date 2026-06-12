@@ -3,25 +3,19 @@ Client Shop Module
 On-hand product shop - browsing, filtering, cart, and checkout.
 """
 
-from decimal import Decimal
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for
 from flask_login import login_required, current_user
 from extensions import db
 from modules.products.models import (
-    Product, ProductType, ProductImage,
+    Product, ProductType,
     CartItem, ProductInteraction,
 )
-from modules.orders.models import (
-    Order, OrderItem, OrderType,
-    ShippingRequest, ShippingRequestOrder, ShippingRequestStatus,
-)
-from modules.orders.utils import generate_order_number
-from modules.auth.models import Settings, ShippingAddress
-from utils.activity_logger import log_activity
+from modules.orders.models import Order
+from modules.auth.models import ShippingAddress
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
-from modules.client import shop_service
+from modules.client import shop_service, cart_service
 from modules.client.shop_service import slugify
 
 
@@ -254,19 +248,6 @@ def _get_recommendations(user_id, exclude_ids, limit=8):
 
 
 # ---------------------------------------------------------------------------
-# Cart helpers
-# ---------------------------------------------------------------------------
-
-def _get_cart_count(user_id):
-    """Return total quantity of items in user's cart."""
-    return db.session.query(
-        func.coalesce(func.sum(CartItem.quantity), 0)
-    ).filter(
-        CartItem.user_id == user_id
-    ).scalar()
-
-
-# ---------------------------------------------------------------------------
 # API: Cart endpoints
 # ---------------------------------------------------------------------------
 
@@ -274,31 +255,8 @@ def _get_cart_count(user_id):
 @login_required
 def api_cart():
     """Get cart contents with stock validation."""
-    items = CartItem.query.filter_by(
-        user_id=current_user.id
-    ).order_by(CartItem.created_at.desc()).all()
-
-    cart_data = []
-    for item in items:
-        product = item.product
-        available = product.quantity if product and product.is_active else 0
-        img = product.primary_image if product else None
-        cart_data.append({
-            'id': item.id,
-            'product_id': item.product_id,
-            'name': product.name if product else 'Produkt usunięty',
-            'price': float(product.sale_price) if product and product.sale_price else 0,
-            'quantity': item.quantity,
-            'available': available,
-            'image_url': f'/static/{img.path_compressed}' if img else None,
-            'is_available': available > 0 and product.is_active if product else False,
-            'slug': slugify(product.name) if product else '',
-            'size': product.sizes[0].name if product and product.sizes else None,
-        })
-
-    total = sum(i['price'] * i['quantity'] for i in cart_data if i['is_available'])
-    count = sum(i['quantity'] for i in cart_data if i['is_available'])
-    return jsonify(items=cart_data, total=round(total, 2), count=count)
+    cart_data, total, count = cart_service.build_cart_data(current_user.id)
+    return jsonify(items=cart_data, total=total, count=count)
 
 
 @shop_bp.route('/client/shop/api/cart/add', methods=['POST'])
@@ -309,57 +267,11 @@ def api_cart_add():
     product_id = data.get('product_id')
     quantity = data.get('quantity', 1)
 
-    if not product_id:
-        return jsonify(success=False, error='Brak ID produktu.'), 400
+    result = cart_service.add_to_cart(current_user.id, product_id, quantity)
+    if not result.ok:
+        return jsonify(success=False, error=result.message), result.status
 
-    product = Product.query.get(product_id)
-    if not product or not product.is_active:
-        return jsonify(success=False, error='Produkt nie istnieje lub jest nieaktywny.'), 404
-
-    # Must be on-hand type
-    if not product.product_type or product.product_type.slug != 'on-hand':
-        return jsonify(success=False, error='Ten produkt nie jest dostępny w sklepie.'), 400
-
-    if product.quantity <= 0:
-        return jsonify(success=False, error='Produkt jest niedostępny (brak na stanie).'), 400
-
-    # Check if already in cart
-    existing = CartItem.query.filter_by(
-        user_id=current_user.id,
-        product_id=product_id,
-    ).first()
-
-    if existing:
-        new_qty = existing.quantity + quantity
-        if new_qty > product.quantity:
-            return jsonify(
-                success=False,
-                error=f'Nie można dodać więcej. Dostępne: {product.quantity}, w koszyku: {existing.quantity}.',
-            ), 400
-        existing.quantity = new_qty
-    else:
-        if quantity > product.quantity:
-            return jsonify(
-                success=False,
-                error=f'Żądana ilość ({quantity}) przekracza dostępną ({product.quantity}).',
-            ), 400
-        cart_item = CartItem(
-            user_id=current_user.id,
-            product_id=product_id,
-            quantity=quantity,
-        )
-        db.session.add(cart_item)
-
-    # Record interaction
-    interaction = ProductInteraction(
-        user_id=current_user.id,
-        product_id=product_id,
-        interaction_type='cart_add',
-    )
-    db.session.add(interaction)
-    db.session.commit()
-
-    return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+    return jsonify(success=True, cart_count=result.extras['cart_count'])
 
 
 @shop_bp.route('/client/shop/api/cart/update', methods=['POST'])
@@ -370,34 +282,17 @@ def api_cart_update():
     item_id = data.get('item_id')
     quantity = data.get('quantity')
 
-    try:
-        quantity = int(quantity)
-    except (ValueError, TypeError):
-        return jsonify(success=False, error='Ilość musi być liczbą.'), 400
+    result = cart_service.update_cart_item(current_user.id, item_id, quantity)
+    if not result.ok:
+        if result.code == 'exceeds_stock':
+            return jsonify(
+                success=False,
+                error=result.message,
+                available=result.extras['available'],
+            ), result.status
+        return jsonify(success=False, error=result.message), result.status
 
-    if not item_id:
-        return jsonify(success=False, error='Brak wymaganych parametrów.'), 400
-
-    item = CartItem.query.filter_by(id=item_id, user_id=current_user.id).first()
-    if not item:
-        return jsonify(success=False, error='Nie znaleziono elementu koszyka.'), 404
-
-    if quantity <= 0:
-        db.session.delete(item)
-        db.session.commit()
-        return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
-
-    product = item.product
-    if product and quantity > product.quantity:
-        return jsonify(
-            success=False,
-            error=f'Dostępna ilość: {product.quantity}.',
-            available=product.quantity,
-        ), 400
-
-    item.quantity = quantity
-    db.session.commit()
-    return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+    return jsonify(success=True, cart_count=result.extras['cart_count'])
 
 
 @shop_bp.route('/client/shop/api/cart/remove', methods=['POST'])
@@ -407,42 +302,19 @@ def api_cart_remove():
     data = request.get_json(silent=True) or {}
     item_id = data.get('item_id')
 
-    if not item_id:
-        return jsonify(success=False, error='Brak ID elementu.'), 400
+    result = cart_service.remove_cart_item(current_user.id, item_id)
+    if not result.ok:
+        return jsonify(success=False, error=result.message), result.status
 
-    item = CartItem.query.filter_by(id=item_id, user_id=current_user.id).first()
-    if not item:
-        return jsonify(success=False, error='Nie znaleziono elementu koszyka.'), 404
-
-    db.session.delete(item)
-    db.session.commit()
-    return jsonify(success=True, cart_count=_get_cart_count(current_user.id))
+    return jsonify(success=True, cart_count=result.extras['cart_count'])
 
 
 @shop_bp.route('/client/shop/api/cart/count')
 @login_required
 def api_cart_count():
     """Return cart badge count."""
-    count = _get_cart_count(current_user.id)
+    count = cart_service.get_cart_count(current_user.id)
     return jsonify(count=count)
-
-
-# ---------------------------------------------------------------------------
-# Checkout helpers
-# ---------------------------------------------------------------------------
-
-def _get_initial_shipping_status():
-    """Determine the initial status slug for a new shipping request."""
-    setting = Settings.query.filter_by(key='shipping_request_default_status').first()
-    if setting and setting.value:
-        status = ShippingRequestStatus.query.filter_by(slug=setting.value, is_active=True).first()
-        if status:
-            return status.slug
-    status = ShippingRequestStatus.query.filter_by(is_initial=True, is_active=True).first()
-    if status:
-        return status.slug
-    status = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).first()
-    return status.slug if status else 'nowe'
 
 
 # ---------------------------------------------------------------------------
@@ -473,172 +345,28 @@ def checkout_place():
     create_shipping = data.get('create_shipping', False)
     address_id = data.get('address_id')
 
-    # 1. Get cart items
-    items = CartItem.query.filter_by(user_id=current_user.id).all()
-    if not items:
-        return jsonify(success=False, error='Koszyk jest pusty.'), 400
+    result = cart_service.place_order_on_hand(
+        current_user.id,
+        create_shipping=create_shipping,
+        address_id=address_id,
+    )
 
-    # 2. Validate stock for ALL items — collect every error
-    stock_errors = []
-    for item in items:
-        product = item.product
-        if not product or not product.is_active:
-            stock_errors.append({
-                'product_id': item.product_id,
-                'error': 'Produkt nie istnieje lub jest nieaktywny.',
-                'available': 0,
-            })
-            continue
-        if product.quantity == 0:
-            stock_errors.append({
-                'product_id': product.id,
-                'error': f'{product.name} — wyprzedany.',
-                'available': 0,
-            })
-            continue
-        if product.quantity < item.quantity:
-            stock_errors.append({
-                'product_id': product.id,
-                'error': f'{product.name} — dostępne tylko {product.quantity} szt.',
-                'available': product.quantity,
-            })
+    if not result.ok:
+        if result.code == 'stock_errors':
+            return jsonify(success=False, stock_errors=result.stock_errors), 400
+        return jsonify(success=False, error=result.message), result.status
 
-    if stock_errors:
-        return jsonify(success=False, stock_errors=stock_errors), 400
-
-    # 3. Shipping validation
-    address = None
-    if create_shipping:
-        if not address_id:
-            return jsonify(success=False, error='Wybierz adres dostawy.'), 400
-        address = ShippingAddress.query.filter_by(
-            id=address_id,
-            user_id=current_user.id,
-            is_active=True,
-        ).first()
-        if not address:
-            return jsonify(success=False, error='Wybrany adres nie istnieje.'), 400
-
-    # 4. Create order
-    try:
-        order_number = generate_order_number('on_hand')
-        total = sum(
-            (item.product.sale_price or Decimal('0')) * item.quantity
-            for item in items
-            if item.product
-        )
-
-        order = Order(
-            order_number=order_number,
-            user_id=current_user.id,
-            order_type='on_hand',
-            status='nowe',
-            total_amount=total,
-            payment_stages=2,
-        )
-        db.session.add(order)
-        db.session.flush()  # get order.id
-
-        # 5. Create order items, decrease stock, record interaction
-        # Re-validate stock with row lock to prevent race conditions
-        ga_items = []          # GA4 Enhanced Ecommerce items[]
-        total_items_count = 0
-        for item in items:
-            product = Product.query.with_for_update().get(item.product_id)
-            if not product or product.quantity < item.quantity:
-                db.session.rollback()
-                return jsonify(success=False, error=f'Produkt "{product.name if product else "?"}" został właśnie wyprzedany. Odśwież stronę.'), 409
-
-            selected_size = product.sizes[0].name if product.sizes else None
-
-            order_item = OrderItem(
-                order_id=order.id,
-                product_id=product.id,
-                quantity=item.quantity,
-                price=product.sale_price,
-                total=(product.sale_price or Decimal('0')) * item.quantity,
-                selected_size=selected_size,
-            )
-            db.session.add(order_item)
-
-            ga_items.append({
-                'item_id': product.sku or str(product.id),
-                'item_name': product.name,
-                'price': float(product.sale_price or 0),
-                'quantity': item.quantity,
-            })
-            total_items_count += item.quantity
-
-            product.quantity -= item.quantity
-
-            interaction = ProductInteraction(
-                user_id=current_user.id,
-                product_id=product.id,
-                interaction_type='purchase',
-            )
-            db.session.add(interaction)
-
-        # 6. Optional shipping request
-        shipping_request_number = None
-        if create_shipping and address:
-            initial_status = _get_initial_shipping_status()
-            sr = ShippingRequest(
-                request_number=ShippingRequest.generate_request_number(),
-                user_id=current_user.id,
-                status=initial_status,
-                address_type=address.address_type,
-                shipping_name=address.shipping_name,
-                shipping_address=address.shipping_address,
-                shipping_postal_code=address.shipping_postal_code,
-                shipping_city=address.shipping_city,
-                shipping_voivodeship=address.shipping_voivodeship,
-                shipping_country=address.shipping_country,
-                pickup_courier=address.pickup_courier,
-                pickup_point_id=address.pickup_point_id,
-                pickup_address=address.pickup_address,
-                pickup_postal_code=address.pickup_postal_code,
-                pickup_city=address.pickup_city,
-            )
-            db.session.add(sr)
-            db.session.flush()
-
-            sro = ShippingRequestOrder(
-                shipping_request_id=sr.id,
-                order_id=order.id,
-            )
-            db.session.add(sro)
-            shipping_request_number = sr.request_number
-
-        # 7. Clear cart
-        CartItem.query.filter_by(user_id=current_user.id).delete()
-
-        db.session.commit()
-
-        # 8. Log activity
-        log_activity(
-            user=current_user,
-            action='order_created',
-            entity_type='order',
-            entity_id=order.id,
-            new_value={'order_number': order_number, 'total': float(total)},
-        )
-
-        return jsonify(
-            success=True,
-            order_id=order.id,
-            order_number=order_number,
-            total_amount=float(total),
-            items_count=total_items_count,
-            items=ga_items,
-            shipping_request_number=shipping_request_number,
-            redirect_url=url_for('shop.order_success', order_id=order.id),
-        )
-
-    except Exception as e:
-        db.session.rollback()
-        from flask import current_app
-        current_app.logger.exception('Checkout error for user %s: %s', current_user.id, e)
-        return jsonify(success=False, error='Wystąpił błąd podczas składania zamówienia.'), 500
+    order = result.order
+    return jsonify(
+        success=True,
+        order_id=order.id,
+        order_number=result.extras['order_number'],
+        total_amount=result.extras['total_amount'],
+        items_count=result.extras['items_count'],
+        items=result.extras['ga_items'],
+        shipping_request_number=result.extras['shipping_request_number'],
+        redirect_url=url_for('shop.order_success', order_id=order.id),
+    )
 
 
 @shop_bp.route('/client/shop/order-success/<int:order_id>')

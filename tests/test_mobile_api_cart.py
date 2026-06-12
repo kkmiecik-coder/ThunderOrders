@@ -356,3 +356,121 @@ def test_place_order_with_shipping_request(db, make_user, make_product):
     sro = ShippingRequestOrder.query.filter_by(
         shipping_request_id=sr.id, order_id=res.order.id).first()
     assert sro is not None
+
+
+# ---------------------------------------------------------------------------
+# Web parity (Task 6) — webowe trasy koszyka/checkoutu na cart_service
+# Sprawdza, że kształt odpowiedzi (status, klucze, wartości) jest identyczny
+# z dotychczasowym. Loguje usera fixturą `login` (Flask-Login session, CSRF
+# wyłączony w configu testowym).
+# ---------------------------------------------------------------------------
+
+def test_web_cart_add_get_count_checkout_parity(client, db, make_user, make_product, login):
+    pt = _onhand_type(db)
+    _onhand_order_type(db)
+    user = make_user()
+    login(user)
+    p = make_product(product_type_id=pt.id, sale_price=Decimal('99.00'), quantity=5)
+
+    # POST add -> {success, cart_count}
+    r = client.post('/client/shop/api/cart/add',
+                    json={'product_id': p.id, 'quantity': 2})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert set(body.keys()) == {'success', 'cart_count'}
+    assert body['success'] is True
+    assert body['cart_count'] == 2
+
+    # GET cart -> {items, total, count}
+    r = client.get('/client/shop/api/cart')
+    assert r.status_code == 200
+    body = r.get_json()
+    assert set(body.keys()) == {'items', 'total', 'count'}
+    assert body['count'] == 2
+    assert body['total'] == 198.00
+    item = body['items'][0]
+    assert set(item.keys()) == {
+        'id', 'product_id', 'name', 'price', 'quantity', 'available',
+        'image_url', 'is_available', 'slug', 'size',
+    }
+    assert item['price'] == 99.00
+    assert item['quantity'] == 2
+    item_id = item['id']
+
+    # GET count -> {count}
+    r = client.get('/client/shop/api/cart/count')
+    assert r.status_code == 200
+    assert r.get_json() == {'count': 2}
+
+    # POST update -> {success, cart_count}
+    r = client.post('/client/shop/api/cart/update',
+                    json={'item_id': item_id, 'quantity': 3})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert set(body.keys()) == {'success', 'cart_count'}
+    assert body['cart_count'] == 3
+
+    # POST checkout/place -> pełny kształt sukcesu
+    r = client.post('/client/shop/checkout/place', json={})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert set(body.keys()) == {
+        'success', 'order_id', 'order_number', 'total_amount',
+        'items_count', 'items', 'shipping_request_number', 'redirect_url',
+    }
+    assert body['success'] is True
+    assert body['order_id']
+    assert body['order_number']
+    assert body['total_amount'] == 297.00          # 99.00 * 3
+    assert body['items_count'] == 3
+    assert isinstance(body['items'], list) and len(body['items']) == 1
+    assert body['shipping_request_number'] is None
+    assert body['redirect_url'].endswith(f'/order-success/{body["order_id"]}')
+
+
+def test_web_cart_add_error_has_no_available_field(client, db, make_user, make_product, login):
+    """Parytet: błąd przekroczenia stocku w ADD NIE zawiera pola `available`."""
+    pt = _onhand_type(db)
+    user = make_user()
+    login(user)
+    p = make_product(product_type_id=pt.id, sale_price=Decimal('10.00'), quantity=1)
+
+    r = client.post('/client/shop/api/cart/add',
+                    json={'product_id': p.id, 'quantity': 5})
+    assert r.status_code == 400
+    body = r.get_json()
+    assert body['success'] is False
+    assert 'available' not in body
+    assert body['error'] == 'Żądana ilość (5) przekracza dostępną (1).'
+
+
+def test_web_cart_update_exceeds_stock_has_available(client, db, make_user, make_product, login):
+    """Parytet: błąd przekroczenia stocku w UPDATE zawiera pole `available`."""
+    pt = _onhand_type(db)
+    user = make_user()
+    login(user)
+    p = make_product(product_type_id=pt.id, sale_price=Decimal('10.00'), quantity=3)
+    client.post('/client/shop/api/cart/add',
+                json={'product_id': p.id, 'quantity': 1})
+    item_id = client.get('/client/shop/api/cart').get_json()['items'][0]['id']
+
+    r = client.post('/client/shop/api/cart/update',
+                    json={'item_id': item_id, 'quantity': 10})
+    assert r.status_code == 400
+    body = r.get_json()
+    assert body['success'] is False
+    assert body['available'] == 3
+    assert body['error'] == 'Dostępna ilość: 3.'
+
+
+def test_web_checkout_empty_cart_parity(client, db, make_user, login):
+    """Parytet: pusty koszyk -> 400 {success:false, error:'Koszyk jest pusty.'}."""
+    _onhand_type(db)
+    user = make_user()
+    login(user)
+
+    r = client.post('/client/shop/checkout/place', json={})
+    assert r.status_code == 400
+    body = r.get_json()
+    assert body['success'] is False
+    assert body['error'] == 'Koszyk jest pusty.'
