@@ -196,3 +196,36 @@ def test_google_login_invalid_token(client, db, monkeypatch):
     r = client.post('/api/mobile/v1/auth/google', json={'id_token': 'bad'})
     assert r.status_code == 401
     assert r.get_json()['error']['code'] == 'invalid_google_token'
+
+
+def test_resend_code_sends_new_code_for_unverified(client, db, make_user, monkeypatch):
+    sent = []
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: sent.append(code) or True))
+    u = make_user(email='rs@example.com')
+    u.email_verified = False
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/auth/resend-code', json={'email': 'rs@example.com'})
+    assert r.status_code == 200
+    assert len(sent) == 1  # nowy kod został "wysłany"
+
+    # cooldown 60s: natychmiastowa druga prośba zwraca 200, ale nie wysyła nowego kodu
+    r2 = client.post('/api/mobile/v1/auth/resend-code', json={'email': 'rs@example.com'})
+    assert r2.status_code == 200
+    assert len(sent) == 1
+
+
+def test_resend_code_no_leak_for_unknown_or_verified(client, db, make_user, monkeypatch):
+    sent = []
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_verification_code',
+                        staticmethod(lambda user, code: sent.append(code) or True))
+    make_user(email='done@example.com')  # email_verified=True z fixtury
+
+    r1 = client.post('/api/mobile/v1/auth/resend-code', json={'email': 'ghost@example.com'})
+    r2 = client.post('/api/mobile/v1/auth/resend-code', json={'email': 'done@example.com'})
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.get_json() == r2.get_json()  # identyczna odpowiedź — brak wycieku istnienia konta
+    assert sent == []
