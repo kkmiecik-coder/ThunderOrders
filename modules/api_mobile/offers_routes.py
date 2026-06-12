@@ -346,3 +346,53 @@ def offer_place_order(token):
         data['already_placed'] = True
         return json_ok(data, 200)
     return json_ok(data, 201)
+
+
+# ---------------------------------------------------------------------------
+# Task 8 (E4): POST /offers/<token>/validate-cart (pre-order, read-only)
+# ---------------------------------------------------------------------------
+
+@api_mobile_bp.route('/offers/<token>/validate-cart', methods=['POST'])
+@jwt_required()
+@limiter.limit("120 per minute")
+def offer_validate_cart(token):
+    """Walidacja koszyka pre-order (koszyk żyje w apce jak localStorage w webie).
+
+    Pre-order-only (wrong_page_type dla exclusive). Sprawdza istnienie i aktywność produktów;
+    zwraca poprawne pozycje (cena→grosze) + listę odrzuconych. Bez bramki is_active (D1a) —
+    parytet z webowym /restore; odrzuca tylko draft (404). Zero mutacji → bez idempotency.
+    """
+    from modules.products.models import Product
+    page = OfferPage.get_by_token(token)
+    if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    if page.page_type != 'preorder':
+        return json_err('wrong_page_type',
+                        'Walidacja koszyka dotyczy tylko stron pre-order.', 400)
+    if page.status == 'draft':                  # niepubliczny — parytet z detail/place-order
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    body = request.get_json(silent=True) or {}
+    items = body.get('cart_items') or []
+    valid, removed = [], []
+    for it in items:
+        pid = it.get('product_id')
+        qty = it.get('quantity', 1)
+        product = Product.query.get(pid) if pid else None
+        if product and product.is_active:
+            img = product.primary_image
+            entry = {
+                'product_id': product.id,
+                'name': product.name,
+                'sku': product.sku,
+                'price': to_grosze(product.sale_price),     # grosze
+                'quantity': qty,                            # ilość zamawiana (parytet z webem)
+                'image_url': absolute_static_url(img.path_compressed) if img else None,
+                'sizes': [s.name for s in product.sizes],
+            }
+            if it.get('selected_size') is not None:
+                entry['selected_size'] = it.get('selected_size')
+            valid.append(entry)
+        else:
+            removed.append({'product_id': pid,
+                            'reason': 'not_found' if product is None else 'inactive'})
+    return json_ok({'cart_items': valid, 'removed': removed})
