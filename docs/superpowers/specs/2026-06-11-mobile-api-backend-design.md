@@ -519,7 +519,10 @@ na FCM **bez zmian call-site** — wywołują `_fire_and_forget` → `send_to_us
 `_send_fcm_to_user(user_id, ...)` → pobiera wszystkie `MobileDevice` usera → snapshot tokenów poza
 sesją DB → wysyłka HTTP per urządzenie w pętli → sprzątanie wg klasyfikacji odpowiedzi:
 - **200** → `success`: `last_used_at = now()` (mikro-transakcja z retry przy lock timeout).
-- **404 / UNREGISTERED / NOT_FOUND / 400 INVALID_ARGUMENT** → `delete`: hard-delete wiersza `MobileDevice` (stale token).
+- **404 / UNREGISTERED / NOT_FOUND** → `delete`: hard-delete wiersza `MobileDevice` (token martwy).
+- **400 (np. INVALID_ARGUMENT)** → `keep`: log ostrzegawczy, token NIE usuwany. FCM zwraca 400 także dla
+  błędnego PAYLOADU, więc regresja schematu wiadomości wybiłaby tokeny WSZYSTKICH userów (mass-wipe).
+  Kasujemy wyłącznie na jednoznaczny sygnał „token martwy" (commit `9083ccd`).
 - **401/403** (misconfig Firebase) → `keep`: log ostrzegawczy, tokeny NIE usuwane (błąd nasz, nie urządzenia).
 - **429 / 5xx / inne transient** → `keep`: log ostrzegawczy.
 
