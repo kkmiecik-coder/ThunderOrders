@@ -292,7 +292,6 @@ def _check_notification_subscriptions(page_id, current_availability):
                 except Exception as e:
                     print(f"[NOTIFICATIONS] Email fallback error: {e}")
 
-        from extensions import db
         db.session.commit()
     except Exception as e:
         print(f"[NOTIFICATIONS] Check subscriptions error: {e}")
