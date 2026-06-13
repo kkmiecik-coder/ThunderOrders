@@ -311,6 +311,49 @@ POST   /public/config    { show_prices, is_active }       → zmień
 POST   /items/<id>/toggle-public                          → przełącz widoczność
 ```
 
+> **Korekty kontraktu (E8):** Realne trasy mają prefiks `/collection/` (parytat E7):
+> `GET /api/mobile/v1/collection/items`, `POST /api/mobile/v1/collection/public/config` itd.
+>
+> **`market_price` w groszach (int) w obie strony:** formularz przyjmuje `market_price` jako
+> string-int w groszach (np. `"1999"` = 19,99 zł); serwis zapisuje Decimal PLN; odpowiedź zwraca
+> `market_price` przez `to_grosze()` (parytet E1).
+>
+> **PATCH multipart, częściowy:** PATCH aktualizuje tylko pola OBECNE w formularzu (`name`,
+> `market_price`, `notes`); pola nieobecne nie są zerowane. Zdjęcia mają osobne endpointy —
+> PATCH nie przyjmuje plików.
+>
+> **Ownership → 404 maskujące:** cudzy/nieistniejący przedmiot → `404 item_not_found`; cudze/
+> nieistniejące zdjęcie → `404 image_not_found` (identycznie dla GET, PATCH, DELETE, set-primary).
+>
+> **POST /items (tworzenie):** walidacja all-or-nothing:
+> - >3 zdjęcia → `400 invalid_input` + `details.max_images: 3`;
+> - plik >10 MB → `400 file_too_large` (sprawdzany przed zapisem);
+> - nieprawidłowy plik (zły format/korupcja) → `400 invalid_file` (rollback wszystkich plików);
+> - brak nazwy → `400 invalid_input` + `details.field: "name"`;
+> - Obsługuje nagłówek `Idempotency-Key` (TTL 48h; retry tym samym kluczem zwraca zapisaną
+>   odpowiedź — TAKŻE błędną 4xx; przy poprawieniu i ponowieniu generuj świeży klucz).
+>   Sukces → `201` z pełnym obiektem przedmiotu (parytet GET /items/<id>).
+>
+> **POST /items/<id>/images (dodaj zdjęcie):** osiągnięcie limitu 3 zdjęć → `409 max_images`
+> (w odróżnieniu od web, które zwraca 400); plik >10 MB → `400 file_too_large`; nieprawidłowy
+> plik → `400 invalid_file`; brak pliku w polu `image` → `400 invalid_input`.
+> Endpoint NIE obsługuje `Idempotency-Key` (D4). Sukces → `201 {image: {...}}`.
+>
+> **GET /public/config:** gdy konfiguracja nie istnieje → `200 {exists: false, config: null}`
+> (nie 404; informacja o stanie, nie błąd).
+>
+> **POST /public/config (UPSERT):** tworzy konfigurację przy pierwszym wywołaniu (generuje token
+> losowy), aplikuje flagi `show_prices`/`is_active`; kolejne wywołania tylko aktualizują.
+> Pierwsze wywołanie → `201 {created: true, config: {...}}`; kolejne → `200 {created: false, config: {...}}`.
+> Pole `config.public_url` to **absolutny URL** (np. `https://thunderorders.cloud/collection/<token>`).
+>
+> **POST /items/<id>/toggle-public:** dostępny w API mobilnym, lecz poza głównym kontraktem
+> aplikacji (web-only feature); klienci mobilni mogą używać, jeśli potrzebują.
+>
+> **Zdjęcia serwowane przez publiczny `/static`:** URL zdjęcia to absolutny
+> `https://<host>/static/<path_compressed>` — dostępny bez JWT, identycznie jak na publicznej
+> stronie kolekcji. Brak dedykowanej trasy JWT dla plików zdjęć.
+
 ### Push (FCM) — `/push/`
 ```
 POST   /devices          { fcm_token, platform }         → rejestruje token urządzenia
@@ -401,7 +444,7 @@ Każdy etap kończy się czymś testowalnym (pytest) i dostanie **własny plan i
 - **E5 — Zamówienia + dashboard:** orders, orders/<id> (E1–E4), dashboard.
 - **E6 — Płatności:** payment-methods, lista, upload (multipart).
 - **E7 — Wysyłka:** adresy (CRUD) + zlecenia. ✅
-- **E8 — Kolekcja:** items CRUD + zdjęcia + publiczna strona (bez QR).
+- **E8 — Kolekcja:** items CRUD + zdjęcia + publiczna strona (bez QR). ✅
 - **E9 — Socket.IO dla apki:** auth WS przez JWT, CORS, weryfikacja eventów.
 - **E10 — Push (FCM):** migracja device, rejestracja tokenów, kanał FCM w PushManagerze.
 
