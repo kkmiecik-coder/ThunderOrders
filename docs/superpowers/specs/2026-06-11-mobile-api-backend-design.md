@@ -360,6 +360,17 @@ POST   /devices          { fcm_token, platform }         → rejestruje token ur
 DELETE /devices/<token>                                  → wyrejestrowuje (przy logout)
 ```
 
+> **Korekty kontraktu (E10):**
+> - `POST /push/devices` przyjmuje `{ fcm_token, platform }`, gdzie `platform ∈ {android, ios, web}`;
+>   walidacja: brak/pusty token lub `len > 512` → `400 invalid_input`; zły platform → `400 invalid_input`.
+>   Semantyka: **upsert keyed na `fcm_token`** — ponowny POST tego samego tokenu odświeża `last_used_at`
+>   bez duplikatu; token zarejestrowany wcześniej przez innego usera → **przepięcie na bieżącego** (JWT
+>   decyduje o własności, nie payload). Sukces → `201 { id, platform }`.
+> - `DELETE /push/devices/<token>` — filtr po `fcm_token AND user_id` z JWT; brak dopasowania (token
+>   nieistniejący LUB cudzy) → **404 maskujące** `not_found` (parytet E5–E8; cudzy wiersz jest NIEtknięty).
+>   Sukces → `200 { message }`.
+> - Oba endpointy wymagają `Authorization: Bearer <access_token>` (JWT). Brak tokenu → `401`.
+
 ### Pomocnicze
 ```
 GET  /health                                             → heartbeat (publiczny)
@@ -464,11 +475,69 @@ Reguła „jeden aktywny user = jedna sesja rezerwacji" obejmuje oba kierunki:
 
 ## 9. Push (FCM) — backend
 
-- **Migracja:** tabela `mobile_device` (user_id, fcm_token, platform, last_used_at, created_at).
-- Rejestracja tokenu przez `POST /push/devices`; wyrejestrowanie przy logout.
-- Wysyłka: rozszerzyć istniejący `PushManager` (dziś Web Push/VAPID) o kanał FCM —
-  wspólne zdarzenia: zmiana statusu zamówienia, „produkt wrócił", przypomnienie o płatności, nowa oferta.
-- Konfiguracja: klucz serwisowy Firebase w `.env`.
+> **Zaimplementowane w E10.** Poniższy opis odzwierciedla faktyczną implementację.
+
+### Model `mobile_device` (migracja)
+
+Tabela `mobile_device` z polami: `id`, `user_id` (FK → `users.id` CASCADE DELETE, indeks),
+`fcm_token VARCHAR(512) UNIQUE NOT NULL`, `platform VARCHAR(16) NOT NULL` (`android|ios|web`),
+`last_used_at DATETIME`, `created_at DATETIME`. Jeden user może mieć wiele urządzeń (multi-device).
+Plik migracyjny z łańcuchem `Revises: c72aad290158`; `downgrade` = samo `drop_table`.
+
+### FCM HTTP v1 (kanał mobilny)
+
+Wysyłka FCM realizowana przez **FCM HTTP v1 API** (`https://fcm.googleapis.com/v1/projects/{project_id}/messages:send`).
+Autoryzacja przez **OAuth2 service account** (`google.oauth2.service_account.Credentials`) z scope
+`https://www.googleapis.com/auth/firebase.messaging`. **Brak nowych zależności** — `google-auth` i
+`requests` już są w `requirements.txt`.
+
+Konfiguracja przez zmienne środowiskowe (NIGDY w repo):
+- `FIREBASE_CREDENTIALS_PATH` — ścieżka do pliku JSON service account (np. `/etc/thunderorders/firebase-sa.json`), LUB
+- `FIREBASE_CREDENTIALS_JSON` — treść JSON inline (alternatywa bez pliku na dysku).
+- `FIREBASE_PROJECT_ID` — ID projektu Firebase (może być odczytany z JSON SA, ale jawna zmienna jest preferowana).
+
+Brak konfiguracji (żadna z powyższych) → FCM **wyłączony gracefully** (no-op); Web Push działa bez zmian.
+
+### OAuth2 token cache
+
+`Credentials` przechowywane modułowo (`_fcm_creds` + `_fcm_creds_lock`) — token OAuth2 pobierany raz,
+refreshowany tylko gdy wygasł (`google-auth` pilnuje ważności). Eliminuje round-trip per wysyłka.
+
+### Integracja przez `PushManager.send_to_user`
+
+FCM dodany **addytywnie** do istniejącego `send_to_user` — wołane po wspólnym checku preferencji
+(`NotificationPreference`), przed blokiem Web Push. Dzięki temu:
+- użytkownik z **wyłączonymi** preferencjami nie dostanie FCM (parytet Web Push);
+- użytkownik z samą apką (bez subskrypcji przeglądarki) i tak dostanie push;
+- cały blok FCM w twardym `try/except` → błąd FCM NIE wywraca Web Pusha ani zapisu `Notification`.
+
+**Wszystkie istniejące `notify_*`** (`notify_status_change`, `notify_new_offer_page`, itd.) docierają
+na FCM **bez zmian call-site** — wywołują `_fire_and_forget` → `send_to_user` → FCM fan-out automatycznie.
+
+### Fan-out multi-device
+
+`_send_fcm_to_user(user_id, ...)` → pobiera wszystkie `MobileDevice` usera → snapshot tokenów poza
+sesją DB → wysyłka HTTP per urządzenie w pętli → sprzątanie wg klasyfikacji odpowiedzi:
+- **200** → `success`: `last_used_at = now()` (mikro-transakcja z retry przy lock timeout).
+- **404 / UNREGISTERED / NOT_FOUND / 400 INVALID_ARGUMENT** → `delete`: hard-delete wiersza `MobileDevice` (stale token).
+- **401/403** (misconfig Firebase) → `keep`: log ostrzegawczy, tokeny NIE usuwane (błąd nasz, nie urządzenia).
+- **429 / 5xx / inne transient** → `keep`: log ostrzegawczy.
+
+Payload FCM: `notification{title,body}` + `data{url,tag}` + `android.notification.tag` +
+`apns.payload.aps.thread-id` (kolapsowanie powiadomień po `tag`, parytet z Web Push).
+
+### Back-in-stock: e-mail + Web Push + FCM
+
+Zdarzenie „produkt wrócił" (`notify_back_in_stock`) leci teraz na **trzy kanały**:
+e-mail (EmailManager), Web Push (subskrypcje przeglądarki) i FCM (urządzenia mobilne). Addytywne,
+bez zmian w logice wywołania.
+
+### Uwaga deploymentowa
+
+Po skonfigurowaniu env Firebase na produkcji: restart **obu** usług
+`sudo systemctl restart thunderorders-http thunderorders-ws`. Do czasu konfiguracji FCM jest wyłączony
+gracefully — Web Push działa bez zmian. Auto-deploy przez webhook po push do `main` nie zależy od
+obecności pliku service account.
 
 ---
 
@@ -494,7 +563,7 @@ Każdy etap kończy się czymś testowalnym (pytest) i dostanie **własny plan i
 - **E7 — Wysyłka:** adresy (CRUD) + zlecenia. ✅
 - **E8 — Kolekcja:** items CRUD + zdjęcia + publiczna strona (bez QR). ✅
 - **E9 — Socket.IO dla apki:** auth WS przez JWT, CORS, weryfikacja eventów. ✅
-- **E10 — Push (FCM):** migracja device, rejestracja tokenów, kanał FCM w PushManagerze.
+- **E10 — Push (FCM):** migracja device, rejestracja tokenów, kanał FCM w PushManagerze. ✅
 
 ---
 
@@ -503,4 +572,4 @@ Każdy etap kończy się czymś testowalnym (pytest) i dostanie **własny plan i
 - Format kwot: grosze (int) vs string dziesiętny — decyzja w E0, spójnie w całym API. **Rozstrzygnięte w E1: grosze (int).**
 - Dokładny TTL access tokenu (30/60 min) i refresh (30 dni) — kalibracja w E0.
 - Czy `place-order` i `place-order-preorder` finalnie scalić w jeden endpoint z dyskryminatorem typu — do oceny w E4.
-- Strategia migracji FCM vs istniejący Web Push (czy `PushManager` ma jeden wspólny interfejs dla obu kanałów) — w E10.
+- Strategia migracji FCM vs istniejący Web Push (czy `PushManager` ma jeden wspólny interfejs dla obu kanałów) — **rozstrzygnięte w E10: jeden wspólny interfejs (`send_to_user` multi-kanał)**. FCM addytywny obok Web Push; `notify_*` bez zmian call-site; brak konfiguracji Firebase → no-op graceful.
