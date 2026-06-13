@@ -404,13 +404,61 @@ Mechanizm istnieje i jest szczelny — apka jest po prostu kolejnym klientem teg
 
 ---
 
-## 8. Real-time (Socket.IO) dla apki
+## 8. Real-time (Socket.IO) dla apki ✅ (E9)
 
-- Apka łączy się z istniejącym serwerem WS, dołącza do rooma `offer_page_{id}_order`.
-- Słucha: `availability_updated`, `product_available`, `page_status_changed`, `deadline_changed`, `force_disconnect`.
-- **Auth WS przez JWT:** apka przekazuje access token przy połączeniu; backend weryfikuje (handshake).
-- **CORS:** dodać originy apki do `SOCKETIO_CORS_ORIGINS`.
-- **Fallback:** polling `GET /offers/<token>/availability` co ~5 s, gdy WS niedostępny.
+> **Zaimplementowane w E9.** Poniższy opis odzwierciedla faktyczną implementację.
+
+### Połączenie i autoryzacja
+
+Apka łączy się z istniejącym serwerem WS z access tokenem JWT przy handshake:
+```
+io(url, { auth: { token: accessToken } })   // preferowany
+io(url + '?token=' + accessToken)            // fallback query string
+```
+Backend weryfikuje token przy `connect` (decode → `type=='access'` → blocklista → user aktywny).
+**Połączenia BEZ tokenu są akceptowane** (parytet web/WMS — brak tokenu → sid niezwiązany).
+
+### Zdarzenia — parytat web (wariant a1)
+
+Apka emituje **te same zdarzenia** co przeglądarka webowa:
+
+| Zdarzenie | Kierunek | Opis |
+|-----------|----------|------|
+| `join_offer_reservation` | apka → serwer | dołączenie do rooma + rejestracja sesji rezerwacji |
+| `reserve_product` | apka → serwer | rezerwacja produktu (2 min TTL) |
+| `release_product` | apka → serwer | zwolnienie rezerwacji |
+| `extend_reservation` | apka → serwer | przedłużenie o +1 min (jednorazowo) |
+| `availability_updated` | serwer → apka | broadcast dostępności (room `offer_page_{id}_order`) |
+| `page_status_changed` | serwer → apka | zmiana statusu strony |
+| `deadline_changed` | serwer → apka | zmiana deadline płatności |
+| `force_disconnect` | serwer → apka | **apka MUSI obsłużyć** — patrz takeover niżej |
+
+Brak osobnych zdarzeń `mobile_*` — reużycie handlerów webowych (zero duplikacji logiki).
+
+### Tożsamość i anti-spoofing
+
+Dla połączeń apki tożsamość pochodzi **wyłącznie z tokenu JWT** (sid powiązany przy connect).
+Pole `user_id` w payloadzie `join_offer_reservation` jest **ignorowane** dla połączeń JWT-związanych
+(anti-spoofing: apka nie może podszyć się pod cudzy `user_id`, czego webowy payload nie chroni).
+Web sids nie są JWT-związane → payload `user_id` używany jak dotychczas (zachowanie bit-w-bit).
+
+### Cross-device takeover (web ↔ app)
+
+Reguła „jeden aktywny user = jedna sesja rezerwacji" obejmuje oba kierunki:
+- Zalogowany user otwiera apkę → **apka przejmuje aktywną sesję rezerwacji z weba** (i odwrotnie).
+- Stary sid dostaje `force_disconnect`; rezerwacje są **transferowane** na nową sesję (z lockiem DB).
+- Mechanizm jest keyed na `user_id` — device-agnostyczny. Apka i web rejestrują się przez ten
+  sam `join_offer_reservation` → takeover działa automatycznie w obu kierunkach.
+
+**Apka MUSI obsłużyć zdarzenie `force_disconnect`** — oznacza przejęcie przez inne urządzenie/kartę.
+
+### Fallback i ograniczenia
+
+- **Fallback:** HTTP `reserve`/`extend`/`release` z E3 + polling `GET /offers/<token>/availability`
+  co ~5 s (gdy WS niedostępny lub przy reconnect).
+- **`product_available`:** celowane powiadomienie odłożone do **E10** (splecione z FCM).
+- **CORS:** originy apki skonfigurowane przez `SOCKETIO_CORS_ORIGINS` (env CSV); natywna apka
+  bez nagłówka `Origin` → engineio przepuszcza bez wpisu.
 
 ---
 
@@ -445,7 +493,7 @@ Każdy etap kończy się czymś testowalnym (pytest) i dostanie **własny plan i
 - **E6 — Płatności:** payment-methods, lista, upload (multipart).
 - **E7 — Wysyłka:** adresy (CRUD) + zlecenia. ✅
 - **E8 — Kolekcja:** items CRUD + zdjęcia + publiczna strona (bez QR). ✅
-- **E9 — Socket.IO dla apki:** auth WS przez JWT, CORS, weryfikacja eventów.
+- **E9 — Socket.IO dla apki:** auth WS przez JWT, CORS, weryfikacja eventów. ✅
 - **E10 — Push (FCM):** migracja device, rejestracja tokenów, kanał FCM w PushManagerze.
 
 ---

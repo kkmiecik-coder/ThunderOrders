@@ -424,3 +424,67 @@ def test_ws_web_reserve_still_works_1to1(app, db, make_user, make_product):
     assert r.session_id == 'web-S'
     assert r.quantity == 3
     web.disconnect()
+
+
+# ===========================================================================
+# CZĘŚĆ 3 (Task 4) — nasłuch broadcastów w roomie kupujących
+# ===========================================================================
+
+def test_ws_app_receives_availability_broadcast(app, db, make_user, make_product):
+    """
+    Apka po join_offer_reservation jest w roomie kupujących (offer_page_{id}_order)
+    i odbiera 'availability_updated' gdy inny klient rezerwuje produkt.
+    Potwierdza: apka słucha broadcastów dostępności z pełnym parytarem web↔app.
+    """
+    u_app = make_user()
+    u_web = make_user()
+    page = _make_offer_page(db, u_app)
+    prod = make_product()
+    _add_product_section(db, page, prod, max_quantity=10)
+
+    # Apka dołącza do rooma kupujących jako obserwator.
+    apk = _connect_app(app, u_app)
+    assert apk.is_connected()
+    assert _join(apk, page, 'app-listen-S', user_id=None)['success'] is True
+    apk.get_received()  # wyczyść bufor inicjalizacji (visitor_count/availability)
+
+    # Drugi klient (web) dołącza i rezerwuje — wyzwala broadcast_availability_update.
+    web = _connect_web(app)
+    assert _join(web, page, 'web-res-S', user_id=u_web.id)['success'] is True
+    web.get_received()  # wyczyść
+    assert _reserve(web, page, 'web-res-S', prod, quantity=1)['success'] is True
+
+    # Apka w roomie powinna dostać 'availability_updated' z broadcastu.
+    assert 'availability_updated' in _names(apk.get_received())
+
+    apk.disconnect()
+    web.disconnect()
+
+
+def test_ws_web_also_receives_broadcast_from_app_reserve(app, db, make_user, make_product):
+    """
+    Symetria broadcastu: web-klient w roomie odbiera 'availability_updated' gdy apka rezerwuje.
+    Potwierdza że room offer_page_{id}_order działa identycznie w obu kierunkach.
+    """
+    u_app = make_user()
+    u_web = make_user()
+    page = _make_offer_page(db, u_app)
+    prod = make_product()
+    _add_product_section(db, page, prod, max_quantity=10)
+
+    # Web-klient dołącza jako obserwator.
+    web = _connect_web(app)
+    assert _join(web, page, 'web-listen-S', user_id=u_web.id)['success'] is True
+    web.get_received()  # wyczyść bufor inicjalizacji
+
+    # Apka dołącza i rezerwuje — wyzwala broadcast.
+    apk = _connect_app(app, u_app)
+    assert _join(apk, page, 'app-res-S', user_id=None)['success'] is True
+    apk.get_received()  # wyczyść
+    assert _reserve(apk, page, 'app-res-S', prod, quantity=2)['success'] is True
+
+    # Web-klient w roomie odbiera 'availability_updated'.
+    assert 'availability_updated' in _names(web.get_received())
+
+    web.disconnect()
+    apk.disconnect()
