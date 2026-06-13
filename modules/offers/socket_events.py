@@ -468,6 +468,18 @@ def handle_join_offer_reservation(data):
         token = data.get('token')
         sid = flask_request.sid
 
+        # E9: dla połączeń aplikacji mobilnej (sid uwierzytelniony JWT przy connect)
+        # tożsamość pochodzi WYŁĄCZNIE z tokenu — payloadowy user_id jest ignorowany
+        # (anti-spoofing) i wpinamy się w ten sam mechanizm user_session/takeover co web.
+        # Web sids NIE są JWT-związane → get_ws_user zwraca None → payload user_id jak dziś.
+        try:
+            from modules.api_mobile.ws import get_ws_user
+            _jwt_uid = get_ws_user(sid)
+            if _jwt_uid is not None:
+                user_id = _jwt_uid
+        except Exception:
+            pass
+
         if not page_id or not session_id or not token:
             return {'success': False, 'error': 'missing_params'}
 
