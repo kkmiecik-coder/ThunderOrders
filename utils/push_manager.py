@@ -963,6 +963,33 @@ class PushManager:
         thread.daemon = True
         thread.start()
 
+    @staticmethod
+    def notify_back_in_stock(user_id, product_name, page_name, page_url, product_id=None):
+        """Push: subskrybowany produkt znów dostępny na stronie oferty („produkt wrócił").
+
+        Kanał OBOK e-maila back-in-stock (gałąź e-mail-fallback w
+        `modules/offers/socket_events.py`) — leci na Web Push + FCM przez wspólny
+        `send_to_user`/`_fire_and_forget` (jak pozostałe `notify_*`).
+
+        `notification_type=None`: subskrypcja `OfferProductNotificationSubscription`
+        jest JAWNYM, per-produktowym opt-inem, więc nie bramkujemy pusha generyczną
+        preferencją — parytet z e-mailem, który również wysyła bezwarunkowo do
+        subskrybenta. Rekord `Notification` i tak powstaje (centrum powiadomień).
+        Tag per-produkt → powroty różnych produktów nie nadpisują się wzajemnie.
+        """
+        if not user_id:
+            return
+
+        tag = f'back-in-stock-{product_id}' if product_id else 'back-in-stock'
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'{product_name} znów dostępny!',
+            body=f'Produkt wrócił do oferty: {page_name}',
+            url=page_url or '/',
+            tag=tag,
+            notification_type=None,
+        )
+
     # ========================================
     # ADMIN NOTIFICATIONS
     # ========================================

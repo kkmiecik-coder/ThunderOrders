@@ -289,6 +289,24 @@ def _check_notification_subscriptions(page_id, current_availability):
                             offer_page_url=page_url
                         )
                         sub.notified = True
+
+                        # E10 (Task 5): Web Push + FCM OBOK e-maila (addytywnie).
+                        # E-mail powyżej i flaga `notified` pozostają bez zmian; push to
+                        # dodatkowy kanał dla offline'owego subskrybenta back-in-stock.
+                        # Własny try/except — błąd push NIE może wywrócić e-maila, flagi,
+                        # rezerwacji ani broadcastu LIVE (efekt uboczny, jak inne notify_*).
+                        try:
+                            from utils.push_manager import PushManager
+                            if sub.user_id:
+                                PushManager.notify_back_in_stock(
+                                    user_id=sub.user_id,
+                                    product_name=product_name,
+                                    page_name=page_name,
+                                    page_url=page_url,
+                                    product_id=sub.product_id,
+                                )
+                        except Exception as push_err:
+                            print(f"[NOTIFICATIONS] Back-in-stock push error: {push_err}")
                 except Exception as e:
                     print(f"[NOTIFICATIONS] Email fallback error: {e}")
 
