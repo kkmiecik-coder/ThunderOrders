@@ -8,6 +8,7 @@ Routes for managing user's K-pop collection.
 from flask import render_template, request, jsonify, current_app, abort
 from flask_login import login_required, current_user
 from modules.client import client_bp
+from modules.client import collection_service
 from extensions import db
 
 
@@ -32,27 +33,9 @@ def collection_list():
     page = request.args.get('page', 1, type=int)
     per_page = 24
 
-    # Build query
-    query = CollectionItem.query.filter_by(user_id=current_user.id)
-
-    if search:
-        query = query.filter(CollectionItem.name.ilike(f'%{search}%'))
-
-    # Sort
-    if sort == 'oldest':
-        query = query.order_by(CollectionItem.created_at.asc())
-    elif sort == 'name_asc':
-        query = query.order_by(CollectionItem.name.asc())
-    elif sort == 'price_desc':
-        query = query.order_by(
-            db.case((CollectionItem.market_price.is_(None), 1), else_=0),
-            CollectionItem.market_price.desc()
-        )
-    else:  # newest (default)
-        query = query.order_by(CollectionItem.created_at.desc())
-
-    # Paginate
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    # Build query (ekstrakcja: serwis kolekcji — parytet zachowania)
+    pagination = collection_service.list_items(
+        current_user.id, search=search or None, sort=sort, page=page, per_page=per_page)
     items = pagination.items
 
     # Stats
@@ -84,9 +67,6 @@ def collection_list():
 @login_required
 def collection_add():
     """Add a new collection item (AJAX with FormData)."""
-    from modules.client.models import CollectionItem, CollectionItemImage
-    from utils.image_processor import process_collection_upload
-
     name = request.form.get('name', '').strip()
     if not name:
         return jsonify({'success': False, 'message': 'Nazwa jest wymagana'}), 400
@@ -95,62 +75,35 @@ def collection_add():
     notes = request.form.get('notes', '').strip()
 
     try:
-        item = CollectionItem(
+        parsed_price = float(market_price) if market_price else None
+    except ValueError as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+    # Obsługa zdjęć z QR upload (temp_uploads) — web-only; serwis bierze je parametrem,
+    # by webowy add zachował JEDEN commit.
+    temp_uploads = None
+    temp_session_token = request.form.get('qr_session_token', '').strip()
+    if temp_session_token:
+        from modules.client.models import CollectionUploadSession
+        qr_session = CollectionUploadSession.query.filter_by(
+            session_token=temp_session_token,
             user_id=current_user.id,
-            name=name,
-            market_price=float(market_price) if market_price else None,
-            notes=notes if notes else None,
-            source='manual'
+            status='uploaded'
+        ).first()
+        if qr_session:
+            temp_uploads = qr_session.temp_uploads
+
+    try:
+        ok, err, item = collection_service.create_item(
+            current_user, name,
+            market_price=parsed_price,
+            notes=notes,
+            files=request.files.getlist('images'),
+            temp_uploads=temp_uploads
         )
-        db.session.add(item)
-        db.session.flush()  # Get item.id
-
-        # Handle images (max 3)
-        files = request.files.getlist('images')
-        for i, file in enumerate(files[:3]):
-            if file and file.filename:
-                result = process_collection_upload(file, current_user.id)
-                image = CollectionItemImage(
-                    collection_item_id=item.id,
-                    filename=result['filename'],
-                    path_original=result['path_original'],
-                    path_compressed=result['path_compressed'],
-                    is_primary=(i == 0),
-                    sort_order=i
-                )
-                db.session.add(image)
-
-        # Obsługa zdjęć z QR upload (temp_uploads)
-        temp_session_token = request.form.get('qr_session_token', '').strip()
-        if temp_session_token:
-            from modules.client.models import CollectionUploadSession
-            qr_session = CollectionUploadSession.query.filter_by(
-                session_token=temp_session_token,
-                user_id=current_user.id,
-                status='uploaded'
-            ).first()
-            if qr_session and qr_session.temp_uploads:
-                for temp in qr_session.temp_uploads:
-                    if item.can_add_image:
-                        img = CollectionItemImage(
-                            collection_item_id=item.id,
-                            filename=temp.filename,
-                            path_original=temp.path_original,
-                            path_compressed=temp.path_compressed,
-                            is_primary=(item.images_count == 0),
-                            sort_order=item.images_count
-                        )
-                        db.session.add(img)
-                        db.session.flush()
-
-        db.session.commit()
-
-        # Achievement hook: collection item added
-        try:
-            from modules.achievements.services import AchievementService
-            AchievementService().check_event(current_user, 'collection_add')
-        except Exception:
-            pass
+        if not ok:
+            # invalid_file → 400 (parytet: str(e) z ValueError process_collection_upload)
+            return jsonify({'success': False, 'message': err['message']}), 400
 
         return jsonify({
             'success': True,
@@ -158,9 +111,6 @@ def collection_add():
             'item_id': item.id
         })
 
-    except ValueError as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 400
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Collection add error: {e}')
@@ -215,11 +165,13 @@ def collection_edit(item_id):
     notes = request.form.get('notes', '').strip()
 
     try:
-        item.name = name
-        item.market_price = float(market_price) if market_price else None
-        item.notes = notes if notes else None
-
-        db.session.commit()
+        parsed_price = float(market_price) if market_price else None
+        ok, err, _ = collection_service.update_item(
+            current_user.id, item_id,
+            {'name': name, 'market_price': parsed_price, 'notes': notes})
+        if not ok:
+            # name_required (name już zwalidowane wyżej — defensywnie); parytet komunikatu
+            return jsonify({'success': False, 'message': 'Nazwa jest wymagana'}), 400
 
         return jsonify({
             'success': True,
@@ -237,19 +189,13 @@ def collection_edit(item_id):
 def collection_delete(item_id):
     """Delete a collection item and its files."""
     from modules.client.models import CollectionItem
-    from utils.image_processor import delete_collection_image_files
 
     item = CollectionItem.query.get_or_404(item_id)
     if item.user_id != current_user.id:
         abort(403)
 
     try:
-        # Delete image files
-        for image in item.images:
-            delete_collection_image_files(image.path_original, image.path_compressed)
-
-        db.session.delete(item)
-        db.session.commit()
+        collection_service.delete_item(current_user.id, item_id)
 
         return jsonify({
             'success': True,
