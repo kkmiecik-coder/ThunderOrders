@@ -9,8 +9,12 @@ def json_ok(data=None, status=200):
     return jsonify({'success': True, 'data': data if data is not None else {}}), status
 
 
-def json_err(code, message, status=400):
-    return jsonify({'success': False, 'error': {'code': code, 'message': message}}), status
+def json_err(code, message, status=400, details=None):
+    """Koperta błędu. `details` (opcjonalny dict) dokładany tylko gdy podany."""
+    error = {'code': code, 'message': message}
+    if details is not None:
+        error['details'] = details
+    return jsonify({'success': False, 'error': error}), status
 
 
 def serialize_user(user):
