@@ -114,6 +114,12 @@ class Config:
     VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
     VAPID_CLAIMS_EMAIL = os.getenv('VAPID_CLAIMS_EMAIL', 'mailto:noreply@thunderorders.cloud')
 
+    # Firebase Cloud Messaging (FCM HTTP v1) — kanał push dla apki mobilnej.
+    # Puste = FCM wyłączony gracefully (Web Push działa bez zmian). Sekrety NIE w repo.
+    FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '')   # ścieżka do service-account JSON
+    FIREBASE_CREDENTIALS_JSON = os.getenv('FIREBASE_CREDENTIALS_JSON', '')   # alternatywnie surowy JSON
+    FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', '')               # override; inaczej z JSON
+
     # Security
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # Token nie wygasa

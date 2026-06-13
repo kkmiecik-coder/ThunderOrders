@@ -36,6 +36,20 @@ def _is_lock_timeout(exc):
     return '1205' in msg or 'lock wait timeout' in msg
 
 
+# ============================================================================
+# FCM (Firebase Cloud Messaging) HTTP v1 — drugi kanał push (apka mobilna).
+# Dołożony ADDYTYWNIE obok Web Push: send_to_user wachluje na wszystkie
+# MobileDevice usera. Brak konfiguracji Firebase → kanał wyłączony gracefully
+# (jak VAPID gate dla Web Push). google-auth + requests już w requirements.
+# ============================================================================
+_FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging'
+_FCM_ENDPOINT = 'https://fcm.googleapis.com/v1/projects/{project_id}/messages:send'
+
+# Cache OAuth2 Credentials (modułowy) + lock — żeby nie pobierać tokenu per-wysyłka.
+_fcm_creds = None
+_fcm_creds_lock = threading.Lock()
+
+
 class PushManager:
     """Centralny dispatcher push notifications dla ThunderOrders."""
 
@@ -105,6 +119,18 @@ class PushManager:
             pref = NotificationPreference.query.filter_by(user_id=user_id).first()
             if pref and not getattr(pref, notification_type, True):
                 return False
+
+        # === Kanał FCM (apka mobilna) — ADDYTYWNIE, niezależny od Web Push ===
+        # Fan-out na urządzenia mobilne PO wspólnym checku preferencji (parytet z Web
+        # Push), ale przed blokiem Web Push poniżej — żeby FCM NIE był ucinany przez
+        # web-pushowe early-returny (brak aktywnej subskrypcji / brak VAPID). Użytkownik
+        # z samą apką mobilną (bez subskrypcji przeglądarkowej) i tak dostanie push.
+        # Brak konfiguracji Firebase → no-op. FCM nie może wywrócić Web Pusha ani zapisu
+        # notyfikacji → twardy try/except.
+        try:
+            PushManager._send_fcm_to_user(user_id, title, body, url, tag)
+        except Exception as e:
+            current_app.logger.warning(f'FCM fan-out failed for user {user_id}: {e}')
 
         subs = PushSubscription.query.filter_by(
             user_id=user_id, is_active=True
@@ -276,6 +302,223 @@ class PushManager:
         )
         thread.daemon = True
         thread.start()
+
+    # ========================================
+    # FCM (Firebase Cloud Messaging) HTTP v1
+    # ========================================
+
+    @staticmethod
+    def _fcm_enabled():
+        """FCM aktywny gdy jest project_id ORAZ źródło credentials (path|json)."""
+        cfg = current_app.config
+        has_project = bool(cfg.get('FIREBASE_PROJECT_ID'))
+        has_creds = bool(cfg.get('FIREBASE_CREDENTIALS_PATH') or
+                         cfg.get('FIREBASE_CREDENTIALS_JSON'))
+        return has_project and has_creds
+
+    @staticmethod
+    def _get_fcm_project_id():
+        """project_id z configu (override) lub z service-account JSON."""
+        cfg = current_app.config
+        pid = cfg.get('FIREBASE_PROJECT_ID') or ''
+        if pid:
+            return pid
+        raw = cfg.get('FIREBASE_CREDENTIALS_JSON') or ''
+        path = cfg.get('FIREBASE_CREDENTIALS_PATH') or ''
+        try:
+            if raw:
+                return (json.loads(raw) or {}).get('project_id') or ''
+            if path:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return (json.load(f) or {}).get('project_id') or ''
+        except Exception as e:
+            current_app.logger.warning(f'FCM: nie udało się odczytać project_id: {e}')
+        return ''
+
+    @staticmethod
+    def _get_fcm_access_token():
+        """Zwraca OAuth2 access token dla FCM. Cache modułowy Credentials + lock;
+        refresh tylko gdy token wygasł (google-auth pilnuje ważności). None = brak creds."""
+        global _fcm_creds
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request as _GoogleAuthRequest
+
+        cfg = current_app.config
+        with _fcm_creds_lock:
+            if _fcm_creds is None:
+                path = cfg.get('FIREBASE_CREDENTIALS_PATH') or ''
+                raw = cfg.get('FIREBASE_CREDENTIALS_JSON') or ''
+                if path:
+                    _fcm_creds = service_account.Credentials.from_service_account_file(
+                        path, scopes=[_FCM_SCOPE])
+                elif raw:
+                    _fcm_creds = service_account.Credentials.from_service_account_info(
+                        json.loads(raw), scopes=[_FCM_SCOPE])
+                else:
+                    return None
+            if not _fcm_creds.valid:
+                _fcm_creds.refresh(_GoogleAuthRequest())
+            return _fcm_creds.token
+
+    @staticmethod
+    def _build_fcm_message(token, title, body, url, tag):
+        """Buduje payload FCM HTTP v1 (parytet z Web Push: niesie url/tag do nawigacji;
+        tag mapowany na android.notification.tag / apns thread-id — kolapsowanie)."""
+        tag = tag or 'default'
+        return {
+            'token': token,
+            'notification': {'title': title, 'body': body},
+            'data': {'url': url or '/', 'tag': tag},
+            'android': {'notification': {'tag': tag}},
+            'apns': {'payload': {'aps': {'thread-id': tag}}},
+        }
+
+    @staticmethod
+    def _send_fcm_raw(token, message, access_token, project_id):
+        """Wysyła pojedynczy push przez FCM HTTP v1 — bez referencji do ORM.
+        Zwraca obiekt odpowiedzi requests (status_code/json do mapowania D8)."""
+        import requests
+
+        return requests.post(
+            _FCM_ENDPOINT.format(project_id=project_id),
+            json={'message': message},
+            headers={'Authorization': f'Bearer {access_token}',
+                     'Content-Type': 'application/json'},
+            timeout=10,
+        )
+
+    @staticmethod
+    def _classify_fcm_response(resp):
+        """Mapuje odpowiedź FCM na akcję (D8): 'success' | 'delete' | 'keep'.
+        - 200 → success (last_used_at=now)
+        - 404 / UNREGISTERED / NOT_FOUND, 400 INVALID_ARGUMENT → delete (token nieaktualny)
+        - 401/403 (nasz misconfig/auth) → keep (NIE usuwaj tokenów)
+        - 429/5xx/inne (transient) → keep
+        """
+        status = getattr(resp, 'status_code', None)
+        if status == 200:
+            return 'success'
+
+        err_code = ''
+        try:
+            data = resp.json()
+            err = data.get('error', {}) if isinstance(data, dict) else {}
+            err_code = (err.get('status') or '').upper()
+            for detail in (err.get('details') or []):
+                code = (detail.get('errorCode') or '').upper()
+                if code:
+                    err_code = code
+                    break
+        except Exception:
+            pass
+
+        if status == 404 or 'UNREGISTERED' in err_code or err_code == 'NOT_FOUND':
+            return 'delete'
+        if status == 400 and ('INVALID_ARGUMENT' in err_code or 'UNREGISTERED' in err_code):
+            return 'delete'
+        if status in (401, 403):
+            current_app.logger.warning(
+                f'FCM auth/config error (status={status}); nie usuwam tokenów')
+            return 'keep'
+        current_app.logger.warning(
+            f'FCM transient/unknown response (status={status}, code={err_code})')
+        return 'keep'
+
+    @staticmethod
+    def _send_fcm_to_user(user_id, title, body, url, tag):
+        """Fan-out FCM na wszystkie urządzenia mobilne usera. Brak konfiguracji
+        Firebase / brak urządzeń → no-op. Snapshot tokenów poza sesją (jak Web Push),
+        wysyłka w pętli, sprzątanie wg D8 (mikro-transakcje per urządzenie)."""
+        if not PushManager._fcm_enabled():
+            return
+
+        from modules.api_mobile.models import MobileDevice
+        from extensions import db as _db
+
+        project_id = PushManager._get_fcm_project_id()
+        if not project_id:
+            current_app.logger.warning('FCM: brak project_id — pomijam fan-out')
+            return
+
+        access_token = PushManager._get_fcm_access_token()
+        if not access_token:
+            current_app.logger.warning('FCM: brak access tokenu — pomijam fan-out')
+            return
+
+        devices = MobileDevice.query.filter_by(user_id=user_id).all()
+        if not devices:
+            return
+
+        # Odetnij od ORM — wysyłka HTTP nie potrzebuje sesji DB
+        device_snapshots = [{'id': d.id, 'token': d.fcm_token} for d in devices]
+        _db.session.commit()
+
+        for snap in device_snapshots:
+            try:
+                message = PushManager._build_fcm_message(
+                    snap['token'], title, body, url, tag)
+                resp = PushManager._send_fcm_raw(
+                    snap['token'], message, access_token, project_id)
+            except Exception as e:
+                current_app.logger.warning(
+                    f'FCM send error for device {snap["id"]}: {e}')
+                continue
+
+            action = PushManager._classify_fcm_response(resp)
+            if action == 'delete':
+                PushManager._delete_stale_device(snap['id'])
+            elif action == 'success':
+                PushManager._update_device_success(snap['id'])
+
+    @staticmethod
+    def _update_device_success(device_id):
+        """Po udanej wysyłce FCM: last_used_at=now(). Mikro-transakcja z retry
+        przy 1205 lock wait timeout (parytet z Web Push)."""
+        from extensions import db
+        from modules.api_mobile.models import MobileDevice
+
+        for attempt in range(1, _SUB_UPDATE_MAX_RETRIES + 1):
+            try:
+                dev = db.session.get(MobileDevice, device_id)
+                if not dev:
+                    return
+                dev.last_used_at = datetime.utcnow()
+                db.session.commit()
+                return
+            except Exception as e:
+                db.session.rollback()
+                if _is_lock_timeout(e) and attempt < _SUB_UPDATE_MAX_RETRIES:
+                    time.sleep(0.1 * attempt)
+                    continue
+                current_app.logger.warning(
+                    f'Failed to update mobile_device {device_id} success: {e}')
+                return
+
+    @staticmethod
+    def _delete_stale_device(device_id):
+        """Nieaktualny token FCM (404/UNREGISTERED/invalid) → hard-delete wiersza.
+        Mikro-transakcja z retry przy lock timeout."""
+        from extensions import db
+        from modules.api_mobile.models import MobileDevice
+
+        for attempt in range(1, _SUB_UPDATE_MAX_RETRIES + 1):
+            try:
+                dev = db.session.get(MobileDevice, device_id)
+                if not dev:
+                    return
+                db.session.delete(dev)
+                db.session.commit()
+                current_app.logger.info(
+                    f'FCM: usunięto nieaktualny token urządzenia {device_id}')
+                return
+            except Exception as e:
+                db.session.rollback()
+                if _is_lock_timeout(e) and attempt < _SUB_UPDATE_MAX_RETRIES:
+                    time.sleep(0.1 * attempt)
+                    continue
+                current_app.logger.warning(
+                    f'Failed to delete stale mobile_device {device_id}: {e}')
+                return
 
     # ========================================
     # ORDER STATUS
