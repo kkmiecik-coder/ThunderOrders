@@ -735,7 +735,7 @@ def reactivate_account():
         flash('Sesja wygasła. Spróbuj zalogować się ponownie.', 'error')
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     if not user:
         flash('Nie znaleziono konta.', 'error')
         return redirect(url_for('auth.login'))
@@ -997,7 +997,7 @@ def complete_profile_save_avatar():
     if not avatar_id:
         return jsonify({'success': False, 'error': 'Nie wybrano avatara.'}), 400
 
-    avatar = Avatar.query.get(avatar_id)
+    avatar = db.session.get(Avatar, avatar_id)
     if not avatar:
         return jsonify({'success': False, 'error': 'Wybrany avatar nie istnieje.'}), 400
 

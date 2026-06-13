@@ -129,7 +129,7 @@ def _update_questions(survey, questions_data):
 
         if q_id:
             # Aktualizuj istniejące pytanie
-            question = FeedbackQuestion.query.get(q_id)
+            question = db.session.get(FeedbackQuestion, q_id)
             if question and question.survey_id == survey.id:
                 question.question_type = q_data.get('type', question.question_type)
                 question.content = q_data.get('content')
@@ -359,7 +359,7 @@ def survey_submit(token):
 
         # Zapisz odpowiedzi
         for question_id, answer_data in answers_data.items():
-            question = FeedbackQuestion.query.get(int(question_id))
+            question = db.session.get(FeedbackQuestion, int(question_id))
             if not question or question.survey_id != survey.id:
                 continue
 

@@ -635,7 +635,7 @@ def restore(token):
         cart_items = data.get('cart_items', [])
         valid_items = []
         for item in cart_items:
-            product = Product.query.get(item.get('product_id'))
+            product = db.session.get(Product, item.get('product_id'))
             if product and product.is_active:
                 valid_items.append({
                     'product_id': product.id,
@@ -788,7 +788,7 @@ def subscribe_notification(token):
         return jsonify({'success': False, 'error': 'missing_product_id', 'message': 'Brak ID produktu'}), 400
 
     # Sprawdź czy produkt istnieje
-    product = Product.query.get(product_id)
+    product = db.session.get(Product, product_id)
     if not product:
         return jsonify({'success': False, 'error': 'product_not_found', 'message': 'Produkt nie istnieje'}), 404
 

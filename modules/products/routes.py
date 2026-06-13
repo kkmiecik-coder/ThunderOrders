@@ -195,7 +195,7 @@ def create_product():
         # Add tags
         if form.tags.data:
             for tag_id in form.tags.data:
-                tag = Tag.query.get(tag_id)
+                tag = db.session.get(Tag, tag_id)
                 if tag:
                     product.tags.append(tag)
 
@@ -203,11 +203,11 @@ def create_product():
         sizes_data = form.sizes.data or []
         if product.product_type_id:
             from modules.products.models import ProductType
-            pt = ProductType.query.get(product.product_type_id)
+            pt = db.session.get(ProductType, product.product_type_id)
             if pt and pt.slug == 'on-hand' and len(sizes_data) > 1:
                 sizes_data = sizes_data[:1]
         for size_id in sizes_data:
-            size = Size.query.get(size_id)
+            size = db.session.get(Size, size_id)
             if size:
                 product.sizes.append(size)
 
@@ -352,7 +352,7 @@ def edit_product(product_id):
         product.tags = []
         if form.tags.data:
             for tag_id in form.tags.data:
-                tag = Tag.query.get(tag_id)
+                tag = db.session.get(Tag, tag_id)
                 if tag:
                     product.tags.append(tag)
 
@@ -361,11 +361,11 @@ def edit_product(product_id):
         sizes_data = form.sizes.data or []
         if product.product_type_id:
             from modules.products.models import ProductType
-            pt = ProductType.query.get(product.product_type_id)
+            pt = db.session.get(ProductType, product.product_type_id)
             if pt and pt.slug == 'on-hand' and len(sizes_data) > 1:
                 sizes_data = sizes_data[:1]
         for size_id in sizes_data:
-            size = Size.query.get(size_id)
+            size = db.session.get(Size, size_id)
             if size:
                 product.sizes.append(size)
 
@@ -991,7 +991,7 @@ def bulk_duplicate():
         duplicated_products = []
 
         for product_id in product_ids:
-            original_product = Product.query.get(product_id)
+            original_product = db.session.get(Product, product_id)
 
             if not original_product:
                 continue
@@ -1230,7 +1230,7 @@ def save_variant_groups(product_id):
             # Create or update group
             if group_id:
                 # Existing group
-                group = VariantGroup.query.get(group_id)
+                group = db.session.get(VariantGroup, group_id)
                 if group:
                     group.name = group_name
                     groups_to_keep.append(group.id)
@@ -2722,7 +2722,7 @@ def create_stock_orders():
             unit_price = product_data.get('unit_price', 0)
             currency = product_data.get('currency', 'PLN')
 
-            product = Product.query.get(product_id)
+            product = db.session.get(Product, product_id)
             if not product:
                 continue
 
@@ -2803,7 +2803,7 @@ def create_stock_orders_from_aggregation():
             quantity = product_data.get('quantity', 1)
             unit_price = product_data.get('unit_price', 0)
 
-            product = Product.query.get(product_id)
+            product = db.session.get(Product, product_id)
             if not product:
                 continue
 
@@ -2901,7 +2901,7 @@ def create_group_proxy_order():
         total_amount_pln = 0
         proxy_items = []
         for item_data in products_data:
-            product = Product.query.get(item_data.get('product_id'))
+            product = db.session.get(Product, item_data.get('product_id'))
             if not product:
                 continue
 
@@ -3373,7 +3373,7 @@ def delete_poland_order(id):
         if affected_order_ids:
             from modules.orders.models import Order
             for order_id in affected_order_ids:
-                client_order = Order.query.get(order_id)
+                client_order = db.session.get(Order, order_id)
                 if not client_order:
                     continue
                 # Reset proxy_shipping_cost jeśli klient nie wgrał potwierdzenia (none/rejected)
@@ -3627,7 +3627,7 @@ def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
     # Zapisz na zamówieniach
     updated_orders = {}
     for order_id, shipping_cost in order_shipping_totals.items():
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if order:
             old_cost = float(order.proxy_shipping_cost) if order.proxy_shipping_cost else 0
             order.proxy_shipping_cost = shipping_cost
@@ -3713,7 +3713,7 @@ def create_poland_order():
 
         poland_number = generate_proxy_to_poland_number()
 
-        main_proxy_order = ProxyOrder.query.get(proxy_order_ids[0])
+        main_proxy_order = db.session.get(ProxyOrder, proxy_order_ids[0])
         if not main_proxy_order:
             return jsonify({'success': False, 'error': 'Nie znaleziono zamówienia Proxy'}), 404
 
@@ -3737,7 +3737,7 @@ def create_poland_order():
             proxy_item_id = item_data.get('proxy_order_item_id')
             shipping_cost = Decimal(str(item_data.get('shipping_cost', 0)))
 
-            proxy_item = ProxyOrderItem.query.get(proxy_item_id)
+            proxy_item = db.session.get(ProxyOrderItem, proxy_item_id)
             if not proxy_item:
                 continue
 
@@ -3766,7 +3766,7 @@ def create_poland_order():
         poland_order.total_amount = total_amount
 
         for proxy_id in proxy_order_ids:
-            proxy_order = ProxyOrder.query.get(proxy_id)
+            proxy_order = db.session.get(ProxyOrder, proxy_id)
             if proxy_order:
                 proxy_order.shipping_cost_total = shipping_cost_total
                 proxy_order.shipping_cost_declared = total_shipping_declared
@@ -3867,7 +3867,7 @@ def get_poland_orders_customs_bulk():
 
         orders_data = []
         for order_id in order_ids:
-            poland_order = PolandOrder.query.get(order_id)
+            poland_order = db.session.get(PolandOrder, order_id)
             if not poland_order:
                 continue
 
@@ -3935,7 +3935,7 @@ def update_poland_customs_vat():
             item_id = item_data.get('poland_order_item_id')
             percentage = Decimal(str(item_data.get('customs_vat_percentage', 0)))
 
-            item = PolandOrderItem.query.get(item_id)
+            item = db.session.get(PolandOrderItem, item_id)
             if not item:
                 continue
 
@@ -3961,7 +3961,7 @@ def update_poland_customs_vat():
         # Przelicz sumy zamówień Poland
         updated_orders = []
         for order_id in affected_order_ids:
-            poland_order = PolandOrder.query.get(order_id)
+            poland_order = db.session.get(PolandOrder, order_id)
             if not poland_order:
                 continue
 
@@ -4265,7 +4265,7 @@ def mass_edit_save():
         product_id = item.get('id')
         try:
             with db.session.begin_nested():
-                product = Product.query.get(product_id)
+                product = db.session.get(Product, product_id)
                 if not product:
                     raise ValueError(f'Produkt ID {product_id} nie istnieje')
 
@@ -4385,7 +4385,7 @@ def mass_edit_upload_image():
     if not product_id or not slot:
         return jsonify({'success': False, 'error': 'Brak product_id lub slot'}), 400
 
-    product = Product.query.get(product_id)
+    product = db.session.get(Product, product_id)
     if not product:
         return jsonify({'success': False, 'error': 'Produkt nie istnieje'}), 404
 

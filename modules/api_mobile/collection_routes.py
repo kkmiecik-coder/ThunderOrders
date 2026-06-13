@@ -5,7 +5,7 @@ from decimal import Decimal
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from extensions import limiter
+from extensions import db, limiter
 from modules.auth.models import User
 from modules.client import collection_service as svc
 from . import api_mobile_bp
@@ -123,7 +123,7 @@ def collection_item_create():
     for f in files:
         if _file_too_large(f):
             return json_err('file_too_large', 'Maksymalny rozmiar zdjęcia to 10 MB.', 400)
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     ok, err, item = svc.create_item(user, name, market_price=market_price,
                                     notes=notes, files=files)
     if not ok:
@@ -173,7 +173,7 @@ def collection_image_add(item_id):
         return json_err('invalid_input', 'Nie przesłano pliku (pole image).', 400)
     if _file_too_large(file):
         return json_err('file_too_large', 'Maksymalny rozmiar zdjęcia to 10 MB.', 400)
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     ok, err, image = svc.add_image(user, item_id, file)
     if not ok:
         if err['code'] == 'not_found':
@@ -231,7 +231,7 @@ def collection_public_config_get():
 def collection_public_config_update():
     """UPSERT (D6): pierwszy POST tworzy config (token + achievement), każdy aplikuje flagi."""
     data = request.get_json(silent=True) or {}
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     created = False
     if svc.get_public_config(user.id) is None:
         svc.create_public_config(user)

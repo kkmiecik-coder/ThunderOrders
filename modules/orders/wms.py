@@ -53,7 +53,7 @@ def _validate_orders_for_wms(order_ids):
     lock_cutoff = now - timedelta(minutes=WMS_LOCK_TIMEOUT_MINUTES)
 
     for oid in order_ids:
-        order = Order.query.get(oid)
+        order = db.session.get(Order, oid)
         if not order:
             errors.append(f'Zamówienie #{oid} nie istnieje')
             continue
@@ -88,7 +88,7 @@ def _collect_orders_from_shipping_requests(sr_ids):
     errors = []
 
     for sr_id in sr_ids:
-        sr = ShippingRequest.query.get(sr_id)
+        sr = db.session.get(ShippingRequest, sr_id)
         if not sr:
             errors.append(f'Zlecenie wysyłki #{sr_id} nie istnieje')
             continue
@@ -568,7 +568,7 @@ def wms_update_item_status():
             }), 400
 
         # Load item
-        item = OrderItem.query.get(order_item_id)
+        item = db.session.get(OrderItem, order_item_id)
         if not item:
             return jsonify({
                 'success': False,
@@ -583,7 +583,7 @@ def wms_update_item_status():
                 'message': 'Zamówienie nie jest w aktywnej sesji WMS'
             }), 400
 
-        wms_session = WmsSession.query.get(order.wms_session_id)
+        wms_session = db.session.get(WmsSession, order.wms_session_id)
         if not wms_session or not wms_session.is_active:
             return jsonify({
                 'success': False,
@@ -705,7 +705,7 @@ def wms_pack_order(session_id):
                 'message': 'Brak order_id'
             }), 400
 
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             return jsonify({
                 'success': False,
@@ -744,7 +744,7 @@ def wms_pack_order(session_id):
         low_stock_warning = None
 
         if packaging_material_id:
-            mat = PackagingMaterial.query.get(packaging_material_id)
+            mat = db.session.get(PackagingMaterial, packaging_material_id)
             if mat:
                 order.packaging_material_id = mat.id
                 mat.quantity_in_stock = max(0, mat.quantity_in_stock - 1)
@@ -843,7 +843,7 @@ def wms_ship_sr(session_id):
         if not sr_id:
             return jsonify({'success': False, 'message': 'Brak shipping_request_id'}), 400
 
-        sr = ShippingRequest.query.get(sr_id)
+        sr = db.session.get(ShippingRequest, sr_id)
         if not sr:
             return jsonify({'success': False, 'message': 'Zlecenie wysyłki nie istnieje'}), 404
 
@@ -875,7 +875,7 @@ def wms_ship_sr(session_id):
             oid = cost_data.get('order_id')
             cost = cost_data.get('shipping_cost')
             if oid and cost:
-                order = Order.query.get(oid)
+                order = db.session.get(Order, oid)
                 if order:
                     try:
                         order.shipping_cost = float(cost)
@@ -1145,7 +1145,7 @@ def wms_suggest_packaging(order_id):
     Returns ranked suggestions + full list of active materials for manual selection.
     """
     try:
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             return jsonify({'success': False, 'message': 'Zamówienie nie istnieje'}), 404
 
@@ -1207,7 +1207,7 @@ def wms_suggest_packaging_mobile(order_id, session_token):
         if not session_order:
             return jsonify({'success': False, 'message': 'Zamówienie nie należy do tej sesji'}), 403
 
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             return jsonify({'success': False, 'message': 'Zamówienie nie istnieje'}), 404
 
@@ -1289,7 +1289,7 @@ def wms_upload_packing_photo():
                 'message': 'Zamówienie nie należy do tej sesji'
             }), 403
 
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             return jsonify({
                 'success': False,
@@ -1425,7 +1425,7 @@ def wms_send_packing_email():
         if not order_id:
             return jsonify({'success': False, 'message': 'Brak order_id'}), 400
 
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             return jsonify({'success': False, 'message': 'Zamówienie nie istnieje'}), 404
 
@@ -1620,7 +1620,7 @@ def packaging_materials_reorder():
             return jsonify({'success': False, 'message': 'Brak danych kolejności'}), 400
 
         for item in order_list:
-            m = PackagingMaterial.query.get(item.get('id'))
+            m = db.session.get(PackagingMaterial, item.get('id'))
             if m:
                 m.sort_order = item.get('sort_order', 0)
 

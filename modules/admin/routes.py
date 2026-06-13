@@ -200,7 +200,7 @@ def dashboard():
     top_products = []
     for product in top_products_query:
         # Get primary image URL
-        product_obj = Product.query.get(product.id)
+        product_obj = db.session.get(Product, product.id)
         image_url = '/static/img/placeholders/product.svg'
         if product_obj and product_obj.primary_image:
             img_path = product_obj.primary_image.path_compressed

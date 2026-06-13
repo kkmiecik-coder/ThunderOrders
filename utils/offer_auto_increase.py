@@ -90,7 +90,7 @@ def check_and_apply_auto_increase(page_id):
     print(f"[AUTO-INCREASE] Thresholds: product={auto_increase_product_threshold}%, set={auto_increase_set_threshold}%, amount={auto_increase_amount}")
 
     # Pobierz stronę offer
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         print(f"[AUTO-INCREASE] Page {page_id} not found")
         return []
@@ -213,7 +213,7 @@ def check_and_apply_auto_increase(page_id):
         # Wyślij powiadomienia o dostępności dla zwiększonych sekcji
         for section_id in increased_sections:
             try:
-                section = OfferSection.query.get(section_id)
+                section = db.session.get(OfferSection, section_id)
                 if section:
                     from utils.offer_notifications import check_and_send_notifications_for_section
                     # old_max i new_max są już zapisane w logu, pobierz je

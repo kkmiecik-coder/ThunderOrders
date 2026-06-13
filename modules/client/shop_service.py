@@ -162,7 +162,7 @@ def get_filters_data():
 
 def get_active_shop_product(product_id):
     """Produkt do karty szczegółów: musi być aktywny i typu on-hand (stan 0 dozwolony)."""
-    product = Product.query.get(product_id)
+    product = db.session.get(Product, product_id)
     if (not product or not product.is_active
             or not product.product_type or product.product_type.slug != ON_HAND_SLUG):
         return None

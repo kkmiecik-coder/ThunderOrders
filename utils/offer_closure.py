@@ -50,7 +50,7 @@ def calculate_set_fulfillment(page_id):
                 'total_unfulfilled': int,
             }
     """
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         raise ValueError(f"Strona Offer o ID {page_id} nie istnieje")
 
@@ -311,7 +311,7 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
     """
     from utils.activity_logger import log_activity
 
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         return {
             'fully_fulfilled': 0,
@@ -381,7 +381,7 @@ def auto_update_order_statuses(page_id, admin_user_id=None):
             # Log activity
             if admin_user_id:
                 from modules.auth.models import User
-                admin_user = User.query.get(admin_user_id)
+                admin_user = db.session.get(User, admin_user_id)
                 if admin_user:
                     log_activity(
                         user=admin_user,
@@ -432,7 +432,7 @@ def close_offer_page(page_id, user_id, send_emails=True):
     Returns:
         dict: Wyniki zamknięcia
     """
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
 
     if not page:
         raise ValueError(f"Strona Offer o ID {page_id} nie istnieje")
@@ -532,7 +532,7 @@ def close_offer_page(page_id, user_id, send_emails=True):
                     status_not = status_not_fulfilled_setting.value
                     not_fulfilled_orders = [
                         oid for oid in status_update_result['updated_order_ids']
-                        if Order.query.get(oid).status == status_not
+                        if db.session.get(Order, oid).status == status_not
                     ]
                     if not_fulfilled_orders:
                         send_cancellation_emails(page_id, not_fulfilled_orders)
@@ -565,7 +565,7 @@ def get_page_summary(page_id, include_financials=True):
     Returns:
         dict: Podsumowanie sprzedaży
     """
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         raise ValueError(f"Strona Offer o ID {page_id} nie istnieje")
 
@@ -959,7 +959,7 @@ def get_live_summary(page_id, include_financials=True):
     """
     from collections import Counter
 
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         raise ValueError(f"Strona Offer o ID {page_id} nie istnieje")
 
@@ -1302,12 +1302,12 @@ def send_cancellation_emails(page_id, cancelled_order_ids):
     from utils.email_manager import EmailManager
     from utils.push_manager import PushManager
 
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         return
 
     for order_id in cancelled_order_ids:
-        order = Order.query.get(order_id)
+        order = db.session.get(Order, order_id)
         if not order:
             continue
 
@@ -1345,7 +1345,7 @@ def send_closure_emails(page_id, payment_deadline=None):
     from modules.payments.models import PaymentMethod
     from decimal import Decimal
 
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page:
         return
 

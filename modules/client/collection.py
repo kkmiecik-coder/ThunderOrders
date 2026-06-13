@@ -460,7 +460,7 @@ def collection_qr_session_create():
     # Walidacja item_id jeśli podany
     if item_id:
         from modules.client.models import CollectionItem
-        item = CollectionItem.query.get(item_id)
+        item = db.session.get(CollectionItem, item_id)
         if not item or item.user_id != current_user.id:
             return jsonify({'success': False, 'message': 'Nieprawidłowy przedmiot'}), 400
         if not item.can_add_image:

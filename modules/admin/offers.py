@@ -358,7 +358,7 @@ def _validate_section_data(section_data):
 
         # Jeśli set_product_id podany, zwaliduj produkt
         if set_product_id:
-            product = Product.query.get(set_product_id)
+            product = db.session.get(Product, set_product_id)
             if not product:
                 return False, 'Wybrany produkt nie istnieje'
 
@@ -1210,7 +1210,7 @@ def offers_api_variant_group(group_id):
     if not offers_type:
         return jsonify({'error': 'Typ Offers nie istnieje'}), 404
 
-    variant_group = VariantGroup.query.get(group_id)
+    variant_group = db.session.get(VariantGroup, group_id)
     if not variant_group:
         return jsonify({'error': 'Grupa wariantowa nie istnieje'}), 404
 
@@ -1831,7 +1831,7 @@ def delete_payment_reminder_rule():
     if not rule_id:
         return jsonify({'success': False, 'error': 'Brak ID reguły.'}), 400
 
-    rule = PaymentReminderConfig.query.get(rule_id)
+    rule = db.session.get(PaymentReminderConfig, rule_id)
     if not rule:
         return jsonify({'success': False, 'error': 'Reguła nie istnieje.'}), 404
 
@@ -2027,7 +2027,7 @@ def _dispatch_end_date_change_notifications(app, base_url, page_id, old_ends_at,
         with app.test_request_context(base_url=base_url):
             try:
                 from modules.auth.models import User
-                page = OfferPage.query.get(page_id)
+                page = db.session.get(OfferPage, page_id)
                 if not page:
                     return
 
@@ -2295,7 +2295,7 @@ def offers_extra_order_create(page_id):
                 'message': f"Produkt #{item['product_id']} nie należy do tej strony sprzedaży.",
             }), 400
 
-        product = Product.query.get(item['product_id'])
+        product = db.session.get(Product, item['product_id'])
         if not product:
             db.session.rollback()
             return jsonify({'error': 'product_not_found'}), 404
@@ -2341,7 +2341,7 @@ def offers_extra_order_create(page_id):
         if qty <= 0 or bonus_id not in valid_bonus_ids:
             continue
 
-        bonus = OfferSetBonus.query.get(bonus_id)
+        bonus = db.session.get(OfferSetBonus, bonus_id)
         if not bonus or not bonus.bonus_product_id:
             continue
 

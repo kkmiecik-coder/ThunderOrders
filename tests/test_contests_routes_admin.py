@@ -248,7 +248,7 @@ def test_delete_draft(client, db, make_user, make_product, login):
     cid = c.id
     resp = client.post(f'/admin/konkursy/{cid}/usun', follow_redirects=True)
     assert resp.status_code == 200
-    assert Contest.query.get(cid) is None
+    assert db.session.get(Contest, cid) is None
 
 
 def test_delete_non_draft_blocked(client, db, make_user, make_product, login):
@@ -261,7 +261,7 @@ def test_delete_non_draft_blocked(client, db, make_user, make_product, login):
     cid = c.id
     resp = client.post(f'/admin/konkursy/{cid}/usun', follow_redirects=True)
     assert resp.status_code == 200
-    assert Contest.query.get(cid) is not None  # zablokowane — nie szkic
+    assert db.session.get(Contest, cid) is not None  # zablokowane — nie szkic
 
 
 def test_prize_entry_with_no_valid_product_skipped(client, db, make_user, make_product, login):

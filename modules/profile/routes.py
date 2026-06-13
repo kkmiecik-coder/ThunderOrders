@@ -478,7 +478,7 @@ def save_avatar():
         return redirect(url_for('profile.select_avatar'))
 
     # Sprawdź czy avatar istnieje
-    avatar = Avatar.query.get(avatar_id)
+    avatar = db.session.get(Avatar, avatar_id)
     if not avatar:
         flash('Wybrany avatar nie istnieje.', 'error')
         return redirect(url_for('profile.select_avatar'))

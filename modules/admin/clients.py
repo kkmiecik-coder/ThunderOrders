@@ -137,7 +137,7 @@ def client_detail(id):
     # Pobierz admina który dezaktywował (jeśli dotyczy)
     deactivated_by_user = None
     if client.deactivated_by:
-        deactivated_by_user = User.query.get(client.deactivated_by)
+        deactivated_by_user = db.session.get(User, client.deactivated_by)
 
     # Pobierz statystyki zamówień klienta
     client_orders = Order.query.filter_by(user_id=client.id).all()

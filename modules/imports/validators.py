@@ -156,7 +156,7 @@ def match_or_create_category(value):
 
     # Try match by ID
     if str(value).isdigit():
-        category = Category.query.get(int(value))
+        category = db.session.get(Category, int(value))
         if category:
             return category
 
@@ -184,7 +184,7 @@ def match_or_create_supplier(value):
 
     # Try match by ID
     if str(value).isdigit():
-        supplier = Supplier.query.get(int(value))
+        supplier = db.session.get(Supplier, int(value))
         if supplier:
             return supplier
 
@@ -212,7 +212,7 @@ def match_or_create_product_type(value):
 
     # Try match by ID
     if str(value).isdigit():
-        product_type = ProductType.query.get(int(value))
+        product_type = db.session.get(ProductType, int(value))
         if product_type:
             return product_type
 
@@ -254,7 +254,7 @@ def match_or_create_tag(value):
 
     # Try match by ID
     if str(value).isdigit():
-        tag = Tag.query.get(int(value))
+        tag = db.session.get(Tag, int(value))
         if tag:
             return tag
 
@@ -285,7 +285,7 @@ def match_or_create_size(value):
 
     # Try match by ID
     if str(value).isdigit():
-        size = Size.query.get(int(value))
+        size = db.session.get(Size, int(value))
         if size:
             return size
 
@@ -321,7 +321,7 @@ def match_or_create_manufacturer(value):
 
     # Try match by ID
     if str(value).isdigit():
-        manufacturer = Manufacturer.query.get(int(value))
+        manufacturer = db.session.get(Manufacturer, int(value))
         if manufacturer:
             return manufacturer
 
@@ -357,7 +357,7 @@ def match_or_create_series(value):
 
     # Try match by ID
     if str(value).isdigit():
-        series = ProductSeries.query.get(int(value))
+        series = db.session.get(ProductSeries, int(value))
         if series:
             return series
 
@@ -393,7 +393,7 @@ def match_or_create_variant_group(value):
 
     # Try match by ID
     if str(value).isdigit():
-        variant_group = VariantGroup.query.get(int(value))
+        variant_group = db.session.get(VariantGroup, int(value))
         if variant_group:
             return variant_group
 

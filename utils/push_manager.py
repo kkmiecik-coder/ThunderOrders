@@ -191,7 +191,7 @@ class PushManager:
 
         for attempt in range(1, _SUB_UPDATE_MAX_RETRIES + 1):
             try:
-                sub = PushSubscription.query.get(sub_id)
+                sub = db.session.get(PushSubscription, sub_id)
                 if not sub:
                     return
                 sub.last_used_at = datetime.utcnow()
@@ -224,7 +224,7 @@ class PushManager:
 
         for attempt in range(1, _SUB_UPDATE_MAX_RETRIES + 1):
             try:
-                sub = PushSubscription.query.get(sub_id)
+                sub = db.session.get(PushSubscription, sub_id)
                 if not sub or not sub.is_active:
                     # Inny wątek już deaktywował lub sub usunięty
                     return

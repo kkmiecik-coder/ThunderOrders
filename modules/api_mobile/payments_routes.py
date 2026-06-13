@@ -152,7 +152,7 @@ def upload_payment_confirmations():
 
     # Record + efekty uboczne — WSPÓLNY SERWIS (log_activity, commit, OCR, notify per order)
     from modules.auth.models import User
-    user = User.query.get(user_id)
+    user = db.session.get(User, user_id)
     method_id = request.form.get('payment_method_id', type=int)
     try:
         entries = record_bulk_payment_proofs(user, order_stages, saved, method_id)

@@ -152,7 +152,7 @@ def create_app(config_name=None):
     def load_user(user_id):
         # Import tutaj aby uniknąć circular imports
         from modules.auth.models import User
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     # Rejestracja blueprintów (modułów)
     register_blueprints(app)
@@ -1172,7 +1172,7 @@ def register_cli_commands(app):
             click.echo('Lista ghost paths:')
             click.echo('-' * 100)
             for section in ghosts:
-                page = OfferPage.query.get(section.offer_page_id)
+                page = db.session.get(OfferPage, section.offer_page_id)
                 page_name = page.name if page else '?'
                 click.echo(f'  section_id={section.id:>5}  page="{page_name}"  '
                            f'type={section.section_type}  path={section.set_image}')

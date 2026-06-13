@@ -45,7 +45,7 @@ def test_place_preorder_happy_path(db, make_user, make_product):
     ok, result = place_preorder_order(page=page, cart_items=cart, order_note='hej', user=user)
 
     assert ok is True
-    order = Order.query.get(result['order_id'])
+    order = db.session.get(Order, result['order_id'])
     assert order.order_type == 'pre_order'
     assert order.user_id == user.id
     assert order.payment_stages == 3
@@ -106,7 +106,7 @@ def test_place_preorder_bonus_quantity_threshold(db, make_user, make_product):
     ok, result = place_preorder_order(page=page, cart_items=cart, user=user)
 
     assert ok is True
-    order = Order.query.get(result['order_id'])
+    order = db.session.get(Order, result['order_id'])
     bonus_items = OrderItem.query.filter_by(order_id=order.id, is_bonus=True).all()
     assert len(bonus_items) == 1
     assert bonus_items[0].product_id == gift.id
@@ -163,7 +163,7 @@ def test_place_preorder_skips_product_outside_offer(db, make_user, make_product)
     ok, result = place_preorder_order(page=page, cart_items=cart, user=user)
 
     assert ok is True
-    order = Order.query.get(result['order_id'])
+    order = db.session.get(Order, result['order_id'])
     assert float(order.total_amount) == 50.0
     items = OrderItem.query.filter_by(order_id=order.id).all()
     assert [i.product_id for i in items] == [in_offer.id]

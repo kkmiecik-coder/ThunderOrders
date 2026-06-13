@@ -3,7 +3,7 @@
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from extensions import limiter
+from extensions import db, limiter
 from modules.auth.models import User
 from modules.client import shipping_service as svc
 from . import api_mobile_bp
@@ -47,7 +47,7 @@ def shipping_address_create():
                             details={'allowed': ['home', 'pickup_point']})
         return json_err('invalid_input', f"Pole {err['field']} jest wymagane.", 400,
                         details={'field': err['field']})
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     _, _, addr = svc.create_address(user, data)
     return json_ok({'address': _serialize_address(addr)}, 201)
 
@@ -164,7 +164,7 @@ def shipping_request_create():
     except (TypeError, ValueError):
         return json_err('invalid_input', 'Pole order_ids musi zawierać liczby.', 400)
     address_id = parse_int(p.get('address_id'), 'address_id', required=False)
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     ok, err, req = svc.validate_and_create_request(user, order_ids, address_id)
     if not ok:
         code = err['code']

@@ -2,6 +2,7 @@
 
 from flask import request
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from extensions import db
 
 from modules.orders.models import Order
 from modules.client.payment_confirmation_service import order_stage_keys
@@ -170,7 +171,7 @@ def _serialize_order_detail(order):
 
 def _get_owned_order_or_404(order_id):
     """Zamówienie usera z JWT albo None — cudze/nieistniejące traktujemy identycznie (bez wycieku)."""
-    order = Order.query.get(order_id)
+    order = db.session.get(Order, order_id)
     if order is None or order.user_id != int(get_jwt_identity()):
         return None
     return order
@@ -190,7 +191,7 @@ def order_detail(order_id):
 def client_dashboard():
     from modules.auth.models import User
     from modules.client.dashboard_service import get_client_dashboard_stats
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     if user is None:
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     stats = get_client_dashboard_stats(user)

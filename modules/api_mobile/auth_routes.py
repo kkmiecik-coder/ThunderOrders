@@ -198,7 +198,7 @@ def google_login():
 @api_mobile_bp.route('/auth/me', methods=['GET'])
 @jwt_required()
 def me():
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     if user is None:
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     if not user.is_active:
@@ -209,7 +209,7 @@ def me():
 @api_mobile_bp.route('/auth/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     if user is None:
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 401)
     if not user.is_active:

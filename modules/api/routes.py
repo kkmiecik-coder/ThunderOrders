@@ -827,7 +827,7 @@ def popup_action(popup_id):
     try:
         from modules.admin.popups_models import Popup, PopupView
 
-        popup = Popup.query.get(popup_id)
+        popup = db.session.get(Popup, popup_id)
         if not popup:
             return jsonify({'success': False, 'message': 'Popup nie znaleziony'}), 404
 

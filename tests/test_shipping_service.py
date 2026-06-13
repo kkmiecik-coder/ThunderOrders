@@ -210,7 +210,7 @@ def test_cancel_request_initial_only(db, make_user, make_order):
     _, _, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
     assert cancel_request(other.id, req.id)[1]['code'] == 'not_found'      # cudzy
     ok, _ = cancel_request(u.id, req.id)
-    assert ok and ShippingRequest.query.get(req.id) is None               # usunięte
+    assert ok and db.session.get(ShippingRequest, req.id) is None               # usunięte
     # zamówienie wraca do available
     from modules.client.shipping_service import get_available_orders
     assert [x.id for x in get_available_orders(u.id)] == [o.id]

@@ -1,7 +1,7 @@
 """Trasy stron ofertowych (exclusive + preorder read + availability) dla mobilnego API — E3."""
 from flask import request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from extensions import limiter
+from extensions import db, limiter
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
 from .validators import parse_int, ValidationError
@@ -322,7 +322,7 @@ def offer_place_order(token):
         return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
     order_note = body.get('order_note')
     full_set_items = body.get('full_set_items', []) or []
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     if user is None:                            # spójnie z konwencją /auth/me
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     ok, result = place_offer_order(page=page, session_id=session_id, order_note=order_note,
@@ -379,7 +379,7 @@ def offer_validate_cart(token):
     for it in items:
         pid = it.get('product_id')
         qty = it.get('quantity', 1)
-        product = Product.query.get(pid) if pid else None
+        product = db.session.get(Product, pid) if pid else None
         if product is None:
             removed.append({'product_id': pid, 'reason': 'not_found'})
         elif product.id not in allowed_ids:
@@ -458,7 +458,7 @@ def offer_place_order_preorder(token):
             entry['selected_size'] = selected_size
         cart_items.append(entry)
     order_note = body.get('order_note')
-    user = User.query.get(int(get_jwt_identity()))
+    user = db.session.get(User, int(get_jwt_identity()))
     if user is None:                            # spójnie z konwencją /auth/me
         return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     ok, result = place_preorder_order(page=page, cart_items=cart_items,

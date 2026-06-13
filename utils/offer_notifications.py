@@ -32,8 +32,8 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
         return 0
 
     # Pobierz stronę i produkt
-    page = OfferPage.query.get(page_id)
-    product = Product.query.get(product_id)
+    page = db.session.get(OfferPage, page_id)
+    product = db.session.get(Product, product_id)
 
     if not page or not product:
         logger.warning(f"Page {page_id} or product {product_id} not found for notification")
@@ -66,7 +66,7 @@ def send_notifications_for_product_availability(page_id, product_id, old_availab
         # Pobierz email
         if subscription.user_id:
             from modules.auth.models import User
-            user = User.query.get(subscription.user_id)
+            user = db.session.get(User, subscription.user_id)
             if user:
                 email = user.email
             else:
@@ -154,7 +154,7 @@ def check_and_send_notifications_for_section(page_id, section_id, old_max, new_m
     from modules.offers.models import OfferSection, OfferSetItem
     from modules.offers.reservation import get_sold_counts
 
-    section = OfferSection.query.get(section_id)
+    section = db.session.get(OfferSection, section_id)
     if not section:
         return 0
 

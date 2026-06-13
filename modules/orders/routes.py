@@ -248,7 +248,7 @@ def api_create_order_for_client():
             }), 400
 
         # Validate client exists
-        client = User.query.get(client_id)
+        client = db.session.get(User, client_id)
         if not client or client.role != 'client':
             return jsonify({
                 'success': False,
@@ -312,7 +312,7 @@ def admin_create_order():
     # Validate client exists
     client = None
     if client_id:
-        client = User.query.get(client_id)
+        client = db.session.get(User, client_id)
         if not client or client.role != 'client':
             flash('Nie znaleziono klienta', 'error')
             return redirect(url_for('orders.admin_list'))
@@ -323,7 +323,7 @@ def admin_create_order():
             # Get client from form or URL
             form_client_id = request.form.get('client_id', type=int)
             if not client and form_client_id:
-                client = User.query.get(form_client_id)
+                client = db.session.get(User, form_client_id)
 
             if not client:
                 flash('Wybierz klienta', 'error')
@@ -356,7 +356,7 @@ def admin_create_order():
             for pid, qty in zip(product_ids, quantities):
                 if qty <= 0:
                     continue
-                product = Product.query.get(pid)
+                product = db.session.get(Product, pid)
                 if not product:
                     continue
 
@@ -1214,7 +1214,7 @@ def bulk_status_change():
         updated_count = 0
         email_queue = []
         for order_id in order_ids:
-            order = Order.query.get(order_id)
+            order = db.session.get(Order, order_id)
             if order:
                 old_status = order.status
                 old_status_name = order.status_display_name
@@ -1247,7 +1247,7 @@ def bulk_status_change():
         if new_status == 'dostarczone':
             from modules.client.collection_utils import auto_add_order_to_collection
             for oid in order_ids:
-                o = Order.query.get(oid)
+                o = db.session.get(Order, oid)
                 if o:
                     try:
                         auto_add_order_to_collection(o)
@@ -1308,7 +1308,7 @@ def bulk_delete():
         deleted_numbers = []
         skipped_numbers = []
         for order_id in order_ids:
-            order = Order.query.get(order_id)
+            order = db.session.get(Order, order_id)
             if order:
                 active_wms = WmsSessionOrder.query.join(WmsSession).filter(
                     WmsSessionOrder.order_id == order.id,
@@ -2661,7 +2661,7 @@ def reorder_statuses():
             if status_id is None or sort_order is None:
                 continue
 
-            status = OrderStatus.query.get(status_id)
+            status = db.session.get(OrderStatus, status_id)
             if status:
                 status.sort_order = sort_order
 
@@ -2951,7 +2951,7 @@ def reorder_wms_statuses():
             if status_id is None or sort_order is None:
                 continue
 
-            status = WmsStatus.query.get(status_id)
+            status = db.session.get(WmsStatus, status_id)
             if status:
                 status.sort_order = sort_order
 
@@ -3069,7 +3069,7 @@ def admin_add_products(order_id):
             if not product_id or quantity < 1:
                 continue
 
-            product = Product.query.get(product_id)
+            product = db.session.get(Product, product_id)
             if not product or not product.is_active:
                 continue
 
@@ -3380,7 +3380,7 @@ def admin_add_gratis_product(order_id):
         except (ValueError, TypeError):
             return jsonify({'success': False, 'message': 'Ilość musi być liczbą całkowitą większą od 0'}), 400
 
-        product = Product.query.get(product_id)
+        product = db.session.get(Product, product_id)
         if not product:
             return jsonify({'success': False, 'message': 'Nie znaleziono produktu'}), 404
 
@@ -3647,7 +3647,7 @@ def reorder_payment_methods():
 
     try:
         for item in order:
-            method = PaymentMethod.query.get(item['id'])
+            method = db.session.get(PaymentMethod, item['id'])
             if method:
                 method.sort_order = item['sort_order']
 
@@ -3787,7 +3787,7 @@ def admin_update_shipping_request(shipping_request_id):
             shipping_cost = cost_data.get('shipping_cost', 0)
 
             # Find the order and update its shipping cost
-            order = Order.query.get(order_id)
+            order = db.session.get(Order, order_id)
             if order:
                 old_cost = float(order.shipping_cost or 0)
                 order.shipping_cost = shipping_cost if shipping_cost > 0 else None
@@ -3966,7 +3966,7 @@ def admin_bulk_cancel_shipping_requests():
     skipped_numbers = []
 
     for sr_id in ids:
-        sr = ShippingRequest.query.get(sr_id)
+        sr = db.session.get(ShippingRequest, sr_id)
         if sr:
             active_wms = WmsSessionShippingRequest.query.join(WmsSession).filter(
                 WmsSessionShippingRequest.shipping_request_id == sr.id,
@@ -4094,7 +4094,7 @@ def admin_bulk_status_shipping_requests():
     updated_count = 0
     changed_requests = []  # (ShippingRequest, old_status) for email notifications
     for sr_id in ids:
-        sr = ShippingRequest.query.get(sr_id)
+        sr = db.session.get(ShippingRequest, sr_id)
         if sr:
             old_status = sr.status
             if old_status != new_status:

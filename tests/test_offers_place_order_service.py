@@ -55,7 +55,7 @@ def test_place_offer_order_happy_path(app, db, make_user, make_product):
         ok, result = place_offer_order(page=page, session_id=sid, user=user)
 
     assert ok is True
-    order = Order.query.get(result['order_id'])
+    order = db.session.get(Order, result['order_id'])
     assert order.order_type == 'exclusive'
     assert order.user_id == user.id
     assert order.payment_stages == 3

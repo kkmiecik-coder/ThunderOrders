@@ -219,7 +219,7 @@ def match_product(data, match_column):
         Product object or None
     """
     if match_column == 'id' and data.get('id'):
-        return Product.query.get(int(data['id']))
+        return db.session.get(Product, int(data['id']))
 
     elif match_column == 'sku' and data.get('sku'):
         return Product.query.filter_by(sku=data['sku']).first()
@@ -387,7 +387,7 @@ def _process_csv_import_internal(import_id):
     Args:
         import_id: CsvImport record ID
     """
-    csv_import = CsvImport.query.get(import_id)
+    csv_import = db.session.get(CsvImport, import_id)
     if not csv_import:
         print(f"[CSV Import] Import {import_id} not found")
         return

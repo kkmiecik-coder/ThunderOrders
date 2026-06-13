@@ -112,7 +112,7 @@ def _process_ocr_internal(task_data):
     # Pobierz obiekt metody płatności
     pm_obj = None
     if payment_method_id:
-        pm_obj = PaymentMethod.query.get(payment_method_id)
+        pm_obj = db.session.get(PaymentMethod, payment_method_id)
 
     # Pobierz wszystkie aktywne metody (do fallback w score_recipient)
     all_methods = PaymentMethod.get_active()
@@ -183,7 +183,7 @@ def _send_notifications(auto_approved_confs, user_id):
         from utils.activity_logger import log_activity
         from modules.auth.models import User
 
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
 
         for conf in auto_approved_confs:
             EmailManager.notify_payment_approved(conf.order, conf)

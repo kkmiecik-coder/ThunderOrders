@@ -366,7 +366,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
         if fs_product_id not in set_product_ids:
             continue
 
-        fs_product = Product.query.get(fs_product_id)
+        fs_product = db.session.get(Product, fs_product_id)
         if not fs_product:
             continue
 
@@ -577,7 +577,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
                 bonus_earned = min(bonus_earned, bonus.max_available - global_claimed)
 
             if bonus_earned > 0:
-                bonus_product = Product.query.get(bonus.bonus_product_id)
+                bonus_product = db.session.get(Product, bonus.bonus_product_id)
                 if not bonus_product:
                     import logging
                     logging.getLogger(__name__).warning(
@@ -849,7 +849,7 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
     total_items_count = 0
 
     for item_data in cart_items:
-        product = Product.query.get(item_data['product_id'])
+        product = db.session.get(Product, item_data['product_id'])
         if not product:
             continue
 

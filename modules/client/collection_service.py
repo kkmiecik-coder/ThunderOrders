@@ -16,7 +16,7 @@ ALLOWED_SORTS = ('newest', 'oldest', 'name_asc', 'price_desc')
 
 def get_owned_item(user_id, item_id):
     """Item usera albo None — cudze/nieistniejące traktowane identycznie (mobile maskuje 404)."""
-    item = CollectionItem.query.get(item_id)
+    item = db.session.get(CollectionItem, item_id)
     if item is None or item.user_id != user_id:
         return None
     return item
@@ -152,7 +152,7 @@ def _get_owned_image(user_id, item_id, image_id):
     item = get_owned_item(user_id, item_id)
     if item is None:
         return None, None
-    image = CollectionItemImage.query.get(image_id)
+    image = db.session.get(CollectionItemImage, image_id)
     if image is None or image.collection_item_id != item.id:
         return item, None
     return item, image

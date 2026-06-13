@@ -88,7 +88,7 @@ def task_create():
 
     # Sprawdź parent task (jeśli to podzadanie)
     if parent_task_id:
-        parent_task = AdminTask.query.get(parent_task_id)
+        parent_task = db.session.get(AdminTask, parent_task_id)
         if not parent_task:
             return jsonify({'success': False, 'error': 'Zadanie nadrzędne nie istnieje.'}), 404
 
@@ -108,7 +108,7 @@ def task_create():
     # Przypisz użytkowników
     if assigned_users:
         for user_id in assigned_users:
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id)
             if user and user.role in ['admin', 'mod']:
                 assignment = AdminTaskAssignment(
                     task_id=task.id,
@@ -207,7 +207,7 @@ def task_update(id):
     # Dodaj nowe
     if assigned_users:
         for user_id in assigned_users:
-            user = User.query.get(user_id)
+            user = db.session.get(User, user_id)
             if user and user.role in ['admin', 'mod']:
                 assignment = AdminTaskAssignment(
                     task_id=task.id,

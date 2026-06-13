@@ -267,12 +267,12 @@ def _check_notification_subscriptions(page_id, current_availability):
                     email = None
                     if sub.user_id:
                         from modules.auth.models import User
-                        user = User.query.get(sub.user_id)
+                        user = db.session.get(User, sub.user_id)
                         if user:
                             email = user.email
 
                     if email:
-                        page = OfferPage.query.get(page_id)
+                        page = db.session.get(OfferPage, page_id)
                         page_name = page.name if page else 'Offer'
                         page_url = ''
                         try:

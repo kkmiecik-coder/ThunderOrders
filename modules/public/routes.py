@@ -90,7 +90,7 @@ def upload_photo(session_token):
         if session.collection_item_id:
             # Item już istnieje - dodaj bezpośrednio jako CollectionItemImage
             from modules.client.models import CollectionItem
-            item = CollectionItem.query.get(session.collection_item_id)
+            item = db.session.get(CollectionItem, session.collection_item_id)
             if item and item.can_add_image:
                 image = CollectionItemImage(
                     collection_item_id=item.id,

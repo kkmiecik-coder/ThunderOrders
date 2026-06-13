@@ -197,7 +197,7 @@ def test_delete_item(client, db, make_user):
     item = _make_item(db, u)
     r = client.delete(f'/api/mobile/v1/collection/items/{item.id}', headers=h)
     assert r.status_code == 200 and r.get_json()['data']['deleted'] is True
-    assert CollectionItem.query.get(item.id) is None
+    assert db.session.get(CollectionItem, item.id) is None
     # powtórka / cudzy → 404
     assert client.delete(f'/api/mobile/v1/collection/items/{item.id}',
                          headers=h).status_code == 404

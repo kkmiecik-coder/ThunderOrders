@@ -369,7 +369,7 @@ def get_offer_matrix(page_id):
     Dane prywatne: inne osoby jako anonimowe fajeczki,
     własne zakupy jako fioletowe fajeczki z imieniem.
     """
-    page = OfferPage.query.get(page_id)
+    page = db.session.get(OfferPage, page_id)
     if not page or page.status == 'draft':
         return jsonify({'success': False, 'error': 'Nie znaleziono strony'}), 404
 

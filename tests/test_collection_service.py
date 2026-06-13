@@ -122,7 +122,7 @@ def test_delete_item_removes_files_and_row(db, make_user, app):
     _, _, item = create_item(u, 'PC', files=[_png_storage()])
     paths = [(i.path_original, i.path_compressed) for i in item.images]
     ok, _ = delete_item(u.id, item.id)
-    assert ok and CollectionItem.query.get(item.id) is None
+    assert ok and db.session.get(CollectionItem, item.id) is None
     assert CollectionItemImage.query.count() == 0             # cascade
     for orig, compr in paths:
         assert not os.path.exists(os.path.join(app.root_path, 'static', orig))

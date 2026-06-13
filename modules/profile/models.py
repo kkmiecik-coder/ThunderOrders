@@ -121,4 +121,4 @@ class Avatar(db.Model):
     @classmethod
     def get_by_id(cls, avatar_id):
         """Znajduje avatar po ID"""
-        return cls.query.get(avatar_id)
+        return db.session.get(cls, avatar_id)

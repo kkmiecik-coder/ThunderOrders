@@ -78,7 +78,7 @@ def add_to_cart(user_id, product_id, quantity):
     if not product_id:
         return CartResult(False, 'missing_product_id', 'Brak ID produktu.', 400, None)
 
-    product = Product.query.get(product_id)
+    product = db.session.get(Product, product_id)
     if not product or not product.is_active:
         return CartResult(False, 'product_not_found',
                           'Produkt nie istnieje lub jest nieaktywny.', 404, None)
@@ -352,7 +352,7 @@ def place_order_on_hand(user_id, create_shipping=False, address_id=None):
         db.session.commit()
 
         # 8. Log activity
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         log_activity(
             user=user,
             action='order_created',
