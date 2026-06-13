@@ -180,3 +180,50 @@ def set_primary_image(user_id, item_id, image_id):
     image.is_primary = True
     db.session.commit()
     return True, None, image
+
+
+def get_public_config(user_id):
+    from modules.client.models import PublicCollectionConfig
+    return PublicCollectionConfig.query.filter_by(user_id=user_id).first()
+
+
+def create_public_config(user):
+    """(ok, err, config). Token + defaulty + achievement. Parytet web public/create
+    (l. 405-425); 'exists' gdy już jest (web: 409)."""
+    from modules.client.models import PublicCollectionConfig
+    if get_public_config(user.id):
+        return False, {'code': 'exists'}, None
+    config = PublicCollectionConfig(user_id=user.id,
+                                    token=PublicCollectionConfig.generate_token(),
+                                    show_prices=True, is_active=True)
+    db.session.add(config)
+    db.session.commit()
+    try:                                                      # achievement (parytet l. 421-425)
+        from modules.achievements.services import AchievementService
+        AchievementService().check_event(user, 'collection_public_toggle')
+    except Exception:
+        pass
+    return True, None, config
+
+
+def update_public_config(user_id, show_prices=None, is_active=None):
+    """(ok, err, config). Tylko podane flagi. Parytet web public/config POST (l. 479-493)."""
+    config = get_public_config(user_id)
+    if config is None:
+        return False, {'code': 'not_found'}, None
+    if show_prices is not None:
+        config.show_prices = bool(show_prices)
+    if is_active is not None:
+        config.is_active = bool(is_active)
+    db.session.commit()
+    return True, None, config
+
+
+def toggle_item_public(user_id, item_id):
+    """(ok, err, item). Parytet web toggle-public (l. 512-518)."""
+    item = get_owned_item(user_id, item_id)
+    if item is None:
+        return False, {'code': 'not_found'}, None
+    item.is_public = not item.is_public
+    db.session.commit()
+    return True, None, item

@@ -303,3 +303,55 @@ def test_set_primary_foreign_404(client, db, make_user):
         f'/api/mobile/v1/collection/items/{item.id}/images/{imgs[0].id}/primary',
         headers=h)
     assert r.status_code == 404
+
+
+# === Task 5: publiczna strona ===
+
+def test_public_config_get_not_exists(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    r = client.get('/api/mobile/v1/collection/public/config', headers=h)
+    assert r.status_code == 200
+    assert r.get_json()['data'] == {'exists': False, 'config': None}
+
+
+def test_public_config_post_upsert_creates_then_updates(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    r1 = client.post('/api/mobile/v1/collection/public/config',
+                     json={'show_prices': False}, headers=h)
+    assert r1.status_code == 201
+    d1 = r1.get_json()['data']
+    assert d1['created'] is True and d1['config']['show_prices'] is False
+    assert d1['config']['is_active'] is True
+    assert d1['config']['public_url'].startswith('http')
+    assert d1['config']['public_url'].endswith('/collection/' + d1['config']['token'])
+    r2 = client.post('/api/mobile/v1/collection/public/config',
+                     json={'is_active': False}, headers=h)
+    assert r2.status_code == 200
+    d2 = r2.get_json()['data']
+    assert d2['created'] is False and d2['config']['is_active'] is False
+    assert d2['config']['token'] == d1['config']['token']     # ten sam config
+    g = client.get('/api/mobile/v1/collection/public/config', headers=h).get_json()['data']
+    assert g['exists'] is True and g['config']['is_active'] is False
+
+
+def test_toggle_public_flips_and_masks(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    other = make_user()
+    item = _make_item(db, u)
+    r = client.post(f'/api/mobile/v1/collection/items/{item.id}/toggle-public', headers=h)
+    assert r.status_code == 200 and r.get_json()['data']['is_public'] is False
+    r2 = client.post(f'/api/mobile/v1/collection/items/{item.id}/toggle-public', headers=h)
+    assert r2.get_json()['data']['is_public'] is True
+    foreign = _make_item(db, other)
+    r3 = client.post(f'/api/mobile/v1/collection/items/{foreign.id}/toggle-public', headers=h)
+    assert r3.status_code == 404 and r3.get_json()['error']['code'] == 'item_not_found'
+
+
+def test_mobile_config_visible_on_public_web_page(client, db, make_user):
+    """E2E: konfiguracja przez mobile → publiczna strona webowa odzwierciedla stan."""
+    h, u = _auth(client, db, make_user)
+    _make_item(db, u, name='Mobilny item')
+    token = client.post('/api/mobile/v1/collection/public/config', json={},
+                        headers=h).get_json()['data']['config']['token']
+    r = client.get(f'/collection/{token}')                    # BEZ auth
+    assert r.status_code == 200 and 'Mobilny item' in r.get_data(as_text=True)

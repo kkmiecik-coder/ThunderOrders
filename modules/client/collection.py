@@ -308,29 +308,12 @@ def collection_set_primary_image(item_id, image_id):
 @login_required
 def collection_public_create():
     """Utwórz konfigurację publicznej strony kolekcji."""
-    from modules.client.models import PublicCollectionConfig
-
-    existing = PublicCollectionConfig.query.filter_by(user_id=current_user.id).first()
-    if existing:
-        return jsonify({'success': False, 'message': 'Publiczna strona już istnieje'}), 409
-
     try:
-        token = PublicCollectionConfig.generate_token()
-        config = PublicCollectionConfig(
-            user_id=current_user.id,
-            token=token,
-            show_prices=True,
-            is_active=True
-        )
-        db.session.add(config)
-        db.session.commit()
-
-        # Achievement hook: collection made public
-        try:
-            from modules.achievements.services import AchievementService
-            AchievementService().check_event(current_user, 'collection_public_toggle')
-        except Exception:
-            pass
+        ok, err, config = collection_service.create_public_config(current_user)
+        if not ok:
+            # exists → 409 (parytet)
+            return jsonify({'success': False,
+                            'message': 'Publiczna strona już istnieje'}), 409
 
         return jsonify({
             'success': True,
@@ -382,23 +365,19 @@ def collection_public_config_get():
 @login_required
 def collection_public_config_update():
     """Aktualizuj konfigurację publicznej strony."""
-    from modules.client.models import PublicCollectionConfig
-
-    config = PublicCollectionConfig.query.filter_by(user_id=current_user.id).first()
-    if not config:
-        return jsonify({'success': False, 'message': 'Brak konfiguracji'}), 404
-
     data = request.get_json()
     if data is None:
         return jsonify({'success': False, 'message': 'Brak danych'}), 400
 
     try:
-        if 'show_prices' in data:
-            config.show_prices = bool(data['show_prices'])
-        if 'is_active' in data:
-            config.is_active = bool(data['is_active'])
-
-        db.session.commit()
+        # Semantyka kluczy-obecnych: bool(False) jest legalną wartością (klucz obecny → ustaw)
+        ok, err, _ = collection_service.update_public_config(
+            current_user.id,
+            show_prices=data.get('show_prices') if 'show_prices' in data else None,
+            is_active=data.get('is_active') if 'is_active' in data else None)
+        if not ok:
+            # not_found → 404 (parytet)
+            return jsonify({'success': False, 'message': 'Brak konfiguracji'}), 404
 
         return jsonify({
             'success': True,
@@ -422,8 +401,7 @@ def collection_toggle_public(item_id):
         abort(403)
 
     try:
-        item.is_public = not item.is_public
-        db.session.commit()
+        ok, err, item = collection_service.toggle_item_public(current_user.id, item_id)
 
         return jsonify({
             'success': True,

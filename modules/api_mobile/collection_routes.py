@@ -204,3 +204,51 @@ def collection_image_set_primary(item_id, image_id):
     if not ok:
         return json_err('image_not_found', 'Zdjęcie nie istnieje.', 404)
     return json_ok({'image': _serialize_image(image)})
+
+
+def _serialize_public_config(config):
+    return {
+        'token': config.token,
+        'show_prices': bool(config.show_prices),
+        'is_active': bool(config.is_active),
+        'public_url': request.url_root.rstrip('/') + f'/collection/{config.token}',
+    }
+
+
+@api_mobile_bp.route('/collection/public/config', methods=['GET'])
+@jwt_required()
+@limiter.limit("60 per minute")
+def collection_public_config_get():
+    config = svc.get_public_config(int(get_jwt_identity()))
+    if config is None:                                        # Korekta 7: stan, nie błąd
+        return json_ok({'exists': False, 'config': None})
+    return json_ok({'exists': True, 'config': _serialize_public_config(config)})
+
+
+@api_mobile_bp.route('/collection/public/config', methods=['POST'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def collection_public_config_update():
+    """UPSERT (D6): pierwszy POST tworzy config (token + achievement), każdy aplikuje flagi."""
+    data = request.get_json(silent=True) or {}
+    user = User.query.get(int(get_jwt_identity()))
+    created = False
+    if svc.get_public_config(user.id) is None:
+        svc.create_public_config(user)
+        created = True
+    _, _, config = svc.update_public_config(
+        user.id,
+        show_prices=data.get('show_prices') if 'show_prices' in data else None,
+        is_active=data.get('is_active') if 'is_active' in data else None)
+    return json_ok({'created': created, 'config': _serialize_public_config(config)},
+                   201 if created else 200)
+
+
+@api_mobile_bp.route('/collection/items/<int:item_id>/toggle-public', methods=['POST'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def collection_item_toggle_public(item_id):
+    ok, err, item = svc.toggle_item_public(int(get_jwt_identity()), item_id)
+    if not ok:
+        return json_err('item_not_found', 'Przedmiot nie istnieje.', 404)
+    return json_ok({'id': item.id, 'is_public': bool(item.is_public)})

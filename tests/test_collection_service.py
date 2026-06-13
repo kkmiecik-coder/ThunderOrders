@@ -269,3 +269,64 @@ def test_web_image_add_over_limit_parity(client, db, make_user, login):
                     data={'image': (_png_storage_raw(), 'x.png')},
                     content_type='multipart/form-data')
     assert r.status_code == 400 and 'Maksymalnie 3' in r.get_json()['message']  # web: 400
+
+
+# === Task 5: publiczna strona (serwis) ===
+
+def test_create_public_config_once(db, make_user):
+    from modules.client.collection_service import create_public_config, get_public_config
+    u = make_user()
+    ok, _, config = create_public_config(u)
+    assert ok and len(config.token) == 12
+    assert config.show_prices is True and config.is_active is True
+    ok2, err2, _ = create_public_config(u)
+    assert not ok2 and err2['code'] == 'exists'               # parytet web 409
+    assert get_public_config(u.id).id == config.id
+
+
+def test_update_public_config(db, make_user):
+    from modules.client.collection_service import create_public_config, update_public_config
+    u, other = make_user(), make_user()
+    create_public_config(u)
+    ok, _, config = update_public_config(u.id, show_prices=False)
+    assert ok and config.show_prices is False and config.is_active is True   # tylko podane
+    ok2, _, config2 = update_public_config(u.id, is_active=False)
+    assert ok2 and config2.is_active is False and config2.show_prices is False
+    assert update_public_config(other.id)[1]['code'] == 'not_found'          # brak configu
+
+
+def test_toggle_item_public(db, make_user):
+    from modules.client.collection_service import toggle_item_public
+    u, other = make_user(), make_user()
+    item = _make_item(db, u)                                  # is_public default True
+    ok, _, it = toggle_item_public(u.id, item.id)
+    assert ok and it.is_public is False
+    ok2, _, it2 = toggle_item_public(u.id, item.id)
+    assert ok2 and it2.is_public is True
+    assert toggle_item_public(other.id, item.id)[1]['code'] == 'not_found'
+
+
+def test_web_public_create_and_config_parity(client, db, make_user, login):
+    u = make_user(profile_completed=True); login(u)
+    r = client.post('/client/collection/public/create')
+    assert r.status_code == 200 and r.get_json()['token']
+    assert client.post('/client/collection/public/create').status_code == 409  # duplikat
+    r2 = client.post('/client/collection/public/config', json={'show_prices': False})
+    assert r2.status_code == 200 and r2.get_json()['success'] is True
+
+
+def test_public_collection_page_no_auth(client, db, make_user):
+    """Publiczna strona działa BEZ logowania; pokazuje tylko is_public; szanuje is_active."""
+    from modules.client.collection_service import create_public_config, update_public_config
+    u = make_user()
+    _make_item(db, u, name='Widoczny')
+    _make_item(db, u, name='Ukryty', is_public=False)
+    _, _, config = create_public_config(u)
+    r = client.get(f'/collection/{config.token}')             # BEZ auth
+    assert r.status_code == 200
+    html = r.get_data(as_text=True)
+    assert 'Widoczny' in html and 'Ukryty' not in html
+    update_public_config(u.id, is_active=False)
+    r2 = client.get(f'/collection/{config.token}')
+    assert r2.status_code == 200 and 'Widoczny' not in r2.get_data(as_text=True)  # inactive
+    assert client.get('/collection/zlyTokenXYZ1').status_code == 404
