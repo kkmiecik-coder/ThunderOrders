@@ -27,3 +27,4 @@ from . import offers_routes  # noqa: E402,F401
 from . import orders_routes  # noqa: E402,F401
 from . import payments_routes  # noqa: E402,F401
 from . import shipping_routes  # noqa: E402,F401
+from . import collection_routes  # noqa: E402,F401
