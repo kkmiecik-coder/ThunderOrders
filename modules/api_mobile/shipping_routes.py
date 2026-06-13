@@ -8,6 +8,8 @@ from modules.auth.models import User
 from modules.client import shipping_service as svc
 from . import api_mobile_bp
 from .helpers import json_ok, json_err, to_grosze
+from .validators import parse_int
+from .idempotency import idempotent
 
 
 def _serialize_address(a):
@@ -125,3 +127,62 @@ def shipping_requests_list():
     reqs = ShippingRequest.query.filter_by(user_id=int(get_jwt_identity())).order_by(
         ShippingRequest.created_at.desc()).all()
     return json_ok({'requests': [_serialize_request(r) for r in reqs]})
+
+
+# ============================================================================
+# ZLECENIA WYSYŁKI — mutacje
+# ============================================================================
+
+_CREATE_REQUEST_ERR_STATUS = {
+    'no_orders': 400, 'no_address': 400,
+    'orders_not_found': 404, 'orders_not_available': 409, 'address_not_found': 404,
+}
+_CREATE_REQUEST_ERR_MSG = {
+    'no_orders': 'Wybierz przynajmniej jedno zamówienie.',
+    'no_address': 'Wybierz adres dostawy.',
+    'orders_not_found': 'Zamówienie nie istnieje.',
+    'orders_not_available': 'Niektóre zamówienia są niedostępne lub już mają zlecenie wysyłki.',
+    'address_not_found': 'Adres dostawy nie istnieje.',
+}
+_CREATE_REQUEST_ERR_DETAILS = {
+    'orders_not_found': 'missing_order_ids', 'orders_not_available': 'unavailable_order_ids',
+}
+
+
+@api_mobile_bp.route('/shipping/requests', methods=['POST'])
+@jwt_required()
+@limiter.limit("15 per minute")
+@idempotent('shipping_request_create')
+def shipping_request_create():
+    from flask import jsonify
+    p = request.get_json(silent=True) or {}
+    order_ids = p.get('order_ids') or []
+    if not isinstance(order_ids, list):
+        return json_err('invalid_input', 'Pole order_ids musi być listą.', 400)
+    try:
+        order_ids = [int(x) for x in order_ids]
+    except (TypeError, ValueError):
+        return json_err('invalid_input', 'Pole order_ids musi zawierać liczby.', 400)
+    address_id = parse_int(p.get('address_id'), 'address_id', required=False)
+    user = User.query.get(int(get_jwt_identity()))
+    ok, err, req = svc.validate_and_create_request(user, order_ids, address_id)
+    if not ok:
+        code = err['code']
+        payload = {'code': code, 'message': _CREATE_REQUEST_ERR_MSG[code]}
+        dkey = _CREATE_REQUEST_ERR_DETAILS.get(code)
+        if dkey and dkey in err:
+            payload['details'] = {dkey: err[dkey]}
+        return jsonify({'success': False, 'error': payload}), _CREATE_REQUEST_ERR_STATUS[code]
+    return json_ok({'request_id': req.id, 'request_number': req.request_number}, 201)
+
+
+@api_mobile_bp.route('/shipping/requests/<int:request_id>/cancel', methods=['POST'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def shipping_request_cancel(request_id):
+    ok, err = svc.cancel_request(int(get_jwt_identity()), request_id)
+    if not ok:
+        if err['code'] == 'not_found':
+            return json_err('request_not_found', 'Zlecenie nie istnieje.', 404)
+        return json_err('cannot_cancel', 'Nie można anulować zlecenia w tym statusie.', 409)
+    return json_ok({'cancelled': True})

@@ -137,3 +137,117 @@ def test_requests_only_own(client, db, make_user, make_order):
     validate_and_create_request(u2, [o2.id], create_address(u2, _home())[2].id)
     assert client.get('/api/mobile/v1/shipping/requests', headers=h
                       ).get_json()['data']['requests'] == []
+
+
+# ============================================================================
+# Task 5 — MUTACJE zleceń (POST /requests @idempotent, POST /requests/<id>/cancel)
+# ============================================================================
+
+def test_create_request_success(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom')
+    a = client.post('/api/mobile/v1/shipping/addresses', json=_home(), headers=h
+                    ).get_json()['data']['address']
+    r = client.post('/api/mobile/v1/shipping/requests',
+                    json={'order_ids': [o.id], 'address_id': a['id']}, headers=h)
+    assert r.status_code == 201
+    body = r.get_json()['data']
+    assert body['request_number'].startswith('WYS/') and 'request_id' in body
+    # po utworzeniu zamówienie znika z available
+    assert client.get('/api/mobile/v1/shipping/requests/available-orders', headers=h
+                      ).get_json()['data']['orders'] == []
+
+
+def test_create_request_empty_orders_400(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    r = client.post('/api/mobile/v1/shipping/requests',
+                    json={'order_ids': [], 'address_id': 1}, headers=h)
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'no_orders'
+
+
+def test_create_request_foreign_order_404(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    other = make_user()
+    _seed_status(db); _allow(db)
+    foreign = make_order(other, status='dostarczone_gom')
+    a = client.post('/api/mobile/v1/shipping/addresses', json=_home(), headers=h
+                    ).get_json()['data']['address']
+    r = client.post('/api/mobile/v1/shipping/requests',
+                    json={'order_ids': [foreign.id], 'address_id': a['id']}, headers=h)
+    assert r.status_code == 404 and r.get_json()['error']['code'] == 'orders_not_found'
+    assert foreign.id in r.get_json()['error']['details']['missing_order_ids']
+
+
+def test_create_request_wrong_status_409(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='nowe')
+    a = client.post('/api/mobile/v1/shipping/addresses', json=_home(), headers=h
+                    ).get_json()['data']['address']
+    r = client.post('/api/mobile/v1/shipping/requests',
+                    json={'order_ids': [o.id], 'address_id': a['id']}, headers=h)
+    assert r.status_code == 409 and r.get_json()['error']['code'] == 'orders_not_available'
+
+
+def test_create_request_bad_address_404(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom')
+    r = client.post('/api/mobile/v1/shipping/requests',
+                    json={'order_ids': [o.id], 'address_id': 99999}, headers=h)
+    assert r.status_code == 404 and r.get_json()['error']['code'] == 'address_not_found'
+
+
+def test_create_request_idempotency_key_replays(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom')
+    a = client.post('/api/mobile/v1/shipping/addresses', json=_home(), headers=h
+                    ).get_json()['data']['address']
+    hk = dict(h); hk['Idempotency-Key'] = 'e7-key-1'
+    body = {'order_ids': [o.id], 'address_id': a['id']}
+    r1 = client.post('/api/mobile/v1/shipping/requests', json=body, headers=hk)
+    r2 = client.post('/api/mobile/v1/shipping/requests', json=body, headers=hk)
+    assert r1.status_code == 201 and r2.status_code == 201
+    assert r1.get_json() == r2.get_json()                     # odtworzona odpowiedź, brak 2. zlecenia
+    from modules.orders.models import ShippingRequest
+    assert ShippingRequest.query.filter_by(user_id=u.id).count() == 1
+
+
+def test_cancel_request(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom')
+    a = client.post('/api/mobile/v1/shipping/addresses', json=_home(), headers=h
+                    ).get_json()['data']['address']
+    rid = client.post('/api/mobile/v1/shipping/requests',
+                      json={'order_ids': [o.id], 'address_id': a['id']}, headers=h
+                      ).get_json()['data']['request_id']
+    r = client.post(f'/api/mobile/v1/shipping/requests/{rid}/cancel', headers=h)
+    assert r.status_code == 200 and r.get_json()['data']['cancelled'] is True
+    # powtórny cancel → 404 (już usunięte)
+    assert client.post(f'/api/mobile/v1/shipping/requests/{rid}/cancel',
+                       headers=h).status_code == 404
+
+
+def test_cancel_request_foreign_404(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    h2, u2 = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o2 = make_order(u2, status='dostarczone_gom')
+    from modules.client.shipping_service import validate_and_create_request, create_address
+    _, _, req = validate_and_create_request(u2, [o2.id], create_address(u2, _home())[2].id)
+    r = client.post(f'/api/mobile/v1/shipping/requests/{req.id}/cancel', headers=h)
+    assert r.status_code == 404 and r.get_json()['error']['code'] == 'request_not_found'
+
+
+def test_cancel_blocked_after_quote_409(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom')
+    from modules.client.shipping_service import validate_and_create_request, create_address
+    _, _, req = validate_and_create_request(u, [o.id], create_address(u, _home())[2].id)
+    req.total_shipping_cost = Decimal('25.00'); db.session.commit()
+    r = client.post(f'/api/mobile/v1/shipping/requests/{req.id}/cancel', headers=h)
+    assert r.status_code == 409 and r.get_json()['error']['code'] == 'cannot_cancel'
