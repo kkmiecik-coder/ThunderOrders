@@ -162,3 +162,45 @@ def collection_item_delete(item_id):
     if not ok:
         return json_err('item_not_found', 'Przedmiot nie istnieje.', 404)
     return json_ok({'deleted': True})
+
+
+@api_mobile_bp.route('/collection/items/<int:item_id>/images', methods=['POST'])
+@jwt_required()
+@limiter.limit("15 per minute")           # heavy-write (upload); D4: bez @idempotent
+def collection_image_add(item_id):
+    file = request.files.get('image')
+    if file is None or file.filename == '':
+        return json_err('invalid_input', 'Nie przesłano pliku (pole image).', 400)
+    if _file_too_large(file):
+        return json_err('file_too_large', 'Maksymalny rozmiar zdjęcia to 10 MB.', 400)
+    user = User.query.get(int(get_jwt_identity()))
+    ok, err, image = svc.add_image(user, item_id, file)
+    if not ok:
+        if err['code'] == 'not_found':
+            return json_err('item_not_found', 'Przedmiot nie istnieje.', 404)
+        if err['code'] == 'max_images':                       # Korekta 6: 409 (web: 400)
+            return json_err('max_images', 'Maksymalnie 3 zdjęcia na przedmiot.', 409)
+        return json_err('invalid_file', err.get('message', 'Nieprawidłowy plik.'), 400)
+    return json_ok({'image': _serialize_image(image)}, 201)
+
+
+@api_mobile_bp.route('/collection/items/<int:item_id>/images/<int:image_id>',
+                     methods=['DELETE'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def collection_image_delete(item_id, image_id):
+    ok, err = svc.delete_image(int(get_jwt_identity()), item_id, image_id)
+    if not ok:
+        return json_err('image_not_found', 'Zdjęcie nie istnieje.', 404)
+    return json_ok({'deleted': True})
+
+
+@api_mobile_bp.route('/collection/items/<int:item_id>/images/<int:image_id>/primary',
+                     methods=['PATCH'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def collection_image_set_primary(item_id, image_id):
+    ok, err, image = svc.set_primary_image(int(get_jwt_identity()), item_id, image_id)
+    if not ok:
+        return json_err('image_not_found', 'Zdjęcie nie istnieje.', 404)
+    return json_ok({'image': _serialize_image(image)})

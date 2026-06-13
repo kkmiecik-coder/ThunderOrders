@@ -201,3 +201,105 @@ def test_delete_item(client, db, make_user):
     # powtórka / cudzy → 404
     assert client.delete(f'/api/mobile/v1/collection/items/{item.id}',
                          headers=h).status_code == 404
+
+
+# === Task 4: zdjęcia ===
+
+def _make_item_with_images(db, user, n=1):
+    from modules.client.collection_service import create_item, add_image
+    _, _, item = create_item(user, 'PC')
+    imgs = []
+    for i in range(n):
+        from werkzeug.datastructures import FileStorage
+        from PIL import Image
+        buf = io.BytesIO(); Image.new('RGB', (1, 1)).save(buf, 'PNG'); buf.seek(0)
+        _, _, img = add_image(user, item.id,
+                              FileStorage(stream=buf, filename=f'{i}.png'))
+        imgs.append(img)
+    return item, imgs
+
+
+def test_add_image_201_first_primary(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    item, _ = _make_item_with_images(db, u, n=0)
+    r = client.post(f'/api/mobile/v1/collection/items/{item.id}/images',
+                    data={'image': (_tiny_png(), 'a.png')},
+                    content_type='multipart/form-data', headers=h)
+    assert r.status_code == 201
+    img = r.get_json()['data']['image']
+    assert img['is_primary'] is True and img['url'].startswith('http')
+
+
+def test_add_image_max_3_409(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    item, _ = _make_item_with_images(db, u, n=3)
+    r = client.post(f'/api/mobile/v1/collection/items/{item.id}/images',
+                    data={'image': (_tiny_png(), 'd.png')},
+                    content_type='multipart/form-data', headers=h)
+    assert r.status_code == 409 and r.get_json()['error']['code'] == 'max_images'
+
+
+def test_add_image_no_file_400_and_foreign_404(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    other = make_user()
+    item, _ = _make_item_with_images(db, u, n=0)
+    r = client.post(f'/api/mobile/v1/collection/items/{item.id}/images',
+                    data={}, content_type='multipart/form-data', headers=h)
+    assert r.status_code == 400
+    foreign_item = _make_item(db, other)
+    r2 = client.post(f'/api/mobile/v1/collection/items/{foreign_item.id}/images',
+                     data={'image': (_tiny_png(), 'a.png')},
+                     content_type='multipart/form-data', headers=h)
+    assert r2.status_code == 404 and r2.get_json()['error']['code'] == 'item_not_found'
+
+
+def test_add_image_invalid_file_400(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    item, _ = _make_item_with_images(db, u, n=0)
+    r = client.post(f'/api/mobile/v1/collection/items/{item.id}/images',
+                    data={'image': (io.BytesIO(b'x'), 'x.txt')},
+                    content_type='multipart/form-data', headers=h)
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_file'
+
+
+def test_delete_image_reassigns_primary(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    item, imgs = _make_item_with_images(db, u, n=2)
+    r = client.delete(
+        f'/api/mobile/v1/collection/items/{item.id}/images/{imgs[0].id}', headers=h)
+    assert r.status_code == 200 and r.get_json()['data']['deleted'] is True
+    d = client.get(f'/api/mobile/v1/collection/items/{item.id}',
+                   headers=h).get_json()['data']
+    assert len(d['images']) == 1 and d['images'][0]['is_primary'] is True
+
+
+def test_delete_image_mismatch_404(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    item_a, imgs = _make_item_with_images(db, u, n=1)
+    item_b, _ = _make_item_with_images(db, u, n=0)
+    r = client.delete(
+        f'/api/mobile/v1/collection/items/{item_b.id}/images/{imgs[0].id}', headers=h)
+    assert r.status_code == 404 and r.get_json()['error']['code'] == 'image_not_found'
+
+
+def test_set_primary_image_patch(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    item, imgs = _make_item_with_images(db, u, n=2)
+    r = client.patch(
+        f'/api/mobile/v1/collection/items/{item.id}/images/{imgs[1].id}/primary',
+        headers=h)
+    assert r.status_code == 200 and r.get_json()['data']['image']['is_primary'] is True
+    d = client.get(f'/api/mobile/v1/collection/items/{item.id}',
+                   headers=h).get_json()['data']
+    flags = {i['id']: i['is_primary'] for i in d['images']}
+    assert flags[imgs[1].id] is True and flags[imgs[0].id] is False
+
+
+def test_set_primary_foreign_404(client, db, make_user):
+    h, _ = _auth(client, db, make_user)
+    h2, u2 = _auth(client, db, make_user)
+    item, imgs = _make_item_with_images(db, u2, n=1)
+    r = client.patch(
+        f'/api/mobile/v1/collection/items/{item.id}/images/{imgs[0].id}/primary',
+        headers=h)
+    assert r.status_code == 404
