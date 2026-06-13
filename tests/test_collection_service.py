@@ -171,3 +171,101 @@ def test_web_collection_foreign_403_parity(client, db, make_user, login):
     r = client.post(f'/client/collection/{item.id}/edit', data={'name': 'X'},
                     content_type='multipart/form-data')
     assert r.status_code == 403                               # web: 403 (mobile zamaskuje 404)
+
+
+# === Task 3: zdjęcia (serwis) ===
+
+def test_add_image_marks_first_primary_and_limits_to_3(db, make_user):
+    from modules.client.collection_service import create_item, add_image
+    u = make_user()
+    _, _, item = create_item(u, 'PC')
+    ok, _, img1 = add_image(u, item.id, _png_storage('1.png'))
+    assert ok and img1.is_primary is True and img1.sort_order == 0
+    add_image(u, item.id, _png_storage('2.png'))
+    ok3, _, img3 = add_image(u, item.id, _png_storage('3.png'))
+    assert ok3 and img3.is_primary is False and img3.sort_order == 2
+    ok4, err4, _ = add_image(u, item.id, _png_storage('4.png'))
+    assert not ok4 and err4['code'] == 'max_images'           # limit 3 (can_add_image)
+
+
+def test_add_image_validations(db, make_user):
+    from modules.client.collection_service import create_item, add_image
+    from werkzeug.datastructures import FileStorage
+    u, other = make_user(), make_user()
+    _, _, item = create_item(u, 'PC')
+    assert add_image(other, item.id, _png_storage())[1]['code'] == 'not_found'   # cudzy
+    assert add_image(u, item.id, None)[1]['code'] == 'no_file'
+    bad = FileStorage(stream=io.BytesIO(b'x'), filename='x.txt')
+    assert add_image(u, item.id, bad)[1]['code'] == 'invalid_file'
+
+
+def test_delete_image_reassigns_primary_and_removes_files(db, make_user, app):
+    from modules.client.collection_service import create_item, add_image, delete_image
+    u = make_user()
+    _, _, item = create_item(u, 'PC')
+    _, _, img1 = add_image(u, item.id, _png_storage('1.png'))     # primary
+    _, _, img2 = add_image(u, item.id, _png_storage('2.png'))
+    paths = (img1.path_original, img1.path_compressed)
+    ok, _ = delete_image(u.id, item.id, img1.id)
+    assert ok
+    db.session.refresh(img2)
+    assert img2.is_primary is True                            # reassignment
+    assert not os.path.exists(os.path.join(app.root_path, 'static', paths[0]))
+    assert not os.path.exists(os.path.join(app.root_path, 'static', paths[1]))
+
+
+def test_delete_image_mismatched_item_not_found(db, make_user):
+    from modules.client.collection_service import create_item, add_image, delete_image
+    u = make_user()
+    _, _, item_a = create_item(u, 'A')
+    _, _, item_b = create_item(u, 'B')
+    _, _, img = add_image(u, item_a.id, _png_storage())
+    ok, err = delete_image(u.id, item_b.id, img.id)           # zdjęcie z INNEGO itemu
+    assert not ok and err['code'] == 'not_found'
+
+
+def test_set_primary_image(db, make_user):
+    from modules.client.collection_service import create_item, add_image, set_primary_image
+    u, other = make_user(), make_user()
+    _, _, item = create_item(u, 'PC')
+    _, _, img1 = add_image(u, item.id, _png_storage('1.png'))
+    _, _, img2 = add_image(u, item.id, _png_storage('2.png'))
+    ok, _, img = set_primary_image(u.id, item.id, img2.id)
+    db.session.refresh(img1)
+    assert ok and img.is_primary is True and img1.is_primary is False
+    assert set_primary_image(other.id, item.id, img2.id)[1]['code'] == 'not_found'
+
+
+def _png_storage_raw():
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new('RGB', (1, 1), (0, 255, 0)).save(buf, 'PNG')
+    buf.seek(0)
+    return buf
+
+
+def test_web_image_add_delete_primary_parity(client, db, make_user, login):
+    from modules.client.collection_service import create_item, add_image
+    u = make_user(profile_completed=True); login(u)
+    _, _, item = create_item(u, 'PC')
+    r = client.post(f'/client/collection/{item.id}/images',
+                    data={'image': (_png_storage_raw(), 'a.png')},
+                    content_type='multipart/form-data')
+    assert r.status_code == 200 and r.get_json()['image']['is_primary'] is True
+    _, _, img2 = add_image(u, item.id, _png_storage('b.png'))
+    assert client.post(
+        f'/client/collection/{item.id}/images/{img2.id}/primary').status_code == 200
+    assert client.delete(
+        f'/client/collection/{item.id}/images/{img2.id}').status_code == 200
+
+
+def test_web_image_add_over_limit_parity(client, db, make_user, login):
+    from modules.client.collection_service import create_item, add_image
+    u = make_user(profile_completed=True); login(u)
+    _, _, item = create_item(u, 'PC')
+    for i in range(3):
+        add_image(u, item.id, _png_storage(f'{i}.png'))
+    r = client.post(f'/client/collection/{item.id}/images',
+                    data={'image': (_png_storage_raw(), 'x.png')},
+                    content_type='multipart/form-data')
+    assert r.status_code == 400 and 'Maksymalnie 3' in r.get_json()['message']  # web: 400

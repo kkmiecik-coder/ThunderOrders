@@ -110,3 +110,73 @@ def delete_item(user_id, item_id):
     db.session.delete(item)
     db.session.commit()
     return True, None
+
+
+def add_image(user, item_id, file):
+    """(ok, err, image). Limit 3 (can_add_image); pierwszy = primary; achievement.
+    Parytet web collection_add_image (l. 272-313)."""
+    from utils.image_processor import process_collection_upload
+    item = get_owned_item(user.id, item_id)
+    if item is None:
+        return False, {'code': 'not_found'}, None
+    if not item.can_add_image:
+        return False, {'code': 'max_images'}, None
+    if not file or not file.filename:
+        return False, {'code': 'no_file'}, None
+    try:
+        result = process_collection_upload(file, user.id)
+    except ValueError as e:
+        return False, {'code': 'invalid_file', 'message': str(e)}, None
+    image = CollectionItemImage(
+        collection_item_id=item.id, filename=result['filename'],
+        path_original=result['path_original'], path_compressed=result['path_compressed'],
+        is_primary=(item.images_count == 0), sort_order=item.images_count)
+    db.session.add(image)
+    db.session.commit()
+    try:                                                      # achievement (parytet l. 298-303)
+        from modules.achievements.services import AchievementService
+        AchievementService().check_event(user, 'photo_upload')
+    except Exception:
+        pass
+    return True, None, image
+
+
+def _get_owned_image(user_id, item_id, image_id):
+    """(item, image) — (None, None) gdy item cudzy/brak; (item, None) gdy zdjęcie nie
+    należy do itemu (web: 404 — parytet l. 331-337)."""
+    item = get_owned_item(user_id, item_id)
+    if item is None:
+        return None, None
+    image = CollectionItemImage.query.get(image_id)
+    if image is None or image.collection_item_id != item.id:
+        return item, None
+    return item, image
+
+
+def delete_image(user_id, item_id, image_id):
+    """(ok, err). Pliki + wiersz; primary przechodzi na pierwszy pozostały.
+    Parytet web collection_delete_image (l. 339-350) — verbatim, łącznie z flush."""
+    from utils.image_processor import delete_collection_image_files
+    item, image = _get_owned_image(user_id, item_id, image_id)
+    if item is None or image is None:
+        return False, {'code': 'not_found'}
+    was_primary = image.is_primary
+    delete_collection_image_files(image.path_original, image.path_compressed)
+    db.session.delete(image)
+    db.session.flush()
+    if was_primary and item.images:
+        item.images[0].is_primary = True
+    db.session.commit()
+    return True, None
+
+
+def set_primary_image(user_id, item_id, image_id):
+    """(ok, err, image). Unset wszystkich → set wskazanego. Parytet web l. 377-384."""
+    item, image = _get_owned_image(user_id, item_id, image_id)
+    if item is None or image is None:
+        return False, {'code': 'not_found'}, None
+    for img in item.images:
+        img.is_primary = False
+    image.is_primary = True
+    db.session.commit()
+    return True, None, image

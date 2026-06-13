@@ -212,41 +212,23 @@ def collection_delete(item_id):
 @login_required
 def collection_add_image(item_id):
     """Upload additional image to a collection item."""
-    from modules.client.models import CollectionItem, CollectionItemImage
-    from utils.image_processor import process_collection_upload
+    from modules.client.models import CollectionItem
 
     item = CollectionItem.query.get_or_404(item_id)
     if item.user_id != current_user.id:
         abort(403)
 
-    if not item.can_add_image:
-        return jsonify({'success': False, 'message': 'Maksymalnie 3 zdjęcia na przedmiot'}), 400
-
-    file = request.files.get('image')
-    if not file or not file.filename:
-        return jsonify({'success': False, 'message': 'Nie wybrano pliku'}), 400
-
     try:
-        result = process_collection_upload(file, current_user.id)
-        is_primary = item.images_count == 0
-
-        image = CollectionItemImage(
-            collection_item_id=item.id,
-            filename=result['filename'],
-            path_original=result['path_original'],
-            path_compressed=result['path_compressed'],
-            is_primary=is_primary,
-            sort_order=item.images_count
-        )
-        db.session.add(image)
-        db.session.commit()
-
-        # Achievement hook: photo uploaded
-        try:
-            from modules.achievements.services import AchievementService
-            AchievementService().check_event(current_user, 'photo_upload')
-        except Exception:
-            pass
+        ok, err, image = collection_service.add_image(
+            current_user, item_id, request.files.get('image'))
+        if not ok:
+            if err['code'] == 'max_images':
+                return jsonify({'success': False,
+                                'message': 'Maksymalnie 3 zdjęcia na przedmiot'}), 400
+            if err['code'] == 'no_file':
+                return jsonify({'success': False, 'message': 'Nie wybrano pliku'}), 400
+            # invalid_file → 400 (parytet: str(e) z ValueError process_collection_upload)
+            return jsonify({'success': False, 'message': err['message']}), 400
 
         return jsonify({
             'success': True,
@@ -258,9 +240,6 @@ def collection_add_image(item_id):
             }
         })
 
-    except ValueError as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': str(e)}), 400
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Collection image upload error: {e}')
@@ -272,7 +251,6 @@ def collection_add_image(item_id):
 def collection_delete_image(item_id, image_id):
     """Delete a single image from a collection item."""
     from modules.client.models import CollectionItem, CollectionItemImage
-    from utils.image_processor import delete_collection_image_files
 
     item = CollectionItem.query.get_or_404(item_id)
     if item.user_id != current_user.id:
@@ -283,17 +261,7 @@ def collection_delete_image(item_id, image_id):
         abort(404)
 
     try:
-        was_primary = image.is_primary
-        delete_collection_image_files(image.path_original, image.path_compressed)
-
-        db.session.delete(image)
-        db.session.flush()
-
-        # If deleted image was primary, set next one as primary
-        if was_primary and item.images:
-            item.images[0].is_primary = True
-
-        db.session.commit()
+        collection_service.delete_image(current_user.id, item_id, image_id)
 
         return jsonify({
             'success': True,
@@ -321,13 +289,7 @@ def collection_set_primary_image(item_id, image_id):
         abort(404)
 
     try:
-        # Unset all primary flags
-        for img in item.images:
-            img.is_primary = False
-
-        # Set new primary
-        image.is_primary = True
-        db.session.commit()
+        collection_service.set_primary_image(current_user.id, item_id, image_id)
 
         return jsonify({
             'success': True,
