@@ -3,7 +3,6 @@ Client Shipping Module - Routes
 Endpointy zarządzania adresami dostawy i zleceniami wysyłki
 """
 
-from datetime import datetime
 from flask import render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from extensions import db

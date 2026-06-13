@@ -282,7 +282,9 @@ POST   /requests/<id>/cancel                             → anuluj
 > (`ShippingRequestOrder`).
 >
 > **Zlecenia — POST /requests:** body `{order_ids: [int], address_id: int}`. Wspiera nagłówek
-> `Idempotency-Key` (opcjonalny, TTL 48h; retry tym samym kluczem zwraca zapisaną odpowiedź 201).
+> `Idempotency-Key` (opcjonalny, TTL 48h; retry tym samym kluczem zwraca zapisaną odpowiedź —
+> TAKŻE błędną 4xx! Klient: generuj świeży klucz per akcja użytkownika; przy „popraw i ponów"
+> NIE reużywaj klucza nieudanej próby).
 > Walidacja all-or-nothing: puste `order_ids` → `400 no_orders`; brak `address_id` → `400 no_address`;
 > id cudze/nieistniejące → `404 orders_not_found` + `details.missing_order_ids` (maskowanie);
 > id własne, ale zły status lub już w zleceniu → `409 orders_not_available` + `details.unavailable_order_ids`;
