@@ -412,10 +412,16 @@ class PushManager:
         except Exception:
             pass
 
+        # Kasujemy token TYLKO przy jednoznacznym sygnale „token martwy" (UNREGISTERED/NOT_FOUND).
+        # NIE kasujemy na generyczne 400 INVALID_ARGUMENT — FCM zwraca je też dla źle zbudowanego
+        # PAYLOADU, więc regresja schematu wybiłaby tokeny WSZYSTKICH userów (apka i tak
+        # re-rejestruje token przy starcie, więc martwy token jest nieszkodliwy).
         if status == 404 or 'UNREGISTERED' in err_code or err_code == 'NOT_FOUND':
             return 'delete'
-        if status == 400 and ('INVALID_ARGUMENT' in err_code or 'UNREGISTERED' in err_code):
-            return 'delete'
+        if status == 400:
+            current_app.logger.warning(
+                f'FCM 400 (code={err_code}) — możliwy zły payload; NIE usuwam tokenów')
+            return 'keep'
         if status in (401, 403):
             current_app.logger.warning(
                 f'FCM auth/config error (status={status}); nie usuwam tokenów')

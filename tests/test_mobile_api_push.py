@@ -352,3 +352,23 @@ def test_web_push_unchanged_without_devices(app, db, make_user, monkeypatch):
 
     assert raw.call_count == 0
     assert result is False
+
+
+def test_fcm_generic_400_invalid_argument_keeps_token(app, db, make_user, monkeypatch):
+    """400 INVALID_ARGUMENT bez wskazania pola token = możliwy zły PAYLOAD —
+    NIE kasujemy tokenu (inaczej regresja payloadu wybiłaby tokeny WSZYSTKICH userów)."""
+    from utils.push_manager import PushManager
+    from modules.api_mobile.models import MobileDevice
+    _enable_fcm(app)
+    u = make_user()
+    _register_device(db, u.id, 'keepme')
+    monkeypatch.setattr(PushManager, '_get_fcm_access_token',
+                        staticmethod(lambda: 'tok'))
+    resp = _FakeFcmResp(400, {'error': {'status': 'INVALID_ARGUMENT',
+                                        'message': 'Invalid value at message.data'}})
+    monkeypatch.setattr(PushManager, '_send_fcm_raw',
+                        staticmethod(MagicMock(return_value=resp)))
+
+    PushManager.send_to_user(u.id, 'T', 'B', notification_type='order_status_changes')
+
+    assert MobileDevice.query.filter_by(fcm_token='keepme').first() is not None  # NIE skasowany
