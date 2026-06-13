@@ -114,3 +114,143 @@ def test_web_address_set_default_and_delete_parity(client, db, make_user, login)
                        headers={'X-Requested-With': 'XMLHttpRequest'}).status_code == 200
     assert client.post(f'/client/shipping/addresses/{a.id}/delete',
                        headers={'X-Requested-With': 'XMLHttpRequest'}).status_code == 200
+
+
+# ============================================================================
+# Task 3 — serwis ZLECEŃ wysyłki (available-orders / create / cancel)
+# ============================================================================
+
+def _seed_status(db, slug='czeka_na_wycene', is_initial=True):
+    from modules.orders.models import ShippingRequestStatus
+    s = ShippingRequestStatus(slug=slug, name='Czeka na wycenę', is_active=True,
+                              is_initial=is_initial, sort_order=0)
+    db.session.add(s); db.session.commit()
+    return s
+
+
+def _allow(db, statuses=('dostarczone_gom',)):
+    from modules.auth.models import Settings
+    import json as _j
+    Settings.set_value('shipping_request_allowed_statuses', _j.dumps(list(statuses)), type='json')
+
+
+def test_get_available_orders_filters(db, make_user, make_order):
+    from modules.client.shipping_service import get_available_orders, validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    ok = make_order(u, status='dostarczone_gom')
+    make_order(u, status='nowe')                               # zły status → poza
+    out = get_available_orders(u.id)
+    assert [o.id for o in out] == [ok.id]
+    # po wpięciu w zlecenie znika z available
+    validate_and_create_request(u, [ok.id], _addr(db, u).id)
+    assert get_available_orders(u.id) == []
+
+
+def _addr(db, user):
+    from modules.client.shipping_service import create_address
+    return create_address(user, {'address_type': 'home', 'shipping_name': 'J',
+                                  'shipping_address': 'A 1', 'shipping_postal_code': '00-001',
+                                  'shipping_city': 'W'})[2]
+
+
+def test_create_request_snapshots_and_delivery_method(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom')
+    a = _addr(db, u)
+    ok, err, req = validate_and_create_request(u, [o.id], a.id)
+    assert ok and req.request_number.startswith('WYS/')
+    assert req.shipping_city == 'W' and req.address_type == 'home'   # snapshot
+    db.session.refresh(o)
+    assert o.delivery_method == 'kurier'                              # home → kurier
+
+
+def test_create_request_foreign_order_404(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u, other = make_user(), make_user()
+    foreign = make_order(other, status='dostarczone_gom')
+    ok, err, _ = validate_and_create_request(u, [foreign.id], _addr(db, u).id)
+    assert not ok and err['code'] == 'orders_not_found' and foreign.id in err['missing_order_ids']
+
+
+def test_create_request_wrong_status_409(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='nowe')                          # mój, ale zły status
+    ok, err, _ = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert not ok and err['code'] == 'orders_not_available' and o.id in err['unavailable_order_ids']
+
+
+def test_create_request_bad_address_404(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom')
+    ok, err, _ = validate_and_create_request(u, [o.id], 99999)
+    assert not ok and err['code'] == 'address_not_found'
+
+
+def test_create_request_empty_inputs(db, make_user):
+    from modules.client.shipping_service import validate_and_create_request
+    u = make_user()
+    assert validate_and_create_request(u, [], 1)[1]['code'] == 'no_orders'
+    assert validate_and_create_request(u, [5], None)[1]['code'] == 'no_address'
+
+
+def test_cancel_request_initial_only(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request, cancel_request
+    from modules.orders.models import ShippingRequest
+    _seed_status(db); _allow(db)
+    u, other = make_user(), make_user()
+    o = make_order(u, status='dostarczone_gom')
+    _, _, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert cancel_request(other.id, req.id)[1]['code'] == 'not_found'      # cudzy
+    ok, _ = cancel_request(u.id, req.id)
+    assert ok and ShippingRequest.query.get(req.id) is None               # usunięte
+    # zamówienie wraca do available
+    from modules.client.shipping_service import get_available_orders
+    assert [x.id for x in get_available_orders(u.id)] == [o.id]
+
+
+def test_cancel_request_blocked_after_quote(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request, cancel_request
+    from decimal import Decimal
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom')
+    _, _, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    req.total_shipping_cost = Decimal('25.00'); db.session.commit()       # admin wycenił
+    ok, err = cancel_request(u.id, req.id)
+    assert not ok and err['code'] == 'cannot_cancel'
+
+
+def test_web_request_create_and_cancel_parity(client, db, make_user, make_order, login):
+    from modules.client.shipping_service import create_address
+    _seed_status(db); _allow(db)
+    u = make_user(profile_completed=True); login(u)
+    o = make_order(u, status='dostarczone_gom')
+    a = create_address(u, {'address_type': 'home', 'shipping_name': 'J', 'shipping_address': 'A 1',
+                           'shipping_postal_code': '00-001', 'shipping_city': 'W'})[2]
+    r = client.post('/client/shipping/requests/create',
+                    json={'order_ids': [o.id], 'address_id': a.id},
+                    headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    assert r.get_json()['request_number'].startswith('WYS/')
+
+
+def test_web_request_create_foreign_rejected_parity(client, db, make_user, make_order, login):
+    from modules.client.shipping_service import create_address
+    _seed_status(db); _allow(db)
+    u, other = make_user(profile_completed=True), make_user()
+    login(u)
+    foreign = make_order(other, status='dostarczone_gom')
+    a = create_address(u, {'address_type': 'home', 'shipping_name': 'J', 'shipping_address': 'A 1',
+                           'shipping_postal_code': '00-001', 'shipping_city': 'W'})[2]
+    r = client.post('/client/shipping/requests/create',
+                    json={'order_ids': [foreign.id], 'address_id': a.id},
+                    headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert r.status_code == 400 and r.get_json()['success'] is False     # web: zbiorczy komunikat

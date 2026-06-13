@@ -3,21 +3,17 @@ Client Shipping Module - Routes
 Endpointy zarządzania adresami dostawy i zleceniami wysyłki
 """
 
-import json
 from datetime import datetime
 from flask import render_template, request, jsonify, current_app
 from flask_login import login_required, current_user
 from extensions import db
 from modules.client import client_bp
-from modules.auth.models import ShippingAddress, Settings
-from sqlalchemy import and_, not_, exists
-from modules.orders.models import (
-    Order, ShippingRequest, ShippingRequestOrder, ShippingRequestStatus
-)
-from utils.activity_logger import log_activity
+from modules.auth.models import ShippingAddress
+from modules.orders.models import ShippingRequest
 from modules.client.shipping_service import (
     validate_address_payload, create_address,
     set_default_address, soft_delete_address, list_active_addresses,
+    get_available_orders, validate_and_create_request, cancel_request,
 )
 
 
@@ -189,34 +185,8 @@ def shipping_requests_available_orders():
     Zwraca listę zamówień dostępnych do zlecenia wysyłki (JSON)
     """
     try:
-        # Get allowed order statuses from settings
-        setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
-        allowed_statuses = []
-        if setting and setting.value:
-            try:
-                allowed_statuses = json.loads(setting.value)
-            except (json.JSONDecodeError, TypeError):
-                allowed_statuses = ['dostarczone_gom']  # Default fallback
-        else:
-            allowed_statuses = ['dostarczone_gom']
-
-        # Get orders that:
-        # 1. Belong to current user
-        # 2. Have allowed status
-        # 3. Are not already in a shipping request
-
-        # Subquery to check if order is in any shipping request
-        in_shipping_request = db.session.query(ShippingRequestOrder.order_id).filter(
-            ShippingRequestOrder.order_id == Order.id
-        ).exists()
-
-        orders = Order.query.filter(
-            and_(
-                Order.user_id == current_user.id,
-                Order.status.in_(allowed_statuses),
-                ~in_shipping_request
-            )
-        ).order_by(Order.created_at.desc()).all()
+        # Zamówienia dostępne do zlecenia — logika w serwisie (parytet zachowany)
+        orders = get_available_orders(current_user.id)
 
         # Format orders for JSON response
         orders_data = []
@@ -261,147 +231,22 @@ def shipping_requests_create():
         order_ids = data.get('order_ids', [])
         address_id = data.get('address_id')
 
-        # Validation
-        if not order_ids:
-            return jsonify({'success': False, 'error': 'Wybierz przynajmniej jedno zamówienie'}), 400
-        if not address_id:
-            return jsonify({'success': False, 'error': 'Wybierz adres dostawy'}), 400
-
-        # Get allowed order statuses
-        setting = Settings.query.filter_by(key='shipping_request_allowed_statuses').first()
-        allowed_statuses = []
-        if setting and setting.value:
-            try:
-                allowed_statuses = json.loads(setting.value)
-            except (json.JSONDecodeError, TypeError):
-                allowed_statuses = ['dostarczone_gom']
-        else:
-            allowed_statuses = ['dostarczone_gom']
-
-        # Verify orders belong to user and have allowed status
-
-        # Subquery to check if order is in any shipping request
-        in_shipping_request = db.session.query(ShippingRequestOrder.order_id).filter(
-            ShippingRequestOrder.order_id == Order.id
-        ).exists()
-
-        orders = Order.query.filter(
-            and_(
-                Order.id.in_(order_ids),
-                Order.user_id == current_user.id,
-                Order.status.in_(allowed_statuses),
-                ~in_shipping_request
-            )
-        ).all()
-
-        if len(orders) != len(order_ids):
+        # Walidacja + tworzenie (snapshot, status początkowy, delivery_method, log, notify) w serwisie.
+        # Kody błędów mapowane na DOTYCHCZASOWE komunikaty/statusy weba (parytet — bez zmiany zachowania).
+        ok, err, shipping_request = validate_and_create_request(current_user, order_ids, address_id)
+        if not ok:
+            code = err['code']
+            if code == 'no_orders':
+                return jsonify({'success': False, 'error': 'Wybierz przynajmniej jedno zamówienie'}), 400
+            if code == 'no_address':
+                return jsonify({'success': False, 'error': 'Wybierz adres dostawy'}), 400
+            if code == 'address_not_found':
+                return jsonify({'success': False, 'error': 'Nieprawidłowy adres dostawy'}), 400
+            # orders_not_found / orders_not_available → sklejony komunikat (parytet web)
             return jsonify({
                 'success': False,
                 'error': 'Niektóre zamówienia są niedostępne lub już mają zlecenie wysyłki'
             }), 400
-
-        # Verify address belongs to user
-        address = ShippingAddress.query.filter_by(
-            id=address_id,
-            user_id=current_user.id,
-            is_active=True
-        ).first()
-
-        if not address:
-            return jsonify({'success': False, 'error': 'Nieprawidłowy adres dostawy'}), 400
-
-        # Get initial status from settings or fallback
-        default_status_setting = Settings.query.filter_by(key='shipping_request_default_status').first()
-
-        if default_status_setting and default_status_setting.value:
-            # Use setting value
-            initial_status = ShippingRequestStatus.query.filter_by(
-                slug=default_status_setting.value,
-                is_active=True
-            ).first()
-        else:
-            initial_status = None
-
-        # Fallback to is_initial=True or first active status
-        if not initial_status:
-            initial_status = ShippingRequestStatus.query.filter_by(is_initial=True, is_active=True).first()
-        if not initial_status:
-            initial_status = ShippingRequestStatus.query.filter_by(is_active=True).order_by(ShippingRequestStatus.sort_order).first()
-
-        status_slug = initial_status.slug if initial_status else 'nowe'
-
-        # Create shipping request
-        shipping_request = ShippingRequest(
-            request_number=ShippingRequest.generate_request_number(),
-            user_id=current_user.id,
-            status=status_slug,
-            address_type=address.address_type,
-            # Copy address fields
-            shipping_name=address.shipping_name,
-            shipping_address=address.shipping_address,
-            shipping_postal_code=address.shipping_postal_code,
-            shipping_city=address.shipping_city,
-            shipping_voivodeship=address.shipping_voivodeship,
-            shipping_country=address.shipping_country,
-            pickup_courier=address.pickup_courier,
-            pickup_point_id=address.pickup_point_id,
-            pickup_address=address.pickup_address,
-            pickup_postal_code=address.pickup_postal_code,
-            pickup_city=address.pickup_city
-        )
-
-        db.session.add(shipping_request)
-        db.session.flush()  # Get ID
-
-        # Determine delivery_method based on address type
-        delivery_method = None
-        if address.address_type == 'home':
-            delivery_method = 'kurier'
-        elif address.address_type == 'pickup_point' and address.pickup_courier:
-            courier_lower = address.pickup_courier.lower()
-            if 'inpost' in courier_lower or 'paczkomat' in courier_lower:
-                delivery_method = 'paczkomat'
-            elif 'orlen' in courier_lower:
-                delivery_method = 'orlen_paczka'
-            elif 'dpd' in courier_lower:
-                delivery_method = 'dpd_pickup'
-
-        # Add orders to shipping request and update delivery_method
-        for order in orders:
-            request_order = ShippingRequestOrder(
-                shipping_request_id=shipping_request.id,
-                order_id=order.id
-            )
-            db.session.add(request_order)
-
-            # Update delivery_method if not already set
-            if delivery_method and not order.delivery_method:
-                order.delivery_method = delivery_method
-
-        db.session.commit()
-
-        # Activity log per order
-        for order in orders:
-            log_activity(
-                user=current_user,
-                action='shipping_requested',
-                entity_type='order',
-                entity_id=order.id,
-                new_value={
-                    'request_number': shipping_request.request_number,
-                    'order_number': order.order_number,
-                    'address_type': address.address_type,
-                }
-            )
-
-        # Wyślij email potwierdzający zlecenie wysyłki + push do adminów
-        try:
-            from utils.email_manager import EmailManager
-            from utils.push_manager import PushManager
-            EmailManager.notify_shipping_request_created(shipping_request, current_user)
-            PushManager.notify_admin_shipping_request(shipping_request)
-        except Exception as e:
-            current_app.logger.error(f'Failed to send shipping request notifications: {e}')
 
         return jsonify({
             'success': True,
@@ -422,23 +267,14 @@ def shipping_requests_cancel(request_id):
     Anuluje (usuwa) zlecenie wysyłki - tylko jeśli w początkowym statusie
     """
     try:
-        shipping_request = ShippingRequest.query.filter_by(
-            id=request_id,
-            user_id=current_user.id
-        ).first()
-
-        if not shipping_request:
-            return jsonify({'success': False, 'error': 'Zlecenie nie istnieje'}), 404
-
-        if not shipping_request.can_cancel:
+        ok, err = cancel_request(current_user.id, request_id)
+        if not ok:
+            if err['code'] == 'not_found':
+                return jsonify({'success': False, 'error': 'Zlecenie nie istnieje'}), 404
             return jsonify({
                 'success': False,
                 'error': 'Nie można anulować zlecenia w tym statusie'
             }), 400
-
-        # Delete shipping request (cascade will delete ShippingRequestOrder records)
-        db.session.delete(shipping_request)
-        db.session.commit()
 
         return jsonify({
             'success': True,
