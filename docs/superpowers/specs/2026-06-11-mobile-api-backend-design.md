@@ -264,6 +264,36 @@ POST   /requests         { order_ids, address_id, ... }  → utwórz zlecenie
 POST   /requests/<id>/cancel                             → anuluj
 ```
 
+> **Korekty kontraktu (E7):** Realne trasy mają prefiks `/shipping/` (parytet web `/client/shipping/...`
+> i E2 `/shop/checkout/...`): `GET /api/mobile/v1/shipping/addresses`, `POST /api/mobile/v1/shipping/requests` itd.
+> Kwoty (`total_amount`, `price`, `total_shipping_cost`) w groszach (int); daty ISO 8601; `image_url` absolutny URL.
+>
+> **Adresy:** `POST /addresses` — walidacja per typ: `home` wymaga `shipping_name`, `shipping_address`,
+> `shipping_postal_code`, `shipping_city`; `pickup_point` wymaga `pickup_courier`, `pickup_point_id`,
+> `pickup_address`, `pickup_postal_code`, `pickup_city`; `name`/`is_default` opcjonalne. Błędy:
+> `400 invalid_input` z `details.allowed` przy złym typie; `details.field` przy braku pola. Odpowiedź 201 z
+> utworzonym adresem. `PATCH /addresses/<id>/default` — cudzy/nieistniejący/usunięty → `404 address_not_found`
+> (maskowanie); zwraca zaktualizowany adres. `DELETE /addresses/<id>` — soft-delete (`is_active=False`), zawsze
+> dozwolony (istniejące zlecenia trzymają snapshot 11 pól adresu, nie FK — usunięcie adresu ich nie niszczy);
+> `is_default` NIE jest reassignowany po usunięciu domyślnego (parytet web); cudzy/nieaktywny → `404 address_not_found`.
+>
+> **Zlecenia — GET /requests/available-orders:** zamówienia usera w statusach z ustawień (`Settings`
+> `shipping_request_allowed_statuses`, fallback `['dostarczone_gom']`) i bez aktywnego zlecenia
+> (`ShippingRequestOrder`).
+>
+> **Zlecenia — POST /requests:** body `{order_ids: [int], address_id: int}`. Wspiera nagłówek
+> `Idempotency-Key` (opcjonalny, TTL 48h; retry tym samym kluczem zwraca zapisaną odpowiedź 201).
+> Walidacja all-or-nothing: puste `order_ids` → `400 no_orders`; brak `address_id` → `400 no_address`;
+> id cudze/nieistniejące → `404 orders_not_found` + `details.missing_order_ids` (maskowanie);
+> id własne, ale zły status lub już w zleceniu → `409 orders_not_available` + `details.unavailable_order_ids`;
+> adres cudzy/nieaktywny → `404 address_not_found` (maskowanie). Sukces → `201 {request_id, request_number}`.
+>
+> **Zlecenia — POST /requests/<id>/cancel:** cudzy/nieistniejący → `404 request_not_found`; nie można
+> anulować (status nie jest początkowym lub jest wycena/tracking) → `409 cannot_cancel` (parytet
+> `ShippingRequest.can_cancel`: `status_rel.is_initial AND total_shipping_cost IS NULL AND NOT tracking_number`).
+> Anulowanie usuwa zlecenie fizycznie (cascade `ShippingRequestOrder`) — zamówienia wracają do available.
+> Sukces → `200 {cancelled: true}`.
+
 ### Kolekcja — `/collection/` (bez QR)
 ```
 GET    /items            ?q=&sort=&page=&per_page=        → moja kolekcja
@@ -368,7 +398,7 @@ Każdy etap kończy się czymś testowalnym (pytest) i dostanie **własny plan i
 - **E4 — Pre-order:** validate-cart, place-order-preorder. → wszystkie trzy flow działają.
 - **E5 — Zamówienia + dashboard:** orders, orders/<id> (E1–E4), dashboard.
 - **E6 — Płatności:** payment-methods, lista, upload (multipart).
-- **E7 — Wysyłka:** adresy (CRUD) + zlecenia.
+- **E7 — Wysyłka:** adresy (CRUD) + zlecenia. ✅
 - **E8 — Kolekcja:** items CRUD + zdjęcia + publiczna strona (bez QR).
 - **E9 — Socket.IO dla apki:** auth WS przez JWT, CORS, weryfikacja eventów.
 - **E10 — Push (FCM):** migracja device, rejestracja tokenów, kanał FCM w PushManagerze.
