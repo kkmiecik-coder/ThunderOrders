@@ -127,3 +127,42 @@ def test_register_token_too_long(client, db, make_user):
                     json={'fcm_token': 'x' * 513, 'platform': 'android'}, headers=h)
     assert r.status_code == 400
     assert r.get_json()['error']['code'] == 'invalid_input'
+
+
+# === Task 3: DELETE /push/devices/<token> (wyrejestrowanie) ===
+
+def test_delete_device_requires_jwt(client, db):
+    assert client.delete('/api/mobile/v1/push/devices/t1').status_code == 401
+
+
+def test_delete_own_token(client, db, make_user):
+    from modules.api_mobile.models import MobileDevice
+    h, u = _auth(client, db, make_user)
+    assert client.post('/api/mobile/v1/push/devices',
+                       json={'fcm_token': 't1', 'platform': 'android'},
+                       headers=h).status_code == 201
+    r = client.delete('/api/mobile/v1/push/devices/t1', headers=h)
+    assert r.status_code == 200
+    assert MobileDevice.query.filter_by(fcm_token='t1').first() is None
+
+
+def test_delete_foreign_token_404_masking(client, db, make_user):
+    from modules.api_mobile.models import MobileDevice
+    h_a, ua = _auth(client, db, make_user)
+    h_b, ub = _auth(client, db, make_user)
+    assert client.post('/api/mobile/v1/push/devices',
+                       json={'fcm_token': 't1', 'platform': 'android'},
+                       headers=h_a).status_code == 201
+    # User B próbuje usunąć token usera A → 404 maskujące, wiersz A nietknięty.
+    r = client.delete('/api/mobile/v1/push/devices/t1', headers=h_b)
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'not_found'
+    dev = MobileDevice.query.filter_by(fcm_token='t1').first()
+    assert dev is not None and dev.user_id == ua.id
+
+
+def test_delete_unknown_token_404(client, db, make_user):
+    h, u = _auth(client, db, make_user)
+    r = client.delete('/api/mobile/v1/push/devices/nieistnieje', headers=h)
+    assert r.status_code == 404
+    assert r.get_json()['error']['code'] == 'not_found'

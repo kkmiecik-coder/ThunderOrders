@@ -52,3 +52,17 @@ def register_device():
         dev.last_used_at = get_local_now()
         db.session.commit()
     return json_ok({'id': dev.id, 'platform': dev.platform}, 201)
+
+
+@api_mobile_bp.route('/push/devices/<path:token>', methods=['DELETE'])
+@jwt_required()
+def unregister_device(token):
+    """Wyrejestrowanie tokenu FCM (przy logout). Filtr po token AND user_id z JWT;
+    brak dopasowania (nie istnieje LUB cudzy) → 404 maskujące (parytet ownership E5–E8)."""
+    uid = int(get_jwt_identity())
+    dev = MobileDevice.query.filter_by(fcm_token=token, user_id=uid).first()
+    if dev is None:
+        return json_err('not_found', 'Nie znaleziono urządzenia.', 404)  # maskuje też cudzy token
+    db.session.delete(dev)
+    db.session.commit()
+    return json_ok({'message': 'Wyrejestrowano urządzenie.'})
