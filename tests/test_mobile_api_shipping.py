@@ -76,3 +76,64 @@ def test_delete_soft(client, db, make_user):
                       ).get_json()['data']['addresses'] == []
     # powtórny delete → 404
     assert client.delete(f'/api/mobile/v1/shipping/addresses/{a["id"]}', headers=h).status_code == 404
+
+
+# ============================================================================
+# Task 4 — ODCZYT zleceń (GET /requests, GET /requests/available-orders)
+# ============================================================================
+
+def _seed_status(db, slug='czeka_na_wycene', is_initial=True):
+    from modules.orders.models import ShippingRequestStatus
+    s = ShippingRequestStatus(slug=slug, name='Czeka na wycenę', is_active=True,
+                              is_initial=is_initial, sort_order=0, badge_color='#6B7280')
+    db.session.add(s); db.session.commit(); return s
+
+
+def _allow(db, statuses=('dostarczone_gom',)):
+    from modules.auth.models import Settings
+    Settings.set_value('shipping_request_allowed_statuses', json.dumps(list(statuses)), type='json')
+
+
+def test_available_orders_shape_and_grosze(client, db, make_user, make_order, make_product):
+    from modules.orders.models import OrderItem
+    h, u = _auth(client, db, make_user)
+    _allow(db)
+    o = make_order(u, status='dostarczone_gom', total_amount=Decimal('120.00'))
+    p = make_product(sale_price=Decimal('60.00'))
+    db.session.add(OrderItem(order_id=o.id, product_id=p.id, quantity=2,
+                             price=Decimal('60.00'), total=Decimal('120.00')))
+    db.session.commit()
+    r = client.get('/api/mobile/v1/shipping/requests/available-orders', headers=h)
+    assert r.status_code == 200
+    orders = r.get_json()['data']['orders']
+    assert orders[0]['total_amount'] == 12000                 # grosze
+    assert orders[0]['items'][0]['price'] == 6000
+
+
+def test_requests_list_shape(client, db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request, create_address
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom')
+    a = create_address(u, _home())[2]
+    validate_and_create_request(u, [o.id], a.id)
+    r = client.get('/api/mobile/v1/shipping/requests', headers=h)
+    assert r.status_code == 200
+    req = r.get_json()['data']['requests'][0]
+    assert req['request_number'].startswith('WYS/')
+    assert req['can_cancel'] is True and req['orders'][0]['id'] == o.id
+    assert set(req) >= {'id', 'request_number', 'status', 'status_display_name',
+                        'status_badge_color', 'address_type', 'short_address', 'full_address',
+                        'total_shipping_cost', 'tracking_number', 'tracking_url', 'can_cancel',
+                        'orders_count', 'orders', 'created_at'}
+
+
+def test_requests_only_own(client, db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request, create_address
+    h, u = _auth(client, db, make_user)
+    h2, u2 = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o2 = make_order(u2, status='dostarczone_gom')
+    validate_and_create_request(u2, [o2.id], create_address(u2, _home())[2].id)
+    assert client.get('/api/mobile/v1/shipping/requests', headers=h
+                      ).get_json()['data']['requests'] == []
