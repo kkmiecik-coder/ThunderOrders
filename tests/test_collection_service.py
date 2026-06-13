@@ -330,3 +330,25 @@ def test_public_collection_page_no_auth(client, db, make_user):
     r2 = client.get(f'/collection/{config.token}')
     assert r2.status_code == 200 and 'Widoczny' not in r2.get_data(as_text=True)  # inactive
     assert client.get('/collection/zlyTokenXYZ1').status_code == 404
+
+
+def test_create_item_partial_multifile_error_cleans_orphans(db, make_user, app):
+    """Dobry plik + zły w jednym uploadzie: rollback DB ORAZ brak osieroconych plików na dysku."""
+    import io, os
+    from werkzeug.datastructures import FileStorage
+    from modules.client.collection_service import create_item
+    from modules.client.models import CollectionItem, CollectionItemImage
+    u = make_user()
+    base = os.path.join(app.root_path, 'static', 'uploads', 'collections', str(u.id))
+    before = set()
+    for root, _dirs, fnames in os.walk(base):
+        before |= {os.path.join(root, f) for f in fnames}
+    bad = FileStorage(stream=io.BytesIO(b'not an image'), filename='evil.txt')
+    ok, err, _ = create_item(u, 'PC', files=[_png_storage('good.png'), bad])
+    assert not ok and err['code'] == 'invalid_file'
+    assert CollectionItem.query.filter_by(user_id=u.id).count() == 0
+    assert CollectionItemImage.query.count() == 0
+    after = set()
+    for root, _dirs, fnames in os.walk(base):
+        after |= {os.path.join(root, f) for f in fnames}
+    assert after == before, f'osierocone pliki: {after - before}'

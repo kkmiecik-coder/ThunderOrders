@@ -45,15 +45,17 @@ def create_item(user, name, market_price=None, notes=None, files=None, temp_uplo
     """(ok, err, item). Item + max 3 zdjęć z `files` (FileStorage; pierwszy = primary)
     + opcjonalne rekordy QR temp_uploads (web). All-or-nothing przy błędzie pliku.
     Parytet web collection_add (l. 97-153)."""
-    from utils.image_processor import process_collection_upload
+    from utils.image_processor import process_collection_upload, delete_collection_image_files
     item = CollectionItem(user_id=user.id, name=name, market_price=market_price,
                           notes=notes or None, source='manual')
     db.session.add(item)
     db.session.flush()                                        # item.id
+    saved_paths = []                                          # pliki zapisane w tej próbie
     try:
         for i, file in enumerate((files or [])[:MAX_IMAGES_PER_ITEM]):
             if file and file.filename:
                 result = process_collection_upload(file, user.id)
+                saved_paths.append((result['path_original'], result['path_compressed']))
                 db.session.add(CollectionItemImage(
                     collection_item_id=item.id, filename=result['filename'],
                     path_original=result['path_original'],
@@ -71,6 +73,9 @@ def create_item(user, name, market_price=None, notes=None, files=None, temp_uplo
         db.session.commit()
     except ValueError as e:
         db.session.rollback()
+        # rollback cofa wiersze DB, ale pliki z udanych iteracji są już na dysku — sprzątamy
+        for orig, compr in saved_paths:
+            delete_collection_image_files(orig, compr)
         return False, {'code': 'invalid_file', 'message': str(e)}, None
     try:                                                      # achievement (parytet l. 149-153)
         from modules.achievements.services import AchievementService
