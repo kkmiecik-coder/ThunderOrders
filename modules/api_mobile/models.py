@@ -51,3 +51,17 @@ class MobileIdempotencyKey(db.Model):
         from datetime import timedelta
         cutoff = get_local_now() - timedelta(hours=ttl_hours)
         cls.query.filter(cls.created_at < cutoff).delete(synchronize_session=False)
+
+
+class MobileDevice(db.Model):
+    """Token FCM urządzenia mobilnego (push). fcm_token globalnie unikalny — należy
+    do dokładnie jednego, aktualnie zalogowanego usera (upsert/przepięcie przy POST)."""
+    __tablename__ = 'mobile_device'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'),
+                        nullable=False, index=True)
+    fcm_token = db.Column(db.String(512), nullable=False, unique=True)
+    platform = db.Column(db.String(16), nullable=False)   # android | ios | web
+    last_used_at = db.Column(db.DateTime, default=get_local_now)
+    created_at = db.Column(db.DateTime, default=get_local_now)
