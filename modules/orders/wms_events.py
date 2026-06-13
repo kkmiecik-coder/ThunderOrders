@@ -394,6 +394,14 @@ def handle_disconnect():
         import logging
         logging.getLogger(__name__).error(f"Offer disconnect cleanup failed for {sid}: {e}")
 
+    # E9: czyszczenie wiązania sid→user dla połączeń aplikacji mobilnej
+    try:
+        from modules.api_mobile.ws import cleanup_ws_user
+        cleanup_ws_user(sid)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Mobile WS unbind failed for {sid}: {e}")
+
     client = connected_clients.pop(sid, None)
     if not client:
         return
