@@ -33,6 +33,16 @@ class Config:
     RATELIMIT_STORAGE_URI = os.getenv('RATELIMIT_STORAGE_URI', 'redis://localhost:6379/1')
     SOCKETIO_MESSAGE_QUEUE = os.getenv('SOCKETIO_MESSAGE_QUEUE', 'redis://localhost:6379/2')
 
+    # CORS origins dla Socket.IO (lista po przecinku). Natywna apka mobilna nie wysyła
+    # nagłówka Origin → engineio przepuszcza zawsze; lista chroni tylko przeglądarki.
+    SOCKETIO_CORS_ORIGINS = [
+        o.strip() for o in os.getenv(
+            'SOCKETIO_CORS_ORIGINS',
+            'https://thunderorders.cloud,http://localhost:5001,'
+            'http://localhost:8090,http://127.0.0.1:8090'
+        ).split(',') if o.strip()
+    ]
+
     # Session Configuration
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
@@ -158,6 +168,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'  # Baza w pamięci dla testów
     WTF_CSRF_ENABLED = False  # Wyłącz CSRF w testach
     RATELIMIT_ENABLED = False  # Wyłącz rate limiting w testach (brak Redis)
+    SOCKETIO_MESSAGE_QUEUE = None  # test_client nie współpracuje z PubSub managerem (Redis)
 
     # StaticPool: wszystkie operacje używają tej samej in-memory konekcji SQLite.
     # Nadpisuje pool_size/max_overflow z bazowego Config, które są niekompatybilne z SQLite.
