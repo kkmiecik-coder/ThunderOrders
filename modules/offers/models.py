@@ -326,10 +326,11 @@ class OfferPage(db.Model):
         return False
 
     def _audience_users(self):
-        """Unia czlonkow podpietych grup + osob ad-hoc (bez duplikatow)."""
+        """Unia członków podpiętych grup + osób ad-hoc (bez duplikatów)."""
         seen = {}
         for u in self.allowed_users:
             seen[u.id] = u
+        # N+1: każda grupa = osobne zapytanie do members; dla publish (rzadkie) akceptowalne.
         for g in self.allowed_groups:
             for u in g.members:
                 seen[u.id] = u
