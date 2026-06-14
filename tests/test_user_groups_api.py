@@ -9,6 +9,7 @@ def test_user_search(db, client, make_user, login):
     assert resp.status_code == 200
     data = resp.get_json()
     assert any('kasia' in u['email'] for u in data)
+    assert any(u['name'] == 'Kasia Nowak' for u in data)
 
 
 def test_user_search_too_short(db, client, make_user, login):
@@ -31,6 +32,6 @@ def test_group_search(db, client, make_user, login):
 
 
 def test_search_requires_admin(db, client, make_user, login):
-    login(make_user(role='client', email='client@example.com'))
+    login(make_user(role='client', email='client@example.com', profile_completed=True))
     resp = client.get('/admin/users/api/search?q=kasia')
-    assert resp.status_code in (302, 403)
+    assert resp.status_code == 403
