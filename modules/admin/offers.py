@@ -281,12 +281,18 @@ def offers_save(page_id):
 
         if 'group_ids' in data:
             from modules.auth.models import UserGroup
-            ids = [int(x) for x in data['group_ids']]
+            try:
+                ids = [int(x) for x in data['group_ids']]
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'error': 'Nieprawidlowe group_ids'}), 400
             page.allowed_groups = UserGroup.query.filter(UserGroup.id.in_(ids)).all() if ids else []
 
         if 'user_ids' in data:
             from modules.auth.models import User
-            ids = [int(x) for x in data['user_ids']]
+            try:
+                ids = [int(x) for x in data['user_ids']]
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'error': 'Nieprawidlowe user_ids'}), 400
             page.allowed_users = User.query.filter(User.id.in_(ids)).all() if ids else []
 
         # Aktualizacja sekcji
