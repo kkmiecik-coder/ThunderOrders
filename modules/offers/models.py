@@ -41,6 +41,23 @@ def get_local_now():
     return (utc_now + offset).replace(tzinfo=None)
 
 
+offer_page_groups = db.Table(
+    'offer_page_groups',
+    db.Column('id', db.Integer, primary_key=True),
+    db.Column('offer_page_id', db.Integer, db.ForeignKey('offer_pages.id', ondelete='CASCADE'), nullable=False),
+    db.Column('user_group_id', db.Integer, db.ForeignKey('user_groups.id', ondelete='CASCADE'), nullable=False),
+    db.UniqueConstraint('offer_page_id', 'user_group_id', name='unique_offer_page_group'),
+)
+
+offer_page_users = db.Table(
+    'offer_page_users',
+    db.Column('id', db.Integer, primary_key=True),
+    db.Column('offer_page_id', db.Integer, db.ForeignKey('offer_pages.id', ondelete='CASCADE'), nullable=False),
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+    db.UniqueConstraint('offer_page_id', 'user_id', name='unique_offer_page_user'),
+)
+
+
 class OfferPage(db.Model):
     """
     Strona sprzedaży (exclusive / pre-order)
@@ -100,6 +117,9 @@ class OfferPage(db.Model):
     # Czy pokazywać podgląd oferty (read-only) na stronie countdown
     preview_enabled = db.Column(db.Boolean, default=True, nullable=False)
 
+    # Prywatność strony (kontrola odbiorców) - ortogonalna do status
+    is_private = db.Column(db.Boolean, default=False, nullable=False)
+
     # Całkowite zamknięcie strony (po zakończeniu sprzedaży)
     is_fully_closed = db.Column(db.Boolean, default=False)
     closed_at = db.Column(db.DateTime, nullable=True)
@@ -119,6 +139,8 @@ class OfferPage(db.Model):
         cascade='all, delete-orphan',
         order_by='OfferSection.sort_order'
     )
+    allowed_groups = db.relationship('UserGroup', secondary=offer_page_groups, lazy='select')
+    allowed_users = db.relationship('User', secondary=offer_page_users, lazy='select')
 
     def __repr__(self):
         return f'<OfferPage {self.name}>'
