@@ -873,7 +873,12 @@ class UserGroup(db.Model):
 
     @property
     def member_count(self):
-        return len(self.members)
+        from sqlalchemy import select, func
+        return db.session.scalar(
+            select(func.count())
+            .select_from(user_group_members)
+            .where(user_group_members.c.user_group_id == self.id)
+        ) or 0
 
     def __repr__(self):
         return f'<UserGroup {self.name}>'
