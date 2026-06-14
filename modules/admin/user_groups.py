@@ -61,6 +61,20 @@ def _set_members(group, member_ids):
     group.members = User.query.filter(User.id.in_(member_ids)).all() if member_ids else []
 
 
+def _validate_group_name(name, exclude_id=None):
+    """Zwraca (error_msg, http_code) lub (None, None) gdy OK."""
+    if not name:
+        return 'Nazwa jest wymagana', 400
+    if len(name) > 100:
+        return 'Nazwa moze miec maksymalnie 100 znakow', 400
+    dup_q = UserGroup.query.filter(UserGroup.name == name)
+    if exclude_id is not None:
+        dup_q = dup_q.filter(UserGroup.id != exclude_id)
+    if dup_q.first():
+        return 'Grupa o tej nazwie juz istnieje', 400
+    return None, None
+
+
 # ---------------------------------------------------------------------------
 # CRUD endpoints
 # ---------------------------------------------------------------------------
@@ -72,10 +86,9 @@ def user_groups_create():
     """Tworzenie nowej grupy użytkowników."""
     data = request.get_json() or {}
     name = (data.get('name') or '').strip()
-    if not name:
-        return jsonify({'success': False, 'error': 'Nazwa jest wymagana'}), 400
-    if UserGroup.query.filter(UserGroup.name == name).first():
-        return jsonify({'success': False, 'error': 'Grupa o tej nazwie juz istnieje'}), 400
+    err, code = _validate_group_name(name)
+    if err:
+        return jsonify({'success': False, 'error': err}), code
     group = UserGroup(name=name, created_by=current_user.id)
     _set_members(group, data.get('member_ids') or [])
     db.session.add(group)
@@ -91,11 +104,9 @@ def user_groups_update(group_id):
     group = UserGroup.query.get_or_404(group_id)
     data = request.get_json() or {}
     name = (data.get('name') or '').strip()
-    if not name:
-        return jsonify({'success': False, 'error': 'Nazwa jest wymagana'}), 400
-    dup = UserGroup.query.filter(UserGroup.name == name, UserGroup.id != group_id).first()
-    if dup:
-        return jsonify({'success': False, 'error': 'Grupa o tej nazwie juz istnieje'}), 400
+    err, code = _validate_group_name(name, exclude_id=group_id)
+    if err:
+        return jsonify({'success': False, 'error': err}), code
     group.name = name
     if 'member_ids' in data:
         _set_members(group, data.get('member_ids') or [])

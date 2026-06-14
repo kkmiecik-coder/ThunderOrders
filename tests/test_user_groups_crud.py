@@ -31,6 +31,18 @@ def test_create_duplicate_name_fails(db, client, make_user, login):
     assert resp.status_code == 400
 
 
+def test_create_name_too_long(db, client, make_user, login):
+    login(_admin(make_user))
+    resp = client.post('/admin/user-groups/create', json={'name': 'x' * 101, 'member_ids': []})
+    assert resp.status_code == 400
+
+
+def test_crud_requires_admin(db, client, make_user, login):
+    login(make_user(role='client', email='client@example.com', profile_completed=True))
+    resp = client.post('/admin/user-groups/create', json={'name': 'X', 'member_ids': []})
+    assert resp.status_code == 403
+
+
 def test_update_group_members(db, client, make_user, login):
     from modules.auth.models import UserGroup
     login(_admin(make_user))
