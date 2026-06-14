@@ -194,13 +194,18 @@ def offers_edit(page_id):
             )
         ).order_by(VariantGroup.name).all()
 
+    allowed_users = page.allowed_users
+    allowed_groups = page.allowed_groups
+
     return render_template(
         'admin/offers/edit.html',
         title=f'Edycja: {page.name}',
         page=page,
         sections=sections,
         products=products,
-        variant_groups=variant_groups
+        variant_groups=variant_groups,
+        allowed_users=allowed_users,
+        allowed_groups=allowed_groups
     )
 
 
@@ -270,6 +275,19 @@ def offers_save(page_id):
 
         if 'preview_enabled' in data:
             page.preview_enabled = bool(data['preview_enabled'])
+
+        if 'is_private' in data:
+            page.is_private = bool(data['is_private'])
+
+        if 'group_ids' in data:
+            from modules.auth.models import UserGroup
+            ids = [int(x) for x in data['group_ids']]
+            page.allowed_groups = UserGroup.query.filter(UserGroup.id.in_(ids)).all() if ids else []
+
+        if 'user_ids' in data:
+            from modules.auth.models import User
+            ids = [int(x) for x in data['user_ids']]
+            page.allowed_users = User.query.filter(User.id.in_(ids)).all() if ids else []
 
         # Aktualizacja sekcji
         limit_changes = []
