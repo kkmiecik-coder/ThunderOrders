@@ -105,6 +105,9 @@ def clients_list():
     active_clients = User.query.filter(User.is_active == True).count()
     inactive_clients = User.query.filter(User.is_active == False).count()
 
+    from modules.auth.models import UserGroup
+    user_groups = UserGroup.query.order_by(UserGroup.name).all()
+
     return render_template(
         'admin/clients/list.html',
         title='Użytkownicy',
@@ -117,7 +120,8 @@ def clients_list():
         sort_dir=sort_dir,
         total_clients=total_clients,
         active_clients=active_clients,
-        inactive_clients=inactive_clients
+        inactive_clients=inactive_clients,
+        user_groups=user_groups
     )
 
 

@@ -1,0 +1,32 @@
+<div class="groups-toolbar">
+    <button type="button" class="btn btn-primary" onclick="openGroupModal()">+ Nowa grupa</button>
+</div>
+<table class="data-table groups-table">
+    <thead>
+        <tr>
+            <th>Nazwa</th>
+            <th>Członkowie</th>
+            <th>Utworzono</th>
+            <th>Akcje</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for g in user_groups %}
+        <tr data-group-id="{{ g.id }}">
+            <td class="group-name">{{ g.name }}</td>
+            <td>{{ g.member_count }}</td>
+            <td>{{ g.created_at.strftime('%Y-%m-%d') if g.created_at else '' }}</td>
+            <td>
+                <div class="action-buttons">
+                    <button type="button" class="btn-icon" onclick="editGroup({{ g.id }}, '{{ g.name|e }}')">Edytuj</button>
+                    <button type="button" class="btn-icon btn-danger" onclick="deleteGroup({{ g.id }}, '{{ g.name|e }}')">Usuń</button>
+                </div>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4" class="empty-state-cell">Brak grup. Utwórz pierwszą klikając przycisk powyżej.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
