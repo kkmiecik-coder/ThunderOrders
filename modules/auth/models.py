@@ -837,3 +837,43 @@ class ShippingAddress(db.Model):
             return f"{self.pickup_address}, {self.pickup_postal_code} {self.pickup_city}{point_id}"
         else:
             return f"{self.shipping_address}, {self.shipping_postal_code} {self.shipping_city}"
+
+
+# ============================================
+# User Groups (grupy odbiorcow prywatnych stron)
+# ============================================
+
+user_group_members = db.Table(
+    'user_group_members',
+    db.Column('id', db.Integer, primary_key=True),
+    db.Column('user_group_id', db.Integer, db.ForeignKey('user_groups.id', ondelete='CASCADE'), nullable=False),
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+    db.Column('added_at', db.DateTime, default=get_local_now),
+    db.UniqueConstraint('user_group_id', 'user_id', name='unique_user_group_member'),
+)
+
+
+class UserGroup(db.Model):
+    """Grupa uzytkownikow (widoczna tylko dla admina) - odbiorcy prywatnych stron sprzedazy."""
+    __tablename__ = 'user_groups'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=get_local_now)
+    updated_at = db.Column(db.DateTime, default=get_local_now, onupdate=get_local_now)
+
+    members = db.relationship(
+        'User',
+        secondary=user_group_members,
+        backref=db.backref('_user_groups', lazy='dynamic'),
+        lazy='select',
+    )
+
+    @property
+    def member_count(self):
+        return len(self.members)
+
+    def __repr__(self):
+        return f'<UserGroup {self.name}>'
