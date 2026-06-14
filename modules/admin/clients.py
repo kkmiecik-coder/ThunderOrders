@@ -7,7 +7,7 @@ from flask import render_template, request, redirect, url_for, flash, jsonify, c
 from flask_login import login_required, current_user
 from sqlalchemy import or_, func
 from modules.admin import admin_bp
-from modules.auth.models import User, Settings
+from modules.auth.models import User, Settings, UserGroup
 from modules.orders.models import (
     ShippingRequest, Order, OrderComment, OrderRefund, OrderShipment,
     OrderItem
@@ -105,7 +105,6 @@ def clients_list():
     active_clients = User.query.filter(User.is_active == True).count()
     inactive_clients = User.query.filter(User.is_active == False).count()
 
-    from modules.auth.models import UserGroup
     user_groups = UserGroup.query.order_by(UserGroup.name).all()
 
     return render_template(

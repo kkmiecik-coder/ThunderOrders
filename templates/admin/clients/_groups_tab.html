@@ -18,8 +18,8 @@
             <td>{{ g.created_at.strftime('%Y-%m-%d') if g.created_at else '' }}</td>
             <td>
                 <div class="action-buttons">
-                    <button type="button" class="btn-icon" onclick="editGroup({{ g.id }}, '{{ g.name|e }}')">Edytuj</button>
-                    <button type="button" class="btn-icon btn-danger" onclick="deleteGroup({{ g.id }}, '{{ g.name|e }}')">Usuń</button>
+                    <button type="button" class="btn-icon" onclick="editUserGroup({{ g.id }}, {{ g.name|tojson }})">Edytuj</button>
+                    <button type="button" class="btn-icon btn-danger" onclick="deleteUserGroup({{ g.id }}, {{ g.name|tojson }})">Usuń</button>
                 </div>
             </td>
         </tr>

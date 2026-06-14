@@ -271,7 +271,7 @@
     // Usunięcie grupy
     // ========================================
 
-    function deleteGroup(groupId, groupName) {
+    function deleteUserGroup(groupId, groupName) {
         if (!confirm('Czy na pewno chcesz usunąć grupę "' + groupName + '"?')) return;
 
         fetch('/admin/user-groups/' + groupId + '/delete', {
@@ -302,7 +302,7 @@
     window.openGroupModal = function (groupId, groupName) {
         openGroupModal(groupId, groupName);
     };
-    window.editGroup = function (id, name) {
+    window.editUserGroup = function (id, name) {
         // Najpierw doładuj obecnych członków, dopiero potem wypełnij chipy.
         // WAŻNE: openGroupModal() resetuje selectedMembers, więc ustawiamy je
         // i renderujemy chipy DOPIERO PO wywołaniu openGroupModal().
@@ -320,7 +320,7 @@
                 else alert('Nie udało się wczytać grupy');
             });
     };
-    window.deleteGroup = deleteGroup;
+    window.deleteUserGroup = deleteUserGroup;
     window.saveGroup = saveGroup;
     window.closeGroupModal = closeGroupModal;
 
