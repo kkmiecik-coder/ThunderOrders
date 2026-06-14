@@ -63,7 +63,7 @@ def test_delete_group_keeps_users(db, client, make_user, login):
     gid = g.id
     resp = client.post(f'/admin/user-groups/{gid}/delete')
     assert resp.status_code == 200
-    assert UserGroup.query.get(gid) is None
+    assert db.session.get(UserGroup, gid) is None
     assert User.query.filter_by(email='keep@example.com').first() is not None
 
 
