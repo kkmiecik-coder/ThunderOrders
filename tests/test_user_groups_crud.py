@@ -65,3 +65,15 @@ def test_delete_group_keeps_users(db, client, make_user, login):
     assert resp.status_code == 200
     assert UserGroup.query.get(gid) is None
     assert User.query.filter_by(email='keep@example.com').first() is not None
+
+
+def test_get_group_returns_members(db, client, make_user, login):
+    from modules.auth.models import UserGroup
+    login(_admin(make_user))
+    m1 = make_user(email='gm@example.com', first_name='Ola', last_name='Kowal')
+    g = UserGroup(name='Z czlonkami'); g.members.append(m1); db.session.add(g); db.session.commit()
+    resp = client.get(f'/admin/user-groups/{g.id}')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['name'] == 'Z czlonkami'
+    assert any(m['email'] == 'gm@example.com' for m in data['members'])

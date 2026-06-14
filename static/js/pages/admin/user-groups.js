@@ -303,7 +303,22 @@
         openGroupModal(groupId, groupName);
     };
     window.editGroup = function (id, name) {
-        openGroupModal(id, name);
+        // Najpierw doładuj obecnych członków, dopiero potem wypełnij chipy.
+        // WAŻNE: openGroupModal() resetuje selectedMembers, więc ustawiamy je
+        // i renderujemy chipy DOPIERO PO wywołaniu openGroupModal().
+        fetch('/admin/user-groups/' + id, {
+            headers: { 'X-CSRFToken': getCsrfToken() }
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                openGroupModal(id, data.name);            // reset + tytuł "Edytuj grupę"
+                selectedMembers = (data.members || []).slice();
+                renderChips();
+            })
+            .catch(function () {
+                if (window.Toast) window.Toast.show('Nie udało się wczytać grupy', 'error');
+                else alert('Nie udało się wczytać grupy');
+            });
     };
     window.deleteGroup = deleteGroup;
     window.saveGroup = saveGroup;

@@ -49,6 +49,23 @@ def user_groups_api_search():
     } for g in groups])
 
 
+@admin_bp.route('/user-groups/<int:group_id>')
+@login_required
+@admin_required
+def user_groups_get(group_id):
+    """Zwraca grupę wraz z listą członków (do edycji w modalu)."""
+    group = UserGroup.query.get_or_404(group_id)
+    return jsonify({
+        'id': group.id,
+        'name': group.name,
+        'members': [{
+            'id': u.id,
+            'name': ((u.first_name or '') + ' ' + (u.last_name or '')).strip() or u.email,
+            'email': u.email,
+        } for u in group.members],
+    })
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
