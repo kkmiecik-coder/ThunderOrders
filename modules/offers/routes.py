@@ -9,6 +9,7 @@ from extensions import db, limiter, csrf
 from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
 from . import offers_bp
+from .access import check_offer_page_access
 from .models import OfferPage
 from modules.products.models import Product, VariantGroup
 
@@ -233,6 +234,10 @@ def countdown_page():
     if not page:
         abort(404)
 
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
+
     # Sprawdź czy strona ma datę startu
     if not page.starts_at:
         # Brak daty startu - przekieruj na główną stronę
@@ -273,6 +278,10 @@ def order_page(token):
 
     if not page:
         abort(404)
+
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
 
     # Automatyczna aktualizacja statusu na podstawie dat
     page.check_and_update_status()
@@ -316,6 +325,10 @@ def thank_you(token):
 
     if not page:
         abort(404)
+
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
 
     # Get order data from session (set after placing order)
     order_data = session.pop('last_order_data', None)
@@ -362,6 +375,10 @@ def check_status(token):
     if not page:
         return jsonify({'error': 'Page not found'}), 404
 
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
+
     # Automatyczna aktualizacja statusu na podstawie dat
     page.check_and_update_status()
 
@@ -393,6 +410,10 @@ def reserve(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
 
     data = request.get_json()
     session_id = data.get('session_id')
@@ -492,6 +513,10 @@ def release(token):
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
 
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
+
     data = request.get_json()
     session_id = data.get('session_id')
     product_id = data.get('product_id')
@@ -526,6 +551,10 @@ def availability(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
 
     session_id = request.args.get('session_id')
 
@@ -605,6 +634,10 @@ def extend(token):
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
 
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
+
     data = request.get_json()
     session_id = data.get('session_id')
 
@@ -627,6 +660,10 @@ def restore(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
 
     # Pre-order: validate cart items exist
     if page.page_type == 'preorder':
@@ -717,6 +754,10 @@ def place_order(token):
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
 
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
+
     # Check if page is active
     if not page.is_active:
         return jsonify({'success': False, 'error': 'page_not_active', 'message': 'Sprzedaż nie jest aktywna'}), 403
@@ -776,6 +817,10 @@ def subscribe_notification(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return jsonify({'success': False, 'error': 'page_not_found'}), 404
+
+    _gate = check_offer_page_access(page)
+    if _gate is not None:
+        return _gate
 
     # Sprawdź czy strona jest aktywna
     if not page.is_active:
