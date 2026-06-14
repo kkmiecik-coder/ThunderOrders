@@ -325,6 +325,16 @@ class OfferPage(db.Model):
 
         return False
 
+    def _audience_users(self):
+        """Unia czlonkow podpietych grup + osob ad-hoc (bez duplikatow)."""
+        seen = {}
+        for u in self.allowed_users:
+            seen[u.id] = u
+        for g in self.allowed_groups:
+            for u in g.members:
+                seen[u.id] = u
+        return list(seen.values())
+
     def _send_publish_notifications(self):
         """Wysyła jednorazowe powiadomienie email do klientów o nowej stronie sprzedaży."""
         try:
@@ -332,18 +342,26 @@ class OfferPage(db.Model):
             from modules.auth.models import User
             from utils.email_manager import EmailManager
 
+            if self.is_private:
+                # Prywatna strona — odbiorcy tylko z audytorium (allowed_groups + allowed_users)
+                audience = self._audience_users()
+                clients_marketing = [u for u in audience if u.is_active and u.role == 'client' and u.marketing_consent]
+                push_clients = [u for u in audience if u.is_active and u.role == 'client']
+            else:
+                # Publiczna strona — wszyscy aktywni klienci (dotychczasowe zachowanie)
+                clients_marketing = User.query.filter_by(role='client', is_active=True, marketing_consent=True).all()
+                push_clients = User.query.filter_by(role='client', is_active=True).all()
+
             # Email tylko do klientów z marketing_consent (RODO)
-            clients_marketing = User.query.filter_by(role='client', is_active=True, marketing_consent=True).all()
             if clients_marketing:
                 sent = EmailManager.notify_new_offer_page(self, clients_marketing)
                 current_app.logger.info(
                     f"Exclusive page '{self.name}' activated: sent email to {sent}/{len(clients_marketing)} clients (marketing consent)"
                 )
-            # Push notifications do wszystkich aktywnych klientów (kontrolowane przez NotificationPreference)
-            all_clients = User.query.filter_by(role='client', is_active=True).all()
-            if all_clients:
+            # Push notifications do aktywnych klientów (kontrolowane przez NotificationPreference)
+            if push_clients:
                 from utils.push_manager import PushManager
-                client_ids = [c.id for c in all_clients]
+                client_ids = [c.id for c in push_clients]
                 PushManager.notify_new_offer_page(self, client_ids)
             self.notify_clients_on_publish = False  # Reset toggle po wysłaniu
         except Exception as e:
