@@ -27,18 +27,6 @@ window.openPaymentForOrder = function(btnEl) {
 };
 
 /**
- * Kliknięcie w kartę toggleuje checkbox (ignoruje przyciski i interaktywne elementy)
- */
-window.toggleCardCheckbox = function(e) {
-    if (e.target.closest('button, input, a, .pc-card-pay-btn')) return;
-    var card = e.currentTarget;
-    var cb = card.querySelector('.order-checkbox');
-    if (!cb || cb.disabled) return;
-    cb.checked = !cb.checked;
-    cb.dispatchEvent(new Event('change', { bubbles: true }));
-};
-
-/**
  * Toggle widoczności ukrytych pozycji zamówienia
  */
 window.toggleOrderItems = function(orderId, totalItems) {
@@ -142,6 +130,13 @@ window.toggleOrderItems = function(orderId, totalItems) {
         orderCheckboxes.forEach(function (cb) {
             cb.addEventListener('change', handleOrderCheckboxChange);
         });
+
+        // Kliknięcie w kartę toggleuje checkbox — delegacja na kontener kart,
+        // zamiast inline onclick (eliminuje race: klik przed załadowaniem JS = no-op)
+        var cardsGrid = document.querySelector('.pc-cards-grid');
+        if (cardsGrid) {
+            cardsGrid.addEventListener('click', handleCardClick);
+        }
 
         if (bulkExecuteBtn) {
             bulkExecuteBtn.addEventListener('click', openPaymentModal);
@@ -513,6 +508,18 @@ window.toggleOrderItems = function(orderId, totalItems) {
 
     function handleOrderCheckboxChange() {
         syncSelectedOrders();
+    }
+
+    // Kliknięcie w kartę toggleuje checkbox (ignoruje przyciski i interaktywne elementy).
+    // Delegowane z .pc-cards-grid — card wyliczany przez closest zamiast e.currentTarget.
+    function handleCardClick(e) {
+        if (e.target.closest('button, input, a, .pc-card-pay-btn')) return;
+        var card = e.target.closest('.pc-order-card');
+        if (!card) return;
+        var cb = card.querySelector('.order-checkbox');
+        if (!cb || cb.disabled) return;
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
     function syncSelectedOrders() {
