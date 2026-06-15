@@ -19,6 +19,17 @@ from .models import MobileTokenBlocklist
 
 
 EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+# Reguły hasła spójne z rejestracją webową (modules/auth/forms.py).
+PASSWORD_RE = re.compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)')
+
+
+def _validate_password(password):
+    """Zwraca komunikat błędu gdy hasło łamie reguły, w przeciwnym razie None."""
+    if len(password) < 8:
+        return 'Hasło musi mieć minimum 8 znaków.'
+    if not PASSWORD_RE.match(password):
+        return 'Hasło musi zawierać: dużą literę, małą literę i cyfrę.'
+    return None
 
 
 def _password_fingerprint(user):
@@ -239,3 +250,50 @@ def logout():
         # Wyścig podwójnego logout tym samym tokenem — wpis już istnieje, cel osiągnięty.
         db.session.rollback()
     return json_ok({'message': 'Wylogowano.'})
+
+
+@api_mobile_bp.route('/auth/forgot-password', methods=['POST'])
+@limiter.limit("5 per minute")  # spec: ~5/min per e-mail/IP; pełni też rolę „wyślij ponownie"
+def forgot_password():
+    p = request.get_json(silent=True) or {}
+    email = (p.get('email') or '').strip().lower()
+
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    # Prywatność: zawsze 200, niezależnie od tego czy konto istnieje.
+    if user and user.is_active:
+        can_resend, _secs = user.can_resend_password_reset_code()
+        if can_resend:
+            code = user.generate_password_reset_code()
+            db.session.commit()
+            EmailManager.send_password_reset_code(user, code)
+    return json_ok({})
+
+
+@api_mobile_bp.route('/auth/reset-password', methods=['POST'])
+@limiter.limit("15 per minute")  # brute-force kodu chroni dodatkowo lockout per-konto
+def reset_password():
+    p = request.get_json(silent=True) or {}
+    email = (p.get('email') or '').strip().lower()
+    code = (p.get('code') or '').strip()
+    new_password = p.get('new_password') or ''
+
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    if user is None or not user.is_active:
+        # Nie zdradzamy istnienia konta — mapujemy na invalid_code jak zły kod.
+        return json_err('invalid_code', 'Nieprawidłowy lub wygasły kod.', 400)
+
+    ok, error_message = user.verify_password_reset_code(code)
+    if not ok:
+        db.session.commit()  # verify_password_reset_code mutuje attempts/lock — utrwalamy
+        return json_err('invalid_code', error_message, 400)
+
+    # Kod poprawny — dopiero teraz walidujemy hasło. Słabe hasło NIE zużywa kodu
+    # (użytkownik może ponowić z mocniejszym hasłem tym samym kodem).
+    pw_error = _validate_password(new_password)
+    if pw_error:
+        return json_err('invalid_input', pw_error, 400, details={'field': 'new_password'})
+
+    user.set_password(new_password)        # zmiana hash → fingerprint pwd unieważnia refresh tokeny
+    user.clear_password_reset_code()       # jednorazowość: zużyty kod unieważniony
+    db.session.commit()
+    return json_ok({})

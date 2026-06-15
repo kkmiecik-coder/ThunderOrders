@@ -521,3 +521,207 @@ def test_mobile_500_returns_envelope(app, db):
     r = c.get('/api/mobile/v1/_boom')
     assert r.status_code == 500
     assert r.get_json()['error']['code'] == 'server_error'
+
+
+# ============================================
+# Password reset (forgot-password / reset-password)
+# ============================================
+
+def _patch_reset_email(monkeypatch):
+    """Przechwytuje kod resetu zamiast wysyłać e-mail. Zwraca listę wysłanych kodów."""
+    sent = []
+    import utils.email_manager as em
+    monkeypatch.setattr(em.EmailManager, 'send_password_reset_code',
+                        staticmethod(lambda user, code: sent.append(code) or True))
+    return sent
+
+
+def _request_reset_code(client, db, make_user, monkeypatch, email='reset@example.com',
+                        pw='StareHaslo123'):
+    """Tworzy zweryfikowanego usera i pobiera świeży kod resetu przez forgot-password."""
+    sent = _patch_reset_email(monkeypatch)
+    u = make_user(email=email)
+    u.set_password(pw)
+    db.session.commit()
+    r = client.post('/api/mobile/v1/auth/forgot-password', json={'email': email})
+    assert r.status_code == 200
+    assert len(sent) == 1
+    return u, sent[0]
+
+
+def test_forgot_password_sends_code_for_existing_user(client, db, make_user, monkeypatch):
+    sent = _patch_reset_email(monkeypatch)
+    u = make_user(email='fp@example.com')
+
+    r = client.post('/api/mobile/v1/auth/forgot-password', json={'email': 'fp@example.com'})
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body == {'success': True, 'data': {}}
+    assert len(sent) == 1 and len(sent[0]) == 6
+    db.session.refresh(u)
+    assert u.password_reset_code == sent[0]
+
+
+def test_forgot_password_no_leak_for_unknown_email(client, db, make_user, monkeypatch):
+    sent = _patch_reset_email(monkeypatch)
+    make_user(email='known@example.com')
+
+    r_known = client.post('/api/mobile/v1/auth/forgot-password', json={'email': 'known@example.com'})
+    r_ghost = client.post('/api/mobile/v1/auth/forgot-password', json={'email': 'ghost@example.com'})
+    assert r_known.status_code == 200 and r_ghost.status_code == 200
+    assert r_known.get_json() == r_ghost.get_json() == {'success': True, 'data': {}}
+    assert len(sent) == 1  # tylko dla istniejącego konta
+
+
+def test_forgot_password_inactive_user_gets_no_code(client, db, make_user, monkeypatch):
+    sent = _patch_reset_email(monkeypatch)
+    u = make_user(email='inactive@example.com')
+    u.is_active = False
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/auth/forgot-password', json={'email': 'inactive@example.com'})
+    assert r.status_code == 200 and r.get_json() == {'success': True, 'data': {}}
+    assert sent == []
+
+
+def test_forgot_password_resend_respects_cooldown(client, db, make_user, monkeypatch):
+    sent = _patch_reset_email(monkeypatch)
+    make_user(email='cool@example.com')
+
+    r1 = client.post('/api/mobile/v1/auth/forgot-password', json={'email': 'cool@example.com'})
+    r2 = client.post('/api/mobile/v1/auth/forgot-password', json={'email': 'cool@example.com'})
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert len(sent) == 1  # cooldown 60s: druga prośba nie wysyła nowego kodu
+
+
+def test_reset_password_success(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': code,
+                          'new_password': 'NoweHaslo123'})
+    assert r.status_code == 200
+    assert r.get_json() == {'success': True, 'data': {}}
+
+    db.session.refresh(u)
+    assert u.check_password('NoweHaslo123')          # hasło ustawione
+    assert not u.check_password('StareHaslo123')
+    assert u.password_reset_code is None              # kod jednorazowy — unieważniony
+
+    # logowanie nowym hasłem działa
+    login = client.post('/api/mobile/v1/auth/login',
+                        json={'email': 'reset@example.com', 'password': 'NoweHaslo123'})
+    assert login.status_code == 200
+
+
+def test_reset_password_revokes_existing_refresh_tokens(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    # token wydany przed zmianą hasła
+    login = client.post('/api/mobile/v1/auth/login',
+                        json={'email': 'reset@example.com', 'password': 'StareHaslo123'})
+    old_refresh = login.get_json()['data']['refresh_token']
+
+    client.post('/api/mobile/v1/auth/reset-password',
+                json={'email': 'reset@example.com', 'code': code, 'new_password': 'NoweHaslo123'})
+
+    r = client.post('/api/mobile/v1/auth/refresh',
+                    headers={'Authorization': f'Bearer {old_refresh}'})
+    assert r.status_code == 401
+    assert r.get_json()['error']['code'] == 'token_revoked'
+
+
+def test_reset_password_wrong_code(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    wrong = '000000' if code != '000000' else '111111'
+
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': wrong,
+                          'new_password': 'NoweHaslo123'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_code'
+    db.session.refresh(u)
+    assert u.check_password('StareHaslo123')  # hasło bez zmian
+
+
+def test_reset_password_expired_code(client, db, make_user, monkeypatch):
+    from modules.orders.models import get_local_now
+    from datetime import timedelta
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    u.password_reset_code_expires = get_local_now() - timedelta(minutes=1)
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': code,
+                          'new_password': 'NoweHaslo123'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_code'
+
+
+def test_reset_password_unknown_email_is_invalid_code(client, db, make_user, monkeypatch):
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'ghost@example.com', 'code': '123456',
+                          'new_password': 'NoweHaslo123'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_code'  # brak wycieku istnienia konta
+
+
+def test_reset_password_weak_password_does_not_consume_code(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': code, 'new_password': 'krotkie'})
+    assert r.status_code == 400
+    err = r.get_json()['error']
+    assert err['code'] == 'invalid_input'
+    assert err['details']['field'] == 'new_password'
+
+    # kod NIE został zużyty — ten sam kod z poprawnym hasłem działa
+    db.session.refresh(u)
+    assert u.password_reset_code == code
+    r2 = client.post('/api/mobile/v1/auth/reset-password',
+                     json={'email': 'reset@example.com', 'code': code,
+                           'new_password': 'NoweHaslo123'})
+    assert r2.status_code == 200
+
+
+def test_reset_password_weak_password_complexity_rule(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    # 8+ znaków, ale bez dużej litery/cyfry — łamie regułę złożoności
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': code,
+                          'new_password': 'samemalelitery'})
+    assert r.status_code == 400
+    err = r.get_json()['error']
+    assert err['code'] == 'invalid_input' and err['details']['field'] == 'new_password'
+
+
+def test_reset_password_lockout_after_five_attempts(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    wrong = '000000' if code != '000000' else '111111'
+
+    for _ in range(5):
+        r = client.post('/api/mobile/v1/auth/reset-password',
+                        json={'email': 'reset@example.com', 'code': wrong,
+                              'new_password': 'NoweHaslo123'})
+        assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+
+    db.session.refresh(u)
+    assert u.is_password_reset_locked()
+    # po lockout nawet POPRAWNY kod jest odrzucany (mapowany na invalid_code)
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': code,
+                          'new_password': 'NoweHaslo123'})
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+
+
+def test_reset_password_code_is_single_use(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    r1 = client.post('/api/mobile/v1/auth/reset-password',
+                     json={'email': 'reset@example.com', 'code': code,
+                           'new_password': 'NoweHaslo123'})
+    assert r1.status_code == 200
+    # ponowne użycie zużytego kodu odrzucone
+    r2 = client.post('/api/mobile/v1/auth/reset-password',
+                     json={'email': 'reset@example.com', 'code': code,
+                           'new_password': 'InneHaslo123'})
+    assert r2.status_code == 400 and r2.get_json()['error']['code'] == 'invalid_code'

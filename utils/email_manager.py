@@ -154,6 +154,38 @@ class EmailManager:
             return False
 
     @staticmethod
+    def send_password_reset_code(user, code):
+        """
+        Wysyła email z 6-cyfrowym kodem resetu hasła (mobile API).
+        Wysyłka SYNCHRONICZNA - czeka na potwierdzenie SMTP.
+
+        Args:
+            user: obiekt User
+            code (str): 6-cyfrowy kod resetu
+
+        Returns:
+            bool: True jeśli email został wysłany, False w przypadku błędu
+        """
+        from utils.email_sender import send_email_sync
+
+        try:
+            result = send_email_sync(
+                to=user.email,
+                subject='Kod resetu hasła - ThunderOrders',
+                template='password_reset_code',
+                user_name=user.first_name,
+                reset_code=code
+            )
+            if result:
+                current_app.logger.info(f"Password reset code sent to {user.email}")
+            else:
+                current_app.logger.error(f"Password reset code SMTP failed for {user.email}")
+            return result
+        except Exception as e:
+            current_app.logger.error(f"Failed to send password reset code to {user.email}: {e}")
+            return False
+
+    @staticmethod
     def send_verification_link(user):
         """
         Wysyła email weryfikacyjny z linkiem (legacy system).

@@ -105,6 +105,14 @@ class User(UserMixin, db.Model):
     email_verification_locked_until = db.Column(db.DateTime)
     verification_session_token = db.Column(db.String(64), index=True)
 
+    # Password reset 6-digit code system (mobile API) — odrębny od linkowego web-flow
+    # (password_reset_token) i od weryfikacji e-mail, by uniknąć kolizji semantyki.
+    password_reset_code = db.Column(db.String(6))
+    password_reset_code_expires = db.Column(db.DateTime)
+    password_reset_code_sent_at = db.Column(db.DateTime)
+    password_reset_attempts = db.Column(db.Integer, default=0)
+    password_reset_locked_until = db.Column(db.DateTime)
+
     # Timestamps
     last_login = db.Column(db.DateTime)
     login_count = db.Column(db.Integer, default=0, nullable=False)
@@ -392,6 +400,84 @@ class User(UserMixin, db.Model):
             return False
 
         return get_local_now() < self.email_verification_locked_until
+
+    # ============================================
+    # Password Reset Code (mobile API)
+    # ============================================
+
+    def generate_password_reset_code(self):
+        """
+        Generuje 6-cyfrowy kod resetu hasła (unieważnia poprzedni). Kod ważny 15 min.
+
+        Returns:
+            str: 6-cyfrowy kod resetu.
+        """
+        self.password_reset_code = ''.join([str(random.randint(0, 9)) for _ in range(6)])
+        self.password_reset_code_expires = get_local_now() + timedelta(minutes=15)
+        self.password_reset_code_sent_at = get_local_now()
+        self.password_reset_attempts = 0
+        self.password_reset_locked_until = None
+        return self.password_reset_code
+
+    def can_resend_password_reset_code(self):
+        """
+        Sprawdza czy można wysłać nowy kod resetu (cooldown 60s).
+
+        Returns:
+            tuple: (can_resend: bool, seconds_remaining: int)
+        """
+        if not self.password_reset_code_sent_at:
+            return True, 0
+
+        elapsed = (get_local_now() - self.password_reset_code_sent_at).total_seconds()
+        if elapsed >= 60:
+            return True, 0
+
+        return False, int(60 - elapsed)
+
+    def is_password_reset_locked(self):
+        """True jeśli reset hasła jest zablokowany po zbyt wielu nieudanych próbach."""
+        if not self.password_reset_locked_until:
+            return False
+
+        return get_local_now() < self.password_reset_locked_until
+
+    def verify_password_reset_code(self, code):
+        """
+        Weryfikuje kod resetu. Blokada po 5 nieudanych próbach (15 min).
+        Nie czyści kodu po sukcesie — wołający robi to po ustawieniu hasła.
+
+        Args:
+            code (str): 6-cyfrowy kod do weryfikacji.
+
+        Returns:
+            tuple: (success: bool, error_message: str|None)
+        """
+        if self.is_password_reset_locked():
+            remaining = (self.password_reset_locked_until - get_local_now()).seconds // 60
+            return False, f'Zbyt wiele prób. Spróbuj ponownie za {remaining + 1} minut.'
+
+        if not self.password_reset_code or not self.password_reset_code_expires \
+                or get_local_now() > self.password_reset_code_expires:
+            return False, 'Kod resetu wygasł lub jest nieprawidłowy. Wyślij nowy kod.'
+
+        if self.password_reset_code != code:
+            self.password_reset_attempts = (self.password_reset_attempts or 0) + 1
+            if self.password_reset_attempts >= 5:
+                self.password_reset_locked_until = get_local_now() + timedelta(minutes=15)
+                return False, 'Zbyt wiele nieudanych prób. Reset zablokowany na 15 minut.'
+            remaining = 5 - self.password_reset_attempts
+            return False, f'Niepoprawny kod. Pozostało prób: {remaining}.'
+
+        return True, None
+
+    def clear_password_reset_code(self):
+        """Unieważnia kod resetu (po udanym resecie lub anulowaniu)."""
+        self.password_reset_code = None
+        self.password_reset_code_expires = None
+        self.password_reset_code_sent_at = None
+        self.password_reset_attempts = 0
+        self.password_reset_locked_until = None
 
     @classmethod
     def get_by_verification_session_token(cls, token):
