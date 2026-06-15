@@ -462,7 +462,9 @@ function initializeBulkActions() {
     const bulkToolbar = document.getElementById('bulkToolbar');
     if (!bulkToolbar) return;
 
-    const selectAll = document.getElementById('selectAll');
+    // Dwie zakładki → dwa master-checkboxy (#selectAll-current / #selectAll-closed).
+    // Operujemy po klasie, nie po id.
+    const selectAllBoxes = Array.from(document.querySelectorAll('.offer-select-all'));
     const selectedCount = document.getElementById('selectedCount');
 
     function getCsrfToken() {
@@ -502,12 +504,14 @@ function initializeBulkActions() {
             bulkToolbar.classList.add('hidden');
         }
 
-        if (selectAll) {
+        if (selectAllBoxes.length) {
             const visible = getVisibleCheckboxes();
             const allChecked = visible.length > 0 && visible.every(cb => cb.checked);
             const someChecked = visible.some(cb => cb.checked);
-            selectAll.checked = allChecked;
-            selectAll.indeterminate = someChecked && !allChecked;
+            selectAllBoxes.forEach(box => {
+                box.checked = allChecked;
+                box.indeterminate = someChecked && !allChecked;
+            });
         }
 
         updateButtonAvailability(selected);
@@ -535,15 +539,15 @@ function initializeBulkActions() {
         btn.title = enabled ? '' : reasonIfDisabled;
     }
 
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
+    selectAllBoxes.forEach(box => {
+        box.addEventListener('change', function() {
             getVisibleCheckboxes().forEach(cb => {
                 cb.checked = this.checked;
                 syncRowHighlight(cb);
             });
             updateToolbar();
         });
-    }
+    });
 
     document.querySelectorAll('.offer-checkbox').forEach(cb => {
         cb.addEventListener('change', function() {
@@ -558,6 +562,18 @@ function initializeBulkActions() {
     if (bulkSearchInput) {
         bulkSearchInput.addEventListener('input', updateToolbar);
     }
+
+    // Zmiana zakładki: wyczyść zaznaczenie z poprzedniej zakładki, by pasek
+    // akcji masowych nie operował na ukrytych (innej zakładki) stronach.
+    document.querySelectorAll('.offer-tab-button').forEach(tabBtn => {
+        tabBtn.addEventListener('click', function() {
+            document.querySelectorAll('.offer-checkbox').forEach(cb => {
+                cb.checked = false;
+                syncRowHighlight(cb);
+            });
+            updateToolbar();
+        });
+    });
 
     // ---- Dropdown „Ustaw" + modal daty ----
     let bulkDateField = null;
