@@ -163,20 +163,28 @@
                     <th class="offer-checkbox-col">
                         <input type="checkbox" id="selectAll-{{ tab_id }}" class="offer-select-all" aria-label="Zaznacz wszystkie">
                     </th>
-                    <th>Nazwa</th>
-                    <th>Typ</th>
-                    <th>Typ wysyłki</th>
-                    <th>Status</th>
-                    <th>Utworzono</th>
-                    <th>Rozpoczęcie</th>
-                    <th>Zakończenie</th>
-                    <th>Termin płatności</th>
+                    <th class="sortable" data-column="name" onclick="sortTable('name', this)">Nazwa</th>
+                    <th class="sortable" data-column="ptype" onclick="sortTable('ptype', this)">Typ</th>
+                    <th class="sortable" data-column="shipping" onclick="sortTable('shipping', this)">Typ wysyłki</th>
+                    <th class="sortable" data-column="status" onclick="sortTable('status', this)">Status</th>
+                    <th class="sortable" data-column="created" onclick="sortTable('created', this)">Utworzono</th>
+                    <th class="sortable" data-column="starts" onclick="sortTable('starts', this)">Rozpoczęcie</th>
+                    <th class="sortable" data-column="ends" onclick="sortTable('ends', this)">Zakończenie</th>
+                    <th class="sortable" data-column="deadline" onclick="sortTable('deadline', this)">Termin płatności</th>
                     <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
                 {% for page in pages %}
-                <tr data-search-name="{{ page.name }}">
+                <tr data-search-name="{{ page.name }}"
+                    data-name="{{ page.name }}"
+                    data-ptype="{{ page.page_type }}"
+                    data-shipping="{{ 'proxy' if page.payment_stages == 4 else 'polska' }}"
+                    data-status="{{ page.status }}"
+                    data-created="{{ page.created_at.timestamp() if page.created_at else 0 }}"
+                    data-starts="{{ page.starts_at.timestamp() if page.starts_at else 0 }}"
+                    data-ends="{{ page.ends_at.timestamp() if page.ends_at else 0 }}"
+                    data-deadline="{{ page.payment_deadline.timestamp() if page.payment_deadline else 0 }}">
                     <td class="offer-checkbox-col">
                         <input type="checkbox" class="offer-checkbox"
                                value="{{ page.id }}"
