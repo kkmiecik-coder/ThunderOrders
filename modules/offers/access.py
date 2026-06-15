@@ -32,6 +32,20 @@ def user_is_in_page_audience(page, user):
     return via_group is not None
 
 
+def user_can_access_offer_page(page, user):
+    """Wersja bool dla API (mobile/JSON) — bez current_user/redirect.
+
+    True gdy strona publiczna, user jest adminem/modem, albo nalezy do audytorium.
+    """
+    if not page.is_private:
+        return True
+    if user is None:
+        return False
+    if getattr(user, 'role', None) in ('admin', 'mod'):
+        return True
+    return user_is_in_page_audience(page, user)
+
+
 def check_offer_page_access(page):
     """
     Bramka dostępu dla publicznych route'ów na tokenie strony.

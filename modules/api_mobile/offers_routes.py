@@ -6,8 +6,10 @@ from . import api_mobile_bp
 from .helpers import json_ok, json_err, json_page, to_grosze, absolute_static_url
 from .validators import parse_int, ValidationError
 from .idempotency import idempotent
-from modules.offers.models import OfferPage
-from modules.auth.models import User
+from sqlalchemy import select, or_
+from modules.offers.models import OfferPage, offer_page_users, offer_page_groups
+from modules.auth.models import User, user_group_members
+from modules.offers.access import user_can_access_offer_page
 from modules.client import shop_service  # slugify
 
 # Mapowanie kontrakt → enum bazy (D1: live obejmuje active + paused)
@@ -59,9 +61,26 @@ def offer_pages_list():
         48,
     )
 
+    uid = int(get_jwt_identity())
+    viewer = db.session.get(User, uid)
+
     q = OfferPage.query.filter(
         OfferPage.status.in_(_STATUS_MAP[status])   # draft nigdy nie wchodzi
     ).order_by(OfferPage.id.desc())                 # deterministyczny sort (sqlite-safe)
+
+    if not (viewer and viewer.role in ('admin', 'mod')):
+        # Strony prywatne widoczne tylko dla odbiorców (bezpośrednich lub przez grupę).
+        accessible_private = (
+            select(offer_page_users.c.offer_page_id)
+            .where(offer_page_users.c.user_id == uid)
+        ).union(
+            select(offer_page_groups.c.offer_page_id)
+            .join(user_group_members,
+                  offer_page_groups.c.user_group_id == user_group_members.c.user_group_id)
+            .where(user_group_members.c.user_id == uid)
+        )
+        q = q.filter(or_(OfferPage.is_private == False, OfferPage.id.in_(accessible_private)))
+
     pagination = q.paginate(page=page, per_page=per_page, error_out=False)
     return json_page(
         [_serialize_page_summary(p) for p in pagination.items],
@@ -157,6 +176,9 @@ def offer_page_detail(token):
     page.check_and_update_status()
     if page.status == 'draft':              # niepubliczny — nigdy nie eksponowany
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    _viewer = db.session.get(User, int(get_jwt_identity()))
+    if not user_can_access_offer_page(page, _viewer):
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     return json_ok({
         **_serialize_page_summary(page),
         'description': page.description,
@@ -173,6 +195,9 @@ def offer_availability(token):
     from modules.offers.reservation import get_section_products_map, get_availability_snapshot
     page = OfferPage.get_by_token(token)
     if not page:
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    _viewer = db.session.get(User, int(get_jwt_identity()))
+    if not user_can_access_offer_page(page, _viewer):
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     session_id = request.args.get('session_id')
     section_products = get_section_products_map(page.id)
@@ -212,6 +237,9 @@ def offer_reserve(token):
     page.check_and_update_status()
     if page.status == 'draft':                  # niepubliczny — spójnie z offer_page_detail
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    _viewer = db.session.get(User, int(get_jwt_identity()))
+    if not user_can_access_offer_page(page, _viewer):
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     if not page.is_active:
         # 403 — spójnie z place-order i webowym guardem (kod błędu bez zmian)
         return json_err('page_not_active', 'Strona ofertowa nie jest aktywna.', 403)
@@ -244,6 +272,9 @@ def offer_release(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    _viewer = db.session.get(User, int(get_jwt_identity()))
+    if not user_can_access_offer_page(page, _viewer):
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     body = request.get_json(silent=True) or {}
     session_id = body.get('session_id')
     product_id = parse_int(body.get('product_id'), 'product_id', required=True)
@@ -252,7 +283,7 @@ def offer_release(token):
         return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
     # Wiązanie z właścicielem: zwolnić można tylko własną rezerwację (user_id z JWT)
     ok, result = release_product(session_id, page.id, product_id, quantity,
-                                 user_id=int(get_jwt_identity()))
+                                 user_id=_viewer.id)
     if ok:
         _emit_safe(page.id, reservations=True, availability=True)
     return json_ok(result)
@@ -266,12 +297,15 @@ def offer_extend(token):
     page = OfferPage.get_by_token(token)
     if not page:
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    _viewer = db.session.get(User, int(get_jwt_identity()))
+    if not user_can_access_offer_page(page, _viewer):
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     body = request.get_json(silent=True) or {}
     session_id = body.get('session_id')
     if not session_id:
         return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
     # Wiązanie z właścicielem: przedłużyć można tylko własną rezerwację (user_id z JWT)
-    ok, result = extend_reservation(session_id, page.id, user_id=int(get_jwt_identity()))
+    ok, result = extend_reservation(session_id, page.id, user_id=_viewer.id)
     if not ok:
         return json_err(result.get('error', 'extend_failed'), result.get('message', ''), 400)
     _emit_safe(page.id, schedule=True)   # D4(a): tylko korekta timera serwera
@@ -314,6 +348,11 @@ def offer_place_order(token):
                         'Ta strona obsługiwana jest osobnym endpointem (pre-order).', 400)
     if page.status == 'draft':                  # niepubliczny — spójnie z detail/reserve
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    user = db.session.get(User, int(get_jwt_identity()))
+    if user is None:                            # spójnie z konwencją /auth/me
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    if not user_can_access_offer_page(page, user):
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     if not page.is_active:
         return json_err('page_not_active', 'Sprzedaż nie jest aktywna.', 403)
     body = request.get_json(silent=True) or {}
@@ -322,9 +361,6 @@ def offer_place_order(token):
         return json_err('invalid_input', 'Pole session_id jest wymagane.', 400)
     order_note = body.get('order_note')
     full_set_items = body.get('full_set_items', []) or []
-    user = db.session.get(User, int(get_jwt_identity()))
-    if user is None:                            # spójnie z konwencją /auth/me
-        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     ok, result = place_offer_order(page=page, session_id=session_id, order_note=order_note,
                                    full_set_items=full_set_items, user=user, bind_user=True)
     if not ok:
@@ -371,6 +407,9 @@ def offer_validate_cart(token):
         return json_err('wrong_page_type',
                         'Walidacja koszyka dotyczy tylko stron pre-order.', 400)
     if page.status == 'draft':                  # niepubliczny — parytet z detail/place-order
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    _viewer = db.session.get(User, int(get_jwt_identity()))
+    if not user_can_access_offer_page(page, _viewer):
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     body = request.get_json(silent=True) or {}
     items = body.get('cart_items') or []
@@ -438,6 +477,11 @@ def offer_place_order_preorder(token):
                         'Ta strona obsługiwana jest osobnym endpointem (exclusive).', 400)
     if page.status == 'draft':                  # niepubliczny — parytet z detail/place-order
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
+    user = db.session.get(User, int(get_jwt_identity()))
+    if user is None:                            # spójnie z konwencją /auth/me
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
+    if not user_can_access_offer_page(page, user):
+        return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     if not page.is_active:
         return json_err('page_not_active', 'Sprzedaż nie jest aktywna.', 403)
     body = request.get_json(silent=True) or {}
@@ -458,9 +502,6 @@ def offer_place_order_preorder(token):
             entry['selected_size'] = selected_size
         cart_items.append(entry)
     order_note = body.get('order_note')
-    user = db.session.get(User, int(get_jwt_identity()))
-    if user is None:                            # spójnie z konwencją /auth/me
-        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     ok, result = place_preorder_order(page=page, cart_items=cart_items,
                                       order_note=order_note, user=user)
     if not ok:
