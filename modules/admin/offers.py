@@ -58,10 +58,15 @@ def offers_list():
     for page in pages:
         page.check_and_update_status()
 
+    # Podział na zakładki + sortowanie PO aktualizacji statusów (zmienia status).
+    current_pages, closed_pages = split_and_sort_offer_pages(pages)
+
     return render_template(
         'admin/offers/list.html',
         title='Strony sprzedaży',
-        pages=pages
+        pages=pages,                  # globalne statystyki + warunek widoczności
+        current_pages=current_pages,
+        closed_pages=closed_pages,
     )
 
 
