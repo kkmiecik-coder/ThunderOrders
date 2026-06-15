@@ -62,6 +62,12 @@ function initOfferBuilder(config) {
     // Setup visibility toggle (Publiczna/Prywatna)
     setupVisibilityToggle();
 
+    // Setup notify clients toggle (Wyłączone/Włączone)
+    setupNotifyClientsToggle();
+
+    // Setup preview enabled toggle (Wyłączone/Włączone)
+    setupPreviewToggle();
+
     // Initialize audience state from pre-rendered chips
     initAudienceState();
 }
@@ -135,6 +141,66 @@ function setupVisibilityToggle() {
         if (editor) {
             editor.style.display = this.checked ? '' : 'none';
         }
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
+}
+
+/**
+ * Setup notify clients on publish toggle (Wyłączone left / Włączone right)
+ * Wyłączone = unchecked (notify_clients_on_publish=false), Włączone = checked (=true)
+ */
+function setupNotifyClientsToggle() {
+    const toggle = document.getElementById('notifyClientsOnPublish');
+    const labelOff = document.getElementById('labelNotifyOff');
+    const labelOn = document.getElementById('labelNotifyOn');
+
+    if (!toggle) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            if (labelOff) labelOff.classList.remove('active');
+            if (labelOn) labelOn.classList.add('active');
+        } else {
+            if (labelOff) labelOff.classList.add('active');
+            if (labelOn) labelOn.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
+}
+
+/**
+ * Setup preview enabled toggle (Wyłączone left / Włączone right)
+ * Wyłączone = unchecked (preview_enabled=false), Włączone = checked (=true)
+ */
+function setupPreviewToggle() {
+    const toggle = document.getElementById('previewEnabled');
+    const labelOff = document.getElementById('labelPreviewOff');
+    const labelOn = document.getElementById('labelPreviewOn');
+
+    if (!toggle) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            if (labelOff) labelOff.classList.remove('active');
+            if (labelOn) labelOn.classList.add('active');
+        } else {
+            if (labelOff) labelOff.classList.add('active');
+            if (labelOn) labelOn.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
         updateActiveLabel();
         markDirty();
     });

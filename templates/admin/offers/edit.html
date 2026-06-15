@@ -155,31 +155,46 @@
                         <small class="form-hint">Puste = bez limitu czasu</small>
                     </div>
 
-                    <!-- Powiadomienie klientów przy publikacji -->
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox"
-                                   id="notifyClientsOnPublish"
-                                   {% if page.notify_clients_on_publish %}checked{% endif %}>
-                            <span class="checkbox-text">Wyślij email do klientów przy publikacji</span>
-                        </label>
-                        <small class="form-hint">Jednorazowe powiadomienie o nowym dropie. Toggle resetuje się po wysłaniu.</small>
+                    <!-- 1. Powiadomienie klientów przy publikacji -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Wyślij email do klientów przy publikacji</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Jednorazowe powiadomienie o nowym dropie. Toggle resetuje się po wysłaniu.</span></span>
+                        </div>
+                        <div class="payment-stages-toggle">
+                            <span class="toggle-label-side {% if not page.notify_clients_on_publish %}active{% endif %}" id="labelNotifyOff">Wyłączone</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyClientsOnPublish"
+                                       {% if page.notify_clients_on_publish %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label-side {% if page.notify_clients_on_publish %}active{% endif %}" id="labelNotifyOn">Włączone</span>
+                        </div>
                     </div>
 
-                    <!-- Podgląd oferty na countdownie -->
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox"
-                                   id="previewEnabled"
-                                   {% if page.preview_enabled %}checked{% endif %}>
-                            <span class="checkbox-text">Preview na stronie odliczania</span>
-                        </label>
-                        <small class="form-hint">Klient przed startem zobaczy przycisk „Co jest w sprzedaży?" z podglądem oferty (bez możliwości zamawiania).</small>
+                    <!-- 2. Podgląd oferty na countdownie -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Preview na stronie odliczania</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Klient przed startem zobaczy przycisk „Co jest w sprzedaży?" z podglądem oferty (bez możliwości zamawiania).</span></span>
+                        </div>
+                        <div class="payment-stages-toggle">
+                            <span class="toggle-label-side {% if not page.preview_enabled %}active{% endif %}" id="labelPreviewOff">Wyłączone</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="previewEnabled"
+                                       {% if page.preview_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label-side {% if page.preview_enabled %}active{% endif %}" id="labelPreviewOn">Włączone</span>
+                        </div>
                     </div>
 
-                    <!-- Typ realizacji zamówień -->
-                    <div class="form-group">
-                        <label>Zamówienie do:</label>
+                    <!-- 3. Typ realizacji zamówień -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Zamówienie do:</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Proxy = 4 płat. (Produkt + Wysyłka KR + Cło/VAT + Wysyłka PL). Polska = 3 płat. (Produkt + Cło/VAT + Wysyłka PL).</span></span>
+                        </div>
                         <div class="payment-stages-toggle">
                             <span class="toggle-label-side {% if page.payment_stages != 3 %}active{% endif %}" id="labelProxy">Proxy</span>
                             <label class="toggle-switch">
@@ -192,9 +207,12 @@
                         <input type="hidden" id="paymentStages" value="{{ page.payment_stages or 4 }}">
                     </div>
 
-                    <!-- Widoczność -->
-                    <div class="form-group visibility-group">
-                        <label>Widoczność strony</label>
+                    <!-- 4. Widoczność -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Widoczność strony</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Publiczna — strona dostępna dla każdego z linkiem. Prywatna — tylko dla wybranych grup i osób (administracja zawsze ma dostęp).</span></span>
+                        </div>
                         <div class="payment-stages-toggle">
                             <span class="toggle-label-side {% if not page.is_private %}active{% endif %}" id="labelPubliczna">Publiczna</span>
                             <label class="toggle-switch">
