@@ -19,16 +19,21 @@ def _auth(client, db, make_user):
     return {'Authorization': f'Bearer {token}'}, u
 
 
-def _make_page(db, status='active', page_type='exclusive', payment_stages=4, is_private=False):
-    """Tworzy OfferPage. Wymaga usera id=1 (tworzonego przez _auth)."""
+def _make_page(db, status='active', page_type='exclusive', payment_stages=4,
+               is_private=False, created_by=None):
+    """Tworzy OfferPage. created_by = realne id istniejącego usera (nie hardcoded 1)."""
     from modules.offers.models import OfferPage
+    from modules.auth.models import User
+    if created_by is None:
+        owner = User.query.order_by(User.id).first()
+        created_by = owner.id if owner else 1
     p = OfferPage(
         name=f'Drop {status} priv={is_private}',
         token=OfferPage.generate_token(),
         status=status,
         page_type=page_type,
         payment_stages=payment_stages,
-        created_by=1,
+        created_by=created_by,
         is_private=is_private,
     )
     db.session.add(p)
@@ -138,6 +143,10 @@ def test_private_page_in_list_for_audience_group_member(client, db, make_user):
     r = client.get('/api/mobile/v1/offers/offer-pages?status=live', headers=h_member)
     tokens = [p['token'] for p in r.get_json()['data']]
     assert page.token in tokens
+    # Outsider (poza grupą) nadal nie widzi
+    r2 = client.get('/api/mobile/v1/offers/offer-pages?status=live', headers=h_outsider)
+    tokens2 = [p['token'] for p in r2.get_json()['data']]
+    assert page.token not in tokens2
 
 
 def test_public_page_always_in_list(client, db, make_user):

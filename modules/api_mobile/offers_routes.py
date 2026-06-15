@@ -273,6 +273,8 @@ def offer_release(token):
     if not page:
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     _viewer = db.session.get(User, int(get_jwt_identity()))
+    if _viewer is None:
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     if not user_can_access_offer_page(page, _viewer):
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     body = request.get_json(silent=True) or {}
@@ -298,6 +300,8 @@ def offer_extend(token):
     if not page:
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     _viewer = db.session.get(User, int(get_jwt_identity()))
+    if _viewer is None:
+        return json_err('user_not_found', 'Nie znaleziono użytkownika.', 404)
     if not user_can_access_offer_page(page, _viewer):
         return json_err('page_not_found', 'Strona ofertowa nie istnieje.', 404)
     body = request.get_json(silent=True) or {}

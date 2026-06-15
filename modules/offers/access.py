@@ -41,7 +41,7 @@ def user_can_access_offer_page(page, user):
         return True
     if user is None:
         return False
-    if getattr(user, 'role', None) in ('admin', 'mod'):
+    if user.role in ('admin', 'mod'):
         return True
     return user_is_in_page_audience(page, user)
 
