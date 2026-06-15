@@ -15,6 +15,34 @@ from datetime import datetime
 import json
 
 
+# Kolejność statusów w zakładce „Bieżące" (od góry).
+_OFFER_STATUS_ORDER = {'active': 0, 'paused': 1, 'scheduled': 2, 'draft': 3, 'ended': 4}
+
+
+def split_and_sort_offer_pages(pages):
+    """
+    Dzieli strony ofertowe na (current_pages, closed_pages) i sortuje obie grupy.
+
+    - closed  = strony całkowicie zamknięte (is_fully_closed == True)
+    - current = cała reszta (draft/scheduled/active/paused oraz ended-niezamknięte)
+
+    Sortowanie w obu grupach:
+    1) priorytet statusu wg _OFFER_STATUS_ORDER,
+    2) strony bez starts_at (NULL) na końcu grupy,
+    3) starts_at malejąco (najnowsze pierwsze).
+    """
+    def sort_key(p):
+        return (
+            _OFFER_STATUS_ORDER.get(p.status, 99),
+            p.starts_at is None,
+            -p.starts_at.timestamp() if p.starts_at else 0.0,
+        )
+
+    closed = sorted([p for p in pages if p.is_fully_closed], key=sort_key)
+    current = sorted([p for p in pages if not p.is_fully_closed], key=sort_key)
+    return current, closed
+
+
 # ============================================
 # Lista stron Offers
 # ============================================
