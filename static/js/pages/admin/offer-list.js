@@ -3,6 +3,66 @@
  * Handles horizontal tab navigation and custom select dropdowns
  */
 
+/**
+ * Sortowanie tabeli stron sprzedaży — odwzorowanie mechanizmu ze stock-orders.
+ * Zawężone do tabeli klikniętego nagłówka (obie zakładki są w DOM jednocześnie).
+ * Stan sortowania trzymany per <table> w data-sort-column / data-sort-dir.
+ */
+const OFFER_COLUMN_TO_DATASET = {
+    name: 'name', ptype: 'ptype', shipping: 'shipping', status: 'status',
+    created: 'created', starts: 'starts', ends: 'ends', deadline: 'deadline',
+};
+const OFFER_NUMERIC_COLUMNS = new Set(['created', 'starts', 'ends', 'deadline']);
+const OFFER_STATUS_PRIORITY = { active: 0, paused: 1, scheduled: 2, draft: 3, ended: 4 };
+
+function sortTable(column, thEl) {
+    const table = thEl.closest('table');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Toggle kierunku; stan per tabela
+    let dir = 'asc';
+    if (table.dataset.sortColumn === column) {
+        dir = table.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+    }
+    table.dataset.sortColumn = column;
+    table.dataset.sortDir = dir;
+
+    // Wskaźniki tylko w tej tabeli
+    table.querySelectorAll('th.sortable').forEach(h => {
+        h.classList.remove('sorted-asc', 'sorted-desc');
+        if (h.dataset.column === column) {
+            h.classList.add(dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+
+    const key = OFFER_COLUMN_TO_DATASET[column] || column;
+    const isNumeric = OFFER_NUMERIC_COLUMNS.has(column);
+    const isStatus = column === 'status';
+
+    rows.sort((a, b) => {
+        let av = a.dataset[key] || '';
+        let bv = b.dataset[key] || '';
+        if (isStatus) {
+            av = OFFER_STATUS_PRIORITY[av] ?? 99;
+            bv = OFFER_STATUS_PRIORITY[bv] ?? 99;
+        } else if (isNumeric) {
+            av = parseFloat(av) || 0;
+            bv = parseFloat(bv) || 0;
+        } else {
+            av = av.toLowerCase();
+            bv = bv.toLowerCase();
+        }
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initializeOfferTabs();
     initializeSettingsTabs(); // Left sidebar tabs in settings panel
