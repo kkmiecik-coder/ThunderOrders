@@ -3879,6 +3879,8 @@
 .audience-search-results {
     position: fixed;
     z-index: 9999;
+    min-width: 320px;
+    max-width: calc(100vw - 32px);
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -3925,6 +3927,15 @@
     background: #f5f3ff;
 }
 
+/* Nazwa wyniku — jedna linia z wielokropkiem, nie zawija */
+.audience-result-item > span:not(.audience-result-meta) {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 [data-theme="dark"] .audience-result-item {
     color: rgba(255, 255, 255, 0.85);
 }
@@ -3935,9 +3946,11 @@
 
 .audience-result-meta {
     margin-left: auto;
+    padding-left: 10px;
     font-size: 11px;
     color: #9ca3af;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 [data-theme="dark"] .audience-result-meta {
