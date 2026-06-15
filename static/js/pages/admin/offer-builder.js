@@ -58,6 +58,18 @@ function initOfferBuilder(config) {
 
     // Setup payment stages toggle
     setupPaymentStagesToggle();
+
+    // Setup visibility toggle (Publiczna/Prywatna)
+    setupVisibilityToggle();
+
+    // Setup notify clients toggle (Wyłączone/Włączone)
+    setupNotifyClientsToggle();
+
+    // Setup preview enabled toggle (Wyłączone/Włączone)
+    setupPreviewToggle();
+
+    // Initialize audience state from pre-rendered chips
+    initAudienceState();
 }
 
 /**
@@ -93,6 +105,102 @@ function setupPaymentStagesToggle() {
 
     toggle.addEventListener('change', function() {
         hiddenInput.value = this.checked ? 3 : 4;
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
+}
+
+/**
+ * Setup visibility toggle (Publiczna left / Prywatna right)
+ * Publiczna = unchecked/left (is_private=false), Prywatna = checked/right (is_private=true)
+ */
+function setupVisibilityToggle() {
+    const toggle = document.getElementById('visibilityToggle');
+    const labelPubliczna = document.getElementById('labelPubliczna');
+    const labelPrywatna = document.getElementById('labelPrywatna');
+
+    if (!toggle) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            // Prywatna (right)
+            if (labelPubliczna) labelPubliczna.classList.remove('active');
+            if (labelPrywatna) labelPrywatna.classList.add('active');
+        } else {
+            // Publiczna (left)
+            if (labelPubliczna) labelPubliczna.classList.add('active');
+            if (labelPrywatna) labelPrywatna.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
+        var editor = document.getElementById('audienceEditor');
+        if (editor) {
+            editor.style.display = this.checked ? '' : 'none';
+        }
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
+}
+
+/**
+ * Setup notify clients on publish toggle (Wyłączone left / Włączone right)
+ * Wyłączone = unchecked (notify_clients_on_publish=false), Włączone = checked (=true)
+ */
+function setupNotifyClientsToggle() {
+    const toggle = document.getElementById('notifyClientsOnPublish');
+    const labelOff = document.getElementById('labelNotifyOff');
+    const labelOn = document.getElementById('labelNotifyOn');
+
+    if (!toggle) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            if (labelOff) labelOff.classList.remove('active');
+            if (labelOn) labelOn.classList.add('active');
+        } else {
+            if (labelOff) labelOff.classList.add('active');
+            if (labelOn) labelOn.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
+}
+
+/**
+ * Setup preview enabled toggle (Wyłączone left / Włączone right)
+ * Wyłączone = unchecked (preview_enabled=false), Włączone = checked (=true)
+ */
+function setupPreviewToggle() {
+    const toggle = document.getElementById('previewEnabled');
+    const labelOff = document.getElementById('labelPreviewOff');
+    const labelOn = document.getElementById('labelPreviewOn');
+
+    if (!toggle) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            if (labelOff) labelOff.classList.remove('active');
+            if (labelOn) labelOn.classList.add('active');
+        } else {
+            if (labelOff) labelOff.classList.add('active');
+            if (labelOn) labelOn.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
         updateActiveLabel();
         markDirty();
     });
@@ -829,6 +937,9 @@ function removeSetItem(btn) {
  */
 function collectPageData() {
     const paymentStagesInput = document.getElementById('paymentStages');
+    const visibilityToggle = document.getElementById('visibilityToggle');
+    const isPrivate = visibilityToggle ? visibilityToggle.checked : false;
+
     const data = {
         name: document.getElementById('pageName').value,
         description: document.getElementById('pageDescription').value,
@@ -837,6 +948,9 @@ function collectPageData() {
         payment_stages: paymentStagesInput ? parseInt(paymentStagesInput.value) || 4 : 4,
         notify_clients_on_publish: document.getElementById('notifyClientsOnPublish')?.checked || false,
         preview_enabled: document.getElementById('previewEnabled')?.checked ?? true,
+        is_private: isPrivate,
+        group_ids: Object.keys(_audienceState.groups).map(Number),
+        user_ids: Object.keys(_audienceState.users).map(Number),
         sections: []
     };
 
@@ -2533,3 +2647,374 @@ function removeBonusRequiredProduct(btn) {
     btn.closest('.bonus-required-item').remove();
     markDirty();
 }
+
+
+// ============================================================
+// Widoczność strony (panel prywatności)
+// ============================================================
+
+/**
+ * Audience state — groups and users currently selected as page audience.
+ * Key: numeric id (as string, from Object.keys), value: {type, id, name}
+ */
+var _audienceState = { groups: {}, users: {} };
+
+/**
+ * Initialize audience state by reading pre-rendered chips from the DOM.
+ */
+function initAudienceState() {
+    var chips = document.querySelectorAll('#audienceChips .audience-chip');
+    chips.forEach(function(chip) {
+        var type = chip.dataset.type;
+        var id = chip.dataset.id;
+        var name = chip.dataset.name;
+        if (type === 'group') _audienceState.groups[id] = { type: 'group', id: parseInt(id), name: name };
+        if (type === 'user') _audienceState.users[id] = { type: 'user', id: parseInt(id), name: name };
+    });
+}
+
+/**
+ * Remove an audience chip (group or user).
+ */
+function removeAudience(type, id) {
+    var key = String(id);
+    if (type === 'group') delete _audienceState.groups[key];
+    if (type === 'user') delete _audienceState.users[key];
+
+    var chip = document.querySelector('#audienceChips .audience-chip[data-type="' + type + '"][data-id="' + key + '"]');
+    if (chip) chip.remove();
+    markDirty();
+}
+
+/**
+ * Add an audience chip (group or user) to the chips container.
+ */
+function _addAudienceChip(container, type, id, name) {
+    var key = String(id);
+    if (type === 'group') {
+        if (_audienceState.groups[key]) return; // already added
+        _audienceState.groups[key] = { type: 'group', id: id, name: name };
+    } else {
+        if (_audienceState.users[key]) return; // already added
+        _audienceState.users[key] = { type: 'user', id: id, name: name };
+    }
+
+    var safeName = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    var icon = type === 'group'
+        ? '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>'
+        : '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>';
+
+    var html = '<span class="audience-chip chip-' + type + '" data-type="' + type + '" data-id="' + key + '" data-name="' + safeName + '">'
+        + icon + ' ' + safeName
+        + ' <button type="button" class="chip-remove" onclick="removeAudience(\'' + type + '\',' + id + ')" aria-label="Usuń">&times;</button>'
+        + '</span>';
+
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+
+// --- Audience search dropdown (mirrors searchBonusProduct pattern) ---
+
+var _audienceSearchTimeout = null;
+var _audienceDropdown = null;
+var _audienceDropdownOwner = null;
+
+function _getAudienceDropdown() {
+    if (!_audienceDropdown) {
+        _audienceDropdown = document.createElement('div');
+        _audienceDropdown.className = 'audience-search-results';
+        _audienceDropdown.style.display = 'none';
+        document.body.appendChild(_audienceDropdown);
+    }
+    return _audienceDropdown;
+}
+
+function _positionAudienceDropdown(input) {
+    var dd = _getAudienceDropdown();
+    var rect = input.getBoundingClientRect();
+    var maxH = 280;
+    var spaceBelow = window.innerHeight - rect.bottom - 4;
+    dd.style.position = 'fixed';
+    dd.style.left = rect.left + 'px';
+    dd.style.width = rect.width + 'px';
+    dd.style.maxHeight = maxH + 'px';
+    if (spaceBelow >= 120) {
+        dd.style.top = (rect.bottom + 2) + 'px';
+        dd.style.bottom = 'auto';
+    } else {
+        dd.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+        dd.style.top = 'auto';
+    }
+}
+
+function searchAudience(input) {
+    clearTimeout(_audienceSearchTimeout);
+    var dd = _getAudienceDropdown();
+    _audienceDropdownOwner = input;
+    var query = input.value.trim();
+
+    if (query.length < 1) {
+        dd.innerHTML = '';
+        dd.style.display = 'none';
+        return;
+    }
+
+    _positionAudienceDropdown(input);
+
+    _audienceSearchTimeout = setTimeout(function() {
+        var q = encodeURIComponent(query);
+        Promise.all([
+            fetch('/admin/user-groups/api/search?q=' + q).then(function(r) { return r.json(); }).catch(function() { return []; }),
+            fetch('/admin/users/api/search?q=' + q).then(function(r) { return r.json(); }).catch(function() { return []; })
+        ]).then(function(results) {
+            var groups = results[0];
+            var users = results[1];
+            if (!groups.length && !users.length) {
+                dd.innerHTML = '<div class="audience-no-results">Brak wyników</div>';
+                dd.style.display = 'block';
+                return;
+            }
+            var html = '';
+            if (groups.length) {
+                html += '<div class="audience-result-section-header">Grupy</div>';
+                groups.forEach(function(g) {
+                    var safeName = g.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="audience-result-item" data-type="group" data-id="' + g.id + '" data-name="' + safeName + '">'
+                        + '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>'
+                        + '<span>' + safeName + '</span>'
+                        + '<span class="audience-result-meta">' + g.member_count + ' os.</span>'
+                        + '</div>';
+                });
+            }
+            if (users.length) {
+                html += '<div class="audience-result-section-header">Użytkownicy</div>';
+                users.forEach(function(u) {
+                    var displayName = u.name || u.email;
+                    var safeName = displayName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    var safeEmail = u.email.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="audience-result-item" data-type="user" data-id="' + u.id + '" data-name="' + safeName + '">'
+                        + '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>'
+                        + '<span>' + safeName + '</span>'
+                        + '<span class="audience-result-meta">' + safeEmail + '</span>'
+                        + '</div>';
+                });
+            }
+            dd.innerHTML = html;
+            dd.style.display = 'block';
+            _positionAudienceDropdown(input);
+        });
+    }, 300);
+}
+
+// Delegate click on audience dropdown items
+document.addEventListener('click', function(e) {
+    var item = e.target.closest('.audience-result-item');
+    if (item && _audienceDropdownOwner) {
+        var type = item.dataset.type;
+        var id = parseInt(item.dataset.id);
+        var name = item.dataset.name;
+        var chips = document.getElementById('audienceChips');
+        if (chips) _addAudienceChip(chips, type, id, name);
+        var dd = _getAudienceDropdown();
+        dd.innerHTML = '';
+        dd.style.display = 'none';
+        if (_audienceDropdownOwner) _audienceDropdownOwner.value = '';
+        markDirty();
+        return;
+    }
+
+    // Close audience dropdown on outside click
+    if (_audienceDropdown && _audienceDropdown.style.display !== 'none') {
+        if (!e.target.closest('#audienceSearch') && !e.target.closest('.audience-search-results')) {
+            _audienceDropdown.innerHTML = '';
+            _audienceDropdown.style.display = 'none';
+        }
+    }
+});
+
+
+// --- Create Group Modal ---
+
+var _createGroupMemberState = {}; // {id: {id, name}} for members being added to new group
+
+var _createGroupMemberSearchTimeout = null;
+var _createGroupMemberDropdown = null;
+var _createGroupMemberDropdownOwner = null;
+
+function _getCreateGroupMemberDropdown() {
+    if (!_createGroupMemberDropdown) {
+        _createGroupMemberDropdown = document.createElement('div');
+        _createGroupMemberDropdown.className = 'audience-search-results';
+        _createGroupMemberDropdown.style.display = 'none';
+        document.body.appendChild(_createGroupMemberDropdown);
+    }
+    return _createGroupMemberDropdown;
+}
+
+function openCreateGroupModal() {
+    _createGroupMemberState = {};
+    var modal = document.getElementById('createGroupModal');
+    var nameInput = document.getElementById('newGroupName');
+    var memberSearch = document.getElementById('createGroupMemberSearch');
+    var chips = document.getElementById('createGroupMemberChips');
+    if (nameInput) nameInput.value = '';
+    if (memberSearch) memberSearch.value = '';
+    if (chips) chips.innerHTML = '';
+    if (modal) {
+        modal.classList.add('active');
+        modal.setAttribute('aria-hidden', 'false');
+        if (nameInput) nameInput.focus();
+    }
+}
+
+function closeCreateGroupModal() {
+    var modal = document.getElementById('createGroupModal');
+    if (modal) {
+        modal.classList.remove('active');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+    var dd = _getCreateGroupMemberDropdown();
+    dd.innerHTML = '';
+    dd.style.display = 'none';
+}
+
+function searchCreateGroupMember(input) {
+    clearTimeout(_createGroupMemberSearchTimeout);
+    var dd = _getCreateGroupMemberDropdown();
+    _createGroupMemberDropdownOwner = input;
+    var query = input.value.trim();
+
+    if (query.length < 2) {
+        dd.innerHTML = '';
+        dd.style.display = 'none';
+        return;
+    }
+
+    var rect = input.getBoundingClientRect();
+    dd.style.position = 'fixed';
+    dd.style.left = rect.left + 'px';
+    dd.style.width = rect.width + 'px';
+    dd.style.maxHeight = '220px';
+    var spaceBelow = window.innerHeight - rect.bottom - 4;
+    if (spaceBelow >= 80) {
+        dd.style.top = (rect.bottom + 2) + 'px';
+        dd.style.bottom = 'auto';
+    } else {
+        dd.style.bottom = (window.innerHeight - rect.top + 2) + 'px';
+        dd.style.top = 'auto';
+    }
+
+    _createGroupMemberSearchTimeout = setTimeout(function() {
+        fetch('/admin/users/api/search?q=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(users) {
+                if (!users.length) {
+                    dd.innerHTML = '<div class="audience-no-results">Brak wyników</div>';
+                    dd.style.display = 'block';
+                    return;
+                }
+                var html = '';
+                users.forEach(function(u) {
+                    if (_createGroupMemberState[u.id]) return; // already added
+                    var displayName = u.name || u.email;
+                    var safeName = displayName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    var safeEmail = u.email.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    html += '<div class="audience-result-item create-group-member-result" data-id="' + u.id + '" data-name="' + safeName + '">'
+                        + '<svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>'
+                        + '<span>' + safeName + '</span>'
+                        + '<span class="audience-result-meta">' + safeEmail + '</span>'
+                        + '</div>';
+                });
+                if (!html) {
+                    dd.innerHTML = '<div class="audience-no-results">Wszyscy wyniki już dodani</div>';
+                } else {
+                    dd.innerHTML = html;
+                }
+                dd.style.display = 'block';
+            });
+    }, 300);
+}
+
+// Delegate click for create-group member search
+document.addEventListener('click', function(e) {
+    var item = e.target.closest('.create-group-member-result');
+    if (item) {
+        var id = parseInt(item.dataset.id);
+        var name = item.dataset.name;
+        _createGroupMemberState[id] = { id: id, name: name };
+
+        var chips = document.getElementById('createGroupMemberChips');
+        if (chips) {
+            var safeName = name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            chips.insertAdjacentHTML('beforeend',
+                '<span class="audience-chip chip-user" data-id="' + id + '">'
+                + '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>'
+                + ' ' + safeName
+                + ' <button type="button" class="chip-remove" onclick="_removeCreateGroupMember(' + id + ')" aria-label="Usuń">&times;</button>'
+                + '</span>'
+            );
+        }
+
+        var dd = _getCreateGroupMemberDropdown();
+        dd.innerHTML = '';
+        dd.style.display = 'none';
+        if (_createGroupMemberDropdownOwner) _createGroupMemberDropdownOwner.value = '';
+        return;
+    }
+
+    // Close create-group member dropdown on outside click
+    if (_createGroupMemberDropdown && _createGroupMemberDropdown.style.display !== 'none') {
+        if (!e.target.closest('#createGroupMemberSearch') && !e.target.closest('.create-group-member-result')) {
+            _createGroupMemberDropdown.innerHTML = '';
+            _createGroupMemberDropdown.style.display = 'none';
+        }
+    }
+});
+
+function _removeCreateGroupMember(id) {
+    delete _createGroupMemberState[id];
+    var chip = document.querySelector('#createGroupMemberChips .audience-chip[data-id="' + id + '"]');
+    if (chip) chip.remove();
+}
+
+function saveNewGroup() {
+    var name = (document.getElementById('newGroupName')?.value || '').trim();
+    if (!name) {
+        if (window.Toast) window.Toast.show('Podaj nazwę grupy', 'error');
+        return;
+    }
+    var memberIds = Object.keys(_createGroupMemberState).map(Number);
+
+    fetch('/admin/user-groups/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': builderConfig.csrfToken
+        },
+        body: JSON.stringify({ name: name, member_ids: memberIds })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.success) {
+            closeCreateGroupModal();
+            var g = result.group;
+            var chips = document.getElementById('audienceChips');
+            if (chips) _addAudienceChip(chips, 'group', g.id, g.name);
+            markDirty();
+            if (window.Toast) window.Toast.show('Grupa "' + g.name + '" utworzona i dodana do odbiorców', 'success');
+        } else {
+            if (window.Toast) window.Toast.show(result.error || 'Błąd tworzenia grupy', 'error');
+        }
+    })
+    .catch(function() {
+        if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+    });
+}
+
+// Close create-group modal when clicking overlay background
+document.addEventListener('click', function(e) {
+    var modal = document.getElementById('createGroupModal');
+    if (modal && e.target === modal) {
+        closeCreateGroupModal();
+    }
+});

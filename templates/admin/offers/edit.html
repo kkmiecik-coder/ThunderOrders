@@ -155,31 +155,46 @@
                         <small class="form-hint">Puste = bez limitu czasu</small>
                     </div>
 
-                    <!-- Powiadomienie klientów przy publikacji -->
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox"
-                                   id="notifyClientsOnPublish"
-                                   {% if page.notify_clients_on_publish %}checked{% endif %}>
-                            <span class="checkbox-text">Wyślij email do klientów przy publikacji</span>
-                        </label>
-                        <small class="form-hint">Jednorazowe powiadomienie o nowym dropie. Toggle resetuje się po wysłaniu.</small>
+                    <!-- 1. Powiadomienie klientów przy publikacji -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Wyślij email przy publikacji</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Jednorazowe powiadomienie o nowym dropie. Toggle resetuje się po wysłaniu.</span></span>
+                        </div>
+                        <div class="payment-stages-toggle">
+                            <span class="toggle-label-side {% if not page.notify_clients_on_publish %}active{% endif %}" id="labelNotifyOff">Wyłączone</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="notifyClientsOnPublish"
+                                       {% if page.notify_clients_on_publish %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label-side {% if page.notify_clients_on_publish %}active{% endif %}" id="labelNotifyOn">Włączone</span>
+                        </div>
                     </div>
 
-                    <!-- Podgląd oferty na countdownie -->
-                    <div class="form-group checkbox-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox"
-                                   id="previewEnabled"
-                                   {% if page.preview_enabled %}checked{% endif %}>
-                            <span class="checkbox-text">Preview na stronie odliczania</span>
-                        </label>
-                        <small class="form-hint">Klient przed startem zobaczy przycisk „Co jest w sprzedaży?" z podglądem oferty (bez możliwości zamawiania).</small>
+                    <!-- 2. Podgląd oferty na countdownie -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Preview na stronie odliczania</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Klient przed startem zobaczy przycisk „Co jest w sprzedaży?" z podglądem oferty (bez możliwości zamawiania).</span></span>
+                        </div>
+                        <div class="payment-stages-toggle">
+                            <span class="toggle-label-side {% if not page.preview_enabled %}active{% endif %}" id="labelPreviewOff">Wyłączone</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="previewEnabled"
+                                       {% if page.preview_enabled %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label-side {% if page.preview_enabled %}active{% endif %}" id="labelPreviewOn">Włączone</span>
+                        </div>
                     </div>
 
-                    <!-- Typ realizacji zamówień -->
-                    <div class="form-group">
-                        <label>Zamówienie do:</label>
+                    <!-- 3. Typ realizacji zamówień -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Zamówienie do</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Proxy = 4 płat. (Produkt + Wysyłka KR + Cło/VAT + Wysyłka PL). Polska = 3 płat. (Produkt + Cło/VAT + Wysyłka PL).</span></span>
+                        </div>
                         <div class="payment-stages-toggle">
                             <span class="toggle-label-side {% if page.payment_stages != 3 %}active{% endif %}" id="labelProxy">Proxy</span>
                             <label class="toggle-switch">
@@ -190,10 +205,54 @@
                             <span class="toggle-label-side {% if page.payment_stages == 3 %}active{% endif %}" id="labelPolska">Polska</span>
                         </div>
                         <input type="hidden" id="paymentStages" value="{{ page.payment_stages or 4 }}">
-                        <small class="form-hint">
-                            Proxy = 4 plat. (Produkt + Wysylka KR + Clo/VAT + Wysylka PL)<br>
-                            Polska = 3 plat. (Produkt + Clo/VAT + Wysylka PL)
-                        </small>
+                    </div>
+
+                    <!-- 4. Widoczność -->
+                    <div class="setting-box">
+                        <div class="setting-box-header">
+                            <span class="setting-box-title">Widoczność strony</span>
+                            <span class="setting-info">ⓘ<span class="setting-tooltip">Publiczna — strona dostępna dla każdego z linkiem. Prywatna — tylko dla wybranych grup i osób (administracja zawsze ma dostęp).</span></span>
+                        </div>
+                        <div class="payment-stages-toggle">
+                            <span class="toggle-label-side {% if not page.is_private %}active{% endif %}" id="labelPubliczna">Publiczna</span>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="visibilityToggle"
+                                       {% if page.is_private %}checked{% endif %}>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label-side {% if page.is_private %}active{% endif %}" id="labelPrywatna">Prywatna</span>
+                        </div>
+
+                        <div id="audienceEditor" class="audience-editor" {% if not page.is_private %}style="display:none"{% endif %}>
+                            <div class="audience-search-row">
+                                <input type="text" id="audienceSearch" class="form-input audience-search-input"
+                                       placeholder="Szukaj grupy lub użytkownika…"
+                                       oninput="searchAudience(this)"
+                                       onfocus="searchAudience(this)"
+                                       autocomplete="off">
+                                <button type="button" class="btn-add-group" onclick="openCreateGroupModal()" title="Utwórz nową grupę">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                                    <span>Nowa grupa</span>
+                                </button>
+                            </div>
+                            <div id="audienceChips" class="audience-chips">
+                                {% for g in allowed_groups %}
+                                <span class="audience-chip chip-group" data-type="group" data-id="{{ g.id }}" data-name="{{ g.name }}">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/><path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/></svg>
+                                    {{ g.name }}
+                                    <button type="button" class="chip-remove" onclick="removeAudience('group', {{ g.id }})" aria-label="Usuń grupę {{ g.name }}">&times;</button>
+                                </span>
+                                {% endfor %}
+                                {% for u in allowed_users %}
+                                <span class="audience-chip chip-user" data-type="user" data-id="{{ u.id }}" data-name="{{ u.email }}">
+                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>
+                                    {{ u.first_name or u.email }}
+                                    <button type="button" class="chip-remove" onclick="removeAudience('user', {{ u.id }})" aria-label="Usuń użytkownika">&times;</button>
+                                </span>
+                                {% endfor %}
+                            </div>
+                            <small class="form-hint">Strona widoczna tylko dla wybranych grup i użytkowników.</small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -928,6 +987,35 @@
 
 <!-- Toast Container -->
 <div id="toastContainer" class="toast-container"></div>
+
+<!-- Modal: utwórz nową grupę odbiorców -->
+<div id="createGroupModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-content modal-medium" role="dialog" aria-labelledby="createGroupModalTitle">
+        <div class="modal-header">
+            <h3 id="createGroupModalTitle">Utwórz nową grupę</h3>
+            <button type="button" class="modal-close" aria-label="Zamknij" onclick="closeCreateGroupModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="newGroupName">Nazwa grupy <span class="required">*</span></label>
+                <input type="text" id="newGroupName" class="form-control" placeholder="np. VIP, Early Access…" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Dodaj członków (opcjonalnie)</label>
+                <input type="text" id="createGroupMemberSearch" class="form-control"
+                       placeholder="Szukaj użytkownika po emailu lub nazwie…"
+                       oninput="searchCreateGroupMember(this)"
+                       onfocus="searchCreateGroupMember(this)"
+                       autocomplete="off">
+                <div id="createGroupMemberChips" class="audience-chips" style="margin-top:8px"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeCreateGroupModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" onclick="saveNewGroup()">Utwórz grupę</button>
+        </div>
+    </div>
+</div>
 
 <!-- Modal: zmiana daty zakończenia sprzedaży -->
 <div id="endDateChangeModal" class="modal-overlay" aria-hidden="true">

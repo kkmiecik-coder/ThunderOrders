@@ -1,0 +1,142 @@
+"""Admin: grupy uzytkownikow (zarzadzanie + wyszukiwarki)."""
+from flask import request, jsonify
+from flask_login import login_required, current_user
+from sqlalchemy import or_
+from modules.admin import admin_bp
+from utils.decorators import admin_required
+from extensions import db
+from modules.auth.models import User, UserGroup
+
+
+@admin_bp.route('/users/api/search')
+@login_required
+@admin_required
+def users_api_search():
+    """Wyszukiwanie użytkowników po imieniu, nazwisku lub emailu (min. 2 znaki)."""
+    q = request.args.get('q', '').strip()
+    if len(q) < 2:
+        return jsonify([])
+    term = f'%{q}%'
+    users = User.query.filter(
+        or_(
+            User.first_name.ilike(term),
+            User.last_name.ilike(term),
+            User.email.ilike(term),
+        )
+    ).order_by(User.last_name).limit(20).all()
+    return jsonify([{
+        'id': u.id,
+        'name': ((u.first_name or '') + ' ' + (u.last_name or '')).strip() or u.email,
+        'email': u.email,
+        'avatar': u.avatar_url,  # None-safe: User.avatar_url zwraca None gdy brak avatara
+    } for u in users])
+
+
+@admin_bp.route('/user-groups/api/search')
+@login_required
+@admin_required
+def user_groups_api_search():
+    """Wyszukiwanie grup użytkowników (opcjonalny filtr po nazwie)."""
+    q = request.args.get('q', '').strip()
+    query = UserGroup.query
+    if q:
+        query = query.filter(UserGroup.name.ilike(f'%{q}%'))
+    groups = query.order_by(UserGroup.name).limit(20).all()
+    return jsonify([{
+        'id': g.id,
+        'name': g.name,
+        'member_count': g.member_count,
+    } for g in groups])
+
+
+@admin_bp.route('/user-groups/<int:group_id>')
+@login_required
+@admin_required
+def user_groups_get(group_id):
+    """Zwraca grupę wraz z listą członków (do edycji w modalu)."""
+    group = UserGroup.query.get_or_404(group_id)
+    return jsonify({
+        'id': group.id,
+        'name': group.name,
+        'members': [{
+            'id': u.id,
+            'name': ((u.first_name or '') + ' ' + (u.last_name or '')).strip() or u.email,
+            'email': u.email,
+        } for u in group.members],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _serialize_group(g):
+    return {'id': g.id, 'name': g.name, 'member_count': g.member_count}
+
+
+def _set_members(group, member_ids):
+    group.members = User.query.filter(User.id.in_(member_ids)).all() if member_ids else []
+
+
+def _validate_group_name(name, exclude_id=None):
+    """Zwraca (error_msg, http_code) lub (None, None) gdy OK."""
+    if not name:
+        return 'Nazwa jest wymagana', 400
+    if len(name) > 100:
+        return 'Nazwa moze miec maksymalnie 100 znakow', 400
+    dup_q = UserGroup.query.filter(UserGroup.name == name)
+    if exclude_id is not None:
+        dup_q = dup_q.filter(UserGroup.id != exclude_id)
+    if dup_q.first():
+        return 'Grupa o tej nazwie juz istnieje', 400
+    return None, None
+
+
+# ---------------------------------------------------------------------------
+# CRUD endpoints
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/user-groups/create', methods=['POST'])
+@login_required
+@admin_required
+def user_groups_create():
+    """Tworzenie nowej grupy użytkowników."""
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    err, code = _validate_group_name(name)
+    if err:
+        return jsonify({'success': False, 'error': err}), code
+    group = UserGroup(name=name, created_by=current_user.id)
+    _set_members(group, data.get('member_ids') or [])
+    db.session.add(group)
+    db.session.commit()
+    return jsonify({'success': True, 'group': _serialize_group(group)})
+
+
+@admin_bp.route('/user-groups/<int:group_id>/update', methods=['POST'])
+@login_required
+@admin_required
+def user_groups_update(group_id):
+    """Aktualizacja nazwy i członków grupy."""
+    group = UserGroup.query.get_or_404(group_id)
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    err, code = _validate_group_name(name, exclude_id=group_id)
+    if err:
+        return jsonify({'success': False, 'error': err}), code
+    group.name = name
+    if 'member_ids' in data:
+        _set_members(group, data.get('member_ids') or [])
+    db.session.commit()
+    return jsonify({'success': True, 'group': _serialize_group(group)})
+
+
+@admin_bp.route('/user-groups/<int:group_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def user_groups_delete(group_id):
+    """Usuwanie grupy (CASCADE usuwa membership i page-attachment rows)."""
+    group = UserGroup.query.get_or_404(group_id)
+    db.session.delete(group)
+    db.session.commit()
+    return jsonify({'success': True})

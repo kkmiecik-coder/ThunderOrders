@@ -4,6 +4,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/clients-list.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/user-groups.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -46,6 +47,18 @@
             </div>
         </div>
     </div>
+
+    <!-- Tab Navigation -->
+    <div class="users-tabs">
+        <button class="users-tab active" data-tab="users">Użytkownicy</button>
+        <button class="users-tab" data-tab="groups">
+            Grupy
+            <span class="tab-badge">{{ user_groups|length }}</span>
+        </button>
+    </div>
+
+    <!-- Users Tab Panel -->
+    <div class="users-tab-panel active" id="tab-users">
 
     <!-- Toolbar -->
     <div class="clients-toolbar">
@@ -340,6 +353,14 @@
         </div>
         {% endif %}
     </div>
+
+    </div>{# end #tab-users #}
+
+    <!-- Groups Tab Panel -->
+    <div class="users-tab-panel" id="tab-groups">
+        {% include 'admin/clients/_groups_tab.html' %}
+    </div>
+
 </div>
 
 <!-- Deactivate Modal -->
@@ -382,9 +403,35 @@
         </div>
     </div>
 </div>
+<!-- Group Modal -->
+<div id="groupModal" class="modal-overlay">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2 class="modal-title">Nowa grupa</h2>
+            <button type="button" class="modal-close" onclick="closeGroupModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label" for="groupName">Nazwa grupy <span class="required">*</span></label>
+                <input type="text" id="groupName" class="form-control" placeholder="Np. Klienci VIP" maxlength="100">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="groupMemberSearch">Dodaj członków</label>
+                <div id="groupMemberChips" class="member-chips"></div>
+                <input type="text" id="groupMemberSearch" class="form-control" placeholder="Szukaj po imieniu, nazwisku lub emailu...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeGroupModal()">Anuluj</button>
+            <button type="button" class="btn btn-primary" onclick="saveGroup()">Zapisz</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/user-groups.js') }}"></script>
+
 <script>
 // Global variables for modals
 let currentClientId = null;

@@ -1,0 +1,344 @@
+/* ====================================
+   USER-GROUPS — zakładki + tabela grup + chipy + dropdown
+   Plik dedykowany: static/css/pages/admin/user-groups.css
+   Każda reguła ma wariant dark mode [data-theme="dark"].
+   ==================================== */
+
+/* ====================================
+   TABS — skopiowane z statistics.css,
+   zmienione nazwy klas na .users-*
+   ==================================== */
+
+.users-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border-primary);
+    margin-bottom: var(--space-5, 20px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 0;
+}
+
+.users-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.users-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    margin-bottom: -2px;
+    border-radius: 6px 6px 0 0;
+}
+
+.users-tab:hover {
+    color: var(--text-primary);
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.users-tab.active {
+    color: #8338EC;
+    border-bottom-color: #8338EC;
+    font-weight: 600;
+}
+
+/* Odznaka liczby grup */
+.tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    background: rgba(131, 56, 236, 0.12);
+    color: #8338EC;
+    border-radius: 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.users-tab.active .tab-badge {
+    background: rgba(131, 56, 236, 0.18);
+}
+
+/* ====================================
+   TAB PANELS
+   ==================================== */
+
+.users-tab-panel {
+    display: none;
+}
+
+.users-tab-panel.active {
+    display: block;
+    animation: ug-fadeIn 0.25s ease;
+}
+
+@keyframes ug-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ====================================
+   GROUPS TOOLBAR
+   ==================================== */
+
+.groups-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3, 12px);
+    padding: var(--space-3, 12px) 0 var(--space-4, 16px);
+}
+
+/* ====================================
+   GROUPS TABLE
+   ==================================== */
+
+.groups-table .group-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.groups-table .empty-state-cell {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: var(--space-8, 32px);
+    font-style: italic;
+}
+
+.groups-table .btn-icon {
+    padding: 4px 10px;
+    background: none;
+    border: 1px solid var(--border-primary, #e0e0e0);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.groups-table .btn-icon:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text-primary);
+}
+
+.groups-table .btn-icon.btn-danger {
+    color: #e53935;
+    border-color: rgba(229, 57, 53, 0.3);
+}
+
+.groups-table .btn-icon.btn-danger:hover {
+    background: rgba(229, 57, 53, 0.08);
+    border-color: #e53935;
+}
+
+/* ====================================
+   MEMBER CHIPS
+   ==================================== */
+
+.member-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 0;
+    margin-bottom: 8px;
+}
+
+.member-chips:empty {
+    margin-bottom: 0;
+}
+
+.member-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px 4px 10px;
+    background: rgba(131, 56, 236, 0.1);
+    border: 1px solid rgba(131, 56, 236, 0.25);
+    border-radius: 14px;
+    font-size: 0.8rem;
+    color: #5a189a;
+}
+
+.chip-label {
+    font-weight: 500;
+}
+
+.chip-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #7b2fc9;
+    font-size: 1rem;
+    line-height: 1;
+    border-radius: 50%;
+    transition: background 0.15s;
+    padding: 0;
+}
+
+.chip-remove:hover {
+    background: rgba(131, 56, 236, 0.2);
+}
+
+/* ====================================
+   MEMBER SEARCH DROPDOWN
+   (appendowany do document.body)
+   ==================================== */
+
+.member-search-results {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.member-result {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.member-result:not(:last-child) {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.member-result:hover {
+    background: rgba(131, 56, 236, 0.06);
+}
+
+.result-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #333;
+}
+
+.result-email {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+/* ====================================
+   DARK MODE — paleta glassmorphism
+   tła: rgba(255,255,255,0.05)
+   obramowania: rgba(240,147,251,0.15)
+   akcenty: #f093fb
+   ==================================== */
+
+[data-theme="dark"] .users-tabs {
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .users-tab {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .users-tab:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .users-tab.active {
+    color: #f093fb;
+    border-bottom-color: #f093fb;
+}
+
+[data-theme="dark"] .tab-badge {
+    background: rgba(240, 147, 251, 0.15);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .users-tab.active .tab-badge {
+    background: rgba(240, 147, 251, 0.25);
+}
+
+[data-theme="dark"] .groups-table .group-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .groups-table .empty-state-cell {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .groups-table .btn-icon {
+    color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .groups-table .btn-icon:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #ffffff;
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .groups-table .btn-icon.btn-danger {
+    color: #f5576c;
+    border-color: rgba(245, 87, 108, 0.25);
+}
+
+[data-theme="dark"] .groups-table .btn-icon.btn-danger:hover {
+    background: rgba(245, 87, 108, 0.1);
+    border-color: #f5576c;
+}
+
+[data-theme="dark"] .member-chip {
+    background: rgba(240, 147, 251, 0.1);
+    border-color: rgba(240, 147, 251, 0.25);
+    color: #f093fb;
+}
+
+[data-theme="dark"] .chip-remove {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .chip-remove:hover {
+    background: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .member-search-results {
+    background: rgba(15, 12, 41, 0.95);
+    border-color: rgba(240, 147, 251, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .member-result {
+    border-bottom-color: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .member-result:hover {
+    background: rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .result-name {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .result-email {
+    color: rgba(255, 255, 255, 0.5);
+}
