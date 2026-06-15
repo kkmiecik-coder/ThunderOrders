@@ -312,17 +312,6 @@ function removeMultiFilter(filterName, valueToRemove) {
 }
 
 /**
- * Show toast notification
- */
-function showToast(message, type = 'info') {
-    if (typeof window.showToast === 'function') {
-        window.showToast(message, type);
-    } else {
-        console.log(`[${type.toUpperCase()}] ${message}`);
-    }
-}
-
-/**
  * Toggle visibility of hidden order items
  * Called from onclick in template
  */
