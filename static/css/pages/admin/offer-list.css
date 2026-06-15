@@ -1667,6 +1667,18 @@
     display: block;
 }
 
+/* Lekki pusty stan pojedynczej zakładki (Bieżące/Zamknięte) */
+.offer-tab-empty {
+    text-align: center;
+    padding: var(--space-8, 32px) var(--space-4, 16px);
+    color: var(--text-secondary, #666);
+    font-size: var(--text-sm, 0.875rem);
+}
+
+[data-theme="dark"] .offer-tab-empty {
+    color: rgba(255, 255, 255, 0.6);
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
