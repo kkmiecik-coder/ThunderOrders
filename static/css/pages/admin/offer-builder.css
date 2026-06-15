@@ -3629,69 +3629,6 @@
 
 .visibility-group { margin-top: 12px; }
 
-.visibility-toggle {
-    display: flex;
-    gap: 8px;
-    margin-top: 6px;
-}
-
-.visibility-option {
-    flex: 1;
-    cursor: pointer;
-}
-
-.visibility-option input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.visibility-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    border: 1.5px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #374151;
-    background: #f9fafb;
-    transition: border-color 0.15s, background 0.15s, color 0.15s;
-    user-select: none;
-    cursor: pointer;
-}
-
-.visibility-option input[type="radio"]:checked + .visibility-label {
-    border-color: #6366f1;
-    background: #eef2ff;
-    color: #4338ca;
-}
-
-.visibility-label:hover {
-    border-color: #a5b4fc;
-    background: #f5f3ff;
-}
-
-/* Dark mode — visibility toggle */
-[data-theme="dark"] .visibility-label {
-    border-color: rgba(240, 147, 251, 0.2);
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.75);
-}
-
-[data-theme="dark"] .visibility-option input[type="radio"]:checked + .visibility-label {
-    border-color: #f093fb;
-    background: rgba(240, 147, 251, 0.12);
-    color: #f093fb;
-}
-
-[data-theme="dark"] .visibility-label:hover {
-    border-color: rgba(240, 147, 251, 0.4);
-    background: rgba(240, 147, 251, 0.08);
-}
-
 /* Audience editor */
 .audience-editor {
     margin-top: 12px;

@@ -2608,14 +2608,6 @@ function initAudienceState() {
 }
 
 /**
- * Legacy: was called by inline onchange on visibility radio buttons.
- * Now handled by setupVisibilityToggle(). Kept as no-op for safety.
- */
-function onVisibilityChange(radio) {
-    // no-op — visibility is managed by setupVisibilityToggle()
-}
-
-/**
  * Remove an audience chip (group or user).
  */
 function removeAudience(type, id) {
