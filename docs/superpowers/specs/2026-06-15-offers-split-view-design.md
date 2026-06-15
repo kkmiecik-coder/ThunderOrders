@@ -4,6 +4,10 @@
 **Strona:** `/admin/offers` (lista stron sprzedaży)
 **Typ zmiany:** UI + drobna logika sortowania w route. **Bez migracji bazy** (zmiana czysto prezentacyjna, korzysta z istniejących pól).
 
+## Uwaga: to NIE jest widget klienta
+
+Istnieje osobna, podobnie nazwana funkcja na **dashboardzie klienta** (`/client`, widget „Strony sprzedaży", plan `docs/superpowers/plans/2026-06-05-sales-pages-current-closed-toggle.md`). Tam „Zamknięte" = `status == 'ended'` (łącznie z `is_fully_closed`), z lazy-loadingiem przez API. **Ten spec dotyczy panelu admina (`/admin/offers`)** — inna powierzchnia, węższa definicja „Zamknięte" (tylko `is_fully_closed`), pełny SSR bez API/paginacji.
+
 ## Cel
 
 Podzielić listę stron sprzedaży na dwie zakładki:
