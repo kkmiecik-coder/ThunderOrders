@@ -8,14 +8,10 @@
  * Zawężone do tabeli klikniętego nagłówka (obie zakładki są w DOM jednocześnie).
  * Stan sortowania trzymany per <table> w data-sort-column / data-sort-dir.
  */
-const OFFER_COLUMN_TO_DATASET = {
-    name: 'name', ptype: 'ptype', shipping: 'shipping', status: 'status',
-    created: 'created', starts: 'starts', ends: 'ends', deadline: 'deadline',
-};
 const OFFER_NUMERIC_COLUMNS = new Set(['created', 'starts', 'ends', 'deadline']);
 const OFFER_STATUS_PRIORITY = { active: 0, paused: 1, scheduled: 2, draft: 3, ended: 4 };
 
-function sortTable(column, thEl) {
+function sortOfferTable(column, thEl) {
     const table = thEl.closest('table');
     if (!table) return;
     const tbody = table.querySelector('tbody');
@@ -38,7 +34,7 @@ function sortTable(column, thEl) {
         }
     });
 
-    const key = OFFER_COLUMN_TO_DATASET[column] || column;
+    const key = column;
     const isNumeric = OFFER_NUMERIC_COLUMNS.has(column);
     const isStatus = column === 'status';
 
