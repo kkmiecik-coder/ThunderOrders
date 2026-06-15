@@ -269,6 +269,28 @@ def forgot_password():
     return json_ok({})
 
 
+@api_mobile_bp.route('/auth/verify-reset-code', methods=['POST'])
+@limiter.limit("15 per minute")  # parytet z reset-password; wspólny lockout per-konto
+def verify_reset_code():
+    p = request.get_json(silent=True) or {}
+    email = (p.get('email') or '').strip().lower()
+    code = (p.get('code') or '').strip()
+
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    if user is None or not user.is_active:
+        # Nie zdradzamy istnienia konta — mapujemy na invalid_code jak zły kod.
+        return json_err('invalid_code', 'Nieprawidłowy lub wygasły kod.', 400)
+
+    # Walidacja BEZ konsumpcji: verify_password_reset_code nie czyści kodu ani nie
+    # skraca wygasania na sukcesie (czyszczenie robi dopiero reset-password). Błędny
+    # kod inkrementuje wspólny licznik prób → ten sam lockout co reset-password.
+    ok, error_message = user.verify_password_reset_code(code)
+    db.session.commit()  # utrwala attempts/lock (sukces nic nie mutuje)
+    if not ok:
+        return json_err('invalid_code', error_message, 400)
+    return json_ok({})
+
+
 @api_mobile_bp.route('/auth/reset-password', methods=['POST'])
 @limiter.limit("15 per minute")  # brute-force kodu chroni dodatkowo lockout per-konto
 def reset_password():

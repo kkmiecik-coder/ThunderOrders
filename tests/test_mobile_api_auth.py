@@ -725,3 +725,104 @@ def test_reset_password_code_is_single_use(client, db, make_user, monkeypatch):
                      json={'email': 'reset@example.com', 'code': code,
                            'new_password': 'InneHaslo123'})
     assert r2.status_code == 400 and r2.get_json()['error']['code'] == 'invalid_code'
+
+
+# ---- verify-reset-code (krok 2 flow 3-ekranowego) ----
+
+def test_verify_reset_code_success_does_not_consume(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    db.session.refresh(u)
+    expires_before = u.password_reset_code_expires
+
+    r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                    json={'email': 'reset@example.com', 'code': code})
+    assert r.status_code == 200
+    assert r.get_json() == {'success': True, 'data': {}}
+
+    # kod NIE został zużyty ani jego wygasanie skrócone — pozostaje ważny
+    db.session.refresh(u)
+    assert u.password_reset_code == code
+    assert u.password_reset_code_expires == expires_before
+
+    # reset-password tym samym kodem dalej działa
+    r2 = client.post('/api/mobile/v1/auth/reset-password',
+                     json={'email': 'reset@example.com', 'code': code,
+                           'new_password': 'NoweHaslo123'})
+    assert r2.status_code == 200
+
+
+def test_verify_reset_code_success_does_not_increment_attempts(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                    json={'email': 'reset@example.com', 'code': code})
+    assert r.status_code == 200
+    db.session.refresh(u)
+    assert (u.password_reset_attempts or 0) == 0  # poprawny kod nie liczy się do lockout
+
+
+def test_verify_reset_code_wrong_code_increments_attempts(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    wrong = '000000' if code != '000000' else '111111'
+
+    r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                    json={'email': 'reset@example.com', 'code': wrong})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_code'
+    db.session.refresh(u)
+    assert u.password_reset_attempts == 1  # błędny kod liczy się do lockout
+    assert u.password_reset_code == code   # ważny kod nietknięty
+
+
+def test_verify_reset_code_shares_lockout_with_reset_password(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    wrong = '000000' if code != '000000' else '111111'
+
+    # 4 błędne próby przez verify-reset-code...
+    for _ in range(4):
+        r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                        json={'email': 'reset@example.com', 'code': wrong})
+        assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+    # ...5. błędna przez reset-password przekracza wspólny próg → lockout
+    r = client.post('/api/mobile/v1/auth/reset-password',
+                    json={'email': 'reset@example.com', 'code': wrong,
+                          'new_password': 'NoweHaslo123'})
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+
+    db.session.refresh(u)
+    assert u.is_password_reset_locked()
+    # po lockout nawet POPRAWNY kod przez verify-reset-code jest odrzucany
+    r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                    json={'email': 'reset@example.com', 'code': code})
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+
+
+def test_verify_reset_code_lockout_after_five_attempts(client, db, make_user, monkeypatch):
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    wrong = '000000' if code != '000000' else '111111'
+
+    for _ in range(5):
+        r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                        json={'email': 'reset@example.com', 'code': wrong})
+        assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+
+    db.session.refresh(u)
+    assert u.is_password_reset_locked()
+
+
+def test_verify_reset_code_expired(client, db, make_user, monkeypatch):
+    from modules.orders.models import get_local_now
+    from datetime import timedelta
+    u, code = _request_reset_code(client, db, make_user, monkeypatch)
+    u.password_reset_code_expires = get_local_now() - timedelta(minutes=1)
+    db.session.commit()
+
+    r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                    json={'email': 'reset@example.com', 'code': code})
+    assert r.status_code == 400 and r.get_json()['error']['code'] == 'invalid_code'
+
+
+def test_verify_reset_code_unknown_email_is_invalid_code(client, db, make_user, monkeypatch):
+    r = client.post('/api/mobile/v1/auth/verify-reset-code',
+                    json={'email': 'ghost@example.com', 'code': '123456'})
+    assert r.status_code == 400
+    assert r.get_json()['error']['code'] == 'invalid_code'  # brak wycieku istnienia konta
