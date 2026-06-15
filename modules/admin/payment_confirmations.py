@@ -102,17 +102,17 @@ def payment_confirmations_list():
     # Granica archiwum: 3 dni od teraz
     archive_cutoff = get_local_now() - timedelta(days=3)
 
-    # Bazowe query
-    query = PaymentConfirmation.query.join(Order)
+    # Warunki filtrowania — wspólne dla paginacji grup i pobrania potwierdzeń.
+    conditions = []
 
     # Filtruj po zakładce
     if tab == 'archive':
-        query = query.filter(
+        conditions += [
             PaymentConfirmation.status == 'approved',
-            PaymentConfirmation.updated_at < archive_cutoff
-        )
+            PaymentConfirmation.updated_at < archive_cutoff,
+        ]
     elif tab == 'processed':
-        query = query.filter(
+        conditions.append(
             db.or_(
                 db.and_(
                     PaymentConfirmation.status == 'approved',
@@ -122,56 +122,79 @@ def payment_confirmations_list():
             )
         )
     else:  # pending
-        query = query.filter(PaymentConfirmation.status == 'pending')
+        conditions.append(PaymentConfirmation.status == 'pending')
 
     # Filtruj po etapie
     if stage_filter != 'all':
-        query = query.filter(PaymentConfirmation.payment_stage == stage_filter)
+        conditions.append(PaymentConfirmation.payment_stage == stage_filter)
 
     # Filtruj po OCR
     if ocr_filter == 'auto':
-        query = query.filter(PaymentConfirmation.auto_approved == True)
+        conditions.append(PaymentConfirmation.auto_approved == True)
     elif ocr_filter == 'suggested':
         from modules.auth.models import Settings
         suggest_thresh = Settings.get_value('ocr_suggest_threshold', 60)
         auto_thresh = Settings.get_value('ocr_auto_approve_threshold', 90)
-        query = query.filter(
+        conditions += [
             PaymentConfirmation.ocr_score >= suggest_thresh,
             PaymentConfirmation.ocr_score < auto_thresh,
-            PaymentConfirmation.auto_approved == False
-        )
+            PaymentConfirmation.auto_approved == False,
+        ]
     elif ocr_filter == 'manual':
         from modules.auth.models import Settings
         suggest_thresh = Settings.get_value('ocr_suggest_threshold', 60)
-        query = query.filter(
+        conditions.append(
             db.or_(
                 PaymentConfirmation.ocr_score < suggest_thresh,
                 PaymentConfirmation.ocr_score.is_(None)
             )
         )
 
-    # Sortowanie: najstarsze na początku
-    if tab == 'pending':
-        query = query.order_by(PaymentConfirmation.uploaded_at.asc())
-    else:
-        query = query.order_by(PaymentConfirmation.updated_at.asc())
+    # Kolumna sortowania (najstarsze na początku) zależna od zakładki
+    sort_col = (PaymentConfirmation.uploaded_at if tab == 'pending'
+                else PaymentConfirmation.updated_at)
 
-    # Paginacja
+    # --- Paginacja PO GRUPACH (proof_file), nie po pojedynczych potwierdzeniach ---
+    # Grupa = jeden upload (wspólny proof_file). NULL proof_file => każdy wiersz
+    # to osobna grupa. Grupujemy PRZED paginacją, żeby grupa nigdy nie rozjechała
+    # się na granicy strony — inaczej suma w kolumnie „Kwota" byłaby zaniżona.
+    from sqlalchemy import select, func
+    group_key = func.coalesce(
+        PaymentConfirmation.proof_file,
+        func.concat('__single__', PaymentConfirmation.id)
+    )
+
     page = request.args.get('page', 1, type=int)
     per_page = 20
-    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
 
-    # Grupowanie po proof_file — ten sam dowód = jeden wiersz
+    groups_stmt = (
+        select(group_key.label('gkey'), func.min(sort_col).label('gsort'))
+        .join(Order, PaymentConfirmation.order_id == Order.id)
+        .where(*conditions)
+        .group_by(group_key)
+        .order_by(func.min(sort_col).asc(), func.min(PaymentConfirmation.id).asc())
+    )
+    # db.paginate na select(...) zwraca skalary pierwszej kolumny (gkey);
+    # druga kolumna (gsort) służy tylko do sortowania w SQL.
+    pagination = db.paginate(groups_stmt, page=page, per_page=per_page, error_out=False)
+    page_keys = list(pagination.items)
+
+    # Pobierz WSZYSTKIE potwierdzenia należące do grup z bieżącej strony,
+    # następnie zbuduj grupy zachowując kolejność paginacji.
     groups = []
-    proof_file_map = {}
-    for conf in pagination.items:
-        if conf.proof_file and conf.proof_file in proof_file_map:
-            proof_file_map[conf.proof_file]['items'].append(conf)
-        else:
-            group = {'items': [conf]}
-            groups.append(group)
-            if conf.proof_file:
-                proof_file_map[conf.proof_file] = group
+    if page_keys:
+        confs = (
+            PaymentConfirmation.query.join(Order)
+            .filter(*conditions)
+            .filter(group_key.in_(page_keys))
+            .order_by(sort_col.asc(), PaymentConfirmation.id.asc())
+            .all()
+        )
+        group_map = {}
+        for conf in confs:
+            key = conf.proof_file if conf.proof_file else f'__single__{conf.id}'
+            group_map.setdefault(key, []).append(conf)
+        groups = [{'items': group_map[k]} for k in page_keys if k in group_map]
 
     # Liczniki do badge w zakładkach — liczymy grupy (po proof_file), tak jak w widoku.
     # Wiersze z NULL proof_file są liczone pojedynczo (każdy jako osobna grupa).
