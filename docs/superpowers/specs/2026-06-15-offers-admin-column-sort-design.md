@@ -6,133 +6,191 @@
 
 ## Cel
 
-Umożliwić sortowanie listy stron sprzedaży po kliknięciu w nagłówek kolumny (rosnąco/malejąco), działające także na widoku mobilnym (karty) przez dedykowany kontroler.
+Sortowanie listy stron sprzedaży po kliknięciu w nagłówek kolumny (rosnąco/malejąco), **dopasowane 1:1 do istniejącego mechanizmu sortowania ze strony zamówień produktów** (`/admin/products/stock-orders`).
+
+## Wzorzec referencyjny: `stock-orders`
+
+Użytkownik wskazał działający mechanizm na `stock-orders` — odwzorowujemy go. Jego cechy (z `static/js/pages/admin/stock-orders.js`, `templates/admin/warehouse/stock_orders.html`, `static/css/pages/admin/stock-orders.css`):
+
+- Nagłówek: `<th class="sortable" data-column="X" onclick="sortTable('X')">Etykieta</th>` (inline `onclick` — świadomie zgodnie z istniejącym wzorcem; spójność z `stock-orders` ma priorytet nad ogólną zasadą separacji JS/HTML).
+- Dane na `<tr>`: atrybuty `data-*` (np. `data-status="{{ order.status }}"`, `data-date="{{ order.created_at.timestamp() }}"`). **Daty jako `.timestamp()` (liczba); brak daty → `0`.**
+- JS `sortTable(column)`: `COLUMN_TO_DATASET` (mapa kolumna→klucz dataset), `NUMERIC_COLUMNS` (zbiór kolumn liczbowych, w tym daty), toggle `asc`⇄`desc`, aktualizacja wskaźników tylko w obrębie danej tabeli, reorder przez `appendChild`.
+- CSS wskaźnika: bazowo `⇅` (opacity 0.3) na każdym `.sortable th`, po sortowaniu `↑`/`↓` (`#FF8500` light, `#f093fb` dark).
 
 ## Decyzje (ustalone z użytkownikiem)
 
-1. **Mechanizm: client-side (JS).** Klik natychmiast przestawia węzły w DOM, bez przeładowania. Zachowuje aktywną zakładkę, wpisaną frazę wyszukiwarki i zaznaczenia bulk. Sortuje niezależnie w obrębie aktywnej zakładki. (Konwencja listy klientów jest server-side, ale strona ofert jest w całości client-side — zakładki, wyszukiwarka, bulk — bez paginacji, więc client-side pasuje lepiej i nie psuje tych mechanizmów.)
+1. **Mechanizm: client-side (JS)** w stylu `stock-orders`.
 2. **Sortowalne kolumny:** Nazwa, Typ, Typ wysyłki, Status, Utworzono, Rozpoczęcie, Zakończenie, Termin płatności. **Bez** kolumny Akcje i checkboxa.
-3. **Cykl klików:** toggle — 1. klik rosnąco, każdy kolejny odwraca kierunek. Brak „powrotu do domyślnego" przez klik.
-4. **Mobile:** sortowanie działa też na kartach, przez kontroler (dropdown pól + przycisk kierunku) nad kartami, bo karty nie mają nagłówków.
-5. **Sortowanie po statusie** używa priorytetu (active → paused → scheduled → draft → ended), nie alfabetu etykiet.
-6. **Stan sortowania:** per zakładka, efemeryczny — reset po przeładowaniu (F5) do domyślnego porządku status+data. Brak persystencji między sesjami.
+3. **Cykl klików:** toggle — 1. klik rosnąco, kolejny odwraca kierunek.
+4. **Tylko tabela (desktop).** `stock-orders` nie ma sortowania na mobile; karty mobilne na ofertach zachowują domyślny porządek (status + data). (Można dodać kontroler mobilny w przyszłości — poza zakresem tej zmiany.)
+5. **Sortowanie po statusie** używa priorytetu (active → paused → scheduled → draft → ended), nie alfabetu — to jedyne świadome odstępstwo od generycznego sortowania `stock-orders` (gdzie status idzie alfabetycznie); priorytet jest bardziej użyteczny i był wcześniej zatwierdzony.
+6. **Stan sortowania:** per tabela/zakładka, efemeryczny — reset po przeładowaniu (F5) do domyślnego porządku status+data.
 
-## Stan istniejący (reuse)
+## Adaptacja vs `stock-orders` (różnica strukturalna)
 
-- Klasy wskaźnika sortowania `.sortable`, `.sorted-asc::after` (↑), `.sorted-desc::after` (↓) istnieją w `static/css/pages/admin/clients-list.css` (akcent `#FF8500` light, dark w liniach ~1025-1030). Ten plik **nie** jest ładowany na stronie ofert — trzeba dodać równoważne reguły do `offer-list.css` (light + dark).
-- Konwencja listy klientów: `<th class="sortable {% if sort_by==... %}sorted-{{sort_dir}}{% endif %}" onclick="sortBy(...)">` — server-side. Tu robimy odpowiednik client-side bez inline `onclick`.
-- Makra `offer_table(pages, tab_id)` i `offer_mobile_cards(pages)` w `templates/admin/offers/_list_items.html` renderują wiersze tabeli i karty (po podziale na zakładki).
-- `offer-list.js` ma już `initializeOfferTabs()` (zakładki) i `initializeBulkActions()`; wyszukiwarka filtruje `[data-search-name]` przez `.is-hidden`.
+`stock-orders` ma zakładki **server-side** (`?tab=`) → w DOM jest tylko jedna tabela, więc ich `sortTable` może szukać `th` globalnie i trzymać stan w zmiennych modułowych. Strona ofert ma **obie** zakładki w DOM jednocześnie (client-side), więc:
+
+- `onclick` przekazuje element: `onclick="sortTable('starts', this)"`, a funkcja zawęża się do `this.closest('table')`.
+- Stan sortowania trzymany **per tabela** w atrybutach na elemencie `<table>` (`data-sort-column`, `data-sort-dir`), nie w zmiennych globalnych — żeby sort w „Bieżące" nie mieszał „Zamknięte".
+
+Reuse rozstrzygnięty technicznie: sorter implementowany **lokalnie w `offer-list.js`** (ta sama konwencja klas/atrybutów/CSS), bez refaktoryzacji działającej produkcyjnie `stock-orders.js` do wspólnego modułu (zbyt ryzykowne dla parytetu).
 
 ## Architektura
 
-### A. Atrybuty `data-sort-*` na korzeniu wiersza i karty — `_list_items.html`
+### A. Atrybuty `data-*` na wierszu — makro `offer_table` (`_list_items.html`)
 
-Aby jeden silnik sortował jednolicie tabelę i karty, na **korzeniu** każdego `<tr>` (makro `offer_table`) oraz każdej `.offer-card` (makro `offer_mobile_cards`) dodać identyczny komplet atrybutów z obiektu `page`:
+Na korzeniu każdego `<tr>` (obok istniejącego `data-search-name`) dodać:
 
-| Atrybut | Wartość (Jinja) | Typ sortowania |
+| Atrybut | Wartość (Jinja) | Sortowanie |
 |---|---|---|
-| `data-sort-name` | `{{ page.name }}` | text |
-| `data-sort-ptype` | `{{ page.page_type }}` (exclusive/preorder) | text |
-| `data-sort-shipping` | `{{ 'proxy' if page.payment_stages == 4 else 'polska' }}` | text |
-| `data-sort-status` | `{{ page.status }}` (surowy, np. `active`) | status |
-| `data-sort-created` | `{{ page.created_at.isoformat() if page.created_at else '' }}` | date |
-| `data-sort-starts` | `{{ page.starts_at.isoformat() if page.starts_at else '' }}` | date |
-| `data-sort-ends` | `{{ page.ends_at.isoformat() if page.ends_at else '' }}` | date |
-| `data-sort-deadline` | `{{ page.payment_deadline.isoformat() if page.payment_deadline else '' }}` | date |
+| `data-name` | `{{ page.name }}` | text |
+| `data-ptype` | `{{ page.page_type }}` | text |
+| `data-shipping` | `{{ 'proxy' if page.payment_stages == 4 else 'polska' }}` | text |
+| `data-status` | `{{ page.status }}` | status (priorytet) |
+| `data-created` | `{{ page.created_at.timestamp() if page.created_at else 0 }}` | num |
+| `data-starts` | `{{ page.starts_at.timestamp() if page.starts_at else 0 }}` | num |
+| `data-ends` | `{{ page.ends_at.timestamp() if page.ends_at else 0 }}` | num |
+| `data-deadline` | `{{ page.payment_deadline.timestamp() if page.payment_deadline else 0 }}` | num |
 
-Daty jako ISO (`YYYY-MM-DDTHH:MM:SS`) sortują się leksykograficznie poprawnie. Puste (`''`) zawsze na końcu, niezależnie od kierunku.
+> Brak daty → `0` (jak w `stock-orders`): przy rosnąco trafia na początek, przy malejąco na koniec. Świadoma parytetowa decyzja (nie „zawsze na końcu").
 
-> Uwaga implementacyjna: `<tr>` i `.offer-card` to korzenie pętli wewnątrz makr — atrybuty dodać do tych elementów (nie do pojedynczych komórek), żeby JS czytał je jednolicie z obu widoków.
+Atrybuty tylko na `<tr>` (desktop). Karty mobilne **nie** dostają atrybutów (sort desktop-only).
 
 ### B. Nagłówki tabeli — makro `offer_table`
 
-Każdy sortowalny `<th>` dostaje: klasę `sortable`, `data-sort-key` (`name`/`ptype`/`shipping`/`status`/`created`/`starts`/`ends`/`deadline`) i `data-sort-type` (`text`/`status`/`date`). Bez inline `onclick` — listenery podpina JS (separacja CSS/JS od HTML wg CLAUDE.md). Kolumny checkbox i Akcje pozostają bez zmian.
+Sortowalne `<th>` otrzymują klasę `sortable`, `data-column` i inline `onclick`:
 
-Mapowanie kolumn → klucz/typ:
-- Nazwa → `name`/text
-- Typ → `ptype`/text
-- Typ wysyłki → `shipping`/text
-- Status → `status`/status
-- Utworzono → `created`/date
-- Rozpoczęcie → `starts`/date
-- Zakończenie → `ends`/date
-- Termin płatności → `deadline`/date
+| Kolumna | `data-column` | onclick |
+|---|---|---|
+| Nazwa | `name` | `sortTable('name', this)` |
+| Typ | `ptype` | `sortTable('ptype', this)` |
+| Typ wysyłki | `shipping` | `sortTable('shipping', this)` |
+| Status | `status` | `sortTable('status', this)` |
+| Utworzono | `created` | `sortTable('created', this)` |
+| Rozpoczęcie | `starts` | `sortTable('starts', this)` |
+| Zakończenie | `ends` | `sortTable('ends', this)` |
+| Termin płatności | `deadline` | `sortTable('deadline', this)` |
 
-### C. Kontroler mobilny — makro `offer_mobile_cards`
+Kolumny checkbox i Akcje bez zmian. (Uwaga: ten sam thead jest renderowany dla obu zakładek — `data-column` powtarza się w dwóch tabelach, dlatego zawężamy po `this.closest('table')`.)
 
-Nad `<div class="offer-cards-mobile">` dodać kontroler (widoczny tylko mobile przez CSS), np.:
+### C. Silnik sortujący — `offer-list.js`
 
-```html
-<div class="offer-sort-mobile">
-    <select class="offer-sort-select" aria-label="Sortuj strony">
-        <option value="" disabled selected>Sortuj wg…</option>
-        <option value="name|text">Nazwa</option>
-        <option value="ptype|text">Typ</option>
-        <option value="shipping|text">Typ wysyłki</option>
-        <option value="status|status">Status</option>
-        <option value="created|date">Utworzono</option>
-        <option value="starts|date">Rozpoczęcie</option>
-        <option value="ends|date">Zakończenie</option>
-        <option value="deadline|date">Termin płatności</option>
-    </select>
-    <button type="button" class="offer-sort-dir" aria-label="Kierunek sortowania" disabled>↑</button>
-</div>
+Dodać (wzorowane na `stock-orders.js`, zaadaptowane do wielu tabel):
+
+```javascript
+const OFFER_COLUMN_TO_DATASET = {
+    name: 'name', ptype: 'ptype', shipping: 'shipping', status: 'status',
+    created: 'created', starts: 'starts', ends: 'ends', deadline: 'deadline',
+};
+const OFFER_NUMERIC_COLUMNS = new Set(['created', 'starts', 'ends', 'deadline']);
+const OFFER_STATUS_PRIORITY = { active: 0, paused: 1, scheduled: 2, draft: 3, ended: 4 };
+
+function sortTable(column, thEl) {
+    const table = thEl.closest('table');
+    if (!table) return;
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    // Stan per tabela (atrybuty na <table>)
+    let dir = 'asc';
+    if (table.dataset.sortColumn === column) {
+        dir = table.dataset.sortDir === 'asc' ? 'desc' : 'asc';
+    }
+    table.dataset.sortColumn = column;
+    table.dataset.sortDir = dir;
+
+    // Wskaźniki tylko w tej tabeli
+    table.querySelectorAll('th.sortable').forEach(h => {
+        h.classList.remove('sorted-asc', 'sorted-desc');
+        if (h.dataset.column === column) {
+            h.classList.add(dir === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    });
+
+    const key = OFFER_COLUMN_TO_DATASET[column] || column;
+    const isNumeric = OFFER_NUMERIC_COLUMNS.has(column);
+    const isStatus = column === 'status';
+
+    rows.sort((a, b) => {
+        let av = a.dataset[key] || '';
+        let bv = b.dataset[key] || '';
+        if (isStatus) {
+            av = OFFER_STATUS_PRIORITY[av] ?? 99;
+            bv = OFFER_STATUS_PRIORITY[bv] ?? 99;
+        } else if (isNumeric) {
+            av = parseFloat(av) || 0;
+            bv = parseFloat(bv) || 0;
+        } else {
+            av = av.toLowerCase();
+            bv = bv.toLowerCase();
+        }
+        if (av < bv) return dir === 'asc' ? -1 : 1;
+        if (av > bv) return dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    rows.forEach(row => tbody.appendChild(row));
+}
 ```
 
-`value="klucz|typ"` przenosi i klucz, i typ sortowania. Przycisk kierunku domyślnie nieaktywny do czasu wyboru pola. Każda zakładka renderuje własny kontroler (niezależny stan). Touch target przycisku ≥ 44px (zgodnie z wytyczną mobilną projektu).
+`sortTable` musi być w zasięgu globalnym (wołane z inline `onclick`) — zdefiniować na poziomie modułu `offer-list.js` (nie wewnątrz `DOMContentLoaded`), tak jak `stock-orders.js` ma `sortTable` na górze pliku. Inne funkcje wołane z inline `onclick` w `list.html` (np. `changePageStatus`, `openCreateModal`) są w `<script>` w szablonie — `sortTable` umieszczamy w `offer-list.js` na poziomie modułu, co wystarcza dla `onclick`.
 
-### D. Silnik sortujący — `initializeOfferSort()` w `offer-list.js`
+### D. Współpraca z istniejącymi mechanizmami (bez zmian w nich)
 
-Nowa funkcja wywoływana w `DOMContentLoaded` (obok `initializeOfferTabs`, `initializeBulkActions`).
+- **Wyszukiwarka:** reorder dotyczy też wierszy ukrytych `.is-hidden`; klasa zostaje na węźle → filtr działa po sortowaniu.
+- **Bulk-select:** stan `checked`/podświetlenie zostają na węzłach po `appendChild`; `getVisibleCheckboxes()` działa dalej.
+- **Zakładki:** stan per tabela → sort w jednej zakładce nie rusza drugiej.
 
-- **Mapa priorytetu statusów** (stała w JS): `{active:0, paused:1, scheduled:2, draft:3, ended:4}`.
-- **Komparator** wg typu:
-  - `text`: porównanie case-insensitive (`localeCompare` na małych literach).
-  - `date`: ISO string; pusty `''` zawsze na końcu (w obu kierunkach), pozostałe rosnąco/malejąco wg porównania stringów.
-  - `status`: po wartości z mapy priorytetu (nieznany status → na koniec).
-- **`applySort(panel, key, type, dir)`**:
-  1. W danym panelu (`.offer-tab-panel`) pobiera wiersze z `tbody` i karty z `.offer-cards-mobile`.
-  2. Sortuje obie kolekcje tym samym komparatorem (klucz `data-sort-${key}`), reorderuje węzły w DOM (`appendChild` w nowej kolejności).
-  3. Ustawia klasę `.sorted-asc`/`.sorted-desc` na aktywnym `<th>` (czyści z pozostałych `<th>` w tej tabeli) i synchronizuje kontroler mobilny (`select.value`, strzałka i stan `disabled` przycisku).
-- **Klik w nagłówek**: jeśli kolumna już aktywna → odwróć kierunek; w przeciwnym razie ustaw `asc`. Wywołaj `applySort` dla panelu, w którym jest dany `<th>`.
-- **Kontroler mobilny**: zmiana `<select>` → `applySort` z kierunkiem bieżącym (domyślnie `asc` przy pierwszym wyborze); klik przycisku kierunku → odwróć i ponów `applySort`.
-- **Stan per panel, efemeryczny**: trzymany w atrybutach na elemencie panelu (np. `data-sort-key`, `data-sort-dir`) lub w zmiennych zakresu; reset następuje naturalnie przy przeładowaniu (serwer renderuje domyślny porządek).
+### E. CSS — `offer-list.css` (light + dark)
 
-### E. Współpraca z istniejącymi mechanizmami (bez zmian w nich)
+Dodać (zakres `.offer-table` żeby nie ruszać innych tabel), wartości z `stock-orders.css`:
 
-- **Wyszukiwarka**: sortowanie reorderuje także wiersze ukryte klasą `.is-hidden`; klasa zostaje na węźle, więc filtr nadal działa po posortowaniu.
-- **Bulk-select**: stan `checked` i podświetlenie zostają na węzłach po reorderze; `getVisibleCheckboxes()` dalej działa.
-- **Zakładki**: każdy panel sortowany niezależnie; przełączenie zakładki nie zmienia sortu drugiej.
+```css
+.offer-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 24px;
+}
+.offer-table th.sortable::after {
+    content: '⇅';
+    position: absolute;
+    right: 8px;
+    opacity: 0.3;
+    font-size: 14px;
+}
+.offer-table th.sorted-asc::after { content: '↑'; opacity: 1; color: #FF8500; }
+.offer-table th.sorted-desc::after { content: '↓'; opacity: 1; color: #FF8500; }
 
-### F. CSS — `offer-list.css` (light + dark)
+[data-theme="dark"] .offer-table th.sorted-asc::after,
+[data-theme="dark"] .offer-table th.sorted-desc::after { color: #f093fb; }
+```
 
-- `.data-table th.sortable` { cursor:pointer; user-select:none; } + `:hover` (akcent).
-- `.data-table th.sorted-asc::after { content:' ↑'; }`, `.sorted-desc::after { content:' ↓'; }` z akcentem `#FF8500` (light).
-- `.offer-sort-mobile` (flex, widoczny tylko mobile — `display:none` na desktop, `display:flex` w breakpoincie kart), `.offer-sort-select`, `.offer-sort-dir` (≥44px).
-- Warianty `[data-theme="dark"]` dla wszystkich powyższych (akcent `#f093fb`, tła/obramowania glassmorphism).
+(Jeśli `.offer-table th` ma już hover/padding z reguł współdzielonych, nie nadpisywać — dodać tylko brakujące właściwości sortowania. Zweryfikować w implementacji.)
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `templates/admin/offers/_list_items.html` | `data-sort-*` na `<tr>` i `.offer-card`; `sortable`/`data-sort-key`/`data-sort-type` na `<th>`; kontroler mobilny nad kartami |
-| `static/js/pages/admin/offer-list.js` | `initializeOfferSort()`: komparator, `applySort`, listenery nagłówków i kontrolera mobilnego |
-| `static/css/pages/admin/offer-list.css` | `.sortable`/`.sorted-asc`/`.sorted-desc` + style kontrolera mobilnego (light + dark) |
+| `templates/admin/offers/_list_items.html` | `data-*` na `<tr>`; `sortable`/`data-column`/`onclick` na sortowalnych `<th>` |
+| `static/js/pages/admin/offer-list.js` | `sortTable(column, thEl)` + stałe map/priorytetu (poziom modułu) |
+| `static/css/pages/admin/offer-list.css` | `.offer-table th.sortable` + wskaźniki `⇅`/`↑`/`↓` (light + dark) |
 
 ## Poza zakresem (YAGNI)
 
 - Bez zmian w bazie / route / modelach.
-- Bez persystencji sortu między sesjami / w localStorage.
-- Bez „powrotu do domyślnego" przez klik (świadomy wybór toggle, nie 3-stanowego).
-- Bez sortowania kolumn Akcje / checkbox.
+- Bez sortowania na mobile (kartach) — `stock-orders` go nie ma; ewentualnie osobna zmiana w przyszłości.
+- Bez persystencji sortu między sesjami.
+- Bez „powrotu do domyślnego" przez klik (toggle, nie 3-stanowy).
+- Bez refaktoryzacji `stock-orders.js` do wspólnego modułu.
 
 ## Testowanie
 
-- Lokalnie (`http://localhost:5001`): klik w każdy sortowalny nagłówek → rosnąco, ponowny → malejąco; strzałka ↑/↓ na aktywnej kolumnie.
-- Daty: poprawna chronologia; strony bez daty (`—`/„Bez limitu") na końcu w obu kierunkach.
-- Status: kolejność wg priorytetu (active najpierw przy rosnąco).
-- Niezależność zakładek (sort w „Bieżące" nie rusza „Zamknięte").
-- Mobile: kontroler nad kartami sortuje karty; przycisk kierunku działa; touch ≥44px.
-- Współpraca: po sortowaniu wyszukiwarka nadal filtruje; zaznaczenia bulk zachowane; przełączanie zakładek OK.
-- Light i dark mode; desktop i mobile.
+- Lokalnie (`http://localhost:5001`): klik w każdy sortowalny nagłówek → rosnąco, ponowny → malejąco; wskaźnik `⇅`→`↑`/`↓`.
+- Daty (Utworzono/Rozpoczęcie/Zakończenie/Termin): poprawna chronologia po timestamp; brak daty (`0`) na początku przy rosnąco.
+- Status: kolejność wg priorytetu (active najpierw rosnąco).
+- Tekst (Nazwa/Typ/Typ wysyłki): alfabetycznie, case-insensitive.
+- Niezależność zakładek: sort w „Bieżące" nie zmienia „Zamknięte"; każda tabela trzyma własny stan.
+- Współpraca: po sortowaniu wyszukiwarka filtruje; zaznaczenia bulk zachowane; przełączanie zakładek OK.
+- Light i dark mode (strzałki czytelne, akcent `#FF8500`/`#f093fb`).
