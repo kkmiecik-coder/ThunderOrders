@@ -2828,3 +2828,40 @@
 [data-theme="dark"] .bulk-set-option:hover {
     background: rgba(240, 147, 251, 0.15);
 }
+
+/* ====================================================================
+   SORTOWANIE KOLUMN — wskaźnik jak na stock-orders
+   ==================================================================== */
+
+.offer-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 24px;
+}
+
+.offer-table th.sortable::after {
+    content: '⇅';
+    position: absolute;
+    right: 8px;
+    opacity: 0.3;
+    font-size: 14px;
+}
+
+.offer-table th.sorted-asc::after {
+    content: '↑';
+    opacity: 1;
+    color: #FF8500;
+}
+
+.offer-table th.sorted-desc::after {
+    content: '↓';
+    opacity: 1;
+    color: #FF8500;
+}
+
+/* Dark mode */
+[data-theme="dark"] .offer-table th.sorted-asc::after,
+[data-theme="dark"] .offer-table th.sorted-desc::after {
+    color: #f093fb;
+}
