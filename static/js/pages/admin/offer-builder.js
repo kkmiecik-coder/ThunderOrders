@@ -59,6 +59,9 @@ function initOfferBuilder(config) {
     // Setup payment stages toggle
     setupPaymentStagesToggle();
 
+    // Setup visibility toggle (Publiczna/Prywatna)
+    setupVisibilityToggle();
+
     // Initialize audience state from pre-rendered chips
     initAudienceState();
 }
@@ -96,6 +99,42 @@ function setupPaymentStagesToggle() {
 
     toggle.addEventListener('change', function() {
         hiddenInput.value = this.checked ? 3 : 4;
+        updateActiveLabel();
+        markDirty();
+    });
+
+    // Initial state
+    updateActiveLabel();
+}
+
+/**
+ * Setup visibility toggle (Publiczna left / Prywatna right)
+ * Publiczna = unchecked/left (is_private=false), Prywatna = checked/right (is_private=true)
+ */
+function setupVisibilityToggle() {
+    const toggle = document.getElementById('visibilityToggle');
+    const labelPubliczna = document.getElementById('labelPubliczna');
+    const labelPrywatna = document.getElementById('labelPrywatna');
+
+    if (!toggle) return;
+
+    function updateActiveLabel() {
+        if (toggle.checked) {
+            // Prywatna (right)
+            if (labelPubliczna) labelPubliczna.classList.remove('active');
+            if (labelPrywatna) labelPrywatna.classList.add('active');
+        } else {
+            // Publiczna (left)
+            if (labelPubliczna) labelPubliczna.classList.add('active');
+            if (labelPrywatna) labelPrywatna.classList.remove('active');
+        }
+    }
+
+    toggle.addEventListener('change', function() {
+        var editor = document.getElementById('audienceEditor');
+        if (editor) {
+            editor.style.display = this.checked ? '' : 'none';
+        }
         updateActiveLabel();
         markDirty();
     });
@@ -832,8 +871,8 @@ function removeSetItem(btn) {
  */
 function collectPageData() {
     const paymentStagesInput = document.getElementById('paymentStages');
-    const visibilityChecked = document.querySelector('input[name="visibility"]:checked');
-    const isPrivate = visibilityChecked ? visibilityChecked.value === 'private' : false;
+    const visibilityToggle = document.getElementById('visibilityToggle');
+    const isPrivate = visibilityToggle ? visibilityToggle.checked : false;
 
     const data = {
         name: document.getElementById('pageName').value,
@@ -2569,14 +2608,11 @@ function initAudienceState() {
 }
 
 /**
- * Toggle audience editor visibility when visibility radio changes.
+ * Legacy: was called by inline onchange on visibility radio buttons.
+ * Now handled by setupVisibilityToggle(). Kept as no-op for safety.
  */
 function onVisibilityChange(radio) {
-    var editor = document.getElementById('audienceEditor');
-    if (editor) {
-        editor.style.display = radio.value === 'private' ? '' : 'none';
-    }
-    markDirty();
+    // no-op — visibility is managed by setupVisibilityToggle()
 }
 
 /**
