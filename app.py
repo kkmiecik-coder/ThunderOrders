@@ -287,6 +287,15 @@ def create_app(config_name=None):
         # Allow Service Worker to control the entire site
         if request.path.endswith('/sw.js'):
             response.headers['Service-Worker-Allowed'] = '/'
+
+        # Dynamiczne strony HTML nie mogą być cache'owane przez przeglądarkę.
+        # Bez no-store admin widzi nieaktualny render (np. zaniżoną kwotę
+        # w potwierdzeniach płatności) aż do hard-refresh. Pliki statyczne
+        # (mają własny Cache-Control) i odpowiedzi JSON są pomijane przez
+        # filtr po mimetype 'text/html'.
+        if response.mimetype == 'text/html' and 'Cache-Control' not in response.headers:
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
         return response
 
     return app
