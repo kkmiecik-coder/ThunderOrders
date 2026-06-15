@@ -33,7 +33,7 @@ def split_and_sort_offer_pages(pages):
     """
     def sort_key(p):
         return (
-            _OFFER_STATUS_ORDER.get(p.status, 99),
+            _OFFER_STATUS_ORDER.get(p.status, 99),  # nieznane statusy na koniec (99)
             p.starts_at is None,
             -p.starts_at.timestamp() if p.starts_at else 0.0,
         )

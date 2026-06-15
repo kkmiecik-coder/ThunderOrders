@@ -66,3 +66,17 @@ def test_closed_sorted_by_date_desc():
     ]
     _, closed = split_and_sort_offer_pages(pages)
     assert _names(closed) == ['c_new', 'c_old']
+
+
+def test_empty_input():
+    assert split_and_sort_offer_pages([]) == ([], [])
+
+
+def test_unknown_status_goes_last():
+    pages = [
+        FakePage('unknown', 'mystery'),
+        FakePage('draft', 'draft'),
+        FakePage('ended', 'ended'),
+    ]
+    current, _ = split_and_sort_offer_pages(pages)
+    assert _names(current) == ['draft', 'ended', 'unknown']
