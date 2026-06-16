@@ -5,7 +5,17 @@
 
 /* Page Layout */
 .offer-page {
+    padding: 0;
+}
+
+/* Górna sekcja (nagłówek + toolbar/wyszukiwarka) — jedyna z paddingiem zewnętrznym */
+.offer-page-head {
     padding: var(--space-6);
+}
+
+/* Pusty stan (brak stron) — wcięcie poziome + dolne, by karta nie była od krawędzi do krawędzi */
+.offer-page-empty {
+    padding: 0 var(--space-6) var(--space-6);
 }
 
 /* Header */

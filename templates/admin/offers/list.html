@@ -10,6 +10,7 @@
 {% block content %}
 {% import "admin/offers/_list_items.html" as items with context %}
 <div class="offer-page">
+    <div class="offer-page-head">
     <!-- Header -->
     <div class="page-header">
         <div class="header-left">
@@ -67,8 +68,10 @@
     </div>
     <div class="offer-search-empty is-hidden" id="offerSearchEmpty"></div>
     {% endif %}
+    </div><!-- /.offer-page-head -->
 
     {% if pages %}
+    <div class="offer-page-body">
     <!-- Nawigacja zakładek (reuse initializeOfferTabs z offer-list.js) -->
     <div class="offer-tabs-navigation">
         <button type="button" class="offer-tab-button offer-tab-active" data-tab="tab-current">
@@ -97,7 +100,9 @@
             {% endif %}
         </div>
     </div>
+    </div><!-- /.offer-page-body -->
     {% else %}
+    <div class="offer-page-empty">
     <div class="table-container">
         <div class="empty-state">
             <svg width="64" height="64" viewBox="0 0 16 16" fill="currentColor" class="empty-icon">
@@ -111,6 +116,7 @@
             </button>
         </div>
     </div>
+    </div><!-- /.offer-page-empty -->
     {% endif %}
 </div>
 
