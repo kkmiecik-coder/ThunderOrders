@@ -10,6 +10,7 @@ from extensions import db
 from modules.orders.models import Order, OrderItem, ShippingRequestOrder
 from modules.auth.models import Settings, User
 from modules.offers.models import OfferPage, OfferSection
+from modules.offers.access import user_can_access_offer_page
 from sqlalchemy import func as sql_func, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -100,10 +101,13 @@ def dashboard():
     # dla weba i mobilnego API (patrz modules/client/dashboard_service.py).
     stats = get_client_dashboard_stats(current_user._get_current_object())
 
-    # 6. Offer pages (client sees all except drafts)
-    offer_pages_all = OfferPage.query.filter(
-        OfferPage.status != 'draft'
-    ).all()
+    # 6. Offer pages (client sees all except drafts, ale strony prywatne tylko
+    #    jeśli należy do ich odbiorców — admin/mod widzą wszystko).
+    _viewer = current_user._get_current_object()
+    offer_pages_all = [
+        p for p in OfferPage.query.filter(OfferPage.status != 'draft').all()
+        if user_can_access_offer_page(p, _viewer)
+    ]
 
     # Update status for each page (check dates)
     for page in offer_pages_all:
@@ -287,10 +291,13 @@ def get_offer_pages():
     if filter_type not in ('live', 'upcoming', 'closed'):
         filter_type = 'live'
 
-    # Pobierz wszystkie strony (bez drafts)
-    offer_pages_all = OfferPage.query.filter(
-        OfferPage.status != 'draft'
-    ).all()
+    # Pobierz wszystkie strony (bez drafts); strony prywatne tylko dla odbiorców
+    # (admin/mod widzą wszystko) — parytet z bramką token-routes i Mobile API.
+    _viewer = current_user._get_current_object()
+    offer_pages_all = [
+        p for p in OfferPage.query.filter(OfferPage.status != 'draft').all()
+        if user_can_access_offer_page(p, _viewer)
+    ]
 
     # Update status for each page
     for page in offer_pages_all:
@@ -371,6 +378,10 @@ def get_offer_matrix(page_id):
     """
     page = db.session.get(OfferPage, page_id)
     if not page or page.status == 'draft':
+        return jsonify({'success': False, 'error': 'Nie znaleziono strony'}), 404
+    # Prywatna strona ujawnia macierz zakupów tylko odbiorcom (admin/mod zawsze) —
+    # bez tego outsider mógłby pobrać macierz po page_id z pominięciem bramki.
+    if not user_can_access_offer_page(page, current_user._get_current_object()):
         return jsonify({'success': False, 'error': 'Nie znaleziono strony'}), 404
 
     set_sections = page.get_set_sections()
