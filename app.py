@@ -218,6 +218,7 @@ def create_app(config_name=None):
         # weryfikację podpisu GitHub, więc wyłączenie z maintenance jest bezpieczne.
         path = request.path
         if (path.startswith('/static/') or
+            path.startswith('/.well-known/') or
             path.startswith('/deploy/') or
             path in ('/auth/login', '/auth/logout') or
             path.startswith('/auth/callback')):
@@ -403,6 +404,35 @@ def register_blueprints(app):
         response.headers['Service-Worker-Allowed'] = '/'
         response.headers['Cache-Control'] = 'no-cache'
         return response
+
+    # Digital Asset Links / Associated Domains dla apki mobilnej
+    # (autofill haseł: iCloud Keychain + Google Password Manager).
+    # Wymagania platform: serwowane po HTTPS, status 200, BEZ przekierowań,
+    # Content-Type: application/json. AASA celowo BEZ rozszerzenia .json.
+    # Trasy są jawne i dwusegmentowe, więc catch-all offers_bp /<token>
+    # (jeden segment) ich nie przechwytuje. Wyłączone z maintenance niżej.
+    @app.route('/.well-known/apple-app-site-association')
+    def apple_app_site_association():
+        return jsonify({
+            "webcredentials": {
+                "apps": ["7LYBV3242V.cloud.thunderorders.mobile"]
+            }
+        })
+
+    @app.route('/.well-known/assetlinks.json')
+    def android_assetlinks():
+        # Tablica fingerprintów: pierwszy = debug keystore (buildy testowe).
+        # Przy publikacji dojdzie drugi odcisk (release / Play App Signing).
+        return jsonify([{
+            "relation": ["delegate_permission/common.get_login_creds"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "cloud.thunderorders.mobile",
+                "sha256_cert_fingerprints": [
+                    "42:4E:0A:0A:CA:2A:D2:DC:D0:01:6E:FB:8B:28:03:B6:4E:EE:07:82:77:40:18:73:8A:D5:D9:06:FE:A7:72:F1"
+                ]
+            }
+        }])
 
     # Offline page (for Service Worker fallback)
     @app.route('/offline')
