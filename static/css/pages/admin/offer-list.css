@@ -193,6 +193,34 @@
     color: var(--gray-500);
 }
 
+/* Visibility Badges (prywatna/publiczna) — wygląd jak status badge, tylko ikona */
+.visibility-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-1);
+    margin-left: var(--space-1);
+    border-radius: 4px;
+    line-height: 0;
+    vertical-align: middle;
+}
+
+.visibility-badge svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+}
+
+.visibility-badge.visibility-private {
+    background: rgba(244, 67, 54, 0.1);
+    color: var(--error);
+}
+
+.visibility-badge.visibility-public {
+    background: rgba(76, 175, 80, 0.1);
+    color: var(--success);
+}
+
 /* Date Cells */
 .date-cell {
     display: block;
@@ -1094,6 +1122,18 @@
 [data-theme="dark"] .status-badge.status-ended {
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .visibility-badge.visibility-private {
+    background: rgba(245, 87, 108, 0.15);
+    color: #f5576c;
+    border: 1px solid rgba(245, 87, 108, 0.3);
+}
+
+[data-theme="dark"] .visibility-badge.visibility-public {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
 /* Date Cells */
