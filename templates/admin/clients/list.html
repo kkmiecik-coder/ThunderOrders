@@ -299,7 +299,8 @@
                                 </button>
                                 {% else %}
                                 <button type="button" class="btn-action btn-reactivate"
-                                        onclick="reactivateClient({{ client.id }}, '{{ client.full_name }}')"
+                                        data-client-id="{{ client.id }}"
+                                        data-client-name="{{ client.full_name }}"
                                         title="Reaktywuj">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
@@ -655,6 +656,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const clientName = this.getAttribute('data-client-name');
             console.log('Client ID:', clientId, 'Client Name:', clientName);
             openDeactivateModal(clientId, clientName);
+        });
+    });
+
+    // Reaktywacja — przez data-atrybuty (nie inline onclick), bo nazwisko
+    // z apostrofem łamało string JS w onclick → SyntaxError przy renderze wiersza.
+    const reactivateButtons = document.querySelectorAll('.btn-reactivate');
+    reactivateButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            if (this.disabled || this.classList.contains('disabled')) {
+                return;
+            }
+            const clientId = this.getAttribute('data-client-id');
+            const clientName = this.getAttribute('data-client-name');
+            reactivateClient(clientId, clientName);
         });
     });
 });
