@@ -587,12 +587,12 @@
 /* Offer Type Badge */
 .offer-type-badge {
     display: inline-block;
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .offer-type-exclusive { background: #FEF3C7; color: #92400E; }
@@ -604,12 +604,12 @@
 /* Shipping type badge (proxy/polska) */
 .shipping-type-badge {
     display: inline-block;
-    padding: 3px 8px;
+    padding: var(--space-1) var(--space-2);
     border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: var(--text-xs);
+    font-weight: var(--font-semibold);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .shipping-type-proxy { background: #DBEAFE; color: #1E40AF; }
