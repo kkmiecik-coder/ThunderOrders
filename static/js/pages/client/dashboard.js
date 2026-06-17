@@ -3,9 +3,64 @@ document.addEventListener('DOMContentLoaded', function() {
     const textColor = isDarkMode ? 'rgba(255, 255, 255, 0.8)' : '#424242';
     const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
 
-    // Orders Chart
+    // Orders Chart — odporne ładowanie Chart.js. Na mobilnym Safari 205 KB
+    // vendora bywa nieukończone/zablokowane → `Chart` jest undefined i `new Chart`
+    // rzucał ReferenceError, ubijając CAŁĄ resztę tego handlera DOMContentLoaded.
+    // Teraz inicjalizacja wykresu jest NIEBLOKUJĄCA, a brak biblioteki jest obsłużony.
+    function ensureChartJs() {
+        return new Promise(function(resolve, reject) {
+            if (typeof window.Chart !== 'undefined') { resolve(); return; }
+            if (window.__chartJsFailed) {
+                console.warn('Vendor Chart.js nie wczytał się (onerror) — ponawiam pobranie…');
+            }
+
+            // Ścieżkę bierzemy z istniejącego tagu vendora (zachowuje cache-busting),
+            // z fallbackiem na znaną lokalizację.
+            const existing = document.querySelector('script[src*="chart.umd"]');
+            const baseSrc = existing ? existing.getAttribute('src')
+                                     : '/static/js/vendor/chart.umd.min.js';
+            let attempts = 0;
+
+            (function tryLoad() {
+                attempts++;
+                const s = document.createElement('script');
+                // Przy ponowieniu dokładamy cache-buster, by ominąć uszkodzony wpis w cache.
+                s.src = attempts > 1
+                    ? baseSrc + (baseSrc.indexOf('?') === -1 ? '?' : '&') + 'retry=' + attempts
+                    : baseSrc;
+                s.onload = function() {
+                    if (typeof window.Chart !== 'undefined') resolve();
+                    else if (attempts < 2) tryLoad();
+                    else reject(new Error('Chart.js wczytany, ale obiekt Chart niedostępny'));
+                };
+                s.onerror = function() {
+                    if (attempts < 2) tryLoad();
+                    else reject(new Error('Nie udało się wczytać Chart.js'));
+                };
+                document.head.appendChild(s);
+            })();
+        });
+    }
+
     const ordersCtx = document.getElementById('ordersChart');
     if (ordersCtx) {
+        ensureChartJs()
+            .then(function() { initOrdersChart(ordersCtx); })
+            .catch(function(err) {
+                console.error('Wykres zamówień niedostępny:', err);
+                // Graceful fallback — komunikat zamiast pustego canvasu (opacity +
+                // currentColor adaptują się do light/dark mode bez nowego CSS).
+                const container = ordersCtx.closest('.chart-container');
+                if (container) {
+                    container.innerHTML = '<p style="text-align:center;padding:24px 16px;'
+                        + 'font-size:13px;opacity:0.6;">Nie udało się załadować wykresu. '
+                        + 'Odśwież stronę, aby spróbować ponownie.</p>';
+                }
+            });
+    }
+
+    // Buduje wykres zamówień — wołane dopiero gdy Chart.js jest dostępny.
+    function initOrdersChart(ordersCtx) {
         const isMobile = window.innerWidth <= 768;
         let chartLabels = [];
         let chartValues = [];
