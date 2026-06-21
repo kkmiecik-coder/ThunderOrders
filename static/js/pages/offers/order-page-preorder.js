@@ -141,12 +141,12 @@ function addToPreorderCart(productId, productName, price, btn) {
         return;
     }
 
-    const productActions = btn.closest('.product-controls-box') ||
-                           btn.closest('.variant-product-action') ||
-                           btn.closest('.variant-product-qty') ||
-                           btn.closest('.product-header-controls');
-    const qtyInput = productActions ? productActions.querySelector('.qty-input') : null;
-    const qty = qtyInput ? (parseInt(qtyInput.value) || 1) : 1;
+    // Na mobile (≤640px) licznik jest w nagłówku (.product-header-controls),
+    // a na desktopie w .product-controls-box — oba mają ten sam data-product-id,
+    // ale ukryte (display:none) zostaje na wartości 1. Czytamy WIDOCZNE pole.
+    const qtyInputs = Array.from(document.querySelectorAll(`.qty-input[data-product-id="${productId}"]`));
+    const visibleQtyInput = qtyInputs.find(inp => inp.offsetParent !== null) || qtyInputs[0] || null;
+    const qty = visibleQtyInput ? (parseInt(visibleQtyInput.value) || 1) : 1;
 
     const selectedSize = selectedProductSizes[productId] || null;
     const existing = cart.find(item => item.product_id === productId && item.selected_size === selectedSize);
@@ -162,8 +162,8 @@ function addToPreorderCart(productId, productName, price, btn) {
         });
     }
 
-    // Reset qty input
-    if (qtyInput) qtyInput.value = 1;
+    // Reset wszystkich pól ilości tego produktu (mobile + desktop)
+    qtyInputs.forEach(inp => { inp.value = 1; });
 
     // GA4: add_to_cart
     if (typeof window.trackAddToCart === 'function') {
