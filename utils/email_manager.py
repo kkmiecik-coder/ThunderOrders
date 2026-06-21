@@ -1169,6 +1169,55 @@ class EmailManager:
             return False
 
     @staticmethod
+    def build_payment_reminder_message(order, payment_deadline=None, reminder_context='before_deadline'):
+        """
+        Buduje wiadomość przypomnienia o płatności (BEZ wysyłania) do batch sendingu.
+
+        Lustro notify_payment_reminder() — ta sama logika niezapłaconych etapów (na razie
+        tylko E1/produkt), ale zwraca obiekt Message zamiast wysyłać. Dzięki temu cron
+        może wysłać wszystkie przypomnienia jednym połączeniem SMTP.
+
+        Returns:
+            Message lub None (gdy: powiadomienia wyłączone / brak emaila /
+            brak niezapłaconych etapów / błąd budowania).
+        """
+        if not EmailManager.is_email_enabled('notify_payment_reminder'):
+            current_app.logger.info("Email notification 'notify_payment_reminder' is disabled, skipping")
+            return None
+
+        from utils.email_sender import prepare_payment_reminder_email
+
+        email = order.customer_email
+        if not email:
+            current_app.logger.warning(f"Cannot send payment reminder for {order.order_number}: no email")
+            return None
+
+        # Na razie tylko E1 (produkt) — parytet z notify_payment_reminder()
+        unpaid_stages = []
+        product_status = order.product_payment_status
+        if product_status in ('none', 'rejected'):
+            unpaid_stages.append({
+                'name': 'Płatność za produkt',
+                'amount': float(order.effective_total or order.total_amount or 0),
+                'status': product_status
+            })
+
+        if not unpaid_stages:
+            return None
+
+        confirmations_url = url_for('client.payment_confirmations', _external=True)
+
+        return prepare_payment_reminder_email(
+            user_email=email,
+            user_name=order.customer_name,
+            order_number=order.order_number,
+            unpaid_stages=unpaid_stages,
+            order_detail_url=confirmations_url,
+            payment_deadline=payment_deadline,
+            reminder_context=reminder_context
+        )
+
+    @staticmethod
     def notify_admin_deadline_exceeded(page, orders):
         """Wysyła email do admina o zamówieniach z przekroczonym deadline."""
         from utils.email_sender import send_deadline_exceeded_email

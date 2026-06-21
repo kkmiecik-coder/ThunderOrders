@@ -106,6 +106,65 @@ def send_async_email_batch(app, messages):
     logger.info(f"[EMAIL-BATCH] Batch complete: {sent} sent, {failed} failed, took={elapsed:.2f}s")
 
 
+def send_email_batch_sync(messages):
+    """
+    Wysyła listę przygotowanych Message SYNCHRONICZNIE, reużywając JEDNO połączenie SMTP
+    (jeden AUTH dla całego batcha) z opóźnieniem 2s między mailami.
+
+    W przeciwieństwie do send_email_batch() (async, fire-and-forget) zwraca wynik per
+    wiadomość — dzięki temu wołający (np. zadania CLI/cron) może zarejestrować stan
+    dopiero po faktycznej wysyłce. Musi być wywoływane w aktywnym kontekście aplikacji.
+
+    Args:
+        messages (list): Lista obiektów Message (z prepare_email()).
+
+    Returns:
+        list[bool]: Lista zgodna kolejnościowo z `messages`; True = wysłany.
+    """
+    results = [False] * len(messages)
+    if not messages:
+        return results
+
+    total = len(messages)
+    logger.info(f"[EMAIL-BATCH-SYNC] Starting batch send of {total} emails")
+    start_time = time.time()
+    sent = 0
+    failed = 0
+
+    try:
+        with mail.connect() as conn:
+            for i, msg in enumerate(messages):
+                recipient = msg.recipients[0] if msg.recipients else 'unknown'
+                for attempt in range(1, SMTP_MAX_RETRIES + 1):
+                    try:
+                        conn.send(msg)
+                        results[i] = True
+                        sent += 1
+                        logger.info(f"[EMAIL-BATCH-SYNC] {i+1}/{total} SUCCESS to={recipient}" +
+                                    (f" (attempt {attempt})" if attempt > 1 else ""))
+                        break
+                    except Exception as e:
+                        if attempt < SMTP_MAX_RETRIES and _is_retryable_smtp_error(e):
+                            delay = SMTP_RETRY_DELAYS[attempt - 1]
+                            logger.warning(f"[EMAIL-BATCH-SYNC] {i+1}/{total} RETRY {attempt}/{SMTP_MAX_RETRIES} "
+                                           f"to={recipient}, error={type(e).__name__}: {e}, retrying in {delay}s")
+                            time.sleep(delay)
+                        else:
+                            failed += 1
+                            logger.error(f"[EMAIL-BATCH-SYNC] {i+1}/{total} FAILED to={recipient}, "
+                                         f"attempt={attempt}, error={type(e).__name__}: {e}")
+                            break
+                # Odstęp między mailami — trzyma nas pod limitami dostawcy (~30 maili/min)
+                if i < total - 1:
+                    time.sleep(2)
+    except Exception as e:
+        logger.error(f"[EMAIL-BATCH-SYNC] Connection error: {type(e).__name__}: {e}")
+
+    elapsed = time.time() - start_time
+    logger.info(f"[EMAIL-BATCH-SYNC] Batch complete: {sent} sent, {failed} failed, took={elapsed:.2f}s")
+    return results
+
+
 def send_email(to, subject, template, **kwargs):
     """
     Wysyła email z templatem HTML
@@ -892,6 +951,21 @@ def send_shipping_status_change_email(user_email, user_name, request_number,
 def send_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
     """Wysyła email z przypomnieniem o niezapłaconych etapach zamówienia."""
     return send_email(
+        to=user_email,
+        subject=f'Przypomnienie o płatności - {order_number} - ThunderOrders',
+        template='payment_reminder',
+        user_name=user_name,
+        order_number=order_number,
+        unpaid_stages=unpaid_stages,
+        order_detail_url=order_detail_url,
+        payment_deadline=payment_deadline,
+        reminder_context=reminder_context
+    )
+
+
+def prepare_payment_reminder_email(user_email, user_name, order_number, unpaid_stages, order_detail_url, payment_deadline=None, reminder_context='before_deadline'):
+    """Buduje Message przypomnienia o płatności (bez wysyłania) — do batch sendingu."""
+    return prepare_email(
         to=user_email,
         subject=f'Przypomnienie o płatności - {order_number} - ThunderOrders',
         template='payment_reminder',

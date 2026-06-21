@@ -562,6 +562,10 @@ def register_cli_commands(app):
         now = get_local_now()
         sent_count = 0
 
+        # Zebrane przypomnienia do wysłania batchem (jedno połączenie SMTP = jeden AUTH).
+        # Wysyłka per-mail w osobnych wątkach powodowała 'too many AUTH/connections' na Hostingerze.
+        pending_reminders = []
+
         # Pobierz aktywne reguły
         rules = PaymentReminderConfig.query.filter_by(enabled=True).all()
         click.echo(f"Aktywnych reguł: {len(rules)}")
@@ -600,25 +604,14 @@ def register_cli_commands(app):
                                 sent_count += 1
                                 continue
 
-                            success = EmailManager.notify_payment_reminder(
-                                order, payment_deadline=page.payment_deadline,
-                                reminder_context='before_deadline'
-                            )
-                            if success:
-                                PushManager.notify_payment_reminder(
-                                    order, payment_deadline=page.payment_deadline
-                                )
-                                db.session.add(PaymentReminderLog(
-                                    order_id=order.id, config_id=rule.id
-                                ))
-                                log_activity(
-                                    action='payment_reminder_sent',
-                                    entity_type='order',
-                                    entity_id=order.id,
-                                    new_value=f'Wysłano przypomnienie ({rule.hours}h przed terminem)'
-                                )
-                                sent_count += 1
-                                click.echo(f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline)")
+                            pending_reminders.append({
+                                'order': order,
+                                'config_id': rule.id,
+                                'payment_deadline': page.payment_deadline,
+                                'reminder_context': 'before_deadline',
+                                'activity_value': f'Wysłano przypomnienie ({rule.hours}h przed terminem)',
+                                'echo': f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline)",
+                            })
 
                 elif rule.payment_stage == 'shipping_kr':
                     # E2: Wysyłka KR - sprawdź deadline'y PolandOrder
@@ -653,25 +646,14 @@ def register_cli_commands(app):
                                 sent_count += 1
                                 continue
 
-                            success = EmailManager.notify_payment_reminder(
-                                order, payment_deadline=po.payment_deadline,
-                                reminder_context='before_deadline'
-                            )
-                            if success:
-                                PushManager.notify_payment_reminder(
-                                    order, payment_deadline=po.payment_deadline
-                                )
-                                db.session.add(PaymentReminderLog(
-                                    order_id=order.id, config_id=rule.id
-                                ))
-                                log_activity(
-                                    action='payment_reminder_sent',
-                                    entity_type='order',
-                                    entity_id=order.id,
-                                    new_value=f'Wysłano przypomnienie ({rule.hours}h przed terminem wysyłki KR)'
-                                )
-                                sent_count += 1
-                                click.echo(f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline wysyłki KR)")
+                            pending_reminders.append({
+                                'order': order,
+                                'config_id': rule.id,
+                                'payment_deadline': po.payment_deadline,
+                                'reminder_context': 'before_deadline',
+                                'activity_value': f'Wysłano przypomnienie ({rule.hours}h przed terminem wysyłki KR)',
+                                'echo': f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline wysyłki KR)",
+                            })
 
             elif rule.reminder_type == 'after_order_placed':
                 if rule.payment_stage != 'product':
@@ -706,23 +688,52 @@ def register_cli_commands(app):
                         sent_count += 1
                         continue
 
-                    success = EmailManager.notify_payment_reminder(
-                        order, payment_deadline=payment_deadline,
-                        reminder_context='after_order_placed'
-                    )
-                    if success:
-                        PushManager.notify_payment_reminder(order, payment_deadline=payment_deadline)
-                        db.session.add(PaymentReminderLog(
-                            order_id=order.id, config_id=rule.id
-                        ))
-                        log_activity(
-                            action='payment_reminder_sent',
-                            entity_type='order',
-                            entity_id=order.id,
-                            new_value=f'Wysłano przypomnienie ({rule.hours}h po złożeniu zamówienia)'
-                        )
-                        sent_count += 1
-                        click.echo(f"  Wysłano: {order.order_number} ({rule.hours}h po złożeniu)")
+                    pending_reminders.append({
+                        'order': order,
+                        'config_id': rule.id,
+                        'payment_deadline': payment_deadline,
+                        'reminder_context': 'after_order_placed',
+                        'activity_value': f'Wysłano przypomnienie ({rule.hours}h po złożeniu zamówienia)',
+                        'echo': f"  Wysłano: {order.order_number} ({rule.hours}h po złożeniu)",
+                    })
+
+        # Wyślij zebrane przypomnienia JEDNYM połączeniem SMTP (jeden AUTH).
+        # Push/log/PaymentReminderLog rejestrujemy DOPIERO po faktycznej wysyłce maila —
+        # dzięki temu nieudane przypomnienie zostanie ponowione w kolejnym przebiegu cronu.
+        if pending_reminders and not dry_run:
+            from utils.email_sender import send_email_batch_sync
+
+            messages = []
+            valid = []
+            for p in pending_reminders:
+                msg = EmailManager.build_payment_reminder_message(
+                    p['order'],
+                    payment_deadline=p['payment_deadline'],
+                    reminder_context=p['reminder_context']
+                )
+                if msg is None:
+                    continue
+                messages.append(msg)
+                valid.append(p)
+
+            results = send_email_batch_sync(messages)
+
+            for p, ok in zip(valid, results):
+                if not ok:
+                    continue
+                order = p['order']
+                PushManager.notify_payment_reminder(order, payment_deadline=p['payment_deadline'])
+                db.session.add(PaymentReminderLog(
+                    order_id=order.id, config_id=p['config_id']
+                ))
+                log_activity(
+                    action='payment_reminder_sent',
+                    entity_type='order',
+                    entity_id=order.id,
+                    new_value=p['activity_value']
+                )
+                sent_count += 1
+                click.echo(p['echo'])
 
         # Sprawdź przekroczone deadline'y
         exceeded_pages = OfferPage.query.filter(
