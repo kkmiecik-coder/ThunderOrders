@@ -3572,66 +3572,132 @@ def get_proxy_orders_details():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+def _client_item_qty(item):
+    """Efektywna ilość pozycji klienta (uwzględnia częściową/setową realizację)."""
+    qty = item.quantity
+    if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+        qty = item.fulfilled_quantity
+    if item.is_set_fulfilled is False:
+        qty = 0
+    return qty or 0
+
+
+def _allocate_product_shipping_fifo(product_id):
+    """
+    Przydziela koszty wysyłki danego produktu do zamówień klientów wg modelu
+    PER PARTIA + FIFO:
+      • każda partia (PolandOrderItem) ma swoją stawkę per szt = shipping_cost / quantity,
+      • sztuki zamówione przez klientów są przydzielane do partii w kolejności
+        DATY ZŁOŻENIA zamówienia (najstarsze najpierw),
+      • partie ustawione w kolejności ich utworzenia (created_at).
+    Zwraca {order_id: Decimal koszt_wysyłki_tego_produktu}.
+    """
+    from modules.orders.models import Order
+    from modules.products.models import PolandOrder, PolandOrderItem
+    from decimal import Decimal
+
+    # Kolejka "slotów" jednostkowych z partii (FIFO wg utworzenia partii)
+    poland_items = (
+        PolandOrderItem.query
+        .join(PolandOrder, PolandOrderItem.poland_order_id == PolandOrder.id)
+        .filter(
+            PolandOrderItem.product_id == product_id,
+            PolandOrder.status != 'anulowane',
+        )
+        .order_by(PolandOrder.created_at.asc(), PolandOrder.id.asc())
+        .all()
+    )
+    slots = []  # lista kosztów per sztuka, w kolejności partii
+    for pi in poland_items:
+        qty = pi.quantity or 0
+        shipping = Decimal(str(pi.shipping_cost or 0))
+        if qty > 0:
+            per_unit = shipping / Decimal(qty)
+            slots.extend([per_unit] * qty)
+
+    # Zamówienia klientów (exclusive) w kolejności daty złożenia (FIFO)
+    client_orders = (
+        Order.query
+        .filter(Order.offer_page_id.isnot(None), Order.status != 'anulowane')
+        .order_by(Order.created_at.asc(), Order.id.asc())
+        .all()
+    )
+
+    alloc = {}
+    idx = 0
+    for order in client_orders:
+        qty = sum(
+            _client_item_qty(item)
+            for item in order.items
+            if item.product_id == product_id
+        )
+        if qty <= 0:
+            continue
+        total = Decimal('0')
+        for _ in range(qty):
+            if idx < len(slots):
+                total += slots[idx]
+                idx += 1
+            else:
+                break  # brak partii dla tych sztuk — koszt naliczy się przy kolejnej partii
+        alloc[order.id] = total.quantize(Decimal('0.01'))
+    return alloc
+
+
 def _distribute_proxy_shipping_to_client_orders(product_shipping_costs):
     """
-    Rozdziela koszty dostawy proxy do zamówień klientów (exclusive).
-    product_shipping_costs: dict {product_id: Decimal shipping_cost_total}
-    Proporcjonalnie wg ilości zamówionych przez klienta.
+    Przelicza koszty dostawy proxy (Wysyłka KR) na zamówienia klientów (exclusive).
+
+    Model: koszt PER PARTIA, sztuki przydzielane do partii wg daty złożenia
+    zamówienia (FIFO) — patrz `_allocate_product_shipping_fifo`. Funkcja jest
+    idempotentna: przelicza pełny `proxy_shipping_cost` każdego dotkniętego
+    zamówienia od zera (suma po wszystkich jego produktach proxy), więc wielokrotne
+    uruchomienie ani podział produktu na wiele partii nie zaniża/nadpisuje kosztów.
+
+    product_shipping_costs: dict {product_id: Decimal} — używamy tylko kluczy
+    (lista produktów dotkniętych bieżącą partią).
     """
-    from modules.orders.models import Order, OrderItem
+    from modules.orders.models import Order
     from decimal import Decimal
-    from sqlalchemy import func
 
     if not product_shipping_costs:
-        return
+        return {}
 
-    product_ids = list(product_shipping_costs.keys())
+    affected_product_ids = set(product_shipping_costs.keys())
 
-    # Znajdź exclusive zamówienia klientów z pasującymi produktami (nie anulowane)
+    # Zamówienia dotknięte = exclusive zamówienia zawierające którykolwiek z produktów partii
     client_orders = Order.query.filter(
         Order.offer_page_id.isnot(None),
         Order.status != 'anulowane'
     ).all()
+    affected_orders = [
+        o for o in client_orders
+        if any(item.product_id in affected_product_ids for item in o.items)
+    ]
 
-    # Zbierz order_id → {product_id: quantity} z OrderItems
-    order_product_qty = {}
-    for order in client_orders:
-        for item in order.items:
-            if item.product_id in product_ids:
-                if order.id not in order_product_qty:
-                    order_product_qty[order.id] = {}
-                qty = item.quantity
-                if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
-                    qty = item.fulfilled_quantity
-                if item.is_set_fulfilled is False:
-                    qty = 0
-                order_product_qty[order.id][item.product_id] = qty
+    # Aby poprawnie odtworzyć PEŁNY koszt zamówienia, przeliczamy wszystkie produkty
+    # występujące w dotkniętych zamówieniach (nie tylko te z bieżącej partii).
+    pids = set()
+    for o in affected_orders:
+        for item in o.items:
+            if item.product_id is not None:
+                pids.add(item.product_id)
 
-    # Oblicz total demand per product
-    product_total_demand = {}
-    for order_id, products in order_product_qty.items():
-        for pid, qty in products.items():
-            product_total_demand[pid] = product_total_demand.get(pid, 0) + qty
+    alloc_by_product = {pid: _allocate_product_shipping_fifo(pid) for pid in pids}
 
-    # Rozdziel koszty proporcjonalnie
-    order_shipping_totals = {}
-    for order_id, products in order_product_qty.items():
-        total = Decimal('0')
-        for pid, qty in products.items():
-            if qty > 0 and product_total_demand.get(pid, 0) > 0:
-                share = (Decimal(str(qty)) / Decimal(str(product_total_demand[pid]))) * product_shipping_costs[pid]
-                total += share.quantize(Decimal('0.01'))
-        if total > 0:
-            order_shipping_totals[order_id] = total
-
-    # Zapisz na zamówieniach
     updated_orders = {}
-    for order_id, shipping_cost in order_shipping_totals.items():
-        order = db.session.get(Order, order_id)
-        if order:
-            old_cost = float(order.proxy_shipping_cost) if order.proxy_shipping_cost else 0
-            order.proxy_shipping_cost = shipping_cost
-            updated_orders[order_id] = {'old': old_cost, 'new': float(shipping_cost)}
+    for order in affected_orders:
+        new_total = Decimal('0')
+        counted = set()
+        for item in order.items:
+            pid = item.product_id
+            if pid is None or pid in counted:
+                continue
+            counted.add(pid)
+            new_total += alloc_by_product.get(pid, {}).get(order.id, Decimal('0'))
+        old_cost = float(order.proxy_shipping_cost) if order.proxy_shipping_cost else 0
+        order.proxy_shipping_cost = new_total
+        updated_orders[order.id] = {'old': old_cost, 'new': float(new_total)}
 
     return updated_orders
 
