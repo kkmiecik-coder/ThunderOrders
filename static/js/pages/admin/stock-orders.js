@@ -625,7 +625,8 @@ function closePolandModal() {
  */
 function confirmPolandOrder() {
     const trackingNum = document.getElementById('polandTrackingNumber').value.trim();
-    const totalShipping = parseFloat(document.getElementById('totalShippingCost').value) || 0;
+    const totalShippingRaw = document.getElementById('totalShippingCost').value.trim();
+    const totalShipping = parseFloat(totalShippingRaw);
     const note = document.getElementById('polandOrderNote').value.trim();
 
     // --- Validation ---
@@ -642,8 +643,8 @@ function confirmPolandOrder() {
         document.getElementById('polandTrackingNumber').classList.remove('input-error');
     }
 
-    if (totalShipping <= 0) {
-        errors.push('Wpisz całkowity koszt wysyłki');
+    if (totalShippingRaw === '' || isNaN(totalShipping) || totalShipping < 0) {
+        errors.push('Wpisz całkowity koszt wysyłki (może być 0)');
         document.getElementById('totalShippingCost').classList.add('input-error');
     } else {
         document.getElementById('totalShippingCost').classList.remove('input-error');
@@ -654,8 +655,9 @@ function confirmPolandOrder() {
     polandOrderData.items.forEach((item, idx) => {
         const input = document.querySelector(`.shipping-value-input[data-item-index="${idx}"]`);
         if (input) {
-            const val = parseFloat(input.value) || 0;
-            if (val <= 0) {
+            const raw = (input.value || '').trim();
+            const val = parseFloat(raw);
+            if (raw === '' || isNaN(val) || val < 0) {
                 allItemsHaveShipping = false;
                 input.classList.add('input-error');
             } else {
@@ -665,7 +667,7 @@ function confirmPolandOrder() {
     });
 
     if (!allItemsHaveShipping) {
-        errors.push('Uzupełnij wartość wysyłki dla każdego produktu');
+        errors.push('Uzupełnij wartość wysyłki dla każdego produktu (może być 0)');
     }
 
     if (errors.length > 0) {
