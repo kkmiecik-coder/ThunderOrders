@@ -1625,6 +1625,7 @@ def offers_live(page_id):
             'total_amount': o['total_amount'],
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
+            'payment_badge': o.get('payment_badge'),
         })
 
     return render_template(
@@ -1674,6 +1675,7 @@ def offers_summary(page_id):
             'item_count': sum(item['quantity'] for item in o['order_items']),
             'items': o['order_items'],
             'created_by_admin_id': o.get('created_by_admin_id'),
+            'payment_badge': o.get('payment_badge'),
         })
 
     return render_template(

@@ -822,6 +822,12 @@
 .order-card-body { padding: 0 var(--space-4) var(--space-4); border-top: 1px solid var(--border-color); }
 .order-card-items { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
 
+/* Payment status badge (prawy górny róg kafelka, na wysokości numeru zamówienia) */
+.order-card-payment-badge { flex-shrink: 0; display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: var(--font-semibold); line-height: 1.4; white-space: nowrap; border: 1px solid transparent; }
+.order-card-payment-badge.payment-badge-paid { background: rgba(16, 185, 129, 0.12); color: #059669; border-color: rgba(16, 185, 129, 0.25); }
+.order-card-payment-badge.payment-badge-pending { background: rgba(245, 158, 11, 0.12); color: #d97706; border-color: rgba(245, 158, 11, 0.25); }
+.order-card-payment-badge.payment-badge-unpaid { background: rgba(239, 68, 68, 0.1); color: #dc2626; border-color: rgba(239, 68, 68, 0.22); }
+
 /* Order item pills */
 .order-item { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); border-radius: 4px; font-size: var(--text-xs); background: var(--bg-secondary); }
 .order-item.item-full-set { background: linear-gradient(135deg, rgba(157, 78, 221, 0.1) 0%, rgba(123, 44, 191, 0.1) 100%); border: 1px solid rgba(157, 78, 221, 0.2); }
@@ -1009,6 +1015,9 @@
 [data-theme="dark"] .order-card-meta { color: rgba(255, 255, 255, 0.5); }
 [data-theme="dark"] .order-card-amount { color: #ffffff; }
 [data-theme="dark"] .order-card-body { border-color: rgba(255, 255, 255, 0.1); }
+[data-theme="dark"] .order-card-payment-badge.payment-badge-paid { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+[data-theme="dark"] .order-card-payment-badge.payment-badge-pending { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+[data-theme="dark"] .order-card-payment-badge.payment-badge-unpaid { background: rgba(245, 87, 108, 0.15); color: #f5576c; border-color: rgba(245, 87, 108, 0.3); }
 
 [data-theme="dark"] .order-item { background: rgba(255, 255, 255, 0.05); }
 [data-theme="dark"] .order-item.item-full-set { background: linear-gradient(135deg, rgba(157, 78, 221, 0.2) 0%, rgba(123, 44, 191, 0.15) 100%); border-color: rgba(157, 78, 221, 0.4); }

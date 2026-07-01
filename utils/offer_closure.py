@@ -826,6 +826,7 @@ def get_page_summary(page_id, include_financials=True):
             'total_amount': fulfilled_amount,  # Tylko zrealizowane produkty
             'order_items': items_details,
             'created_by_admin_id': order.created_by_admin_id,
+            'payment_badge': order.payment_badge,
         }
         orders_list.append(order_data)
 
@@ -1264,6 +1265,7 @@ def get_live_summary(page_id, include_financials=True):
             'created_at': order.created_at,
             'total_amount': float(order.total_amount) if order.total_amount else 0,
             'order_items': items_details,
+            'payment_badge': order.payment_badge,
         })
 
     result = {

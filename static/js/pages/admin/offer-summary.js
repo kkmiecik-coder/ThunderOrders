@@ -363,6 +363,13 @@ function renderOrderCards() {
     renderPagination(totalPages, paginationContainer);
 }
 
+function buildPaymentBadgeHTML(order) {
+    var pb = order.payment_badge;
+    if (!pb || !pb.state) return '';
+    return '<span class="order-card-payment-badge payment-badge-' + pb.state + '">' +
+        escapeHtml(pb.label) + '</span>';
+}
+
 function buildOrderCardHTML(order) {
     var detailUrl = window.ORDER_DETAIL_URL + '/' + order.order_id;
     var includeFinancials = window.INCLUDE_FINANCIALS;
@@ -420,6 +427,8 @@ function buildOrderCardHTML(order) {
         ? '<span class="order-card-manual-badge" title="Zamówienie dodane ręcznie przez administratora">✋ Dodane ręcznie</span>'
         : '';
 
+    var paymentBadge = buildPaymentBadgeHTML(order);
+
     return '<div class="order-card" data-order-id="' + order.order_id + '">' +
         '<div class="order-card-header">' +
         '<div class="order-card-main">' +
@@ -434,6 +443,7 @@ function buildOrderCardHTML(order) {
         amountHTML +
         '</div>' +
         '</div>' +
+        paymentBadge +
         '</div>' +
         '<div class="order-card-body">' +
         '<div class="order-card-items">' + itemsHTML + '</div>' +

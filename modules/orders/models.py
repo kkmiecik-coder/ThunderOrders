@@ -754,6 +754,24 @@ class Order(db.Model):
         return {'css_class': 'danger', 'tooltip': tooltip}
 
     @property
+    def payment_badge(self):
+        """Uproszczony 3-stanowy status płatności dla badge na kafelkach zamówień
+        (widok LIVE oferty i podsumowanie zamkniętej strony). Agregat całego
+        zamówienia — patrzy na łączną kwotę i potwierdzenia ze wszystkich etapów.
+
+        - 'paid'    → Opłacone (w pełni opłacone lub nadpłata)
+        - 'pending' → Wgrane potwierdzenie (jest oczekujące potwierdzenie, ale
+                      zamówienie nie jest jeszcze w pełni opłacone)
+        - 'unpaid'  → Nieopłacone (brak/odrzucone potwierdzenie, brak pełnej płatności)
+        """
+        if self.is_fully_paid or self.is_overpaid:
+            return {'state': 'paid', 'label': 'Opłacone'}
+        has_pending = self.payment_confirmations.filter_by(status='pending').first() is not None
+        if has_pending:
+            return {'state': 'pending', 'label': 'Wgrane potwierdzenie'}
+        return {'state': 'unpaid', 'label': 'Nieopłacone'}
+
+    @property
     def shipping_icon_state(self):
         """Zwraca dict z css_class i tooltip dla ikony statusu wysyłki/kuriera."""
         if self.has_tracking:

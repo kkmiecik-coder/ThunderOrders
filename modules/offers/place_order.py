@@ -708,6 +708,7 @@ def _place_offer_order_attempt(page, session_id, order_note=None, full_set_items
             'item_count': total_items_count,
             'items': order_items_list,
             'created_at': order.created_at.isoformat() if order.created_at else None,
+            'payment_badge': order.payment_badge,
         })
 
         # Get full live summary (stats + sets + products) and emit
@@ -1006,6 +1007,7 @@ def place_preorder_order(page, cart_items, order_note=None, user=None):
             'item_count': total_items_count,
             'items': order_items_list,
             'created_at': order.created_at.isoformat() if order.created_at else None,
+            'payment_badge': order.payment_badge,
         })
 
         live = get_live_summary(page.id, include_financials=True)
