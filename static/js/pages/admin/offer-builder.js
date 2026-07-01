@@ -560,7 +560,7 @@ function getSectionTemplate(type) {
                         <div class="set-image-preview-section hidden">
                             <div class="set-image-preview-wrapper">
                                 <img class="set-image-preview" src="" alt="Tło seta">
-                                <button type="button" class="btn-remove-set-image" onclick="removeSetImageNew(this)">
+                                <button type="button" class="btn-remove-set-image" onclick="removeSetImage(this)">
                                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                         <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                                     </svg>
@@ -1604,9 +1604,9 @@ function removeVgImage(btn) {
 }
 
 /**
- * Remove set/variant group background image
+ * Remove variant group background image
  */
-function removeSetImage(btn) {
+function removeVariantGroupImage(btn) {
     const container = btn.closest('.set-image-section');
     if (!container) return;
 
@@ -1709,7 +1709,7 @@ async function uploadSetImageNew(input) {
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
                 removeBtn.className = 'btn-remove-image';
-                removeBtn.onclick = function() { removeSetImage(this); };
+                removeBtn.onclick = function() { removeVariantGroupImage(this); };
                 removeBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>';
                 buttonsContainer.insertBefore(removeBtn, buttonsContainer.querySelector('.set-image-input'));
             }
@@ -1730,9 +1730,9 @@ async function uploadSetImageNew(input) {
 }
 
 /**
- * Remove set image (for new sections)
+ * Remove set background image
  */
-function removeSetImageNew(btn) {
+function removeSetImage(btn) {
     const imagePreviewSection = btn.closest('.set-image-preview-section');
     const setSection = btn.closest('.set-section');
     const previewImg = imagePreviewSection.querySelector('.set-image-preview');
@@ -1753,32 +1753,6 @@ function removeSetImageNew(btn) {
         </svg>
         Dodaj tło setu
     `;
-    markDirty();
-}
-
-/**
- * Remove set image (for existing sections)
- */
-// Legacy removeSetImage with sectionId — redirect to universal version
-function _removeSetImageLegacy(btn, sectionId) {
-    const imagePreviewSection = document.getElementById(`setImagePreviewSection-${sectionId}`);
-    const setSection = btn.closest('.set-section');
-    if (!setSection) return;
-    const hiddenInput = setSection.querySelector('.set-image-path');
-    const imageBtn = setSection.querySelector('.btn-set-image');
-
-    if (imagePreviewSection) imagePreviewSection.classList.add('hidden');
-    if (hiddenInput) hiddenInput.value = '';
-    if (imageBtn) {
-        imageBtn.classList.remove('has-image');
-        imageBtn.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
-                <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
-            </svg>
-            Dodaj tło setu
-        `;
-    }
     markDirty();
 }
 
