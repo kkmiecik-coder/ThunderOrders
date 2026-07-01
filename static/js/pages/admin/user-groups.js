@@ -332,6 +332,28 @@
         initTabs();
         initMemberSearch();
 
+        // Przyciski Edytuj/Usuń grupę — przez data-atrybuty (nie inline onclick),
+        // bo nazwa grupy w onclick łamała parsowanie atrybutu HTML (SyntaxError,
+        // widoczny tylko w Safari). Nazwa jest bezpiecznie escapowana przez Jinja
+        // w data-group-name.
+        document.querySelectorAll('.btn-edit-group').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                window.editUserGroup(
+                    parseInt(this.getAttribute('data-group-id'), 10),
+                    this.getAttribute('data-group-name')
+                );
+            });
+        });
+
+        document.querySelectorAll('.btn-delete-group').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                deleteUserGroup(
+                    parseInt(this.getAttribute('data-group-id'), 10),
+                    this.getAttribute('data-group-name')
+                );
+            });
+        });
+
         // Zamknij modal klikając w overlay
         var groupModal = document.getElementById('groupModal');
         if (groupModal) {
