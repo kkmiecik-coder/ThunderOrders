@@ -298,8 +298,18 @@ def _build_overview_sheet(wb, page, summary, s):
 
             row += 1
 
+    # --- Sets matrix with customer names (identycznie jak w raporcie LIVE) ---
+    if sets_info:
+        row += 1
+        row, max_set_cols = _write_sets_matrix(ws, sets_info, s, start_row=row)
+    else:
+        max_set_cols = 0
+
     # Column widths
-    _set_col_widths(ws, {'A': 22, 'B': 30, 'C': 16, 'D': 16, 'E': 16, 'F': 18})
+    _set_col_widths(ws, {'A': 30, 'B': 20, 'C': 16, 'D': 16, 'E': 16, 'F': 18})
+    # Wider columns for set matrices
+    for i in range(2, max_set_cols + 2):
+        ws.column_dimensions[get_column_letter(i)].width = 18
     ws.freeze_panes = 'A3'
 
 
