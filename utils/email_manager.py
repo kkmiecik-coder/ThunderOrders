@@ -1011,6 +1011,53 @@ class EmailManager:
         except Exception as e:
             current_app.logger.error(f"Failed to send cost email for {order.order_number}: {e}")
 
+    @staticmethod
+    def notify_costs_added_bulk(orders_costs, cost_type):
+        """
+        Wysyła emaile o dodaniu kosztu do WIELU zamówień jednym połączeniem SMTP.
+
+        Używane przez masowe rozdzielanie kosztów (modale "Zamów do Polski" i
+        "Cło/VAT") — pętla notify_cost_added() otwierałaby osobne połączenie
+        per mail i wpadała w limit AUTH Hostingera (patrz fix 27787e2).
+
+        Args:
+            orders_costs: lista krotek (order, cost_amount)
+            cost_type (str): 'proxy_shipping', 'customs_vat' lub 'domestic_shipping'
+
+        Returns:
+            int: liczba zakolejkowanych wiadomości
+        """
+        if not EmailManager.is_email_enabled('notify_cost_added'):
+            current_app.logger.info("Email notification 'notify_cost_added' is disabled, skipping bulk")
+            return 0
+
+        from utils.email_sender import prepare_cost_added_email, send_email_batch
+
+        messages = []
+        for order, cost_amount in orders_costs:
+            email = order.customer_email
+            if not email:
+                current_app.logger.warning(f"Cannot send cost email for {order.order_number}: no email")
+                continue
+
+            msg = prepare_cost_added_email(
+                user_email=email,
+                user_name=order.customer_name,
+                order_number=order.order_number,
+                cost_type=cost_type,
+                cost_amount=cost_amount,
+                order_detail_url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            )
+            if msg:
+                messages.append(msg)
+
+        if messages:
+            send_email_batch(messages)
+            current_app.logger.info(
+                f"Queued batch of {len(messages)} cost ({cost_type}) emails"
+            )
+        return len(messages)
+
     # ========================================
     # ADMIN NOTIFICATION EMAILS
     # ========================================

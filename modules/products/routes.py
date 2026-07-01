@@ -3750,6 +3750,45 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
     return updated_customs
 
 
+def _notify_distributed_costs(distributed, cost_type):
+    """
+    Powiadamia klientów (email batchem + push) o kosztach rozdzielonych hurtowo.
+
+    distributed: dict {order_id: {'old': float, 'new': float}} z funkcji
+    _distribute_*. Powiadamiamy tylko zamówienia ze zmienionym kosztem > 0 —
+    przeliczniki są idempotentne i przy kolejnej partii dotykają też zamówień,
+    których koszt się nie zmienił (tych nie spamujemy).
+    Wywoływać PO commit; błąd powiadomień nie może wywrócić endpointu.
+    """
+    from modules.orders.models import Order
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    if not distributed:
+        return
+
+    changed_ids = [
+        oid for oid, costs in distributed.items()
+        if costs['new'] > 0 and costs['new'] != costs['old']
+    ]
+    if not changed_ids:
+        return
+
+    orders = Order.query.filter(Order.id.in_(changed_ids)).all()
+    orders_costs = [(order, distributed[order.id]['new']) for order in orders]
+
+    try:
+        EmailManager.notify_costs_added_bulk(orders_costs, cost_type)
+    except Exception as e:
+        current_app.logger.error(f"Failed to send bulk cost ({cost_type}) emails: {e}")
+
+    for order, amount in orders_costs:
+        try:
+            PushManager.notify_cost_added(order, cost_type, amount)
+        except Exception as e:
+            current_app.logger.error(f"Failed to send cost push for order {order.id}: {e}")
+
+
 @products_bp.route('/api/create-poland-order', methods=['POST'])
 @login_required
 @role_required('admin', 'mod')
@@ -3866,6 +3905,9 @@ def create_poland_order():
                 old_value={'proxy_shipping_cost': costs['old']},
                 new_value={'proxy_shipping_cost': costs['new'], 'amount': costs['new']}
             )
+
+        # Powiadom klientów o naliczonym koszcie wysyłki KR (email batch + push)
+        _notify_distributed_costs(distributed_shipping, 'proxy_shipping')
 
         return jsonify({
             'success': True,
@@ -4075,6 +4117,9 @@ def update_poland_customs_vat():
                 old_value={'customs_vat_sale_cost': costs['old']},
                 new_value={'customs_vat_sale_cost': costs['new'], 'amount': costs['new']}
             )
+
+        # Powiadom klientów o naliczonym Cle/VAT (email batch + push)
+        _notify_distributed_costs(distributed_customs, 'customs_vat')
 
         return jsonify({
             'success': True,

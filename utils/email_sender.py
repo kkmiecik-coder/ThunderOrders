@@ -854,6 +854,15 @@ def send_tracking_number_email(user_email, user_name, order_number, tracking_num
     )
 
 
+def _cost_added_subject(cost_type, order_number):
+    """Temat maila o dodaniu kosztu — wspólny dla wysyłki pojedynczej i batchowej."""
+    if cost_type == 'proxy_shipping':
+        return f'Koszt wysyłki z proxy - {order_number} - ThunderOrders'
+    if cost_type == 'domestic_shipping':
+        return f'Koszt wysyłki krajowej - {order_number} - ThunderOrders'
+    return f'Koszt cła i VAT - {order_number} - ThunderOrders'
+
+
 def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url):
     """
     Wysyła email o dodaniu kosztu do zamówienia (wysyłka proxy, cło/VAT lub wysyłka krajowa).
@@ -866,16 +875,29 @@ def send_cost_added_email(user_email, user_name, order_number, cost_type, cost_a
         cost_amount (float): Kwota kosztu
         order_detail_url (str): URL do szczegółów zamówienia
     """
-    if cost_type == 'proxy_shipping':
-        subject = f'Koszt wysyłki z proxy - {order_number} - ThunderOrders'
-    elif cost_type == 'domestic_shipping':
-        subject = f'Koszt wysyłki krajowej - {order_number} - ThunderOrders'
-    else:
-        subject = f'Koszt cła i VAT - {order_number} - ThunderOrders'
-
     return send_email(
         to=user_email,
-        subject=subject,
+        subject=_cost_added_subject(cost_type, order_number),
+        template='cost_added',
+        user_name=user_name,
+        order_number=order_number,
+        cost_type=cost_type,
+        cost_amount=cost_amount,
+        order_detail_url=order_detail_url
+    )
+
+
+def prepare_cost_added_email(user_email, user_name, order_number, cost_type, cost_amount, order_detail_url):
+    """
+    Buduje Message o dodaniu kosztu (BEZ wysyłania) — do send_email_batch().
+    Parytet treści z send_cost_added_email().
+
+    Returns:
+        Message lub None w przypadku błędu
+    """
+    return prepare_email(
+        to=user_email,
+        subject=_cost_added_subject(cost_type, order_number),
         template='cost_added',
         user_name=user_name,
         order_number=order_number,
