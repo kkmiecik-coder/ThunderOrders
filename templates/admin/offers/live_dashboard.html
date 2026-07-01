@@ -559,68 +559,7 @@
         }
     }
 
-    var closePageId = null;
-
-    function openCloseModal(pageId, pageName, pageType) {
-        closePageId = pageId;
-        document.getElementById('closePageName').textContent = pageName;
-
-        var isPreorder = pageType === 'preorder';
-        document.getElementById('closeInfoExclusive').style.display = isPreorder ? 'none' : '';
-        document.getElementById('closeInfoPreorder').style.display = isPreorder ? '' : 'none';
-        document.getElementById('closeWarningText').textContent = isPreorder
-            ? 'Po zamknięciu nie będzie możliwości wznowienia sprzedaży.'
-            : 'Po zamknięciu nie będzie możliwości wznowienia sprzedaży ani zmiany alokacji produktów.';
-
-        document.getElementById('closeModal').classList.add('active');
-    }
-
-    function closeCloseModal() {
-        var modal = document.getElementById('closeModal');
-        modal.classList.add('closing');
-        setTimeout(function() {
-            modal.classList.remove('active', 'closing');
-            closePageId = null;
-            var btn = document.getElementById('closeCompleteBtn');
-            btn.querySelector('.btn-text').style.display = 'inline';
-            btn.querySelector('.btn-loading').style.display = 'none';
-            btn.disabled = false;
-        }, 350);
-    }
-
-    async function executeCloseComplete() {
-        if (!closePageId) return;
-        var btn = document.getElementById('closeCompleteBtn');
-        var sendEmails = document.getElementById('sendEmailsCheckbox').checked;
-        btn.querySelector('.btn-text').style.display = 'none';
-        btn.querySelector('.btn-loading').style.display = 'inline-flex';
-        btn.disabled = true;
-        try {
-            const response = await fetch('/admin/offers/' + closePageId + '/close-complete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({ send_emails: sendEmails })
-            });
-            const data = await response.json();
-            if (data.success) {
-                if (data.redirect) { window.location.href = data.redirect; }
-                else { window.location.reload(); }
-            } else {
-                if (window.Toast) { window.Toast.show(data.error || 'Wystąpił błąd', 'error'); }
-                btn.querySelector('.btn-text').style.display = 'inline';
-                btn.querySelector('.btn-loading').style.display = 'none';
-                btn.disabled = false;
-            }
-        } catch (error) {
-            if (window.Toast) { window.Toast.show('Błąd połączenia z serwerem', 'error'); }
-            btn.querySelector('.btn-text').style.display = 'inline';
-            btn.querySelector('.btn-loading').style.display = 'none';
-            btn.disabled = false;
-        }
-    }
+    // Modal „Zamknij całkowicie” — logika współdzielona w js/pages/admin/offer-close-modal.js
 </script>
 {% endblock %}
 
@@ -629,4 +568,5 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-live.js') }}"></script>
+<script src="{{ url_for('static', filename='js/pages/admin/offer-close-modal.js') }}"></script>
 {% endblock %}
