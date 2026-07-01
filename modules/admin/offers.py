@@ -1389,7 +1389,38 @@ def offers_upload_image():
 @admin_required
 def offers_duplicate(page_id):
     """Duplikuje stronę offers"""
+    import os
+    import uuid
+    import shutil
+
     original = OfferPage.query.get_or_404(page_id)
+
+    def _copy_set_image(src_relative):
+        """Kopiuje plik tła setu do nowej, unikalnej nazwy (konwencja jak upload:
+        uuid.hex.ext). Dzięki temu kopia ma WŁASNY plik — usunięcie tła lub całej
+        kopii nie rusza pliku strony pierwotnej. Zwraca nową ścieżkę względną,
+        lub None gdy plik źródłowy nie istnieje / kopiowanie się nie powiodło."""
+        if not src_relative:
+            return None
+        src_path = os.path.join(current_app.static_folder, src_relative)
+        if not os.path.exists(src_path):
+            current_app.logger.warning(
+                f"[OFFER DUPLICATE] brak pliku tła setu do skopiowania: {src_relative} (page {page_id})"
+            )
+            return None
+        ext = src_relative.rsplit('.', 1)[1].lower() if '.' in src_relative else 'png'
+        new_name = f"{uuid.uuid4().hex}.{ext}"
+        dst_relative = f'uploads/offers/{new_name}'
+        dst_path = os.path.join(current_app.static_folder, 'uploads', 'offers', new_name)
+        try:
+            os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+            shutil.copy2(src_path, dst_path)
+        except OSError as e:
+            current_app.logger.error(
+                f"[OFFER DUPLICATE] nie udało się skopiować tła {src_relative}: {e}"
+            )
+            return None
+        return dst_relative
 
     # Nowa strona
     new_page = OfferPage(
@@ -1416,7 +1447,7 @@ def offers_duplicate(page_id):
             min_quantity=section.min_quantity,
             max_quantity=section.max_quantity,
             set_name=section.set_name,
-            set_image=section.set_image,
+            set_image=_copy_set_image(section.set_image),
             set_max_sets=section.set_max_sets,
             set_max_per_product=section.set_max_per_product,
             set_product_id=section.set_product_id,
