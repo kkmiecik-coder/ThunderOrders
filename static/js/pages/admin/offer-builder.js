@@ -20,6 +20,12 @@ let lastSaveTime = null;
 function initOfferBuilder(config) {
     builderConfig = config;
 
+    // Przyciski akcji w sidebarze są renderowane jako disabled — klik przed
+    // załadowaniem tego pliku rzucał ReferenceError (endSales is not defined).
+    document.querySelectorAll('.sidebar-actions button[disabled]').forEach(btn => {
+        btn.disabled = false;
+    });
+
     // Setup dropdown menu
     setupDropdownMenu();
 

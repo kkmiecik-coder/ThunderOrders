@@ -1,15 +1,17 @@
 /**
  * ThunderOrders Service Worker
- * Cache First for static assets, Network First for HTML, Network Only for API
+ * Cache First for static assets, Network Only for API and navigations.
+ * UWAGA: NIE przechwytujemy nawigacji (respondWith na request.mode === 'navigate')
+ * — Samsung Internet potrafi nie zatwierdzić nawigacji obsłużonej przez SW
+ * (serwer odpowiada 200, a ekran się nie zmienia). Przeglądarka obsługuje
+ * przejścia między stronami natywnie.
  */
 
-const CACHE_VERSION = 'thunderorders-v9';
+const CACHE_VERSION = 'thunderorders-v10';
 const STATIC_CACHE = CACHE_VERSION + '-static';
-const PAGES_CACHE = CACHE_VERSION + '-pages';
 
 // Assets to pre-cache on install
 const PRECACHE_ASSETS = [
-    '/offline',
     '/static/css/main.css',
     '/static/js/core/app.js',
     '/static/js/components/toast.js',
@@ -33,7 +35,7 @@ self.addEventListener('activate', event => {
         caches.keys().then(keys =>
             Promise.all(
                 keys
-                    .filter(key => key !== STATIC_CACHE && key !== PAGES_CACHE)
+                    .filter(key => key !== STATIC_CACHE)
                     .map(key => caches.delete(key))
             )
         ).then(() => self.clients.claim())
@@ -71,21 +73,7 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // Network First for navigation (HTML pages)
-    if (request.mode === 'navigate') {
-        event.respondWith(
-            fetch(request)
-                .then(response => {
-                    if (response.ok) {
-                        const clone = response.clone();
-                        caches.open(PAGES_CACHE).then(cache => cache.put(request, clone));
-                    }
-                    return response;
-                })
-                .catch(() => caches.match(request).then(cached => cached || caches.match('/offline')))
-        );
-        return;
-    }
+    // Nawigacje (HTML) celowo NIE są przechwytywane — patrz nagłówek pliku.
 });
 
 // Push notification handler

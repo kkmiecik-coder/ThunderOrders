@@ -71,50 +71,50 @@
                 <h3>Akcje</h3>
 
                 {% if page.status == 'draft' %}
-                <button type="button" class="btn btn-secondary btn-block" onclick="saveAsDraft()">
+                <button type="button" class="btn btn-secondary btn-block" onclick="saveAsDraft()" disabled>
                     Zapisz draft
                 </button>
-                <button type="button" class="btn btn-primary btn-block" onclick="saveAndSchedule()">
+                <button type="button" class="btn btn-primary btn-block" onclick="saveAndSchedule()" disabled>
                     Zapisz i zaplanuj
                 </button>
-                <button type="button" class="btn btn-success btn-block" onclick="publishNow()">
+                <button type="button" class="btn btn-success btn-block" onclick="publishNow()" disabled>
                     Opublikuj teraz
                 </button>
                 {% elif page.status == 'scheduled' %}
-                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()" disabled>
                     Zapisz zmiany
                 </button>
-                <button type="button" class="btn btn-success btn-block" onclick="publishNow()">
+                <button type="button" class="btn btn-success btn-block" onclick="publishNow()" disabled>
                     Opublikuj teraz
                 </button>
-                <button type="button" class="btn btn-outline btn-block" onclick="backToDraft()">
+                <button type="button" class="btn btn-outline btn-block" onclick="backToDraft()" disabled>
                     Cofnij do draftu
                 </button>
                 {% elif page.status == 'active' %}
-                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()" disabled>
                     Zapisz zmiany
                 </button>
-                <button type="button" class="btn btn-warning btn-block" onclick="pauseSales()">
+                <button type="button" class="btn btn-warning btn-block" onclick="pauseSales()" disabled>
                     Wstrzymaj sprzedaż
                 </button>
-                <button type="button" class="btn btn-outline btn-block" onclick="endSales()">
+                <button type="button" class="btn btn-outline btn-block" onclick="endSales()" disabled>
                     Zakończ sprzedaż
                 </button>
                 {% elif page.status == 'paused' %}
-                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()" disabled>
                     Zapisz zmiany
                 </button>
-                <button type="button" class="btn btn-success btn-block" onclick="resumeSales()">
+                <button type="button" class="btn btn-success btn-block" onclick="resumeSales()" disabled>
                     Wznów sprzedaż
                 </button>
-                <button type="button" class="btn btn-outline btn-block" onclick="endSales()">
+                <button type="button" class="btn btn-outline btn-block" onclick="endSales()" disabled>
                     Zakończ sprzedaż
                 </button>
                 {% elif page.status == 'ended' %}
-                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()">
+                <button type="button" class="btn btn-secondary btn-block" onclick="savePage()" disabled>
                     Zapisz zmiany
                 </button>
-                <button type="button" class="btn btn-outline btn-block" onclick="backToDraft()">
+                <button type="button" class="btn btn-outline btn-block" onclick="backToDraft()" disabled>
                     Cofnij do draftu
                 </button>
                 {% endif %}

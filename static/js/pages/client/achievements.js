@@ -682,6 +682,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 navigator.share({
                     files: [file],
                     title: 'Moje osiągnięcie — ThunderOrders',
+                }).catch(function(err) {
+                    // AbortError = użytkownik zamknął arkusz udostępniania — nie błąd.
+                    // NotAllowedError (iOS) = wygasła aktywacja gestu po async fetchu.
+                    if (err && err.name === 'AbortError') return;
+                    if (window.Toast) window.Toast.show('Nie udało się udostępnić — spróbuj ponownie lub pobierz obrazek', 'error');
                 });
             } else {
                 if (window.Toast) window.Toast.show('Udostępnianie plików nie jest obsługiwane', 'error');

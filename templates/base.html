@@ -26,6 +26,12 @@
                 'NetworkError',
                 'AbortError',
                 'ChunkLoadError',
+                // Szum z przeglądarek in-app (Instagram/Facebook WebView na
+                // Androidzie) — ich wstrzykiwany bridge JS, nie nasz kod.
+                'Java object is gone',
+            ],
+            denyUrls: [
+                /^iabjs:\/\//i,
             ],
             {% if current_user.is_authenticated %}
             initialScope: {
