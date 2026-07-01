@@ -2092,6 +2092,7 @@ def update_email_notification_settings():
     ALLOWED_KEYS = {
         'notify_order_confirmation', 'notify_status_change', 'notify_order_completed',
         'notify_tracking_added', 'notify_packing_photo', 'notify_order_cancelled',
+        'notify_supplier_ordered', 'notify_supplier_cancelled',
         'notify_cost_added', 'notify_payment_approved', 'notify_payment_rejected',
         'notify_payment_reminder', 'notify_shipping_request_created',
         'notify_shipping_status_change', 'notify_offer_closure',
