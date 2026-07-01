@@ -41,9 +41,32 @@
         </a>
     </div>
 
-    <!-- Filters (nie pokazuj w archiwum) -->
-    {% if tab != 'archive' %}
+    <!-- Search + Filters -->
     <div class="pc-filters-bar">
+        <form class="pc-search-form" method="get" role="search"
+              action="{{ url_for('admin.payment_confirmations_list') }}">
+            <input type="hidden" name="tab" value="{{ tab }}">
+            {% if stage_filter != 'all' %}<input type="hidden" name="stage" value="{{ stage_filter }}">{% endif %}
+            {% if ocr_filter != 'all' %}<input type="hidden" name="ocr" value="{{ ocr_filter }}">{% endif %}
+            <div class="pc-search-input-wrapper">
+                <svg class="pc-search-icon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                </svg>
+                <input type="search" name="search" class="pc-search-input"
+                       value="{{ search_query }}" autocomplete="off"
+                       placeholder="Szukaj: nr zamówienia lub klient…">
+                {% if search_query %}
+                <a class="pc-search-clear" aria-label="Wyczyść wyszukiwanie"
+                   href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}">
+                    <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </a>
+                {% endif %}
+            </div>
+            <button type="submit" class="pc-search-btn">Szukaj</button>
+        </form>
+        {% if tab != 'archive' %}
         <div class="pc-filter-dropdown-wrapper">
             <button type="button" class="pc-filter-toggle" id="pcFilterToggle">
                 <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -62,23 +85,23 @@
                 <div class="pc-filter-group">
                     <div class="pc-filter-group-label">Etap</div>
                     <div class="pc-filter-options">
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if stage_filter == 'all' %}active{% endif %}">
                             Wszystkie
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='product', ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='product', ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if stage_filter == 'product' %}active{% endif %}">
                             Produkt <span class="pc-filter-count">{{ stage_counts.product }}</span>
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='korean_shipping', ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='korean_shipping', ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if stage_filter == 'korean_shipping' %}active{% endif %}">
                             Wysyłka KR <span class="pc-filter-count">{{ stage_counts.korean_shipping }}</span>
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='customs_vat', ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='customs_vat', ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if stage_filter == 'customs_vat' %}active{% endif %}">
                             Cło/VAT <span class="pc-filter-count">{{ stage_counts.customs_vat }}</span>
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='domestic_shipping', ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage='domestic_shipping', ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if stage_filter == 'domestic_shipping' %}active{% endif %}">
                             Wysyłka PL <span class="pc-filter-count">{{ stage_counts.domestic_shipping }}</span>
                         </a>
@@ -87,19 +110,19 @@
                 <div class="pc-filter-group">
                     <div class="pc-filter-group-label">OCR</div>
                     <div class="pc-filter-options">
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage=stage_filter if stage_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage=stage_filter if stage_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if ocr_filter == 'all' %}active{% endif %}">
                             Wszystkie
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr='auto', stage=stage_filter if stage_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr='auto', stage=stage_filter if stage_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if ocr_filter == 'auto' %}active{% endif %}">
                             Auto-zatwierdzone <span class="pc-filter-count">{{ auto_approved_count }}</span>
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr='suggested', stage=stage_filter if stage_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr='suggested', stage=stage_filter if stage_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if ocr_filter == 'suggested' %}active{% endif %}">
                             Sugerowane
                         </a>
-                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr='manual', stage=stage_filter if stage_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr='manual', stage=stage_filter if stage_filter != 'all' else none, search=search_query or none) }}"
                            class="pc-filter-option {% if ocr_filter == 'manual' %}active{% endif %}">
                             Ręczne
                         </a>
@@ -107,14 +130,14 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
-    {% endif %}
 
     <!-- Active filter badges -->
     {% if tab != 'archive' %}
     <div class="pc-active-filters">
         {% if stage_filter != 'all' %}
-        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
            class="pc-active-tag">
             {% if stage_filter == 'product' %}Produkt
             {% elif stage_filter == 'korean_shipping' %}Wysyłka KR
@@ -127,7 +150,7 @@
         </a>
         {% endif %}
         {% if ocr_filter != 'all' %}
-        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage=stage_filter if stage_filter != 'all' else none) }}"
+        <a href="{{ url_for('admin.payment_confirmations_list', tab=tab, stage=stage_filter if stage_filter != 'all' else none, search=search_query or none) }}"
            class="pc-active-tag">
             OCR: {% if ocr_filter == 'auto' %}Auto{% elif ocr_filter == 'suggested' %}Sugerowane{% elif ocr_filter == 'manual' %}Ręczne{% endif %}
             <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
@@ -484,7 +507,7 @@
             </div>
             <div class="pagination-controls">
                 {% if pagination.has_prev %}
-                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.prev_num, tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.prev_num, tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                    class="pagination-btn">
                     &laquo; Poprzednia
                 </a>
@@ -492,7 +515,7 @@
 
                 {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
                     {% if page_num %}
-                        <a href="{{ url_for('admin.payment_confirmations_list', page=page_num, tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                        <a href="{{ url_for('admin.payment_confirmations_list', page=page_num, tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                            class="pagination-btn {% if page_num == pagination.page %}active{% endif %}">
                             {{ page_num }}
                         </a>
@@ -502,7 +525,7 @@
                 {% endfor %}
 
                 {% if pagination.has_next %}
-                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.next_num, tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none) }}"
+                <a href="{{ url_for('admin.payment_confirmations_list', page=pagination.next_num, tab=tab, stage=stage_filter if stage_filter != 'all' else none, ocr=ocr_filter if ocr_filter != 'all' else none, search=search_query or none) }}"
                    class="pagination-btn">
                     Następna &raquo;
                 </a>

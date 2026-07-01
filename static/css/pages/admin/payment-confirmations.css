@@ -40,6 +40,124 @@
     margin-bottom: var(--space-6);
 }
 
+/* ================================
+   SEARCH (nr zamówienia / klient)
+   ================================ */
+
+.pc-search-form {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* Wyszukiwarka po lewej, filtry zostają po prawej */
+    margin-right: auto;
+}
+
+.pc-search-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.pc-search-icon {
+    position: absolute;
+    left: 0.65rem;
+    color: #999;
+    pointer-events: none;
+}
+
+.pc-search-input {
+    width: 260px;
+    max-width: 100%;
+    padding: 0.5rem 2rem 0.5rem 2.15rem;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #333;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.pc-search-input::placeholder {
+    color: #999;
+}
+
+.pc-search-input:focus {
+    outline: none;
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.15);
+}
+
+/* Ukryj natywny przycisk czyszczenia (używamy własnego) */
+.pc-search-input::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.pc-search-clear {
+    position: absolute;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    color: #999;
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.pc-search-clear:hover {
+    background: #eee;
+    color: #333;
+}
+
+.pc-search-btn {
+    padding: 0.5rem 1rem;
+    background: #f093fb;
+    border: 1px solid #f093fb;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+}
+
+.pc-search-btn:hover {
+    opacity: 0.9;
+}
+
+/* Dark mode */
+[data-theme="dark"] .pc-search-input {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.2);
+    color: #fff;
+}
+
+[data-theme="dark"] .pc-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .pc-search-icon {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .pc-search-input:focus {
+    border-color: #f093fb;
+    box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .pc-search-clear {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .pc-search-clear:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
 .pc-filter-dropdown-wrapper {
     position: relative;
 }
@@ -1549,6 +1667,20 @@
 
     .pc-filters-bar {
         justify-content: flex-start;
+    }
+
+    /* Wyszukiwarka na całą szerokość na mobile */
+    .pc-search-form {
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .pc-search-input-wrapper {
+        flex: 1;
+    }
+
+    .pc-search-input {
+        width: 100%;
     }
 
     /* Pokaż karty, ukryj tabelę */

@@ -98,6 +98,8 @@ def payment_confirmations_list():
     # Filtry
     stage_filter = request.args.get('stage', 'all')
     ocr_filter = request.args.get('ocr', 'all')
+    # Wyszukiwarka (numer zamówienia / klient: imię, nazwisko, email)
+    search_query = request.args.get('search', '').strip()
 
     # Granica archiwum: 3 dni od teraz
     archive_cutoff = get_local_now() - timedelta(days=3)
@@ -150,6 +152,26 @@ def payment_confirmations_list():
             )
         )
 
+    # Wyszukiwanie po numerze zamówienia lub kliencie (imię, nazwisko, email).
+    # Dane klienta są w tabeli users (Order.user); user_id bywa NULL (usunięci
+    # użytkownicy), więc join do User musi być LEFT (outerjoin), by nie zgubić
+    # potwierdzeń takich zamówień z reszty listy.
+    if search_query:
+        from modules.auth.models import User
+        from sqlalchemy import func
+        like = f"%{search_query}%"
+        conditions.append(
+            db.or_(
+                Order.order_number.ilike(like),
+                User.email.ilike(like),
+                func.concat(
+                    func.coalesce(User.first_name, ''),
+                    ' ',
+                    func.coalesce(User.last_name, '')
+                ).ilike(like),
+            )
+        )
+
     # Kolumna sortowania (najstarsze na początku) zależna od zakładki
     sort_col = (PaymentConfirmation.uploaded_at if tab == 'pending'
                 else PaymentConfirmation.updated_at)
@@ -170,6 +192,12 @@ def payment_confirmations_list():
     groups_stmt = (
         select(group_key.label('gkey'), func.min(sort_col).label('gsort'))
         .join(Order, PaymentConfirmation.order_id == Order.id)
+    )
+    if search_query:
+        from modules.auth.models import User
+        groups_stmt = groups_stmt.outerjoin(User, Order.user_id == User.id)
+    groups_stmt = (
+        groups_stmt
         .where(*conditions)
         .group_by(group_key)
         .order_by(func.min(sort_col).asc(), func.min(PaymentConfirmation.id).asc())
@@ -183,8 +211,12 @@ def payment_confirmations_list():
     # następnie zbuduj grupy zachowując kolejność paginacji.
     groups = []
     if page_keys:
+        confs_query = PaymentConfirmation.query.join(Order)
+        if search_query:
+            from modules.auth.models import User
+            confs_query = confs_query.outerjoin(User, Order.user_id == User.id)
         confs = (
-            PaymentConfirmation.query.join(Order)
+            confs_query
             .filter(*conditions)
             .filter(group_key.in_(page_keys))
             .order_by(sort_col.asc(), PaymentConfirmation.id.asc())
@@ -241,6 +273,7 @@ def payment_confirmations_list():
         tab=tab,
         stage_filter=stage_filter,
         ocr_filter=ocr_filter,
+        search_query=search_query,
         pending_count=pending_count,
         processed_count=processed_count,
         archive_count=archive_count,
