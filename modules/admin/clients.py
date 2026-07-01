@@ -153,6 +153,12 @@ def client_detail(id):
     )
     avg_value = total_value / orders_count if orders_count > 0 else Decimal('0.00')
 
+    # Do zapłaty — łączne brakujące opłaty klienta (wszystkie etapy E1+E2+E3+E4).
+    # Reużywamy logiki dashboardu klienta, aby kwota była identyczna z tym, co klient
+    # widzi u siebie jako „Do zapłaty".
+    from modules.client.dashboard_service import get_client_dashboard_stats
+    to_pay_total = get_client_dashboard_stats(client)['payment']['to_pay']
+
     # Ostatnie zamówienie
     last_order = Order.query.filter_by(user_id=client.id).order_by(Order.created_at.desc()).first()
 
@@ -202,6 +208,7 @@ def client_detail(id):
         orders_count=orders_count,
         total_value=total_value,
         avg_value=avg_value,
+        to_pay_total=to_pay_total,
         last_order=last_order,
         recent_orders=recent_orders,
         orders_pagination=orders_pagination,

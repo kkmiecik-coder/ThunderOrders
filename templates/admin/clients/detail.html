@@ -348,6 +348,10 @@
                             <span class="stat-value">{{ "%.2f"|format(avg_value) }} zł</span>
                             <span class="stat-label">Średnia wartość</span>
                         </div>
+                        <div class="stat-item no-click" onclick="return">
+                            <span class="stat-value">{{ "%.2f"|format(to_pay_total) }} zł</span>
+                            <span class="stat-label">Do zapłaty</span>
+                        </div>
                         <div class="stat-item" onclick="openStatDetail('last_order')">
                             <span class="stat-value">
                                 {% if last_order %}
