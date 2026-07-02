@@ -1090,9 +1090,7 @@ function initProductTypeToggle() {
                         window.removeSize(sizesArray[i]);
                     }
                 }
-                if (window.Toast) {
-                    window.Toast.show('Produkty on-hand mogą mieć max 1 rozmiar. Pozostawiono pierwszy wybrany rozmiar.', 'warning');
-                }
+                window.showToast('Produkty on-hand mogą mieć max 1 rozmiar. Pozostawiono pierwszy wybrany rozmiar.', 'warning');
             }
 
             // Move slider based on which button was clicked

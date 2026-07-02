@@ -1018,9 +1018,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                 const invalid = emails.filter(e => !emailRegex.test(e));
                 if (invalid.length > 0) {
-                    if (window.Toast) {
-                        window.Toast.show('Nieprawidlowy format email: ' + invalid.join(', '), 'error');
-                    }
+                    window.showToast('Nieprawidlowy format email: ' + invalid.join(', '), 'error');
                     return;
                 }
             }
@@ -1042,25 +1040,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 const data = await response.json();
                 if (data.success) {
-                    if (window.Toast) {
-                        window.Toast.show(data.message, 'success');
-                    } else {
-                        window.showToast(data.message, 'success');
-                    }
+                    window.showToast(data.message, 'success');
                 } else {
-                    if (window.Toast) {
-                        window.Toast.show(data.message || 'Blad podczas zapisywania', 'error');
-                    } else {
-                        window.showToast(data.message || 'Blad podczas zapisywania', 'error');
-                    }
+                    window.showToast(data.message || 'Blad podczas zapisywania', 'error');
                 }
             } catch (error) {
                 console.error('Error saving email notification settings:', error);
-                if (window.Toast) {
-                    window.Toast.show('Blad podczas zapisywania ustawien', 'error');
-                } else {
-                    window.showToast('Blad podczas zapisywania ustawien', 'error');
-                }
+                window.showToast('Blad podczas zapisywania ustawien', 'error');
             }
         });
     }

@@ -230,9 +230,7 @@ window.selectSize = function(sizeId, sizeName) {
 
     // Enforce max 1 size for on-hand products
     if (getActiveProductTypeSlug() === 'on-hand' && selectedSizes.size >= 1) {
-        if (window.Toast) {
-            window.Toast.show('Produkty on-hand mogą mieć max 1 rozmiar', 'warning');
-        }
+        window.showToast('Produkty on-hand mogą mieć max 1 rozmiar', 'warning');
         return;
     }
 

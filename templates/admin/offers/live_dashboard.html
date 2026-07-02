@@ -550,11 +550,11 @@
             if (data.success) {
                 window.location.reload();
             } else {
-                if (window.Toast) { window.Toast.show(data.error || 'Wystąpił błąd', 'error'); }
+                if (typeof window.showToast === 'function') { window.showToast(data.error || 'Wystąpił błąd', 'error'); }
                 else { alert(data.error || 'Wystąpił błąd'); }
             }
         } catch (error) {
-            if (window.Toast) { window.Toast.show('Błąd połączenia z serwerem', 'error'); }
+            if (typeof window.showToast === 'function') { window.showToast('Błąd połączenia z serwerem', 'error'); }
             else { alert('Błąd połączenia z serwerem'); }
         }
     }

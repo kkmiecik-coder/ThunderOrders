@@ -17,6 +17,14 @@
     // Helpers
     // ========================================
 
+    function notify(message, type) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
+        } else if (type === 'error') {
+            alert(message);
+        }
+    }
+
     function getCsrfToken() {
         var meta = document.querySelector('meta[name="csrf-token"]');
         if (meta) return meta.getAttribute('content');
@@ -105,21 +113,15 @@
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (data.success) {
-                if (window.Toast) {
-                    window.Toast.show(data.message, 'success');
-                }
+                notify(data.message, 'success');
             } else {
                 checkbox.checked = !checkbox.checked;
-                if (window.Toast) {
-                    window.Toast.show(data.error || 'Wystąpił błąd', 'error');
-                }
+                notify(data.error || 'Wystąpił błąd', 'error');
             }
         })
         .catch(function () {
             checkbox.checked = !checkbox.checked;
-            if (window.Toast) {
-                window.Toast.show('Błąd połączenia z serwerem', 'error');
-            }
+            notify('Błąd połączenia z serwerem', 'error');
         });
     };
 
@@ -133,9 +135,7 @@
 
     window.resetVisits = function (id, name, count) {
         if (count === 0) {
-            if (window.Toast) {
-                window.Toast.show('Kampania "' + name + '" nie ma żadnych wizyt.', 'info');
-            }
+            notify('Kampania "' + name + '" nie ma żadnych wizyt.', 'info');
             return;
         }
 
@@ -153,21 +153,15 @@
         .then(function (res) { return res.json(); })
         .then(function (data) {
             if (data.success) {
-                if (window.Toast) {
-                    window.Toast.show(data.message, 'success');
-                }
+                notify(data.message, 'success');
                 // Reload page to update visit counts
                 setTimeout(function () { location.reload(); }, 800);
             } else {
-                if (window.Toast) {
-                    window.Toast.show(data.error || 'Wystąpił błąd', 'error');
-                }
+                notify(data.error || 'Wystąpił błąd', 'error');
             }
         })
         .catch(function () {
-            if (window.Toast) {
-                window.Toast.show('Błąd połączenia z serwerem', 'error');
-            }
+            notify('Błąd połączenia z serwerem', 'error');
         });
     };
 

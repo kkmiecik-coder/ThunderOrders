@@ -22,6 +22,14 @@
         return '';
     }
 
+    function notify(message, type) {
+        if (typeof window.showToast === 'function') {
+            window.showToast(message, type);
+        } else if (type === 'error') {
+            alert(message);
+        }
+    }
+
     // ====================
     // MATERIAL MODAL
     // ====================
@@ -82,7 +90,7 @@
         const name = document.getElementById('material-name').value.trim();
 
         if (!name) {
-            if (window.Toast) window.Toast.show('Nazwa jest wymagana', 'error');
+            notify('Nazwa jest wymagana', 'error');
             return;
         }
 
@@ -115,16 +123,16 @@
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                if (window.Toast) window.Toast.show(result.message, 'success');
+                notify(result.message, 'success');
                 closeMaterialModal();
                 // Reload on materials tab
                 window.location.href = window.location.pathname + '?tab=materials';
             } else {
-                if (window.Toast) window.Toast.show(result.message || 'Błąd', 'error');
+                notify(result.message || 'Błąd', 'error');
             }
         })
         .catch(() => {
-            if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+            notify('Błąd połączenia', 'error');
         });
     }
 
@@ -138,14 +146,14 @@
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                if (window.Toast) window.Toast.show(result.message, 'success');
+                notify(result.message, 'success');
                 window.location.href = window.location.pathname + '?tab=materials';
             } else {
-                if (window.Toast) window.Toast.show(result.message || 'Błąd', 'error');
+                notify(result.message || 'Błąd', 'error');
             }
         })
         .catch(() => {
-            if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+            notify('Błąd połączenia', 'error');
         });
     }
 
@@ -197,8 +205,8 @@
                 })
                 .then(function(r) { return r.json(); })
                 .then(function(result) {
-                    if (!result.success && window.Toast) {
-                        window.Toast.show(result.message || 'Błąd zmiany kolejności', 'error');
+                    if (!result.success) {
+                        notify(result.message || 'Błąd zmiany kolejności', 'error');
                     }
                 });
 

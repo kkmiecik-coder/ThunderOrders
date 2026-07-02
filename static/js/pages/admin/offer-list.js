@@ -280,7 +280,7 @@ function initializeAutoIncreaseForm() {
                 initialValues.amount = amount.value;
 
                 // Show success message
-                showToast('Ustawienia auto-zwiększania zostały zapisane.', 'success');
+                notifyToast('Ustawienia auto-zwiększania zostały zapisane.', 'success');
 
                 // Reset button
                 saveBtn.innerHTML = originalText;
@@ -291,7 +291,7 @@ function initializeAutoIncreaseForm() {
         })
         .catch(error => {
             console.error('Error:', error);
-            showToast(error.message || 'Wystąpił błąd podczas zapisywania.', 'error');
+            notifyToast(error.message || 'Wystąpił błąd podczas zapisywania.', 'error');
             saveBtn.innerHTML = originalText;
             checkForChanges(); // Re-enable button if there are still changes
         });
@@ -324,7 +324,7 @@ function initializeDeleteForm() {
         .then(data => {
             if (data.success) {
                 // Show toast
-                showToast(data.message || 'Strona została usunięta.', 'success');
+                notifyToast(data.message || 'Strona została usunięta.', 'success');
 
                 // Close modal
                 closeDeleteModal();
@@ -339,7 +339,7 @@ function initializeDeleteForm() {
         })
         .catch(error => {
             console.error('Error:', error);
-            showToast(error.message || 'Wystąpił błąd podczas usuwania.', 'error');
+            notifyToast(error.message || 'Wystąpił błąd podczas usuwania.', 'error');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         });
@@ -347,11 +347,13 @@ function initializeDeleteForm() {
 }
 
 /**
- * Show toast notification
+ * Show toast notification.
+ * Celowo nie nazywa się `showToast`, żeby nie nadpisywać globalnego
+ * window.showToast z toast.js (plik nie jest w IIFE).
  */
-function showToast(message, type = 'info') {
-    if (window.Toast && typeof window.Toast.show === 'function') {
-        window.Toast.show(message, type);
+function notifyToast(message, type = 'info') {
+    if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
     } else {
         alert(message);
     }
@@ -390,7 +392,7 @@ function initializePaymentReminders() {
 async function addReminderRule(reminderType, input, listId) {
     const hours = parseInt(input.value, 10);
     if (!hours || hours < 1) {
-        showToast('Podaj prawidłową liczbę godzin (min. 1).', 'error');
+        notifyToast('Podaj prawidłową liczbę godzin (min. 1).', 'error');
         return;
     }
 
@@ -429,13 +431,13 @@ async function addReminderRule(reminderType, input, listId) {
             list.prepend(row);
 
             input.value = '';
-            showToast('Przypomnienie dodane.', 'success');
+            notifyToast('Przypomnienie dodane.', 'success');
         } else {
-            showToast(data.error || 'Wystąpił błąd.', 'error');
+            notifyToast(data.error || 'Wystąpił błąd.', 'error');
         }
     } catch (error) {
         console.error('Error adding rule:', error);
-        showToast('Błąd połączenia z serwerem.', 'error');
+        notifyToast('Błąd połączenia z serwerem.', 'error');
     }
 }
 
@@ -454,13 +456,13 @@ async function deleteReminderRule(ruleId, rowElement) {
         const data = await response.json();
         if (data.success) {
             rowElement.remove();
-            showToast('Przypomnienie usunięte.', 'success');
+            notifyToast('Przypomnienie usunięte.', 'success');
         } else {
-            showToast(data.error || 'Wystąpił błąd.', 'error');
+            notifyToast(data.error || 'Wystąpił błąd.', 'error');
         }
     } catch (error) {
         console.error('Error deleting rule:', error);
-        showToast('Błąd połączenia z serwerem.', 'error');
+        notifyToast('Błąd połączenia z serwerem.', 'error');
     }
 }
 
@@ -690,7 +692,7 @@ function initializeBulkActions() {
         const ids = getSelectedIds();
 
         if (!value) {
-            showToast('Wybierz datę.', 'error');
+            notifyToast('Wybierz datę.', 'error');
             return;
         }
         if (ids.length === 0) {
@@ -706,15 +708,15 @@ function initializeBulkActions() {
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                showToast(result.message, 'success');
+                notifyToast(result.message, 'success');
                 setTimeout(() => window.location.reload(), 500);
             } else {
-                showToast(result.error || 'Błąd ustawiania daty.', 'error');
+                notifyToast(result.error || 'Błąd ustawiania daty.', 'error');
             }
         })
         .catch(err => {
             console.error('bulk set-dates error:', err);
-            showToast('Wystąpił błąd.', 'error');
+            notifyToast('Wystąpił błąd.', 'error');
         });
     });
 
@@ -779,15 +781,15 @@ function initializeBulkActions() {
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                showToast(result.message, 'success');
+                notifyToast(result.message, 'success');
                 setTimeout(() => window.location.reload(), 500);
             } else {
-                showToast(result.error || `Błąd: ${verb.toLowerCase()} nie powiodło się.`, 'error');
+                notifyToast(result.error || `Błąd: ${verb.toLowerCase()} nie powiodło się.`, 'error');
             }
         })
         .catch(err => {
             console.error('bulk status error:', err);
-            showToast('Wystąpił błąd.', 'error');
+            notifyToast('Wystąpił błąd.', 'error');
         });
     }
 
@@ -800,15 +802,15 @@ function initializeBulkActions() {
         .then(r => r.json())
         .then(result => {
             if (result.success) {
-                showToast(result.message, 'success');
+                notifyToast(result.message, 'success');
                 setTimeout(() => window.location.reload(), 500);
             } else {
-                showToast(result.error || 'Błąd usuwania.', 'error');
+                notifyToast(result.error || 'Błąd usuwania.', 'error');
             }
         })
         .catch(err => {
             console.error('bulk delete error:', err);
-            showToast('Wystąpił błąd.', 'error');
+            notifyToast('Wystąpił błąd.', 'error');
         });
     }
 
@@ -838,15 +840,15 @@ function initializeBulkActions() {
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                showToast('Raport zbiorowy pobrany.', 'success');
+                notifyToast('Raport zbiorowy pobrany.', 'success');
             } else {
                 const result = await response.json().catch(() => ({}));
-                showToast(result.error || 'Błąd generowania raportu.', 'error');
+                notifyToast(result.error || 'Błąd generowania raportu.', 'error');
             }
         })
         .catch(err => {
             console.error('bulk report error:', err);
-            showToast('Wystąpił błąd.', 'error');
+            notifyToast('Wystąpił błąd.', 'error');
         })
         .finally(() => {
             btn.classList.remove('is-disabled');

@@ -2966,7 +2966,7 @@ function _removeCreateGroupMember(id) {
 function saveNewGroup() {
     var name = (document.getElementById('newGroupName')?.value || '').trim();
     if (!name) {
-        if (window.Toast) window.Toast.show('Podaj nazwę grupy', 'error');
+        window.showToast('Podaj nazwę grupy', 'error');
         return;
     }
     var memberIds = Object.keys(_createGroupMemberState).map(Number);
@@ -2987,13 +2987,13 @@ function saveNewGroup() {
             var chips = document.getElementById('audienceChips');
             if (chips) _addAudienceChip(chips, 'group', g.id, g.name);
             markDirty();
-            if (window.Toast) window.Toast.show('Grupa "' + g.name + '" utworzona i dodana do odbiorców', 'success');
+            window.showToast('Grupa "' + g.name + '" utworzona i dodana do odbiorców', 'success');
         } else {
-            if (window.Toast) window.Toast.show(result.error || 'Błąd tworzenia grupy', 'error');
+            window.showToast(result.error || 'Błąd tworzenia grupy', 'error');
         }
     })
     .catch(function() {
-        if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+        window.showToast('Błąd połączenia', 'error');
     });
 }
 

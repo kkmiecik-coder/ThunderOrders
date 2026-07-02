@@ -78,15 +78,15 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (!data.success) {
-                if (window.Toast) window.Toast.show(data.error || 'Błąd', 'error');
+                window.showToast(data.error || 'Błąd', 'error');
                 return;
             }
             closePopover();
             renderName(data.custom_name);
-            if (window.Toast) window.Toast.show('Nazwa zapisana', 'success');
+            window.showToast('Nazwa zapisana', 'success');
         })
         .catch(function () {
-            if (window.Toast) window.Toast.show('Błąd połączenia', 'error');
+            window.showToast('Błąd połączenia', 'error');
         });
     }
 

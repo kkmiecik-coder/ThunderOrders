@@ -28,8 +28,8 @@
   /* ---------------------------------------------------------------------- */
 
   function showError(msg) {
-    if (window.Toast && typeof window.Toast.show === 'function') {
-      window.Toast.show(msg, 'error');
+    if (typeof window.showToast === 'function') {
+      window.showToast(msg, 'error');
     } else {
       alert(msg);
     }

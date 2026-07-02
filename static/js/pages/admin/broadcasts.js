@@ -14,7 +14,11 @@
     }
 
     function toast(msg, type) {
-        if (window.Toast) window.Toast.show(msg, type);
+        if (typeof window.showToast === 'function') {
+            window.showToast(msg, type);
+        } else if (type === 'error') {
+            alert(msg);
+        }
     }
 
     /* ═══════════════════════════════════════

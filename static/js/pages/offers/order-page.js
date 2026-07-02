@@ -2052,7 +2052,7 @@ function increaseFullSet(btn) {
     const maxFullSets = 5;
 
     if (val >= maxFullSets) {
-        if (window.Toast) window.Toast.show('Maksymalnie ' + maxFullSets + ' pełnych setów w jednym zamówieniu', 'warning');
+        window.showToast('Maksymalnie ' + maxFullSets + ' pełnych setów w jednym zamówieniu', 'warning');
         return;
     }
 
@@ -2126,7 +2126,7 @@ function updateFullSetQty(input) {
     if (val < 0) val = 0;
     if (val > maxFullSets) {
         val = maxFullSets;
-        if (window.Toast) window.Toast.show('Maksymalnie ' + maxFullSets + ' pełnych setów w jednym zamówieniu', 'warning');
+        window.showToast('Maksymalnie ' + maxFullSets + ' pełnych setów w jednym zamówieniu', 'warning');
     }
     input.value = val;
 

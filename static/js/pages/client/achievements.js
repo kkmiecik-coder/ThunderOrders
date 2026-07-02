@@ -641,7 +641,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(callback)
             .catch(function() {
-                if (window.Toast) window.Toast.show('Błąd generowania obrazka', 'error');
+                window.showToast('Błąd generowania obrazka', 'error');
             });
     }
 
@@ -686,10 +686,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     // AbortError = użytkownik zamknął arkusz udostępniania — nie błąd.
                     // NotAllowedError (iOS) = wygasła aktywacja gestu po async fetchu.
                     if (err && err.name === 'AbortError') return;
-                    if (window.Toast) window.Toast.show('Nie udało się udostępnić — spróbuj ponownie lub pobierz obrazek', 'error');
+                    window.showToast('Nie udało się udostępnić — spróbuj ponownie lub pobierz obrazek', 'error');
                 });
             } else {
-                if (window.Toast) window.Toast.show('Udostępnianie plików nie jest obsługiwane', 'error');
+                window.showToast('Udostępnianie plików nie jest obsługiwane', 'error');
             }
         });
     });
@@ -706,7 +706,7 @@ document.addEventListener('DOMContentLoaded', function() {
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-            if (window.Toast) window.Toast.show('Pobrano!', 'success');
+            window.showToast('Pobrano!', 'success');
         });
     });
 

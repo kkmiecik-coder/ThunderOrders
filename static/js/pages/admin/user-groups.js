@@ -248,16 +248,14 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) {
-                        window.Toast.show(
-                            currentGroupId ? 'Grupa zaktualizowana.' : 'Grupa utworzona.',
-                            'success'
-                        );
-                    }
+                    window.showToast(
+                        currentGroupId ? 'Grupa zaktualizowana.' : 'Grupa utworzona.',
+                        'success'
+                    );
                     window.location.href = window.location.pathname + '?tab=groups';
                 } else {
                     var msg = data.error || 'Wystąpił błąd.';
-                    if (window.Toast) window.Toast.show(msg, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(msg, 'error');
                     else alert(msg);
                 }
             })
@@ -281,11 +279,11 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (data.success) {
-                    if (window.Toast) window.Toast.show('Grupa usunięta.', 'success');
+                    window.showToast('Grupa usunięta.', 'success');
                     window.location.href = window.location.pathname + '?tab=groups';
                 } else {
                     var msg = data.error || 'Błąd usuwania grupy.';
-                    if (window.Toast) window.Toast.show(msg, 'error');
+                    if (typeof window.showToast === 'function') window.showToast(msg, 'error');
                     else alert(msg);
                 }
             })
@@ -316,7 +314,7 @@
                 renderChips();
             })
             .catch(function () {
-                if (window.Toast) window.Toast.show('Nie udało się wczytać grupy', 'error');
+                if (typeof window.showToast === 'function') window.showToast('Nie udało się wczytać grupy', 'error');
                 else alert('Nie udało się wczytać grupy');
             });
     };

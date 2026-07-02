@@ -584,7 +584,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return data && data.success ? data : null;
             } catch (err) {
                 console.error('Błąd pobierania stron zakładki:', err);
-                if (window.Toast) window.Toast.show('Nie udało się załadować stron', 'error');
+                window.showToast('Nie udało się załadować stron', 'error');
                 return null;
             }
         }

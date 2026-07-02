@@ -439,8 +439,8 @@ async function createWmsSession(shippingRequestIds) {
             window.location.href = data.redirect_url;
         } else {
             const errorMsg = data.error || 'Nie udało się utworzyć sesji WMS';
-            if (window.Toast) {
-                window.Toast.show(errorMsg, 'error');
+            if (typeof window.showToast === 'function') {
+                window.showToast(errorMsg, 'error');
             } else {
                 alert(errorMsg);
             }
@@ -448,8 +448,8 @@ async function createWmsSession(shippingRequestIds) {
     } catch (error) {
         console.error('Error creating WMS session:', error);
         const errorMsg = 'Błąd podczas tworzenia sesji WMS';
-        if (window.Toast) {
-            window.Toast.show(errorMsg, 'error');
+        if (typeof window.showToast === 'function') {
+            window.showToast(errorMsg, 'error');
         } else {
             alert(errorMsg);
         }

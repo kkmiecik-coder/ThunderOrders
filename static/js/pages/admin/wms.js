@@ -49,8 +49,8 @@
     function showToast(message, type) {
         if (typeof window.showToast === 'function') {
             window.showToast(message, type);
-        } else if (window.Toast && typeof window.Toast.show === 'function') {
-            window.Toast.show(message, type);
+        } else if (type === 'error') {
+            alert(message);
         }
     }
 
