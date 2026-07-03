@@ -266,3 +266,46 @@ def widget_context(contest, user):
         ctx['did_i_win'] = any(w.user_id == user.id for w in winners)
 
     return ctx
+
+
+def draw_locked(contest):
+    """Czy losowanie jest zablokowane, bo trwa zaplanowane okno (ends_at w przyszłości).
+
+    Jedno źródło prawdy dla: przycisku na liście, wejścia na ekran losowania i POST /losuj.
+    Konkursy bez ends_at (losowanie „na żywo") NIE są blokowane.
+    """
+    return (contest.status == 'aktywny'
+            and contest.ends_at is not None
+            and get_local_now() < contest.ends_at)
+
+
+def spin_distribution_buckets(contest, bins=16):
+    """Analityczny rozkład liczby losów na pojedynczy spin (rozkład trójkątny, moda = ticket_min).
+
+    Zwraca listę koszyków {'label', 'from', 'to', 'pct'} wiernie do draw_ticket_count().
+    Dla c=a dystrybuanta: F(x) = 1 - (b-x)^2 / (b-a)^2 na [a, b]. Suma pct ≈ 100.
+    """
+    a = int(contest.ticket_min)
+    b = int(contest.ticket_max)
+    if b <= a:
+        return [{'label': str(a), 'from': a, 'to': a, 'pct': 100.0}]
+
+    span = b - a
+    n = min(bins, span)  # nie więcej koszyków niż całkowitych wartości w zakresie
+
+    def cdf(x):
+        if x <= a:
+            return 0.0
+        if x >= b:
+            return 1.0
+        return 1.0 - ((b - x) ** 2) / (span ** 2)
+
+    out = []
+    for i in range(n):
+        lo = a + span * i / n
+        hi = a + span * (i + 1) / n
+        pct = (cdf(hi) - cdf(lo)) * 100
+        lo_i, hi_i = int(round(lo)), int(round(hi))
+        label = str(lo_i) if lo_i == hi_i else f'{lo_i}–{hi_i}'
+        out.append({'label': label, 'from': lo_i, 'to': hi_i, 'pct': round(pct, 2)})
+    return out
