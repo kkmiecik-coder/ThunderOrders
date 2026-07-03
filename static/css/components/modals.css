@@ -4181,20 +4181,50 @@
     color: #777777;
 }
 
-/* Wykres rozkładu losów — słupki pionowe */
+/* Wykres rozkładu losów — oś Y + siatka + słupki pionowe */
+.ca-dist-plot {
+    display: flex;
+    height: 180px;
+}
+.ca-dist-yaxis {
+    width: 30px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-right: 6px;
+    font-size: 9px;
+    color: #999999;
+}
+.ca-dist-yaxis span { line-height: 1; }
+.ca-dist-plotarea {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.ca-dist-gridlines {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    pointer-events: none;
+}
+.ca-dist-gridlines span { border-top: 1px solid #ececec; }
 .ca-dist-chart {
+    position: relative;
     display: flex;
     align-items: flex-end;
     gap: 3px;
-    height: 180px;
-    padding: 4px 0;
-    border-bottom: 1px solid #e0e0e0;
+    height: 100%;
 }
 .ca-dist-bar {
     flex: 1 1 0;
     display: flex;
     align-items: flex-end;
     height: 100%;
+    cursor: default;
 }
 .ca-dist-bar-fill {
     width: 100%;
@@ -4203,10 +4233,29 @@
     transition: height .5s ease;
     min-height: 2px;
 }
+/* Pływający tooltip nad kursorem */
+.ca-dist-tip {
+    position: fixed;
+    z-index: 10060;
+    transform: translate(-50%, -100%);
+    margin-top: -10px;
+    background: #ffffff;
+    color: #333333;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    white-space: nowrap;
+}
+.ca-dist-tip b { font-size: 14px; font-weight: 700; }
+.ca-dist-tip span { display: block; font-size: 10px; color: #888888; margin-top: 1px; }
 .ca-dist-axis {
     display: flex;
     gap: 3px;
     margin-top: 6px;
+    margin-left: 30px;
 }
 .ca-dist-axis span {
     flex: 1 1 0;
@@ -4228,9 +4277,17 @@
 [data-theme="dark"] .ca-dist-h { color: #ffffff; }
 [data-theme="dark"] .ca-dist-hint,
 [data-theme="dark"] .ca-dist-total { color: rgba(255, 255, 255, 0.6); }
-[data-theme="dark"] .ca-dist-chart { border-bottom-color: rgba(240, 147, 251, 0.15); }
+[data-theme="dark"] .ca-dist-yaxis,
 [data-theme="dark"] .ca-dist-axis span,
 [data-theme="dark"] .ca-dist-empty { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .ca-dist-gridlines span { border-top-color: rgba(255, 255, 255, 0.08); }
+[data-theme="dark"] .ca-dist-tip {
+    background: rgba(26, 22, 45, 0.98);
+    color: #ffffff;
+    border-color: rgba(240, 147, 251, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+[data-theme="dark"] .ca-dist-tip span { color: rgba(255, 255, 255, 0.6); }
 
 /* Mobile: jedna kolumna, cała treść przewijana razem (bez podwójnego scrolla) */
 @media (max-width: 640px) {
@@ -4238,10 +4295,11 @@
     .ca-dist-grid { display: block; }
     .ca-dist-grid { grid-template-columns: 1fr; gap: 20px; }
     .ca-dist-col { display: block; margin-bottom: 20px; }
-    .ca-dist-chart { height: 140px; }
+    .ca-dist-plot { height: 140px; }
+    .ca-dist-yaxis { width: 24px; }
     .ca-dist-modal #distBars { overflow: visible; }
     /* Wąskie kolumny — obróć etykiety przedziałów, żeby się mieściły */
-    .ca-dist-axis { height: 40px; align-items: flex-start; }
+    .ca-dist-axis { height: 40px; align-items: flex-start; margin-left: 24px; }
     .ca-dist-axis span {
         font-size: 8px;
         white-space: nowrap;
