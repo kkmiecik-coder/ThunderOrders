@@ -67,3 +67,71 @@ def test_spin_buckets_degenerate_range(db, make_product, make_user):
     c.ticket_min = 5; c.ticket_max = 5; db.session.commit()
     buckets = spin_distribution_buckets(c)
     assert buckets == [{'label': '5', 'from': 5, 'to': 5, 'pct': 100.0}]
+
+
+def _admin(make_user):
+    return make_user(role='admin')
+
+
+def _spin(db, c, u, tickets):
+    from modules.contests.models import ContestSpin
+    s = ContestSpin(contest_id=c.id, user_id=u.id, tickets_won=tickets)
+    db.session.add(s); db.session.commit()
+    return s
+
+
+def test_distribution_endpoint_shape(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    u1, u2 = make_user(), make_user()
+    _spin(db, c, u1, 40); _spin(db, c, u2, 10)
+    login(_admin(make_user))
+    resp = client.get(f'/admin/konkursy/{c.id}/rozklad')
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert data['config'] == {'ticket_min': 1, 'ticket_max': 500}
+    assert data['pool'] == 50
+    assert len(data['spin_buckets']) == 16
+    # posortowane malejąco po tickets
+    assert [p['tickets'] for p in data['participants']] == [40, 10]
+    assert data['participants'][0]['chance_pct'] == 80.0
+
+
+def test_distribution_endpoint_empty_pool(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    login(_admin(make_user))
+    data = client.get(f'/admin/konkursy/{c.id}/rozklad').get_json()
+    assert data['pool'] == 0
+    assert data['participants'] == []
+
+
+def test_distribution_requires_admin(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    login(make_user(role='client'))
+    assert client.get(f'/admin/konkursy/{c.id}/rozklad').status_code == 403
+
+
+def test_draw_screen_blocked_when_window_open(client, db, make_product, make_user, login):
+    from datetime import timedelta
+    c = _contest(db, make_product, make_user, ends_at=_now() + timedelta(hours=2))
+    login(_admin(make_user))
+    resp = client.get(f'/admin/konkursy/{c.id}/losowanie')
+    assert resp.status_code == 302
+    assert '/admin/konkursy' in resp.headers['Location']
+
+
+def test_draw_screen_open_when_no_window(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user, ends_at=None)
+    login(_admin(make_user))
+    assert client.get(f'/admin/konkursy/{c.id}/losowanie').status_code == 200
+
+
+def test_list_context_has_draw_locked_flag(client, db, make_product, make_user, login):
+    from datetime import timedelta
+    c = _contest(db, make_product, make_user, ends_at=_now() + timedelta(hours=2))
+    login(_admin(make_user))
+    resp = client.get('/admin/konkursy')
+    assert resp.status_code == 200
+    # przycisk Losowanie renderowany jako disabled (patrz Task 3 dot. markup);
+    # tu sprawdzamy tylko, że strona się renderuje z aktywnym konkursem w oknie
+    assert b'Losowanie' in resp.data

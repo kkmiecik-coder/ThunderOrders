@@ -30,8 +30,32 @@ def _count_participants(contest):
 def admin_list():
     contests = Contest.query.order_by(Contest.created_at.desc()).all()
     data = [{'c': c, 'pool': cu.get_pool(c),
-             'participants': _count_participants(c)} for c in contests]
+             'participants': _count_participants(c),
+             'draw_locked': cu.draw_locked(c)} for c in contests]
     return render_template('admin/contests/list.html', items=data)
+
+
+@contests_bp.route('/admin/konkursy/<int:cid>/rozklad')
+@login_required
+@role_required('admin', 'mod')
+def admin_distribution(cid):
+    c = Contest.query.get_or_404(cid)
+    pool = cu.get_pool(c)
+    parts = []
+    for user, tickets in cu.participants(c):
+        parts.append({
+            'name': _display_name(user),
+            'tickets': tickets,
+            'chance_pct': round(tickets / pool * 100, 3) if pool else 0,
+        })
+    parts.sort(key=lambda x: x['tickets'], reverse=True)
+    return jsonify(
+        success=True,
+        config={'ticket_min': c.ticket_min, 'ticket_max': c.ticket_max},
+        spin_buckets=cu.spin_distribution_buckets(c),
+        pool=pool,
+        participants=parts,
+    )
 
 
 def _apply_form(form, contest):
@@ -212,6 +236,9 @@ def admin_activate(cid):
 @role_required('admin', 'mod')
 def admin_draw_screen(cid):
     c = Contest.query.get_or_404(cid)
+    if cu.draw_locked(c):
+        flash('Losowanie będzie dostępne po zakończeniu konkursu.', 'warning')
+        return redirect(url_for('contests.admin_list'))
     # Nazwy uczestników do pokazania w bębnie od razu (przed losowaniem)
     participant_names = [_display_name(u) for u, _ in cu.participants(c)]
     return render_template('admin/contests/draw.html', contest=c, pool=cu.get_pool(c),
@@ -227,7 +254,7 @@ def admin_draw(cid):
         return jsonify(success=False, error='Konkurs nie jest aktywny.'), 200
     # Blokuj losowanie dopóki trwa zaplanowane okno (ends_at w przyszłości).
     # Gdy ends_at jest None lub minął, admin może losować "na żywo".
-    if c.status == 'aktywny' and c.ends_at is not None and cu.get_local_now() < c.ends_at:
+    if cu.draw_locked(c):
         return jsonify(success=False,
                        error='Spiny wciąż otwarte — poczekaj na koniec konkursu (ends_at).'), 200
 
