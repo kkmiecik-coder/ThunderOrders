@@ -2147,83 +2147,6 @@
     background: rgba(22, 163, 74, 0.1);
 }
 
-/* ===== Modal: rozkład punktów konkursu ===== */
-.ca-dist-modal { max-height: 800px; }
-.ca-dist-modal .modal-body { overflow-y: auto; }
-
-.ca-dist-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-}
-.ca-dist-col { min-width: 0; }
-.ca-dist-h {
-    font-size: 15px;
-    font-weight: 600;
-    margin: 0 0 4px;
-    color: #333333;
-}
-.ca-dist-hint {
-    font-size: 12px;
-    color: #777777;
-    margin: 0 0 14px;
-}
-.ca-dist-total {
-    font-size: 13px;
-    font-weight: 400;
-    color: #777777;
-}
-
-/* Wykres rozkładu losów — słupki pionowe */
-.ca-dist-chart {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    height: 180px;
-    padding: 4px 0;
-    border-bottom: 1px solid #e0e0e0;
-}
-.ca-dist-bar {
-    flex: 1 1 0;
-    display: flex;
-    align-items: flex-end;
-    height: 100%;
-}
-.ca-dist-bar-fill {
-    width: 100%;
-    background: linear-gradient(180deg, #f093fb, #f5576c);
-    border-radius: 3px 3px 0 0;
-    transition: height .5s ease;
-    min-height: 2px;
-}
-.ca-dist-range {
-    display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: #999999;
-    margin-top: 6px;
-}
-.ca-dist-empty {
-    font-size: 13px;
-    color: #999999;
-    padding: 20px 0;
-    text-align: center;
-}
-
-/* Dark mode */
-[data-theme="dark"] .ca-dist-h { color: #ffffff; }
-[data-theme="dark"] .ca-dist-hint,
-[data-theme="dark"] .ca-dist-total { color: rgba(255, 255, 255, 0.6); }
-[data-theme="dark"] .ca-dist-chart { border-bottom-color: rgba(240, 147, 251, 0.15); }
-[data-theme="dark"] .ca-dist-range,
-[data-theme="dark"] .ca-dist-empty { color: rgba(255, 255, 255, 0.5); }
-
-/* Mobile: kolumny pionowo */
-@media (max-width: 640px) {
-    .ca-dist-grid { grid-template-columns: 1fr; gap: 20px; }
-    .ca-dist-chart { height: 140px; }
-}
-
 .qr-status.expired {
     color: #dc2626;
     background: rgba(220, 38, 38, 0.1);
@@ -4206,4 +4129,81 @@
 [data-theme="dark"] .ca-prize-modal .modal-footer {
   border-top-color: rgba(240, 147, 251, 0.15);
   background: transparent;
+}
+
+/* ===== Modal: rozkład punktów konkursu ===== */
+.ca-dist-modal { max-height: 800px; }
+.ca-dist-modal .modal-body { overflow-y: auto; }
+
+.ca-dist-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+.ca-dist-col { min-width: 0; }
+.ca-dist-h {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: #333333;
+}
+.ca-dist-hint {
+    font-size: 12px;
+    color: #777777;
+    margin: 0 0 14px;
+}
+.ca-dist-total {
+    font-size: 13px;
+    font-weight: 400;
+    color: #777777;
+}
+
+/* Wykres rozkładu losów — słupki pionowe */
+.ca-dist-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 180px;
+    padding: 4px 0;
+    border-bottom: 1px solid #e0e0e0;
+}
+.ca-dist-bar {
+    flex: 1 1 0;
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+}
+.ca-dist-bar-fill {
+    width: 100%;
+    background: linear-gradient(180deg, #f093fb, #f5576c);
+    border-radius: 3px 3px 0 0;
+    transition: height .5s ease;
+    min-height: 2px;
+}
+.ca-dist-range {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #999999;
+    margin-top: 6px;
+}
+.ca-dist-empty {
+    font-size: 13px;
+    color: #999999;
+    padding: 20px 0;
+    text-align: center;
+}
+
+/* Dark mode */
+[data-theme="dark"] .ca-dist-h { color: #ffffff; }
+[data-theme="dark"] .ca-dist-hint,
+[data-theme="dark"] .ca-dist-total { color: rgba(255, 255, 255, 0.6); }
+[data-theme="dark"] .ca-dist-chart { border-bottom-color: rgba(240, 147, 251, 0.15); }
+[data-theme="dark"] .ca-dist-range,
+[data-theme="dark"] .ca-dist-empty { color: rgba(255, 255, 255, 0.5); }
+
+/* Mobile: kolumny pionowo */
+@media (max-width: 640px) {
+    .ca-dist-grid { grid-template-columns: 1fr; gap: 20px; }
+    .ca-dist-chart { height: 140px; }
 }
