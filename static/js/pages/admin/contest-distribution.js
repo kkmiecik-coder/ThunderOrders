@@ -7,8 +7,7 @@
 
   var elName = document.getElementById('distName');
   var elChart = document.getElementById('distChart');
-  var elMin = document.getElementById('distMin');
-  var elMax = document.getElementById('distMax');
+  var elAxis = document.getElementById('distAxis');
   var elBars = document.getElementById('distBars');
   var elEmpty = document.getElementById('distEmpty');
   var elTotal = document.getElementById('distTotal');
@@ -22,6 +21,7 @@
 
   function renderChart(buckets, config, spinCount) {
     elChart.innerHTML = '';
+    elAxis.innerHTML = '';
     var maxCount = 0;
     buckets.forEach(function (b) { if (b.count > maxCount) maxCount = b.count; });
     buckets.forEach(function (b) {
@@ -35,14 +35,18 @@
       fill.style.height = '0%';
       col.appendChild(fill);
       elChart.appendChild(col);
+
+      var lbl = document.createElement('span');
+      lbl.textContent = b.label;
+      lbl.title = b.label + ' losów';
+      elAxis.appendChild(lbl);
+
       (function (f, target) {
         requestAnimationFrame(function () {
           requestAnimationFrame(function () { f.style.height = target + '%'; });
         });
       }(fill, h));
     });
-    elMin.textContent = config.ticket_min + ' los.';
-    elMax.textContent = config.ticket_max + ' los.';
   }
 
   function renderPool(participants, pool) {

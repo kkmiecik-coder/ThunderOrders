@@ -4203,12 +4203,19 @@
     transition: height .5s ease;
     min-height: 2px;
 }
-.ca-dist-range {
+.ca-dist-axis {
     display: flex;
-    justify-content: space-between;
-    font-size: 11px;
-    color: #999999;
+    gap: 3px;
     margin-top: 6px;
+}
+.ca-dist-axis span {
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: center;
+    font-size: 9px;
+    line-height: 1.25;
+    color: #999999;
+    white-space: nowrap;
 }
 .ca-dist-empty {
     font-size: 13px;
@@ -4222,7 +4229,7 @@
 [data-theme="dark"] .ca-dist-hint,
 [data-theme="dark"] .ca-dist-total { color: rgba(255, 255, 255, 0.6); }
 [data-theme="dark"] .ca-dist-chart { border-bottom-color: rgba(240, 147, 251, 0.15); }
-[data-theme="dark"] .ca-dist-range,
+[data-theme="dark"] .ca-dist-axis span,
 [data-theme="dark"] .ca-dist-empty { color: rgba(255, 255, 255, 0.5); }
 
 /* Mobile: jedna kolumna, cała treść przewijana razem (bez podwójnego scrolla) */
@@ -4233,4 +4240,12 @@
     .ca-dist-col { display: block; margin-bottom: 20px; }
     .ca-dist-chart { height: 140px; }
     .ca-dist-modal #distBars { overflow: visible; }
+    /* Wąskie kolumny — obróć etykiety przedziałów, żeby się mieściły */
+    .ca-dist-axis { height: 40px; align-items: flex-start; }
+    .ca-dist-axis span {
+        font-size: 8px;
+        white-space: nowrap;
+        transform: rotate(-45deg);
+        transform-origin: center left;
+    }
 }
