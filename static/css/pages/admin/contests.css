@@ -1580,6 +1580,35 @@
     box-shadow: 0 2px 10px rgba(248, 113, 113, 0.15);
 }
 
+/* Przycisk „Rozkład" */
+.ca-action--dist {
+    background: rgba(240, 147, 251, 0.1);
+    color: #c2408a;
+    border: 1px solid rgba(240, 147, 251, 0.3);
+}
+.ca-action--dist:hover {
+    background: rgba(240, 147, 251, 0.18);
+}
+
+/* Przycisk „Losowanie" wyłączony (trwa okno ends_at) */
+.ca-action--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.4);
+}
+.ca-action--disabled:hover { background: inherit; }
+
+/* Dark mode */
+[data-theme="dark"] .ca-action--dist {
+    background: rgba(240, 147, 251, 0.08);
+    color: #f093fb;
+    border: 1px solid rgba(240, 147, 251, 0.25);
+}
+[data-theme="dark"] .ca-action--dist:hover {
+    background: rgba(240, 147, 251, 0.16);
+}
+[data-theme="dark"] .ca-action--disabled { opacity: 0.45; }
+
 /* Pigułki */
 [data-theme="dark"] .ca-pill--done {
     background: rgba(52, 211, 153, 0.15);
