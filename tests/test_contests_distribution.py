@@ -42,33 +42,6 @@ def test_draw_locked_false_when_not_active(db, make_product, make_user):
     assert draw_locked(c) is False
 
 
-def test_spin_buckets_sum_to_100(db, make_product, make_user):
-    from modules.contests.utils import spin_distribution_buckets
-    c = _contest(db, make_product, make_user)  # 1..500
-    buckets = spin_distribution_buckets(c)
-    assert len(buckets) == 16
-    total = sum(b['pct'] for b in buckets)
-    assert abs(total - 100.0) < 0.5
-
-
-def test_spin_buckets_are_skewed_to_min(db, make_product, make_user):
-    from modules.contests.utils import spin_distribution_buckets
-    c = _contest(db, make_product, make_user)  # moda = ticket_min => malejąco
-    buckets = spin_distribution_buckets(c)
-    assert buckets[0]['pct'] > buckets[-1]['pct']
-    # każdy koszyk ma poprawny kształt
-    assert set(buckets[0].keys()) == {'label', 'from', 'to', 'pct'}
-
-
-def test_spin_buckets_degenerate_range(db, make_product, make_user):
-    from modules.contests.utils import spin_distribution_buckets
-    from modules.contests.models import Contest
-    c = _contest(db, make_product, make_user)
-    c.ticket_min = 5; c.ticket_max = 5; db.session.commit()
-    buckets = spin_distribution_buckets(c)
-    assert buckets == [{'label': '5', 'from': 5, 'to': 5, 'pct': 100.0}]
-
-
 def _admin(make_user):
     return make_user(role='admin')
 
@@ -78,6 +51,46 @@ def _spin(db, c, u, tickets):
     s = ContestSpin(contest_id=c.id, user_id=u.id, tickets_won=tickets)
     db.session.add(s); db.session.commit()
     return s
+
+
+def test_spin_histogram_counts_actual_spins(db, make_product, make_user):
+    from modules.contests.utils import spin_histogram
+    c = _contest(db, make_product, make_user)  # 1..500 => 10 przedziałów po 50
+    u = make_user()
+    _spin(db, c, u, 10); _spin(db, c, u, 20); _spin(db, c, u, 490)
+    hist = spin_histogram(c)
+    assert len(hist) == 10
+    assert set(hist[0].keys()) == {'label', 'from', 'to', 'count'}
+    assert hist[0] == {'label': '1–50', 'from': 1, 'to': 50, 'count': 2}
+    assert hist[9] == {'label': '451–500', 'from': 451, 'to': 500, 'count': 1}
+    assert sum(b['count'] for b in hist) == 3
+
+
+def test_spin_histogram_adaptive_narrow_range(db, make_product, make_user):
+    from modules.contests.utils import spin_histogram
+    c = _contest(db, make_product, make_user, ticket_min=1, ticket_max=5)
+    u = make_user()
+    _spin(db, c, u, 1); _spin(db, c, u, 1); _spin(db, c, u, 3); _spin(db, c, u, 5)
+    hist = spin_histogram(c)
+    assert [b['label'] for b in hist] == ['1', '2', '3', '4', '5']
+    assert [b['count'] for b in hist] == [2, 0, 1, 0, 1]
+
+
+def test_spin_histogram_empty_no_spins(db, make_product, make_user):
+    from modules.contests.utils import spin_histogram
+    c = _contest(db, make_product, make_user)  # 1..500, brak spinów
+    hist = spin_histogram(c)
+    assert len(hist) == 10
+    assert all(b['count'] == 0 for b in hist)
+
+
+def test_spin_histogram_degenerate_range(db, make_product, make_user):
+    from modules.contests.utils import spin_histogram
+    c = _contest(db, make_product, make_user, ticket_min=5, ticket_max=5)
+    u = make_user()
+    _spin(db, c, u, 5); _spin(db, c, u, 5)
+    hist = spin_histogram(c)
+    assert hist == [{'label': '5', 'from': 5, 'to': 5, 'count': 2}]
 
 
 def test_distribution_endpoint_shape(client, db, make_product, make_user, login):
@@ -91,7 +104,9 @@ def test_distribution_endpoint_shape(client, db, make_product, make_user, login)
     assert data['success'] is True
     assert data['config'] == {'ticket_min': 1, 'ticket_max': 500}
     assert data['pool'] == 50
-    assert len(data['spin_buckets']) == 16
+    assert len(data['spin_buckets']) == 10
+    assert data['spin_count'] == 2                 # dwa losowania
+    assert data['spin_buckets'][0]['count'] == 2   # oba (40, 10) w przedziale 1–50
     # posortowane malejąco po tickets
     assert [p['tickets'] for p in data['participants']] == [40, 10]
     assert data['participants'][0]['chance_pct'] == 80.0

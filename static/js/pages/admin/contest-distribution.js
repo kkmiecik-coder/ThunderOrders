@@ -20,15 +20,16 @@
   function openModal() { modal.classList.add('active'); modal.setAttribute('aria-hidden', 'false'); }
   function closeModal() { modal.classList.remove('active'); modal.setAttribute('aria-hidden', 'true'); }
 
-  function renderChart(buckets, config) {
+  function renderChart(buckets, config, spinCount) {
     elChart.innerHTML = '';
-    var maxPct = 0;
-    buckets.forEach(function (b) { if (b.pct > maxPct) maxPct = b.pct; });
+    var maxCount = 0;
+    buckets.forEach(function (b) { if (b.count > maxCount) maxCount = b.count; });
     buckets.forEach(function (b) {
-      var h = maxPct > 0 ? Math.round((b.pct / maxPct) * 100) : 0;
+      var h = maxCount > 0 ? Math.round((b.count / maxCount) * 100) : 0;
       var col = document.createElement('div');
       col.className = 'ca-dist-bar';
-      col.title = b.label + ' losów • ' + b.pct.toFixed(1) + '%';
+      var pctTxt = spinCount ? ' • ' + (b.count / spinCount * 100).toFixed(1) + '%' : '';
+      col.title = b.label + ' losów: ' + b.count + ' losowań' + pctTxt;
       var fill = document.createElement('div');
       fill.className = 'ca-dist-bar-fill';
       fill.style.height = '0%';
@@ -97,7 +98,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data || !data.success) { toast('Nie udało się pobrać rozkładu.', 'error'); closeModal(); return; }
-        renderChart(data.spin_buckets, data.config);
+        renderChart(data.spin_buckets, data.config, data.spin_count);
         renderPool(data.participants, data.pool);
       })
       .catch(function () { toast('Błąd sieci — spróbuj ponownie.', 'error'); closeModal(); });

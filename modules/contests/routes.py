@@ -49,10 +49,12 @@ def admin_distribution(cid):
             'chance_pct': round(tickets / pool * 100, 3) if pool else 0,
         })
     parts.sort(key=lambda x: x['tickets'], reverse=True)
+    spin_buckets = cu.spin_histogram(c)
     return jsonify(
         success=True,
         config={'ticket_min': c.ticket_min, 'ticket_max': c.ticket_max},
-        spin_buckets=cu.spin_distribution_buckets(c),
+        spin_buckets=spin_buckets,
+        spin_count=sum(b['count'] for b in spin_buckets),
         pool=pool,
         participants=parts,
     )

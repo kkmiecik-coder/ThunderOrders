@@ -279,33 +279,50 @@ def draw_locked(contest):
             and get_local_now() < contest.ends_at)
 
 
-def spin_distribution_buckets(contest, bins=16):
-    """Analityczny rozkład liczby losów na pojedynczy spin (rozkład trójkątny, moda = ticket_min).
+def spin_histogram(contest, bins=10):
+    """Empiryczny histogram realnych losowań: ile spinów wpadło w każdy przedział losów.
 
-    Zwraca listę koszyków {'label', 'from', 'to', 'pct'} wiernie do draw_ticket_count().
-    Dla c=a dystrybuanta: F(x) = 1 - (b-x)^2 / (b-a)^2 na [a, b]. Suma pct ≈ 100.
+    Zakres [ticket_min, ticket_max] dzielony na do `bins` równych przedziałów całkowitych
+    (adaptacyjnie: mniej przedziałów gdy zakres wąski — najwyżej jeden na wartość całkowitą).
+    Zwraca listę {'label', 'from', 'to', 'count'} — count to liczba spinów w danym przedziale.
+    Pokazuje, jakie liczby losów ludzie faktycznie najczęściej wylosowali.
     """
+    from modules.contests.models import ContestSpin
     a = int(contest.ticket_min)
     b = int(contest.ticket_max)
-    if b <= a:
-        return [{'label': str(a), 'from': a, 'to': a, 'pct': 100.0}]
+    if b < a:
+        b = a
 
-    span = b - a
-    n = min(bins, span)  # nie więcej koszyków niż całkowitych wartości w zakresie
+    total_values = b - a + 1
+    n = max(1, min(bins, total_values))
 
-    def cdf(x):
-        if x <= a:
-            return 0.0
-        if x >= b:
-            return 1.0
-        return 1.0 - ((b - x) ** 2) / (span ** 2)
+    # Równy podział całkowitego zakresu [a, b] na n kolejnych przedziałów (inclusive).
+    base, rem = divmod(total_values, n)
+    edges = []  # (start, end) inclusive
+    start = a
+    for i in range(n):
+        width = base + (1 if i < rem else 0)
+        end = start + width - 1
+        edges.append((start, end))
+        start = end + 1
+
+    counts = [0] * n
+    tickets = db.session.query(ContestSpin.tickets_won) \
+        .filter(ContestSpin.contest_id == contest.id).all()
+    for (t,) in tickets:
+        t = int(t)
+        if t <= edges[0][1]:
+            counts[0] += 1
+        elif t >= edges[-1][0]:
+            counts[-1] += 1
+        else:
+            for i, (s, e) in enumerate(edges):
+                if s <= t <= e:
+                    counts[i] += 1
+                    break
 
     out = []
-    for i in range(n):
-        lo = a + span * i / n
-        hi = a + span * (i + 1) / n
-        pct = (cdf(hi) - cdf(lo)) * 100
-        lo_i, hi_i = int(round(lo)), int(round(hi))
-        label = str(lo_i) if lo_i == hi_i else f'{lo_i}–{hi_i}'
-        out.append({'label': label, 'from': lo_i, 'to': hi_i, 'pct': round(pct, 2)})
+    for (s, e), c in zip(edges, counts):
+        label = str(s) if s == e else f'{s}–{e}'
+        out.append({'label': label, 'from': s, 'to': e, 'count': c})
     return out
