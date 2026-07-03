@@ -77,6 +77,17 @@
                     <td>
                         <div class="ca-table-actions">
                             {% if it.c.status == 'aktywny' %}
+                                {% if it.draw_locked %}
+                                <button type="button" disabled
+                                        class="ca-action-btn ca-action-btn--sm ca-action--draw ca-action--disabled"
+                                        title="Losowanie dostępne po zakończeniu konkursu{% if it.c.ends_at %} — {{ it.c.ends_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                        <path d="M13 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM3 0a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3a3 3 0 0 0-3-3z"/>
+                                        <path d="M5.5 4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-8 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m8 0a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-4-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/>
+                                    </svg>
+                                    <span>Losowanie</span>
+                                </button>
+                                {% else %}
                                 <a href="{{ url_for('contests.admin_draw_screen', cid=it.c.id) }}"
                                    class="ca-action-btn ca-action-btn--sm ca-action--draw">
                                     <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
@@ -85,6 +96,7 @@
                                     </svg>
                                     <span>Losowanie</span>
                                 </a>
+                                {% endif %}
                             {% elif it.c.status == 'szkic' %}
                                 <form action="{{ url_for('contests.admin_activate', cid=it.c.id) }}"
                                       method="post" class="ca-activate-form">
@@ -104,6 +116,16 @@
                                     </svg>
                                     <span>Wyniki</span>
                                 </a>
+                            {% endif %}
+                            {% if it.c.status in ('aktywny', 'rozlosowany') %}
+                            <button type="button"
+                                    class="ca-action-btn ca-action-btn--sm ca-action--dist"
+                                    data-cid="{{ it.c.id }}" data-name="{{ it.c.name }}">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                                    <path d="M1 15V1h1v13.5a.5.5 0 0 0 .5.5H15v1zM4 13V8h2v5zm3 0V5h2v8zm3 0V3h2v10z"/>
+                                </svg>
+                                <span>Rozkład</span>
+                            </button>
                             {% endif %}
                             <a href="{{ url_for('contests.admin_edit', cid=it.c.id) }}"
                                class="ca-action-btn ca-action-btn--sm ca-action--edit">
@@ -128,4 +150,37 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Modal: rozkład punktów (wypełniany dynamicznie przez contest-distribution.js) -->
+<div class="modal-overlay" id="distModal" aria-hidden="true">
+    <div class="modal-content modal-xl ca-dist-modal">
+        <div class="modal-header">
+            <h2>Rozkład punktów — <span id="distName"></span></h2>
+            <button type="button" class="modal-close" id="distClose" aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="ca-dist-grid">
+                <section class="ca-dist-col">
+                    <h3 class="ca-dist-h">Rozkład losów na spin</h3>
+                    <p class="ca-dist-hint">Ile losów wypada przy jednym spinie — niższe wartości są częstsze.</p>
+                    <div class="ca-dist-chart" id="distChart"></div>
+                    <div class="ca-dist-range">
+                        <span id="distMin"></span><span id="distMax"></span>
+                    </div>
+                </section>
+                <section class="ca-dist-col">
+                    <h3 class="ca-dist-h">Pula uczestników <span class="ca-dist-total" id="distTotal"></span></h3>
+                    <div class="ca-bars" id="distBars"></div>
+                    <div class="ca-dist-empty" id="distEmpty" style="display:none">
+                        Brak uczestników — nikt jeszcze nie zakręcił.
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pages/admin/contest-distribution.js') }}"></script>
 {% endblock %}

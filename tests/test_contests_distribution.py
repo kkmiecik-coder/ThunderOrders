@@ -135,3 +135,29 @@ def test_list_context_has_draw_locked_flag(client, db, make_product, make_user, 
     # przycisk Losowanie renderowany jako disabled (patrz Task 3 dot. markup);
     # tu sprawdzamy tylko, że strona się renderuje z aktywnym konkursem w oknie
     assert b'Losowanie' in resp.data
+
+
+def test_list_shows_dist_button_for_active(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user, ends_at=None)
+    login(_admin(make_user))
+    html = client.get('/admin/konkursy').data.decode()
+    assert 'ca-action--dist' in html
+    assert f'data-cid="{c.id}"' in html
+
+
+def test_list_draw_button_disabled_when_window_open(client, db, make_product, make_user, login):
+    from datetime import timedelta
+    c = _contest(db, make_product, make_user, ends_at=_now() + timedelta(hours=2))
+    login(_admin(make_user))
+    html = client.get('/admin/konkursy').data.decode()
+    assert 'ca-action--disabled' in html
+    # brak klikalnego linku do ekranu losowania dla tego konkursu
+    assert f'/admin/konkursy/{c.id}/losowanie' not in html
+
+
+def test_list_draw_button_active_when_no_window(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user, ends_at=None)
+    login(_admin(make_user))
+    html = client.get('/admin/konkursy').data.decode()
+    assert f'/admin/konkursy/{c.id}/losowanie' in html
+    assert 'ca-action--disabled' not in html
