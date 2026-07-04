@@ -3122,7 +3122,7 @@ def _update_client_orders_if_fully_delivered(proxy_order_type):
     """
     from modules.orders.models import Order
     from modules.products.models import ProxyOrder, ProxyOrderItem
-    from sqlalchemy import func
+    from sqlalchemy import func, or_, and_
 
     ORDER_TYPE_TO_STAGES = {'polska': 3, 'proxy': 4}
     target_stages = ORDER_TYPE_TO_STAGES.get(proxy_order_type)
