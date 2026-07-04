@@ -11,6 +11,7 @@ import os
 import io
 import csv
 import shutil
+import sentry_sdk
 from uuid import uuid4
 
 from modules.products import products_bp
@@ -3269,7 +3270,8 @@ def update_proxy_order_status(order_id):
         })
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating proxy order status: {str(e)}")
+        current_app.logger.exception("Error updating proxy order status")
+        sentry_sdk.capture_exception(e)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
