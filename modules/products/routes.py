@@ -3108,7 +3108,9 @@ def _update_client_orders_on_polska_ordered():
         Order.offer_page_id.isnot(None),
         or_(
             and_(Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace'])),
-            and_(Order.payment_stages == 4, Order.status == 'dostarczone_proxy')
+            # 'oczekujace': zamówienie mogło nie przejść etapu dostarczone_proxy
+            # (np. proxy order nigdy nie oznaczony jako dostarczony) — kaskada nadrabia
+            and_(Order.payment_stages == 4, Order.status.in_(['oczekujace', 'dostarczone_proxy']))
         )
     ).all()
 
@@ -3174,10 +3176,11 @@ def _update_client_orders_on_customs():
         or_(
             # Pre-order: include 'nowe' (pre-orders start with 'nowe', not 'oczekujace')
             and_(Order.order_type == 'pre_order', Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska'])),
-            and_(Order.order_type == 'pre_order', Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska'])),
+            and_(Order.order_type == 'pre_order', Order.payment_stages == 4, Order.status.in_(['nowe', 'oczekujace', 'dostarczone_proxy', 'w_drodze_polska'])),
             # Exclusive/on_hand: normal flow (no 'nowe')
             and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska'])),
-            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska'])),
+            # 'oczekujace' dla stages=4: kaskada nadrabia pominięty etap dostarczone_proxy
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 4, Order.status.in_(['oczekujace', 'dostarczone_proxy', 'w_drodze_polska'])),
         )
     ).all()
 
@@ -3207,10 +3210,11 @@ def _update_client_orders_on_gom_delivery():
         or_(
             # Pre-order: include 'nowe'
             and_(Order.order_type == 'pre_order', Order.payment_stages == 3, Order.status.in_(['nowe', 'oczekujace', 'w_drodze_polska', 'urzad_celny'])),
-            and_(Order.order_type == 'pre_order', Order.payment_stages == 4, Order.status.in_(['nowe', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
+            and_(Order.order_type == 'pre_order', Order.payment_stages == 4, Order.status.in_(['nowe', 'oczekujace', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
             # Exclusive/on_hand: normal flow
             and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 3, Order.status.in_(['oczekujace', 'w_drodze_polska', 'urzad_celny'])),
-            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 4, Order.status.in_(['dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
+            # 'oczekujace' dla stages=4: kaskada nadrabia pominięty etap dostarczone_proxy
+            and_(Order.order_type.in_(['on_hand', 'exclusive']), Order.payment_stages == 4, Order.status.in_(['oczekujace', 'dostarczone_proxy', 'w_drodze_polska', 'urzad_celny'])),
         )
     ).all()
 
