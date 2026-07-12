@@ -513,6 +513,13 @@ window.toggleOrderItems = function(orderId, totalItems) {
     // Kliknięcie w kartę toggleuje checkbox (ignoruje przyciski i interaktywne elementy).
     // Delegowane z .pc-cards-grid — card wyliczany przez closest zamiast e.currentTarget.
     function handleCardClick(e) {
+        // Przycisk płatności obsługiwany przez delegację (nie inline onclick),
+        // aby uniknąć ReferenceError gdy skrypt nie zdążył się załadować.
+        var payBtn = e.target.closest('.pc-card-pay-btn');
+        if (payBtn) {
+            window.openPaymentForOrder(payBtn);
+            return;
+        }
         if (e.target.closest('button, input, a, .pc-card-pay-btn')) return;
         var card = e.target.closest('.pc-order-card');
         if (!card) return;
