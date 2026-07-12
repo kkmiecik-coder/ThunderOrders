@@ -922,6 +922,10 @@
     // Store for selected products (id -> product data)
     let selectedProducts = new Map();
     let productSearchTimeout = null;
+    // Store for currently displayed search results (id -> product data).
+    // Pozwala na event delegation zamiast inline onclick z danymi produktu —
+    // nazwy z apostrofem (np. "L'Oréal") łamały składnię inline handlera.
+    let productSearchResultsData = new Map();
 
     // Initialize selected products from URL param
     function initSelectedProducts() {
@@ -985,6 +989,18 @@
                 searchProducts('');
             }
         });
+
+        // Event delegation na wynikach wyszukiwania — dane produktu czytamy
+        // z mapy po ID, dzięki czemu nazwa/SKU nie trafiają do inline JS.
+        productSearchResults.addEventListener('click', function(e) {
+            const item = e.target.closest('.product-search-item');
+            if (!item) return;
+            const product = productSearchResultsData.get(item.dataset.productId);
+            if (!product) return;
+            const imageUrl = product.image_url || PLACEHOLDER_IMAGE;
+            const sku = product.sku ? `SKU: ${product.sku}` : '';
+            window.selectProduct(product.id, product.name, imageUrl, sku);
+        });
     }
 
     /**
@@ -1023,6 +1039,11 @@
         // Filter out already selected products
         const filteredProducts = products.filter(p => !selectedProducts.has(p.id));
 
+        // Zapamiętaj wyniki po ID dla event delegation (patrz listener wyżej)
+        productSearchResultsData = new Map(
+            filteredProducts.map(p => [String(p.id), p])
+        );
+
         if (filteredProducts.length === 0) {
             productSearchResults.innerHTML = '<div class="product-search-empty">Brak wyników</div>';
             return;
@@ -1034,7 +1055,7 @@
             const sku = product.sku ? `SKU: ${product.sku}` : '';
 
             return `
-                <div class="product-search-item" onclick="selectProduct(${product.id}, '${escapeHtml(product.name)}', '${escapeHtml(imageUrl)}', '${escapeHtml(sku)}')">
+                <div class="product-search-item" data-product-id="${product.id}">
                     <img class="product-search-thumb" src="${escapeHtml(imageUrl)}" alt="" onerror="this.src='${PLACEHOLDER_IMAGE}'">
                     <div class="product-search-info">
                         <div class="product-search-name">${escapeHtml(product.name)}</div>
