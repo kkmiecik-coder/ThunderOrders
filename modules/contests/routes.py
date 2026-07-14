@@ -41,12 +41,17 @@ def admin_list():
 def admin_distribution(cid):
     c = Contest.query.get_or_404(cid)
     pool = cu.get_pool(c)
+    excluded = c.excluded_user_ids
+    # mianownik szans = suma losów uczestników BEZ wykluczonych (realne %)
+    drawable_pool = sum(t for u, t in cu.participants(c) if u.id not in excluded)
     parts = []
     for user, tickets in cu.participants(c):
+        is_excl = user.id in excluded
         parts.append({
             'name': _display_name(user),
             'tickets': tickets,
-            'chance_pct': round(tickets / pool * 100, 3) if pool else 0,
+            'excluded': is_excl,
+            'chance_pct': 0 if is_excl else (round(tickets / drawable_pool * 100, 3) if drawable_pool else 0),
         })
     parts.sort(key=lambda x: x['tickets'], reverse=True)
     spin_buckets = cu.spin_histogram(c)
@@ -262,14 +267,18 @@ def admin_draw(cid):
 
     winners = cu.draw_winners(c)
     pool = cu.get_pool(c)
+    excluded = c.excluded_user_ids
+    drawable_pool = sum(t for u, t in cu.participants(c) if u.id not in excluded)
     # pełne rozbicie puli z procentami — TYLKO dla admina (klient tego nie widzi)
     breakdown = []
     for user, tickets in cu.participants(c):
+        is_excl = user.id in excluded
         breakdown.append({
             'user_id': user.id,
             'name': _display_name(user),
             'tickets': tickets,
-            'pct': round(tickets / pool * 100, 2) if pool else 0,
+            'excluded': is_excl,
+            'pct': 0 if is_excl else (round(tickets / drawable_pool * 100, 2) if drawable_pool else 0),
         })
     breakdown.sort(key=lambda x: x['tickets'], reverse=True)
     return jsonify(success=True, pool=pool, breakdown=breakdown, winners=[{

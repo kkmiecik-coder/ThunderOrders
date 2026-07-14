@@ -152,6 +152,24 @@ def test_list_context_has_draw_locked_flag(client, db, make_product, make_user, 
     assert b'Losowanie' in resp.data
 
 
+def test_distribution_marks_excluded_and_recomputes_pct(client, db, make_product, make_user, login):
+    from modules.contests.models import ContestExcludedUser
+    c = _contest(db, make_product, make_user)
+    u1, u2 = make_user(), make_user()
+    _spin(db, c, u1, 30); _spin(db, c, u2, 10)
+    db.session.add(ContestExcludedUser(contest_id=c.id, user_id=u1.id)); db.session.commit()
+    login(_admin(make_user))
+    data = client.get(f'/admin/konkursy/{c.id}/rozklad').get_json()
+    by_name = {p['tickets']: p for p in data['participants']}
+    # wykluczony (30 losów) -> excluded True, 0%
+    assert by_name[30]['excluded'] is True
+    assert by_name[30]['chance_pct'] == 0
+    # nie-wykluczony (10 losów) -> 100% z puli bez wykluczonych
+    assert by_name[10]['excluded'] is False
+    assert by_name[10]['chance_pct'] == 100.0
+    assert data['pool'] == 40   # pool całkowity bez zmian (informacyjny)
+
+
 def test_list_shows_dist_button_for_active(client, db, make_product, make_user, login):
     c = _contest(db, make_product, make_user, ends_at=None)
     login(_admin(make_user))

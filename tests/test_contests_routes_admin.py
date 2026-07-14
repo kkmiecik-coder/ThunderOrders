@@ -106,6 +106,25 @@ def test_draw_blocked_when_spins_open(client, db, make_user, make_product, login
     assert resp.get_json()['success'] is False   # spiny jeszcze otwarte (ends_at w przyszłości)
 
 
+def test_draw_breakdown_marks_excluded(client, db, make_user, make_product, login):
+    from modules.contests.models import Contest, ContestSpin, ContestExcludedUser
+    login(make_user(role='admin')); prod = make_product()
+    c = Contest(name='A', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, status='aktywny')
+    db.session.add(c); db.session.commit()
+    big, small = make_user(), make_user()
+    db.session.add(ContestSpin(contest_id=c.id, user_id=big.id, tickets_won=90))
+    db.session.add(ContestSpin(contest_id=c.id, user_id=small.id, tickets_won=10))
+    db.session.add(ContestExcludedUser(contest_id=c.id, user_id=big.id))
+    db.session.commit()
+    body = client.post(f'/admin/konkursy/{c.id}/losuj').get_json()
+    assert body['success'] is True
+    assert body['winners'][0]['user_id'] == small.id     # wykluczony nie wygrał
+    row = {r['user_id']: r for r in body['breakdown']}
+    assert row[big.id]['excluded'] is True and row[big.id]['pct'] == 0
+    assert row[small.id]['excluded'] is False and row[small.id]['pct'] == 100.0
+
+
 def test_create_contest_with_single_prize(client, db, make_user, make_product, login):
     """POST prizes_json z pojedynczą pozycją tworzy ContestPrize + ContestPrizeItem."""
     import json
