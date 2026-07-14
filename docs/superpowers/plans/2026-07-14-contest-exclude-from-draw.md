@@ -334,8 +334,10 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Test: `tests/test_contests_distribution.py`, `tests/test_contests_routes_admin.py`
 
 **Interfaces:**
-- Consumes: `cu.excluded_user_ids(contest)`, `cu.participants(contest)`, `cu.get_pool(contest)`.
+- Consumes: `contest.excluded_user_ids` (property z Task 1, zwraca `set[int]`), `cu.participants(contest)`, `cu.get_pool(contest)`.
 - Produces: w JSON z `/rozklad` każdy element `participants[]` ma pole `excluded: bool`; `chance_pct` = 0 dla wykluczonych, dla reszty liczony z puli bez wykluczonych. W JSON z `/losuj` każdy `breakdown[]` ma `excluded: bool`; `pct` analogicznie.
+
+> **Uwaga (konsolidacja po review Task 2):** używaj property `c.excluded_user_ids` — samodzielna funkcja `cu.excluded_user_ids()` została usunięta jako duplikat.
 
 - [ ] **Step 1: Napisz testy (failing)**
 
@@ -408,7 +410,7 @@ na:
 ```python
     c = Contest.query.get_or_404(cid)
     pool = cu.get_pool(c)
-    excluded = cu.excluded_user_ids(c)
+    excluded = c.excluded_user_ids
     # mianownik szans = suma losów uczestników BEZ wykluczonych (realne %)
     drawable_pool = sum(t for u, t in cu.participants(c) if u.id not in excluded)
     parts = []
@@ -445,7 +447,7 @@ na:
 ```python
     winners = cu.draw_winners(c)
     pool = cu.get_pool(c)
-    excluded = cu.excluded_user_ids(c)
+    excluded = c.excluded_user_ids
     drawable_pool = sum(t for u, t in cu.participants(c) if u.id not in excluded)
     # pełne rozbicie puli z procentami — TYLKO dla admina (klient tego nie widzi)
     breakdown = []
