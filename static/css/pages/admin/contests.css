@@ -1832,3 +1832,8 @@
     background: rgba(255,255,255,0.05); border: 1px solid rgba(240,147,251,0.3); color: #fff;
 }
 [data-theme="dark"] .ca-excl-badge { background: rgba(245,87,108,0.2); color: #f5576c; }
+[data-theme="dark"] .ca-excl-search-icon { color: rgba(255, 255, 255, 0.5); }
+[data-theme="dark"] .ca-excl-chip-x {
+    background: rgba(245, 87, 108, 0.22); color: #f5576c;
+}
+[data-theme="dark"] .ca-excl-chip-x:hover { background: rgba(245, 87, 108, 0.38); }

@@ -659,7 +659,7 @@
 
     excludedSearch.addEventListener('input', function () {
       var q = excludedSearch.value.trim();
-      if (q.length < 2) { hideResults(); return; }
+      if (q.length < 2) { clearTimeout(debounceTimers['excludedSearch']); hideResults(); return; }
       debounce('excludedSearch', function () { searchUsers(q); }, 250);
     });
 
