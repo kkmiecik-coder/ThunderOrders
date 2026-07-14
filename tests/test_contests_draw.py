@@ -88,3 +88,54 @@ def test_weighting_is_proportional(db, make_product, make_user):
         if winners[0].user_id == big.id:
             wins_big += 1
     assert wins_big > 150   # ~90% oczekiwane, próg z zapasem
+
+
+def _exclude(db, c, u):
+    from modules.contests.models import ContestExcludedUser
+    db.session.add(ContestExcludedUser(contest_id=c.id, user_id=u.id))
+    db.session.commit()
+
+
+def test_excluded_user_never_wins_despite_tickets(db, make_product, make_user):
+    from modules.contests.utils import draw_winners
+    c = _contest(db, make_product, make_user, num_winners=1)
+    big, small = make_user(), make_user()
+    _spin(db, c, big, 1000)   # ogromna przewaga losów
+    _spin(db, c, small, 1)
+    _exclude(db, c, big)      # ale wykluczony
+    winners = draw_winners(c, rng=random.Random(1))
+    assert len(winners) == 1
+    assert winners[0].user_id == small.id           # wygrywa jedyny nie-wykluczony
+    assert winners[0].tickets_at_draw == 1
+    assert winners[0].chance_pct == 100.0           # % liczony z puli bez wykluczonych
+
+
+def test_excluded_reduces_winner_count(db, make_product, make_user):
+    from modules.contests.utils import draw_winners
+    c = _contest(db, make_product, make_user, num_winners=3)
+    a, b, cc = make_user(), make_user(), make_user()
+    _spin(db, c, a, 10); _spin(db, c, b, 10); _spin(db, c, cc, 10)
+    _exclude(db, c, a); _exclude(db, c, b)
+    winners = draw_winners(c, rng=random.Random(2))
+    assert len(winners) == 1                         # tylko cc losowalny
+    assert winners[0].user_id == cc.id
+
+
+def test_all_participants_excluded_no_winners(db, make_product, make_user):
+    from modules.contests.utils import draw_winners
+    c = _contest(db, make_product, make_user, num_winners=2)
+    a, b = make_user(), make_user()
+    _spin(db, c, a, 10); _spin(db, c, b, 20)
+    _exclude(db, c, a); _exclude(db, c, b)
+    winners = draw_winners(c, rng=random.Random(3))
+    assert winners == []
+    assert c.status == 'rozlosowany'
+
+
+def test_excluded_user_ids_helper(db, make_product, make_user):
+    from modules.contests.utils import excluded_user_ids
+    c = _contest(db, make_product, make_user)
+    u = make_user()
+    assert excluded_user_ids(c) == set()
+    _exclude(db, c, u)
+    assert excluded_user_ids(c) == {u.id}
