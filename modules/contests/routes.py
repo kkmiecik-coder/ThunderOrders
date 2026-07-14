@@ -42,10 +42,11 @@ def admin_distribution(cid):
     c = Contest.query.get_or_404(cid)
     pool = cu.get_pool(c)
     excluded = c.excluded_user_ids
+    participant_rows = cu.participants(c)   # jedno wywołanie — reużyte do sumy i pętli
     # mianownik szans = suma losów uczestników BEZ wykluczonych (realne %)
-    drawable_pool = sum(t for u, t in cu.participants(c) if u.id not in excluded)
+    drawable_pool = sum(t for u, t in participant_rows if u.id not in excluded)
     parts = []
-    for user, tickets in cu.participants(c):
+    for user, tickets in participant_rows:
         is_excl = user.id in excluded
         parts.append({
             'name': _display_name(user),
@@ -268,10 +269,11 @@ def admin_draw(cid):
     winners = cu.draw_winners(c)
     pool = cu.get_pool(c)
     excluded = c.excluded_user_ids
-    drawable_pool = sum(t for u, t in cu.participants(c) if u.id not in excluded)
+    participant_rows = cu.participants(c)   # jedno wywołanie — reużyte do sumy i pętli
+    drawable_pool = sum(t for u, t in participant_rows if u.id not in excluded)
     # pełne rozbicie puli z procentami — TYLKO dla admina (klient tego nie widzi)
     breakdown = []
-    for user, tickets in cu.participants(c):
+    for user, tickets in participant_rows:
         is_excl = user.id in excluded
         breakdown.append({
             'user_id': user.id,
