@@ -29,6 +29,74 @@
     modal.classList.remove('active');
     modal.setAttribute('aria-hidden', 'true');
     elTip.style.display = 'none';
+    closeUserSpins();   // zamknij ewentualny otwarty minimodal
+  }
+
+  /* -------------------------------------------------------------- */
+  /* Minimodal: losowania konkretnego uczestnika (nad #distModal)     */
+  /* -------------------------------------------------------------- */
+  var currentCid = null;   // ustawiany przy otwarciu rozkładu
+  var uspinsModal = document.getElementById('userSpinsModal');
+  var uspinsName = document.getElementById('uspinsName');
+  var uspinsSummary = document.getElementById('uspinsSummary');
+  var uspinsList = document.getElementById('uspinsList');
+  var uspinsEmpty = document.getElementById('uspinsEmpty');
+
+  function plLosowania(n) {
+    var n10 = n % 10, n100 = n % 100;
+    if (n === 1) return 'losowanie';
+    if (n10 >= 2 && n10 <= 4 && !(n100 >= 12 && n100 <= 14)) return 'losowania';
+    return 'losowań';
+  }
+
+  function fmtWhen(iso) {
+    try {
+      return new Date(iso).toLocaleString('pl-PL', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    } catch (e) { return iso || ''; }
+  }
+
+  function closeUserSpins() {
+    if (!uspinsModal) return;
+    uspinsModal.classList.remove('active');
+    uspinsModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function renderSpins(data) {
+    uspinsSummary.innerHTML =
+      '<span class="ca-uspins-stat"><b>' + data.spin_count + '</b> ' + plLosowania(data.spin_count) + '</span>' +
+      '<span class="ca-uspins-stat"><b>' + data.total_tickets + '</b> losów łącznie</span>';
+    if (!data.spins || !data.spins.length) {
+      uspinsList.innerHTML = '';
+      uspinsEmpty.style.display = '';
+      return;
+    }
+    uspinsEmpty.style.display = 'none';
+    uspinsList.innerHTML = data.spins.map(function (s) {
+      return '<div class="ca-uspins-row">' +
+             '<span class="ca-uspins-tickets">' + s.tickets + ' los.</span>' +
+             '<span class="ca-uspins-when">' + fmtWhen(s.at) + '</span>' +
+             '</div>';
+    }).join('');
+  }
+
+  function openUserSpins(uid, name) {
+    if (!uspinsModal || !currentCid) return;
+    uspinsName.textContent = name || '';
+    uspinsSummary.innerHTML = '';
+    uspinsList.innerHTML = '';
+    uspinsEmpty.style.display = 'none';
+    uspinsModal.classList.add('active');
+    uspinsModal.setAttribute('aria-hidden', 'false');
+    fetch('/admin/konkursy/' + currentCid + '/uzytkownik/' + uid + '/losowania',
+          { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.success) { toast('Nie udało się pobrać losowań.', 'error'); closeUserSpins(); return; }
+        renderSpins(data);
+      })
+      .catch(function () { toast('Błąd sieci — spróbuj ponownie.', 'error'); closeUserSpins(); });
   }
 
   // „Ładne" całkowite wartości osi Y (0 .. niceMax), ~4 przedziały
@@ -121,6 +189,19 @@
       if (p.excluded) {
         name.insertAdjacentHTML('beforeend', '<span class="ca-excl-badge">wykluczony</span>');
       }
+      if (p.user_id) {
+        name.classList.add('ca-bar-name--clickable');
+        name.setAttribute('role', 'button');
+        name.setAttribute('tabindex', '0');
+        name.title = p.name + ' — pokaż losowania';
+        (function (uid, nm) {
+          function open() { openUserSpins(uid, nm); }
+          name.addEventListener('click', open);
+          name.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+          });
+        }(p.user_id, p.name));
+      }
 
       var track = document.createElement('div');
       track.className = 'ca-bar-track';
@@ -145,6 +226,7 @@
   }
 
   function loadAndOpen(cid, name) {
+    currentCid = cid;
     elName.textContent = name || '';
     elChart.innerHTML = '';
     elBars.innerHTML = '';
@@ -162,10 +244,14 @@
   document.addEventListener('click', function (e) {
     var btn = e.target.closest('.ca-action--dist');
     if (btn) { loadAndOpen(btn.getAttribute('data-cid'), btn.getAttribute('data-name')); return; }
+    // Minimodal ma pierwszeństwo (leży nad rozkładem)
+    if (e.target === uspinsModal || e.target.closest('#uspinsClose')) { closeUserSpins(); return; }
     if (e.target === modal || e.target.closest('#distClose')) { closeModal(); }
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+    if (e.key !== 'Escape') return;
+    if (uspinsModal && uspinsModal.classList.contains('active')) { closeUserSpins(); return; }
+    if (modal.classList.contains('active')) closeModal();
   });
 }());

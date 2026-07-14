@@ -183,6 +183,21 @@
         </div>
     </div>
 </div>
+
+<!-- Minimodal: losowania konkretnego uczestnika (nad #distModal; wypełniany przez contest-distribution.js) -->
+<div class="modal-overlay modal-overlay--nested" id="userSpinsModal" aria-hidden="true">
+    <div class="modal-content ca-uspins-modal">
+        <div class="modal-header">
+            <h2>Losowania — <span id="uspinsName"></span></h2>
+            <button type="button" class="modal-close" id="uspinsClose" aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="ca-uspins-summary" id="uspinsSummary"></div>
+            <div class="ca-uspins-list" id="uspinsList"></div>
+            <div class="ca-uspins-empty" id="uspinsEmpty" style="display:none">Brak losowań.</div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}

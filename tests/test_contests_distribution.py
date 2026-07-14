@@ -194,3 +194,39 @@ def test_list_draw_button_active_when_no_window(client, db, make_product, make_u
     html = client.get('/admin/konkursy').data.decode()
     assert f'/admin/konkursy/{c.id}/losowanie' in html
     assert 'ca-action--disabled' not in html
+
+
+def test_distribution_includes_user_id(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    u = make_user(); _spin(db, c, u, 10)
+    login(_admin(make_user))
+    data = client.get(f'/admin/konkursy/{c.id}/rozklad').get_json()
+    assert data['participants'][0]['user_id'] == u.id
+
+
+def test_user_spins_endpoint_shape(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    u = make_user()
+    _spin(db, c, u, 10); _spin(db, c, u, 25)
+    login(_admin(make_user))
+    data = client.get(f'/admin/konkursy/{c.id}/uzytkownik/{u.id}/losowania').get_json()
+    assert data['success'] is True
+    assert data['spin_count'] == 2
+    assert data['total_tickets'] == 35
+    assert len(data['spins']) == 2
+    assert all('tickets' in s and 'at' in s for s in data['spins'])
+    assert {s['tickets'] for s in data['spins']} == {10, 25}
+
+
+def test_user_spins_unknown_user_404(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    login(_admin(make_user))
+    resp = client.get(f'/admin/konkursy/{c.id}/uzytkownik/999999/losowania')
+    assert resp.status_code == 404
+    assert resp.get_json()['success'] is False
+
+
+def test_user_spins_requires_privileged(client, db, make_product, make_user, login):
+    c = _contest(db, make_product, make_user)
+    login(make_user(role='client'))
+    assert client.get(f'/admin/konkursy/{c.id}/uzytkownik/1/losowania').status_code == 403

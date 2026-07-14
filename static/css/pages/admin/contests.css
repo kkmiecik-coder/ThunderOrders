@@ -1378,6 +1378,16 @@
     flex-shrink: 0;
 }
 
+/* Klikalna nazwa uczestnika — otwiera minimodal z jego losowaniami.
+   Kolory ze zmiennych motywu → działa w light i dark. */
+.ca-bar-name--clickable { cursor: pointer; }
+.ca-bar-name--clickable:hover { color: var(--text-primary); text-decoration: underline; }
+.ca-bar-name--clickable:focus-visible {
+    outline: 2px solid var(--orange-300);
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
 .ca-bar-name svg {
     color: var(--orange-300);
     vertical-align: -2px;

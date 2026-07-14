@@ -49,6 +49,7 @@ def admin_distribution(cid):
     for user, tickets in participant_rows:
         is_excl = user.id in excluded
         parts.append({
+            'user_id': user.id,
             'name': _display_name(user),
             'tickets': tickets,
             'excluded': is_excl,
@@ -63,6 +64,27 @@ def admin_distribution(cid):
         spin_count=sum(b['count'] for b in spin_buckets),
         pool=pool,
         participants=parts,
+    )
+
+
+@contests_bp.route('/admin/konkursy/<int:cid>/uzytkownik/<int:uid>/losowania')
+@login_required
+@role_required('admin', 'mod')
+def admin_user_spins(cid, uid):
+    """Indywidualne losowania (spiny) danego uczestnika — do minimodala w rozkładzie."""
+    from modules.auth.models import User
+    c = Contest.query.get_or_404(cid)
+    user = db.session.get(User, uid)
+    if user is None:
+        return jsonify(success=False, error='Nie znaleziono użytkownika.'), 404
+    spins = ContestSpin.query.filter_by(contest_id=c.id, user_id=uid) \
+        .order_by(ContestSpin.created_at.desc()).all()
+    return jsonify(
+        success=True,
+        name=_display_name(user),
+        spin_count=len(spins),
+        total_tickets=sum(s.tickets_won for s in spins),
+        spins=[{'tickets': s.tickets_won, 'at': s.created_at.isoformat()} for s in spins],
     )
 
 
