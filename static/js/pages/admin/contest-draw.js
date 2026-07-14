@@ -332,6 +332,9 @@
       if (isWinner) {
         name.insertAdjacentHTML('beforeend', trophySvg(12));
       }
+      if (entry.excluded) {
+        name.insertAdjacentHTML('beforeend', '<span class="ca-excl-badge">wykluczony</span>');
+      }
 
       var track = document.createElement('div');
       track.className = 'ca-bar-track';

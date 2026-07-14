@@ -585,4 +585,89 @@
     });
   }
 
+  /* -------------------------------------------------------------- */
+  /* Picker: wykluczeni z losowania zwycięzców                        */
+  /* -------------------------------------------------------------- */
+  var excludedJsonEl = document.getElementById('excludedJson');
+  var excludedSearch = document.getElementById('excludedSearch');
+  var excludedResults = document.getElementById('excludedResults');
+  var excludedChips = document.getElementById('excludedChips');
+
+  if (excludedJsonEl && excludedSearch && excludedChips) {
+    var excluded = [];   // [{id, name, email}]
+    try { excluded = JSON.parse(excludedJsonEl.value) || []; } catch (e) { excluded = []; }
+
+    function syncExcluded() {
+      excludedJsonEl.value = JSON.stringify(excluded.map(function (u) { return u.id; }));
+    }
+
+    function renderChips() {
+      if (!excluded.length) {
+        excludedChips.innerHTML = '<div class="ca-excl-empty">Nikt nie jest wykluczony.</div>';
+        syncExcluded();
+        return;
+      }
+      excludedChips.innerHTML = excluded.map(function (u) {
+        return '<span class="ca-excl-chip" data-uid="' + u.id + '">' +
+               '<span class="ca-excl-chip-name">' + escHtml(u.name) + '</span>' +
+               '<button type="button" class="ca-excl-chip-x" data-uid="' + u.id + '" aria-label="Usuń">&times;</button>' +
+               '</span>';
+      }).join('');
+      excludedChips.querySelectorAll('.ca-excl-chip-x').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = parseInt(btn.getAttribute('data-uid'), 10);
+          excluded = excluded.filter(function (u) { return u.id !== id; });
+          renderChips();
+        });
+      });
+      syncExcluded();
+    }
+
+    function hideResults() { excludedResults.innerHTML = ''; excludedResults.classList.remove('is-open'); }
+
+    function searchUsers(q) {
+      fetch('/admin/users/api/search?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (users) {
+          var chosen = {};
+          excluded.forEach(function (u) { chosen[u.id] = true; });
+          var avail = users.filter(function (u) { return !chosen[u.id]; });
+          if (!avail.length) { hideResults(); return; }
+          excludedResults.innerHTML = avail.map(function (u) {
+            return '<div class="ca-excl-result" data-uid="' + u.id + '" ' +
+                   'data-name="' + escHtml(u.name) + '" data-email="' + escHtml(u.email || '') + '">' +
+                   '<span class="ca-excl-result-name">' + escHtml(u.name) + '</span>' +
+                   '<span class="ca-excl-result-email">' + escHtml(u.email || '') + '</span>' +
+                   '</div>';
+          }).join('');
+          excludedResults.classList.add('is-open');
+          excludedResults.querySelectorAll('.ca-excl-result').forEach(function (row) {
+            row.addEventListener('click', function () {
+              excluded.push({
+                id: parseInt(row.getAttribute('data-uid'), 10),
+                name: row.getAttribute('data-name'),
+                email: row.getAttribute('data-email'),
+              });
+              excludedSearch.value = '';
+              hideResults();
+              renderChips();
+            });
+          });
+        })
+        .catch(function () { hideResults(); });
+    }
+
+    excludedSearch.addEventListener('input', function () {
+      var q = excludedSearch.value.trim();
+      if (q.length < 2) { hideResults(); return; }
+      debounce('excludedSearch', function () { searchUsers(q); }, 250);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!excludedResults.contains(e.target) && e.target !== excludedSearch) hideResults();
+    });
+
+    renderChips();
+  }
+
 }());

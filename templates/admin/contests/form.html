@@ -269,6 +269,34 @@
                     </div>
                 </section>
 
+                {# ---- Wykluczeni z losowania zwycięzców ---- #}
+                <section class="ca-card">
+                    <div class="ca-card-head">
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                        </svg>
+                        <h2>Wykluczeni z losowania zwycięzców</h2>
+                    </div>
+                    <div class="ca-card-body">
+                        <p class="ca-prize-helper">Te osoby normalnie biorą udział i pojawiają się w ruletce, ale nie zostaną wybrane jako zwycięzcy.</p>
+
+                        <input type="hidden" name="excluded_json" id="excludedJson"
+                               value="{{ contest.excluded_entries|tojson_excluded if contest and contest.excluded_entries else '[]' }}">
+
+                        <div class="ca-excl-search-wrap">
+                            <svg class="ca-excl-search-icon" width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+                                <path d="M11.742 10.344a6.5 6.5 0 10-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 001.415-1.414l-3.85-3.85a1.007 1.007 0 00-.115-.1zM12 6.5a5.5 5.5 0 11-11 0 5.5 5.5 0 0111 0z"/>
+                            </svg>
+                            <input type="text" id="excludedSearch" class="ca-excl-search-inp"
+                                   placeholder="Szukaj po imieniu, nazwisku lub emailu…" autocomplete="off">
+                            <div id="excludedResults" class="ca-excl-results"></div>
+                        </div>
+
+                        <div id="excludedChips" class="ca-excl-chips"></div>
+                    </div>
+                </section>
+
             </aside>
         </div>
     </form>

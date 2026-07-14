@@ -118,6 +118,9 @@
       name.className = 'ca-bar-name';
       name.title = p.name;
       name.textContent = p.name;
+      if (p.excluded) {
+        name.insertAdjacentHTML('beforeend', '<span class="ca-excl-badge">wykluczony</span>');
+      }
 
       var track = document.createElement('div');
       track.className = 'ca-bar-track';

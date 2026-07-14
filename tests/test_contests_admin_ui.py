@@ -78,3 +78,15 @@ def test_results_page_renders(client, db, make_user, make_product, login):
     resp = client.get(f'/admin/konkursy/{c.id}/wyniki')
     assert resp.status_code == 200
     assert b'WynikTest' in resp.data
+
+
+def test_edit_form_has_excluded_card(client, db, make_user, make_product, login):
+    from modules.contests.models import Contest
+    login(make_user(role='admin')); prod = make_product()
+    c = Contest(name='C', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='szkic')
+    db.session.add(c); db.session.commit()
+    html = client.get(f'/admin/konkursy/{c.id}/edytuj').data.decode()
+    assert 'Wykluczeni z losowania' in html
+    assert 'excluded_json' in html
+    assert 'id="excludedSearch"' in html

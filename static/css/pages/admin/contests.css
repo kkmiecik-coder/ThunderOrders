@@ -1770,3 +1770,65 @@
         filter: none;
     }
 }
+
+/* ---- Picker wykluczonych z losowania ---- */
+.ca-excl-search-wrap { position: relative; }
+.ca-excl-search-icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #9aa0a6; pointer-events: none;
+}
+.ca-excl-search-inp {
+    width: 100%; padding: 8px 12px 8px 32px; box-sizing: border-box;
+    border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; color: #333;
+    font-size: 14px;
+}
+.ca-excl-search-inp:focus { outline: none; border-color: #f093fb; }
+.ca-excl-results {
+    display: none; position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12); max-height: 240px; overflow-y: auto;
+}
+.ca-excl-results.is-open { display: block; }
+.ca-excl-result {
+    display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; cursor: pointer;
+}
+.ca-excl-result:hover { background: #f6f2ff; }
+.ca-excl-result-name { font-size: 14px; color: #333; }
+.ca-excl-result-email { font-size: 12px; color: #888; }
+.ca-excl-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.ca-excl-empty { font-size: 13px; color: #999; }
+.ca-excl-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 6px 4px 10px; border-radius: 999px;
+    background: #f6f2ff; border: 1px solid rgba(240,147,251,0.3); color: #333; font-size: 13px;
+}
+.ca-excl-chip-x {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border: none; border-radius: 50%;
+    background: rgba(245,87,108,0.15); color: #f5576c; cursor: pointer;
+    font-size: 15px; line-height: 1;
+}
+.ca-excl-chip-x:hover { background: rgba(245,87,108,0.3); }
+.ca-excl-badge {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+    background: rgba(245,87,108,0.12); color: #f5576c;
+    font-size: 11px; font-weight: 600; vertical-align: middle;
+}
+
+/* ---- Dark mode ---- */
+[data-theme="dark"] .ca-excl-search-inp {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(240,147,251,0.15); color: #fff;
+}
+[data-theme="dark"] .ca-excl-search-inp:focus { border-color: #f093fb; }
+[data-theme="dark"] .ca-excl-results {
+    background: #1e1b2e; border: 1px solid rgba(240,147,251,0.15);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+}
+[data-theme="dark"] .ca-excl-result:hover { background: rgba(240,147,251,0.08); }
+[data-theme="dark"] .ca-excl-result-name { color: #fff; }
+[data-theme="dark"] .ca-excl-result-email { color: rgba(255,255,255,0.6); }
+[data-theme="dark"] .ca-excl-empty { color: rgba(255,255,255,0.5); }
+[data-theme="dark"] .ca-excl-chip {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(240,147,251,0.3); color: #fff;
+}
+[data-theme="dark"] .ca-excl-badge { background: rgba(245,87,108,0.2); color: #f5576c; }
