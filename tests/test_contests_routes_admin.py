@@ -324,3 +324,66 @@ def test_edit_clears_unchecked_eligibility(client, db, make_user, make_product, 
     assert resp.status_code == 200
     db.session.refresh(c)
     assert c.eligibility_min_orders is None
+
+
+def test_create_contest_with_excluded(client, db, make_user, make_product, login):
+    import json
+    from modules.contests.models import Contest, ContestExcludedUser
+    login(make_user(role='admin'))
+    u1, u2 = make_user(), make_user()
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Konkurs Excl', 'num_winners': 1,
+        'ticket_min': 1, 'ticket_max': 50, 'cooldown_minutes': 1440,
+        'excluded_json': json.dumps([u1.id, u2.id]),
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Konkurs Excl').first()
+    assert c.excluded_user_ids == {u1.id, u2.id}
+
+
+def test_excluded_replaced_on_edit(client, db, make_user, make_product, login):
+    import json
+    from modules.contests.models import Contest, ContestExcludedUser
+    login(make_user(role='admin')); prod = make_product()
+    c = Contest(name='C', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='szkic')
+    db.session.add(c); db.session.commit()
+    u1, u2 = make_user(), make_user()
+    db.session.add(ContestExcludedUser(contest_id=c.id, user_id=u1.id)); db.session.commit()
+    # edycja: zostaw tylko u2
+    client.post(f'/admin/konkursy/{c.id}/edytuj', data={
+        'name': 'C', 'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440, 'excluded_json': json.dumps([u2.id]),
+    }, follow_redirects=True)
+    db.session.refresh(c)
+    assert c.excluded_user_ids == {u2.id}
+
+
+def test_excluded_json_empty_clears(client, db, make_user, make_product, login):
+    from modules.contests.models import Contest, ContestExcludedUser
+    login(make_user(role='admin')); prod = make_product()
+    c = Contest(name='C', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                num_winners=1, cooldown_minutes=1440, status='szkic')
+    db.session.add(c); db.session.commit()
+    db.session.add(ContestExcludedUser(contest_id=c.id, user_id=make_user().id)); db.session.commit()
+    client.post(f'/admin/konkursy/{c.id}/edytuj', data={
+        'name': 'C', 'num_winners': 1, 'ticket_min': 1, 'ticket_max': 50,
+        'cooldown_minutes': 1440, 'excluded_json': '',
+    }, follow_redirects=True)
+    db.session.refresh(c)
+    assert c.excluded_user_ids == set()
+
+
+def test_excluded_json_skips_invalid_and_dupes(client, db, make_user, make_product, login):
+    import json
+    from modules.contests.models import Contest
+    login(make_user(role='admin'))
+    u = make_user()
+    resp = client.post('/admin/konkursy/nowy', data={
+        'name': 'Konkurs Excl2', 'num_winners': 1,
+        'ticket_min': 1, 'ticket_max': 50, 'cooldown_minutes': 1440,
+        'excluded_json': json.dumps([u.id, u.id, 999999, 'x']),  # dup + nieistniejący + śmieć
+    }, follow_redirects=True)
+    assert resp.status_code == 200
+    c = Contest.query.filter_by(name='Konkurs Excl2').first()
+    assert c.excluded_user_ids == {u.id}

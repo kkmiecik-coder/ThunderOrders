@@ -1558,6 +1558,23 @@ def register_template_filters(app):
             })
         return _json.dumps(result, ensure_ascii=False)
 
+    @app.template_filter('tojson_excluded')
+    def tojson_excluded_filter(entries):
+        """
+        Serializuje listę ContestExcludedUser do JSON dla inicjalizacji JS na stronie edycji.
+        Format: [{"id": int, "name": str, "email": str}]
+        Użycie: {{ contest.excluded_entries|tojson_excluded }}
+        """
+        import json as _json
+        result = []
+        for e in entries:
+            u = e.user
+            if not u:
+                continue
+            name = ((u.first_name or '') + ' ' + (u.last_name or '')).strip() or u.email
+            result.append({'id': u.id, 'name': name, 'email': u.email})
+        return _json.dumps(result, ensure_ascii=False)
+
 
 # Uruchomienie aplikacji (tylko dla development)
 if __name__ == '__main__':

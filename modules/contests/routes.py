@@ -112,6 +112,31 @@ def _apply_prizes(contest):
         contest.prizes.append(prize)
 
 
+def _apply_excluded(contest):
+    """Przebuduj listę wykluczonych z pola excluded_json (tablica ID użytkowników)."""
+    from modules.contests.models import ContestExcludedUser
+    from modules.auth.models import User
+    raw = request.form.get('excluded_json', '').strip()
+    contest.excluded_entries.clear()  # cascade delete-orphan usuwa stare wiersze
+    if not raw:
+        return
+    try:
+        ids = json.loads(raw)
+    except (ValueError, TypeError):
+        return
+    seen = set()
+    for uid in ids or []:
+        try:
+            uid = int(uid)
+        except (ValueError, TypeError):
+            continue
+        if uid in seen:
+            continue
+        if db.session.get(User, uid):
+            seen.add(uid)
+            contest.excluded_entries.append(ContestExcludedUser(user_id=uid))
+
+
 def _delete_contest_image_files(relative_path, static_dir):
     """Usuń stary plik grafiki z dysku (defensywnie — błędy ignorowane)."""
     if not relative_path:
@@ -185,6 +210,7 @@ def admin_new():
         db.session.add(c)
         db.session.flush()  # generuje c.id potrzebne dla ContestPrize FK
         _apply_prizes(c)
+        _apply_excluded(c)
         _handle_contest_image(c)
         db.session.commit()
         flash('Konkurs utworzony.', 'success')
@@ -203,6 +229,7 @@ def admin_edit(cid):
     if form.validate_on_submit():
         _apply_form(form, c)
         _apply_prizes(c)
+        _apply_excluded(c)
         _handle_contest_image(c)
         db.session.commit()
         flash('Zapisano.', 'success')
