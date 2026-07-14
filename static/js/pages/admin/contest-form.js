@@ -597,6 +597,29 @@
     var excluded = [];   // [{id, name, email}]
     try { excluded = JSON.parse(excludedJsonEl.value) || []; } catch (e) { excluded = []; }
 
+    // Dropdown wyników przenosimy do <body>, by nie był przycinany przez
+    // kontener karty (backdrop-filter/overflow tworzy clipping/stacking context).
+    if (excludedResults && excludedResults.parentNode !== document.body) {
+      document.body.appendChild(excludedResults);
+    }
+
+    function positionResults() {
+      if (!excludedResults) return;
+      var rect = excludedSearch.getBoundingClientRect();
+      var spaceAbove = rect.top - 4;
+      excludedResults.style.position = 'fixed';
+      excludedResults.style.left = rect.left + 'px';
+      excludedResults.style.width = rect.width + 'px';
+      // Preferuj otwieranie NAD inputem; fallback w dół gdy brak miejsca u góry.
+      if (spaceAbove >= 120) {
+        excludedResults.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        excludedResults.style.top = 'auto';
+      } else {
+        excludedResults.style.top = (rect.bottom + 4) + 'px';
+        excludedResults.style.bottom = 'auto';
+      }
+    }
+
     function syncExcluded() {
       excludedJsonEl.value = JSON.stringify(excluded.map(function (u) { return u.id; }));
     }
@@ -633,6 +656,7 @@
           excluded.forEach(function (u) { chosen[u.id] = true; });
           var avail = users.filter(function (u) { return !chosen[u.id]; });
           if (!avail.length) { hideResults(); return; }
+          positionResults();
           excludedResults.innerHTML = avail.map(function (u) {
             return '<div class="ca-excl-result" data-uid="' + u.id + '" ' +
                    'data-name="' + escHtml(u.name) + '" data-email="' + escHtml(u.email || '') + '">' +
@@ -666,6 +690,13 @@
     document.addEventListener('click', function (e) {
       if (!excludedResults.contains(e.target) && e.target !== excludedSearch) hideResults();
     });
+
+    // Dropdown jest fixed przy <body> — repozycjonuj przy scrollu/resize gdy otwarty.
+    function repositionIfOpen() {
+      if (excludedResults && excludedResults.classList.contains('is-open')) positionResults();
+    }
+    window.addEventListener('scroll', repositionIfOpen, true);
+    window.addEventListener('resize', repositionIfOpen);
 
     renderChips();
   }

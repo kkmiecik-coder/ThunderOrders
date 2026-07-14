@@ -1783,8 +1783,10 @@
     font-size: 14px;
 }
 .ca-excl-search-inp:focus { outline: none; border-color: #f093fb; }
+/* Renderowany przy <body> i pozycjonowany fixed w JS (positionResults) —
+   ucieka z clipping/stacking context karty (backdrop-filter/overflow). */
 .ca-excl-results {
-    display: none; position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+    display: none; position: fixed; z-index: 9999;
     background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.12); max-height: 240px; overflow-y: auto;
 }
