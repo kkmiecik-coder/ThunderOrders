@@ -27,6 +27,8 @@ class Contest(db.Model):
     prize_product = db.relationship('Product', foreign_keys=[prize_product_id])
     prizes = db.relationship('ContestPrize', backref='contest', cascade='all, delete-orphan',
                              order_by='ContestPrize.id')
+    excluded_entries = db.relationship('ContestExcludedUser', backref='contest',
+                                       cascade='all, delete-orphan')
 
     @property
     def prize_summary(self):
@@ -45,6 +47,11 @@ class Contest(db.Model):
         if self.prize_product:
             return self.prize_product.name
         return None
+
+    @property
+    def excluded_user_ids(self):
+        """Zbiór ID użytkowników wykluczonych z losowania zwycięzców."""
+        return {e.user_id for e in self.excluded_entries}
 
     def __repr__(self):
         return f'<Contest {self.id}: {self.name} [{self.status}]>'
@@ -124,3 +131,21 @@ class ContestWinner(db.Model):
 
     def __repr__(self):
         return f'<ContestWinner contest={self.contest_id} user={self.user_id} place={self.place}>'
+
+
+class ContestExcludedUser(db.Model):
+    __tablename__ = 'contest_excluded_users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    contest_id = db.Column(db.Integer, db.ForeignKey('contests.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
+
+    user = db.relationship('User', foreign_keys=[user_id])
+
+    __table_args__ = (
+        db.UniqueConstraint('contest_id', 'user_id', name='uq_contest_excluded_user'),
+    )
+
+    def __repr__(self):
+        return f'<ContestExcludedUser contest={self.contest_id} user={self.user_id}>'

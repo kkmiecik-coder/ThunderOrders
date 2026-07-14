@@ -142,3 +142,36 @@ def test_spin_and_winner_persist(db, make_product, make_user):
     assert w.place == 1
     assert w.tickets_at_draw == 20
     assert float(w.chance_pct) == 100.0
+
+
+def test_excluded_user_relationship_and_cascade(db, make_product, make_user):
+    from modules.contests.models import Contest, ContestExcludedUser
+    admin = make_user(role='admin'); prod = make_product()
+    c = Contest(name='C', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                status='aktywny', created_by_admin_id=admin.id)
+    db.session.add(c); db.session.commit()
+    u1, u2 = make_user(), make_user()
+    c.excluded_entries.append(ContestExcludedUser(user_id=u1.id))
+    c.excluded_entries.append(ContestExcludedUser(user_id=u2.id))
+    db.session.commit()
+
+    assert c.excluded_user_ids == {u1.id, u2.id}
+    assert ContestExcludedUser.query.filter_by(contest_id=c.id).count() == 2
+
+    # cascade: usunięcie konkursu kasuje wiersze wykluczeń
+    db.session.delete(c); db.session.commit()
+    assert ContestExcludedUser.query.count() == 0
+
+
+def test_excluded_clear_removes_orphans(db, make_product, make_user):
+    from modules.contests.models import Contest, ContestExcludedUser
+    admin = make_user(role='admin'); prod = make_product()
+    c = Contest(name='C', prize_product_id=prod.id, ticket_min=1, ticket_max=50,
+                status='aktywny', created_by_admin_id=admin.id)
+    db.session.add(c); db.session.commit()
+    c.excluded_entries.append(ContestExcludedUser(user_id=make_user().id))
+    db.session.commit()
+    c.excluded_entries.clear()   # delete-orphan usuwa wiersz
+    db.session.commit()
+    assert ContestExcludedUser.query.count() == 0
+    assert c.excluded_user_ids == set()
