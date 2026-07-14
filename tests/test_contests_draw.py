@@ -132,10 +132,9 @@ def test_all_participants_excluded_no_winners(db, make_product, make_user):
     assert c.status == 'rozlosowany'
 
 
-def test_excluded_user_ids_helper(db, make_product, make_user):
-    from modules.contests.utils import excluded_user_ids
+def test_excluded_user_ids_property(db, make_product, make_user):
     c = _contest(db, make_product, make_user)
     u = make_user()
-    assert excluded_user_ids(c) == set()
+    assert c.excluded_user_ids == set()
     _exclude(db, c, u)
-    assert excluded_user_ids(c) == {u.id}
+    assert c.excluded_user_ids == {u.id}

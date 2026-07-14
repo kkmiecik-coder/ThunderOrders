@@ -153,14 +153,6 @@ def _weighted_pick(remaining, rng):
     return len(remaining) - 1   # fallback dla edge'a zmiennoprzecinkowego pick==total
 
 
-def excluded_user_ids(contest):
-    """Zbiór ID użytkowników wykluczonych z losowania zwycięzców tego konkursu."""
-    from modules.contests.models import ContestExcludedUser
-    rows = db.session.query(ContestExcludedUser.user_id) \
-        .filter(ContestExcludedUser.contest_id == contest.id).all()
-    return {uid for (uid,) in rows}
-
-
 def draw_winners(contest, rng=None):
     """Autorytatywne, ważone losowanie bez powtórzeń. Idempotentne."""
     from modules.contests.models import ContestWinner
@@ -169,7 +161,7 @@ def draw_winners(contest, rng=None):
             .order_by(ContestWinner.place).all()
 
     rng = rng or _random.SystemRandom()
-    excluded = excluded_user_ids(contest)
+    excluded = contest.excluded_user_ids
     # Wykluczeni pozostają w participants() (widoczni w bębnie), ale NIE mogą wygrać —
     # usuwamy ich z puli losowalnej i z mianownika szans.
     pool_participants = [(u, t) for (u, t) in participants(contest) if u.id not in excluded]
