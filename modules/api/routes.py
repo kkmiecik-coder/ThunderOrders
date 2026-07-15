@@ -280,13 +280,21 @@ def search_products():
                 'message': 'Search query must be at least 2 characters'
             }), 400
         else:
-            # Search products by name, SKU, or EAN
-            products = Product.query.filter(
+            # Szukanie po słowach (tokenach), nie po całej frazie naraz.
+            # Każde słowo z zapytania musi wystąpić w nazwie/SKU/EAN — dzięki
+            # temu "ateez hig" znajdzie "Ateez  Higher" mimo podwójnej spacji,
+            # innego myślnika czy odwróconej kolejności słów.
+            tokens = query.split()
+            token_filters = [
                 db.or_(
-                    Product.name.ilike(f'%{query}%'),
-                    Product.sku.ilike(f'%{query}%'),
-                    Product.ean.ilike(f'%{query}%')
+                    Product.name.ilike(f'%{token}%'),
+                    Product.sku.ilike(f'%{token}%'),
+                    Product.ean.ilike(f'%{token}%')
                 )
+                for token in tokens
+            ]
+            products = Product.query.filter(
+                db.and_(*token_filters)
             ).filter_by(is_active=True).limit(limit).all()
 
         # Format results
