@@ -926,6 +926,11 @@
     // Pozwala na event delegation zamiast inline onclick z danymi produktu —
     // nazwy z apostrofem (np. "L'Oréal") łamały składnię inline handlera.
     let productSearchResultsData = new Map();
+    // Bulk select: produkty zaznaczone "na ptaszki" w bieżącym renderze listy
+    // (jeszcze niedodane). Dodawane zbiorczo przyciskiem "Dodaj zaznaczone".
+    let pendingSelection = new Set();
+    // Surowe wyniki ostatniego wyszukania — do przerenderowania po dodaniu.
+    let lastSearchProducts = [];
 
     // Initialize selected products from URL param
     function initSelectedProducts() {
@@ -1024,17 +1029,62 @@
             }
         });
 
-        // Event delegation na wynikach wyszukiwania — dane produktu czytamy
-        // z mapy po ID, dzięki czemu nazwa/SKU nie trafiają do inline JS.
+        // Event delegation na wynikach — klik wiersza przełącza zaznaczenie
+        // (checkbox), przycisk "Dodaj zaznaczone" dodaje je zbiorczo.
         productSearchResults.addEventListener('click', function(e) {
+            // Klik wewnątrz listy nie może dotrzeć do globalnego "klik poza listą"
+            // (po re-renderze kliknięty element bywa odłączony → fałszywe zamknięcie).
+            e.stopPropagation();
+            // Przycisk "Dodaj zaznaczone"
+            if (e.target.closest('.product-search-add-btn')) {
+                addPendingProducts();
+                return;
+            }
+            // Klik w wiersz produktu → toggle zaznaczenia. Lista zostaje otwarta.
             const item = e.target.closest('.product-search-item');
             if (!item) return;
-            const product = productSearchResultsData.get(item.dataset.productId);
-            if (!product) return;
-            const imageUrl = product.image_url || PLACEHOLDER_IMAGE;
-            const sku = product.sku ? `SKU: ${product.sku}` : '';
-            window.selectProduct(product.id, product.name, imageUrl, sku);
+            const id = item.dataset.productId;
+            if (!productSearchResultsData.has(id)) return;
+            if (pendingSelection.has(id)) {
+                pendingSelection.delete(id);
+            } else {
+                pendingSelection.add(id);
+            }
+            item.classList.toggle('is-checked', pendingSelection.has(id));
+            const cb = item.querySelector('.product-search-check');
+            if (cb) cb.checked = pendingSelection.has(id);
+            updateAddButton();
         });
+    }
+
+    /**
+     * Dodaje zbiorczo zaznaczone (pending) produkty do wybranych.
+     */
+    function addPendingProducts() {
+        if (pendingSelection.size === 0) return;
+        pendingSelection.forEach(id => {
+            const product = productSearchResultsData.get(id);
+            if (product && !selectedProducts.has(product.id)) {
+                selectedProducts.set(product.id, product);
+            }
+        });
+        pendingSelection.clear();
+        renderSelectedProducts();
+        updateProductsHiddenInput();
+        // Przerenderuj listę — dodane znikają (filtrowane po selectedProducts).
+        displayProductSearchResults(lastSearchProducts);
+    }
+
+    /**
+     * Aktualizuje licznik i stan disabled przycisku "Dodaj zaznaczone".
+     */
+    function updateAddButton() {
+        if (!productSearchResults) return;
+        const btn = productSearchResults.querySelector('.product-search-add-btn');
+        if (!btn) return;
+        const n = pendingSelection.size;
+        btn.textContent = `Dodaj zaznaczone (${n})`;
+        btn.disabled = n === 0;
     }
 
     /**
@@ -1043,6 +1093,8 @@
     function searchProducts(query) {
         if (!productSearchResults) return;
 
+        // Nowe wyszukanie = czysty stan zaznaczeń.
+        pendingSelection.clear();
         productSearchResults.innerHTML = '<div class="product-search-loading">Szukam...</div>';
         productSearchResults.classList.add('active');
         positionProductResults();
@@ -1071,6 +1123,9 @@
     function displayProductSearchResults(products) {
         if (!productSearchResults) return;
 
+        // Zapamiętaj surowe wyniki — do przerenderowania po "Dodaj zaznaczone".
+        lastSearchProducts = products;
+
         // Filter out already selected products
         const filteredProducts = products.filter(p => !selectedProducts.has(p.id));
 
@@ -1079,18 +1134,27 @@
             filteredProducts.map(p => [String(p.id), p])
         );
 
+        // Odrzuć z pending produkty, których nie ma już na liście (np. dodane).
+        pendingSelection.forEach(id => {
+            if (!productSearchResultsData.has(id)) pendingSelection.delete(id);
+        });
+
         if (filteredProducts.length === 0) {
             productSearchResults.innerHTML = '<div class="product-search-empty">Brak wyników</div>';
+            positionProductResults();
             return;
         }
 
         const html = filteredProducts.map(product => {
+            const id = String(product.id);
+            const checked = pendingSelection.has(id);
             const imageUrl = product.image_url || PLACEHOLDER_IMAGE;
             const price = product.price ? `${product.price.toFixed(2)} PLN` : '';
             const sku = product.sku ? `SKU: ${product.sku}` : '';
 
             return `
-                <div class="product-search-item" data-product-id="${product.id}">
+                <div class="product-search-item${checked ? ' is-checked' : ''}" data-product-id="${id}">
+                    <input type="checkbox" class="product-search-check"${checked ? ' checked' : ''} tabindex="-1">
                     <img class="product-search-thumb" src="${escapeHtml(imageUrl)}" alt="" onerror="this.src='${PLACEHOLDER_IMAGE}'">
                     <div class="product-search-info">
                         <div class="product-search-name">${escapeHtml(product.name)}</div>
@@ -1101,7 +1165,15 @@
             `;
         }).join('');
 
-        productSearchResults.innerHTML = html;
+        // Sticky pasek z przyciskiem zbiorczego dodania na dole listy.
+        const addBar = `
+            <div class="product-search-add-bar">
+                <button type="button" class="product-search-add-btn" disabled>Dodaj zaznaczone (0)</button>
+            </div>
+        `;
+
+        productSearchResults.innerHTML = html + addBar;
+        updateAddButton();
         // Wysokość listy zmieniła się po wczytaniu wyników — przelicz pozycję.
         positionProductResults();
     }
