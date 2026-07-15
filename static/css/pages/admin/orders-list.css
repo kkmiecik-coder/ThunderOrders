@@ -289,11 +289,34 @@
     padding: 1.5rem;
 }
 
+/* CSS Grid zamiast flex-wrap — flex z różnymi flex-basis i wysokościami
+   pól zawijał się nierówno (dziury, zderzenia, poziomy scroll w modalu).
+   auto-fit dopasowuje liczbę kolumn do RZECZYWISTEJ szerokości modala,
+   niezależnie od szerokości okna (media queries były do niej nieadekwatne). */
 .filters-grid {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1rem;
-    align-items: flex-start;
+    align-items: start;
+}
+
+/* Pola pełnej szerokości (typ zamówienia, szukaj, płatności, produkty)
+   zajmują cały wiersz; Data od/Data do siedzą obok siebie gdy jest miejsce. */
+.filters-grid > .form-group-full {
+    grid-column: 1 / -1;
+}
+
+/* Elementy gridu mają domyślnie min-width:auto i nie kurczą się poniżej
+   treści (input daty ma "naturalną" szerokość) — to dawało poziomy scroll.
+   min-width:0 pozwala kolumnom się zmieścić; border-box trzyma input w torze. */
+.filters-grid > .form-group,
+.filters-grid > .form-group-full {
+    min-width: 0;
+}
+.filters-grid .form-input,
+.filters-grid .form-select {
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .form-group-search {
