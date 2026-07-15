@@ -2709,13 +2709,43 @@
 .product-search-add-bar {
     position: sticky;
     bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     padding: 0.5rem;
     background: var(--card-bg);
     border-top: 1px solid #E0E0E0;
 }
 
+/* Przełącznik "Zaznacz wszystkie" */
+.product-search-selectall {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+    padding: 0 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #555;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.product-search-selectall-cb {
+    width: 16px;
+    height: 16px;
+    accent-color: #9D4EDD;
+    cursor: pointer;
+    margin: 0;
+}
+
+[data-theme="dark"] .product-search-selectall {
+    color: rgba(255, 255, 255, 0.7);
+}
+
 .product-search-add-btn {
-    width: 100%;
+    flex: 1;
     padding: 0.6rem 1rem;
     border: none;
     border-radius: 6px;

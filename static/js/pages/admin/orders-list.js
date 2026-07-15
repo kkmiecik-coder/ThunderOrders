@@ -1040,6 +1040,11 @@
                 addPendingProducts();
                 return;
             }
+            // Przełącznik "Zaznacz wszystkie"
+            if (e.target.closest('.product-search-selectall')) {
+                toggleSelectAllResults();
+                return;
+            }
             // Klik w wiersz produktu → toggle zaznaczenia. Lista zostaje otwarta.
             const item = e.target.closest('.product-search-item');
             if (!item) return;
@@ -1076,6 +1081,22 @@
     }
 
     /**
+     * Zaznacza/odznacza wszystkie widoczne wyniki naraz.
+     */
+    function toggleSelectAllResults() {
+        const ids = Array.from(productSearchResultsData.keys());
+        if (ids.length === 0) return;
+        const allChecked = ids.every(id => pendingSelection.has(id));
+        if (allChecked) {
+            ids.forEach(id => pendingSelection.delete(id));
+        } else {
+            ids.forEach(id => pendingSelection.add(id));
+        }
+        // Przerenderuj listę — odzwierciedla zaznaczenia + stan checkboxów.
+        displayProductSearchResults(lastSearchProducts);
+    }
+
+    /**
      * Aktualizuje licznik i stan disabled przycisku "Dodaj zaznaczone".
      */
     function updateAddButton() {
@@ -1085,6 +1106,12 @@
         const n = pendingSelection.size;
         btn.textContent = `Dodaj zaznaczone (${n})`;
         btn.disabled = n === 0;
+        // Zsynchronizuj "Zaznacz wszystkie" — zaznaczony gdy wszystkie widoczne w pending.
+        const selectAllCb = productSearchResults.querySelector('.product-search-selectall-cb');
+        if (selectAllCb) {
+            const ids = Array.from(productSearchResultsData.keys());
+            selectAllCb.checked = ids.length > 0 && ids.every(id => pendingSelection.has(id));
+        }
     }
 
     /**
@@ -1165,9 +1192,15 @@
             `;
         }).join('');
 
-        // Sticky pasek z przyciskiem zbiorczego dodania na dole listy.
+        // Sticky pasek: przełącznik "Zaznacz wszystkie" + przycisk dodania.
+        const allChecked = filteredProducts.length > 0 &&
+            filteredProducts.every(p => pendingSelection.has(String(p.id)));
         const addBar = `
             <div class="product-search-add-bar">
+                <label class="product-search-selectall">
+                    <input type="checkbox" class="product-search-selectall-cb"${allChecked ? ' checked' : ''} tabindex="-1">
+                    <span>Zaznacz wszystkie</span>
+                </label>
                 <button type="button" class="product-search-add-btn" disabled>Dodaj zaznaczone (0)</button>
             </div>
         `;
