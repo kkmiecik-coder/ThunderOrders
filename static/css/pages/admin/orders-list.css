@@ -2583,17 +2583,16 @@
     z-index: 100;
 }
 
+/* Renderowana przy <body> i pozycjonowana fixed w JS (positionProductResults) —
+   ucieka z przycinania przez .filters-modal-body (overflow-y: auto). */
 .product-search-results {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
+    position: fixed;
     background: var(--card-bg);
     border: 1px solid #E0E0E0;
     border-radius: 8px;
     max-height: 320px;
     overflow-y: auto;
-    z-index: 9999;
+    z-index: 10000;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     display: none;
 }

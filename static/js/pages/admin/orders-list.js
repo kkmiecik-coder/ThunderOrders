@@ -952,6 +952,40 @@
         });
     }
 
+    // Dropdown wyników przenosimy do <body>, by nie był przycinany przez
+    // .filters-modal-body (overflow-y: auto tworzy clipping context).
+    if (productSearchResults && productSearchResults.parentNode !== document.body) {
+        document.body.appendChild(productSearchResults);
+    }
+
+    // Pozycjonuje listę wyników (fixed) względem pola wyszukiwania.
+    // Preferuje otwieranie w dół; fallback w górę, gdy brak miejsca pod polem.
+    function positionProductResults() {
+        if (!productSearchResults || !productFilterSearch) return;
+        const rect = productFilterSearch.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom - 8;
+        productSearchResults.style.left = rect.left + 'px';
+        productSearchResults.style.width = rect.width + 'px';
+        if (spaceBelow >= 200 || spaceBelow >= rect.top) {
+            productSearchResults.style.top = (rect.bottom + 4) + 'px';
+            productSearchResults.style.bottom = 'auto';
+            productSearchResults.style.maxHeight = Math.min(320, spaceBelow) + 'px';
+        } else {
+            productSearchResults.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+            productSearchResults.style.top = 'auto';
+            productSearchResults.style.maxHeight = Math.min(320, rect.top - 8) + 'px';
+        }
+    }
+
+    // Lista jest fixed przy <body> — repozycjonuj przy scrollu/resize gdy otwarta.
+    function repositionProductResultsIfOpen() {
+        if (productSearchResults && productSearchResults.classList.contains('active')) {
+            positionProductResults();
+        }
+    }
+    window.addEventListener('scroll', repositionProductResultsIfOpen, true);
+    window.addEventListener('resize', repositionProductResultsIfOpen);
+
     // Product search input handler
     if (productFilterSearch) {
         productFilterSearch.addEventListener('input', function() {
@@ -1011,6 +1045,7 @@
 
         productSearchResults.innerHTML = '<div class="product-search-loading">Szukam...</div>';
         productSearchResults.classList.add('active');
+        positionProductResults();
 
         fetch(`/api/products/search?q=${encodeURIComponent(query)}&limit=10`)
             .then(response => response.json())
@@ -1067,6 +1102,8 @@
         }).join('');
 
         productSearchResults.innerHTML = html;
+        // Wysokość listy zmieniła się po wczytaniu wyników — przelicz pozycję.
+        positionProductResults();
     }
 
     /**
