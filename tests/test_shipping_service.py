@@ -242,6 +242,84 @@ def test_web_request_create_and_cancel_parity(client, db, make_user, make_order,
     assert r.get_json()['request_number'].startswith('WYS/')
 
 
+# ============================================================================
+# Task 869e674fd — gate Cło/VAT (zlecenie wysyłki dopiero po opłaceniu podatku)
+# ============================================================================
+
+def _approve_customs_vat(db, order, amount=50):
+    from modules.orders.models import PaymentConfirmation
+    db.session.add(PaymentConfirmation(order_id=order.id, payment_stage='customs_vat',
+                                       amount=amount, status='approved'))
+    db.session.commit()
+
+
+def test_create_request_blocked_when_customs_vat_unpaid(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive',
+                   customs_vat_sale_cost=50)                  # cło należne, nieopłacone
+    ok, err, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert not ok and err['code'] == 'customs_vat_unpaid'
+    assert o.id in err['customs_vat_unpaid_order_ids'] and req is None
+
+
+def test_create_request_blocked_when_customs_vat_pending(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    from modules.orders.models import PaymentConfirmation
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive', customs_vat_sale_cost=50)
+    db.session.add(PaymentConfirmation(order_id=o.id, payment_stage='customs_vat',
+                                       amount=50, status='pending'))  # wgrane, niezatwierdzone
+    db.session.commit()
+    ok, err, _ = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert not ok and err['code'] == 'customs_vat_unpaid'   # 'pending' nie wystarcza
+
+
+def test_create_request_ok_when_customs_vat_approved(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive', customs_vat_sale_cost=50)
+    _approve_customs_vat(db, o)
+    ok, err, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert ok and req is not None
+
+
+def test_create_request_ok_when_no_customs_due(db, make_user, make_order):
+    # on_hand (default) bez kwoty cła → gate nie dotyczy
+    from modules.client.shipping_service import validate_and_create_request
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom')
+    ok, err, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert ok and req is not None
+
+
+def test_web_available_orders_expose_customs_vat_flag(client, db, make_user, make_order, login):
+    _seed_status(db); _allow(db)
+    u = make_user(profile_completed=True); login(u)
+    paid = make_order(u, status='dostarczone_gom')            # on_hand → settled
+    unpaid = make_order(u, status='dostarczone_gom', order_type='exclusive', customs_vat_sale_cost=50)
+    r = client.get('/client/shipping/requests/available-orders')
+    by_id = {o['id']: o for o in r.get_json()['orders']}
+    assert by_id[paid.id]['customs_vat_paid'] is True
+    assert by_id[unpaid.id]['customs_vat_paid'] is False
+
+
+def test_web_request_create_customs_vat_unpaid_parity(client, db, make_user, make_order, login):
+    _seed_status(db); _allow(db)
+    u = make_user(profile_completed=True); login(u)
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive', customs_vat_sale_cost=50)
+    a = _addr(db, u)
+    r = client.post('/client/shipping/requests/create',
+                    json={'order_ids': [o.id], 'address_id': a.id},
+                    headers={'X-Requested-With': 'XMLHttpRequest'})
+    assert r.status_code == 400 and r.get_json()['success'] is False
+    assert 'Cło/VAT' in r.get_json()['error']
+
+
 def test_web_request_create_foreign_rejected_parity(client, db, make_user, make_order, login):
     from modules.client.shipping_service import create_address
     _seed_status(db); _allow(db)

@@ -199,6 +199,31 @@ def test_create_request_bad_address_404(client, db, make_user, make_order):
     assert r.status_code == 404 and r.get_json()['error']['code'] == 'address_not_found'
 
 
+def test_create_request_customs_vat_unpaid_409(client, db, make_user, make_order):
+    # Task 869e674fd: zlecenie wysyłki dopiero po opłaceniu Cła/VAT (E3 approved)
+    h, u = _auth(client, db, make_user)
+    _seed_status(db); _allow(db)
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive', customs_vat_sale_cost=50)
+    a = client.post('/api/mobile/v1/shipping/addresses', json=_home(), headers=h
+                    ).get_json()['data']['address']
+    r = client.post('/api/mobile/v1/shipping/requests',
+                    json={'order_ids': [o.id], 'address_id': a['id']}, headers=h)
+    assert r.status_code == 409 and r.get_json()['error']['code'] == 'customs_vat_unpaid'
+    assert o.id in r.get_json()['error']['details']['customs_vat_unpaid_order_ids']
+
+
+def test_available_orders_expose_customs_vat_flag(client, db, make_user, make_order):
+    h, u = _auth(client, db, make_user)
+    _allow(db)
+    paid = make_order(u, status='dostarczone_gom')            # on_hand → settled
+    unpaid = make_order(u, status='dostarczone_gom', order_type='exclusive', customs_vat_sale_cost=50)
+    orders = client.get('/api/mobile/v1/shipping/requests/available-orders', headers=h
+                        ).get_json()['data']['orders']
+    by_id = {o['id']: o for o in orders}
+    assert by_id[paid.id]['customs_vat_paid'] is True
+    assert by_id[unpaid.id]['customs_vat_paid'] is False
+
+
 def test_create_request_idempotency_key_replays(client, db, make_user, make_order):
     h, u = _auth(client, db, make_user)
     _seed_status(db); _allow(db)

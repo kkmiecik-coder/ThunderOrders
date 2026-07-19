@@ -209,7 +209,9 @@ def shipping_requests_available_orders():
                 'total_amount': float(order.total_amount),
                 'created_at': order.created_at.strftime('%d.%m.%Y'),
                 'items': items_data,
-                'items_count': len(order.items)
+                'items_count': len(order.items),
+                # Gate Cło/VAT (task 869e674fd): False → zablokowane do zlecenia wysyłki
+                'customs_vat_paid': order.is_customs_vat_settled
             })
 
         return jsonify({'success': True, 'orders': orders_data})
@@ -241,6 +243,11 @@ def shipping_requests_create():
                 return jsonify({'success': False, 'error': 'Wybierz adres dostawy'}), 400
             if code == 'address_not_found':
                 return jsonify({'success': False, 'error': 'Nieprawidłowy adres dostawy'}), 400
+            if code == 'customs_vat_unpaid':
+                return jsonify({
+                    'success': False,
+                    'error': 'Nie można zlecić wysyłki — najpierw opłać Cło/VAT dla wybranych zamówień'
+                }), 400
             # orders_not_found / orders_not_available → sklejony komunikat (parytet web)
             return jsonify({
                 'success': False,

@@ -192,14 +192,17 @@ function renderOrderCards(orders) {
                 </tr>
             </thead>
             <tbody>
-                ${orders.map(order => `
-                    <tr class="order-row ${selectedOrders.includes(order.id) ? 'selected' : ''}" data-order-id="${order.id}" onclick="toggleOrderSelection(${order.id})">
+                ${orders.map(order => {
+                    const blocked = order.customs_vat_paid === false;
+                    return `
+                    <tr class="order-row ${blocked ? 'order-row-blocked' : ''} ${!blocked && selectedOrders.includes(order.id) ? 'selected' : ''}" data-order-id="${order.id}" onclick="toggleOrderSelection(${order.id})"${blocked ? ' title="Najpierw opłać Cło/VAT dla tego zamówienia"' : ''}>
                         <td class="col-checkbox">
-                            <input type="checkbox" class="order-checkbox" id="order-${order.id}" ${selectedOrders.includes(order.id) ? 'checked' : ''}>
+                            <input type="checkbox" class="order-checkbox" id="order-${order.id}" ${blocked ? 'disabled' : ''} ${!blocked && selectedOrders.includes(order.id) ? 'checked' : ''}>
                         </td>
                         <td class="col-number">
                             <span class="order-number">${order.order_number}</span>
                             <span class="order-date">${order.created_at}</span>
+                            ${blocked ? '<span class="order-tax-warning">⚠ Najpierw opłać Cło/VAT</span>' : ''}
                         </td>
                         <td class="col-items">
                             <div class="items-list">
@@ -210,7 +213,8 @@ function renderOrderCards(orders) {
                             <span class="amount-value">${order.total_amount.toFixed(2)} zł</span>
                         </td>
                     </tr>
-                `).join('')}
+                `;
+                }).join('')}
             </tbody>
         </table>
     `;
@@ -277,8 +281,13 @@ function toggleModalOrderItems(orderId, totalItems) {
 }
 
 function toggleOrderSelection(orderId) {
-    const index = selectedOrders.indexOf(orderId);
     const row = document.querySelector(`.order-row[data-order-id="${orderId}"]`);
+    // Gate Cło/VAT: zamówienia z nieopłaconym podatkiem nie da się zaznaczyć
+    if (row && row.classList.contains('order-row-blocked')) {
+        showToast('Najpierw opłać Cło/VAT dla tego zamówienia', 'warning');
+        return;
+    }
+    const index = selectedOrders.indexOf(orderId);
     const checkbox = document.getElementById(`order-${orderId}`);
 
     if (index > -1) {
@@ -296,7 +305,8 @@ function toggleOrderSelection(orderId) {
 }
 
 function toggleSelectAllShippingOrders(selectAllCheckbox) {
-    const rows = document.querySelectorAll('.order-row');
+    // Pomijamy zamówienia zablokowane gate'em Cło/VAT
+    const rows = document.querySelectorAll('.order-row:not(.order-row-blocked)');
     rows.forEach(function(row) {
         const orderId = parseInt(row.dataset.orderId);
         const checkbox = document.getElementById(`order-${orderId}`);
@@ -318,7 +328,7 @@ function toggleSelectAllShippingOrders(selectAllCheckbox) {
 function updateSelectAllShippingState() {
     const selectAll = document.getElementById('selectAllShippingOrders');
     if (!selectAll) return;
-    const totalRows = document.querySelectorAll('.order-row').length;
+    const totalRows = document.querySelectorAll('.order-row:not(.order-row-blocked)').length;
     selectAll.checked = totalRows > 0 && selectedOrders.length === totalRows;
 }
 

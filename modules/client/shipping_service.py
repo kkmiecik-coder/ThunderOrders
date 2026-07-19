@@ -159,6 +159,10 @@ def validate_and_create_request(user, order_ids, address_id):
                          if owned[oid].status not in allowed or oid in in_req)
     if unavailable:
         return False, {'code': 'orders_not_available', 'unavailable_order_ids': unavailable}, None
+    # Gate Cło/VAT (task 869e674fd): zlecenie wysyłki dopiero po opłaceniu podatku (E3 approved).
+    unpaid_tax = sorted(oid for oid in order_ids if not owned[oid].is_customs_vat_settled)
+    if unpaid_tax:
+        return False, {'code': 'customs_vat_unpaid', 'customs_vat_unpaid_order_ids': unpaid_tax}, None
     address = ShippingAddress.query.filter_by(
         id=address_id, user_id=user.id, is_active=True).first()
     if not address:

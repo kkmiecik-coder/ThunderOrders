@@ -90,6 +90,8 @@ def _serialize_available_order(order):
         'total_amount': to_grosze(order.total_amount),
         'created_at': order.created_at.isoformat() if order.created_at else None,
         'items_count': order.items_count,
+        # Gate Cło/VAT (task 869e674fd): False → zablokowane do zlecenia wysyłki
+        'customs_vat_paid': order.is_customs_vat_settled,
         'items': [{'name': it.product_name, 'selected_size': it.selected_size,
                    'image_url': _abs_image(it.product_image_url),
                    'quantity': it.quantity, 'price': to_grosze(it.price)}
@@ -136,6 +138,7 @@ def shipping_requests_list():
 _CREATE_REQUEST_ERR_STATUS = {
     'no_orders': 400, 'no_address': 400,
     'orders_not_found': 404, 'orders_not_available': 409, 'address_not_found': 404,
+    'customs_vat_unpaid': 409,
 }
 _CREATE_REQUEST_ERR_MSG = {
     'no_orders': 'Wybierz przynajmniej jedno zamówienie.',
@@ -143,9 +146,11 @@ _CREATE_REQUEST_ERR_MSG = {
     'orders_not_found': 'Zamówienie nie istnieje.',
     'orders_not_available': 'Niektóre zamówienia są niedostępne lub już mają zlecenie wysyłki.',
     'address_not_found': 'Adres dostawy nie istnieje.',
+    'customs_vat_unpaid': 'Najpierw opłać Cło/VAT dla wybranych zamówień.',
 }
 _CREATE_REQUEST_ERR_DETAILS = {
     'orders_not_found': 'missing_order_ids', 'orders_not_available': 'unavailable_order_ids',
+    'customs_vat_unpaid': 'customs_vat_unpaid_order_ids',
 }
 
 

@@ -956,6 +956,20 @@ class Order(db.Model):
             return False
         return True
 
+    @property
+    def is_customs_vat_settled(self):
+        """E3 Cło/VAT rozliczone — warunek dopuszczenia zlecenia wysyłki (task 869e674fd).
+
+        True gdy podatek (cło/VAT) nie dotyczy zamówienia (on_hand lub brak kwoty)
+        LUB został opłacony i zatwierdzony przez admina (stage_3_status == 'approved').
+        'pending'/'rejected'/'none' → jeszcze nieopłacony (blokuje zlecenie wysyłki).
+        """
+        if self.order_type == 'on_hand':
+            return True
+        if not self.customs_vat_sale_cost or self.customs_vat_sale_cost <= 0:
+            return True
+        return self.stage_3_status == 'approved'
+
     def get_shipping_kr_deadline(self):
         """Get payment deadline for E2 (Korean shipping) from PolandOrder."""
         from modules.products.models import PolandOrderItem

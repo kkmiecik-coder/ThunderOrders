@@ -646,6 +646,33 @@
     background: #dcfce7;
 }
 
+/* Gate Cło/VAT (task 869e674fd) — zamówienie z nieopłaconym podatkiem */
+.orders-select-table .order-row-blocked {
+    cursor: not-allowed;
+    background: #fef2f2;
+    opacity: 0.75;
+}
+
+.orders-select-table .order-row-blocked:hover {
+    background: #fee2e2;
+}
+
+.orders-select-table .order-row-blocked .order-checkbox {
+    cursor: not-allowed;
+}
+
+.orders-select-table .order-tax-warning {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #b91c1c;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+}
+
 .orders-select-table td {
     padding: 12px 16px;
     border-bottom: 1px solid #e5e7eb;
@@ -1129,6 +1156,21 @@
 
 [data-theme="dark"] .orders-select-table .order-row.selected {
     background: rgba(34, 197, 94, 0.2);
+}
+
+/* Gate Cło/VAT (task 869e674fd) — dark mode */
+[data-theme="dark"] .orders-select-table .order-row-blocked {
+    background: rgba(245, 87, 108, 0.08);
+}
+
+[data-theme="dark"] .orders-select-table .order-row-blocked:hover {
+    background: rgba(245, 87, 108, 0.14);
+}
+
+[data-theme="dark"] .orders-select-table .order-tax-warning {
+    color: #fca5a5;
+    background: rgba(245, 87, 108, 0.15);
+    border-color: rgba(245, 87, 108, 0.3);
 }
 
 [data-theme="dark"] .orders-select-table td {
