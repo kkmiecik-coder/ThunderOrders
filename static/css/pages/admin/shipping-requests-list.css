@@ -157,8 +157,8 @@
 }
 
 .sr-cards-grid {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
     gap: 20px;
 }
 
@@ -167,8 +167,6 @@
    ============================================ */
 
 .sr-card {
-    flex: 1 1 380px;
-    max-width: 500px;
     background: var(--card-bg);
     border-radius: 16px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -1284,12 +1282,6 @@
 
     .sr-cards-grid {
         gap: 16px;
-    }
-
-    /* Cards - full width on mobile */
-    .sr-card {
-        flex: 1 1 100%;
-        max-width: 100%;
     }
 
     .sr-card-header {
