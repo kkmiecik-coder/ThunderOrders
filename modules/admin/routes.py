@@ -10,13 +10,41 @@ from utils.decorators import role_required
 from extensions import db
 from modules.auth.models import User
 from modules.admin.models import AdminTask
-from modules.orders.models import Order, OrderItem, PaymentConfirmation
+from modules.orders.models import Order, OrderItem, PaymentConfirmation, ShippingRequest
 from modules.products.models import Product
 from modules.offers.models import OfferPage
 from sqlalchemy import func, desc, cast, Date, extract, or_, and_
 from datetime import datetime, timedelta
 from decimal import Decimal
 from calendar import month_name
+
+
+def get_shipping_alert_counts():
+    """Liczy zlecenia wysyłki wymagające uwagi na dashboardzie.
+
+    Zwraca liczby wg statusu ShippingRequest (jedno zapytanie grupujące):
+      - to_quote: 'czeka_na_wycene'    → Do wyceny
+      - to_pay:   'czeka_na_oplacenie' → Czeka na opłacenie
+      - to_pack:  'oplacone'           → Do spakowania
+    Statusy 'spakowane' i dalsze NIE są liczone.
+    """
+    rows = dict(
+        db.session.query(ShippingRequest.status, func.count(ShippingRequest.id))
+        .filter(ShippingRequest.status.in_(
+            ['czeka_na_wycene', 'czeka_na_oplacenie', 'oplacone']
+        ))
+        .group_by(ShippingRequest.status)
+        .all()
+    )
+    to_quote = rows.get('czeka_na_wycene', 0)
+    to_pay = rows.get('czeka_na_oplacenie', 0)
+    to_pack = rows.get('oplacone', 0)
+    return {
+        'to_quote': to_quote,
+        'to_pay': to_pay,
+        'to_pack': to_pack,
+        'total': to_quote + to_pay + to_pack,
+    }
 
 
 @admin_bp.route('/dashboard')
@@ -259,6 +287,9 @@ def dashboard():
     # 9. Pending payment confirmations count
     pending_payment_confirmations = PaymentConfirmation.query.filter_by(status='pending').count()
 
+    # 10. Shipping request alert counts (karta "Zlecenia wysyłki")
+    shipping_alerts = get_shipping_alert_counts()
+
     return render_template(
         'admin/dashboard.html',
         title='Panel Administratora',
@@ -270,7 +301,10 @@ def dashboard():
         top_products=top_products,
         tasks=tasks,
         offer_pages=offer_pages,
-        pending_payment_confirmations=pending_payment_confirmations
+        pending_payment_confirmations=pending_payment_confirmations,
+        sr_to_quote=shipping_alerts['to_quote'],
+        sr_to_pay=shipping_alerts['to_pay'],
+        sr_to_pack=shipping_alerts['to_pack']
     )
 
 
