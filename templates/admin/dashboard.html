@@ -35,9 +35,14 @@
         <!-- Zlecenia wysyłki (WMS) -->
         {% if (sr_to_quote + sr_to_pay + sr_to_pack) > 0 %}
         <div class="wms-dashboard-widget">
-            <div class="wms-widget-header">
-                <div class="wms-widget-icon">&#128230;</div>
-                <h3 class="wms-widget-title">Zlecenia wysyłki</h3>
+            <div class="wms-widget-top">
+                <div class="wms-widget-header">
+                    <div class="wms-widget-icon">&#128230;</div>
+                    <h3 class="wms-widget-title">Zlecenia wysyłki</h3>
+                </div>
+                <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}" class="wms-dashboard-widget-link">
+                    Otwórz &rarr;
+                </a>
             </div>
             <div class="wms-widget-stats">
                 <div class="wms-widget-stat">
@@ -53,9 +58,6 @@
                     <span class="wms-widget-stat-label">Do spakowania</span>
                 </div>
             </div>
-            <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}" class="wms-dashboard-widget-link">
-                Otwórz &rarr;
-            </a>
         </div>
         {% endif %}
     </div>

@@ -1267,9 +1267,9 @@
 .wms-dashboard-widget {
     flex: 1 1 320px;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
     padding: 16px 20px;
     background: #eef2ff;
     border: 1px solid #c7d2fe;
@@ -1279,6 +1279,13 @@
 
 .wms-dashboard-widget:hover {
     background: #e0e7ff;
+}
+
+.wms-widget-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
 .wms-widget-header {
@@ -1302,8 +1309,7 @@
 .wms-widget-stats {
     display: flex;
     gap: 10px;
-    flex: 1;
-    justify-content: center;
+    width: 100%;
     flex-wrap: wrap;
 }
 
@@ -1312,7 +1318,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-width: 72px;
+    flex: 1 1 0;
+    min-width: 64px;
     min-height: 44px;
     padding: 6px 10px;
     background: rgba(99, 102, 241, 0.08);
@@ -1398,15 +1405,15 @@
         flex-direction: column;
     }
 
-    .wms-dashboard-widget {
-        flex-direction: column;
-        align-items: stretch;
-        text-align: center;
-        gap: 12px;
-    }
-
     .wms-widget-header {
         justify-content: center;
+    }
+
+    .wms-widget-top {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
     }
 
     .wms-dashboard-widget-link {
