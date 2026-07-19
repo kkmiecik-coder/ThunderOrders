@@ -10,18 +10,6 @@
 {% block content %}
 <div class="wms-dashboard-page">
 
-    <!-- Stats Row -->
-    <div class="wms-stats-row">
-        <div class="wms-stat-card">
-            <div class="stat-value">{{ today_packed }}</div>
-            <div class="stat-label">Spakowano dziś</div>
-        </div>
-        <div class="wms-stat-card">
-            <div class="stat-value">{{ to_pack_count }}</div>
-            <div class="stat-label">Do spakowania</div>
-        </div>
-    </div>
-
     <!-- Tabs Navigation -->
     <div class="tabs-navigation">
         <a href="{{ url_for('orders.wms_dashboard', tab='shipping') }}"
@@ -105,8 +93,22 @@
 
         <!-- Right column: search + results -->
         <div class="sr-right-column">
-            <!-- Search Bar -->
-            <form method="get" action="{{ url_for('orders.wms_dashboard') }}" class="sr-search-form">
+            <!-- Toolbar: inline stats (left) + search (right) -->
+            <div class="sr-toolbar">
+                <div class="wms-inline-stats">
+                    <div class="wms-inline-stat">
+                        <span class="wms-inline-stat-value">{{ today_packed }}</span>
+                        <span class="wms-inline-stat-label">Spakowano dziś</span>
+                    </div>
+                    <span class="wms-inline-stat-divider" aria-hidden="true"></span>
+                    <div class="wms-inline-stat">
+                        <span class="wms-inline-stat-value">{{ to_pack_count }}</span>
+                        <span class="wms-inline-stat-label">Do spakowania</span>
+                    </div>
+                </div>
+
+                <!-- Search Bar -->
+                <form method="get" action="{{ url_for('orders.wms_dashboard') }}" class="sr-search-form">
                 <input type="hidden" name="tab" value="shipping">
                 {% if sr_status_filter %}
                 <input type="hidden" name="status" value="{{ sr_status_filter }}">
@@ -122,7 +124,8 @@
                     <input type="text" name="search" class="form-input form-input-icon" placeholder="Szukaj numeru lub klienta..." value="{{ sr_search }}">
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Szukaj</button>
-            </form>
+                </form>
+            </div>
 
             <!-- Main Content -->
             <div class="sr-main-content">
