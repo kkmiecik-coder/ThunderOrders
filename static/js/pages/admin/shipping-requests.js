@@ -473,14 +473,12 @@ function toggleOrderProducts(button) {
     const isHidden = hiddenProducts.style.display === 'none';
 
     if (isHidden) {
-        hiddenProducts.style.display = 'block';
-        button.textContent = 'Zwiń';
+        hiddenProducts.style.display = 'flex';
+        button.textContent = 'Ukryj';
         button.classList.add('expanded');
     } else {
         hiddenProducts.style.display = 'none';
-        // Restore original text with count
-        const hiddenCount = hiddenProducts.querySelectorAll('.order-product-item').length;
-        button.textContent = `+${hiddenCount} więcej...`;
+        button.textContent = 'Pokaż';
         button.classList.remove('expanded');
     }
 }
