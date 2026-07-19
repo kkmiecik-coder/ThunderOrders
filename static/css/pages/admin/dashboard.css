@@ -1405,6 +1405,11 @@
         flex-direction: column;
     }
 
+    .dashboard-alerts-row .pc-dashboard-widget,
+    .dashboard-alerts-row .wms-dashboard-widget {
+        flex-basis: auto;
+    }
+
     .wms-widget-header {
         justify-content: center;
     }
