@@ -1244,3 +1244,172 @@
 [data-theme="dark"] .show-more-btn:hover {
     color: #f5576c;
 }
+
+/* ================================
+   DASHBOARD ALERTS ROW + KARTA WMS
+   ================================ */
+
+.dashboard-alerts-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: stretch;
+    margin-bottom: 20px;
+}
+
+/* Gdy w wierszu jest karta potwierdzeń, zdejmij jej własny margines
+   (odstęp zapewnia teraz .dashboard-alerts-row) i pozwól dzielić rząd. */
+.dashboard-alerts-row .pc-dashboard-widget {
+    flex: 1 1 320px;
+    margin-bottom: 0;
+}
+
+.wms-dashboard-widget {
+    flex: 1 1 320px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 20px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 10px;
+    transition: background-color 0.2s;
+}
+
+.wms-dashboard-widget:hover {
+    background: #e0e7ff;
+}
+
+.wms-widget-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.wms-widget-icon {
+    font-size: 28px;
+}
+
+.wms-widget-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #4338ca;
+}
+
+.wms-widget-stats {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.wms-widget-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 72px;
+    min-height: 44px;
+    padding: 6px 10px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.wms-widget-stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+    color: #4338ca;
+}
+
+.wms-widget-stat-label {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6366f1;
+}
+
+.wms-dashboard-widget-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    padding: 8px 16px;
+    background: #6d28d9;
+    color: #fff;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.wms-dashboard-widget-link:hover {
+    background: #5b21b6;
+    color: #fff;
+    text-decoration: none;
+}
+
+/* --- Dark mode (glassmorphism) --- */
+[data-theme="dark"] .wms-dashboard-widget {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .wms-dashboard-widget:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(240, 147, 251, 0.3);
+}
+
+[data-theme="dark"] .wms-widget-title {
+    color: #f093fb;
+}
+
+[data-theme="dark"] .wms-widget-stat {
+    background: rgba(240, 147, 251, 0.08);
+    border-color: rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .wms-widget-stat-value {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .wms-widget-stat-label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .wms-dashboard-widget-link {
+    background: rgba(240, 147, 251, 0.6);
+}
+
+[data-theme="dark"] .wms-dashboard-widget-link:hover {
+    background: rgba(240, 147, 251, 0.8);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+    .dashboard-alerts-row {
+        flex-direction: column;
+    }
+
+    .wms-dashboard-widget {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        gap: 12px;
+    }
+
+    .wms-widget-header {
+        justify-content: center;
+    }
+
+    .wms-dashboard-widget-link {
+        justify-content: center;
+    }
+}
