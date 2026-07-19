@@ -6,7 +6,6 @@ Narzędzie do logowania aktywności użytkowników w systemie
 import json
 from flask import request
 from extensions import db
-from modules.admin.models import ActivityLog
 
 
 def log_activity(user=None, action=None, entity_type=None, entity_id=None, old_value=None, new_value=None):
@@ -25,6 +24,8 @@ def log_activity(user=None, action=None, entity_type=None, entity_id=None, old_v
         ActivityLog: Utworzony log lub None jeśli błąd
     """
     try:
+        from modules.admin.models import ActivityLog
+
         # Pobierz IP i User-Agent z requestu
         ip_address = None
         user_agent = None
