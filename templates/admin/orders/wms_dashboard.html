@@ -151,99 +151,92 @@
                         </div>
 
                         <div class="sr-card-body">
-                            <div class="sr-card-row">
-                                <span class="sr-card-label">Klient</span>
-                                <span class="sr-card-value">
-                                    {% if sr.user %}
-                                    <a href="{{ url_for('admin.client_detail', id=sr.user.id) }}" class="client-link" onclick="event.stopPropagation();">
-                                        {{ sr.user.first_name or '' }} {{ sr.user.last_name or '' }}
-                                    </a>
-                                    {% else %}
-                                    <span class="text-muted">-</span>
-                                    {% endif %}
+                            <div class="sr-client">
+                                <span class="sr-client-avatar">{{ ((sr.user.first_name or '')[:1] ~ (sr.user.last_name or '')[:1]) | upper if sr.user else '?' }}</span>
+                                {% if sr.user %}
+                                <a href="{{ url_for('admin.client_detail', id=sr.user.id) }}" class="client-link" onclick="event.stopPropagation();">
+                                    {{ sr.user.first_name or '' }} {{ sr.user.last_name or '' }}
+                                </a>
+                                {% else %}
+                                <span class="text-muted">Brak klienta</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="sr-contact">
+                                {% if sr.user and sr.user.email %}
+                                <span class="sr-contact-item">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="m22 7-10 6L2 7"></path></svg>
+                                    {{ sr.user.email }}
                                 </span>
+                                {% else %}
+                                <span class="sr-contact-item sr-contact-missing">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                    Brak emaila
+                                </span>
+                                {% endif %}
+                                {% if sr.user and sr.user.phone %}
+                                <span class="sr-contact-item">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                                    {{ sr.user.phone }}
+                                </span>
+                                {% else %}
+                                <span class="sr-contact-item sr-contact-missing">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                    Brak telefonu
+                                </span>
+                                {% endif %}
                             </div>
 
-                            <div class="sr-card-row sr-card-row-orders">
-                                <span class="sr-card-label">Zamówienia</span>
-                                <div class="sr-card-orders">
-                                    {% for order in sr.orders %}
-                                    <div class="sr-order-block">
-                                        <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
-                                        <div class="order-products">
-                                            {% for item in order.items[:2] %}
-                                            <div class="order-product-item">
-                                                <span class="product-qty">{{ item.quantity }}x</span>
-                                                <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
-                                            </div>
-                                            {% endfor %}
-                                            {% if order.items|length > 2 %}
-                                            <div class="order-products-hidden" style="display: none;">
-                                                {% for item in order.items[2:] %}
-                                                <div class="order-product-item">
-                                                    <span class="product-qty">{{ item.quantity }}x</span>
-                                                    <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
-                                                </div>
-                                                {% endfor %}
-                                            </div>
-                                            <button type="button" class="order-products-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">
-                                                +{{ order.items|length - 2 }} więcej...
-                                            </button>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                </div>
-                            </div>
-
-                            <div class="sr-card-row">
-                                <span class="sr-card-label">Adres</span>
-                                <span class="sr-card-value sr-card-address">
+                            <div class="sr-address-box">
+                                <svg class="sr-address-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="m3.27 6.96 8.73 5.05 8.73-5.05"></path><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                                <div class="sr-address-lines">
                                     {% if sr.address_type == 'home' %}
-                                    {{ sr.shipping_name }}, {{ sr.shipping_address }}, {{ sr.shipping_postal_code }} {{ sr.shipping_city }}
+                                    <span class="sr-address-line sr-address-head">{{ sr.shipping_name }}</span>
+                                    {% if sr.shipping_address %}<span class="sr-address-line">{{ sr.shipping_address }},</span>{% endif %}
+                                    <span class="sr-address-line">{{ sr.shipping_postal_code }} {{ sr.shipping_city }}</span>
                                     {% else %}
-                                    {{ sr.pickup_courier }}, {{ sr.pickup_point_id }}, {{ sr.pickup_address }}, {{ sr.pickup_postal_code }} {{ sr.pickup_city }}
+                                    <span class="sr-address-line sr-address-head">{{ sr.pickup_courier }} · {{ sr.pickup_point_id }}</span>
+                                    {% if sr.pickup_address %}<span class="sr-address-line">{{ sr.pickup_address }},</span>{% endif %}
+                                    <span class="sr-address-line">{{ sr.pickup_postal_code }} {{ sr.pickup_city }}</span>
                                     {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="sr-orders-compact">
+                                {% for order in sr.orders %}
+                                {% set n = order.items|length %}
+                                <div class="sr-order-compact">
+                                    <svg class="sr-order-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+                                    <a href="{{ url_for('orders.admin_detail', order_id=order.id) }}" class="order-badge-link" onclick="event.stopPropagation();">{{ order.order_number }}</a>
+                                    <span class="sr-order-count">· {{ n }} {% if n == 1 %}produkt{% elif n % 10 in [2, 3, 4] and n % 100 not in [12, 13, 14] %}produkty{% else %}produktów{% endif %}</span>
+                                    {% if n > 0 %}
+                                    <button type="button" class="sr-order-toggle" onclick="event.stopPropagation(); toggleOrderProducts(this);">Pokaż</button>
+                                    <div class="order-products-hidden" style="display: none;">
+                                        {% for item in order.items %}
+                                        <div class="order-product-item">
+                                            <span class="product-qty">{{ item.quantity }}x</span>
+                                            <span class="product-name">{{ item.product_name }}{% if item.selected_size %} <span class="size-badge">{{ item.selected_size }}</span>{% endif %}</span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="sr-meta">
+                                <span class="sr-meta-item">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                                    {% if sr.total_shipping_cost %}<strong>{{ "%.2f"|format(sr.total_shipping_cost) }} PLN</strong>{% else %}<span class="text-muted">Brak wyceny</span>{% endif %}
                                 </span>
-                            </div>
-
-                            <div class="sr-card-row sr-card-row-split">
-                                <div class="sr-card-col">
-                                    <span class="sr-card-label">Koszt</span>
-                                    <span class="sr-card-value">
-                                        {% if sr.total_shipping_cost %}
-                                        <strong>{{ "%.2f"|format(sr.total_shipping_cost) }} PLN</strong>
-                                        {% else %}
-                                        <span class="text-muted">Brak wyceny</span>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                                <div class="sr-card-col">
-                                    <span class="sr-card-label">Tracking</span>
-                                    <span class="sr-card-value">
-                                        {% if sr.tracking_number %}
-                                        {% if sr.tracking_url %}
-                                        <a href="{{ sr.tracking_url }}" target="_blank" class="tracking-link" onclick="event.stopPropagation();">
-                                            {{ sr.tracking_number }}
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                                                <polyline points="15 3 21 3 21 9"></polyline>
-                                                <line x1="10" y1="14" x2="21" y2="3"></line>
-                                            </svg>
-                                        </a>
-                                        {% else %}
-                                        <span class="tracking-number">{{ sr.tracking_number }}</span>
-                                        {% endif %}
-                                        {% else %}
-                                        <span class="text-muted">-</span>
-                                        {% endif %}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div class="sr-card-row">
-                                <span class="sr-card-label">Data utworzenia</span>
-                                <span class="sr-card-value">
+                                {% if sr.tracking_number %}
+                                <span class="sr-meta-item">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><path d="M16 8h4l3 3v5h-7V8z"></path><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                                    {% if sr.tracking_url %}<a href="{{ sr.tracking_url }}" target="_blank" class="tracking-link" onclick="event.stopPropagation();">{{ sr.tracking_number }}</a>{% else %}{{ sr.tracking_number }}{% endif %}
+                                </span>
+                                {% endif %}
+                                <span class="sr-meta-item sr-meta-date">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                                     {{ sr.created_at.strftime('%d.%m.%Y, %H:%M') }}
                                 </span>
                             </div>
