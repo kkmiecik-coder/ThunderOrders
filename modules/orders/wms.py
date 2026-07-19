@@ -310,12 +310,25 @@ def wms_dashboard():
     # Packaging materials
     materials = PackagingMaterial.query.order_by(PackagingMaterial.sort_order).all()
 
-    # Stats
-    today_packed = Order.query.filter(Order.packed_at >= today_start).count()
-    to_pack_count = Order.query.filter(
-        Order.status == 'dostarczone_gom',
-        Order.wms_session_id.is_(None),
+    # Stats — liczone po zleceniach wysyłki (widget na zakładce shipping)
+    # "Do spakowania": zlecenia opłacone, czekające na spakowanie.
+    to_pack_count = ShippingRequest.query.filter(
+        ShippingRequest.status == 'oplacone'
     ).count()
+
+    # "Spakowano dziś": zlecenia, których wszystkie zamówienia są spakowane
+    # (Order.packed_at ustawione) i ostatnie spakowanie przypada na dziś.
+    # ShippingRequest nie ma własnego packed_at, więc bazujemy na Order.packed_at
+    # (zlecenie staje się 'spakowane' dokładnie gdy wszystkie jego zamówienia są spakowane).
+    today_packed = (
+        db.session.query(ShippingRequest.id)
+        .join(ShippingRequestOrder, ShippingRequestOrder.shipping_request_id == ShippingRequest.id)
+        .join(Order, ShippingRequestOrder.order_id == Order.id)
+        .group_by(ShippingRequest.id)
+        .having(func.count(Order.id) == func.count(Order.packed_at))
+        .having(func.max(Order.packed_at) >= today_start)
+        .count()
+    )
 
     # Tab counts
     active_sessions_count = WmsSession.query.filter_by(status='active').count()
