@@ -218,3 +218,21 @@ def cancel_request(user_id, request_id):
     db.session.delete(req)
     db.session.commit()
     return True, None
+
+
+def get_shipping_pricing():
+    """Cennik wysyłki z aktywnych materiałów (cena + gabaryt). Do podglądu u klienta."""
+    from modules.orders.wms_models import PackagingMaterial
+    mats = PackagingMaterial.query.filter(
+        PackagingMaterial.is_active.is_(True),
+        PackagingMaterial.sale_price.isnot(None),
+        PackagingMaterial.size_category.isnot(None),
+    ).order_by(PackagingMaterial.sale_price.asc()).all()
+    rows = [{
+        'size_category': m.size_category,
+        'size_display': m.size_display,
+        'type': m.type,
+        'type_display': m.type_display,
+        'sale_price': float(m.sale_price),
+    } for m in mats]
+    return {'min_price': rows[0]['sale_price'] if rows else None, 'rows': rows}

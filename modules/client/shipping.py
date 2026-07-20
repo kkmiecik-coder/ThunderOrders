@@ -13,6 +13,7 @@ from modules.client.shipping_service import (
     validate_address_payload, create_address,
     set_default_address, soft_delete_address, list_active_addresses,
     get_available_orders, validate_and_create_request, cancel_request,
+    get_shipping_pricing,
 )
 
 
@@ -126,7 +127,8 @@ def shipping_requests_list():
         'client/shipping/requests_list.html',
         title='Zlecenia wysyłki',
         requests=requests,
-        addresses=addresses
+        addresses=addresses,
+        pricing=get_shipping_pricing()
     )
 
 
