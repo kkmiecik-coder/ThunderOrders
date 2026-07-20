@@ -231,10 +231,16 @@ def shipping_requests_create():
         data = request.get_json()
         order_ids = data.get('order_ids', [])
         address_id = data.get('address_id')
+        client_package_preference = data.get('client_package_preference')
+        client_notes = data.get('client_notes')
 
         # Walidacja + tworzenie (snapshot, status początkowy, delivery_method, log, notify) w serwisie.
         # Kody błędów mapowane na DOTYCHCZASOWE komunikaty/statusy weba (parytet — bez zmiany zachowania).
-        ok, err, shipping_request = validate_and_create_request(current_user, order_ids, address_id)
+        ok, err, shipping_request = validate_and_create_request(
+            current_user, order_ids, address_id,
+            client_package_preference=client_package_preference,
+            client_notes=client_notes,
+        )
         if not ok:
             code = err['code']
             if code == 'no_orders':

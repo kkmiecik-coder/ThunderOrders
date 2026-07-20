@@ -170,7 +170,13 @@ def shipping_request_create():
         return json_err('invalid_input', 'Pole order_ids musi zawierać liczby.', 400)
     address_id = parse_int(p.get('address_id'), 'address_id', required=False)
     user = db.session.get(User, int(get_jwt_identity()))
-    ok, err, req = svc.validate_and_create_request(user, order_ids, address_id)
+    client_package_preference = p.get('client_package_preference')
+    client_notes = p.get('client_notes')
+    ok, err, req = svc.validate_and_create_request(
+        user, order_ids, address_id,
+        client_package_preference=client_package_preference,
+        client_notes=client_notes,
+    )
     if not ok:
         code = err['code']
         payload = {'code': code, 'message': _CREATE_REQUEST_ERR_MSG[code]}

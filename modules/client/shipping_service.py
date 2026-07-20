@@ -136,7 +136,8 @@ def _delivery_method_for(address):
     return None
 
 
-def validate_and_create_request(user, order_ids, address_id):
+def validate_and_create_request(user, order_ids, address_id,
+                                 client_package_preference=None, client_notes=None):
     """(ok, err, request). All-or-nothing; dedupe (D5). Parytet web l. 330-479 z rozbiciem kodów.
 
     Status początkowy: reużywa get_initial_shipping_status() z cart_service (E2) — funkcja jest
@@ -173,6 +174,14 @@ def validate_and_create_request(user, order_ids, address_id):
                           address_type=address.address_type)
     for f in _SNAPSHOT_FIELDS:
         setattr(req, f, getattr(address, f))
+    pref = (client_package_preference or '').strip().lower() or None
+    if pref not in ('karton', 'koperta'):
+        pref = None
+    req.client_package_preference = pref
+    notes = (client_notes or '').strip() or None
+    if notes and len(notes) > 2000:
+        notes = notes[:2000]
+    req.client_notes = notes
     db.session.add(req)
     db.session.flush()
     dm = _delivery_method_for(address)
