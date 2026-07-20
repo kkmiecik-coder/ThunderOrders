@@ -451,7 +451,9 @@ function submitShippingRequest() {
         },
         body: JSON.stringify({
             order_ids: selectedOrders,
-            address_id: parseInt(addressSelect.value)
+            address_id: parseInt(addressSelect.value),
+            client_package_preference: (document.querySelector('input[name="package_pref"]:checked') || {}).value || null,
+            client_notes: (document.getElementById('client-notes') || {}).value || null
         })
     })
     .then(response => response.json())

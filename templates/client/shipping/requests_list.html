@@ -262,6 +262,50 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="shipping-options">
+                    <div class="form-group">
+                        <label class="form-label">Sugerowane opakowanie</label>
+                        <div class="package-pref-options">
+                            <label class="package-pref-option">
+                                <input type="radio" name="package_pref" value="karton"> Karton
+                            </label>
+                            <label class="package-pref-option">
+                                <input type="radio" name="package_pref" value="koperta"> Koperta
+                            </label>
+                        </div>
+                        <small class="form-hint">Ostateczne opakowanie i cenę ustala obsługa.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="client-notes" class="form-label">Dodatkowe uwagi</label>
+                        <textarea id="client-notes" class="form-control" rows="3" maxlength="2000"
+                                  placeholder="np. proszę o dodatkowe zabezpieczenie"></textarea>
+                    </div>
+
+                    {% if pricing and pricing.min_price %}
+                    <div class="shipping-pricing-box">
+                        <div class="shipping-pricing-head">
+                            Koszt wysyłki: od {{ '%.2f zł'|format(pricing.min_price) }}
+                        </div>
+                        <details class="shipping-pricing-details">
+                            <summary>Zobacz cennik</summary>
+                            <table class="shipping-pricing-table">
+                                <thead><tr><th>Gabaryt</th><th>Opakowanie</th><th>Cena</th></tr></thead>
+                                <tbody>
+                                    {% for row in pricing.rows %}
+                                    <tr>
+                                        <td>{{ row.size_display }}</td>
+                                        <td>{{ row.type_display }}</td>
+                                        <td>{{ '%.2f zł'|format(row.sale_price) }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </details>
+                    </div>
+                    {% endif %}
+                </div>
                 {% else %}
                 <div class="no-addresses-warning">
                     <svg width="24" height="24" fill="#F59E0B" viewBox="0 0 16 16">

@@ -892,6 +892,69 @@
     line-height: 1.4;
 }
 
+/* Shipping options: package preference, notes, pricing preview */
+.shipping-options {
+    max-width: 500px;
+    margin: 20px auto 0;
+}
+
+.package-pref-options {
+    display: flex;
+    gap: 16px;
+}
+
+.package-pref-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    min-height: 44px;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.shipping-pricing-box {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+}
+
+.shipping-pricing-head {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.shipping-pricing-details {
+    margin-top: 8px;
+}
+
+.shipping-pricing-details summary {
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 0.85rem;
+}
+
+.shipping-pricing-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    font-size: 0.85rem;
+}
+
+.shipping-pricing-table th,
+.shipping-pricing-table td {
+    padding: 4px 6px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
 .preview-label {
     color: #6b7280;
     font-weight: 500;
@@ -1249,6 +1312,25 @@
 
 [data-theme="dark"] .preview-value-highlight {
     color: #a78bfa;
+}
+
+[data-theme="dark"] .form-hint {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .shipping-pricing-box {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .shipping-pricing-details summary {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .shipping-pricing-table th,
+[data-theme="dark"] .shipping-pricing-table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 [data-theme="dark"] .no-addresses-warning {
