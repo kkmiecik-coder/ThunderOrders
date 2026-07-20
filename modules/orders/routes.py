@@ -3689,6 +3689,18 @@ def admin_get_shipping_request(shipping_request_id):
         'parcel_size': sr.parcel_size,
         'calculated_shipping_cost': float(sr.calculated_shipping_cost or 0),
         'admin_notes': sr.admin_notes,
+        'packaging_material_id': sr.packaging_material_id,
+        'packaging_material': ({
+            'id': sr.packaging_material.id,
+            'name': sr.packaging_material.name,
+            'type': sr.packaging_material.type,
+            'type_display': sr.packaging_material.type_display,
+            'size_category': sr.packaging_material.size_category,
+            'size_display': sr.packaging_material.size_display,
+            'sale_price': float(sr.packaging_material.sale_price) if sr.packaging_material.sale_price else None,
+        } if sr.packaging_material else None),
+        'client_package_preference': sr.client_package_preference,
+        'client_notes': sr.client_notes,
         'address_type': sr.address_type,
         'shipping_name': sr.shipping_name,
         'shipping_address': sr.shipping_address,
@@ -3779,6 +3791,16 @@ def admin_update_shipping_request(shipping_request_id):
         sr.parcel_size = data['parcel_size'] or None
     if 'admin_notes' in data:
         sr.admin_notes = data['admin_notes'] or None
+    if 'packaging_material_id' in data:
+        mat_id = data['packaging_material_id'] or None
+        sr.packaging_material_id = mat_id
+        # Wyprowadź gabaryt z materiału, o ile admin nie podał parcel_size jawnie w tym żądaniu.
+        if mat_id and 'parcel_size' not in data:
+            from modules.orders.wms_models import PackagingMaterial
+            mat = db.session.get(PackagingMaterial, mat_id)
+            if mat and mat.size_category:
+                sr.parcel_size = mat.size_category
+        # Bez zmian quantity_in_stock — magazyn obsługiwany przy pakowaniu zamówienia.
 
     # Update order shipping costs
     orders_with_new_cost = []
