@@ -1345,11 +1345,21 @@ class ShippingRequest(db.Model):
     tracking_number = db.Column(db.String(100), nullable=True)
     courier = db.Column(db.String(50), nullable=True)
 
-    # Parcel size (for pickup points - A, B, C)
-    parcel_size = db.Column(db.String(1), nullable=True)  # A, B, C
+    # Parcel size (mini, A, B, C)
+    parcel_size = db.Column(db.String(10), nullable=True)  # mini, A, B, C
 
     # Notes
     admin_notes = db.Column(db.Text, nullable=True)
+
+    # Wybrany materiał opakowaniowy (źródło ceny/gabarytu/typu — task 869e674tp/xk)
+    packaging_material_id = db.Column(db.Integer, db.ForeignKey('packaging_materials.id'), nullable=True)
+    packaging_material = db.relationship('PackagingMaterial', foreign_keys=[packaging_material_id])
+
+    # Sugerowany przez klienta typ opakowania: 'karton' / 'koperta' (task 869e674xk)
+    client_package_preference = db.Column(db.String(30), nullable=True)
+
+    # Uwagi klienta do wysyłki (task 869e674je) — read-only dla admina
+    client_notes = db.Column(db.Text, nullable=True)
 
     # Termin płatności za wysyłkę PL (E4)
     payment_deadline = db.Column(db.DateTime, nullable=True)
