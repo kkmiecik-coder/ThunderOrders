@@ -516,6 +516,31 @@ async function openShippingRequestModal(shippingRequestId) {
         document.getElementById('srModalId').value = data.id;
         document.getElementById('srModalNumber').textContent = data.request_number;
 
+        // Podgląd pól klienta (read-only)
+        const prefMap = { karton: 'Karton', koperta: 'Koperta' };
+        document.getElementById('srClientPreference').textContent =
+            prefMap[data.client_package_preference] || '—';
+        document.getElementById('srClientNotes').textContent = data.client_notes || '—';
+
+        // Załaduj listę materiałów do selecta i zaznacz aktualny
+        const matSelect = document.getElementById('srPackagingMaterial');
+        if (matSelect) {
+            const matResp = await fetch('/api/orders/packaging-materials');
+            const matData = await matResp.json();
+            matSelect.innerHTML = '<option value="">-- Wybierz materiał --</option>';
+            (matData.materials || []).forEach(m => {
+                const price = m.sale_price != null ? ` — ${m.sale_price.toFixed(2)} zł` : '';
+                const size = m.size_display ? ` (${m.size_display})` : '';
+                const opt = document.createElement('option');
+                opt.value = m.id;
+                opt.textContent = `${m.type_display} ${m.name}${size}${price}`;
+                opt.dataset.salePrice = m.sale_price != null ? m.sale_price : '';
+                opt.dataset.sizeCategory = m.size_category || '';
+                matSelect.appendChild(opt);
+            });
+            matSelect.value = data.packaging_material_id || '';
+        }
+
         // Set total cost
         const totalCost = data.calculated_shipping_cost || 0;
         document.getElementById('srTotalCost').value = totalCost > 0 ? totalCost.toFixed(2) : '';
@@ -537,7 +562,7 @@ async function openShippingRequestModal(shippingRequestId) {
             'fedex': 'FedEx', 'gls': 'GLS', 'pocztex': 'Pocztex',
             'orlen': 'Orlen Paczka', 'other': 'Inny'
         };
-        const parcelNames = { 'A': 'A - Mały', 'B': 'B - Średni', 'C': 'C - Duży' };
+        const parcelNames = { 'mini': 'Mini', 'A': 'A - Mały', 'B': 'B - Średni', 'C': 'C - Duży' };
 
         if (shippingSection) {
             if (hasCourier || hasTracking) {
@@ -799,6 +824,22 @@ async function cancelShippingRequest() {
 
 // Form submit handler and event listeners
 document.addEventListener('DOMContentLoaded', function() {
+    // Auto-podstawianie ceny i gabarytu po wyborze materiału opakowaniowego
+    const matSelectEl = document.getElementById('srPackagingMaterial');
+    if (matSelectEl) {
+        matSelectEl.addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            const salePrice = parseFloat(opt.dataset.salePrice);
+            const size = opt.dataset.sizeCategory;
+            if (!isNaN(salePrice) && salePrice > 0) {
+                document.getElementById('srTotalCost').value = salePrice.toFixed(2);
+                distributeShippingCost();   // rozłóż na zamówienia (istniejąca funkcja)
+            }
+            const parcel = document.getElementById('srParcelSize');
+            if (parcel && size) parcel.value = size;
+        });
+    }
+
     const form = document.getElementById('editShippingRequestForm');
     if (form) {
         form.addEventListener('submit', async function(e) {
@@ -839,7 +880,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const formData = {
                 order_costs: orderCosts,
-                payment_deadline: `${srDd}T${srDt}`
+                payment_deadline: `${srDd}T${srDt}`,
+                packaging_material_id: parseInt(document.getElementById('srPackagingMaterial').value) || null
             };
 
             // Only include shipping fields if edit mode is active

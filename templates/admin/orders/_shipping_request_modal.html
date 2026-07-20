@@ -48,6 +48,27 @@
                 </div>
 
                 <div class="sr-section">
+                    <h3>Opakowanie i wycena</h3>
+                    <div class="form-group">
+                        <label for="srPackagingMaterial">Materiał / cennik</label>
+                        <select id="srPackagingMaterial" name="packaging_material_id" class="form-select">
+                            <option value="">-- Wybierz materiał --</option>
+                        </select>
+                        <small class="sr-hint">Wybór podstawia cenę i gabaryt (można nadpisać ręcznie).</small>
+                    </div>
+                    <div class="sr-client-hints">
+                        <div class="sr-client-hint-row">
+                            <span class="sr-hint-label">Sugestia klienta</span>
+                            <span class="sr-hint-value" id="srClientPreference">—</span>
+                        </div>
+                        <div class="sr-client-hint-row">
+                            <span class="sr-hint-label">Uwagi klienta</span>
+                            <span class="sr-hint-value" id="srClientNotes">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sr-section">
                     <h3>Adres dostawy</h3>
                     <div id="srAddressPreview" class="sr-address-preview"></div>
                 </div>
@@ -104,6 +125,7 @@
                                 <label for="srParcelSize">Gabaryt</label>
                                 <select id="srParcelSize" name="parcel_size" class="form-select">
                                     <option value="">-- Wybierz --</option>
+                                    <option value="mini">Mini</option>
                                     <option value="A">A - Mały</option>
                                     <option value="B">B - Średni</option>
                                     <option value="C">C - Duży</option>

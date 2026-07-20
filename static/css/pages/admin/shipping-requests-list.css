@@ -772,6 +772,37 @@
     font-size: 13px;
 }
 
+/* Packaging material select hint + client hints preview (modal) */
+.sr-hint {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.sr-client-hints {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sr-client-hint-row {
+    display: flex;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.sr-hint-label {
+    min-width: 120px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.sr-hint-value {
+    color: var(--text-primary);
+}
+
 /* Modal footer alignment */
 .sr-modal-footer {
     display: flex;
@@ -1153,6 +1184,15 @@
 [data-theme="dark"] .sr-address-preview .pickup-id,
 [data-theme="dark"] .sr-address-preview .text-muted {
     color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .sr-hint,
+[data-theme="dark"] .sr-hint-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .sr-hint-value {
+    color: #ffffff;
 }
 
 /* Bulk cost modal dark mode */
