@@ -160,6 +160,8 @@ class PackagingMaterial(db.Model):
     quantity_in_stock = db.Column(db.Integer, default=0)
     low_stock_threshold = db.Column(db.Integer, default=5)  # alert threshold
     cost = db.Column(db.Numeric(8, 2), nullable=True)  # unit cost
+    sale_price = db.Column(db.Numeric(8, 2), nullable=True)  # cena sprzedaży wysyłki (cennik)
+    size_category = db.Column(db.String(10), nullable=True)  # gabaryt: mini, A, B, C
     is_active = db.Column(db.Boolean, default=True)
     sort_order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
@@ -195,7 +197,21 @@ class PackagingMaterial(db.Model):
         'inne': 'Inne',
     }
 
+    SIZE_CHOICES = {
+        'mini': 'Mini',
+        'A': 'Gabaryt A',
+        'B': 'Gabaryt B',
+        'C': 'Gabaryt C',
+    }
+
     @property
     def type_display(self):
         """Returns human-readable type name"""
         return self.TYPE_CHOICES.get(self.type, self.type)
+
+    @property
+    def size_display(self):
+        """Returns human-readable size category name or None."""
+        if not self.size_category:
+            return None
+        return self.SIZE_CHOICES.get(self.size_category, self.size_category)
