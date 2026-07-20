@@ -390,6 +390,7 @@ def wms_dashboard():
         materials_count=materials_count,
         active_tab=active_tab,
         material_types=PackagingMaterial.TYPE_CHOICES,
+        size_choices=PackagingMaterial.SIZE_CHOICES,
         # SR data
         shipping_requests=shipping_requests,
         sr_pagination=sr_pagination,

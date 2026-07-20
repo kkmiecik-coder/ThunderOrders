@@ -59,6 +59,8 @@
                     document.getElementById('material-stock').value = m.quantity_in_stock ?? 0;
                     document.getElementById('material-threshold').value = m.low_stock_threshold ?? 5;
                     document.getElementById('material-cost').value = m.cost || '';
+                    document.getElementById('material-sale-price').value = m.sale_price || '';
+                    document.getElementById('material-size').value = m.size_category || '';
                     document.getElementById('material-active').checked = m.is_active;
                 }
             });
@@ -75,6 +77,8 @@
             document.getElementById('material-stock').value = '';
             document.getElementById('material-threshold').value = '';
             document.getElementById('material-cost').value = '';
+            document.getElementById('material-sale-price').value = '';
+            document.getElementById('material-size').value = '';
             document.getElementById('material-active').checked = true;
         }
 
@@ -105,6 +109,8 @@
             quantity_in_stock: parseInt(document.getElementById('material-stock').value) || 0,
             low_stock_threshold: parseInt(document.getElementById('material-threshold').value) || 5,
             cost: parseFloat(document.getElementById('material-cost').value) || null,
+            sale_price: parseFloat(document.getElementById('material-sale-price').value) || null,
+            size_category: document.getElementById('material-size').value || null,
             is_active: document.getElementById('material-active').checked,
         };
 

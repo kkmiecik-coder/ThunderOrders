@@ -333,7 +333,7 @@
 
 .material-list-header {
     display: grid;
-    grid-template-columns: 1fr 120px 140px 80px 80px 120px;
+    grid-template-columns: 1fr 120px 140px 80px 80px 90px 70px 120px;
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: var(--bg-secondary);
@@ -347,7 +347,7 @@
 
 .material-list-item {
     display: grid;
-    grid-template-columns: 1fr 120px 140px 80px 80px 120px;
+    grid-template-columns: 1fr 120px 140px 80px 80px 90px 70px 120px;
     gap: var(--space-4);
     align-items: center;
     padding: var(--space-2) var(--space-4);
@@ -403,6 +403,18 @@
 .material-col-cost {
     font-size: var(--text-sm);
     color: var(--text-secondary);
+}
+
+.material-col-sale-price {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.material-col-size {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
 
 .material-col-actions {
@@ -539,6 +551,15 @@
 .material-card-dim {
     font-size: var(--text-sm);
     color: var(--text-secondary);
+}
+
+.material-card-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
 
 /* Col 3: stock, cost, actions — right-aligned */
@@ -896,7 +917,7 @@
 @media (max-width: 1024px) {
     .material-list-item,
     .material-list-header {
-        grid-template-columns: 1fr 100px 120px 70px 70px 100px;
+        grid-template-columns: 1fr 100px 120px 70px 70px 80px 60px 100px;
     }
 
     .session-list-header,
@@ -1183,6 +1204,14 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
+[data-theme="dark"] .material-col-sale-price {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme="dark"] .material-col-size {
+    color: rgba(255, 255, 255, 0.6);
+}
+
 /* Type Badges Dark */
 [data-theme="dark"] .badge-type-karton {
     background: rgba(99, 102, 241, 0.25);
@@ -1244,6 +1273,10 @@
 
 [data-theme="dark"] .material-card-dim {
     color: rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="dark"] .material-card-row {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 [data-theme="dark"] .material-card-stock-badge {
@@ -1430,6 +1463,8 @@
 .material-name,
 .material-col-dimensions,
 .material-col-cost,
+.material-col-sale-price,
+.material-col-size,
 .drag-handle,
 .action-link,
 .material-edit,
@@ -1445,6 +1480,7 @@
 .material-card-stock-badge,
 .material-card-dim,
 .material-card-cost,
+.material-card-row,
 .material-card-btn,
 .btn-primary,
 .btn-secondary {

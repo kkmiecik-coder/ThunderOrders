@@ -476,6 +476,8 @@
                     <div class="material-col-dimensions">Wymiary</div>
                     <div class="material-col-stock">Stan</div>
                     <div class="material-col-cost">Koszt</div>
+                    <div class="material-col-sale-price">Cena sprz.</div>
+                    <div class="material-col-size">Gabaryt</div>
                     <div class="material-col-actions">Akcje</div>
                 </div>
 
@@ -511,6 +513,12 @@
                                     —
                                 {% endif %}
                             </div>
+                            <div class="material-col-sale-price">
+                                {{ '%.2f zł'|format(material.sale_price) if material.sale_price else '—' }}
+                            </div>
+                            <div class="material-col-size">
+                                {{ material.size_display or '—' }}
+                            </div>
                             <div class="material-col-actions">
                                 <button type="button" class="action-link material-edit" data-material-id="{{ material.id }}">Edytuj</button>
                                 <button type="button" class="action-link material-delete" data-material-id="{{ material.id }}">Usuń</button>
@@ -539,6 +547,12 @@
                                 <span class="badge badge-type-{{ material.type }}">{{ material.type_display }}</span>
                                 {% if material.dimensions_display %}
                                     <span class="material-card-dim">{{ material.dimensions_display }}</span>
+                                {% endif %}
+                                {% if material.sale_price or material.size_display %}
+                                <div class="material-card-row">
+                                    <span>Wysyłka: {{ '%.2f zł'|format(material.sale_price) if material.sale_price else '—' }}</span>
+                                    <span>{{ material.size_display or '' }}</span>
+                                </div>
                                 {% endif %}
                             </div>
                             <div class="mc-col-right">
@@ -634,6 +648,20 @@
                     <input type="number" class="form-input" id="material-cost" placeholder=" " step="0.01" min="0">
                     <label for="material-cost">Koszt (zł)</label>
                 </div>
+            </div>
+
+            <div class="form-group">
+                <label for="material-sale-price" class="form-label">Cena sprzedaży wysyłki (zł)</label>
+                <input type="number" id="material-sale-price" class="form-input" step="0.01" min="0" placeholder="np. 19.49">
+            </div>
+            <div class="form-group">
+                <label for="material-size" class="form-label">Gabaryt (cennik)</label>
+                <select id="material-size" class="form-select">
+                    <option value="">-- brak --</option>
+                    {% for key, label in size_choices.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div class="form-group">
