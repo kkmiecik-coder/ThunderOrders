@@ -1488,6 +1488,8 @@ def packaging_material_get(material_id):
             'quantity_in_stock': m.quantity_in_stock,
             'low_stock_threshold': m.low_stock_threshold,
             'cost': float(m.cost) if m.cost else None,
+            'sale_price': float(m.sale_price) if m.sale_price else None,
+            'size_category': m.size_category,
             'is_active': m.is_active,
             'sort_order': m.sort_order,
         }
@@ -1515,6 +1517,9 @@ def packaging_materials_list_api():
             'quantity_in_stock': m.quantity_in_stock,
             'is_low_stock': m.is_low_stock,
             'cost': float(m.cost) if m.cost else None,
+            'sale_price': float(m.sale_price) if m.sale_price else None,
+            'size_category': m.size_category,
+            'size_display': m.size_display,
         } for m in materials]
     })
 
@@ -1535,6 +1540,10 @@ def packaging_material_create():
         if mat_type not in PackagingMaterial.TYPE_CHOICES:
             mat_type = 'karton'
 
+        size_category = data.get('size_category')
+        if size_category not in PackagingMaterial.SIZE_CHOICES:
+            size_category = None
+
         max_sort = db.session.query(db.func.max(PackagingMaterial.sort_order)).scalar() or 0
 
         m = PackagingMaterial(
@@ -1548,6 +1557,8 @@ def packaging_material_create():
             quantity_in_stock=data.get('quantity_in_stock', 0),
             low_stock_threshold=data.get('low_stock_threshold', 5),
             cost=data.get('cost'),
+            sale_price=data.get('sale_price'),
+            size_category=size_category,
             is_active=data.get('is_active', True),
             sort_order=max_sort + 1,
         )
@@ -1579,6 +1590,10 @@ def packaging_material_update(material_id):
         if mat_type not in PackagingMaterial.TYPE_CHOICES:
             mat_type = m.type
 
+        size_category = data.get('size_category')
+        if size_category not in PackagingMaterial.SIZE_CHOICES:
+            size_category = None
+
         m.name = name
         m.type = mat_type
         m.inner_length = data.get('inner_length')
@@ -1589,6 +1604,8 @@ def packaging_material_update(material_id):
         m.quantity_in_stock = data.get('quantity_in_stock', m.quantity_in_stock)
         m.low_stock_threshold = data.get('low_stock_threshold', m.low_stock_threshold)
         m.cost = data.get('cost')
+        m.sale_price = data.get('sale_price')
+        m.size_category = size_category
         m.is_active = data.get('is_active', m.is_active)
 
         db.session.commit()
