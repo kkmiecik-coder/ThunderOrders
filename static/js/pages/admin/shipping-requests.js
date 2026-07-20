@@ -522,23 +522,44 @@ async function openShippingRequestModal(shippingRequestId) {
             prefMap[data.client_package_preference] || '—';
         document.getElementById('srClientNotes').textContent = data.client_notes || '—';
 
-        // Załaduj listę materiałów do selecta i zaznacz aktualny
+        // Załaduj listę materiałów do selecta i zaznacz aktualny.
+        // Błąd tego fetcha NIE może zablokować otwarcia modalu (osobny try/catch).
         const matSelect = document.getElementById('srPackagingMaterial');
         if (matSelect) {
-            const matResp = await fetch('/api/orders/packaging-materials');
-            const matData = await matResp.json();
             matSelect.innerHTML = '<option value="">-- Wybierz materiał --</option>';
-            (matData.materials || []).forEach(m => {
-                const price = m.sale_price != null ? ` — ${m.sale_price.toFixed(2)} zł` : '';
-                const size = m.size_display ? ` (${m.size_display})` : '';
-                const opt = document.createElement('option');
-                opt.value = m.id;
-                opt.textContent = `${m.type_display} ${m.name}${size}${price}`;
-                opt.dataset.salePrice = m.sale_price != null ? m.sale_price : '';
-                opt.dataset.sizeCategory = m.size_category || '';
-                matSelect.appendChild(opt);
-            });
-            matSelect.value = data.packaging_material_id || '';
+            try {
+                const matResp = await fetch('/api/orders/packaging-materials');
+                const matData = await matResp.json();
+                (matData.materials || []).forEach(m => {
+                    const price = m.sale_price != null ? ` — ${m.sale_price.toFixed(2)} zł` : '';
+                    const size = m.size_display ? ` (${m.size_display})` : '';
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = `${m.type_display} ${m.name}${size}${price}`;
+                    opt.dataset.salePrice = m.sale_price != null ? m.sale_price : '';
+                    opt.dataset.sizeCategory = m.size_category || '';
+                    matSelect.appendChild(opt);
+                });
+
+                // Jeśli przypisany materiał został zdezaktywowany (nie ma go wśród
+                // aktywnych opcji), dołóż go ręcznie, żeby nie zgubić przypisania.
+                const pm = data.packaging_material;
+                if (pm && !(matData.materials || []).some(m => m.id === pm.id)) {
+                    const price = pm.sale_price != null ? ` — ${pm.sale_price.toFixed(2)} zł` : '';
+                    const size = pm.size_display ? ` (${pm.size_display})` : '';
+                    const opt = document.createElement('option');
+                    opt.value = pm.id;
+                    opt.textContent = `${pm.type_display} ${pm.name}${size}${price} (nieaktywny)`;
+                    opt.dataset.salePrice = pm.sale_price != null ? pm.sale_price : '';
+                    opt.dataset.sizeCategory = pm.size_category || '';
+                    matSelect.appendChild(opt);
+                }
+
+                matSelect.value = data.packaging_material_id || '';
+            } catch (matError) {
+                console.error('Error loading packaging materials:', matError);
+                // Fallback: select zostaje z samą opcją "-- Wybierz materiał --"
+            }
         }
 
         // Set total cost
@@ -880,9 +901,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const formData = {
                 order_costs: orderCosts,
-                payment_deadline: `${srDd}T${srDt}`,
-                packaging_material_id: parseInt(document.getElementById('srPackagingMaterial').value) || null
+                payment_deadline: `${srDd}T${srDt}`
             };
+
+            // Dołącz packaging_material_id TYLKO gdy select istnieje i ma wybraną
+            // wartość — backend traktuje obecność klucza jako "ustaw/wyczyść", więc
+            // pusty wybór nie może cicho zerować istniejącego przypisania.
+            const packagingMaterialValue = document.getElementById('srPackagingMaterial')?.value;
+            if (packagingMaterialValue) {
+                formData.packaging_material_id = parseInt(packagingMaterialValue) || null;
+            }
 
             // Only include shipping fields if edit mode is active
             const shippingEditMode = document.getElementById('srShippingEditMode');
