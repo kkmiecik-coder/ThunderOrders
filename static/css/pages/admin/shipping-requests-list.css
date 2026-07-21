@@ -940,6 +940,27 @@
     flex: 1;
 }
 
+/* Fix wysokości: stopka ma 2 rzędy przycisków (wyższa niż domyślne 140px rezerwacji).
+   Modal jako flex-kolumna — body scrolluje, stopka zawsze widoczna. */
+#editShippingRequestModal .modal-content {
+    display: flex;
+    flex-direction: column;
+}
+
+#editShippingRequestModal #editShippingRequestForm {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#editShippingRequestModal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
 /* Bulk cost modal */
 .bulk-cost-loading {
     text-align: center;
