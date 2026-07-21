@@ -5008,3 +5008,188 @@ body.offer-page-body {
         font-size: 13px;
     }
 }
+
+/* ===== Galeria produktu (pasek miniaturek) ===== */
+.product-gallery {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.gallery-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.gallery-chevron {
+    width: 64px;
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--gray-200);
+    background: var(--card-bg);
+    color: var(--gray-700);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, opacity 0.15s;
+}
+
+.gallery-chevron:hover:not(:disabled) {
+    background: var(--gray-50);
+}
+
+.gallery-chevron:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.gallery-strip-viewport {
+    position: relative;
+    height: 241px;
+    width: 64px;
+    overflow: hidden;
+}
+
+.gallery-strip {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.28s ease;
+    will-change: transform;
+}
+
+.gallery-thumb {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    flex-shrink: 0;
+    border-radius: 10px;
+    overflow: hidden;
+    padding: 0;
+    border: 2px solid transparent;
+    background: var(--gray-50);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.gallery-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.gallery-thumb.active {
+    border-color: #9c27b0;
+    box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.18);
+}
+
+.gallery-thumb:hover:not(.active) {
+    border-color: var(--gray-300);
+}
+
+.gallery-fade {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 28px;
+    pointer-events: none;
+    z-index: 2;
+    transition: opacity 0.2s ease;
+}
+
+.gallery-fade-start {
+    top: 0;
+    background: linear-gradient(var(--card-bg), transparent);
+}
+
+.gallery-fade-end {
+    bottom: 0;
+    background: linear-gradient(transparent, var(--card-bg));
+}
+
+.gallery-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Mobile: pasek poziomy pod dużym zdjęciem, chevrony po bokach */
+@media (max-width: 640px) {
+    .product-gallery {
+        flex-direction: column-reverse;
+        gap: 12px;
+    }
+
+    .gallery-nav {
+        flex-direction: row;
+        width: 100%;
+    }
+
+    .gallery-chevron {
+        width: 32px;
+        height: 56px;
+    }
+
+    .gallery-strip-viewport {
+        height: 56px;
+        width: auto;
+        flex: 1;
+    }
+
+    .gallery-strip {
+        flex-direction: row;
+    }
+
+    .gallery-thumb {
+        width: 56px;
+        height: 56px;
+    }
+
+    .gallery-fade {
+        left: auto;
+        right: auto;
+        top: 0;
+        bottom: 0;
+        height: auto;
+        width: 28px;
+    }
+
+    .gallery-fade-start {
+        left: 0;
+        background: linear-gradient(to right, var(--card-bg), transparent);
+    }
+
+    .gallery-fade-end {
+        right: 0;
+        background: linear-gradient(to left, var(--card-bg), transparent);
+    }
+}
+
+/* Dark: karta jest półprzezroczysta, więc gradient wtapiamy w tło strony (#1a1730) */
+[data-theme="dark"] .gallery-fade-start {
+    background: linear-gradient(#1a1730, transparent);
+}
+
+[data-theme="dark"] .gallery-fade-end {
+    background: linear-gradient(transparent, #1a1730);
+}
+
+@media (max-width: 640px) {
+    [data-theme="dark"] .gallery-fade-start {
+        background: linear-gradient(to right, #1a1730, transparent);
+    }
+
+    [data-theme="dark"] .gallery-fade-end {
+        background: linear-gradient(to left, #1a1730, transparent);
+    }
+}
