@@ -368,6 +368,61 @@
     color: #333;
 }
 
+/* Top row: dane klienta + adres w dwóch kolumnach */
+.sr-top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.sr-top-col {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    min-width: 0;
+}
+
+.sr-top-col .sr-address-box {
+    height: 100%;
+}
+
+/* Wiersz: sugerowane opakowanie + uwagi klienta */
+.sr-client-extra {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+}
+
+.sr-extra-item {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 12px;
+    min-width: 0;
+}
+
+.sr-extra-label {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #999;
+}
+
+.sr-extra-value {
+    color: #333;
+    word-break: break-word;
+}
+
+/* Cienka jasna linia oddzielająca produkty */
+.sr-divider {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 1px 0;
+}
+
 /* Orders (compact, collapsible products) */
 .sr-orders-compact {
     display: flex;
@@ -1043,6 +1098,18 @@
     background: #1c1c20;
 }
 
+[data-theme="dark"] .sr-extra-label {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+[data-theme="dark"] .sr-extra-value {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme="dark"] .sr-divider {
+    border-top-color: rgba(255, 255, 255, 0.12);
+}
+
 [data-theme="dark"] .sr-address-icon {
     color: rgba(255, 255, 255, 0.45);
 }
@@ -1339,6 +1406,10 @@
 
     .sr-card-body {
         padding: 12px 14px;
+    }
+
+    .sr-top-row {
+        grid-template-columns: 1fr;
     }
 
     .sr-card-footer {

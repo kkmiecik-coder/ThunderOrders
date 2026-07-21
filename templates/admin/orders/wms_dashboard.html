@@ -151,6 +151,8 @@
                         </div>
 
                         <div class="sr-card-body">
+                            <div class="sr-top-row">
+                              <div class="sr-top-col">
                             <div class="sr-client">
                                 <span class="sr-client-avatar">{{ ((sr.user.first_name or '')[:1] ~ (sr.user.last_name or '')[:1]) | upper if sr.user else '?' }}</span>
                                 {% if sr.user %}
@@ -186,6 +188,8 @@
                                 </span>
                                 {% endif %}
                             </div>
+                              </div>
+                              <div class="sr-top-col">
 
                             <div class="sr-address-box">
                                 <svg class="sr-address-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="m3.27 6.96 8.73 5.05 8.73-5.05"></path><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
@@ -201,6 +205,21 @@
                                     {% endif %}
                                 </div>
                             </div>
+                              </div>
+                            </div>
+
+                            <div class="sr-client-extra">
+                                <div class="sr-extra-item">
+                                    <span class="sr-extra-label">Opakowanie</span>
+                                    <span class="sr-extra-value">{{ sr.client_package_preference|capitalize if sr.client_package_preference else '—' }}</span>
+                                </div>
+                                <div class="sr-extra-item">
+                                    <span class="sr-extra-label">Uwagi</span>
+                                    <span class="sr-extra-value">{{ sr.client_notes or '—' }}</span>
+                                </div>
+                            </div>
+
+                            <hr class="sr-divider">
 
                             <div class="sr-orders-compact">
                                 {% for order in sr.orders %}
