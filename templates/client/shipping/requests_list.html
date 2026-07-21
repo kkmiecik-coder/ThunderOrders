@@ -265,7 +265,7 @@
 
                 <div class="shipping-options">
                     <div class="form-group">
-                        <label class="form-label">Sugerowane opakowanie</label>
+                        <label class="form-label">Sugerowane opakowanie *</label>
                         <div class="package-pref-options">
                             <label class="package-pref-option">
                                 <input type="radio" name="package_pref" value="karton"> Karton
@@ -285,9 +285,6 @@
 
                     {% if pricing and pricing.min_price %}
                     <div class="shipping-pricing-box">
-                        <div class="shipping-pricing-head">
-                            Koszt wysyłki: od {{ '%.2f zł'|format(pricing.min_price) }}
-                        </div>
                         <table class="shipping-pricing-table">
                             <thead><tr><th>Gabaryt</th><th>Opakowanie</th><th>Cena</th></tr></thead>
                             <tbody>

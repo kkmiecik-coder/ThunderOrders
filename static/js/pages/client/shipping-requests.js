@@ -433,6 +433,12 @@ function submitShippingRequest() {
         return;
     }
 
+    const packagePref = document.querySelector('input[name="package_pref"]:checked');
+    if (!packagePref) {
+        showToast('Wybierz opakowanie (karton lub koperta)', 'error');
+        return;
+    }
+
     // Disable button
     if (submitBtn) {
         submitBtn.disabled = true;
