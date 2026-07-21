@@ -244,6 +244,17 @@ class Product(db.Model):
             return primary
         return self.images.first()
 
+    @property
+    def gallery_images(self):
+        """Wszystkie zdjęcia: główne (is_primary) zawsze pierwsze, reszta po sort_order."""
+        imgs = self.images.order_by(
+            ProductImage.sort_order.asc(), ProductImage.id.asc()
+        ).all()
+        primary = next((i for i in imgs if i.is_primary), None)
+        if primary:
+            imgs = [primary] + [i for i in imgs if i.id != primary.id]
+        return imgs
+
     def calculate_margin(self):
         """Calculate margin percentage"""
         if self.purchase_price_pln and self.sale_price:
