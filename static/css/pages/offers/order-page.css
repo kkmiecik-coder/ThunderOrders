@@ -5124,6 +5124,17 @@ body.offer-page-body {
     justify-content: center;
 }
 
+/* Stała ramka głównego zdjęcia — zdjęcie wpisuje się w ten sam kwadrat 350x350
+   niezależnie od proporcji, więc karta i chevrony nie skaczą przy zmianie zdjęcia */
+.gallery-main-image {
+    width: 350px;
+    height: 350px;
+    min-width: 0;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+}
+
 /* Mobile: pasek poziomy pod dużym zdjęciem, chevrony po bokach */
 @media (max-width: 640px) {
     .product-gallery {
@@ -5206,5 +5217,16 @@ body.offer-page-body {
     .product-image-centered {
         min-width: 0;
         max-width: 100%;
+    }
+}
+
+/* Mobile: stała ramka głównego zdjęcia — pełna szerokość, stała wysokość */
+@media (max-width: 640px) {
+    .gallery-main {
+        width: 100%;
+    }
+    .gallery-main-image {
+        width: 100%;
+        height: 300px;
     }
 }
