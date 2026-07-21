@@ -346,6 +346,7 @@
     flex-shrink: 0;
     color: #888;
     margin-top: 1px;
+    order: 2;
 }
 
 .sr-address-lines {
@@ -353,6 +354,7 @@
     flex-direction: column;
     gap: 1px;
     min-width: 0;
+    flex: 1;
 }
 
 .sr-address-line {
@@ -390,8 +392,8 @@
 /* Wiersz: sugerowane opakowanie + uwagi klienta */
 .sr-client-extra {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px 20px;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .sr-extra-item {
@@ -404,6 +406,7 @@
 
 .sr-extra-label {
     flex-shrink: 0;
+    min-width: 92px;
     font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.03em;
