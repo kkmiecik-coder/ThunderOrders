@@ -380,8 +380,8 @@ body.offer-page-body {
 }
 
 .product-image-centered {
-    min-width: 400px;
-    max-width: 400px;
+    min-width: 350px;
+    max-width: 350px;
     max-height: 500px;
     height: auto;
     width: auto;
