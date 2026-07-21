@@ -38,3 +38,6 @@ __pycache__/
 .AppleDouble/
 db_dumps/
 logs/
+
+# Osobiste ustawienia Claude Code (nie commitować)
+.claude/settings.local.json
