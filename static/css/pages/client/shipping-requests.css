@@ -900,15 +900,44 @@
 
 .package-pref-options {
     display: flex;
-    gap: 16px;
+    gap: 12px;
 }
 
 .package-pref-option {
+    flex: 1;
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 10px 16px;
+    border: 1.5px solid #d8b4fe;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #4b5563;
+    font-weight: 500;
     cursor: pointer;
-    min-height: 44px;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.package-pref-option:hover {
+    border-color: #a78bfa;
+    background: #faf5ff;
+}
+
+.package-pref-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #8b5cf6;
+    cursor: pointer;
+}
+
+.package-pref-option:has(input:checked) {
+    border-color: #8b5cf6;
+    background: #f5f3ff;
+    color: #6d28d9;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
 }
 
 .form-hint {
@@ -929,16 +958,6 @@
 .shipping-pricing-head {
     font-weight: 600;
     font-size: 0.9rem;
-}
-
-.shipping-pricing-details {
-    margin-top: 8px;
-}
-
-.shipping-pricing-details summary {
-    cursor: pointer;
-    color: #6b7280;
-    font-size: 0.85rem;
 }
 
 .shipping-pricing-table {
@@ -1324,8 +1343,22 @@
     color: #ffffff;
 }
 
-[data-theme="dark"] .shipping-pricing-details summary {
-    color: rgba(255, 255, 255, 0.6);
+[data-theme="dark"] .package-pref-option {
+    border-color: rgba(167, 139, 250, 0.35);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .package-pref-option:hover {
+    border-color: rgba(167, 139, 250, 0.6);
+    background: rgba(167, 139, 250, 0.08);
+}
+
+[data-theme="dark"] .package-pref-option:has(input:checked) {
+    border-color: #a78bfa;
+    background: rgba(139, 92, 246, 0.18);
+    color: #ffffff;
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
 }
 
 [data-theme="dark"] .shipping-pricing-table th,
