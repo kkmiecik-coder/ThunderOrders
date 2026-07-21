@@ -5140,6 +5140,11 @@ body.offer-page-body {
         height: 56px;
     }
 
+    /* Pasek jest poziomy → strzałki mają wskazywać w lewo/prawo */
+    .gallery-chevron svg {
+        transform: rotate(-90deg);
+    }
+
     .gallery-strip-viewport {
         height: 56px;
         width: auto;
