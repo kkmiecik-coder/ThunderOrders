@@ -380,7 +380,8 @@ body.offer-page-body {
 }
 
 .product-image-centered {
-    max-width: 100%;
+    min-width: 400px;
+    max-width: 400px;
     max-height: 500px;
     height: auto;
     width: auto;
@@ -5196,5 +5197,14 @@ body.offer-page-body {
 
     [data-theme="dark"] .gallery-fade-end {
         background: linear-gradient(to left, #1a1730, transparent);
+    }
+}
+
+/* Na wąskich ekranach nie wymuszaj sztywnych 400px szerokości głównego zdjęcia
+   (min-width 400px wypychałoby layout w poziomie na telefonach <400px) */
+@media (max-width: 640px) {
+    .product-image-centered {
+        min-width: 0;
+        max-width: 100%;
     }
 }
