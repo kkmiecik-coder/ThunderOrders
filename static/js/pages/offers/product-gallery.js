@@ -3,11 +3,67 @@
  * Pionowy (desktop) / poziomy (mobile ≤640px) pasek miniaturek z chevronami.
  * Klik chevronu/miniaturki przełącza aktywne zdjęcie, podmienia duże zdjęcie
  * i dociąga aktywną miniaturkę na środek (skrajne bez wymuszania środka).
+ *
+ * Dodatkowo: nawigacja w powiększeniu (lightbox) — strzałki po bokach + klawisze
+ * ← →, zapętlanie na końcach, a wybór synchronizuje się z dużym podglądem.
  */
 (function () {
     'use strict';
 
     var mobile = window.matchMedia('(max-width: 640px)');
+
+    // ---- Wspólny stan lightboxa ----
+    var lb = { box: null, img: null, prev: null, next: null, state: null };
+
+    function showLbNav(show) {
+        if (lb.prev) lb.prev.style.display = show ? '' : 'none';
+        if (lb.next) lb.next.style.display = show ? '' : 'none';
+    }
+
+    function lbStep(dir) {
+        if (!lb.state || !lb.img) return;
+        var imgs = lb.state.images;
+        var n = imgs.length;
+        if (n < 2) return;
+        lb.state.index = (lb.state.index + dir + n) % n; // zapętlanie
+        lb.img.setAttribute('src', imgs[lb.state.index]);
+        // synchronizacja z dużym podglądem (po zamknięciu zostaje ostatnio oglądane)
+        if (typeof lb.state.setActive === 'function') {
+            lb.state.setActive(lb.state.index);
+        }
+    }
+
+    function ensureLightboxNav() {
+        lb.box = document.getElementById('imageLightbox');
+        if (!lb.box) return;
+        lb.img = document.getElementById('lightboxImage');
+        lb.prev = lb.box.querySelector('.image-lightbox-prev');
+        lb.next = lb.box.querySelector('.image-lightbox-next');
+        if (lb.prev && lb.next) return; // już utworzone
+
+        var prevSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="15 18 9 12 15 6"/></svg>';
+        var nextSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="9 18 15 12 9 6"/></svg>';
+
+        lb.prev = document.createElement('button');
+        lb.prev.type = 'button';
+        lb.prev.className = 'image-lightbox-nav image-lightbox-prev';
+        lb.prev.setAttribute('aria-label', 'Poprzednie zdjęcie');
+        lb.prev.innerHTML = prevSvg;
+
+        lb.next = document.createElement('button');
+        lb.next.type = 'button';
+        lb.next.className = 'image-lightbox-nav image-lightbox-next';
+        lb.next.setAttribute('aria-label', 'Następne zdjęcie');
+        lb.next.innerHTML = nextSvg;
+
+        lb.box.appendChild(lb.prev);
+        lb.box.appendChild(lb.next);
+
+        lb.prev.addEventListener('click', function (e) { e.stopPropagation(); lbStep(-1); });
+        lb.next.addEventListener('click', function (e) { e.stopPropagation(); lbStep(1); });
+
+        showLbNav(false);
+    }
 
     function initGallery(root) {
         var strip = root.querySelector('.gallery-strip');
@@ -18,6 +74,7 @@
         var fadeStart = root.querySelector('.gallery-fade-start');
         var fadeEnd = root.querySelector('.gallery-fade-end');
         var mainImg = root.querySelector('.gallery-main-image');
+        var mainWrap = root.querySelector('.gallery-main');
         if (!strip || thumbs.length === 0) return;
 
         var active = 0;
@@ -73,6 +130,19 @@
         if (prevBtn) prevBtn.addEventListener('click', function () { setActive(active - 1); });
         if (nextBtn) nextBtn.addEventListener('click', function () { setActive(active + 1); });
 
+        // Klik w duże zdjęcie otwiera lightbox (przez openLightbox) — tu tylko
+        // podpinamy nawigację: lista pełnych zdjęć + aktualny indeks + sync.
+        if (mainWrap) {
+            mainWrap.addEventListener('click', function () {
+                lb.state = {
+                    images: thumbs.map(function (t) { return t.getAttribute('data-full-src'); }),
+                    index: active,
+                    setActive: setActive
+                };
+                showLbNav(thumbs.length > 1);
+            });
+        }
+
         var resizeTimer;
         window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
@@ -86,7 +156,25 @@
     }
 
     function initAll() {
+        ensureLightboxNav();
         document.querySelectorAll('[data-gallery]').forEach(initGallery);
+
+        // Klik w zdjęcie NIEbędące galerią (warianty, pojedyncze zdjęcia) —
+        // ukryj strzałki lightboxa (te obrazki nie mają nawigacji).
+        document.addEventListener('click', function (e) {
+            var wrap = e.target.closest ? e.target.closest('.zoomable-image-wrapper') : null;
+            if (!wrap) return;
+            if (wrap.classList.contains('gallery-main')) return; // obsłużone przez galerię
+            lb.state = null;
+            showLbNav(false);
+        });
+
+        // Strzałki klawiatury w otwartym lightboxie
+        document.addEventListener('keydown', function (e) {
+            if (!lb.box || !lb.box.classList.contains('active') || !lb.state) return;
+            if (e.key === 'ArrowLeft') { e.preventDefault(); lbStep(-1); }
+            else if (e.key === 'ArrowRight') { e.preventDefault(); lbStep(1); }
+        });
     }
 
     if (document.readyState === 'loading') {
