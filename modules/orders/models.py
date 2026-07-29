@@ -178,7 +178,7 @@ class Order(db.Model):
     paid_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)  # Amount paid by customer
     shipping_cost = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)  # Koszt wysyłki
     proxy_shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)  # Koszt dostawy proxy (z Korei)
-    customs_vat_sale_cost = db.Column(db.Numeric(10, 2), default=0.00)  # CŁO/VAT od ceny sprzedaży
+    customs_vat_sale_cost = db.Column(db.Numeric(10, 2), nullable=True, default=None)  # CŁO/VAT od ceny sprzedaży; NULL = nie ustalono, 0 = bez podatku
     # Delivery and payment
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
     payment_method = db.Column(db.String(50), nullable=True)  # przelew, pobranie, gotowka, blik

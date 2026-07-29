@@ -442,9 +442,9 @@ class PolandOrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False, default=1)
     shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)
 
-    # Cło/VAT
-    customs_vat_percentage = db.Column(db.Numeric(5, 2), default=0.00)
-    customs_vat_amount = db.Column(db.Numeric(10, 2), default=0.00)
+    # Cło/VAT — NULL: nie ustalono, 0: ustalono bez podatku, > 0: ustalono z podatkiem
+    customs_vat_percentage = db.Column(db.Numeric(5, 2), nullable=True, default=None)
+    customs_vat_amount = db.Column(db.Numeric(10, 2), nullable=True, default=None)
 
     # Size selection (snapshot at time of order)
     selected_size = db.Column(db.String(50), nullable=True)
