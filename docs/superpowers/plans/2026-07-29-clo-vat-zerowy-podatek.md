@@ -1408,10 +1408,26 @@ dlatego krok 4 doprowadza oba źródła do zgodności.
 Dopisz do `tests/test_customs_vat_zero.py`:
 
 ```python
-def test_client_view_hides_customs_row_when_zero(client, db, make_user, make_order, login):
+def _order_on_confirmations_page(db, make_user, make_order, login, **kwargs):
+    """Zamówienie widoczne na stronie potwierdzeń płatności.
+
+    get_confirmation_orders() filtruje `offer_page_id IS NOT NULL OR order_type == 'on_hand'`,
+    więc samo pre_order bez strony ofertowej w ogóle nie trafia na listę.
+    """
+    from modules.offers.models import OfferPage
     u = make_user(profile_completed=True); login(u)
+    page = OfferPage(name='Strona testowa', slug='strona-testowa-widok')
+    db.session.add(page)
+    db.session.flush()
     make_order(u, order_type='pre_order', status='nowe', payment_stages=3,
-               customs_vat_sale_cost=Decimal('0.00'), shipping_cost=Decimal('15.00'))
+               offer_page_id=page.id, shipping_cost=Decimal('15.00'), **kwargs)
+    db.session.commit()
+    return u
+
+
+def test_client_view_hides_customs_row_when_zero(client, db, make_user, make_order, login):
+    _order_on_confirmations_page(db, make_user, make_order, login,
+                                 customs_vat_sale_cost=Decimal('0.00'))
     html = client.get('/client/payment-confirmations').get_data(as_text=True)
     assert 'Cło/VAT' not in html
     assert 'data-has-customs-vat="false"' in html
@@ -1419,13 +1435,14 @@ def test_client_view_hides_customs_row_when_zero(client, db, make_user, make_ord
 
 def test_client_view_shows_customs_row_when_not_set(client, db, make_user, make_order, login):
     # NULL = nie ustalono → wiersz nadal widoczny (bez zmian wobec dziś)
-    u = make_user(profile_completed=True); login(u)
-    make_order(u, order_type='pre_order', status='nowe', payment_stages=3,
-               shipping_cost=Decimal('15.00'))
+    _order_on_confirmations_page(db, make_user, make_order, login)
     html = client.get('/client/payment-confirmations').get_data(as_text=True)
     assert 'Cło/VAT' in html
     assert 'data-has-customs-vat="true"' in html
 ```
+
+Jeśli strona ofertowa typu `exclusive` wymaga dodatkowo zamknięcia (`is_fully_closed`),
+użyj `order_type='pre_order'` jak wyżej — ten typ nie podlega temu filtrowi.
 
 - [ ] **Step 2: Uruchom testy — muszą nie przejść**
 
