@@ -957,6 +957,23 @@ class Order(db.Model):
         return True
 
     @property
+    def has_customs_vat_stage(self):
+        """Czy etap E3 Cło/VAT dotyczy tego zamówienia.
+
+        JEDYNA definicja tej reguły — korzystają z niej order_stage_keys(),
+        szablon konta klienta i podpowiedź ikony płatności w panelu admina.
+        Nie powielaj warunku w innych miejscach.
+
+        on_hand                → False (etap nigdy nie dotyczy).
+        0 (ustalono: bez cła)  → False — brak wiersza, brak możliwości opłacenia.
+        NULL (nie ustalono)    → True  — wiersz widoczny, klient widzi 'Zablokowane'.
+        > 0                    → True.
+        """
+        if self.order_type == 'on_hand':
+            return False
+        return self.customs_vat_sale_cost != 0
+
+    @property
     def is_customs_vat_settled(self):
         """E3 Cło/VAT rozliczone — warunek dopuszczenia zlecenia wysyłki (task 869e674fd).
 

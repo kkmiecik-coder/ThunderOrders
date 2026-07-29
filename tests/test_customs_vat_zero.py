@@ -37,3 +37,68 @@ def test_poland_order_item_customs_defaults_to_null(db, make_product):
     db.session.commit()
     assert item.customs_vat_percentage is None
     assert item.customs_vat_amount is None
+
+
+def test_stage_keys_omit_customs_when_zero(db, make_user, make_order):
+    from modules.client.payment_confirmation_service import order_stage_keys
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('0.00'))
+    assert 'customs_vat' not in order_stage_keys(o)
+
+
+def test_stage_keys_include_customs_when_null(db, make_user, make_order):
+    # NULL = nie ustalono → etap nadal obecny (klient widzi "Zablokowane")
+    from modules.client.payment_confirmation_service import order_stage_keys
+    u = make_user()
+    o = make_order(u, order_type='exclusive')
+    assert o.customs_vat_sale_cost is None
+    assert 'customs_vat' in order_stage_keys(o)
+
+
+def test_stage_keys_include_customs_when_positive(db, make_user, make_order):
+    from modules.client.payment_confirmation_service import order_stage_keys
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('50.00'))
+    assert 'customs_vat' in order_stage_keys(o)
+
+
+def test_upload_rejected_for_zero_customs(db, make_user, make_order):
+    # Brak etapu → brak możliwości opłacenia (wymóg właścicielki)
+    from modules.client.payment_confirmation_service import validate_bulk_upload
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('0.00'))
+    ok, err = validate_bulk_upload(u.id, [{'order_id': o.id, 'stages': ['customs_vat']}])
+    assert not ok and err['code'] == 'stage_not_applicable'
+
+
+def test_mobile_stages_omit_customs_when_zero(db, make_user, make_order):
+    # API mobilne czyta order_stage_keys — zmiana propaguje się bez osobnego kodu
+    from modules.api_mobile.orders_routes import _serialize_payment_stages
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('0.00'))
+    assert 'customs_vat' not in [s['stage'] for s in _serialize_payment_stages(o)]
+
+
+def test_zero_customs_order_reaches_fully_paid(db, make_user, make_order):
+    # Zamówienie bez cła nie może wisieć w "do zapłaty" czekając na wpłatę, której nie ma
+    from modules.orders.models import PaymentConfirmation
+    from modules.offers.models import OfferPage
+    from modules.client.payment_confirmation_service import get_confirmation_orders
+    u = make_user()
+    admin = make_user(role='admin')
+    # get_confirmation_orders bierze pod uwagę tylko zamówienia z oferty (offer_page_id)
+    # albo on_hand — bez strony oferty zamówienie nie trafia do żadnego koszyka.
+    page = OfferPage(name='Strona testowa', token=OfferPage.generate_token(),
+                     status='active', created_by=admin.id)
+    db.session.add(page)
+    db.session.commit()
+    o = make_order(u, order_type='pre_order', status='nowe', payment_stages=3,
+                   offer_page_id=page.id,
+                   customs_vat_sale_cost=Decimal('0.00'), shipping_cost=Decimal('15.00'))
+    for stage in ('product', 'domestic_shipping'):
+        db.session.add(PaymentConfirmation(order_id=o.id, payment_stage=stage,
+                                           amount=Decimal('10.00'), status='approved'))
+    db.session.commit()
+    buckets = get_confirmation_orders(u.id)
+    assert o.id in [x.id for x in buckets['recent_paid']]
+    assert o.id not in [x.id for x in buckets['payable']]
