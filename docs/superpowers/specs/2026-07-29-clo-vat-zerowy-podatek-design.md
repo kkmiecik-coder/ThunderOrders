@@ -139,53 +139,80 @@ Kolumny zmieniane na `nullable=True, default=None` (dziś `default=0.00`):
 ### Konto klienta
 
 16. Rubryka „Cło/VAT" (`templates/client/payment_confirmations/list.html`)
-    zyskuje trzeci stan:
+    zachowuje się zależnie od stanu:
 
 | Kwota | Co widzi klient | Czy blokuje „w pełni opłacone" |
 |---|---|---|
 | `> 0` | „Do zapłaty" → po wgraniu i akceptacji „Opłacone" | tak |
-| `0` | zielone **„Opłacone"**, kwota `0.00 zł` | **nie** |
+| `0` | **wiersz w ogóle się nie pojawia** — nie ma czego opłacać | **nie** |
 | `NULL` | „Zablokowane" — **bez zmian wobec dziś** | tak |
 
-17. Zamówienie z cłem `0` ma normalnie przechodzić do zakładki opłaconych,
-    a po trzech dniach do archiwum — czyli `get_confirmation_orders()`
-    (`payment_confirmation_service.py:204-227`) musi traktować taki etap jako
-    spełniony. Ponieważ nie powstaje wtedy żaden `PaymentConfirmation`, próg
-    archiwizacji (`max(updated_at)` z zatwierdzonych wpłat) opiera się na
-    pozostałych etapach — dla zamówienia bez cła to wystarcza, bo E1 i E4
-    zawsze istnieją.
-18. Klient nadal nie może wgrać potwierdzenia dla etapu z kwotą `0` ani `NULL`
-    (`can_upload_stage_3` — zachowanie bez zmian, dochodzi tylko obsługa `NULL`).
+17. Przy kwocie `0` etap E3 jest **strukturalnie nieobecny** — dokładnie tak,
+    jak dziś dla zamówień `on_hand`. Realizuje to jeden warunek dopisany do
+    `order_stage_keys()` (`payment_confirmation_service.py:22-29`), które jest
+    kanonicznym źródłem prawdy o obecności etapów (używa go zarówno widok
+    webowy, jak i walidacja bulk uploadu, jak i API mobilne):
+
+```python
+if order.order_type != 'on_hand' and order.customs_vat_sale_cost != 0:
+    keys.add('customs_vat')
+```
+
+   Uwaga: warunek musi odróżniać `0` od `NULL` — przy `NULL` etap zostaje
+   obecny (stan „nieustalone" nadal blokuje i pokazuje „Zablokowane").
+
+18. Konsekwencje wynikające z pkt 17, bez dodatkowej logiki:
+    - **brak opcji opłacenia** — klient nie ma jak wgrać potwierdzenia
+      (`validate_bulk_upload()` odrzuci taką próbę kodem `stage_not_applicable`,
+      `payment_confirmation_service.py:67-72`),
+    - **brak maili i powiadomień** o tym etapie,
+    - `get_confirmation_orders()` (`payment_confirmation_service.py:204-227`)
+      nie doda `stage_3_status` do listy sprawdzanych statusów, więc zamówienie
+      normalnie trafi do opłaconych, a po trzech dniach do archiwum.
+19. Miejsca do doprowadzenia do parytetu z pkt 17:
+    - `templates/client/payment_confirmations/list.html` — pominięcie sekcji E3
+      oraz atrybutów `data-stage3-*` i `data-customs-vat-amount`,
+    - `static/js/pages/client/payment-confirmations.js` — pominięcie etapu
+      w budowie kart i w mapowaniu kwot (`:574`),
+    - `modules/api_mobile/orders_routes.py:92-168` — `_serialize_payment_stages()`
+      nie zwraca etapu E3,
+    - `get_confirmation_orders()` — warunek `order.order_type != 'on_hand'`
+      (`:209-210`) zastąpiony wywołaniem `order_stage_keys()`, żeby reguła
+      obecności etapów istniała w kodzie **tylko raz**.
+20. `can_upload_stage_3` pozostaje bez zmian merytorycznych (kwota `0` i `NULL`
+    dalej blokują wgranie); dochodzi wyłącznie obsługa wartości `NULL`.
 
 ### Zlecenie wysyłki
 
-19. `Order.is_customs_vat_settled` (`modules/orders/models.py:959-971`)
+21. `Order.is_customs_vat_settled` (`modules/orders/models.py:959-971`)
     przyjmuje nową logikę:
     - `order_type == 'on_hand'` → `True` (bez zmian),
     - `customs_vat_sale_cost IS NULL` → **`False`** (nowość — blokuje),
     - `== 0` → `True`,
     - `> 0` → `True` tylko gdy `stage_3_status == 'approved'`.
-20. **To jest zmiana dzisiejszego zachowania:** dopóki cło dla paczki nie
+22. **To jest zmiana dzisiejszego zachowania:** dopóki cło dla paczki nie
     zostanie zapisane (choćby zerowe), klienci z tej paczki nie zlecą wysyłki.
     Modal Cło/VAT staje się krokiem obowiązkowym. Świadoma decyzja właścicielki;
     ostrzeżeń ani liczników w panelu admina **nie dodajemy**.
-21. `shipping_service.py:164-166` rozdziela dziś jeden kod błędu na dwa:
+23. `shipping_service.py:164-166` rozdziela dziś jeden kod błędu na dwa:
     - `customs_vat_unpaid` — kwota `> 0`, nieopłacona (komunikat jak dziś:
       „Najpierw opłać Cło/VAT dla wybranych zamówień."),
     - `customs_vat_not_set` — kwota `NULL`, komunikat w rodzaju
       „Trwa ustalanie Cła/VAT — wysyłkę zlecisz, gdy będzie gotowe."
     Komunikat „opłać" przy nieustalonym cle byłby mylący: klient nie ma czego
     opłacić i zacznie pytać obsługę.
-22. Nowy kod obsługują: `modules/client/shipping.py:254` oraz mapy
+24. Nowy kod obsługują: `modules/client/shipping.py:254` oraz mapy
     w `modules/api_mobile/shipping_routes.py:141,149,153`.
 
 ### Powiadomienia
 
-23. Przy zejściu kwoty do zera **nie wysyłamy nic** — ani maila, ani push.
+25. Przy zejściu kwoty do zera **nie wysyłamy nic** — ani maila, ani push.
     Obecny warunek `costs['new'] > 0 and costs['new'] != costs['old']`
     (`routes.py:3778`) już to zapewnia i **pozostaje bez zmian**.
     Ryzyko „klient zapłaci za coś, co anulowano" jest ograniczone blokadą
-    z punktu 11 — cła opłaconego lub oczekującego nie da się wyzerować.
+    z punktu 13 — cła opłaconego lub oczekującego nie da się wyzerować.
+26. Zamówienie z cłem `0` nie ma etapu E3 (pkt 17), więc nie trafi też do
+    przypomnień o płatnościach ani do żadnego zestawienia „do zapłaty".
 
 ## Migracja danych
 
@@ -216,9 +243,9 @@ co jest nieuniknione — stan sprzed migracji go nie zawierał.
   `payment_icon_state`, `payment_badge` — obsługa `NULL`; nowa właściwość
   rozróżniająca „ustalone zero" od „nieustalone"
 - `modules/products/routes.py` — `update_poland_customs_vat()` (przełącznik,
-  warunkowy termin, blokada z pkt 11), `_distribute_customs_vat_to_client_orders()`
-- `modules/client/payment_confirmation_service.py` — `stage_amount()`,
-  `get_confirmation_orders()`
+  warunkowy termin, blokada z pkt 12-15), `_distribute_customs_vat_to_client_orders()`
+- `modules/client/payment_confirmation_service.py` — `order_stage_keys()`
+  (kluczowa zmiana, pkt 17), `stage_amount()`, `get_confirmation_orders()`
 - `modules/client/shipping_service.py` + `modules/client/shipping.py` — nowy kod błędu
 - `modules/api_mobile/shipping_routes.py`, `modules/api_mobile/orders_routes.py` — parytet
 - `migrations/versions/<rev>_clo_vat_nullable.py` — nowa migracja
@@ -237,6 +264,11 @@ Nowy plik `tests/test_customs_vat_zero.py`:
 - zapis modala z przełącznikiem „bez cła" zapisuje `0`, nie `NULL`
 - stawka `0` zeruje `customs_vat_sale_cost` na zamówieniach klientów
   (test wprost na scenariuszu 23% → 0%)
+- `order_stage_keys()` **nie zawiera** `customs_vat` przy kwocie `0`,
+  ale **zawiera** przy `NULL` i przy kwocie dodatniej
+- próba wgrania potwierdzenia E3 dla zamówienia z cłem `0` kończy się kodem
+  `stage_not_applicable` (web i API mobilne)
+- `_serialize_payment_stages()` nie zwraca etapu E3 przy kwocie `0`
 - zamówienie z cłem `0` przechodzi do „w pełni opłacone" po opłaceniu
   pozostałych etapów
 - `is_customs_vat_settled`: `NULL` → `False`, `0` → `True`,
