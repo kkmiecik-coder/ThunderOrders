@@ -30,7 +30,7 @@
 
 | Plik | Odpowiedzialność | Zadanie |
 |---|---|---|
-| `migrations/versions/a1b2c3d4e5f6_clo_vat_null_vs_zero.py` | jednorazowa migracja danych + zdjęcie `server_default` | 1 |
+| `migrations/versions/90fb5ad1c7b6_clo_vat_null_vs_zero.py` | jednorazowa migracja danych + zdjęcie `server_default` | 1 |
 | `modules/products/models.py` | 2 kolumny `PolandOrderItem` nullable | 1 |
 | `modules/orders/models.py` | kolumna `Order` nullable; `has_customs_vat_stage` (jedyna definicja reguły obecności etapu E3); `is_customs_vat_settled`; `payment_icon_state` | 1, 2, 3, 9 |
 | `modules/client/payment_confirmation_service.py` | `order_stage_keys()` — kanoniczny zbiór etapów, oparty na `has_customs_vat_stage` | 2 |
@@ -57,7 +57,7 @@ który to potwierdza.
 **Files:**
 - Modify: `modules/products/models.py:445-447`
 - Modify: `modules/orders/models.py:181`
-- Create: `migrations/versions/a1b2c3d4e5f6_clo_vat_null_vs_zero.py`
+- Create: `migrations/versions/90fb5ad1c7b6_clo_vat_null_vs_zero.py`
 - Test: `tests/test_customs_vat_zero.py`
 
 **Interfaces:**
@@ -94,7 +94,8 @@ def test_order_accepts_explicit_zero(db, make_user, make_order):
 def test_poland_order_item_customs_defaults_to_null(db, make_product):
     from modules.products.models import PolandOrder, PolandOrderItem, ProxyOrder, ProxyOrderItem
     p = make_product()
-    proxy = ProxyOrder(order_number='PRX/TEST/1', status='nowe')
+    proxy = ProxyOrder(order_number='PRX/TEST/1',
+                       order_type='proxy', status='zamowiono')
     db.session.add(proxy)
     db.session.flush()
     proxy_item = ProxyOrderItem(proxy_order_id=proxy.id, product_id=p.id,
@@ -141,12 +142,12 @@ Expected: PASS (3 passed)
 
 - [ ] **Step 5: Napisz migrację**
 
-Utwórz `migrations/versions/a1b2c3d4e5f6_clo_vat_null_vs_zero.py`:
+Utwórz `migrations/versions/90fb5ad1c7b6_clo_vat_null_vs_zero.py`:
 
 ```python
 """Cło/VAT: rozróżnienie NULL (nie ustalono) od 0 (ustalono bez podatku)
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: 90fb5ad1c7b6
 Revises: 749897e046c0
 Create Date: 2026-07-29 20:30:00.000000
 
@@ -161,7 +162,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = 'a1b2c3d4e5f6'
+revision = '90fb5ad1c7b6'
 down_revision = '749897e046c0'
 branch_labels = None
 depends_on = None
@@ -204,7 +205,7 @@ def downgrade():
 - [ ] **Step 6: Sprawdź, że migracja wpina się w head bez rozgałęzienia**
 
 Run: `venv/bin/python -m flask db heads 2>&1 | tail -3`
-Expected: dokładnie jedna linia z `a1b2c3d4e5f6 (head)`. Jeśli pojawią się dwie głowy,
+Expected: dokładnie jedna linia z `90fb5ad1c7b6 (head)`. Jeśli pojawią się dwie głowy,
 `down_revision` wskazuje na złą rewizję — popraw i powtórz.
 
 - [ ] **Step 7: Uruchom pełny zestaw testów**
@@ -219,7 +220,7 @@ intencją było „bez podatku", albo zostaw `None` tam, gdzie intencją było �
 
 ```bash
 git add modules/products/models.py modules/orders/models.py \
-        migrations/versions/a1b2c3d4e5f6_clo_vat_null_vs_zero.py \
+        migrations/versions/90fb5ad1c7b6_clo_vat_null_vs_zero.py \
         tests/test_customs_vat_zero.py
 git commit -F - <<'EOF'
 feat(clo-vat): kolumny cła rozróżniają NULL od zera
@@ -822,7 +823,8 @@ def _poland_setup(db, order, product, percentage):
     """Paczka do Polski z jedną pozycją — minimalne dane dla endpointu cła."""
     from modules.products.models import (PolandOrder, PolandOrderItem,
                                           ProxyOrder, ProxyOrderItem)
-    proxy = ProxyOrder(order_number=f'PRX/T/{order.id}', status='nowe')
+    proxy = ProxyOrder(order_number=f'PRX/T/{order.id}',
+                       order_type='proxy', status='zamowiono')
     db.session.add(proxy)
     db.session.flush()
     pi = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
