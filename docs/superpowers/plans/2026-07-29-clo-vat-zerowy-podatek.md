@@ -558,7 +558,7 @@ W `modules/client/shipping_service.py` zamień linie 163-166:
     # 'not_set'  = admin nie ustalił jeszcze cła (klient nie ma czego opłacić),
     # 'unpaid'   = cło naliczone, ale niezatwierdzone (E3 != approved).
     not_set = sorted(oid for oid in order_ids
-                     if owned[oid].order_type != 'on_hand'
+                     if owned[oid].has_customs_vat_stage
                      and owned[oid].customs_vat_sale_cost is None)
     if not_set:
         return False, {'code': 'customs_vat_not_set',
