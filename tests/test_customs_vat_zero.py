@@ -141,6 +141,50 @@ def test_shipping_unpaid_code_unchanged_for_due_customs(db, make_user, make_orde
     assert not ok and err['code'] == 'customs_vat_unpaid'
 
 
+def _client_order_with_product(db, make_user, make_order, make_product, price, qty=1):
+    """Zamówienie klienta z jedną pozycją danego produktu — wspólne dla testów dystrybucji."""
+    from modules.orders.models import OrderItem
+    from modules.offers.models import OfferPage
+    u = make_user()
+    admin = make_user(role='admin')
+    page = OfferPage(name='Strona testowa', token=OfferPage.generate_token(),
+                     status='active', created_by=admin.id)
+    db.session.add(page)
+    db.session.flush()
+    p = make_product()
+    o = make_order(u, order_type='exclusive', offer_page_id=page.id)
+    db.session.add(OrderItem(order_id=o.id, product_id=p.id, quantity=qty,
+                             price=price, total=price * qty))
+    db.session.commit()
+    return o, p
+
+
+def test_zero_percentage_clears_client_amount(db, make_user, make_order, make_product):
+    # Scenariusz właścicielki: najpierw 23%, potem poprawka na "bez podatku"
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('23')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == Decimal('230.00')
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('0')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == 0          # zero, nie NULL — to zapisana decyzja
+    assert o.customs_vat_sale_cost is not None
+
+
+def test_zeroing_sends_no_notifications(db, make_user, make_order, make_product, monkeypatch):
+    # Decyzja właścicielki: przy zejściu kwoty do zera nie wysyłamy nic
+    from modules.products import routes as product_routes
+    sent = []
+    monkeypatch.setattr('utils.email_manager.EmailManager.notify_costs_added_bulk',
+                        lambda *a, **kw: sent.append('email'), raising=False)
+    product_routes._notify_distributed_costs({1: {'old': 230.0, 'new': 0.0}}, 'customs_vat')
+    assert sent == []
+
+
 def test_zero_customs_order_reaches_fully_paid(db, make_user, make_order):
     # Zamówienie bez cła nie może wisieć w "do zapłaty" czekając na wpłatę, której nie ma
     from modules.orders.models import PaymentConfirmation

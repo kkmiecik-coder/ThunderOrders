@@ -3717,7 +3717,7 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
     from decimal import Decimal
 
     if not product_customs_percentages:
-        return
+        return {}
 
     product_ids = list(product_customs_percentages.keys())
 
@@ -3733,6 +3733,7 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
         has_match = False
         for item in order.items:
             if item.product_id in product_ids:
+                has_match = True                      # dopasowanie liczy się też przy stawce 0
                 percentage = product_customs_percentages[item.product_id]
                 if percentage > 0 and item.price:
                     qty = item.quantity
@@ -3744,7 +3745,6 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
                         sale_value = Decimal(str(item.price)) * qty
                         customs = (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
                         customs_total += customs
-                        has_match = True
 
         if has_match:
             updated_customs[order.id] = {
@@ -4062,8 +4062,10 @@ def update_poland_customs_vat():
             item.customs_vat_amount = customs_amount
             affected_order_ids.add(item.poland_order_id)
 
-            # Zbierz procent cła per produkt do dystrybucji na zamówienia klientów
-            if percentage > 0 and item.product_id:
+            # Zbierz procent cła per produkt do dystrybucji na zamówienia klientów.
+            # Stawka 0 też musi tu trafić — to zapisana decyzja "bez podatku",
+            # która ma wyzerować kwotę na zamówieniach klientów.
+            if item.product_id:
                 product_customs_percentages[item.product_id] = percentage
 
             updated_items.append({
