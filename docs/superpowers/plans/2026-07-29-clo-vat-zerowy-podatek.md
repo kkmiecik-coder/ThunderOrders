@@ -660,13 +660,15 @@ def _client_order_with_product(db, make_user, make_order, make_product, price, q
     from modules.orders.models import OrderItem
     from modules.offers.models import OfferPage
     u = make_user()
-    page = OfferPage(name='Strona testowa', slug='strona-testowa')
+    admin = make_user(role='admin')
+    page = OfferPage(name='Strona testowa', token=OfferPage.generate_token(),
+                     status='active', created_by=admin.id)
     db.session.add(page)
     db.session.flush()
     p = make_product()
     o = make_order(u, order_type='exclusive', offer_page_id=page.id)
     db.session.add(OrderItem(order_id=o.id, product_id=p.id, quantity=qty,
-                             price=price, product_name=p.name))
+                             price=price, total=price * qty))
     db.session.commit()
     return o, p
 
@@ -1416,7 +1418,9 @@ def _order_on_confirmations_page(db, make_user, make_order, login, **kwargs):
     """
     from modules.offers.models import OfferPage
     u = make_user(profile_completed=True); login(u)
-    page = OfferPage(name='Strona testowa', slug='strona-testowa-widok')
+    admin = make_user(role='admin')
+    page = OfferPage(name='Strona testowa', token=OfferPage.generate_token(),
+                     status='active', created_by=admin.id)
     db.session.add(page)
     db.session.flush()
     make_order(u, order_type='pre_order', status='nowe', payment_stages=3,
