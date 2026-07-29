@@ -139,6 +139,7 @@ _CREATE_REQUEST_ERR_STATUS = {
     'no_orders': 400, 'no_address': 400,
     'orders_not_found': 404, 'orders_not_available': 409, 'address_not_found': 404,
     'customs_vat_unpaid': 409,
+    'customs_vat_not_set': 409,
 }
 _CREATE_REQUEST_ERR_MSG = {
     'no_orders': 'Wybierz przynajmniej jedno zamówienie.',
@@ -147,10 +148,12 @@ _CREATE_REQUEST_ERR_MSG = {
     'orders_not_available': 'Niektóre zamówienia są niedostępne lub już mają zlecenie wysyłki.',
     'address_not_found': 'Adres dostawy nie istnieje.',
     'customs_vat_unpaid': 'Najpierw opłać Cło/VAT dla wybranych zamówień.',
+    'customs_vat_not_set': 'Trwa ustalanie Cła/VAT — wysyłkę zlecisz, gdy będzie gotowe.',
 }
 _CREATE_REQUEST_ERR_DETAILS = {
     'orders_not_found': 'missing_order_ids', 'orders_not_available': 'unavailable_order_ids',
     'customs_vat_unpaid': 'customs_vat_unpaid_order_ids',
+    'customs_vat_not_set': 'customs_vat_not_set_order_ids',
 }
 
 

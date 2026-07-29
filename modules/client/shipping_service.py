@@ -160,7 +160,15 @@ def validate_and_create_request(user, order_ids, address_id,
                          if owned[oid].status not in allowed or oid in in_req)
     if unavailable:
         return False, {'code': 'orders_not_available', 'unavailable_order_ids': unavailable}, None
-    # Gate Cło/VAT (task 869e674fd): zlecenie wysyłki dopiero po opłaceniu podatku (E3 approved).
+    # Gate Cło/VAT (task 869e674fd) — dwa różne powody odmowy:
+    # 'not_set'  = admin nie ustalił jeszcze cła (klient nie ma czego opłacić),
+    # 'unpaid'   = cło naliczone, ale niezatwierdzone (E3 != approved).
+    not_set = sorted(oid for oid in order_ids
+                     if owned[oid].order_type != 'on_hand'
+                     and owned[oid].customs_vat_sale_cost is None)
+    if not_set:
+        return False, {'code': 'customs_vat_not_set',
+                       'customs_vat_not_set_order_ids': not_set}, None
     unpaid_tax = sorted(oid for oid in order_ids if not owned[oid].is_customs_vat_settled)
     if unpaid_tax:
         return False, {'code': 'customs_vat_unpaid', 'customs_vat_unpaid_order_ids': unpaid_tax}, None

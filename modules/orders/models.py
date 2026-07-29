@@ -977,13 +977,17 @@ class Order(db.Model):
     def is_customs_vat_settled(self):
         """E3 Cło/VAT rozliczone — warunek dopuszczenia zlecenia wysyłki (task 869e674fd).
 
-        True gdy podatek (cło/VAT) nie dotyczy zamówienia (on_hand lub brak kwoty)
-        LUB został opłacony i zatwierdzony przez admina (stage_3_status == 'approved').
-        'pending'/'rejected'/'none' → jeszcze nieopłacony (blokuje zlecenie wysyłki).
+        on_hand                → True (etap nie dotyczy).
+        NULL (nie ustalono)    → False — blokuje do czasu decyzji admina w modalu Cło/VAT.
+        0 (ustalono bez cła)   → True.
+        > 0                    → True dopiero gdy stage_3_status == 'approved'
+                                 ('pending'/'rejected'/'none' nie wystarczają).
         """
         if self.order_type == 'on_hand':
             return True
-        if not self.customs_vat_sale_cost or self.customs_vat_sale_cost <= 0:
+        if self.customs_vat_sale_cost is None:
+            return False
+        if self.customs_vat_sale_cost <= 0:
             return True
         return self.stage_3_status == 'approved'
 

@@ -251,6 +251,11 @@ def shipping_requests_create():
                 return jsonify({'success': False, 'error': 'Wybierz adres dostawy'}), 400
             if code == 'address_not_found':
                 return jsonify({'success': False, 'error': 'Nieprawidłowy adres dostawy'}), 400
+            if code == 'customs_vat_not_set':
+                return jsonify({
+                    'success': False,
+                    'error': 'Nie można zlecić wysyłki — trwa ustalanie Cła/VAT dla wybranych zamówień. Spróbuj ponownie, gdy będzie gotowe.'
+                }), 400
             if code == 'customs_vat_unpaid':
                 return jsonify({
                     'success': False,

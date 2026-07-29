@@ -79,6 +79,68 @@ def test_mobile_stages_omit_customs_when_zero(db, make_user, make_order):
     assert 'customs_vat' not in [s['stage'] for s in _serialize_payment_stages(o)]
 
 
+def test_settled_false_when_customs_not_set(db, make_user, make_order):
+    # Decyzja właścicielki: dopóki cło nie jest ustalone, wysyłki zlecić nie można
+    u = make_user()
+    o = make_order(u, order_type='exclusive')
+    assert o.customs_vat_sale_cost is None
+    assert o.is_customs_vat_settled is False
+
+
+def test_settled_true_when_customs_zero(db, make_user, make_order):
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('0.00'))
+    assert o.is_customs_vat_settled is True
+
+
+def test_settled_false_when_customs_due_unpaid(db, make_user, make_order):
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('50.00'))
+    assert o.is_customs_vat_settled is False
+
+
+def test_settled_true_for_on_hand_regardless(db, make_user, make_order):
+    u = make_user()
+    o = make_order(u, order_type='on_hand')
+    assert o.is_customs_vat_settled is True
+
+
+def test_shipping_blocked_with_not_set_code(db, make_user, make_order):
+    # "Nieustalone" musi mieć własny kod — komunikat "opłać" byłby mylący,
+    # bo klient nie ma czego opłacić
+    from modules.client.shipping_service import validate_and_create_request
+    from tests.test_shipping_service import _seed_status, _allow, _addr
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive')
+    ok, err, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert not ok and err['code'] == 'customs_vat_not_set'
+    assert o.id in err['customs_vat_not_set_order_ids'] and req is None
+
+
+def test_shipping_allowed_when_customs_zero(db, make_user, make_order):
+    from modules.client.shipping_service import validate_and_create_request
+    from tests.test_shipping_service import _seed_status, _allow, _addr
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive',
+                   customs_vat_sale_cost=Decimal('0.00'))
+    ok, err, req = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert ok and req is not None
+
+
+def test_shipping_unpaid_code_unchanged_for_due_customs(db, make_user, make_order):
+    # Kwota > 0 nieopłacona → nadal stary kod, bez zmiany zachowania
+    from modules.client.shipping_service import validate_and_create_request
+    from tests.test_shipping_service import _seed_status, _allow, _addr
+    _seed_status(db); _allow(db)
+    u = make_user()
+    o = make_order(u, status='dostarczone_gom', order_type='exclusive',
+                   customs_vat_sale_cost=Decimal('50.00'))
+    ok, err, _ = validate_and_create_request(u, [o.id], _addr(db, u).id)
+    assert not ok and err['code'] == 'customs_vat_unpaid'
+
+
 def test_zero_customs_order_reaches_fully_paid(db, make_user, make_order):
     # Zamówienie bez cła nie może wisieć w "do zapłaty" czekając na wpłatę, której nie ma
     from modules.orders.models import PaymentConfirmation
