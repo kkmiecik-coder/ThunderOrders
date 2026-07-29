@@ -32,8 +32,8 @@
 |---|---|---|
 | `migrations/versions/a1b2c3d4e5f6_clo_vat_null_vs_zero.py` | jednorazowa migracja danych + zdjęcie `server_default` | 1 |
 | `modules/products/models.py` | 2 kolumny `PolandOrderItem` nullable | 1 |
-| `modules/orders/models.py` | kolumna `Order` nullable; `is_customs_vat_settled`; `payment_icon_state` | 1, 3, 9 |
-| `modules/client/payment_confirmation_service.py` | `order_stage_keys()` — jedyne źródło prawdy o obecności etapów | 2 |
+| `modules/orders/models.py` | kolumna `Order` nullable; `has_customs_vat_stage` (jedyna definicja reguły obecności etapu E3); `is_customs_vat_settled`; `payment_icon_state` | 1, 2, 3, 9 |
+| `modules/client/payment_confirmation_service.py` | `order_stage_keys()` — kanoniczny zbiór etapów, oparty na `has_customs_vat_stage` | 2 |
 | `modules/client/shipping_service.py` | rozdzielenie kodu błędu gate'u Cło/VAT | 3 |
 | `modules/client/shipping.py` | komunikat webowy dla nowego kodu | 3 |
 | `modules/api_mobile/shipping_routes.py` | mapy kodów błędów dla nowego kodu | 3 |
@@ -244,10 +244,13 @@ EOF
 
 **Interfaces:**
 - Consumes: kolumna `Order.customs_vat_sale_cost` z zadania 1 (może być `None`).
-- Produces: `order_stage_keys(order) -> set[str]` — zbiór **bez** `'customs_vat'`, gdy
-  `order.customs_vat_sale_cost == 0`; **z** `'customs_vat'`, gdy wartość to `None` lub `> 0`
-  (i zamówienie nie jest `on_hand`). Zadania 8 i 9 opierają na tym warunku swoją logikę
-  wyświetlania.
+- Produces:
+  - `Order.has_customs_vat_stage -> bool` — **jedyna** definicja reguły „czy etap E3
+    dotyczy tego zamówienia". Zadania 8 (szablon, JavaScript) i 9 (ikona admina) mają
+    z niej korzystać, a nie powtarzać warunek. Spec pkt 19 wymaga, by reguła istniała
+    w kodzie tylko raz.
+  - `order_stage_keys(order) -> set[str]` — zbiór **bez** `'customs_vat'`, gdy
+    `order.has_customs_vat_stage` jest `False`.
 
 - [ ] **Step 1: Napisz testy obecności etapu**
 
@@ -300,7 +303,34 @@ Run: `venv/bin/python -m pytest tests/test_customs_vat_zero.py -v -k "stage_keys
 Expected: FAIL — `test_stage_keys_omit_customs_when_zero`, `test_upload_rejected_for_zero_customs`
 i `test_mobile_stages_omit_customs_when_zero` (etap wciąż obecny). Dwa pozostałe przechodzą już teraz.
 
-- [ ] **Step 3: Dodaj warunek do `order_stage_keys`**
+- [ ] **Step 3a: Dodaj właściwość `has_customs_vat_stage` do `Order`**
+
+W `modules/orders/models.py` wstaw bezpośrednio przed `is_customs_vat_settled` (przed linią 959):
+
+```python
+    @property
+    def has_customs_vat_stage(self):
+        """Czy etap E3 Cło/VAT dotyczy tego zamówienia.
+
+        JEDYNA definicja tej reguły — korzystają z niej order_stage_keys(),
+        szablon konta klienta i podpowiedź ikony płatności w panelu admina.
+        Nie powielaj warunku w innych miejscach.
+
+        on_hand                → False (etap nigdy nie dotyczy).
+        0 (ustalono: bez cła)  → False — brak wiersza, brak możliwości opłacenia.
+        NULL (nie ustalono)    → True  — wiersz widoczny, klient widzi 'Zablokowane'.
+        > 0                    → True.
+        """
+        if self.order_type == 'on_hand':
+            return False
+        return self.customs_vat_sale_cost != 0
+```
+
+Uwaga na porównanie: `None != 0` daje `True` (etap obecny), `Decimal('0.00') != 0` daje
+`False` (etap nieobecny). Nie zamieniaj tego na `if not self.customs_vat_sale_cost` —
+to zrównałoby `None` z zerem i zepsuło całe rozróżnienie.
+
+- [ ] **Step 3b: Oprzyj `order_stage_keys` na nowej właściwości**
 
 W `modules/client/payment_confirmation_service.py` zamień linie 22-29:
 
@@ -308,22 +338,17 @@ W `modules/client/payment_confirmation_service.py` zamień linie 22-29:
 def order_stage_keys(order):
     """Zbiór etapów STRUKTURALNIE obecnych dla zamówienia (kanon: web + E5 + walidacja bulku).
 
-    customs_vat: obecny gdy zamówienie nie jest on_hand ORAZ cło nie zostało
-    ustalone na zero. NULL (nie ustalono) → etap obecny, klient widzi 'Zablokowane'.
-    0 (ustalono: bez podatku) → etap nieobecny: brak wiersza, brak możliwości
-    opłacenia, brak powiadomień, brak wpływu na 'w pełni opłacone'.
+    customs_vat: obecność rozstrzyga Order.has_customs_vat_stage — patrz tam po
+    znaczenie NULL / 0 / > 0. Etap nieobecny oznacza: brak wiersza u klienta,
+    brak możliwości opłacenia, brak powiadomień, brak wpływu na 'w pełni opłacone'.
     """
     keys = {'product', 'domestic_shipping'}
     if order.payment_stages == 4:
         keys.add('korean_shipping')
-    if order.order_type != 'on_hand' and order.customs_vat_sale_cost != 0:
+    if order.has_customs_vat_stage:
         keys.add('customs_vat')
     return keys
 ```
-
-Uwaga na porównanie: `None != 0` daje `True` (etap obecny), `Decimal('0.00') != 0` daje
-`False` (etap nieobecny). Nie zamieniaj tego na `if not order.customs_vat_sale_cost` —
-to zrównałoby `None` z zerem i zepsuło całe rozróżnienie.
 
 - [ ] **Step 4: Uruchom testy — muszą przejść**
 
@@ -1408,27 +1433,26 @@ niezależnie od kwoty.
 
 - [ ] **Step 3: Dodaj atrybut i warunki w szablonie**
 
+Korzystaj z `Order.has_customs_vat_stage` (zadanie 2) — **nie powtarzaj warunku** o typie
+zamówienia i kwocie. Ta reguła ma jedną definicję.
+
 W `templates/client/payment_confirmations/list.html` dopisz po linii 58:
 
 ```jinja
-                 data-has-customs-vat="{{ 'true' if (order.order_type != 'on_hand' and order.customs_vat_sale_cost != 0) else 'false' }}"
+                 data-has-customs-vat="{{ 'true' if order.has_customs_vat_stage else 'false' }}"
 ```
 
 Zamień linię 179:
 
 ```jinja
-                    {% if order.order_type != 'on_hand' and order.customs_vat_sale_cost != 0 %}
+                    {% if order.has_customs_vat_stage %}
 ```
 
 Zamień linię 323:
 
 ```jinja
-                    {% if order.order_type != 'on_hand' and order.customs_vat_sale_cost != 0 %}
+                    {% if order.has_customs_vat_stage %}
 ```
-
-W Jinja `None != 0` daje `true` (wiersz widoczny przy nieustalonym cle), a `Decimal('0.00') != 0`
-daje `false` (wiersz ukryty). Nie zastępuj tego `order.customs_vat_sale_cost` bez porównania —
-zrównałoby to `None` z zerem.
 
 - [ ] **Step 4: Uzgodnij listę etapów w JavaScripcie z szablonem**
 
@@ -1558,11 +1582,12 @@ Expected: FAIL `test_admin_tooltip_omits_customs_when_zero`. PASS drugi.
 
 - [ ] **Step 3: Pomiń E3 przy zerowym cle**
 
-W `modules/orders/models.py` zamień linię 714:
+W `modules/orders/models.py` zamień linię 714, korzystając z właściwości dodanej w zadaniu 2
+(**nie powtarzaj warunku** — reguła ma jedną definicję):
 
 ```python
-            # E3: Cło/VAT (nie dotyczy on-hand ani zamówień z cłem ustalonym na zero)
-            if self.order_type != 'on_hand' and self.customs_vat_sale_cost != 0:
+            # E3: Cło/VAT — obecność etapu rozstrzyga has_customs_vat_stage
+            if self.has_customs_vat_stage:
 ```
 
 - [ ] **Step 4: Uruchom testy — muszą przejść**
