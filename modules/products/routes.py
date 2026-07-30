@@ -4110,6 +4110,24 @@ def update_poland_customs_vat():
         # Auto-fill CŁO/VAT od ceny SPRZEDAŻY na zamówieniach klientów
         distributed_customs = _distribute_customs_vat_to_client_orders(product_customs_percentages) or {}
 
+        # Blokada: nie wolno wyzerować cła, które klient już opłacił albo zgłosił
+        # do weryfikacji — powstałaby nadpłata do ręcznego zwrotu.
+        from modules.orders.models import Order as ClientOrder
+        blocked = []
+        for oid, costs in distributed_customs.items():
+            if costs['old'] > 0 and costs['new'] == 0:
+                client_order = db.session.get(ClientOrder, oid)
+                if client_order and client_order.stage_3_status in ('approved', 'pending'):
+                    blocked.append(client_order.order_number)
+        if blocked:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': ('Nie można wyzerować Cła/VAT — zamówienia '
+                          + ', '.join(sorted(blocked))
+                          + ' mają już opłacony ten etap.')
+            }), 409
+
         db.session.commit()
 
         log_activity(

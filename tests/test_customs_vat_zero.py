@@ -241,3 +241,73 @@ def test_zero_rate_clears_even_unfulfilled_item(db, make_user, make_order, make_
     _distribute_customs_vat_to_client_orders({p.id: Decimal('0')})
     db.session.commit()
     assert o.customs_vat_sale_cost == 0
+
+
+def _poland_setup(db, order, product, percentage):
+    """Paczka do Polski z jedną pozycją — minimalne dane dla endpointu cła."""
+    from modules.products.models import (PolandOrder, PolandOrderItem,
+                                          ProxyOrder, ProxyOrderItem)
+    proxy = ProxyOrder(order_number=f'PRX/T/{order.id}',
+                       order_type='proxy', status='zamowiono')
+    db.session.add(proxy)
+    db.session.flush()
+    pi = ProxyOrderItem(proxy_order_id=proxy.id, product_id=product.id,
+                        quantity=1, unit_price=10, total_price=10)
+    db.session.add(pi)
+    db.session.flush()
+    po = PolandOrder(order_number=f'PL/T/{order.id}', proxy_order_id=proxy.id,
+                     status='zamowione')
+    db.session.add(po)
+    db.session.flush()
+    item = PolandOrderItem(poland_order_id=po.id, proxy_order_item_id=pi.id,
+                           product_id=product.id, quantity=1,
+                           customs_vat_percentage=percentage)
+    db.session.add(item)
+    db.session.commit()
+    return po, item
+
+
+DEADLINE = '2026-12-31T23:59'   # termin w przyszłości — endpoint go dziś wymaga
+
+
+def _blocked_zeroing_response(client, db, make_user, make_order, make_product,
+                              login, stage3_status):
+    """Wspólny scenariusz: cło 230 zł opłacone/oczekujące, próba zejścia do zera."""
+    from modules.orders.models import PaymentConfirmation
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    o.customs_vat_sale_cost = Decimal('230.00')
+    db.session.add(PaymentConfirmation(order_id=o.id, payment_stage='customs_vat',
+                                       amount=Decimal('230.00'), status=stage3_status))
+    _, item = _poland_setup(db, o, p, Decimal('23'))
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': 0}],
+                         'customs_payment_deadline': DEADLINE})
+    return o, r
+
+
+def test_zeroing_blocked_when_stage3_approved(client, db, make_user, make_order,
+                                              make_product, login):
+    o, r = _blocked_zeroing_response(client, db, make_user, make_order, make_product,
+                                     login, 'approved')
+    assert r.status_code == 409
+    assert r.get_json()['success'] is False
+    assert o.order_number in r.get_json()['error']
+
+
+def test_zeroing_blocked_when_stage3_pending(client, db, make_user, make_order,
+                                             make_product, login):
+    # Wgrane potwierdzenie = przelew najpewniej już wyszedł
+    o, r = _blocked_zeroing_response(client, db, make_user, make_order, make_product,
+                                     login, 'pending')
+    assert r.status_code == 409
+
+
+def test_zeroing_allowed_when_stage3_untouched(client, db, make_user, make_order,
+                                               make_product, login):
+    # Brak potwierdzenia → wyzerowanie przechodzi normalnie
+    o, r = _blocked_zeroing_response(client, db, make_user, make_order, make_product,
+                                     login, 'rejected')
+    assert r.status_code == 200 and r.get_json()['success'] is True
