@@ -92,6 +92,9 @@ def _serialize_available_order(order):
         'items_count': order.items_count,
         # Gate Cło/VAT (task 869e674fd): False → zablokowane do zlecenia wysyłki
         'customs_vat_paid': order.is_customs_vat_settled,
+        # Powód blokady: True = cło jeszcze nieustalone (klient nie ma czego
+        # opłacić), False = naliczone, ale nieopłacone. Parytet z webem.
+        'customs_vat_not_set': order.is_customs_vat_not_set,
         'items': [{'name': it.product_name, 'selected_size': it.selected_size,
                    'image_url': _abs_image(it.product_image_url),
                    'quantity': it.quantity, 'price': to_grosze(it.price)}

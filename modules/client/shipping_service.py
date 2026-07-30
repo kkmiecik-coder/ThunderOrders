@@ -163,9 +163,7 @@ def validate_and_create_request(user, order_ids, address_id,
     # Gate Cło/VAT (task 869e674fd) — dwa różne powody odmowy:
     # 'not_set'  = admin nie ustalił jeszcze cła (klient nie ma czego opłacić),
     # 'unpaid'   = cło naliczone, ale niezatwierdzone (E3 != approved).
-    not_set = sorted(oid for oid in order_ids
-                     if owned[oid].has_customs_vat_stage
-                     and owned[oid].customs_vat_sale_cost is None)
+    not_set = sorted(oid for oid in order_ids if owned[oid].is_customs_vat_not_set)
     if not_set:
         return False, {'code': 'customs_vat_not_set',
                        'customs_vat_not_set_order_ids': not_set}, None

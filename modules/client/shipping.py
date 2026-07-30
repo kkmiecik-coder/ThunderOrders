@@ -213,7 +213,11 @@ def shipping_requests_available_orders():
                 'items': items_data,
                 'items_count': len(order.items),
                 # Gate Cło/VAT (task 869e674fd): False → zablokowane do zlecenia wysyłki
-                'customs_vat_paid': order.is_customs_vat_settled
+                'customs_vat_paid': order.is_customs_vat_settled,
+                # Powód blokady: True = cło jeszcze nieustalone (klient nie ma
+                # czego opłacić), False = naliczone, ale nieopłacone.
+                # Pole obok customs_vat_paid — bez zmiany jego znaczenia.
+                'customs_vat_not_set': order.is_customs_vat_not_set
             })
 
         return jsonify({'success': True, 'orders': orders_data})

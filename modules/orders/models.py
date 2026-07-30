@@ -974,6 +974,21 @@ class Order(db.Model):
         return self.customs_vat_sale_cost != 0
 
     @property
+    def is_customs_vat_not_set(self):
+        """Cło/VAT jeszcze NIEUSTALONE — etap dotyczy zamówienia, ale admin
+        nie podał kwoty (NULL).
+
+        Odróżnia "nieustalone" od "naliczone, ale nieopłacone". Klient nie ma
+        wtedy czego opłacić, więc komunikat "najpierw opłać Cło/VAT" byłby
+        mylący — front pokazuje "Trwa ustalanie Cła/VAT".
+
+        JEDYNA definicja tego stanu — korzystają z niej walidacja zlecenia
+        wysyłki oraz serializacja listy zamówień (web i API mobilne).
+        Regułę "czy etap w ogóle dotyczy" bierze z has_customs_vat_stage.
+        """
+        return self.has_customs_vat_stage and self.customs_vat_sale_cost is None
+
+    @property
     def is_customs_vat_settled(self):
         """E3 Cło/VAT rozliczone — warunek dopuszczenia zlecenia wysyłki (task 869e674fd).
 

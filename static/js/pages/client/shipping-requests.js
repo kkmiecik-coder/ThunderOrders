@@ -194,15 +194,24 @@ function renderOrderCards(orders) {
             <tbody>
                 ${orders.map(order => {
                     const blocked = order.customs_vat_paid === false;
+                    // Dwa różne powody blokady — "nieustalone" nie może dostać
+                    // komunikatu "opłać", bo klient nie ma wtedy czego opłacić.
+                    const notSet = order.customs_vat_not_set === true;
+                    const blockedTitle = notSet
+                        ? 'Trwa ustalanie Cła/VAT — wysyłkę zlecisz, gdy będzie gotowe.'
+                        : 'Najpierw opłać Cło/VAT dla tego zamówienia';
+                    const blockedLabel = notSet
+                        ? '⏳ Trwa ustalanie Cła/VAT'
+                        : '⚠ Najpierw opłać Cło/VAT';
                     return `
-                    <tr class="order-row ${blocked ? 'order-row-blocked' : ''} ${!blocked && selectedOrders.includes(order.id) ? 'selected' : ''}" data-order-id="${order.id}" onclick="toggleOrderSelection(${order.id})"${blocked ? ' title="Najpierw opłać Cło/VAT dla tego zamówienia"' : ''}>
+                    <tr class="order-row ${blocked ? 'order-row-blocked' : ''} ${!blocked && selectedOrders.includes(order.id) ? 'selected' : ''}" data-order-id="${order.id}" onclick="toggleOrderSelection(${order.id})"${blocked ? ` title="${blockedTitle}"` : ''}>
                         <td class="col-checkbox">
                             <input type="checkbox" class="order-checkbox" id="order-${order.id}" ${blocked ? 'disabled' : ''} ${!blocked && selectedOrders.includes(order.id) ? 'checked' : ''}>
                         </td>
                         <td class="col-number">
                             <span class="order-number">${order.order_number}</span>
                             <span class="order-date">${order.created_at}</span>
-                            ${blocked ? '<span class="order-tax-warning">⚠ Najpierw opłać Cło/VAT</span>' : ''}
+                            ${blocked ? `<span class="order-tax-warning">${blockedLabel}</span>` : ''}
                         </td>
                         <td class="col-items">
                             <div class="items-list">

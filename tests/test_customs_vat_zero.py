@@ -443,6 +443,54 @@ def test_deadline_still_required_with_customs(client, db, make_user, make_order,
     assert 'Termin' in r.get_json()['error']
 
 
+def test_not_set_property_distinguishes_from_unpaid(db, make_user, make_order):
+    u = make_user()
+    not_set = make_order(u, order_type='exclusive')
+    due = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('50.00'))
+    zero = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('0.00'))
+    on_hand = make_order(u, order_type='on_hand')
+    assert not_set.is_customs_vat_not_set is True
+    assert due.is_customs_vat_not_set is False
+    assert zero.is_customs_vat_not_set is False
+    assert on_hand.is_customs_vat_not_set is False
+
+
+def _available_orders_setup(db, make_user, make_order, login):
+    """Dwa zamówienia gotowe do zlecenia wysyłki: cło nieustalone vs. nieopłacone."""
+    from tests.test_shipping_service import _seed_status, _allow
+    _seed_status(db); _allow(db)
+    u = make_user(profile_completed=True); login(u)
+    not_set = make_order(u, status='dostarczone_gom', order_type='exclusive')
+    due = make_order(u, status='dostarczone_gom', order_type='exclusive',
+                     customs_vat_sale_cost=Decimal('50.00'))
+    db.session.commit()
+    return u, not_set, due
+
+
+def test_available_orders_web_distinguishes_not_set(client, db, make_user, make_order, login):
+    # Klient z nieustalonym cłem nie może zobaczyć "Najpierw opłać Cło/VAT"
+    _, not_set, due = _available_orders_setup(db, make_user, make_order, login)
+    data = client.get('/client/shipping/requests/available-orders').get_json()
+    assert data['success'] is True
+    by_id = {o['id']: o for o in data['orders']}
+
+    assert by_id[not_set.id]['customs_vat_paid'] is False
+    assert by_id[not_set.id]['customs_vat_not_set'] is True
+    assert by_id[due.id]['customs_vat_paid'] is False
+    assert by_id[due.id]['customs_vat_not_set'] is False
+
+
+def test_available_orders_mobile_distinguishes_not_set(db, make_user, make_order, login):
+    # Parytet API mobilnego z wersją webową
+    from modules.api_mobile.shipping_routes import _serialize_available_order
+    _, not_set, due = _available_orders_setup(db, make_user, make_order, login)
+
+    a = _serialize_available_order(not_set)
+    b = _serialize_available_order(due)
+    assert a['customs_vat_paid'] is False and a['customs_vat_not_set'] is True
+    assert b['customs_vat_paid'] is False and b['customs_vat_not_set'] is False
+
+
 def _update_customs_field(client, order, value):
     """Ręczna edycja kwoty Cła/VAT w szczegółach zamówienia (panel admina)."""
     return client.post(f'/admin/orders/{order.id}/update-field',
