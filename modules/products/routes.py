@@ -3741,10 +3741,11 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
             if item.is_set_fulfilled is False:
                 qty = 0
             # Stawka 0 to zapisana decyzja "bez podatku" — zeruje kwotę zawsze.
-            # Stawka dodatnia dotyka zamówienia tylko gdy pozycja jest realizowana,
-            # żeby zwykła korekta stawki nie kasowała kwot na pozycjach
-            # niezrealizowanych (decyzja właścicielki).
-            if percentage == 0 or qty > 0:
+            # Stawka dodatnia dotyka zamówienia tylko gdy pozycja jest realizowana
+            # I ma cenę, żeby zwykła korekta stawki nie kasowała kwot na pozycjach
+            # niezrealizowanych ani przez pozycję gratisową (cena 0), od której
+            # i tak nie naliczamy nic (decyzja właścicielki).
+            if percentage == 0 or (item.price and qty > 0):
                 has_match = True
             if percentage > 0 and item.price and qty > 0:
                 sale_value = Decimal(str(item.price)) * qty

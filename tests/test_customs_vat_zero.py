@@ -243,6 +243,32 @@ def test_zero_rate_clears_even_unfulfilled_item(db, make_user, make_order, make_
     assert o.customs_vat_sale_cost == 0
 
 
+def test_positive_rate_does_not_clear_free_item_only_order(db, make_user, make_order,
+                                                           make_product):
+    # Gratis (cena 0) nie generuje cła, więc nie może też skasować etapu E3:
+    # przy stawce dodatniej zamówienie z samą pozycją gratisową zostaje nietknięte
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('0.00'), qty=5)
+    assert o.customs_vat_sale_cost is None
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('23')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost is None        # nietknięte, nie 0
+    assert o.has_customs_vat_stage is True        # etap nadal dotyczy
+
+
+def test_zero_rate_still_clears_free_item_only_order(db, make_user, make_order, make_product):
+    # Stawka 0 = zapisana decyzja "bez podatku" — zeruje niezależnie od ceny pozycji
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('0.00'), qty=5)
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('0')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == 0
+    assert o.customs_vat_sale_cost is not None
+
+
 def _poland_setup(db, order, product, percentage):
     """Paczka do Polski z jedną pozycją — minimalne dane dla endpointu cła."""
     from modules.products.models import (PolandOrder, PolandOrderItem,
