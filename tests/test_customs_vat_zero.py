@@ -396,3 +396,17 @@ def test_client_view_shows_customs_row_when_not_set(client, db, make_user, make_
     html = client.get('/client/payment-confirmations').get_data(as_text=True)
     assert 'Cło/VAT' in html
     assert 'data-has-customs-vat="true"' in html
+
+
+def test_admin_tooltip_omits_customs_when_zero(db, make_user, make_order):
+    # Ikona statusu na liście admina nie może czekać na wpłatę, której nie ma
+    u = make_user()
+    o = make_order(u, order_type='exclusive', payment_stages=3,
+                   customs_vat_sale_cost=Decimal('0.00'))
+    assert 'E3 Cło/VAT' not in o.payment_icon_state['tooltip']
+
+
+def test_admin_tooltip_shows_customs_when_not_set(db, make_user, make_order):
+    u = make_user()
+    o = make_order(u, order_type='exclusive', payment_stages=3)
+    assert 'E3 Cło/VAT' in o.payment_icon_state['tooltip']

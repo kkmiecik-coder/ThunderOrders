@@ -689,7 +689,6 @@ class Order(db.Model):
 
             # Kwoty do zapłaty z pól zamówienia
             e1_due = Decimal(str(self.total_amount)) if self.total_amount else Decimal('0.00')
-            e3_due = Decimal(str(self.customs_vat_sale_cost)) if self.customs_vat_sale_cost else Decimal('0.00')
             e4_due = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
 
             # E1: Produkt
@@ -710,8 +709,9 @@ class Order(db.Model):
                 stages_info.append(f"E2 Wysy\u0142ka KR: {e2_icon} {e2_paid} / {e2_due} z\u0142")
                 statuses.append(e2_status)
 
-            # E3: Cło/VAT (nie dotyczy on-hand)
-            if self.order_type != 'on_hand':
+            # E3: Cło/VAT — obecność etapu rozstrzyga has_customs_vat_stage
+            if self.has_customs_vat_stage:
+                e3_due = Decimal(str(self.customs_vat_sale_cost)) if self.customs_vat_sale_cost else Decimal('0.00')
                 e3_status = self.stage_3_status
                 e3_conf = self.stage_3_confirmation
                 e3_paid = e3_conf.amount if e3_conf and e3_conf.is_approved else Decimal('0.00')
