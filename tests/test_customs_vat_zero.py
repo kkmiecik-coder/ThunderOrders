@@ -311,3 +311,53 @@ def test_zeroing_allowed_when_stage3_untouched(client, db, make_user, make_order
     o, r = _blocked_zeroing_response(client, db, make_user, make_order, make_product,
                                      login, 'rejected')
     assert r.status_code == 200 and r.get_json()['success'] is True
+
+
+def test_no_customs_saves_zero_not_null(client, db, make_user, make_order,
+                                        make_product, login):
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    po, item = _poland_setup(db, o, p, None)
+
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': 0}],
+                         'no_customs': True})
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    db.session.refresh(item)
+    assert item.customs_vat_percentage == 0        # zapisana decyzja, nie brak decyzji
+    assert item.customs_vat_percentage is not None
+    assert item.customs_vat_amount == 0
+
+
+def test_no_customs_clears_payment_deadline(client, db, make_user, make_order,
+                                            make_product, login):
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    po, item = _poland_setup(db, o, p, Decimal('23'))
+    from datetime import datetime
+    po.customs_payment_deadline = datetime(2026, 12, 31, 23, 59)
+    db.session.commit()
+
+    client.put('/admin/products/api/update-poland-customs-vat',
+               json={'items': [{'poland_order_item_id': item.id,
+                                'customs_vat_percentage': 0}],
+                     'no_customs': True})
+    db.session.refresh(po)
+    assert po.customs_payment_deadline is None     # nie ma płatności → nie ma terminu
+
+
+def test_deadline_still_required_with_customs(client, db, make_user, make_order,
+                                              make_product, login):
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    po, item = _poland_setup(db, o, p, None)
+
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': 23}]})
+    assert r.status_code == 400
+    assert 'Termin' in r.get_json()['error']

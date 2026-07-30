@@ -4030,20 +4030,23 @@ def update_poland_customs_vat():
     try:
         data = request.get_json()
         items_data = data.get('items', [])
+        no_customs = bool(data.get('no_customs'))
 
         if not items_data:
             return jsonify({'success': False, 'error': 'Brak danych do zapisania'}), 400
 
-        # Opcjonalny termin płatności za Cło/VAT
-        customs_deadline_str = data.get('customs_payment_deadline')
-        if not customs_deadline_str:
-            return jsonify({'success': False, 'error': 'Termin płatności za Cło/VAT jest wymagany.'}), 400
-
+        # Termin płatności wymagany tylko wtedy, gdy cło faktycznie będzie do zapłaty.
+        # Przy 'bez cła/VAT' nie ma płatności, więc nie ma też terminu.
         from datetime import datetime
-        try:
-            customs_deadline = datetime.fromisoformat(customs_deadline_str)
-        except (ValueError, TypeError):
-            return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
+        customs_deadline = None
+        if not no_customs:
+            customs_deadline_str = data.get('customs_payment_deadline')
+            if not customs_deadline_str:
+                return jsonify({'success': False, 'error': 'Termin płatności za Cło/VAT jest wymagany.'}), 400
+            try:
+                customs_deadline = datetime.fromisoformat(customs_deadline_str)
+            except (ValueError, TypeError):
+                return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
 
         affected_order_ids = set()
         updated_items = []
@@ -4051,7 +4054,8 @@ def update_poland_customs_vat():
 
         for item_data in items_data:
             item_id = item_data.get('poland_order_item_id')
-            percentage = Decimal(str(item_data.get('customs_vat_percentage', 0)))
+            percentage = (Decimal('0') if no_customs
+                          else Decimal(str(item_data.get('customs_vat_percentage', 0))))
 
             item = db.session.get(PolandOrderItem, item_id)
             if not item:
@@ -4096,9 +4100,8 @@ def update_poland_customs_vat():
             poland_order.customs_cost = total_customs
             poland_order.total_amount = total_product_value + (poland_order.shipping_cost or Decimal('0')) + total_customs
 
-            # Zapisz termin płatności za Cło/VAT (jeśli podany)
-            if customs_deadline:
-                poland_order.customs_payment_deadline = customs_deadline
+            # Termin płatności za Cło/VAT: ustawiany przy naliczeniu, czyszczony przy 'bez cła'
+            poland_order.customs_payment_deadline = None if no_customs else customs_deadline
 
             updated_orders.append({
                 'order_id': poland_order.id,
