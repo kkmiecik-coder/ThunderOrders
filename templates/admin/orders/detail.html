@@ -583,7 +583,11 @@
                             </button>
                         </span>
                         <span class="editable-summary-editor" id="customsVatEditor" style="display: none;">
-                            <input type="number" class="form-input-sm summary-cost-input" id="customsVatInput" step="0.01" min="0" value="{{ "%.2f"|format(order.customs_vat_total) }}" data-original="{{ "%.2f"|format(order.customs_vat_total) }}">
+                            {# Cło nieustalone (NULL) musi otwierać PUSTE pole — inaczej samo otwarcie
+                               edytora i zapis wysłałoby jawne 0, czyli decyzję "bez podatku".
+                               Czytamy kolumnę wprost, bo customs_vat_total zwija NULL do 0.00. #}
+                            {% set customs_edit_value = '' if order.customs_vat_sale_cost is none else "%.2f"|format(order.customs_vat_sale_cost) %}
+                            <input type="number" class="form-input-sm summary-cost-input" id="customsVatInput" step="0.01" min="0" value="{{ customs_edit_value }}" data-original="{{ customs_edit_value }}" placeholder="nie ustalono">
                             <span class="input-suffix">PLN</span>
                             <button type="button" class="btn-inline-save" onclick="saveSummaryCost('customsVat')" title="Zapisz">
                                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
