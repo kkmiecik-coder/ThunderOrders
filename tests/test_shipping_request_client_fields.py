@@ -11,8 +11,9 @@ def _addr(user, db):
 
 
 def _order_ready(user, db, make_order):
-    # status dozwolony do zlecenia; make_order tworzy zamówienie z customs_vat_sale_cost=0,
-    # więc is_customs_vat_settled (property) zwraca True automatycznie — nie ustawiaj go ręcznie.
+    # status dozwolony do zlecenia; make_order bez order_type tworzy zamówienie on_hand,
+    # dla którego is_customs_vat_settled (property) zwraca True niezależnie od kwoty cła
+    # (etap E3 go nie dotyczy) — nie ustawiaj go ręcznie.
     return make_order(user, status='dostarczone_gom')
 
 

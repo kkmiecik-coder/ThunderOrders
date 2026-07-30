@@ -2348,6 +2348,35 @@
     gap: 6px;
 }
 
+.customs-vat-global-percent {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.customs-vat-toggle-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.customs-vat-toggle-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .customs-vat-global-row {
+        flex-wrap: wrap;
+    }
+    .customs-vat-toggle-box {
+        margin-left: 0;
+    }
+}
+
 .customs-vat-percent-wrapper {
     display: flex;
     align-items: center;
@@ -2491,6 +2520,10 @@
 }
 
 [data-theme="dark"] .customs-vat-global-row label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .customs-vat-toggle-text {
     color: rgba(255, 255, 255, 0.9);
 }
 

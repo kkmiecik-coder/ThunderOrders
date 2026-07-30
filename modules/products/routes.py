@@ -3717,7 +3717,7 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
     from decimal import Decimal
 
     if not product_customs_percentages:
-        return
+        return {}
 
     product_ids = list(product_customs_percentages.keys())
 
@@ -3732,19 +3732,24 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
         customs_total = Decimal('0')
         has_match = False
         for item in order.items:
-            if item.product_id in product_ids:
-                percentage = product_customs_percentages[item.product_id]
-                if percentage > 0 and item.price:
-                    qty = item.quantity
-                    if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
-                        qty = item.fulfilled_quantity
-                    if item.is_set_fulfilled is False:
-                        qty = 0
-                    if qty > 0:
-                        sale_value = Decimal(str(item.price)) * qty
-                        customs = (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
-                        customs_total += customs
-                        has_match = True
+            if item.product_id not in product_ids:
+                continue
+            percentage = product_customs_percentages[item.product_id]
+            qty = item.quantity
+            if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                qty = item.fulfilled_quantity
+            if item.is_set_fulfilled is False:
+                qty = 0
+            # Stawka 0 to zapisana decyzja "bez podatku" — zeruje kwotę zawsze.
+            # Stawka dodatnia dotyka zamówienia tylko gdy pozycja jest realizowana
+            # I ma cenę, żeby zwykła korekta stawki nie kasowała kwot na pozycjach
+            # niezrealizowanych ani przez pozycję gratisową (cena 0), od której
+            # i tak nie naliczamy nic (decyzja właścicielki).
+            if percentage == 0 or (item.price and qty > 0):
+                has_match = True
+            if percentage > 0 and item.price and qty > 0:
+                sale_value = Decimal(str(item.price)) * qty
+                customs_total += (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
 
         if has_match:
             updated_customs[order.id] = {
@@ -4026,20 +4031,23 @@ def update_poland_customs_vat():
     try:
         data = request.get_json()
         items_data = data.get('items', [])
+        no_customs = bool(data.get('no_customs'))
 
         if not items_data:
             return jsonify({'success': False, 'error': 'Brak danych do zapisania'}), 400
 
-        # Opcjonalny termin płatności za Cło/VAT
-        customs_deadline_str = data.get('customs_payment_deadline')
-        if not customs_deadline_str:
-            return jsonify({'success': False, 'error': 'Termin płatności za Cło/VAT jest wymagany.'}), 400
-
+        # Termin płatności wymagany tylko wtedy, gdy cło faktycznie będzie do zapłaty.
+        # Przy 'bez cła/VAT' nie ma płatności, więc nie ma też terminu.
         from datetime import datetime
-        try:
-            customs_deadline = datetime.fromisoformat(customs_deadline_str)
-        except (ValueError, TypeError):
-            return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
+        customs_deadline = None
+        if not no_customs:
+            customs_deadline_str = data.get('customs_payment_deadline')
+            if not customs_deadline_str:
+                return jsonify({'success': False, 'error': 'Termin płatności za Cło/VAT jest wymagany.'}), 400
+            try:
+                customs_deadline = datetime.fromisoformat(customs_deadline_str)
+            except (ValueError, TypeError):
+                return jsonify({'success': False, 'error': 'Nieprawidłowy format daty terminu płatności.'}), 400
 
         affected_order_ids = set()
         updated_items = []
@@ -4047,7 +4055,24 @@ def update_poland_customs_vat():
 
         for item_data in items_data:
             item_id = item_data.get('poland_order_item_id')
-            percentage = Decimal(str(item_data.get('customs_vat_percentage', 0)))
+
+            if no_customs:
+                # "Bez cła/VAT" dotyczy CAŁEJ paczki — każda pozycja dostaje 0,
+                # niezależnie od tego, co było w polu %.
+                percentage = Decimal('0')
+            else:
+                # Kontrakt z frontem (static/js/pages/admin/stock-orders.js):
+                # puste pole % jest wysyłane jako null i oznacza BRAK DECYZJI.
+                # Takiej pozycji nie dotykamy — zachowuje dotychczasową wartość
+                # (NULL = nieustalone albo wcześniejszą stawkę). Zapisujemy tylko
+                # faktycznie wpisane liczby, w tym jawne 0 ("ustalono: bez podatku").
+                # Inaczej pusty wiersz w modalu zbiorczym zapisałby 0 i skasował
+                # etap E3 na zamówieniach klientów z tym produktem.
+                raw_percentage = item_data.get('customs_vat_percentage')
+                if raw_percentage is None or (isinstance(raw_percentage, str)
+                                              and not raw_percentage.strip()):
+                    continue
+                percentage = Decimal(str(raw_percentage))
 
             item = db.session.get(PolandOrderItem, item_id)
             if not item:
@@ -4062,8 +4087,10 @@ def update_poland_customs_vat():
             item.customs_vat_amount = customs_amount
             affected_order_ids.add(item.poland_order_id)
 
-            # Zbierz procent cła per produkt do dystrybucji na zamówienia klientów
-            if percentage > 0 and item.product_id:
+            # Zbierz procent cła per produkt do dystrybucji na zamówienia klientów.
+            # Stawka 0 też musi tu trafić — to zapisana decyzja "bez podatku",
+            # która ma wyzerować kwotę na zamówieniach klientów.
+            if item.product_id:
                 product_customs_percentages[item.product_id] = percentage
 
             updated_items.append({
@@ -4090,9 +4117,8 @@ def update_poland_customs_vat():
             poland_order.customs_cost = total_customs
             poland_order.total_amount = total_product_value + (poland_order.shipping_cost or Decimal('0')) + total_customs
 
-            # Zapisz termin płatności za Cło/VAT (jeśli podany)
-            if customs_deadline:
-                poland_order.customs_payment_deadline = customs_deadline
+            # Termin płatności za Cło/VAT: ustawiany przy naliczeniu, czyszczony przy 'bez cła'
+            poland_order.customs_payment_deadline = None if no_customs else customs_deadline
 
             updated_orders.append({
                 'order_id': poland_order.id,
@@ -4103,6 +4129,24 @@ def update_poland_customs_vat():
 
         # Auto-fill CŁO/VAT od ceny SPRZEDAŻY na zamówieniach klientów
         distributed_customs = _distribute_customs_vat_to_client_orders(product_customs_percentages) or {}
+
+        # Blokada: nie wolno wyzerować cła, które klient już opłacił albo zgłosił
+        # do weryfikacji — powstałaby nadpłata do ręcznego zwrotu.
+        from modules.orders.models import Order as ClientOrder
+        blocked = []
+        for oid, costs in distributed_customs.items():
+            if costs['old'] > 0 and costs['new'] == 0:
+                client_order = db.session.get(ClientOrder, oid)
+                if client_order and client_order.stage_3_status in ('approved', 'pending'):
+                    blocked.append(client_order.order_number)
+        if blocked:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'error': ('Nie można wyzerować Cła/VAT — zamówienia '
+                          + ', '.join(sorted(blocked))
+                          + ' mają już opłacony ten etap.')
+            }), 409
 
         db.session.commit()
 

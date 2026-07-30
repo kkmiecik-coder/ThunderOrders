@@ -178,7 +178,7 @@ class Order(db.Model):
     paid_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)  # Amount paid by customer
     shipping_cost = db.Column(db.Numeric(10, 2), nullable=False, default=0.00)  # Koszt wysyłki
     proxy_shipping_cost = db.Column(db.Numeric(10, 2), default=0.00)  # Koszt dostawy proxy (z Korei)
-    customs_vat_sale_cost = db.Column(db.Numeric(10, 2), default=0.00)  # CŁO/VAT od ceny sprzedaży
+    customs_vat_sale_cost = db.Column(db.Numeric(10, 2), nullable=True, default=None)  # CŁO/VAT od ceny sprzedaży; NULL = nie ustalono, 0 = bez podatku
     # Delivery and payment
     delivery_method = db.Column(db.String(50), nullable=True)  # kurier, paczkomat, odbior_osobisty
     payment_method = db.Column(db.String(50), nullable=True)  # przelew, pobranie, gotowka, blik
@@ -689,7 +689,6 @@ class Order(db.Model):
 
             # Kwoty do zapłaty z pól zamówienia
             e1_due = Decimal(str(self.total_amount)) if self.total_amount else Decimal('0.00')
-            e3_due = Decimal(str(self.customs_vat_sale_cost)) if self.customs_vat_sale_cost else Decimal('0.00')
             e4_due = Decimal(str(self.shipping_cost)) if self.shipping_cost else Decimal('0.00')
 
             # E1: Produkt
@@ -710,8 +709,9 @@ class Order(db.Model):
                 stages_info.append(f"E2 Wysy\u0142ka KR: {e2_icon} {e2_paid} / {e2_due} z\u0142")
                 statuses.append(e2_status)
 
-            # E3: Cło/VAT (nie dotyczy on-hand)
-            if self.order_type != 'on_hand':
+            # E3: Cło/VAT — obecność etapu rozstrzyga has_customs_vat_stage
+            if self.has_customs_vat_stage:
+                e3_due = Decimal(str(self.customs_vat_sale_cost)) if self.customs_vat_sale_cost else Decimal('0.00')
                 e3_status = self.stage_3_status
                 e3_conf = self.stage_3_confirmation
                 e3_paid = e3_conf.amount if e3_conf and e3_conf.is_approved else Decimal('0.00')
@@ -957,16 +957,52 @@ class Order(db.Model):
         return True
 
     @property
+    def has_customs_vat_stage(self):
+        """Czy etap E3 Cło/VAT dotyczy tego zamówienia.
+
+        JEDYNA definicja tej reguły — korzystają z niej order_stage_keys(),
+        szablon konta klienta i podpowiedź ikony płatności w panelu admina.
+        Nie powielaj warunku w innych miejscach.
+
+        on_hand                → False (etap nigdy nie dotyczy).
+        0 (ustalono: bez cła)  → False — brak wiersza, brak możliwości opłacenia.
+        NULL (nie ustalono)    → True  — wiersz widoczny, klient widzi 'Zablokowane'.
+        > 0                    → True.
+        """
+        if self.order_type == 'on_hand':
+            return False
+        return self.customs_vat_sale_cost != 0
+
+    @property
+    def is_customs_vat_not_set(self):
+        """Cło/VAT jeszcze NIEUSTALONE — etap dotyczy zamówienia, ale admin
+        nie podał kwoty (NULL).
+
+        Odróżnia "nieustalone" od "naliczone, ale nieopłacone". Klient nie ma
+        wtedy czego opłacić, więc komunikat "najpierw opłać Cło/VAT" byłby
+        mylący — front pokazuje "Trwa ustalanie Cła/VAT".
+
+        JEDYNA definicja tego stanu — korzystają z niej walidacja zlecenia
+        wysyłki oraz serializacja listy zamówień (web i API mobilne).
+        Regułę "czy etap w ogóle dotyczy" bierze z has_customs_vat_stage.
+        """
+        return self.has_customs_vat_stage and self.customs_vat_sale_cost is None
+
+    @property
     def is_customs_vat_settled(self):
         """E3 Cło/VAT rozliczone — warunek dopuszczenia zlecenia wysyłki (task 869e674fd).
 
-        True gdy podatek (cło/VAT) nie dotyczy zamówienia (on_hand lub brak kwoty)
-        LUB został opłacony i zatwierdzony przez admina (stage_3_status == 'approved').
-        'pending'/'rejected'/'none' → jeszcze nieopłacony (blokuje zlecenie wysyłki).
+        on_hand                → True (etap nie dotyczy).
+        NULL (nie ustalono)    → False — blokuje do czasu decyzji admina w modalu Cło/VAT.
+        0 (ustalono bez cła)   → True.
+        > 0                    → True dopiero gdy stage_3_status == 'approved'
+                                 ('pending'/'rejected'/'none' nie wystarczają).
         """
         if self.order_type == 'on_hand':
             return True
-        if not self.customs_vat_sale_cost or self.customs_vat_sale_cost <= 0:
+        if self.customs_vat_sale_cost is None:
+            return False
+        if self.customs_vat_sale_cost <= 0:
             return True
         return self.stage_3_status == 'approved'
 

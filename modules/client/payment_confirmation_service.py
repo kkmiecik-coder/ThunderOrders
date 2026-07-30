@@ -20,11 +20,16 @@ _STAGE_NAMES_PL = {
 
 
 def order_stage_keys(order):
-    """Zbiór etapów STRUKTURALNIE obecnych dla zamówienia (kanon: web + E5 + walidacja bulku)."""
+    """Zbiór etapów STRUKTURALNIE obecnych dla zamówienia (kanon: web + E5 + walidacja bulku).
+
+    customs_vat: obecność rozstrzyga Order.has_customs_vat_stage — patrz tam po
+    znaczenie NULL / 0 / > 0. Etap nieobecny oznacza: brak wiersza u klienta,
+    brak możliwości opłacenia, brak powiadomień, brak wpływu na 'w pełni opłacone'.
+    """
     keys = {'product', 'domestic_shipping'}
     if order.payment_stages == 4:
         keys.add('korean_shipping')
-    if order.order_type != 'on_hand':
+    if order.has_customs_vat_stage:
         keys.add('customs_vat')
     return keys
 
@@ -203,10 +208,11 @@ def get_confirmation_orders(user_id):
 
     payable, recent_paid, archived = [], [], []
     for order in all_orders:
+        keys = order_stage_keys(order)                # jedno źródło prawdy o obecności etapów
         statuses = [order.product_payment_status]
-        if order.payment_stages == 4:
+        if 'korean_shipping' in keys:
             statuses.append(order.stage_2_status or 'none')
-        if order.order_type != 'on_hand':
+        if 'customs_vat' in keys:
             statuses.append(order.stage_3_status)
         statuses.append(order.stage_4_status)
 
