@@ -331,6 +331,86 @@ def test_no_customs_saves_zero_not_null(client, db, make_user, make_order,
     assert item.customs_vat_amount == 0
 
 
+def test_empty_percentage_does_not_touch_item(client, db, make_user, make_order,
+                                              make_product, login):
+    # Puste pole % w modalu = brak decyzji. Front wysyła null, serwer pomija
+    # pozycję — inaczej pusty wiersz zapisałby 0 ("bez podatku").
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    o.customs_vat_sale_cost = Decimal('230.00')
+    po, item = _poland_setup(db, o, p, Decimal('23'))
+
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': None}],
+                         'customs_payment_deadline': DEADLINE})
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    db.session.refresh(item); db.session.refresh(o)
+    assert item.customs_vat_percentage == Decimal('23')      # stawka nietknięta
+    assert o.customs_vat_sale_cost == Decimal('230.00')      # kwota u klienta nietknięta
+
+
+def test_empty_percentage_keeps_client_customs_null(client, db, make_user, make_order,
+                                                    make_product, login):
+    # Najgroźniejszy wariant: cło jeszcze nieustalone (NULL) nie może przez
+    # pusty wiersz zamienić się w 0 i skasować klientowi etap E3.
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    po, item = _poland_setup(db, o, p, None)
+    assert o.customs_vat_sale_cost is None
+
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': ''}],
+                         'customs_payment_deadline': DEADLINE})
+    assert r.status_code == 200
+    db.session.refresh(item); db.session.refresh(o)
+    assert item.customs_vat_percentage is None
+    assert o.customs_vat_sale_cost is None
+    assert o.has_customs_vat_stage is True                   # etap nadal dotyczy
+
+
+def test_explicit_zero_percentage_still_zeroes(client, db, make_user, make_order,
+                                               make_product, login):
+    # Jawnie wpisane 0 to nadal decyzja "bez podatku" — musi zerować.
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    o.customs_vat_sale_cost = Decimal('230.00')
+    po, item = _poland_setup(db, o, p, Decimal('23'))
+
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': 0}],
+                         'customs_payment_deadline': DEADLINE})
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    db.session.refresh(item); db.session.refresh(o)
+    assert item.customs_vat_percentage == 0
+    assert o.customs_vat_sale_cost == 0
+
+
+def test_no_customs_zeroes_even_with_empty_percentage(client, db, make_user, make_order,
+                                                      make_product, login):
+    # Tryb "bez cła/VAT" czyści pola % w modalu — mimo to wszystkie pozycje
+    # muszą dostać 0 (przełącznik dotyczy całej paczki).
+    admin = make_user(role='admin'); login(admin)
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    po, item = _poland_setup(db, o, p, Decimal('23'))
+
+    r = client.put('/admin/products/api/update-poland-customs-vat',
+                   json={'items': [{'poland_order_item_id': item.id,
+                                    'customs_vat_percentage': None}],
+                         'no_customs': True})
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    db.session.refresh(item); db.session.refresh(o)
+    assert item.customs_vat_percentage == 0
+    assert item.customs_vat_amount == 0
+    assert o.customs_vat_sale_cost == 0
+
+
 def test_no_customs_clears_payment_deadline(client, db, make_user, make_order,
                                             make_product, login):
     admin = make_user(role='admin'); login(admin)

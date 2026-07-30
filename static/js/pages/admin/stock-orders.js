@@ -1149,7 +1149,14 @@ function saveCustomsVat() {
     document.querySelectorAll('#customsVatItemsContainer tr[data-item-id]').forEach(row => {
         const itemId = parseInt(row.dataset.itemId);
         const percentInput = row.querySelector('.customs-vat-percent-input');
-        const percentage = parseFloat(percentInput.value) || 0;
+        const raw = (percentInput.value || '').trim();
+        // Puste pole % = BRAK DECYZJI, a nie "0% = bez podatku". Wysyłamy null,
+        // a serwer (modules/products/routes.py, update_poland_customs_vat)
+        // pomija taką pozycję — zachowuje jej dotychczasową stawkę.
+        // Bez tego pusty wiersz w modalu zbiorczym zapisałby 0 i skasowałby
+        // etap Cło/VAT na zamówieniach klientów z tym produktem.
+        const parsed = parseFloat(raw);
+        const percentage = (raw === '' || isNaN(parsed)) ? null : parsed;
 
         items.push({
             poland_order_item_id: itemId,

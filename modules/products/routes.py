@@ -4054,8 +4054,24 @@ def update_poland_customs_vat():
 
         for item_data in items_data:
             item_id = item_data.get('poland_order_item_id')
-            percentage = (Decimal('0') if no_customs
-                          else Decimal(str(item_data.get('customs_vat_percentage', 0))))
+
+            if no_customs:
+                # "Bez cła/VAT" dotyczy CAŁEJ paczki — każda pozycja dostaje 0,
+                # niezależnie od tego, co było w polu %.
+                percentage = Decimal('0')
+            else:
+                # Kontrakt z frontem (static/js/pages/admin/stock-orders.js):
+                # puste pole % jest wysyłane jako null i oznacza BRAK DECYZJI.
+                # Takiej pozycji nie dotykamy — zachowuje dotychczasową wartość
+                # (NULL = nieustalone albo wcześniejszą stawkę). Zapisujemy tylko
+                # faktycznie wpisane liczby, w tym jawne 0 ("ustalono: bez podatku").
+                # Inaczej pusty wiersz w modalu zbiorczym zapisałby 0 i skasował
+                # etap E3 na zamówieniach klientów z tym produktem.
+                raw_percentage = item_data.get('customs_vat_percentage')
+                if raw_percentage is None or (isinstance(raw_percentage, str)
+                                              and not raw_percentage.strip()):
+                    continue
+                percentage = Decimal(str(raw_percentage))
 
             item = db.session.get(PolandOrderItem, item_id)
             if not item:
