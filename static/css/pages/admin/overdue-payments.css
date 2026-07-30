@@ -94,6 +94,7 @@
 .overdue-payments-table th.col-amount {
     text-align: right;
     white-space: nowrap;
+    padding-right: var(--space-4);
 }
 
 .overdue-payments-table td.col-days,
