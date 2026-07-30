@@ -443,6 +443,111 @@ def test_deadline_still_required_with_customs(client, db, make_user, make_order,
     assert 'Termin' in r.get_json()['error']
 
 
+def _update_customs_field(client, order, value):
+    """Ręczna edycja kwoty Cła/VAT w szczegółach zamówienia (panel admina)."""
+    return client.post(f'/admin/orders/{order.id}/update-field',
+                       json={'field': 'customs_vat_sale_cost', 'value': value})
+
+
+def test_manual_edit_empty_saves_null(client, db, make_user, make_order, login):
+    # Puste pole = "nieustalone" (NULL). Zapis 0 znaczyłby "ustalono: bez cła"
+    # i skasowałby klientowi etap E3 oraz odblokował wysyłkę.
+    admin = make_user(role='admin'); login(admin)
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('230.00'))
+    db.session.commit()
+
+    r = _update_customs_field(client, o, '')
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    db.session.refresh(o)
+    assert o.customs_vat_sale_cost is None
+    assert o.has_customs_vat_stage is True
+    assert o.is_customs_vat_settled is False
+
+
+def test_manual_edit_null_saves_null(client, db, make_user, make_order, login):
+    admin = make_user(role='admin'); login(admin)
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('230.00'))
+    db.session.commit()
+
+    r = _update_customs_field(client, o, None)
+    assert r.status_code == 200
+    db.session.refresh(o)
+    assert o.customs_vat_sale_cost is None
+
+
+def test_manual_edit_explicit_zero_saves_zero(client, db, make_user, make_order, login):
+    # Jawne 0 to nadal świadoma decyzja "bez cła" — musi się zapisać jako 0.
+    admin = make_user(role='admin'); login(admin)
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('230.00'))
+    db.session.commit()
+
+    r = _update_customs_field(client, o, 0)
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    db.session.refresh(o)
+    assert o.customs_vat_sale_cost is not None
+    assert o.customs_vat_sale_cost == 0
+    assert o.has_customs_vat_stage is False
+
+
+def _manual_zeroing_blocked(client, db, make_user, make_order, login, stage3_status, value):
+    from modules.orders.models import PaymentConfirmation
+    admin = make_user(role='admin'); login(admin)
+    u = make_user()
+    o = make_order(u, order_type='exclusive', customs_vat_sale_cost=Decimal('230.00'))
+    db.session.add(PaymentConfirmation(order_id=o.id, payment_stage='customs_vat',
+                                       amount=Decimal('230.00'), status=stage3_status))
+    db.session.commit()
+    r = _update_customs_field(client, o, value)
+    db.session.refresh(o)
+    return o, r
+
+
+def test_manual_zeroing_blocked_when_stage3_approved(client, db, make_user, make_order, login):
+    o, r = _manual_zeroing_blocked(client, db, make_user, make_order, login, 'approved', 0)
+    assert r.status_code == 409
+    assert r.get_json()['success'] is False
+    assert o.order_number in r.get_json()['message']
+    assert o.customs_vat_sale_cost == Decimal('230.00')      # kwota nietknięta
+
+
+def test_manual_zeroing_blocked_when_stage3_pending(client, db, make_user, make_order, login):
+    # Wgrane potwierdzenie = przelew najpewniej już wyszedł
+    o, r = _manual_zeroing_blocked(client, db, make_user, make_order, login, 'pending', 0)
+    assert r.status_code == 409
+    assert o.customs_vat_sale_cost == Decimal('230.00')
+
+
+def test_manual_clearing_blocked_when_stage3_approved(client, db, make_user, make_order, login):
+    # Zejście do NULL jest tak samo groźne jak do zera
+    o, r = _manual_zeroing_blocked(client, db, make_user, make_order, login, 'approved', '')
+    assert r.status_code == 409
+    assert o.customs_vat_sale_cost == Decimal('230.00')
+
+
+def test_manual_zeroing_allowed_when_stage3_untouched(client, db, make_user, make_order, login):
+    o, r = _manual_zeroing_blocked(client, db, make_user, make_order, login, 'rejected', 0)
+    assert r.status_code == 200 and r.get_json()['success'] is True
+    assert o.customs_vat_sale_cost == 0
+
+
+def test_manual_edit_shipping_cost_empty_still_zero(client, db, make_user, make_order, login):
+    # Parytet: pozostałe koszty zachowują dotychczasowe zachowanie (puste → 0.00)
+    admin = make_user(role='admin'); login(admin)
+    u = make_user()
+    o = make_order(u, order_type='exclusive', shipping_cost=Decimal('15.00'))
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/{o.id}/update-field',
+                    json={'field': 'shipping_cost', 'value': ''})
+    assert r.status_code == 200
+    db.session.refresh(o)
+    assert o.shipping_cost == 0
+    assert o.shipping_cost is not None
+
+
 def _order_on_confirmations_page(db, make_user, make_order, login, **kwargs):
     """Zamówienie widoczne na stronie potwierdzeń płatności.
 

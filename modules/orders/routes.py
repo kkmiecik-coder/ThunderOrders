@@ -914,19 +914,41 @@ def admin_update_order_field(order_id):
         # Update the field
         if field in ('shipping_cost', 'proxy_shipping_cost', 'customs_vat_sale_cost'):
             from decimal import Decimal
+            is_blank = value is None or (isinstance(value, str) and not value.strip())
             try:
-                value = Decimal(str(value)) if value else Decimal('0.00')
+                if is_blank:
+                    # Cło/VAT ma trzy stany (patrz Order.has_customs_vat_stage):
+                    # NULL = nieustalone, 0 = ustalono bez podatku, > 0 = z podatkiem.
+                    # Puste pole to "nieustalone", a NIE decyzja "bez cła" — zapis 0
+                    # skasowałby klientowi etap E3 i odblokował wysyłkę.
+                    # Pozostałe koszty zachowują dotychczasowe zachowanie (0.00).
+                    value = None if field == 'customs_vat_sale_cost' else Decimal('0.00')
+                else:
+                    value = Decimal(str(value))
             except:
                 return jsonify({
                     'success': False,
                     'message': 'Nieprawidłowa kwota'
                 }), 400
 
-            if value < 0:
+            if value is not None and value < 0:
                 return jsonify({
                     'success': False,
                     'message': 'Kwota nie może być ujemna'
                 }), 400
+
+            # Ta sama blokada co w modalu Cło/VAT (modules/products/routes.py):
+            # nie wolno wyzerować cła, które klient już opłacił albo zgłosił
+            # do weryfikacji — powstałaby nadpłata do ręcznego zwrotu.
+            if (field == 'customs_vat_sale_cost'
+                    and old_value is not None and old_value > 0
+                    and (value is None or value == 0)
+                    and order.stage_3_status in ('approved', 'pending')):
+                return jsonify({
+                    'success': False,
+                    'message': (f'Nie można wyzerować Cła/VAT — zamówienie '
+                                f'{order.order_number} ma już opłacony ten etap.')
+                }), 409
 
             setattr(order, field, value)
         elif field == 'delivery_method':

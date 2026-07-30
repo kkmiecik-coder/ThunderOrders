@@ -2895,8 +2895,14 @@ async function saveSummaryCost(fieldName) {
     const apiField = summaryFieldMap[fieldName];
     if (!input || !apiField) return;
 
-    const value = parseFloat(input.value) || 0;
-    if (value < 0) {
+    // Puste pole wysyłamy jako null. Dla Cła/VAT serwer zapisze wtedy NULL
+    // ("nieustalone"), a nie 0 — 0 znaczy "ustalono: bez cła" i kasuje
+    // klientowi etap E3 (patrz Order.has_customs_vat_stage).
+    // Dla pozostałych kosztów serwer nadal zapisuje 0.00 (bez zmiany zachowania).
+    const raw = (input.value || '').trim();
+    const parsed = parseFloat(raw);
+    const value = (raw === '' || isNaN(parsed)) ? null : parsed;
+    if (value !== null && value < 0) {
         if (typeof window.showToast === 'function') window.showToast('Kwota nie może być ujemna', 'error');
         return;
     }
@@ -2913,10 +2919,11 @@ async function saveSummaryCost(fieldName) {
 
         const data = await response.json();
         if (data.success) {
+            const numeric = value === null ? 0 : value;
             const valueSpan = document.getElementById(fieldName + 'Value');
             if (valueSpan) {
-                if (value > 0) {
-                    valueSpan.textContent = value.toFixed(2) + ' PLN';
+                if (numeric > 0) {
+                    valueSpan.textContent = numeric.toFixed(2) + ' PLN';
                     valueSpan.className = 'editable-summary-value';
                 } else {
                     valueSpan.textContent = 'Wkrótce';
@@ -2924,7 +2931,9 @@ async function saveSummaryCost(fieldName) {
                 }
             }
 
-            input.dataset.original = value.toFixed(2);
+            // Puste pole zostaje puste — inaczej po ponownym otwarciu edytora
+            // admin zobaczyłby 0.00 i zapisałby "ustalono: bez cła".
+            input.dataset.original = value === null ? '' : value.toFixed(2);
             cancelSummaryEditor(fieldName);
 
             // Update known_sum display
@@ -2935,10 +2944,10 @@ async function saveSummaryCost(fieldName) {
                 const mainInput = document.getElementById('shippingCostInput');
                 const mainValue = document.getElementById('shippingCostValue');
                 if (mainInput) {
-                    mainInput.value = value.toFixed(2);
-                    mainInput.dataset.original = value.toFixed(2);
+                    mainInput.value = numeric.toFixed(2);
+                    mainInput.dataset.original = numeric.toFixed(2);
                 }
-                if (mainValue) mainValue.textContent = value.toFixed(2) + ' PLN';
+                if (mainValue) mainValue.textContent = numeric.toFixed(2) + ' PLN';
                 if (data.grand_total !== undefined) {
                     updateGrandTotalDisplays(data.grand_total, data.paid_amount);
                 }
