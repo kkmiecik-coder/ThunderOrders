@@ -58,19 +58,26 @@
     white-space: nowrap;
 }
 
-/* Szerokości kolumn — stałe, żeby "Produkt" nie zawijał się na 3 linie
+/* Szerokości kolumn — stałe, żeby nic się nie zawijało na 3 linie
    i żeby "Dni po terminie" nie uciekało poza widoczny obszar */
-.overdue-payments-table col.col-order { width: 13%; }
-.overdue-payments-table col.col-client { width: 15%; }
-.overdue-payments-table col.col-product { width: 32%; }
-.overdue-payments-table col.col-stage { width: 20%; }
-.overdue-payments-table col.col-amount { width: 10%; }
-.overdue-payments-table col.col-days { width: 10%; }
+.overdue-payments-table col.col-order { width: 30%; }
+.overdue-payments-table col.col-client { width: 20%; }
+.overdue-payments-table col.col-stage { width: 25%; }
+.overdue-payments-table col.col-amount { width: 12%; }
+.overdue-payments-table col.col-days { width: 13%; }
 
-.overdue-payments-table td.col-product {
+.overdue-payments-table td.col-order {
+    max-width: 0; /* wymusza działanie ellipsis w .order-product mimo table-layout:fixed */
+}
+
+.overdue-payments-table .order-product {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    margin-top: 2px;
 }
 
 .overdue-payments-table td.col-amount,

@@ -26,7 +26,6 @@
             <colgroup>
                 <col class="col-order">
                 <col class="col-client">
-                <col class="col-product">
                 <col class="col-stage">
                 <col class="col-amount">
                 <col class="col-days">
@@ -35,7 +34,6 @@
                 <tr>
                     <th class="col-order">Zamówienie</th>
                     <th class="col-client">Klient</th>
-                    <th class="col-product">Produkt</th>
                     <th class="col-stage">Etap</th>
                     <th class="col-amount">Kwota</th>
                     <th class="col-days">Dni po terminie</th>
@@ -45,9 +43,11 @@
                 {% for row in overdue %}
                 {% set product_name = row.order.items[0].product_name if row.order.items else '-' %}
                 <tr>
-                    <td class="col-order"><a href="{{ url_for('orders.admin_detail', order_id=row.order.id) }}">{{ row.order.order_number }}</a></td>
+                    <td class="col-order">
+                        <a href="{{ url_for('orders.admin_detail', order_id=row.order.id) }}">{{ row.order.order_number }}</a>
+                        <span class="order-product" title="{{ product_name }}">{{ product_name }}</span>
+                    </td>
                     <td class="col-client">{{ row.order.customer_name }}</td>
-                    <td class="col-product" title="{{ product_name }}">{{ product_name }}</td>
                     <td class="col-stage">{{ row.primary_stage.stage_label }}</td>
                     <td class="col-amount">{{ '%.2f'|format(row.primary_stage.amount) }} zł</td>
                     <td class="col-days">{{ row.primary_stage.days_overdue }}</td>
