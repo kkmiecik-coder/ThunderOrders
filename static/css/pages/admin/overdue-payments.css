@@ -72,8 +72,8 @@
    i żeby "Dni po terminie" nie uciekało poza widoczny obszar */
 .overdue-payments-table col.col-order { width: 30%; }
 .overdue-payments-table col.col-client { width: 20%; }
-.overdue-payments-table col.col-stage { width: 25%; }
-.overdue-payments-table col.col-amount { width: 12%; }
+.overdue-payments-table col.col-stage { width: 19%; }
+.overdue-payments-table col.col-amount { width: 18%; }
 .overdue-payments-table col.col-days { width: 13%; }
 
 .overdue-payments-table td.col-order {
