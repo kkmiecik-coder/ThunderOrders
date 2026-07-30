@@ -712,19 +712,23 @@ Następnie zamień linie 3731-3754 (pętla po zamówieniach klientów):
         customs_total = Decimal('0')
         has_match = False
         for item in order.items:
-            if item.product_id in product_ids:
-                has_match = True                      # dopasowanie liczy się też przy stawce 0
-                percentage = product_customs_percentages[item.product_id]
-                if percentage > 0 and item.price:
-                    qty = item.quantity
-                    if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
-                        qty = item.fulfilled_quantity
-                    if item.is_set_fulfilled is False:
-                        qty = 0
-                    if qty > 0:
-                        sale_value = Decimal(str(item.price)) * qty
-                        customs = (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
-                        customs_total += customs
+            if item.product_id not in product_ids:
+                continue
+            percentage = product_customs_percentages[item.product_id]
+            qty = item.quantity
+            if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                qty = item.fulfilled_quantity
+            if item.is_set_fulfilled is False:
+                qty = 0
+            # Stawka 0 to zapisana decyzja "bez podatku" — zeruje kwotę zawsze.
+            # Stawka dodatnia dotyka zamówienia tylko gdy pozycja jest realizowana,
+            # żeby zwykła korekta stawki nie kasowała kwot na pozycjach
+            # niezrealizowanych (decyzja właścicielki).
+            if percentage == 0 or qty > 0:
+                has_match = True
+            if percentage > 0 and item.price and qty > 0:
+                sale_value = Decimal(str(item.price)) * qty
+                customs_total += (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
 
         if has_match:
             updated_customs[order.id] = {
@@ -753,6 +757,43 @@ W `modules/products/routes.py` zamień linie 4065-4067:
 Run: `venv/bin/python -m pytest tests/test_customs_vat_zero.py::test_zero_percentage_clears_client_amount -v`
 Expected: PASS
 
+- [ ] **Step 5b: Dodaj testy regresyjne dla pozycji niezrealizowanych**
+
+Decyzja właścicielki: zwykła korekta stawki nie może kasować kwoty na pozycji,
+której klient i tak nie dostaje. Dopisz do `tests/test_customs_vat_zero.py`:
+
+```python
+def test_positive_rate_does_not_clear_unfulfilled_item(db, make_user, make_order, make_product):
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('23')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == Decimal('230.00')
+
+    o.items[0].is_set_fulfilled = False          # klient jednak nie dostaje tej pozycji
+    db.session.commit()
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('25')})   # korekta stawki
+    db.session.commit()
+    assert o.customs_vat_sale_cost == Decimal('230.00')   # kwota nietknięta
+
+
+def test_zero_rate_clears_even_unfulfilled_item(db, make_user, make_order, make_product):
+    # Stawka 0 = "bez podatku" — zeruje niezależnie od realizacji pozycji
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('23')})
+    db.session.commit()
+    o.items[0].is_set_fulfilled = False
+    db.session.commit()
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('0')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == 0
+```
+
 - [ ] **Step 6: Sprawdź, że wyzerowanie nie wysyła powiadomień**
 
 Dopisz do `tests/test_customs_vat_zero.py`:
@@ -780,7 +821,7 @@ więc podmień `utils.email_manager.EmailManager.notify_costs_added_bulk`).
 - [ ] **Step 8: Uruchom pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 642 passed
+Expected: 644 passed (w tym 2 testy regresyjne dla pozycji niezrealizowanych)
 
 - [ ] **Step 9: Commit**
 
@@ -938,7 +979,7 @@ Expected: PASS (3 passed)
 - [ ] **Step 5: Uruchom pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 645 passed
+Expected: 647 passed
 
 - [ ] **Step 6: Commit**
 
@@ -1086,7 +1127,7 @@ Expected: PASS (wszystkie, łącznie z dwoma z zadania 5)
 - [ ] **Step 7: Uruchom pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 648 passed
+Expected: 650 passed
 
 - [ ] **Step 8: Commit**
 
@@ -1360,7 +1401,7 @@ Odnotuj wynik każdego punktu. Jeśli którykolwiek zawiedzie — napraw przed c
 - [ ] **Step 10: Uruchom pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 648 passed (zmiany są wyłącznie frontendowe, liczba bez zmian)
+Expected: 650 passed (zmiany są wyłącznie frontendowe, liczba bez zmian)
 
 - [ ] **Step 11: Commit**
 
@@ -1546,7 +1587,7 @@ i sprawdź, że po zatwierdzeniu status trafia we **właściwy** wiersz — to w
 - [ ] **Step 9: Uruchom pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 650 passed
+Expected: 652 passed
 
 - [ ] **Step 10: Commit**
 
@@ -1621,7 +1662,7 @@ Expected: PASS (2 passed)
 - [ ] **Step 5: Uruchom pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 652 passed
+Expected: 654 passed
 
 - [ ] **Step 6: Commit**
 
@@ -1644,7 +1685,7 @@ EOF
 - [ ] **Pełny zestaw testów**
 
 Run: `venv/bin/python -m pytest -q --tb=short 2>&1 | tail -20`
-Expected: 652 passed, zero błędów.
+Expected: 654 passed, zero błędów.
 
 - [ ] **Migracja w obie strony na lokalnej bazie**
 
