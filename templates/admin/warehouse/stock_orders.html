@@ -767,32 +767,31 @@
             </button>
         </div>
         <div class="modal-body">
-            <!-- Header: globalny % + termin płatności -->
-            <div class="customs-vat-header-row">
+            <!-- Header: przełącznik (decyzja nadrzędna) w osobnym wierszu,
+                 pod nim pola, które przy "bez cła" znikają w całości -->
+            <div class="customs-vat-header">
                 <div id="customsVatGlobalSection" class="customs-vat-global-section">
-                    <div class="customs-vat-global-row">
-                        <div id="customsVatGlobalGroup" class="customs-vat-global-percent">
-                            <label for="customsVatGlobalPercent">Zastosuj % do wszystkich produktów:</label>
-                            <div class="customs-vat-global-input-group">
-                                <input type="number" id="customsVatGlobalPercent" class="form-control customs-vat-percent-input" min="0" max="100" step="0.01" placeholder="np. 23">
-                                <span class="input-suffix">%</span>
-                                <button type="button" class="btn btn-sm btn-primary" onclick="applyGlobalCustomsPercentage()">Zastosuj</button>
-                            </div>
-                        </div>
-                        <div class="customs-vat-toggle-box">
-                            <div class="toggle-switch">
-                                <input type="checkbox" id="customsVatHasCustomsToggle" class="toggle-input" checked onchange="toggleNoCustoms()">
-                                <label for="customsVatHasCustomsToggle" class="toggle-label"></label>
-                            </div>
-                            <span id="customsVatToggleLabel" class="customs-vat-toggle-text">Zamówienie z cłem/VAT</span>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="customsVatHasCustomsToggle" class="toggle-input" checked onchange="toggleNoCustoms()">
+                        <label for="customsVatHasCustomsToggle" class="toggle-label"></label>
+                    </div>
+                    <span id="customsVatToggleLabel" class="customs-vat-toggle-text">Zamówienie z cłem/VAT</span>
+                </div>
+                <div id="customsVatFieldsRow" class="customs-vat-fields-row">
+                    <div id="customsVatGlobalGroup" class="customs-vat-field-box">
+                        <label for="customsVatGlobalPercent">Zastosuj % do wszystkich produktów</label>
+                        <div class="customs-vat-global-input-group">
+                            <input type="number" id="customsVatGlobalPercent" class="form-control customs-vat-percent-input" min="0" max="100" step="0.01" placeholder="np. 23">
+                            <span class="input-suffix">%</span>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="applyGlobalCustomsPercentage()">Zastosuj</button>
                         </div>
                     </div>
-                </div>
-                <div class="poland-modal-box deadline-box">
-                    <label>Termin płatności za Cło/VAT:</label>
-                    <div class="deadline-input-group">
-                        <input type="date" id="customsPaymentDeadlineDate" class="form-input deadline-date-field" required>
-                        <input type="time" id="customsPaymentDeadlineTime" class="form-input deadline-time-field" value="23:59" required>
+                    <div class="customs-vat-field-box">
+                        <label for="customsPaymentDeadlineDate">Termin płatności za Cło/VAT</label>
+                        <div class="deadline-input-group">
+                            <input type="date" id="customsPaymentDeadlineDate" class="form-input deadline-date-field" required>
+                            <input type="time" id="customsPaymentDeadlineTime" class="form-input deadline-time-field" value="23:59" required>
+                        </div>
                     </div>
                 </div>
             </div>
