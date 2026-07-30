@@ -101,11 +101,11 @@ def offers_settings():
     from modules.offers.reminder_models import PaymentReminderConfig
 
     reminder_rules_before = PaymentReminderConfig.query.filter_by(
-        reminder_type='before_deadline', payment_stage='product', enabled=True
+        reminder_type='before_deadline', enabled=True
     ).order_by(PaymentReminderConfig.hours.desc()).all()
 
     reminder_rules_after = PaymentReminderConfig.query.filter_by(
-        reminder_type='after_order_placed', payment_stage='product', enabled=True
+        reminder_type='after_order_placed', enabled=True
     ).order_by(PaymentReminderConfig.hours.asc()).all()
 
     reminder_last_check = get_setting_value('payment_reminder_last_check', None)
@@ -1878,7 +1878,7 @@ def add_payment_reminder_rule():
         return jsonify({'success': False, 'error': 'Liczba godzin musi być liczbą całkowitą >= 1.'}), 400
 
     existing = PaymentReminderConfig.query.filter_by(
-        reminder_type=reminder_type, hours=hours, payment_stage='product', enabled=True
+        reminder_type=reminder_type, hours=hours, enabled=True
     ).first()
     if existing:
         return jsonify({'success': False, 'error': 'Taka reguła już istnieje.'}), 400
