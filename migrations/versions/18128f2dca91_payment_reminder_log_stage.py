@@ -20,6 +20,17 @@ go dziś pokrywa, jest właśnie stary constraint `uq_reminder_log_order_config`
 (błąd 1553 — "needed in a foreign key constraint"), bo FK zostałby bez
 wspierającego indeksu. Nowy constraint zaczyna się też od order_id, więc od
 razu przejmuje tę rolę i pozwala bezpiecznie usunąć stary.
+
+Uwaga (naprawione po zgłoszeniu błędu na innym środowisku): łączenie tych
+trzech operacji w jednym bloku `batch_alter_table` renderuje się na części
+instalacji MariaDB jako JEDEN wieloklauzulowy `ALTER TABLE`, w którym walidacja
+"czy FK ma wspierający indeks" dla klauzuli DROP INDEX bywa liczona względem
+stanu tabeli SPRZED całej instrukcji, a nie względem stanu po wcześniejszych
+klauzulach tego samego `ALTER TABLE` — mimo że w kodzie CREATE jest przed DROP,
+serwer i tak zgłaszał błąd 1553. Rozdzielenie na trzy osobne bloki
+`batch_alter_table` wymusza trzy oddzielne instrukcje `ALTER TABLE`
+wykonywane sekwencyjnie, więc druga faktycznie kończy się i zatwierdza nowy
+indeks zanim trzecia usunie stary.
 """
 from alembic import op
 import sqlalchemy as sa
@@ -35,9 +46,11 @@ depends_on = None
 def upgrade():
     with op.batch_alter_table('payment_reminder_logs', schema=None) as batch_op:
         batch_op.add_column(sa.Column('stage', sa.String(length=30), nullable=True))
+    with op.batch_alter_table('payment_reminder_logs', schema=None) as batch_op:
         batch_op.create_unique_constraint(
             'uq_reminder_log_order_config_stage', ['order_id', 'config_id', 'stage']
         )
+    with op.batch_alter_table('payment_reminder_logs', schema=None) as batch_op:
         batch_op.drop_constraint('uq_reminder_log_order_config', type_='unique')
 
 
@@ -46,5 +59,7 @@ def downgrade():
         batch_op.create_unique_constraint(
             'uq_reminder_log_order_config', ['order_id', 'config_id']
         )
+    with op.batch_alter_table('payment_reminder_logs', schema=None) as batch_op:
         batch_op.drop_constraint('uq_reminder_log_order_config_stage', type_='unique')
+    with op.batch_alter_table('payment_reminder_logs', schema=None) as batch_op:
         batch_op.drop_column('stage')
