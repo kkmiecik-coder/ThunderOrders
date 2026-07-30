@@ -208,3 +208,36 @@ def test_zero_customs_order_reaches_fully_paid(db, make_user, make_order):
     buckets = get_confirmation_orders(u.id)
     assert o.id in [x.id for x in buckets['recent_paid']]
     assert o.id not in [x.id for x in buckets['payable']]
+
+
+def test_positive_rate_does_not_clear_unfulfilled_item(db, make_user, make_order, make_product):
+    # Decyzja właścicielki: zwykła korekta stawki nie może kasować kwoty
+    # na pozycji, której klient i tak nie dostaje
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('23')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == Decimal('230.00')
+
+    o.items[0].is_set_fulfilled = False          # klient jednak nie dostaje tej pozycji
+    db.session.commit()
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('25')})   # korekta stawki
+    db.session.commit()
+    assert o.customs_vat_sale_cost == Decimal('230.00')   # kwota nietknięta
+
+
+def test_zero_rate_clears_even_unfulfilled_item(db, make_user, make_order, make_product):
+    # Stawka 0 = "bez podatku" — zeruje niezależnie od realizacji pozycji
+    from modules.products.routes import _distribute_customs_vat_to_client_orders
+    o, p = _client_order_with_product(db, make_user, make_order, make_product,
+                                      price=Decimal('100.00'), qty=10)
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('23')})
+    db.session.commit()
+    o.items[0].is_set_fulfilled = False
+    db.session.commit()
+
+    _distribute_customs_vat_to_client_orders({p.id: Decimal('0')})
+    db.session.commit()
+    assert o.customs_vat_sale_cost == 0

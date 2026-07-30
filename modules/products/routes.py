@@ -3732,19 +3732,23 @@ def _distribute_customs_vat_to_client_orders(product_customs_percentages):
         customs_total = Decimal('0')
         has_match = False
         for item in order.items:
-            if item.product_id in product_ids:
-                has_match = True                      # dopasowanie liczy się też przy stawce 0
-                percentage = product_customs_percentages[item.product_id]
-                if percentage > 0 and item.price:
-                    qty = item.quantity
-                    if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
-                        qty = item.fulfilled_quantity
-                    if item.is_set_fulfilled is False:
-                        qty = 0
-                    if qty > 0:
-                        sale_value = Decimal(str(item.price)) * qty
-                        customs = (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
-                        customs_total += customs
+            if item.product_id not in product_ids:
+                continue
+            percentage = product_customs_percentages[item.product_id]
+            qty = item.quantity
+            if item.fulfilled_quantity is not None and item.fulfilled_quantity < item.quantity:
+                qty = item.fulfilled_quantity
+            if item.is_set_fulfilled is False:
+                qty = 0
+            # Stawka 0 to zapisana decyzja "bez podatku" — zeruje kwotę zawsze.
+            # Stawka dodatnia dotyka zamówienia tylko gdy pozycja jest realizowana,
+            # żeby zwykła korekta stawki nie kasowała kwot na pozycjach
+            # niezrealizowanych (decyzja właścicielki).
+            if percentage == 0 or qty > 0:
+                has_match = True
+            if percentage > 0 and item.price and qty > 0:
+                sale_value = Decimal(str(item.price)) * qty
+                customs_total += (sale_value * percentage / Decimal('100')).quantize(Decimal('0.01'))
 
         if has_match:
             updated_customs[order.id] = {
