@@ -825,7 +825,8 @@ function openCustomsVatModal(orderId) {
     const container = document.getElementById('customsVatItemsContainer');
 
     title.textContent = 'Edycja Cło/VAT';
-    globalSection.style.display = 'none';
+    globalSection.style.display = 'flex';
+    document.getElementById('customsVatGlobalGroup').style.display = '';   // paczka ma wiele pozycji
     container.innerHTML = '<div class="loading-spinner">Ładowanie danych...</div>';
 
     // Reset deadline fields
@@ -833,6 +834,10 @@ function openCustomsVatModal(orderId) {
     const cdTime = document.getElementById('customsPaymentDeadlineTime');
     if (cdDate) cdDate.value = '';
     if (cdTime) cdTime.value = '23:59';
+
+    const hasCustomsToggle = document.getElementById('customsVatHasCustomsToggle');
+    if (hasCustomsToggle) hasCustomsToggle.checked = true;   // domyślnie: z cłem
+    toggleNoCustoms();
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -871,8 +876,13 @@ function openCustomsVatModalForItem(orderId, itemId) {
     const container = document.getElementById('customsVatItemsContainer');
 
     title.textContent = 'Edycja Cło/VAT';
-    globalSection.style.display = 'none';
+    globalSection.style.display = 'flex';
+    document.getElementById('customsVatGlobalGroup').style.display = 'none';  // jedna pozycja — "do wszystkich" bez sensu
     container.innerHTML = '<div class="loading-spinner">Ładowanie danych...</div>';
+
+    const hasCustomsToggle = document.getElementById('customsVatHasCustomsToggle');
+    if (hasCustomsToggle) hasCustomsToggle.checked = true;   // domyślnie: z cłem
+    toggleNoCustoms();
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -923,8 +933,13 @@ function openBulkCustomsVatModal() {
 
     title.textContent = `Edycja Cło/VAT — ${orderIds.length} zamówień`;
     globalSection.style.display = 'flex';
+    document.getElementById('customsVatGlobalGroup').style.display = '';
     document.getElementById('customsVatGlobalPercent').value = '';
     container.innerHTML = '<div class="loading-spinner">Ładowanie danych...</div>';
+
+    const hasCustomsToggle = document.getElementById('customsVatHasCustomsToggle');
+    if (hasCustomsToggle) hasCustomsToggle.checked = true;   // domyślnie: z cłem
+    toggleNoCustoms();
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -1071,6 +1086,40 @@ function updateCustomsVatTotal() {
 }
 
 /**
+ * Przełącznik "z cłem/VAT" ↔ "bez cła/VAT".
+ * Zaznaczony = zamówienie ma cło (stan domyślny).
+ * Odznaczony = bez cła: pola % zablokowane i wyzerowane, termin płatności zbędny.
+ */
+function toggleNoCustoms() {
+    const toggle = document.getElementById('customsVatHasCustomsToggle');
+    const hasCustoms = toggle ? toggle.checked : true;
+
+    const label = document.getElementById('customsVatToggleLabel');
+    if (label) {
+        label.textContent = hasCustoms
+            ? 'Zamówienie z cłem/VAT'
+            : 'Bez cła/VAT — podatek nie będzie doliczany';
+    }
+
+    const deadlineBox = document.querySelector('#customsVatModal .deadline-box');
+    if (deadlineBox) deadlineBox.style.display = hasCustoms ? '' : 'none';
+
+    const globalPercent = document.getElementById('customsVatGlobalPercent');
+    if (globalPercent) {
+        globalPercent.disabled = !hasCustoms;
+        if (!hasCustoms) globalPercent.value = '';
+    }
+
+    document.querySelectorAll('#customsVatItemsContainer .customs-vat-percent-input').forEach(input => {
+        input.disabled = !hasCustoms;
+        if (!hasCustoms) {
+            input.value = '';
+            calculateCustomsAmount(input);
+        }
+    });
+}
+
+/**
  * Apply global % to all products in the modal
  */
 function applyGlobalCustomsPercentage() {
@@ -1107,28 +1156,38 @@ function saveCustomsVat() {
         return;
     }
 
-    // Customs payment deadline (required)
+    // Tryb "bez cła/VAT": termin płatności nie jest potrzebny
+    const hasCustomsToggle = document.getElementById('customsVatHasCustomsToggle');
+    const noCustoms = hasCustomsToggle ? !hasCustomsToggle.checked : false;
+
     const cdDateEl = document.getElementById('customsPaymentDeadlineDate');
     const cdTimeEl = document.getElementById('customsPaymentDeadlineTime');
-    const cdDate = cdDateEl.value;
-    const cdTime = cdTimeEl.value;
+    let customsPaymentDeadline = null;
 
-    if (!cdDate || !cdTime) {
-        if (!cdDate) cdDateEl.classList.add('input-error');
-        if (!cdTime) cdTimeEl.classList.add('input-error');
-        if (typeof window.showToast === 'function') window.showToast('Termin płatności za Cło/VAT jest wymagany.', 'error');
-        return;
-    }
-    cdDateEl.classList.remove('input-error');
-    cdTimeEl.classList.remove('input-error');
+    if (!noCustoms) {
+        const cdDate = cdDateEl.value;
+        const cdTime = cdTimeEl.value;
 
-    const cdDatetime = new Date(`${cdDate}T${cdTime}`);
-    if (cdDatetime <= new Date()) {
-        cdDateEl.classList.add('input-error');
-        if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
-        return;
+        if (!cdDate || !cdTime) {
+            if (!cdDate) cdDateEl.classList.add('input-error');
+            if (!cdTime) cdTimeEl.classList.add('input-error');
+            if (typeof window.showToast === 'function') window.showToast('Termin płatności za Cło/VAT jest wymagany.', 'error');
+            return;
+        }
+        cdDateEl.classList.remove('input-error');
+        cdTimeEl.classList.remove('input-error');
+
+        const cdDatetime = new Date(`${cdDate}T${cdTime}`);
+        if (cdDatetime <= new Date()) {
+            cdDateEl.classList.add('input-error');
+            if (typeof window.showToast === 'function') window.showToast('Termin płatności musi być w przyszłości.', 'error');
+            return;
+        }
+        customsPaymentDeadline = `${cdDate}T${cdTime}`;
+    } else {
+        cdDateEl.classList.remove('input-error');
+        cdTimeEl.classList.remove('input-error');
     }
-    const customsPaymentDeadline = `${cdDate}T${cdTime}`;
 
     fetch('/admin/products/api/update-poland-customs-vat', {
         method: 'PUT',
@@ -1136,7 +1195,11 @@ function saveCustomsVat() {
             'Content-Type': 'application/json',
             'X-CSRFToken': getCsrfToken()
         },
-        body: JSON.stringify({ items: items, customs_payment_deadline: customsPaymentDeadline })
+        body: JSON.stringify({
+            items: items,
+            customs_payment_deadline: customsPaymentDeadline,
+            no_customs: noCustoms
+        })
     })
         .then(res => res.json())
         .then(data => {
@@ -1171,7 +1234,8 @@ function saveCustomsVat() {
                 closeCustomsVatModal();
                 if (typeof window.showToast === 'function') window.showToast('Cło/VAT zapisane pomyślnie', 'success');
             } else {
-                if (typeof window.showToast === 'function') window.showToast('Błąd: ' + data.error, 'error');
+                // Komunikat o blokadzie wylicza numery zamówień — daj czas na przeczytanie
+                if (typeof window.showToast === 'function') window.showToast('Błąd: ' + data.error, 'error', 12000);
             }
         })
         .catch(err => {
