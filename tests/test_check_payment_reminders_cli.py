@@ -55,6 +55,88 @@ def _seed_poland_order_with_deadline(db, order, deadline):
     db.session.commit()
 
 
+def _seed_poland_order_with_shipping_kr_deadline(db, order, deadline):
+    """Wariant `_seed_poland_order_with_deadline` ustawiający `payment_deadline`
+    (E2: wysyłka KR) zamiast `customs_payment_deadline` (E3), przez ten sam
+    łańcuch ProxyOrder -> PolandOrder -> PolandOrderItem, bo Order.get_shipping_kr_deadline()
+    czyta go dokładnie tak samo jak get_customs_vat_deadline().
+    """
+    from modules.products.models import (
+        ProxyOrder, ProxyOrderItem, PolandOrder, PolandOrderItem, Product,
+    )
+
+    product = Product(name='Testowy produkt', sale_price=Decimal('10.00'), quantity=5)
+    db.session.add(product)
+    db.session.commit()
+
+    proxy_order = ProxyOrder(order_number='PRX/00002', order_type='polska')
+    db.session.add(proxy_order)
+    db.session.commit()
+
+    proxy_order_item = ProxyOrderItem(
+        proxy_order_id=proxy_order.id,
+        product_id=product.id,
+        order_id=order.id,
+        quantity=1,
+        unit_price=Decimal('10.00'),
+        total_price=Decimal('10.00'),
+    )
+    db.session.add(proxy_order_item)
+    db.session.commit()
+
+    poland_order = PolandOrder(
+        order_number='PRX/PL/00002',
+        proxy_order_id=proxy_order.id,
+        payment_deadline=deadline,
+    )
+    db.session.add(poland_order)
+    db.session.commit()
+
+    poland_order_item = PolandOrderItem(
+        poland_order_id=poland_order.id,
+        proxy_order_item_id=proxy_order_item.id,
+        product_id=product.id,
+        order_id=order.id,
+        quantity=1,
+    )
+    db.session.add(poland_order_item)
+    db.session.commit()
+
+
+def test_cron_skips_shipping_kr_stage_with_zero_amount(app, db, make_user, make_order, monkeypatch):
+    """Regresja: cron nie może wysłać przypomnienia o etapie E2 (wysyłka KR),
+    gdy termin już minął ale koszt wysyłki (proxy_shipping_cost) wynosi 0/None —
+    np. admin ustawił termin zanim wycenił przesyłkę. Bez tego zabezpieczenia
+    klient dostałby maila z prośbą o zapłatę 0 zł.
+    """
+    from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
+
+    now = get_local_now()
+    order = make_order(
+        make_user(email='klient5@example.com'),
+        total_amount=Decimal('100.00'),
+        order_type='exclusive',
+        payment_stages=4,
+        proxy_shipping_cost=None,
+    )
+
+    _seed_poland_order_with_shipping_kr_deadline(db, order, now - timedelta(hours=5))
+
+    config = PaymentReminderConfig(reminder_type='before_deadline', hours=1, payment_stage='shipping_kr', enabled=True)
+    db.session.add(config)
+    db.session.commit()
+
+    monkeypatch.setattr('utils.email_sender.send_email_batch_sync', lambda messages: [True] * len(messages))
+    monkeypatch.setattr('utils.push_manager.PushManager.notify_payment_reminder', lambda *a, **kw: None)
+
+    runner = app.test_cli_runner()
+    result = runner.invoke(args=['check-payment-reminders'])
+
+    assert result.exit_code == 0, result.output + str(result.exception)
+    log = PaymentReminderLog.query.filter_by(order_id=order.id, stage='shipping_kr').first()
+    assert log is None
+
+
 def test_cron_sends_reminder_for_customs_vat_stage(app, db, make_user, make_order, monkeypatch):
     from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
 

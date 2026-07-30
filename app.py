@@ -578,6 +578,10 @@ def register_cli_commands(app):
                 if status not in ('none', 'rejected'):
                     continue
 
+                amount = definition['amount'](order)
+                if not amount or amount <= 0:
+                    continue
+
                 deadline = definition['deadline'](order)
 
                 for rule in rules:
