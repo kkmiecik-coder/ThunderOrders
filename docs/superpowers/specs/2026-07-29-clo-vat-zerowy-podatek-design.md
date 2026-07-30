@@ -216,12 +216,27 @@ if order.order_type != 'on_hand' and order.customs_vat_sale_cost != 0:
 
 ## Migracja danych
 
-Jedna migracja Alembic, uruchamiana najpierw lokalnie, po wdrożeniu na
-produkcji (kolejność ustalona: praca lokalnie → migracja lokalnie → push →
-migracja na serwerze). Przed uruchomieniem na produkcji — kopia bazy.
+Jedna migracja Alembic. **Kolejność na produkcji jest krytyczna i brzmi:
+kopia bazy → migracja → dopiero potem wdrożenie kodu.**
+
+Odwrotna kolejność (kod przed migracją) jest niebezpieczna: w oknie między
+wdrożeniem kodu a migracją baza zawiera jeszcze zera, a nowy kod czyta zero
+jako „ustalono: bez podatku". Wszystkie 2096 zamówień naraz straciłoby etap
+Cło/VAT — zniknąłby wiersz u klientów, odblokowałyby się zlecenia wysyłki,
+a próba wgrania potwierdzenia zwracałaby błąd „etap nie dotyczy zamówienia".
+
+Kolejność „migracja przed kodem" jest w pełni bezpieczna, bo stary kod
+traktuje `NULL` identycznie jak `0` (wszędzie `if not self.customs_vat_sale_cost`,
+`or 0`, `coalesce`) — po samej migracji, przed wdrożeniem kodu, sklep działa
+dokładnie jak dotąd.
+
+Kolejność prac: praca lokalnie → migracja lokalnie → **kopia bazy produkcyjnej
+→ migracja na serwerze → wdrożenie kodu**.
 
 **Krok w przód:**
-1. `ALTER` trzech kolumn na `nullable`, `server_default` usunięty.
+1. `ALTER` kolumn `poland_order_items` na `nullable`, `server_default` usunięty.
+   (`orders.customs_vat_sale_cost` już jest `nullable` bez `server_default` —
+   nie wymaga `ALTER`-a, wystarczy zmiana `default` w modelu.)
 2. `UPDATE poland_order_items SET customs_vat_percentage = NULL,
    customs_vat_amount = NULL WHERE customs_vat_percentage = 0` (dot. 50 pozycji).
 3. `UPDATE orders SET customs_vat_sale_cost = NULL
