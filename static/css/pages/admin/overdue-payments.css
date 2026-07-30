@@ -34,7 +34,7 @@
 
 .overdue-payments-table {
     width: 100%;
-    min-width: 720px;
+    min-width: 0;
     table-layout: fixed;
     border-collapse: collapse;
     font-size: 13px;
@@ -42,10 +42,20 @@
 
 .overdue-payments-table th,
 .overdue-payments-table td {
-    padding: var(--space-2) var(--space-4);
+    padding: var(--space-2) var(--space-2);
     text-align: left;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
+}
+
+.overdue-payments-table th:first-child,
+.overdue-payments-table td:first-child {
+    padding-left: var(--space-3);
+}
+
+.overdue-payments-table th:last-child,
+.overdue-payments-table td:last-child {
+    padding-right: var(--space-3);
 }
 
 .overdue-payments-table th {
