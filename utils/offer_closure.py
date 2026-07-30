@@ -703,6 +703,7 @@ def get_page_summary(page_id, include_financials=True):
                 db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
             ).filter(
                 OrderItem.product_id == section.set_product_id,
+                OrderItem.is_bonus != True,
                 OrderItem.order_id.in_(
                     db.session.query(Order.id).filter(
                         Order.offer_page_id == page_id,
@@ -714,6 +715,7 @@ def get_page_summary(page_id, include_financials=True):
             full_set_sold = full_set_qty
 
             # Lista osób, które zakupiły pełny set — per użytkownik z sumą szt.
+            # (bez pozycji gratisowych, by suma zgadzała się z full_set_qty wyżej)
             full_set_buyer_rows = db.session.query(
                 User.first_name,
                 User.last_name,
@@ -723,6 +725,7 @@ def get_page_summary(page_id, include_financials=True):
             ).join(User, Order.user_id == User.id
             ).filter(
                 OrderItem.product_id == section.set_product_id,
+                OrderItem.is_bonus != True,
                 Order.offer_page_id == page_id,
                 Order.status != 'anulowane',
             ).group_by(User.id).order_by(db.func.min(OrderItem.id).asc()).all()
@@ -1119,6 +1122,7 @@ def get_live_summary(page_id, include_financials=True):
                 db.func.coalesce(db.func.sum(OrderItem.quantity), 0)
             ).filter(
                 OrderItem.product_id == section.set_product_id,
+                OrderItem.is_bonus != True,
                 OrderItem.order_id.in_(
                     db.session.query(Order.id).filter(
                         Order.offer_page_id == page_id,
@@ -1129,7 +1133,7 @@ def get_live_summary(page_id, include_financials=True):
             full_set_qty = int(full_set_qty)
 
             # Lista osób, które zakupiły pełny set — per użytkownik z sumą szt.
-            # (bez filtra is_bonus, by suma zgadzała się z full_set_qty wyżej)
+            # (bez pozycji gratisowych, by suma zgadzała się z full_set_qty wyżej)
             full_set_buyer_rows = db.session.query(
                 User.first_name,
                 User.last_name,
@@ -1139,6 +1143,7 @@ def get_live_summary(page_id, include_financials=True):
             ).join(User, Order.user_id == User.id
             ).filter(
                 OrderItem.product_id == section.set_product_id,
+                OrderItem.is_bonus != True,
                 Order.offer_page_id == page_id,
                 Order.status != 'anulowane',
             ).group_by(User.id).order_by(db.func.min(OrderItem.id).asc()).all()
