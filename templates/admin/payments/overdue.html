@@ -3,6 +3,10 @@
 
 {% block title %}Zaległości płatnicze - ThunderOrders{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/overdue-payments.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="admin-page">
     <div class="page-header">

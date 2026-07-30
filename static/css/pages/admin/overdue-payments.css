@@ -1,0 +1,82 @@
+/**
+ * Zaległości płatnicze - Admin
+ * Style listy zamówień z przekroczonym terminem płatności
+ */
+
+.admin-page {
+    padding: var(--space-6);
+}
+
+.page-header {
+    margin-bottom: var(--space-6);
+}
+
+.page-header-left h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-1) 0;
+}
+
+.page-header-left p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.table-responsive {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    overflow-x: auto;
+}
+
+.overdue-payments-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.overdue-payments-table th,
+.overdue-payments-table td {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.overdue-payments-table th {
+    background: var(--bg-secondary);
+    font-weight: var(--font-semibold);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.overdue-payments-table tbody tr:hover {
+    background: var(--bg-hover);
+}
+
+.overdue-payments-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.overdue-payments-table td a {
+    color: var(--primary-color);
+    font-weight: var(--font-medium);
+    text-decoration: none;
+}
+
+.overdue-payments-table td a:hover {
+    text-decoration: underline;
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--space-12) var(--space-6);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+}
