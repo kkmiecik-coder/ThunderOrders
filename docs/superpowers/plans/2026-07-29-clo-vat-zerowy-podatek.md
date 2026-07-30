@@ -1366,6 +1366,21 @@ W `static/js/pages/admin/stock-orders.js` zamień linie 1110-1139 (blok terminu 
     })
 ```
 
+- [ ] **Step 6b: Zastosuj stan przełącznika do świeżo doczytanych pozycji**
+
+Pozycje produktów powstają dopiero po odpowiedzi serwera, więc przestawienie
+przełącznika w trakcie ładowania nie zablokuje pól, które jeszcze nie istnieją.
+Na końcu `renderCustomsVatItems()` — po `container.innerHTML = html;` i
+`updateCustomsVatTotal();` — dodaj:
+
+```js
+    // Pozycje powstają asynchronicznie (dopiero po odpowiedzi serwera), więc mogły
+    // nie istnieć w momencie, gdy administratorka przełączała "z cłem" / "bez cła".
+    // Wymuszamy tu ponowne zastosowanie aktualnego stanu przełącznika do świeżo
+    // wyrenderowanych pól, żeby interfejs nie kłamał o swoim stanie.
+    toggleNoCustoms();
+```
+
 - [ ] **Step 7: Wydłuż czas wyświetlania komunikatu o blokadzie**
 
 W `static/js/pages/admin/stock-orders.js` zamień linię 1174 (gałąź błędu w `saveCustomsVat`):
