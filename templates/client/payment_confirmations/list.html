@@ -59,6 +59,7 @@
                  data-shipping-cost-amount="{{ order.shipping_cost or 0 }}"
                  data-customer-name="{{ ((order.user.first_name or '') ~ ' ' ~ (order.user.last_name or ''))|trim if order.user else '' }}"
                  data-offer-page-name="{{ (order.offer_page.name if order.offer_page else order.offer_page_name) or '' }}"
+                 data-has-customs-vat="{{ 'true' if order.has_customs_vat_stage else 'false' }}"
             >
                 <!-- Header: checkbox + numer -->
                 <div class="pc-card-header">
@@ -175,8 +176,8 @@
                     {% endif %}
                     {% endif %}
 
-                    {# E3: Cło/VAT (nie dotyczy on-hand) #}
-                    {% if order.order_type != 'on_hand' %}
+                    {# E3: Cło/VAT #}
+                    {% if order.has_customs_vat_stage %}
                     {% set e3_status = order.stage_3_status %}
                     <div class="pc-payment-row">
                         <span class="pc-payment-label">Cło/VAT</span>
@@ -320,7 +321,7 @@
                         <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.proxy_shipping_cost or 0) }} zł</span>
                     </div>
                     {% endif %}
-                    {% if order.order_type != 'on_hand' %}
+                    {% if order.has_customs_vat_stage %}
                     <div class="pc-fully-paid-stage">
                         <span class="pc-fully-paid-label">Cło/VAT</span>
                         <span class="pc-fully-paid-amount">{{ "%.2f"|format(order.customs_vat_sale_cost or 0) }} zł</span>

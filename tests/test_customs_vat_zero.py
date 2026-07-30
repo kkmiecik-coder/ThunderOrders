@@ -361,3 +361,38 @@ def test_deadline_still_required_with_customs(client, db, make_user, make_order,
                                     'customs_vat_percentage': 23}]})
     assert r.status_code == 400
     assert 'Termin' in r.get_json()['error']
+
+
+def _order_on_confirmations_page(db, make_user, make_order, login, **kwargs):
+    """Zamówienie widoczne na stronie potwierdzeń płatności.
+
+    get_confirmation_orders() filtruje `offer_page_id IS NOT NULL OR order_type == 'on_hand'`,
+    więc samo pre_order bez strony ofertowej w ogóle nie trafia na listę.
+    """
+    from modules.offers.models import OfferPage
+    u = make_user(profile_completed=True); login(u)
+    admin = make_user(role='admin')
+    page = OfferPage(name='Strona testowa', token=OfferPage.generate_token(),
+                     status='active', created_by=admin.id)
+    db.session.add(page)
+    db.session.flush()
+    make_order(u, order_type='pre_order', status='nowe', payment_stages=3,
+               offer_page_id=page.id, shipping_cost=Decimal('15.00'), **kwargs)
+    db.session.commit()
+    return u
+
+
+def test_client_view_hides_customs_row_when_zero(client, db, make_user, make_order, login):
+    _order_on_confirmations_page(db, make_user, make_order, login,
+                                 customs_vat_sale_cost=Decimal('0.00'))
+    html = client.get('/client/payment-confirmations').get_data(as_text=True)
+    assert 'Cło/VAT' not in html
+    assert 'data-has-customs-vat="false"' in html
+
+
+def test_client_view_shows_customs_row_when_not_set(client, db, make_user, make_order, login):
+    # NULL = nie ustalono → wiersz nadal widoczny (bez zmian wobec dziś)
+    _order_on_confirmations_page(db, make_user, make_order, login)
+    html = client.get('/client/payment-confirmations').get_data(as_text=True)
+    assert 'Cło/VAT' in html
+    assert 'data-has-customs-vat="true"' in html

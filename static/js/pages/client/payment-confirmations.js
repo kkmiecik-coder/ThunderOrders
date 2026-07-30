@@ -65,32 +65,23 @@ window.toggleOrderItems = function(orderId, totalItems) {
     };
 
     /**
-     * Zwraca listę etapów dla danego zamówienia (zależy od payment_stages).
-     * payment_stages == 4 (Proxy): product → korean_shipping → customs_vat → domestic_shipping
-     * payment_stages == 3 (Polska): product → customs_vat → domestic_shipping
-     * payment_stages == 2 (On-hand): product → domestic_shipping
+     * Zwraca listę etapów dla danego zamówienia.
+     * hasCustomsVat odzwierciedla warunek renderowania wiersza E3 w szablonie
+     * (data-has-customs-vat): false gdy on_hand albo gdy cło ustalono na zero.
+     * Musi zgadzać się z szablonem, bo updateCardStageStatus() indeksuje wiersze
+     * po pozycji na tej liście.
      */
-    function getStagesForOrder(paymentStages) {
+    function getStagesForOrder(paymentStages, hasCustomsVat) {
+        var withCustoms = (hasCustomsVat !== false);
+        var stages = [{ id: 'product', name: 'Produkty' }];
         if (paymentStages === 4) {
-            return [
-                { id: 'product', name: 'Produkty' },
-                { id: 'korean_shipping', name: 'Wysyłka KR' },
-                { id: 'customs_vat', name: 'Cło i VAT' },
-                { id: 'domestic_shipping', name: 'Wysyłka PL' }
-            ];
+            stages.push({ id: 'korean_shipping', name: 'Wysyłka KR' });
         }
-        if (paymentStages === 2) {
-            return [
-                { id: 'product', name: 'Produkty' },
-                { id: 'domestic_shipping', name: 'Wysyłka PL' }
-            ];
+        if (withCustoms && paymentStages !== 2) {
+            stages.push({ id: 'customs_vat', name: 'Cło i VAT' });
         }
-        // Domyślnie 3 etapy
-        return [
-            { id: 'product', name: 'Produkty' },
-            { id: 'customs_vat', name: 'Cło i VAT' },
-            { id: 'domestic_shipping', name: 'Wysyłka PL' }
-        ];
+        stages.push({ id: 'domestic_shipping', name: 'Wysyłka PL' });
+        return stages;
     }
 
     // === DOM REFERENCES ===
@@ -282,7 +273,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
         var html = '';
 
         selectedOrders.forEach(function (data, orderId) {
-            var stages = getStagesForOrder(data.paymentStages);
+            var stages = getStagesForOrder(data.paymentStages, data.hasCustomsVat);
 
             html += '<div class="pc-order-stage-row">';
             html += '<div class="pc-order-stage-header">';
@@ -560,7 +551,8 @@ window.toggleOrderItems = function(orderId, totalItems) {
                 customsVatAmount: row ? parseFloat(row.dataset.customsVatAmount || 0) : 0,
                 shippingCostAmount: row ? parseFloat(row.dataset.shippingCostAmount || 0) : 0,
                 customerName: row ? (row.dataset.customerName || '') : '',
-                offerPageName: row ? (row.dataset.offerPageName || '') : ''
+                offerPageName: row ? (row.dataset.offerPageName || '') : '',
+                hasCustomsVat: row ? (row.dataset.hasCustomsVat !== 'false') : true
             });
         });
 
@@ -633,7 +625,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
         // Auto-select pierwszy dostępny etap (none/rejected + can upload)
         selectedOrders.forEach(function (data, orderId) {
             var autoStages = new Set();
-            var stages = getStagesForOrder(data.paymentStages);
+            var stages = getStagesForOrder(data.paymentStages, data.hasCustomsVat);
             stages.forEach(function (stage) {
                 var status = getStageStatus(orderId, stage.id, data);
                 var canDo = canUploadStage(stage.id, data);
@@ -1154,7 +1146,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
         // 4 stages: product(0), korean_shipping(1), customs_vat(2), domestic_shipping(3)
         // 3 stages: product(0), customs_vat(1), domestic_shipping(2)
         // 2 stages: product(0), domestic_shipping(1)
-        var stages = getStagesForOrder(paymentStages);
+        var stages = getStagesForOrder(paymentStages, card.dataset.hasCustomsVat !== 'false');
         var rowIndex = -1;
         for (var si = 0; si < stages.length; si++) {
             if (stages[si].id === stageId) { rowIndex = si; break; }
