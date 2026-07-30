@@ -195,3 +195,35 @@ def test_cron_dry_run_does_not_write_log(app, db, make_user, make_order):
 
     assert result.exit_code == 0
     assert PaymentReminderLog.query.filter_by(order_id=order.id).count() == 0
+
+
+def test_cron_after_order_placed_skips_exclusive_order_with_open_sale(app, db, make_user, make_order, monkeypatch):
+    """Regresja: after_order_placed musi dotyczyć WYŁĄCZNIE on_hand/preorder,
+    tak jak dotyczyło przed rozszerzeniem crona na wszystkie etapy. Zamówienie
+    typu 'exclusive' (strona sprzedaży) bez ustalonego terminu i bez zamkniętej
+    sprzedaży nie ma jak być opłacone (can_upload_product_payment blokuje) —
+    reguła after_order_placed nie powinna wysyłać dla niego przypomnienia,
+    niezależnie od tego, ile godzin minęło od złożenia zamówienia.
+    """
+    from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
+
+    now = get_local_now()
+    order = make_order(
+        make_user(email='klient5@example.com'),
+        total_amount=Decimal('100.00'),
+        order_type='exclusive',
+        created_at=now - timedelta(hours=100),
+    )
+
+    config = PaymentReminderConfig(reminder_type='after_order_placed', hours=1, payment_stage='product', enabled=True)
+    db.session.add(config)
+    db.session.commit()
+
+    monkeypatch.setattr('utils.push_manager.PushManager.notify_payment_reminder', lambda *a, **k: None)
+    monkeypatch.setattr('utils.email_sender.send_email_batch_sync', lambda messages: [True] * len(messages))
+
+    runner = app.test_cli_runner()
+    result = runner.invoke(args=['check-payment-reminders'])
+
+    assert result.exit_code == 0
+    assert PaymentReminderLog.query.filter_by(order_id=order.id).count() == 0

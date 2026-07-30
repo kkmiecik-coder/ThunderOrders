@@ -592,6 +592,10 @@ def register_cli_commands(app):
                     elif rule.reminder_type == 'after_order_placed':
                         if stage != 'product':
                             continue  # after_order_placed dotyczy tylko etapu produktu
+                        if order.order_type not in ('on_hand', 'preorder'):
+                            continue  # jak przed rozszerzeniem crona — 'exclusive' (strona
+                            # sprzedaży) nie ma tu wchodzić: bez zamkniętej sprzedaży i bez
+                            # ustalonego terminu klient i tak nie może jeszcze zapłacić
                         trigger_time = order.created_at + timedelta(hours=rule.hours)
                     else:
                         continue
