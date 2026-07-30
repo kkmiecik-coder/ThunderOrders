@@ -34,14 +34,18 @@
 
 .overdue-payments-table {
     width: 100%;
+    min-width: 720px;
+    table-layout: fixed;
     border-collapse: collapse;
+    font-size: 13px;
 }
 
 .overdue-payments-table th,
 .overdue-payments-table td {
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-2) var(--space-4);
     text-align: left;
     border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
 }
 
 .overdue-payments-table th {
@@ -51,6 +55,29 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* Szerokości kolumn — stałe, żeby "Produkt" nie zawijał się na 3 linie
+   i żeby "Dni po terminie" nie uciekało poza widoczny obszar */
+.overdue-payments-table col.col-order { width: 13%; }
+.overdue-payments-table col.col-client { width: 15%; }
+.overdue-payments-table col.col-product { width: 32%; }
+.overdue-payments-table col.col-stage { width: 20%; }
+.overdue-payments-table col.col-amount { width: 10%; }
+.overdue-payments-table col.col-days { width: 10%; }
+
+.overdue-payments-table td.col-product {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.overdue-payments-table td.col-amount,
+.overdue-payments-table th.col-amount,
+.overdue-payments-table td.col-days,
+.overdue-payments-table th.col-days {
+    text-align: right;
     white-space: nowrap;
 }
 
@@ -66,6 +93,7 @@
     color: var(--primary-color);
     font-weight: var(--font-medium);
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .overdue-payments-table td a:hover {
