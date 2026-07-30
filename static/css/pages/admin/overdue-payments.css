@@ -91,10 +91,14 @@
 }
 
 .overdue-payments-table td.col-amount,
-.overdue-payments-table th.col-amount,
+.overdue-payments-table th.col-amount {
+    text-align: right;
+    white-space: nowrap;
+}
+
 .overdue-payments-table td.col-days,
 .overdue-payments-table th.col-days {
-    text-align: right;
+    text-align: center;
     white-space: nowrap;
 }
 
