@@ -1216,41 +1216,38 @@ class EmailManager:
             return False
 
     @staticmethod
-    def build_payment_reminder_message(order, payment_deadline=None, reminder_context='before_deadline'):
+    def build_payment_reminder_message(order, stage='product', payment_deadline=None, reminder_context='before_deadline'):
         """
-        Buduje wiadomość przypomnienia o płatności (BEZ wysyłania) do batch sendingu.
-
-        Lustro notify_payment_reminder() — ta sama logika niezapłaconych etapów (na razie
-        tylko E1/produkt), ale zwraca obiekt Message zamiast wysyłać. Dzięki temu cron
-        może wysłać wszystkie przypomnienia jednym połączeniem SMTP.
+        Buduje wiadomość przypomnienia o płatności (BEZ wysyłania) do batch sendingu,
+        dla dowolnego z czterech etapów (product/shipping_kr/customs_vat/domestic_shipping).
 
         Returns:
             Message lub None (gdy: powiadomienia wyłączone / brak emaila /
-            brak niezapłaconych etapów / błąd budowania).
+            etap już opłacony lub w trakcie weryfikacji / błąd budowania).
         """
         if not EmailManager.is_email_enabled('notify_payment_reminder'):
             current_app.logger.info("Email notification 'notify_payment_reminder' is disabled, skipping")
             return None
 
         from utils.email_sender import prepare_payment_reminder_email
+        from modules.orders.payment_overdue_service import STAGE_DEFINITIONS
 
         email = order.customer_email
         if not email:
             current_app.logger.warning(f"Cannot send payment reminder for {order.order_number}: no email")
             return None
 
-        # Na razie tylko E1 (produkt) — parytet z notify_payment_reminder()
-        unpaid_stages = []
-        product_status = order.product_payment_status
-        if product_status in ('none', 'rejected'):
-            unpaid_stages.append({
-                'name': 'Płatność za produkt',
-                'amount': float(order.effective_total or order.total_amount or 0),
-                'status': product_status
-            })
-
-        if not unpaid_stages:
+        definition = STAGE_DEFINITIONS[stage]
+        status = definition['status'](order)
+        if status not in ('none', 'rejected'):
             return None
+
+        amount = definition['amount'](order)
+        unpaid_stages = [{
+            'name': definition['label'],
+            'amount': float(amount or 0),
+            'status': status,
+        }]
 
         confirmations_url = url_for('client.payment_confirmations', _external=True)
 
