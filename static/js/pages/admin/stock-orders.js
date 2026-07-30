@@ -1107,8 +1107,10 @@ function toggleNoCustoms() {
             : 'Bez cła/VAT — podatek nie będzie doliczany';
     }
 
-    const deadlineBox = document.querySelector('#customsVatModal .deadline-box');
-    if (deadlineBox) deadlineBox.style.display = hasCustoms ? '' : 'none';
+    // Przy "bez cła" znika cały wiersz z polami — ani procent, ani termin
+    // nie mają wtedy zastosowania, a wyszarzone pola tylko zajmowałyby miejsce.
+    const fieldsRow = document.getElementById('customsVatFieldsRow');
+    if (fieldsRow) fieldsRow.style.display = hasCustoms ? '' : 'none';
 
     const globalPercent = document.getElementById('customsVatGlobalPercent');
     if (globalPercent) {
