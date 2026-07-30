@@ -1,0 +1,48 @@
+{# templates/admin/payments/overdue.html #}
+{% extends "admin/base_admin.html" %}
+
+{% block title %}Zaległości płatnicze - ThunderOrders{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="page-header">
+        <div class="page-header-left">
+            <h1>Zaległości płatnicze</h1>
+            <p>Zamówienia z przekroczonym terminem płatności na dowolnym etapie</p>
+        </div>
+    </div>
+
+    {% if not overdue %}
+    <div class="empty-state">
+        <p>Brak zaległości — wszystkie terminy dotrzymane. 🎉</p>
+    </div>
+    {% else %}
+    <div class="table-responsive">
+        <table class="data-table overdue-payments-table">
+            <thead>
+                <tr>
+                    <th>Zamówienie</th>
+                    <th>Klient</th>
+                    <th>Produkt</th>
+                    <th>Etap</th>
+                    <th>Kwota</th>
+                    <th>Dni po terminie</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in overdue %}
+                <tr>
+                    <td><a href="{{ url_for('orders.admin_detail', order_id=row.order.id) }}">{{ row.order.order_number }}</a></td>
+                    <td>{{ row.order.customer_name }}</td>
+                    <td>{{ row.order.items[0].product_name if row.order.items else '-' }}</td>
+                    <td>{{ row.primary_stage.stage_label }}</td>
+                    <td>{{ '%.2f'|format(row.primary_stage.amount) }} zł</td>
+                    <td>{{ row.primary_stage.days_overdue }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

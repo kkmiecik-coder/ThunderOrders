@@ -308,6 +308,20 @@ def dashboard():
     )
 
 
+@admin_bp.route('/payments/overdue')
+@login_required
+@role_required('admin', 'mod')
+def overdue_payments_list():
+    """Lista zamówień z przekroczonym terminem płatności na dowolnym etapie (E1-E4)."""
+    from modules.orders.payment_overdue_service import get_overdue_orders_summary
+    overdue = get_overdue_orders_summary()
+    return render_template(
+        'admin/payments/overdue.html',
+        title='Zaległości płatnicze',
+        overdue=overdue
+    )
+
+
 @admin_bp.route('/dashboard/sales-data')
 @login_required
 @role_required('admin', 'mod')
