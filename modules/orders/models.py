@@ -1006,6 +1006,17 @@ class Order(db.Model):
             return True
         return self.stage_3_status == 'approved'
 
+    def get_product_deadline(self):
+        """Get payment deadline for E1 (product) from the offer page.
+
+        Zamówienia on_hand/pre_order bez strony sprzedaży nie mają stałego
+        terminu — ich przypomnienie liczy się regułą 'after_order_placed'
+        (godziny od created_at), nie tym getterem.
+        """
+        if self.offer_page:
+            return self.offer_page.payment_deadline
+        return None
+
     def get_shipping_kr_deadline(self):
         """Get payment deadline for E2 (Korean shipping) from PolandOrder."""
         from modules.products.models import PolandOrderItem

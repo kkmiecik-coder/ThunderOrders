@@ -553,6 +553,7 @@ def register_cli_commands(app):
         from modules.orders.models import Order, get_local_now
         from modules.offers.models import OfferPage
         from modules.offers.reminder_models import PaymentReminderConfig, PaymentReminderLog
+        from modules.orders.payment_overdue_service import STAGE_DEFINITIONS
         from modules.auth.models import Settings
         from utils.email_manager import EmailManager
         from utils.push_manager import PushManager
@@ -561,140 +562,62 @@ def register_cli_commands(app):
 
         now = get_local_now()
         sent_count = 0
-
-        # Zebrane przypomnienia do wysłania batchem (jedno połączenie SMTP = jeden AUTH).
-        # Wysyłka per-mail w osobnych wątkach powodowała 'too many AUTH/connections' na Hostingerze.
         pending_reminders = []
 
-        # Pobierz aktywne reguły
         rules = PaymentReminderConfig.query.filter_by(enabled=True).all()
         click.echo(f"Aktywnych reguł: {len(rules)}")
 
-        for rule in rules:
-            if rule.reminder_type == 'before_deadline':
-                if rule.payment_stage == 'product':
-                    # Pobierz zamknięte OfferPages z deadline
-                    pages = OfferPage.query.filter(
-                        OfferPage.payment_deadline.isnot(None),
-                        OfferPage.is_fully_closed == True
-                    ).all()
+        active_orders = Order.query.filter(Order.status != 'anulowane').all()
 
-                    for page in pages:
-                        trigger_time = page.payment_deadline - timedelta(hours=rule.hours)
-                        if trigger_time > now:
-                            continue  # Za wcześnie
+        for order in active_orders:
+            for stage, definition in STAGE_DEFINITIONS.items():
+                if not definition['applies'](order):
+                    continue
 
-                        orders = Order.query.filter(
-                            Order.offer_page_id == page.id,
-                            Order.status != 'anulowane'
-                        ).all()
+                status = definition['status'](order)
+                if status not in ('none', 'rejected'):
+                    continue
 
-                        for order in orders:
-                            if order.product_payment_status not in ('none', 'rejected'):
-                                continue
+                amount = definition['amount'](order)
+                if not amount or amount <= 0:
+                    continue
 
-                            already_sent = PaymentReminderLog.query.filter_by(
-                                order_id=order.id, config_id=rule.id
-                            ).first()
-                            if already_sent:
-                                continue
+                deadline = definition['deadline'](order)
 
-                            if dry_run:
-                                click.echo(f"  [DRY RUN] {order.order_number} <- {rule.hours}h przed deadline")
-                                sent_count += 1
-                                continue
-
-                            pending_reminders.append({
-                                'order': order,
-                                'config_id': rule.id,
-                                'payment_deadline': page.payment_deadline,
-                                'reminder_context': 'before_deadline',
-                                'activity_value': f'Wysłano przypomnienie ({rule.hours}h przed terminem)',
-                                'echo': f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline)",
-                            })
-
-                elif rule.payment_stage == 'shipping_kr':
-                    # E2: Wysyłka KR - sprawdź deadline'y PolandOrder
-                    from modules.products.models import PolandOrder
-                    poland_orders = PolandOrder.query.filter(
-                        PolandOrder.payment_deadline.isnot(None),
-                        PolandOrder.status != 'anulowane'
-                    ).all()
-
-                    for po in poland_orders:
-                        trigger_time = po.payment_deadline - timedelta(hours=rule.hours)
-                        if trigger_time > now:
+                for rule in rules:
+                    if rule.reminder_type == 'before_deadline':
+                        if deadline is None:
                             continue
-
-                        for po_item in po.items:
-                            order = po_item.order
-                            if not order:
-                                continue
-                            if order.status == 'anulowane':
-                                continue
-                            if order.stage_2_status not in ('none', 'rejected'):
-                                continue
-
-                            already_sent = PaymentReminderLog.query.filter_by(
-                                order_id=order.id, config_id=rule.id
-                            ).first()
-                            if already_sent:
-                                continue
-
-                            if dry_run:
-                                click.echo(f"  [DRY RUN] {order.order_number} <- {rule.hours}h przed deadline wysyłki KR")
-                                sent_count += 1
-                                continue
-
-                            pending_reminders.append({
-                                'order': order,
-                                'config_id': rule.id,
-                                'payment_deadline': po.payment_deadline,
-                                'reminder_context': 'before_deadline',
-                                'activity_value': f'Wysłano przypomnienie ({rule.hours}h przed terminem wysyłki KR)',
-                                'echo': f"  Wysłano: {order.order_number} ({rule.hours}h przed deadline wysyłki KR)",
-                            })
-
-            elif rule.reminder_type == 'after_order_placed':
-                if rule.payment_stage != 'product':
-                    continue  # after_order_placed dotyczy tylko etapu product
-
-                # Tylko On-hand i Pre-order
-                orders = Order.query.filter(
-                    Order.order_type.in_(['on_hand', 'preorder']),
-                    Order.status != 'anulowane'
-                ).all()
-
-                for order in orders:
-                    if order.product_payment_status not in ('none', 'rejected'):
+                        trigger_time = deadline - timedelta(hours=rule.hours)
+                    elif rule.reminder_type == 'after_order_placed':
+                        if stage != 'product':
+                            continue  # after_order_placed dotyczy tylko etapu produktu
+                        trigger_time = order.created_at + timedelta(hours=rule.hours)
+                    else:
                         continue
 
-                    trigger_time = order.created_at + timedelta(hours=rule.hours)
                     if trigger_time > now:
                         continue
 
                     already_sent = PaymentReminderLog.query.filter_by(
-                        order_id=order.id, config_id=rule.id
+                        order_id=order.id, config_id=rule.id, stage=stage
                     ).first()
                     if already_sent:
                         continue
 
-                    payment_deadline = None
-                    if order.offer_page:
-                        payment_deadline = order.offer_page.payment_deadline
-
                     if dry_run:
-                        click.echo(f"  [DRY RUN] {order.order_number} <- {rule.hours}h po złożeniu")
+                        click.echo(f"  [DRY RUN] {order.order_number} <- {definition['label']}, {rule.hours}h ({rule.reminder_type})")
                         sent_count += 1
                         continue
 
                     pending_reminders.append({
                         'order': order,
                         'config_id': rule.id,
-                        'payment_deadline': payment_deadline,
-                        'reminder_context': 'after_order_placed',
-                        'activity_value': f'Wysłano przypomnienie ({rule.hours}h po złożeniu zamówienia)',
-                        'echo': f"  Wysłano: {order.order_number} ({rule.hours}h po złożeniu)",
+                        'stage': stage,
+                        'payment_deadline': deadline,
+                        'reminder_context': rule.reminder_type,
+                        'activity_value': f"Wysłano przypomnienie ({definition['label']}, {rule.hours}h, {rule.reminder_type})",
+                        'echo': f"  Wysłano: {order.order_number} ({definition['label']}, {rule.hours}h)",
                     })
 
         # Wyślij zebrane przypomnienia JEDNYM połączeniem SMTP (jeden AUTH).
@@ -708,6 +631,7 @@ def register_cli_commands(app):
             for p in pending_reminders:
                 msg = EmailManager.build_payment_reminder_message(
                     p['order'],
+                    stage=p['stage'],
                     payment_deadline=p['payment_deadline'],
                     reminder_context=p['reminder_context']
                 )
@@ -724,7 +648,7 @@ def register_cli_commands(app):
                 order = p['order']
                 PushManager.notify_payment_reminder(order, payment_deadline=p['payment_deadline'])
                 db.session.add(PaymentReminderLog(
-                    order_id=order.id, config_id=p['config_id']
+                    order_id=order.id, config_id=p['config_id'], stage=p['stage']
                 ))
                 log_activity(
                     action='payment_reminder_sent',
@@ -735,7 +659,8 @@ def register_cli_commands(app):
                 sent_count += 1
                 click.echo(p['echo'])
 
-        # Sprawdź przekroczone deadline'y
+        # Sprawdź przekroczone deadline'y (bez zmian — dotyczy tylko OfferPage/E1,
+        # to osobna funkcja: powiadomienie ADMINA, nie klienta)
         exceeded_pages = OfferPage.query.filter(
             OfferPage.payment_deadline.isnot(None),
             OfferPage.payment_deadline < now,

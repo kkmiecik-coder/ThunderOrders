@@ -13,9 +13,25 @@
         </div>
     </div>
 
-    <!-- Wiersz alertów: potwierdzenia płatności + zlecenia wysyłki -->
-    {% if pending_payment_confirmations > 0 or (sr_to_quote + sr_to_pay + sr_to_pack) > 0 %}
+    <!-- Wiersz alertów: zaległości płatnicze + potwierdzenia płatności + zlecenia wysyłki -->
+    {% if pending_payment_confirmations > 0 or (sr_to_quote + sr_to_pay + sr_to_pack) > 0 or overdue_payments_count > 0 %}
     <div class="dashboard-alerts-row">
+        <!-- Zaległości płatnicze -->
+        {% if overdue_payments_count > 0 %}
+        <div class="pc-dashboard-widget">
+            <div class="pc-dashboard-widget-left">
+                <div class="pc-dashboard-widget-icon">&#9200;</div>
+                <div class="pc-dashboard-widget-text">
+                    <h3>{{ overdue_payments_count }} {{ 'zamówienie zalega' if overdue_payments_count == 1 else 'zamówień zalega' }} z płatnością</h3>
+                    <p>Termin płatności minął, a kwota nie wpłynęła</p>
+                </div>
+            </div>
+            <a href="{{ url_for('admin.overdue_payments_list') }}" class="pc-dashboard-widget-link">
+                Sprawdź &rarr;
+            </a>
+        </div>
+        {% endif %}
+
         <!-- Oczekujące potwierdzenia płatności -->
         {% if pending_payment_confirmations > 0 %}
         <div class="pc-dashboard-widget">

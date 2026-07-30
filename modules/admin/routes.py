@@ -290,6 +290,10 @@ def dashboard():
     # 10. Shipping request alert counts (karta "Zlecenia wysyłki")
     shipping_alerts = get_shipping_alert_counts()
 
+    # 11. Zaległości płatnicze (kafelek "Zaległości płatnicze")
+    from modules.orders.payment_overdue_service import get_overdue_orders_summary
+    overdue_payments_count = len(get_overdue_orders_summary())
+
     return render_template(
         'admin/dashboard.html',
         title='Panel Administratora',
@@ -304,7 +308,22 @@ def dashboard():
         pending_payment_confirmations=pending_payment_confirmations,
         sr_to_quote=shipping_alerts['to_quote'],
         sr_to_pay=shipping_alerts['to_pay'],
-        sr_to_pack=shipping_alerts['to_pack']
+        sr_to_pack=shipping_alerts['to_pack'],
+        overdue_payments_count=overdue_payments_count
+    )
+
+
+@admin_bp.route('/payments/overdue')
+@login_required
+@role_required('admin', 'mod')
+def overdue_payments_list():
+    """Lista zamówień z przekroczonym terminem płatności na dowolnym etapie (E1-E4)."""
+    from modules.orders.payment_overdue_service import get_overdue_orders_summary
+    overdue = get_overdue_orders_summary()
+    return render_template(
+        'admin/payments/overdue.html',
+        title='Zaległości płatnicze',
+        overdue=overdue
     )
 
 

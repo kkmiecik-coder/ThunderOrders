@@ -23,15 +23,16 @@ class PaymentReminderConfig(db.Model):
 
 
 class PaymentReminderLog(db.Model):
-    """Log wysłanych przypomnień — zapobiega duplikacji."""
+    """Log wysłanych przypomnień — zapobiega duplikacji (per zamówienie, regułę i etap)."""
     __tablename__ = 'payment_reminder_logs'
     __table_args__ = (
-        db.UniqueConstraint('order_id', 'config_id', name='uq_reminder_log_order_config'),
+        db.UniqueConstraint('order_id', 'config_id', 'stage', name='uq_reminder_log_order_config_stage'),
     )
 
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     config_id = db.Column(db.Integer, db.ForeignKey('payment_reminder_configs.id'), nullable=True)
+    stage = db.Column(db.String(30), nullable=True)  # 'product'|'shipping_kr'|'customs_vat'|'domestic_shipping'; NULL dla wpisów sprzed migracji
     reminder_type = db.Column(db.String(30), nullable=True)  # 'deadline_exceeded' gdy config_id=NULL
     sent_at = db.Column(db.DateTime, default=get_local_now, nullable=False)
 
@@ -39,4 +40,4 @@ class PaymentReminderLog(db.Model):
     order = db.relationship('Order', backref=db.backref('reminder_logs', lazy='dynamic'))
 
     def __repr__(self):
-        return f'<PaymentReminderLog order={self.order_id} config={self.config_id}>'
+        return f'<PaymentReminderLog order={self.order_id} config={self.config_id} stage={self.stage}>'
