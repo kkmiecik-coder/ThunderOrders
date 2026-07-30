@@ -1058,6 +1058,12 @@ function renderCustomsVatItems() {
 
     container.innerHTML = html;
     updateCustomsVatTotal();
+
+    // Pozycje powstają asynchronicznie (dopiero po odpowiedzi serwera), więc mogły
+    // nie istnieć w momencie, gdy administratorka przełączała "z cłem" / "bez cła".
+    // Wymuszamy tu ponowne zastosowanie aktualnego stanu przełącznika do świeżo
+    // wyrenderowanych pól, żeby interfejs nie kłamał o swoim stanie.
+    toggleNoCustoms();
 }
 
 /**
