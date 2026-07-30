@@ -1242,7 +1242,13 @@ class EmailManager:
         if status not in ('none', 'rejected'):
             return None
 
-        amount = definition['amount'](order)
+        if stage == 'product':
+            # Etap produktowy (E1): mail ma pokazywać kwotę faktycznie należną
+            # przy częściowej realizacji (effective_total), a nie pełną
+            # total_amount jak kafelek/lista zaległości w adminie.
+            amount = order.effective_total or order.total_amount
+        else:
+            amount = definition['amount'](order)
         unpaid_stages = [{
             'name': definition['label'],
             'amount': float(amount or 0),
