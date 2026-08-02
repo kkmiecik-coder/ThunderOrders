@@ -1,6 +1,6 @@
 /**
  * ThunderOrders - K-POP Thank You Page (OPTIMIZED)
- * Confetti, muzyka, easter eggs - zoptymalizowane! 🌟💜
+ * Confetti, easter eggs - zoptymalizowane! 🌟💜
  */
 
 (function() {
@@ -10,10 +10,6 @@
     // CONFIG
     // ============================================
     const CONFIG = {
-        audio: {
-            volume: 0.4,
-            fadeInDuration: 1500
-        },
         confetti: {
             particleCount: 80,
             colors: ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b']
@@ -28,8 +24,6 @@
     // STATE
     // ============================================
     const state = {
-        audioPlaying: false,
-        audioElement: null,
         easterEggClicks: 0
     };
 
@@ -140,79 +134,6 @@
     }
 
     // ============================================
-    // AUDIO CONTROLLER
-    // ============================================
-    function initAudio() {
-        state.audioElement = document.getElementById('celebration-audio');
-        if (!state.audioElement) return;
-
-        // Start muted to bypass autoplay restrictions
-        state.audioElement.volume = 0;
-        state.audioElement.muted = true;
-
-        // Try to play muted first
-        state.audioElement.play().then(() => {
-            // Success! Now unmute and fade in on first interaction
-            state.audioPlaying = true;
-            console.log('[ThunderOrders] Audio playing (muted, waiting for interaction to unmute)');
-        }).catch(() => {
-            console.log('[ThunderOrders] Autoplay blocked completely');
-        });
-    }
-
-    function fadeInAudio() {
-        if (!state.audioElement) return;
-
-        const start = Date.now();
-        const startVol = state.audioElement.volume;
-        const targetVol = CONFIG.audio.volume;
-
-        function fade() {
-            const elapsed = Date.now() - start;
-            const progress = Math.min(elapsed / CONFIG.audio.fadeInDuration, 1);
-            state.audioElement.volume = startVol + (targetVol - startVol) * progress;
-
-            if (progress < 1) {
-                requestAnimationFrame(fade);
-            }
-        }
-
-        fade();
-    }
-
-    function toggleAudio() {
-        if (!state.audioElement) return;
-
-        if (state.audioPlaying) {
-            state.audioElement.pause();
-            state.audioPlaying = false;
-        } else {
-            state.audioElement.play();
-            state.audioPlaying = true;
-            if (state.audioElement.volume === 0) {
-                fadeInAudio();
-            }
-        }
-
-        updateAudioButton(state.audioPlaying);
-    }
-
-    function updateAudioButton(isPlaying) {
-        const btn = document.getElementById('audio-toggle');
-        if (!btn) return;
-
-        const icon = btn.querySelector('.audio-icon');
-        if (icon) {
-            icon.innerHTML = isPlaying
-                ? '<path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/><path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/><path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>'
-                : '<path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/><path d="M11.854 4.146a.5.5 0 0 1 0 .708L10.207 6.5l1.647 1.646a.5.5 0 0 1-.708.708L9.5 7.207 7.854 8.854a.5.5 0 1 1-.708-.708L8.793 6.5 7.146 4.854a.5.5 0 1 1 .708-.708L9.5 5.793l1.646-1.647a.5.5 0 0 1 .708 0z"/>';
-        }
-
-        btn.setAttribute('aria-label', isPlaying ? 'Wycisz muzykę' : 'Włącz muzykę');
-        btn.classList.toggle('is-playing', isPlaying);
-    }
-
-    // ============================================
     // EASTER EGG - Click checkmark 3 times
     // ============================================
     function initEasterEgg(confetti) {
@@ -305,9 +226,6 @@
         // Initialize confetti engine
         const confetti = new SimpleConfetti();
 
-        // Initialize audio
-        initAudio();
-
         // Easter egg
         initEasterEgg(confetti);
 
@@ -359,36 +277,9 @@
             setTimeout(continuousConfetti, 10000);
         }
 
-        // Audio toggle button
-        const audioBtn = document.getElementById('audio-toggle');
-        if (audioBtn) {
-            audioBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleAudio();
-            });
-        }
-
-        // Unmute and fade in audio on first user interaction
-        function handleFirstInteraction() {
-            if (state.audioElement && state.audioElement.muted) {
-                state.audioElement.muted = false;
-                fadeInAudio();
-                updateAudioButton(true);
-                console.log('[ThunderOrders] Audio unmuted and fading in');
-            }
-        }
-
-        // Listen for any user interaction to unmute audio
-        document.addEventListener('click', handleFirstInteraction, { once: true });
-        document.addEventListener('touchstart', handleFirstInteraction, { once: true });
-        document.addEventListener('keydown', handleFirstInteraction, { once: true });
-
         // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
             confetti.destroy();
-            if (state.audioElement) {
-                state.audioElement.pause();
-            }
         });
     }
 
