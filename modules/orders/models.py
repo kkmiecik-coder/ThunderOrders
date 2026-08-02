@@ -614,6 +614,11 @@ class Order(db.Model):
         return self.effective_total + shipping
 
     @property
+    def is_offer(self):
+        """Czy zamówienie pochodzi ze strony sprzedaży (Live/Exclusive)."""
+        return self.offer_page_id is not None
+
+    @property
     def proxy_shipping_total(self):
         """Koszt dostawy proxy (z Korei) - odczyt z kolumny Order."""
         from decimal import Decimal
