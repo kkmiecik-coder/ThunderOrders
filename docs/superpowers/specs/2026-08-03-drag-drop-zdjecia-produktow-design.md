@@ -17,14 +17,31 @@ bezpośrednio z dysku. Dotyczy to dwóch niezależnych widoków:
    zapisuje plik lokalnie w `pendingImageUploads[productId][slot]` i pokazuje
    podgląd przez `FileReader`; realna wysyłka na serwer dzieje się dopiero
    przy kliknięciu "Zapisz" (kolejka wysyłana sekwencyjnie, ok. linia 948).
-2. **Formularz pojedynczego produktu** (`templates/admin/warehouse/product_form.html`,
-   otwierany jako modal) — siatka zdjęć (`#images-grid`, linia 260) bez
-   slotów, gdzie dziś: dodanie zdjęcia (`uploadImages()`,
-   `static/js/pages/admin/product-form.js:746`), usunięcie
-   (`deleteImage()`, linia 843) i ustawienie głównego (`setPrimaryImage()`,
-   linia 890) wysyłają żądanie na serwer **od razu**. Dla nowego,
-   niezapisanego produktu zakładka zdjęć w ogóle nie istnieje (tylko komunikat
-   "zapisz produkt najpierw", template linie 296-300).
+2. **Formularz pojedynczego produktu** — otwierany zawsze jako modal
+   (`templates/admin/warehouse/product_form_modal.html`; szablon
+   `product_form.html` z inną, niezależną siatką `#images-grid` i funkcjami
+   `uploadImages()`/`deleteImage()`/`setPrimaryImage()` w
+   `product-form.js:746-901` **nie jest nigdzie w aplikacji linkowany ani
+   renderowany** — każde wywołanie tras `create_product`/`edit_product` z
+   UI idzie z `modal=1`, więc realnie używany jest tylko wariant modalowy;
+   pozostaje poza zakresem tej zmiany).
+
+   W modalu zdjęcia są w 10 ponumerowanych slotach
+   (`.image-slot`, `templates/admin/warehouse/product_form_modal.html:351-384`,
+   każdy z własnym `<input type="file" name="product_image_N">`). Dodanie/
+   podmiana zdjęcia (`handleSlotImageSelect`, `product-form.js:959`) **już
+   dziś jest odroczone do zapisu** — to zwykłe pole pliku w formularzu;
+   backend (`create_product`/`edit_product`,
+   `modules/products/routes.py:219-251,376-420`) czyta `product_image_1..10`
+   z `request.files` dopiero przy zapisie całego formularza i dla zajętego
+   slotu podmienia stare zdjęcie na nowe — działa to identycznie dla nowego
+   i istniejącego produktu, bez żadnych zmian potrzebnych z naszej strony.
+   Nie ma tu koncepcji "zdjęcia głównego" do ustawienia ręcznie — slot #1
+   zawsze jest główny (ta sama reguła po stronie backendu).
+
+   Prawdziwe braki: (a) brak przeciągania — działa tylko klik na slot; (b)
+   usunięcie istniejącego zdjęcia (`removeSlotImage`, linia 993) woła DELETE
+   na serwer **od razu** (po `confirm()`), zamiast czekać do zapisu.
 
 Brak jakiejkolwiek biblioteki drag&drop w projekcie (`static/vendor/`
 zawiera tylko panzoom/pdfjs/tinymce) — ale jest już gotowy, zero-zależnościowy
@@ -38,15 +55,11 @@ kolejności elementów, tu wykorzystamy te same zdarzenia `dragover`/`dragleave`
 
 1. Drag&drop wgrywania plików w edycji masowej — upuszczenie na konkretną
    komórkę "Zdjęcie N".
-2. Drag&drop wgrywania plików w formularzu pojedynczego produktu —
-   upuszczenie w dowolnym miejscu siatki zdjęć.
-3. **Zmiana zachowania formularza pojedynczego produktu** (nie tylko nowa
-   funkcja): dodawanie (klik i drag&drop), usuwanie i ustawianie zdjęcia
-   głównego przestają wysyłać żądania od razu — czekają lokalnie i wysyłają
-   się dopiero po kliknięciu głównego przycisku "Zapisz" formularza, tym
-   samym mechanizmem co dziś (te same endpointy), tylko odroczonym w czasie.
-   Dotyczy to też **nowych, jeszcze niezapisanych produktów** — zakładka
-   zdjęć staje się dostępna od razu, zanim produkt istnieje w bazie.
+2. Drag&drop wgrywania plików w formularzu pojedynczego produktu (modal) —
+   upuszczenie na konkretny slot obrazkowy.
+3. Odroczenie usuwania istniejącego zdjęcia w formularzu pojedynczego
+   produktu do momentu zapisu — dziś usuwa od razu, ma czekać jak reszta
+   operacji na zdjęciach w tym formularzu.
 
 **Poza zakresem (świadomie, YAGNI):**
 - Zmiana kolejności zdjęć przez przeciąganie (reorder) — to nie było celem
@@ -54,14 +67,15 @@ kolejności elementów, tu wykorzystamy te same zdarzenia `dragover`/`dragleave`
   `modules/products/models.py:51,276-277`) zostaje bez zmian.
 - Zmiany w backendzie — wszystkie potrzebne endpointy już istnieją
   (`mass_edit_upload_image`/`mass_edit_delete_image` w
-  `modules/products/routes.py:4536,4591`; `/images/upload`,
-  `/images/<id>` DELETE, `/images/<id>/set-primary` — używane już dziś przez
-  `product-form.js`). Ta praca jest wyłącznie frontendowa (JS + CSS).
-- Ujednolicenie dwóch różnych mechanizmów przechowywania zdjęć na backendzie
-  (sloty 1–10 wbudowane w `create_product()` POST vs. osobne AJAX-owe
-  endpointy per-obraz) — nie ruszamy tego; nowy kod korzysta wyłącznie z
-  istniejących AJAX-owych endpointów per-obraz, również dla nowo tworzonego
-  produktu (patrz niżej).
+  `modules/products/routes.py:4536,4591`; obsługa `product_image_1..10` w
+  `create_product`/`edit_product`; DELETE `/images/<id>` używane już dziś
+  przez `removeSlotImage`). Ta praca jest wyłącznie frontendowa (JS + CSS).
+- Nieużywany szablon `product_form.html` (pełnostronicowy, bez modala) i
+  jego siatka `#images-grid` — nie jest renderowany z żadnego miejsca w UI,
+  więc nie ma sensu go poprawiać. Do rozważenia w osobnym zadaniu, czy go
+  usunąć jako martwy kod (nie teraz — poza zakresem).
+- "Ustawianie zdjęcia głównego" — nie istnieje jako osobna operacja w
+  używanym (modalowym) formularzu; slot #1 zawsze jest główny.
 
 ## Edycja masowa — zachowanie
 
@@ -88,46 +102,41 @@ kolejności elementów, tu wykorzystamy te same zdarzenia `dragover`/`dragleave`
   Żadnej zmiany w momencie faktycznej wysyłki na serwer (nadal dopiero przy
   "Zapisz").
 
-## Formularz pojedynczego produktu — zachowanie
+## Formularz pojedynczego produktu (modal) — zachowanie
 
-Zapis formularza jest dziś przechwytywany przez JS
-(`product-form.js:540-701`, `e.preventDefault()` + `fetch(form.action)`),
-zwraca JSON zawierający `product_id` również przy tworzeniu nowego produktu
-(`modules/products/routes.py:262-267`). To pozwala odroczyć operacje na
-zdjęciach bez zmian w backendzie:
-
-- **Dodawanie** (klik na "Załaduj wiele zdjęć" lub przeciągnięcie
-  jednego/wielu plików w dowolne miejsce `#images-grid`): plik trafia do
-  lokalnej listy `pendingNewImages` i od razu pokazuje się jako miniaturka
-  (podgląd przez `FileReader`/`URL.createObjectURL`), z możliwością
-  usunięcia ze staged-listy przed zapisem. Nic nie jest wysyłane na serwer.
-  Cała siatka podświetla się podczas przeciągania nad nią (`dragover`).
-- **Usuwanie istniejącego zdjęcia**: klik na "Usuń" nie woła już DELETE od
-  razu — zdjęcie znika wizualnie i trafia do lokalnej listy
-  `pendingRemovals` (lista ID). Można to cofnąć tylko przez odświeżenie
-  formularza (bez "undo" w UI — YAGNI, tak jak dziś nie ma undo dla usuwania).
-- **Ustawienie głównego**: klik na "Ustaw jako główne" nie woła
-  `set-primary` od razu — tylko lokalnie przestawia gwiazdkę/badge
-  "Główne" na wybranym zdjęciu (`pendingPrimaryImageId`).
-- **Nowy, niezapisany produkt**: zakładka "Zdjęcia" pokazuje pustą siatkę +
-  strefę wgrywania (usuwamy dzisiejszy blok `{% else %}` z samym komunikatem)
-  od razu na starcie formularza — bez czekania na zapis produktu.
-- **Zapis formularza** (`submit` handler): po udanym zapisie pól produktu
-  (jak dziś) i uzyskaniu `productId` (z URL dla edycji, z `data.product_id`
-  dla nowego produktu), sekwencyjnie odpala się flush kolejki zdjęć:
-  1. DELETE dla każdego ID z `pendingRemovals`,
-  2. POST `/images/upload` z plikami z `pendingNewImages`,
-  3. POST `/images/<id>/set-primary`, jeśli `pendingPrimaryImageId` jest
-     ustawiony.
-  Dopiero po zakończeniu tej sekwencji pokazuje się finalny toast i modal się
-  zamyka / lista produktów odświeża (dziś: `setTimeout` z zamknięciem modala,
-  `product-form.js:606-625` — flush kolejki wchodzi przed tym krokiem).
-- **Obsługa błędów**: jeśli zapis pól produktu się nie powiedzie — nic z
-  kolejki zdjęć się nie wysyła (jak dziś). Jeśli pola zapiszą się poprawnie,
-  ale któraś operacja na zdjęciu w kolejce zawiedzie — produkt i tak zostaje
-  zapisany, a toast na końcu wypisuje, które konkretnie zdjęcie się nie
-  wgrało/nie usunęło (analogicznie do istniejącego raportowania błędów w
-  `mass-edit.js` przy flushu kolejki, ok. linia 978-1003).
+- Każdy `.image-slot` staje się celem upuszczenia (`dragover` podświetla,
+  `dragleave`/`drop` zdejmuje podświetlenie) — analogicznie do edycji
+  masowej.
+- Upuszczenie pliku na slot **N**: plik trafia do
+  `input#imageInput{{N}}` (przez `DataTransfer`, bo `.files` inputa nie da
+  się nadpisać bezpośrednio) i wywołuje tę samą logikę podglądu co dziś przy
+  kliknięciu (`handleSlotImageSelect`) — nadpisuje istniejący podgląd w tym
+  slocie bez pytania o potwierdzenie, tak jak przy kliknięciu. Realna
+  wysyłka i tak nastąpi dopiero przy zapisie całego formularza (bez zmian —
+  to już działa).
+- Upuszczenie kilku plików na jeden slot: pierwszy plik trafia do slotu, na
+  który upuszczono, pozostałe rozkładają się po kolejnych **wolnych**
+  slotach (tych, gdzie `uploadLabel` jest widoczny, czyli nic jeszcze nie
+  wybrano ani nie ma istniejącego zdjęcia), w rosnącej kolejności numeru
+  slotu. Nadmiarowe pliki ponad liczbę wolnych slotów są pomijane z
+  komunikatem (toast) ile i dlaczego.
+- **Usuwanie istniejącego zdjęcia** (`removeSlotImage` ze slotu z
+  `imageId`): zamiast wołać DELETE i `confirm()` od razu, slot się czyści
+  wizualnie (podgląd znika, wraca "Dodaj zdjęcie") i `imageId` trafia do
+  lokalnej listy `pendingSlotRemovals`. Potwierdzenie (`confirm()`) zostaje
+  — pytamy raz, przy kliknięciu "Usuń", tak jak dziś, tylko bez wysyłki.
+  Jeśli po oznaczeniu do usunięcia użytkownik wgra (klik lub drag&drop) nowe
+  zdjęcie do tego samego slotu — wpis w `pendingSlotRemovals` dla tego
+  slotu jest kasowany (i tak zostanie nadpisany przy zapisie, backend sam to
+  obsłuży).
+- **Zapis formularza**: po udanym zapisie głównego POST-a (który już dziś
+  wysyła nowe/podmienione zdjęcia razem z resztą pól — bez zmian), jeśli
+  `pendingSlotRemovals` nie jest puste, wysyłamy DELETE dla każdego ID
+  sekwencyjnie, ignorując błędy pojedynczych żądań (analogicznie do
+  `mass-edit.js` przy usuwaniu, ok. linia 941-942) — również gdyby dany ID
+  już nie istniał (bo slot został nadpisany nowym zdjęciem w tym samym
+  zapisie). Dopiero po tym pokazuje się finalny toast / modal się zamyka
+  (dziś: `product-form.js:606-625`).
 
 ## CSS
 
@@ -147,5 +156,7 @@ zdefiniowany dla trybu jasnego i ciemnego.
   zawierającym `File` (standardowy sposób testowania HTML5 drag&drop bez
   prawdziwego OS-owego przeciągania). Do zweryfikowania ręcznie: edycja
   masowa (podmiana slotu, rozkładanie wielu plików, komunikat o pominiętych),
-  formularz produktu (dodawanie/usuwanie/główne przed zapisem, nowy produkt
-  od zera, błąd pojedynczego zdjęcia nie blokujący zapisu produktu).
+  formularz produktu — modal (drag&drop na slot, podmiana istniejącego
+  zdjęcia przez przeciągnięcie, usunięcie zdjęcia odroczone do zapisu,
+  nadpisanie slotu oznaczonego do usunięcia nowym zdjęciem przed zapisem,
+  nowy produkt od zera).
