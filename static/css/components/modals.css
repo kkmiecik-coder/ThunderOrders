@@ -4340,3 +4340,196 @@
 [data-theme="dark"] .ca-uspins-tickets { color: #ffffff; }
 [data-theme="dark"] .ca-uspins-when { color: rgba(255, 255, 255, 0.6); }
 [data-theme="dark"] .ca-uspins-empty { color: rgba(255, 255, 255, 0.5); }
+
+/* ==========================================
+   SCALONY MODAL ZLECENIA WYSYŁKI
+   ========================================== */
+
+/* Modal przy górnej krawędzi; stopka zawsze widoczna, body scrolluje */
+#editShippingRequestModal.modal-overlay {
+    align-items: flex-start;
+    padding-top: 40px;
+}
+
+#editShippingRequestModal .modal-content {
+    margin-top: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+#editShippingRequestModal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+
+.sr-modal-body {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.sr-modal-body:has(.sr-modal-list[hidden]) {
+    grid-template-columns: 1fr;
+}
+
+.sr-modal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.sr-modal-list[hidden] { display: none; }
+
+.sr-list-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    text-align: left;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.sr-list-item:hover { border-color: #c8c8c8; }
+.sr-list-item.active { border-color: #f093fb; background: rgba(240, 147, 251, 0.08); }
+
+.sr-list-mark {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.sr-list-item.ready .sr-list-mark { background: #22c55e; }
+.sr-list-item.incomplete .sr-list-mark { background: #f59e0b; }
+
+.sr-list-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sr-list-number { font-weight: 600; font-size: 14px; color: #333333; }
+.sr-list-meta { font-size: 12px; color: #666666; overflow: hidden; text-overflow: ellipsis; }
+
+.sr-bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 14px 24px;
+    background: #f7f7f9;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sr-bulk-bar[hidden] { display: none; }
+.sr-bulk-bar-title { font-size: 13px; font-weight: 600; color: #333333; }
+.sr-bulk-bar-fields { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; }
+.sr-inline-fields { display: flex; gap: 8px; }
+
+.sr-detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.sr-detail-number { font-size: 16px; font-weight: 600; color: #333333; }
+.sr-detail-status { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #eeeef2; color: #444444; }
+
+.sr-detail-section { margin-bottom: 20px; }
+.sr-detail-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #666666; margin-bottom: 10px; }
+.sr-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+
+.sr-cost-input { display: flex; align-items: center; gap: 8px; }
+.sr-cost-input .form-control { max-width: 140px; }
+.sr-cost-input .currency { font-size: 13px; color: #666666; }
+
+/* Tabela zamówień w scalonym modalu (markup bez wrappera) */
+.sr-modal .sr-orders-table { width: 100%; border-collapse: collapse; }
+.sr-modal .sr-orders-table th:last-child { text-align: left; }
+.sr-modal .sr-orders-table .text-right { text-align: right; }
+
+.sr-client-panel {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #f7f7f9;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #333333;
+}
+
+.sr-client-panel-title { font-weight: 600; color: #666666; }
+.sr-modal-loading { padding: 40px 20px; text-align: center; color: #666666; }
+.sr-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sr-modal-footer-actions { display: flex; gap: 8px; margin-left: auto; }
+.sr-modal-progress { font-size: 13px; color: #666666; }
+
+.sr-modal .input-error { border-color: #ef4444 !important; }
+
+/* Dark mode */
+[data-theme="dark"] .sr-list-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .sr-list-item:hover { border-color: rgba(240, 147, 251, 0.3); }
+[data-theme="dark"] .sr-list-item.active { border-color: #f093fb; background: rgba(240, 147, 251, 0.12); }
+[data-theme="dark"] .sr-list-number { color: #ffffff; }
+[data-theme="dark"] .sr-list-meta { color: rgba(255, 255, 255, 0.6); }
+
+[data-theme="dark"] .sr-bulk-bar {
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom-color: rgba(240, 147, 251, 0.15);
+}
+
+[data-theme="dark"] .sr-bulk-bar-title,
+[data-theme="dark"] .sr-detail-number { color: #ffffff; }
+
+[data-theme="dark"] .sr-detail-status {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .sr-detail-section h3,
+[data-theme="dark"] .sr-modal-progress,
+[data-theme="dark"] .sr-modal-loading,
+[data-theme="dark"] .sr-cost-input .currency,
+[data-theme="dark"] .sr-client-panel-title { color: rgba(255, 255, 255, 0.6); }
+
+[data-theme="dark"] .sr-client-panel {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* Mobile: lista jako przewijalny pasek żetonów nad szczegółami */
+@media (max-width: 768px) {
+    .sr-modal-body { grid-template-columns: 1fr; }
+
+    .sr-modal-list {
+        flex-direction: row;
+        max-height: none;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .sr-list-item { flex: 0 0 auto; min-width: 160px; }
+    .sr-bulk-bar { padding: 12px 16px; }
+    .sr-bulk-bar-fields { flex-direction: column; }
+    .sr-inline-fields .form-control,
+    .sr-detail-grid .form-control { min-height: 44px; }
+    .sr-modal-footer { flex-direction: column; align-items: stretch; }
+    .sr-modal-footer-actions { margin-left: 0; flex-wrap: wrap; }
+    .sr-modal-footer-actions .btn { flex: 1; min-height: 44px; }
+
+    #editShippingRequestModal .modal-content { max-height: 95vh; }
+
+    #editShippingRequestModal .modal-header,
+    #editShippingRequestModal .modal-footer { flex-shrink: 0; }
+}
