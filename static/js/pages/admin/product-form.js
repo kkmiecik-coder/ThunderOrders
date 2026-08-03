@@ -4,6 +4,11 @@
  */
 
 // ==========================================
+// Pending Slot Removals (deferred until form save)
+// ==========================================
+let pendingSlotRemovals = []; // [{slot, imageId}]
+
+// ==========================================
 // Submit Button State Management
 // ==========================================
 function setButtonLoading(loading = true) {
@@ -594,35 +599,37 @@ window.initFormSubmission = function() {
                 console.log('JSON response:', data);
 
                 if (data.success) {
-                    // Show success message
-                    if (typeof window.showToast === 'function') {
-                        window.showToast(data.message, 'success');
-                    } else {
-                        alert(data.message);
-                    }
-
-                    console.log('[FORM] Product saved successfully. Refreshing products list...');
-
-                    // Close modal and refresh list after 1.5 seconds (time to read toast)
-                    setTimeout(() => {
-                        // Close modal
-                        if (typeof closeProductModal === 'function') {
-                            closeProductModal();
-                        }
-
-                        // Refresh products list (instead of full page reload)
-                        if (typeof refreshProductsList === 'function') {
-                            refreshProductsList();
+                    flushPendingSlotRemovals().finally(() => {
+                        // Show success message
+                        if (typeof window.showToast === 'function') {
+                            window.showToast(data.message, 'success');
                         } else {
-                            // Fallback to full page reload if function not available
-                            console.log('[FORM] refreshProductsList not available, falling back to page reload');
-                            if (data.redirect) {
-                                window.location.href = data.redirect;
-                            } else {
-                                window.location.reload();
-                            }
+                            alert(data.message);
                         }
-                    }, 1500);
+
+                        console.log('[FORM] Product saved successfully. Refreshing products list...');
+
+                        // Close modal and refresh list after 1.5 seconds (time to read toast)
+                        setTimeout(() => {
+                            // Close modal
+                            if (typeof closeProductModal === 'function') {
+                                closeProductModal();
+                            }
+
+                            // Refresh products list (instead of full page reload)
+                            if (typeof refreshProductsList === 'function') {
+                                refreshProductsList();
+                            } else {
+                                // Fallback to full page reload if function not available
+                                console.log('[FORM] refreshProductsList not available, falling back to page reload');
+                                if (data.redirect) {
+                                    window.location.href = data.redirect;
+                                } else {
+                                    window.location.reload();
+                                }
+                            }
+                        }, 1500);
+                    });
                 } else {
                     // Show error message
                     if (typeof window.showToast === 'function') {
@@ -1000,9 +1007,7 @@ function assignFileToSlot(slotNumber, file) {
 
     handleSlotImageSelect(slotNumber, { target: input });
 
-    if (typeof pendingSlotRemovals !== 'undefined') {
-        pendingSlotRemovals = pendingSlotRemovals.filter(r => r.slot !== slotNumber);
-    }
+    pendingSlotRemovals = pendingSlotRemovals.filter(r => r.slot !== slotNumber);
 }
 
 window.handleSlotImageDrop = function(slotNumber, event) {
@@ -1056,62 +1061,56 @@ window.removeSlotImage = function(slotNumber, imageId) {
     const preview = document.getElementById(`preview${slotNumber}`);
     const previewImg = document.getElementById(`previewImg${slotNumber}`);
 
-    // If imageId is provided, this is an existing image - delete from server
     if (imageId) {
-        // Get product_id from form action URL
-        const form = document.getElementById('productFormModal');
-        const actionUrl = form.getAttribute('action');
-        const productIdMatch = actionUrl.match(/\/products\/(\d+)\//);
+        // Existing image - defer the actual removal until form save
+        if (!confirm('Czy na pewno chcesz usunąć to zdjęcie?')) return;
 
-        if (productIdMatch) {
-            const productId = productIdMatch[1];
+        pendingSlotRemovals = pendingSlotRemovals.filter(r => r.slot !== slotNumber);
+        pendingSlotRemovals.push({ slot: slotNumber, imageId: imageId });
 
-            if (confirm('Czy na pewno chcesz usunąć to zdjęcie?')) {
-                // Get CSRF token from form
-                const csrfToken = form.querySelector('input[name="csrf_token"]').value;
-
-                // Delete from server
-                fetch(`/admin/products/${productId}/images/${imageId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': csrfToken
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Clear the slot
-                        if (input) input.value = '';
-                        if (previewImg) previewImg.src = '';
-                        if (preview) preview.style.display = 'none';
-                        if (uploadLabel) uploadLabel.style.display = 'flex';
-
-                        if (typeof window.showToast === 'function') {
-                            window.showToast('Zdjęcie zostało usunięte.', 'success');
-                        }
-                    } else {
-                        if (typeof window.showToast === 'function') {
-                            window.showToast(data.error || 'Błąd podczas usuwania zdjęcia.', 'error');
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error deleting image:', error);
-                    if (typeof window.showToast === 'function') {
-                        window.showToast('Błąd podczas usuwania zdjęcia.', 'error');
-                    }
-                });
-            }
-        }
+        if (input) input.value = '';
+        if (previewImg) previewImg.src = '';
+        if (preview) preview.style.display = 'none';
+        if (uploadLabel) uploadLabel.style.display = 'flex';
     } else {
-        // This is a newly selected image (not yet saved) - just clear the preview
+        // Newly selected image (not yet saved) - just clear the preview
         if (input) input.value = '';
         if (previewImg) previewImg.src = '';
         if (preview) preview.style.display = 'none';
         if (uploadLabel) uploadLabel.style.display = 'flex';
     }
 };
+
+function flushPendingSlotRemovals() {
+    if (pendingSlotRemovals.length === 0) return Promise.resolve();
+
+    const form = document.getElementById('productFormModal');
+    const csrfInput = form ? form.querySelector('input[name="csrf_token"]') : null;
+    const actionUrl = form ? form.getAttribute('action') : '';
+    const productIdMatch = actionUrl.match(/\/products\/(\d+)\//);
+
+    if (!form || !csrfInput || !productIdMatch) {
+        pendingSlotRemovals = [];
+        return Promise.resolve();
+    }
+
+    const productId = productIdMatch[1];
+    const csrfToken = csrfInput.value;
+    const removals = pendingSlotRemovals;
+    pendingSlotRemovals = [];
+
+    return removals.reduce((chain, removal) => {
+        return chain.then(() =>
+            fetch(`/admin/products/${productId}/images/${removal.imageId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            }).catch(() => {})
+        );
+    }, Promise.resolve());
+}
 
 // ==========================================
 // Product Type Toggle Bar
