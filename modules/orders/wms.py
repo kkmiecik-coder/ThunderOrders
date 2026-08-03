@@ -279,6 +279,67 @@ def _update_sr_after_packing(order):
 # ====================
 
 
+def build_shipping_requests_query(status_filter=None, order_type_filter=None, search=None):
+    """Zlecenia wysyłki po filtrach z listy — wspólne dla widoku i zaznaczania.
+
+    Zaznaczanie „na wszystkich stronach" musi objąć dokładnie te zlecenia,
+    które admin widzi po filtrach, więc obie ścieżki liczą je tak samo.
+    """
+    from modules.auth.models import User
+    from sqlalchemy import or_, func
+
+    query = ShippingRequest.query
+
+    if status_filter:
+        query = query.filter(ShippingRequest.status == status_filter)
+
+    if order_type_filter:
+        query = query.filter(
+            ShippingRequest.id.in_(
+                db.session.query(ShippingRequestOrder.shipping_request_id)
+                .join(Order, ShippingRequestOrder.order_id == Order.id)
+                .filter(Order.order_type == order_type_filter)
+                .subquery()
+            )
+        )
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.join(User, ShippingRequest.user_id == User.id).filter(
+            or_(
+                ShippingRequest.request_number.ilike(search_term),
+                User.first_name.ilike(search_term),
+                User.last_name.ilike(search_term),
+                func.concat(User.first_name, ' ', User.last_name).ilike(search_term)
+            )
+        )
+
+    return query.order_by(ShippingRequest.created_at.desc())
+
+
+@orders_bp.route('/api/orders/shipping-requests/filtered-ids')
+@login_required
+@role_required('admin', 'mod')
+def shipping_requests_filtered_ids():
+    """ID zleceń pasujących do aktywnych filtrów — dla „zaznacz na wszystkich stronach".
+
+    Zwraca też ID klienta, bo pasek akcji potrzebuje go do oceny, czy
+    zaznaczone zlecenia da się scalić.
+    """
+    query = build_shipping_requests_query(
+        request.args.get('status', ''),
+        request.args.get('order_type', ''),
+        request.args.get('search', ''),
+    )
+
+    rows = query.with_entities(ShippingRequest.id, ShippingRequest.user_id).all()
+
+    return jsonify({
+        'success': True,
+        'requests': [{'id': sr_id, 'client_id': user_id} for sr_id, user_id in rows],
+    })
+
+
 @orders_bp.route('/admin/orders/wms')
 @login_required
 @role_required('admin', 'mod')
@@ -342,33 +403,7 @@ def wms_dashboard():
     sr_page = request.args.get('page', 1, type=int)
     sr_per_page = 20
 
-    sr_query = ShippingRequest.query
-
-    if sr_status_filter:
-        sr_query = sr_query.filter(ShippingRequest.status == sr_status_filter)
-
-    if order_type_filter:
-        sr_query = sr_query.filter(
-            ShippingRequest.id.in_(
-                db.session.query(ShippingRequestOrder.shipping_request_id)
-                .join(Order, ShippingRequestOrder.order_id == Order.id)
-                .filter(Order.order_type == order_type_filter)
-                .subquery()
-            )
-        )
-
-    if sr_search:
-        search_term = f"%{sr_search}%"
-        sr_query = sr_query.join(User, ShippingRequest.user_id == User.id).filter(
-            or_(
-                ShippingRequest.request_number.ilike(search_term),
-                User.first_name.ilike(search_term),
-                User.last_name.ilike(search_term),
-                func.concat(User.first_name, ' ', User.last_name).ilike(search_term)
-            )
-        )
-
-    sr_query = sr_query.order_by(ShippingRequest.created_at.desc())
+    sr_query = build_shipping_requests_query(sr_status_filter, order_type_filter, sr_search)
     sr_pagination = sr_query.paginate(page=sr_page, per_page=sr_per_page, error_out=False)
     shipping_requests = sr_pagination.items
 
