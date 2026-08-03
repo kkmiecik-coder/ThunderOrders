@@ -523,6 +523,11 @@ body.col-resizing {
     border-color: var(--primary-color);
 }
 
+.image-slot.drag-over {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
 .image-remove {
     position: absolute;
     top: 2px;

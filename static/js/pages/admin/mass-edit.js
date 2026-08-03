@@ -524,10 +524,13 @@ function renderImageCell(product, slot) {
     const imgData = product.images && product.images[String(slot)];
     const fileInputId = `img-${pid}-${slot}`;
     const slotId = `slot-${pid}-${slot}`;
+    const dragAttrs = `ondragover="event.preventDefault(); this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="handleImageDrop(${pid}, ${slot}, event)"`;
 
     if (imgData) {
         const imgSrc = imgData.path_compressed.startsWith('static/') ? '/' + imgData.path_compressed : '/static/' + imgData.path_compressed;
-        return `<div class="image-slot has-image" id="${slotId}">
+        return `<div class="image-slot has-image" id="${slotId}" ${dragAttrs}>
             <img src="${imgSrc}" alt="" onclick="document.getElementById('${fileInputId}').click()">
             <span class="image-remove" onclick="removeImage(${pid}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
             <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
@@ -535,7 +538,7 @@ function renderImageCell(product, slot) {
         </div>`;
     }
 
-    return `<div class="image-slot empty" id="${slotId}" onclick="document.getElementById('${fileInputId}').click()">
+    return `<div class="image-slot empty" id="${slotId}" ${dragAttrs} onclick="document.getElementById('${fileInputId}').click()">
         +
         <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
                onchange="handleImageSelect(${pid}, ${slot}, this)">
@@ -734,6 +737,17 @@ function assignImageFile(productId, slot, file) {
 function handleImageSelect(productId, slot, input) {
     if (!input.files || !input.files[0]) return;
     assignImageFile(productId, slot, input.files[0]);
+}
+
+function handleImageDrop(productId, slot, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over');
+
+    const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length === 0) return;
+
+    assignImageFile(productId, slot, files[0]);
 }
 
 function removeImage(productId, slot, event) {
