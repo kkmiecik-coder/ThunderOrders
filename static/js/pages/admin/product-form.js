@@ -4,6 +4,12 @@
  */
 
 // ==========================================
+// Page-level guard: prevent a missed drop from navigating the browser away
+// ==========================================
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+
+// ==========================================
 // Pending Slot Removals (deferred until form save)
 // ==========================================
 let pendingSlotRemovals = []; // [{slot, imageId}]
@@ -971,6 +977,7 @@ window.handleSlotImageSelect = function(slotNumber, event) {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
         window.showToast('Nieprawidłowy typ pliku. Dozwolone: JPG, PNG, GIF, WEBP.', 'error');
+        event.target.value = '';
         return;
     }
 
@@ -978,6 +985,7 @@ window.handleSlotImageSelect = function(slotNumber, event) {
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
         window.showToast('Plik jest za duży. Maksymalny rozmiar: 5MB.', 'error');
+        event.target.value = '';
         return;
     }
 
@@ -1017,7 +1025,12 @@ window.handleSlotImageDrop = function(slotNumber, event) {
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     const files = Array.from(event.dataTransfer.files).filter(f => allowedTypes.includes(f.type));
-    if (files.length === 0) return;
+    if (files.length === 0) {
+        if (event.dataTransfer.files.length > 0 && typeof window.showToast === 'function') {
+            window.showToast('Przeciągnięty plik nie jest obsługiwanym formatem zdjęcia.', 'warning');
+        }
+        return;
+    }
 
     assignFileToSlot(slotNumber, files[0]);
 
@@ -1086,7 +1099,7 @@ function flushPendingSlotRemovals() {
 
     const form = document.getElementById('productFormModal');
     const csrfInput = form ? form.querySelector('input[name="csrf_token"]') : null;
-    const actionUrl = form ? form.getAttribute('action') : '';
+    const actionUrl = (form && form.getAttribute('action')) || '';
     const productIdMatch = actionUrl.match(/\/products\/(\d+)\//);
 
     if (!form || !csrfInput || !productIdMatch) {
@@ -1099,6 +1112,7 @@ function flushPendingSlotRemovals() {
     const removals = pendingSlotRemovals;
     pendingSlotRemovals = [];
 
+    const failures = [];
     return removals.reduce((chain, removal) => {
         return chain.then(() =>
             fetch(`/admin/products/${productId}/images/${removal.imageId}`, {
@@ -1107,10 +1121,25 @@ function flushPendingSlotRemovals() {
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRFToken': csrfToken
                 }
-            }).catch(() => {})
+            })
+                .then(response => { if (!response.ok) failures.push(removal); })
+                .catch(() => failures.push(removal))
         );
-    }, Promise.resolve());
+    }, Promise.resolve()).then(() => {
+        if (failures.length > 0 && typeof window.showToast === 'function') {
+            window.showToast(
+                `Nie udało się usunąć ${failures.length} ${failures.length === 1 ? 'zdjęcia' : 'zdjęć'}. Spróbuj ponownie.`,
+                'error'
+            );
+        }
+    });
 }
+
+window.flushPendingSlotRemovals = flushPendingSlotRemovals;
+
+window.resetPendingSlotRemovals = function() {
+    pendingSlotRemovals = [];
+};
 
 // ==========================================
 // Product Type Toggle Bar

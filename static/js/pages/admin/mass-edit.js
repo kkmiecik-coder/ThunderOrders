@@ -4,6 +4,12 @@
  */
 
 // =============================================
+// Page-level guard: prevent a missed drop from navigating the browser away
+// =============================================
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => e.preventDefault());
+
+// =============================================
 // CSRF
 // =============================================
 
@@ -744,8 +750,14 @@ function handleImageDrop(productId, slot, event) {
     event.stopPropagation();
     event.currentTarget.classList.remove('drag-over');
 
-    const files = Array.from(event.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    if (files.length === 0) return;
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const files = Array.from(event.dataTransfer.files).filter(f => allowedTypes.includes(f.type));
+    if (files.length === 0) {
+        if (event.dataTransfer.files.length > 0 && typeof window.showToast === 'function') {
+            window.showToast('Przeciągnięty plik nie jest obsługiwanym formatem zdjęcia.', 'warning');
+        }
+        return;
+    }
 
     assignImageFile(productId, slot, files[0]);
 
