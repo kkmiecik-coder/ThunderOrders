@@ -88,12 +88,14 @@ function updateBulkToolbar() {
         const canMerge = count >= 2 && sameClient;
         mergeBtn.disabled = !canMerge;
 
-        // Update tooltip message based on reason for disabled state
+        // Powód blokady widoczny w menu pod etykietą pozycji
         if (mergeTooltip) {
             if (count < 2) {
-                mergeTooltip.textContent = 'Zaznacz co najmniej 2 zlecenia do scalenia';
+                mergeTooltip.textContent = 'Zaznacz co najmniej 2 zlecenia';
             } else if (!sameClient) {
-                mergeTooltip.textContent = 'Zaznaczone zlecenia pochodzą od różnych klientów';
+                mergeTooltip.textContent = 'Zlecenia od różnych klientów';
+            } else {
+                mergeTooltip.textContent = '';
             }
         }
     }
@@ -102,7 +104,34 @@ function updateBulkToolbar() {
         bulkToolbar.classList.remove('hidden');
     } else {
         bulkToolbar.classList.add('hidden');
+        closeBulkMenu();   // pasek znika razem z rozwiniętym menu
     }
+}
+
+/**
+ * Rozwijane menu akcji masowych
+ */
+function toggleBulkMenu() {
+    const menu = document.getElementById('bulkMenu');
+    const toggle = document.getElementById('bulkMenuToggle');
+    const list = document.getElementById('bulkMenuList');
+    if (!menu || !toggle || !list) return;
+
+    const willOpen = list.hidden;
+    list.hidden = !willOpen;
+    menu.classList.toggle('open', willOpen);
+    toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+}
+
+function closeBulkMenu() {
+    const menu = document.getElementById('bulkMenu');
+    const toggle = document.getElementById('bulkMenuToggle');
+    const list = document.getElementById('bulkMenuList');
+    if (!menu || !toggle || !list || list.hidden) return;
+
+    list.hidden = true;
+    menu.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
 }
 
 /**
@@ -321,31 +350,42 @@ document.addEventListener('DOMContentLoaded', function() {
     // BULK TOOLBAR EVENT LISTENERS
     // ============================================
 
-    // Bulk cost button — otwiera scalony modal zlecenia dla zaznaczonych zleceń
-    const bulkCostBtn = document.querySelector('.btn-bulk[data-action="bulk-cost"]');
-    if (bulkCostBtn) {
-        bulkCostBtn.addEventListener('click', () => {
-            const ids = getSelectedRequestIds();
-            if (!ids.length) return;
-            window.openShippingRequestsModal(ids);
+    const menuToggle = document.getElementById('bulkMenuToggle');
+    if (menuToggle) {
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleBulkMenu();
         });
     }
 
-    // Merge button
-    const mergeBtn = document.querySelector('.btn-bulk[data-action="merge"]');
-    if (mergeBtn) {
-        mergeBtn.addEventListener('click', bulkMergeRequests);
+    // Akcje siedzą w rozwijanym menu; delegacja trzyma je w jednym miejscu.
+    const menuList = document.getElementById('bulkMenuList');
+    if (menuList) {
+        const handlers = {
+            'bulk-cost': () => {
+                const ids = getSelectedRequestIds();
+                if (ids.length) window.openShippingRequestsModal(ids);
+            },
+            'merge': bulkMergeRequests,
+            'wms': bulkGoToWMS,
+            'delete': bulkDeleteRequests,
+        };
+
+        menuList.addEventListener('click', (e) => {
+            const item = e.target.closest('.bulk-menu-item');
+            if (!item || item.disabled) return;
+            closeBulkMenu();
+            const handler = handlers[item.dataset.action];
+            if (handler) handler();
+        });
     }
 
-    // WMS button
-    const wmsBtn = document.querySelector('.btn-bulk[data-action="wms"]');
-    if (wmsBtn) {
-        wmsBtn.addEventListener('click', bulkGoToWMS);
-    }
+    // Zamykanie menu: klik poza paskiem i Escape
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#bulkMenu')) closeBulkMenu();
+    });
 
-    // Delete button
-    const deleteBtn = document.querySelector('.btn-bulk[data-action="delete"]');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', bulkDeleteRequests);
-    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeBulkMenu();
+    });
 });
