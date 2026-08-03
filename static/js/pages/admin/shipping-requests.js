@@ -263,13 +263,51 @@ function closeSelectMenu() {
 // ============================================
 
 /**
+ * Treść potwierdzenia usuwania.
+ *
+ * Odkąd można zaznaczyć zlecenia na wszystkich stronach, część usuwanych
+ * pozycji bywa poza ekranem — wtedy mówimy o tym wprost i wypisujemy numery,
+ * żeby skala operacji nie była zaskoczeniem.
+ */
+function buildDeleteConfirmation(ids) {
+    const visibleIds = new Set(
+        Array.from(document.querySelectorAll('.sr-checkbox')).map(cb => cb.dataset.id)
+    );
+    const offScreen = ids.filter(id => !visibleIds.has(id));
+
+    const lines = [
+        `Czy na pewno usunąć ${ids.length} ${pluralizeRequests(ids.length)}?`,
+    ];
+
+    if (offScreen.length) {
+        lines.push('', `Uwaga: ${offScreen.length} ${pluralizeRequests(offScreen.length)} ` +
+                       'spoza tej strony — zaznaczenie obejmuje inne strony listy.');
+    }
+
+    const numbers = ids
+        .map(id => document.querySelector(`.sr-card[data-request-id="${id}"] .sr-card-number`))
+        .filter(Boolean)
+        .map(el => el.textContent.trim());
+
+    // Numery wypisujemy tylko wtedy, gdy znamy je dla wszystkich usuwanych
+    // zleceń — niepełna lista przy większej liczbie wprowadzałaby w błąd.
+    if (numbers.length === ids.length && numbers.length <= 10) {
+        lines.push('', numbers.join(', '));
+    }
+
+    lines.push('', 'Wszystkie zamówienia zostaną odłączone od tych zleceń i wrócą do puli dostępnych zamówień klienta.');
+
+    return lines.join('\n');
+}
+
+/**
  * Bulk delete requests
  */
 async function bulkDeleteRequests() {
     const ids = getSelectedRequestIds();
     if (ids.length === 0) return;
 
-    if (!confirm(`Czy na pewno usunąć ${ids.length} zaznaczonych zleceń?\n\nWszystkie zamówienia zostaną odłączone od tych zleceń i wrócą do puli dostępnych zamówień klienta.`)) {
+    if (!confirm(buildDeleteConfirmation(ids))) {
         return;
     }
 
@@ -287,16 +325,18 @@ async function bulkDeleteRequests() {
 
         const data = await response.json();
         if (response.ok) {
+            // Część zleceń może zostać pominięta (np. już wysłane) — komunikat
+            // z serwera musi dotrwać do widoku mimo przeładowania strony.
             if (data.skipped_count && data.skipped_count > 0) {
-                alert(data.message);
+                sessionStorage.setItem('srDeleteNotice', data.message);
             }
             window.location.reload();
         } else {
-            alert(data.message || data.error || 'Błąd podczas usuwania zleceń');
+            window.showToast(data.message || data.error || 'Nie udało się usunąć zleceń', 'error');
         }
     } catch (error) {
         console.error('Error deleting requests:', error);
-        alert('Błąd podczas usuwania zleceń');
+        window.showToast('Nie udało się usunąć zleceń', 'error');
     }
 }
 
@@ -565,6 +605,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // ============================================
     // MENU ZAZNACZANIA
     // ============================================
+
+    // Komunikat o pominiętych zleceniach przetrwał przeładowanie po usuwaniu
+    const deleteNotice = sessionStorage.getItem('srDeleteNotice');
+    if (deleteNotice) {
+        sessionStorage.removeItem('srDeleteNotice');
+        window.showToast(deleteNotice, 'warning', 10000);
+    }
 
     const selectToggle = document.getElementById('srSelectToggle');
     if (selectToggle) {
