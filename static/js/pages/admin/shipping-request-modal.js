@@ -490,11 +490,93 @@
         });
     }
 
+    /** Zwraca listę numerów zleceń, które blokują zapis. */
+    function validate() {
+        const blocking = [];
+        state.ids.forEach(id => {
+            const sr = state.data.get(id);
+            const edits = state.edits.get(id);
+            if (!sr || !edits) return;
+
+            const needsDeadline = sr.status !== 'oplacone';
+            const hasDeadline = edits.deadlineDate && edits.deadlineTime;
+            let invalid = !edits.parcelSize || totalCost(id) <= 0 || (needsDeadline && !hasDeadline);
+
+            if (!invalid && needsDeadline && new Date(`${edits.deadlineDate}T${edits.deadlineTime}`) <= new Date()) {
+                invalid = true;
+            }
+            if (invalid) blocking.push(id);
+        });
+        return { ok: blocking.length === 0, blocking };
+    }
+
+    function payloadFor(id) {
+        const edits = state.edits.get(id);
+        const payload = {
+            order_costs: Array.from(edits.orderCosts.entries())
+                .map(([orderId, cost]) => ({ order_id: orderId, shipping_cost: parseFloat(cost) || 0 })),
+            parcel_size: edits.parcelSize,
+            courier: edits.courier,
+            tracking_number: edits.trackingNumber,
+        };
+        if (edits.deadlineDate && edits.deadlineTime) {
+            payload.payment_deadline = `${edits.deadlineDate}T${edits.deadlineTime}`;
+        }
+        // Klucz obecny = "ustaw albo wyczyść", więc pusty wybór nie może zerować przypisania.
+        if (edits.packagingMaterialId) {
+            payload.packaging_material_id = parseInt(edits.packagingMaterialId, 10);
+        }
+        return payload;
+    }
+
+    async function saveAll() {
+        const { ok, blocking } = validate();
+        if (!ok) {
+            state.activeId = blocking[0];
+            renderList();
+            renderDetail();
+            const numbers = blocking.map(id => state.data.get(id).request_number).join(', ');
+            notify(`Uzupełnij gabaryt i termin płatności: ${numbers}`, 'error');
+            return;
+        }
+
+        const saveBtn = document.getElementById('srModalSaveBtn');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Zapisywanie…';
+
+        const failed = [];
+        for (const id of state.ids) {
+            try {
+                const resp = await fetch(`/admin/orders/shipping-requests/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+                    body: JSON.stringify(payloadFor(id)),
+                });
+                if (!resp.ok) failed.push(id);
+            } catch (error) {
+                console.error('Błąd zapisu zlecenia', id, error);
+                failed.push(id);
+            }
+        }
+
+        saveBtn.disabled = false;
+        saveBtn.textContent = state.ids.length > 1 ? 'Zapisz wszystkie' : 'Zapisz';
+
+        if (!failed.length) {
+            closeModal();
+            window.location.reload();
+            return;
+        }
+        const numbers = failed.map(id => state.data.get(id).request_number).join(', ');
+        notify(`Nie zapisano: ${numbers}`, 'error');
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('editShippingRequestModal')) return;
         bindDetailEvents();
         bindListEvents();
         bindBulkBarEvents();
+        document.getElementById('srModalSaveBtn').addEventListener('click', saveAll);
         document.getElementById('srModalCloseX').addEventListener('click', closeModal);
         document.getElementById('srModalCloseBtn').addEventListener('click', closeModal);
         document.getElementById('editShippingRequestModal').addEventListener('click', (e) => {
