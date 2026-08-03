@@ -4577,9 +4577,16 @@
 
 /* Mobile: lista jako przewijalny pasek żetonów nad szczegółami */
 @media (max-width: 768px) {
-    .sr-modal-body { grid-template-columns: 1fr; }
+    /* Kolumna zamiast siatki: w gridzie wiersz listy dostawal wysokosc
+       min-content (0), bo overflow-x: auto zeruje minimum, i zety nachodzily
+       na panel szczegolow. */
+    .sr-modal-body {
+        display: flex;
+        flex-direction: column;
+    }
 
     .sr-modal-list {
+        flex: 0 0 auto;
         flex-direction: row;
         max-height: none;
         overflow-x: auto;
