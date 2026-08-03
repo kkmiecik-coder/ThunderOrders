@@ -1,6 +1,11 @@
 /* ====================================================================
-   BULK TOOLBAR (Floating) — komponent współdzielony
-   Używany na: /admin/orders, /admin/offers
+   BULK TOOLBAR (Floating)
+   Ładowany przez: templates/admin/orders/list.html, templates/admin/offers/list.html
+
+   UWAGA: strona WMS (/admin/orders/wms) NIE ładuje tego pliku — ma własny
+   zestaw stylów paska w css/pages/admin/wms-dashboard.css, świadomie inny
+   (na mobile pasek układa się w kolumnę z pełnymi etykietami, tutaj w rząd
+   z samymi ikonami). Zmiany tutaj nie działają na WMS i odwrotnie.
    ==================================================================== */
 
 .bulk-toolbar {

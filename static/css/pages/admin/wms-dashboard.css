@@ -1493,11 +1493,17 @@
 }
 
 
-/* ================================================ */
-/* PASEK AKCJI MASOWYCH (pływający na dole ekranu)  */
-/* Element jest w HTML poza .wms-dashboard-page,     */
-/* żeby uniknąć problemów z backdrop-filter i fixed  */
-/* ================================================ */
+/* ================================================================
+   PASEK AKCJI MASOWYCH (pływający na dole ekranu)
+   Element jest w HTML poza .wms-dashboard-page, żeby uniknąć
+   problemów z backdrop-filter i position: fixed.
+
+   To jedyne style paska działające na tej stronie — wms_dashboard.html
+   NIE ładuje css/components/bulk-toolbar.css. Wygląd celowo różni się
+   od tamtego komponentu (mobile: kolumna z pełnymi etykietami zamiast
+   rzędu ikon; dark: jaśniejsze przyciski). Edytując pasek na
+   /admin/orders pamiętaj, że tutaj trzeba zmienić go osobno.
+   ================================================================ */
 
 #bulkToolbar.bulk-toolbar {
     position: fixed;
@@ -1571,57 +1577,6 @@
     background: rgba(244, 67, 54, 0.3);
 }
 
-/* Dropdown statusów w pasku akcji masowych */
-#bulkToolbar .bulk-status-wrapper {
-    position: relative;
-    display: inline-block;
-}
-
-#bulkToolbar .bulk-status-wrapper .dropdown-arrow {
-    margin-left: 0.25rem;
-    transition: transform 0.2s ease;
-}
-
-#bulkToolbar .bulk-status-dropdown {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--card-bg, #fff);
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    padding: 8px;
-    display: none;
-    min-width: 200px;
-    z-index: 1001;
-}
-
-#bulkToolbar .bulk-status-dropdown.show {
-    display: block;
-}
-
-#bulkToolbar .bulk-status-option {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.15s ease;
-    display: flex;
-    align-items: center;
-}
-
-#bulkToolbar .bulk-status-option:hover {
-    background: #f3f4f6;
-}
-
-#bulkToolbar .bulk-status-option .badge {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.75rem;
-    border-radius: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
 /* Przycisk scalania — wyłączony gdy różni klienci */
 #btnBulkMerge:disabled {
     opacity: 0.5;
@@ -1635,16 +1590,6 @@
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(240, 147, 251, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(240, 147, 251, 0.1);
-}
-
-[data-theme="dark"] #bulkToolbar .bulk-status-dropdown {
-    background: rgba(30, 30, 40, 0.98);
-    border: 1px solid rgba(240, 147, 251, 0.2);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-[data-theme="dark"] #bulkToolbar .bulk-status-option:hover {
-    background: rgba(255, 255, 255, 0.08);
 }
 
 /* Responsive — pasek akcji masowych */
@@ -2136,10 +2081,5 @@
 
     #bulkToolbar .bulk-menu-label {
         min-width: 0;
-    }
-
-    /* Etykiety pozostalych przyciskow chowamy, ale "Akcje" musi zostac czytelne */
-    #bulkToolbar .btn-bulk-menu .btn-bulk-text {
-        display: inline;
     }
 }

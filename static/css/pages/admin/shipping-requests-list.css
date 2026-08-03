@@ -3,15 +3,6 @@
    Card-based layout with flexbox wrap
    ============================================ */
 
-/* Override orders-list-page padding for shipping requests page */
-.shipping-requests-page .orders-list-page {
-    padding: 0;
-}
-
-.shipping-requests-page .page-header {
-    padding: 2rem 2rem 1rem 2rem;
-}
-
 /* Page Header Right */
 .page-header-right {
     display: flex;
@@ -30,37 +21,10 @@
 }
 
 /* ============================================
-   BULK TOOLBAR (uses styles from orders-list.css)
-   Additional overrides for shipping requests page
+   BULK TOOLBAR
+   Style samego paska są w wms-dashboard.css — to jedyna strona, która
+   ładuje ten arkusz. Tutaj zostaje wyłącznie tooltip scalania.
    ============================================ */
-
-/* Bulk Toolbar Animation Override - ensures animation works */
-.shipping-requests-page #bulkToolbar.bulk-toolbar {
-    display: block !important;
-    opacity: 1;
-    filter: blur(0);
-    transform: translateX(-50%) translateY(0);
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-                opacity 0.3s ease-out,
-                filter 0.3s ease-out;
-}
-
-.shipping-requests-page #bulkToolbar.bulk-toolbar.hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-50%) translateY(100px);
-    filter: blur(8px);
-}
-
-/* Bulk Merge Button & Tooltip */
-.shipping-requests-page #btnBulkMerge {
-    position: relative;
-}
-
-.shipping-requests-page #btnBulkMerge:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
 
 .bulk-merge-tooltip {
     position: absolute;
@@ -89,12 +53,6 @@
     transform: translateX(-50%);
     border: 6px solid transparent;
     border-top-color: rgba(30, 30, 35, 0.95);
-}
-
-.shipping-requests-page #btnBulkMerge:disabled:hover + .bulk-merge-tooltip,
-.shipping-requests-page .btn-bulk[data-action="merge"]:disabled:hover + .bulk-merge-tooltip {
-    opacity: 1;
-    visibility: visible;
 }
 
 [data-theme="dark"] .bulk-merge-tooltip {
@@ -839,55 +797,7 @@
    RESPONSIVE
    ============================================ */
 
-/* Tablet breakpoint */
-@media (max-width: 1024px) {
-    /* Hide status sidebar on tablet/mobile */
-    .shipping-requests-page .status-sidebar {
-        display: none;
-    }
-
-    /* Full width for main content */
-    .shipping-requests-page.orders-page-wrapper {
-        grid-template-columns: 1fr;
-    }
-}
-
 @media (max-width: 768px) {
-    /* Page header - stack vertically */
-    .shipping-requests-page .page-header {
-        padding: 1rem;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 1rem;
-    }
-
-    .shipping-requests-page .page-header-left h1 {
-        font-size: 1.25rem;
-    }
-
-    .shipping-requests-page .page-header-right {
-        width: 100%;
-    }
-
-    /* Search form - input and button in one row */
-    .shipping-requests-page .search-form {
-        width: 100%;
-        flex-direction: row;
-        gap: 0.5rem;
-    }
-
-    .shipping-requests-page .search-form .input-icon-wrapper {
-        min-width: 0;
-        flex: 1;
-    }
-
-    .shipping-requests-page .search-form .btn {
-        width: auto;
-        flex-shrink: 0;
-        padding-left: 0.75rem;
-        padding-right: 0.75rem;
-    }
-
     /* Cards wrapper mobile */
     .sr-cards-wrapper {
         padding: 1rem 0;
@@ -925,35 +835,6 @@
 
     .sr-card-footer .btn {
         width: 100%;
-    }
-
-    /* Bulk toolbar mobile */
-    .shipping-requests-page .bulk-toolbar {
-        left: 1rem;
-        right: 1rem;
-        transform: translateY(0);
-        width: auto;
-        padding: 1rem;
-        border-radius: 20px;
-    }
-
-    .shipping-requests-page #bulkToolbar.bulk-toolbar.hidden {
-        transform: translateY(100px);
-    }
-
-    .shipping-requests-page .bulk-toolbar-content {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .shipping-requests-page .bulk-actions {
-        flex-wrap: wrap;
-        justify-content: center;
-    }
-
-    /* Pagination */
-    .shipping-requests-page .pagination-wrapper {
-        padding: 1rem;
     }
 
     .page-header {
