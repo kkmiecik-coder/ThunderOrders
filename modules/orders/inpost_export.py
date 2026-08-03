@@ -18,6 +18,40 @@ INPOST_COLUMNS = [
 EXPORTABLE_SIZES = {'A', 'B', 'C'}
 
 
+def recipient_name(sr):
+    """Kto odbiera paczkę.
+
+    Nazwa z adresu wysyłki, bo to ona trafia na etykietę i to jej szuka
+    kurier. Przy paczkomatach adres często nie ma nazwy — wtedy sięgamy
+    po dane klienta z konta.
+    """
+    from_address = (sr.shipping_name or '').strip()
+    if from_address:
+        return from_address
+    return ((sr.user.full_name if sr.user else '') or '').strip()
+
+
+def format_phone(raw):
+    """Polskie numery jako 9 cyfr, zagraniczne bez zmian.
+
+    W bazie numery są zapisane rozmaicie: +48XXXXXXXXX (dominują), ze
+    spacjami, bez prefiksu, a kilka to numery zagraniczne (+49, +47, +372).
+    """
+    if not raw:
+        return ''
+
+    phone = raw.strip().replace(' ', '').replace('-', '')
+
+    if phone.startswith('+48'):
+        return phone[3:]
+    if phone.startswith('0048'):
+        return phone[4:]
+    if phone.startswith('48') and len(phone) == 11:
+        return phone[2:]
+
+    return phone
+
+
 def build_inpost_csv(shipping_requests):
     """Buduje zawartość pliku i listę ostrzeżeń dla eksportującego.
 
@@ -47,14 +81,16 @@ def build_inpost_csv(shipping_requests):
 
         user = sr.user
         email = ((user.email if user else '') or '').strip()
-        # Numery przepisujemy bez normalizacji — w bazie są też zagraniczne.
-        phone = ((user.phone if user else '') or '').strip()
+        phone = format_phone(user.phone if user else '')
 
         if not phone:
             warnings.append(
                 f'{sr.request_number} — brak telefonu klienta, uzupełnij przed nadaniem'
             )
 
+        name = recipient_name(sr)
+        # Referencja wraca w rozliczeniach InPostu — samo WYS/000006 nic nie mówi
+        reference = f'{name} {sr.request_number}'.strip()
         to_pickup = sr.address_type == 'pickup_point'
 
         writer.writerow([
@@ -63,10 +99,10 @@ def build_inpost_csv(shipping_requests):
             size,
             # W bazie zdarzają się kody z wiodącą spacją
             (sr.pickup_point_id or '').strip() if to_pickup else '',
-            sr.request_number,
+            reference,
             '',                                                  # dodatkowa_ochrona
             '',                                                  # za_pobraniem
-            '' if to_pickup else (sr.shipping_name or ''),
+            name,
             '',                                                  # nazwa_firmy
             '' if to_pickup else (sr.shipping_address or ''),
             '' if to_pickup else (sr.shipping_postal_code or ''),

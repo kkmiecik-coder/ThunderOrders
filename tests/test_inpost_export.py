@@ -40,19 +40,21 @@ def test_header_matches_inpost_template(db, make_user):
 def test_pickup_point_row(db, make_user):
     from modules.orders.inpost_export import build_inpost_csv
     user = make_user(email='klient@example.com', phone='+48500300100')
-    sr = _sr(db, user, pickup_point_id='WAW350', parcel_size='B')
+    sr = _sr(db, user, pickup_point_id='WAW350', parcel_size='B',
+             shipping_name='Anna Nowak')
 
     csv_text, warnings = build_inpost_csv([sr])
     row = _rows(csv_text)[0].split(';')
 
     assert row[0] == 'klient@example.com'
-    assert row[1] == '+48500300100'
+    assert row[1] == '500300100'
     assert row[2] == 'B'
     assert row[3] == 'WAW350'
-    assert row[4] == sr.request_number
+    assert row[4] == f'Anna Nowak {sr.request_number}'
+    assert row[7] == 'Anna Nowak'           # odbiorca także przy paczkomacie
     assert row[12] == 'paczkomat'
-    # dla paczkomatu pola adresowe zostają puste
-    assert row[7:12] == ['', '', '', '', '']
+    # przy paczkomacie pola adresowe zostają puste
+    assert row[8:12] == ['', '', '', '']
     assert warnings == []
 
 
@@ -77,6 +79,34 @@ def test_courier_row_carries_address(db, make_user):
     assert warnings == []
 
 
+def test_recipient_comes_from_address_not_from_account(db, make_user):
+    """Paczkę odbiera osoba z adresu wysyłki, nie zamawiający."""
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(first_name='Konrad', last_name='Kmiecik', phone='+48500300100')
+    sr = _sr(db, user, address_type='home', pickup_point_id=None,
+             shipping_name='Karolina Burza', shipping_address='Przykładowa 21/37',
+             shipping_postal_code='00-105', shipping_city='Warszawa')
+
+    csv_text, _ = build_inpost_csv([sr])
+    row = _rows(csv_text)[0].split(';')
+
+    assert row[7] == 'Karolina Burza'
+    assert row[4] == f'Karolina Burza {sr.request_number}'
+
+
+def test_recipient_falls_back_to_profile(db, make_user):
+    """Przy paczkomacie adres często nie ma nazwy — wtedy bierzemy klienta z konta."""
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(first_name='Zuzanna', last_name='Kopyść', phone='+48500300100')
+    sr = _sr(db, user, shipping_name=None)
+
+    csv_text, _ = build_inpost_csv([sr])
+    row = _rows(csv_text)[0].split(';')
+
+    assert row[7] == 'Zuzanna Kopyść'
+    assert row[4] == f'Zuzanna Kopyść {sr.request_number}'
+
+
 def test_optional_columns_stay_empty(db, make_user):
     from modules.orders.inpost_export import build_inpost_csv
     csv_text, _ = build_inpost_csv([_sr(db, make_user(phone='+48500300100'))])
@@ -86,6 +116,14 @@ def test_optional_columns_stay_empty(db, make_user):
     assert row[6] == ''      # za_pobraniem
     assert row[8] == ''      # nazwa_firmy
     assert row[13] == 'NIE'  # paczka_w_weekend
+
+
+def test_reference_joins_name_and_request_number(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    sr = _sr(db, make_user(phone='+48500300100'), shipping_name='Iga Bednarek')
+
+    csv_text, _ = build_inpost_csv([sr])
+    assert _rows(csv_text)[0].split(';')[4] == f'Iga Bednarek {sr.request_number}'
 
 
 def test_mini_parcel_is_excluded_with_warning(db, make_user):
@@ -134,16 +172,21 @@ def test_pickup_point_id_is_trimmed(db, make_user):
     assert _rows(csv_text)[0].split(';')[3] == 'POZ282M'
 
 
-def test_phone_kept_verbatim(db, make_user):
-    """Numery zagraniczne i bez prefiksu przepisujemy bez normalizacji."""
+@pytest.mark.parametrize('stored, expected', [
+    ('+48500300100', '500300100'),          # dominujący format w bazie
+    ('+48 690 364 820', '690364820'),       # ze spacjami
+    ('500300100', '500300100'),             # już bez prefiksu
+    ('48500300100', '500300100'),           # bez plusa
+    ('0048500300100', '500300100'),
+    ('+48-500-300-100', '500300100'),
+    ('+49517905240', '+49517905240'),       # zagraniczny zostaje z prefiksem
+    ('+372534495773', '+372534495773'),
+])
+def test_phone_normalized_to_nine_digits(db, make_user, stored, expected):
+    """InPost dostaje polskie numery jako 9 cyfr; zagranicznych nie ruszamy."""
     from modules.orders.inpost_export import build_inpost_csv
-    user_pl = make_user(phone=' 500300100 ')
-    user_de = make_user(phone='+49517905240')
-
-    csv_text, _ = build_inpost_csv([_sr(db, user_pl), _sr(db, user_de)])
-    rows = [r.split(';')[1] for r in _rows(csv_text)]
-
-    assert rows == ['500300100', '+49517905240']
+    csv_text, _ = build_inpost_csv([_sr(db, make_user(phone=stored))])
+    assert _rows(csv_text)[0].split(';')[1] == expected
 
 
 def test_semicolon_in_data_does_not_break_columns(db, make_user):
