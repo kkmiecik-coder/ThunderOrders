@@ -1070,41 +1070,6 @@
     font-size: 0.875rem;
 }
 
-.sr-orders-table {
-    background: #F8F9FA;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.sr-orders-table table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.sr-orders-table th {
-    background: #EEEEEE;
-    padding: 0.75rem 1rem;
-    text-align: left;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: #666;
-    border-bottom: 1px solid #E0E0E0;
-}
-
-.sr-orders-table th:last-child {
-    text-align: right;
-}
-
-.sr-orders-table td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #E0E0E0;
-    font-size: 0.875rem;
-}
-
-.sr-orders-table tr:last-child td {
-    border-bottom: none;
-}
-
 .sr-order-link {
     color: #5A189A;
     text-decoration: none;
@@ -1113,50 +1078,6 @@
 
 .sr-order-link:hover {
     text-decoration: underline;
-}
-
-.sr-cost-input {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    justify-content: flex-end;
-}
-
-.sr-cost-input input {
-    width: 100px;
-    text-align: right;
-}
-
-.sr-cost-input .currency {
-    color: #666;
-    font-size: 0.75rem;
-}
-
-/* Address preview */
-.sr-address-preview {
-    background: #F8F9FA;
-    border-radius: 8px;
-    padding: 1rem;
-    font-size: 0.875rem;
-    line-height: 1.6;
-}
-
-.sr-address-preview .address-type-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 4px 8px;
-    background: #E8F5E9;
-    color: #2E7D32;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    margin-bottom: 0.5rem;
-}
-
-.sr-address-preview .pickup-id {
-    font-family: monospace;
-    color: #5A189A;
-    font-weight: 600;
 }
 
 /* Modal footer with cancel button on left */
@@ -1194,36 +1115,7 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
-[data-theme="dark"] .sr-orders-table {
-    background: rgba(255, 255, 255, 0.05);
-}
-
-[data-theme="dark"] .sr-orders-table th {
-    background: rgba(255, 255, 255, 0.08);
-    color: rgba(255, 255, 255, 0.7);
-    border-bottom-color: rgba(240, 147, 251, 0.15);
-}
-
-[data-theme="dark"] .sr-orders-table td {
-    border-bottom-color: rgba(240, 147, 251, 0.1);
-    color: rgba(255, 255, 255, 0.9);
-}
-
 [data-theme="dark"] .sr-order-link {
-    color: #f093fb;
-}
-
-[data-theme="dark"] .sr-address-preview {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.9);
-}
-
-[data-theme="dark"] .sr-address-preview .address-type-badge {
-    background: rgba(46, 125, 50, 0.2);
-    color: #81C784;
-}
-
-[data-theme="dark"] .sr-address-preview .pickup-id {
     color: #f093fb;
 }
 
@@ -4365,7 +4257,8 @@
 
 .sr-modal-body {
     display: grid;
-    grid-template-columns: 260px 1fr;
+    /* Lista oddaje szerokosc panelowi, gdy okno jest waskie */
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
     gap: 20px;
     align-items: start;
 }
@@ -4387,7 +4280,6 @@
    zamowien i panel wylewa sie poza modal. */
 .sr-modal-detail { min-width: 0; }
 
-.sr-modal .sr-detail-section:has(.sr-orders-table) { overflow-x: auto; }
 
 .sr-modal-list[hidden] { display: none; }
 
@@ -4453,26 +4345,32 @@
 .sr-list-number { font-weight: 600; font-size: 14px; color: #333333; }
 .sr-list-meta { font-size: 12px; color: #666666; overflow: hidden; text-overflow: ellipsis; }
 
+/* Pasek zbiorczy: etykieta jako nadtytul nad rzedem pol, akcja tuz za polami
+   (wczesniej etykieta wisiala z boku, a "Zastosuj" byl wypchniety na krawedz) */
 .sr-bulk-bar {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    gap: 16px;
-    padding: 14px 24px;
+    gap: 10px 14px;
+    padding: 12px 24px 14px;
     background: #f7f7f9;
     border-bottom: 1px solid #e0e0e0;
 }
 
 .sr-bulk-bar[hidden] { display: none; }
+
 .sr-bulk-bar-title {
-    display: inline-flex;
+    flex: 0 0 100%;
+    display: flex;
     align-items: center;
     gap: 6px;
     padding: 0;
     font-family: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    color: #333333;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #767680;
     background: none;
     border: none;
     cursor: default;
@@ -4480,16 +4378,139 @@
 
 /* Strzalka tylko na mobile — tam pasek sie zwija */
 .sr-bulk-bar-chevron { display: none; }
-.sr-bulk-bar-fields { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; }
-.sr-inline-fields { display: flex; gap: 8px; }
 
-.sr-detail-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-.sr-detail-number { font-size: 16px; font-weight: 600; color: #333333; }
+.sr-bulk-bar-fields {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px;
+}
+
+/* Pola paska dziela rzad rowno; bez max-width select materialu z dluga
+   nazwa rozpychal rzad i spychal "Zastosuj" do kolejnego wiersza. */
+.sr-bulk-bar-fields .form-group {
+    flex: 1 1 145px;
+    max-width: 210px;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.sr-bulk-bar-fields .form-control { width: 100%; min-width: 0; }
+.sr-bulk-bar #srBulkApply { flex: 0 0 auto; }
+
+/* Data z godzina w jednym polu — domyslne 12px paddingu plus ikona
+   przycinaly "dd.mm.rrrr, --:--" */
+.sr-modal input[type="datetime-local"] {
+    padding-left: 8px;
+    padding-right: 6px;
+    font-size: 15px;
+}
+
+/* Termin jest szerszy od pojedynczego selecta */
+.sr-bulk-bar-fields .form-group:has(input[type="datetime-local"]) {
+    flex: 1.2 1 190px;
+    max-width: 230px;
+}
+
+.sr-detail-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #e8e8ec;
+}
+
+.sr-detail-number { font-size: 16px; font-weight: 700; color: #333333; }
 .sr-detail-status { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: #eeeef2; color: #444444; }
+.sr-detail-client { margin-left: auto; font-size: 13px; color: #666666; }
 
-.sr-detail-section { margin-bottom: 20px; }
-.sr-detail-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #666666; margin-bottom: 10px; }
-.sr-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+/* ---- Pas informacyjny: same fakty, zero kontrolek ---- */
+.sr-facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px 20px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    background: #f7f7f9;
+    border-radius: 10px;
+}
+
+.sr-fact { min-width: 0; }
+
+.sr-fact-label {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8a8a94;
+}
+
+.sr-fact-value { margin: 0; font-size: 13px; line-height: 1.45; color: #333333; }
+.sr-fact-strong { font-weight: 600; }
+.sr-fact-muted { color: #9a9aa2; }
+
+.sr-fact-pref {
+    display: inline-block;
+    margin-right: 6px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: #ececf2;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sr-fact-orders {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sr-fact-order { display: flex; gap: 6px; font-size: 13px; }
+.sr-fact-order-value { color: #666666; }
+
+/* ---- Pas roboczy: wszystkie kontrolki w jednej siatce ---- */
+.sr-settings-title,
+.sr-split-title {
+    display: block;
+    margin: 0 0 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8a8a94;
+}
+
+/* 230px trzyma siatke na trzech kolumnach przy szerokim panelu — szesc
+   kontrolek wypelnia wtedy dwa rzedy rowno, bez pustki po prawej. */
+.sr-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 14px 16px;
+}
+
+.sr-settings-grid .form-group { margin-bottom: 0; min-width: 0; }
+
+.sr-split {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed #e0e0e0;
+}
+
+.sr-split-rows {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px 16px;
+}
+
+.sr-split-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sr-split-order { font-size: 13px; color: #333333; }
 
 /* Scopowane do .sr-modal — starszy blok .sr-cost-input (ok. l. 1118) wymusza
    justify-content: flex-end oraz input { width: 100px; text-align: right }. */
@@ -4507,25 +4528,6 @@
 }
 
 .sr-modal .sr-cost-input .currency { font-size: 13px; color: #666666; }
-
-/* Tabela zamówień w scalonym modalu (markup bez wrappera) */
-.sr-modal .sr-orders-table { width: 100%; border-collapse: collapse; }
-.sr-modal .sr-orders-table th:last-child { text-align: left; }
-.sr-modal .sr-orders-table .text-right { text-align: right; }
-
-.sr-client-panel {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 12px;
-    padding: 10px 12px;
-    background: #f7f7f9;
-    border-radius: 8px;
-    font-size: 13px;
-    color: #333333;
-}
-
-.sr-client-panel-title { font-weight: 600; color: #666666; }
 .sr-modal-loading { padding: 40px 20px; text-align: center; color: #666666; }
 .sr-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sr-modal-footer-actions { display: flex; gap: 8px; margin-left: auto; }
@@ -4577,25 +4579,38 @@
     border-bottom-color: rgba(240, 147, 251, 0.15);
 }
 
-[data-theme="dark"] .sr-bulk-bar-title,
 [data-theme="dark"] .sr-detail-number { color: #ffffff; }
+[data-theme="dark"] .sr-detail-head { border-bottom-color: rgba(240, 147, 251, 0.15); }
 
 [data-theme="dark"] .sr-detail-status {
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.8);
 }
 
-[data-theme="dark"] .sr-detail-section h3,
+[data-theme="dark"] .sr-bulk-bar-title,
+[data-theme="dark"] .sr-settings-title,
+[data-theme="dark"] .sr-split-title,
+[data-theme="dark"] .sr-fact-label,
+[data-theme="dark"] .sr-detail-client,
 [data-theme="dark"] .sr-modal-progress,
 [data-theme="dark"] .sr-modal-loading,
-[data-theme="dark"] .sr-cost-input .currency,
-[data-theme="dark"] .sr-modal .sr-cost-input .currency,
-[data-theme="dark"] .sr-client-panel-title { color: rgba(255, 255, 255, 0.6); }
+[data-theme="dark"] .sr-fact-order-value,
+[data-theme="dark"] .sr-modal .sr-cost-input .currency { color: rgba(255, 255, 255, 0.6); }
 
-[data-theme="dark"] .sr-client-panel {
-    background: rgba(255, 255, 255, 0.05);
-    color: rgba(255, 255, 255, 0.8);
+[data-theme="dark"] .sr-facts { background: rgba(255, 255, 255, 0.05); }
+
+[data-theme="dark"] .sr-fact-value,
+[data-theme="dark"] .sr-fact-order,
+[data-theme="dark"] .sr-split-order { color: rgba(255, 255, 255, 0.85); }
+
+[data-theme="dark"] .sr-fact-muted { color: rgba(255, 255, 255, 0.45); }
+
+[data-theme="dark"] .sr-fact-pref {
+    background: rgba(240, 147, 251, 0.18);
+    color: #f6c8fd;
 }
+
+[data-theme="dark"] .sr-split { border-top-color: rgba(240, 147, 251, 0.15); }
 
 /* Mobile: lista jako przewijalny pasek żetonów nad szczegółami */
 @media (max-width: 768px) {
@@ -4619,8 +4634,46 @@
     }
 
     .sr-list-item { flex: 0 0 auto; min-width: 160px; }
-    .sr-bulk-bar { padding: 12px 16px; }
-    .sr-bulk-bar-fields { flex-direction: column; width: 100%; }
+
+    /* Pas faktow ma prowadzic do ustawien, nie zajmowac calego ekranu */
+    .sr-detail-head {
+        gap: 8px;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+    }
+
+    .sr-detail-client { margin-left: 0; }
+
+    .sr-facts {
+        gap: 8px 14px;
+        padding: 10px 12px;
+        margin-bottom: 14px;
+    }
+
+    .sr-fact-value,
+    .sr-fact-order { font-size: 12.5px; line-height: 1.4; }
+    .sr-fact-orders { gap: 2px 14px; }
+    .sr-settings-grid { gap: 12px; }
+    .sr-split { margin-top: 12px; padding-top: 12px; }
+
+    .sr-bulk-bar { padding: 10px 16px; }
+    /* W kolumnie flex-basis z desktopu stawal sie WYSOKOSCIA, a align-items:
+       flex-end wypychal pola na prawa krawedz — stad rozjechany pasek. */
+    .sr-bulk-bar-fields {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .sr-bulk-bar-fields .form-group,
+    .sr-bulk-bar-fields .form-group:has(input[type="datetime-local"]) {
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+    }
+
+    .sr-bulk-bar #srBulkApply { width: 100%; }
 
     /* Pasek zwiniety do jednego wiersza; rozwija go tapniecie w tytul */
     .sr-bulk-bar-title {
@@ -4640,8 +4693,8 @@
 
     .sr-bulk-bar:not(.expanded) .sr-bulk-bar-fields,
     .sr-bulk-bar:not(.expanded) #srBulkApply { display: none; }
-    .sr-inline-fields .form-control,
-    .sr-detail-grid .form-control { min-height: 44px; }
+    .sr-settings-grid .form-control,
+    .sr-bulk-bar-fields .form-control { min-height: 44px; }
     .sr-modal-footer { flex-direction: column; align-items: stretch; }
     .sr-modal-footer-actions { margin-left: 0; flex-wrap: wrap; }
     .sr-modal-footer-actions .btn { flex: 1; min-height: 44px; }

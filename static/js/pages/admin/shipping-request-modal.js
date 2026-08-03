@@ -24,7 +24,7 @@
     const ISSUE_FIELDS = {
         parcelSize: ['srParcelSize'],
         cost: ['srTotalCost'],
-        deadline: ['srDeadlineDate', 'srDeadlineTime'],
+        deadline: ['srDeadline'],
     };
 
     let closeTimer = null;   // timeout sprzątający po animacji zamknięcia
@@ -64,11 +64,10 @@
 
     /** Stan edycji zlecenia — inicjowany z danych z serwera. */
     function initEdits(sr) {
-        const deadline = sr.payment_deadline ? sr.payment_deadline.split('T') : null;
         return {
             orderCosts: new Map(sr.orders.map(o => [o.id, o.shipping_cost || 0])),
-            deadlineDate: deadline ? deadline[0] : '',
-            deadlineTime: deadline ? deadline[1].substring(0, 5) : '23:59',
+            // "YYYY-MM-DDTHH:MM" — format pola datetime-local i payloadu PUT
+            deadline: sr.payment_deadline ? sr.payment_deadline.substring(0, 16) : '',
             parcelSize: sr.parcel_size || '',
             packagingMaterialId: sr.packaging_material_id || '',
             courier: sr.courier || '',
@@ -281,10 +280,8 @@
         if (totalCost(id) <= 0) issues.push('cost');
 
         if (sr.status !== 'oplacone') {   // opłacone zlecenie nie potrzebuje już terminu
-            const hasDeadline = edits.deadlineDate && edits.deadlineTime;
-            const past = hasDeadline
-                && new Date(`${edits.deadlineDate}T${edits.deadlineTime}`) <= new Date();
-            if (!hasDeadline || past) issues.push('deadline');
+            const past = edits.deadline && new Date(edits.deadline) <= new Date();
+            if (!edits.deadline || past) issues.push('deadline');
         }
         return issues;
     }
@@ -325,20 +322,29 @@
         const edits = state.edits.get(id);
         if (!sr || !edits) return;
 
-        const ordersRows = sr.orders.map(o => `
-            <tr>
-                <td><a href="/admin/orders/${o.id}" target="_blank" class="sr-order-link">${escapeHtml(o.order_number)}</a></td>
-                <td class="text-right">${money(o.total_amount)} PLN</td>
-                <td>
-                    <div class="sr-cost-input">
-                        <input type="number" class="form-control sr-order-cost" data-order-id="${o.id}"
-                               step="0.01" min="0" placeholder="0.00"
-                               value="${edits.orderCosts.get(o.id) > 0 ? money(edits.orderCosts.get(o.id)) : ''}">
-                        <span class="currency">PLN</span>
-                    </div>
-                </td>
-            </tr>
+        const manyOrders = sr.orders.length > 1;
+
+        // Fakty: zamowienia to lista do przeczytania, nie formularz.
+        const ordersFact = sr.orders.map(o => `
+            <li class="sr-fact-order">
+                <a href="/admin/orders/${o.id}" target="_blank" class="sr-order-link">${escapeHtml(o.order_number)}</a>
+                <span class="sr-fact-order-value">${money(o.total_amount)} PLN</span>
+            </li>
         `).join('');
+
+        // Podzial kosztu ma sens dopiero od dwoch zamowien — przy jednym
+        // koszt calkowity JEST kosztem tego zamowienia.
+        const splitRows = manyOrders ? sr.orders.map(o => `
+            <div class="sr-split-row">
+                <span class="sr-split-order">${escapeHtml(o.order_number)}</span>
+                <div class="sr-cost-input">
+                    <input type="number" class="form-control sr-order-cost" data-order-id="${o.id}"
+                           step="0.01" min="0" placeholder="0.00"
+                           value="${edits.orderCosts.get(o.id) > 0 ? money(edits.orderCosts.get(o.id)) : ''}">
+                    <span class="currency">PLN</span>
+                </div>
+            </div>
+        `).join('') : '';
 
         const prefLabels = { karton: 'Karton', koperta: 'Koperta' };
         const courierOptions = Object.entries(COURIER_LABELS).map(([value, label]) =>
@@ -349,48 +355,49 @@
         ).join('');
 
         container.innerHTML = `
-            <div class="sr-detail-head">
+            <header class="sr-detail-head">
                 <span class="sr-detail-number">${escapeHtml(sr.request_number)}</span>
                 <span class="sr-detail-status badge">${escapeHtml(sr.status_display_name || sr.status)}</span>
-            </div>
+                ${sr.shipping_name ? `<span class="sr-detail-client">${escapeHtml(sr.shipping_name)}</span>` : ''}
+            </header>
 
-            <section class="sr-detail-section">
-                <h3>Wycena</h3>
-                <div class="sr-detail-grid">
+            <section class="sr-facts">
+                <div class="sr-fact">
+                    <span class="sr-fact-label">${sr.address_type === 'pickup_point' ? 'Punkt odbioru' : 'Adres dostawy'}</span>
+                    <p class="sr-fact-value">${addressLine(sr)}</p>
+                </div>
+                <div class="sr-fact">
+                    <span class="sr-fact-label">Od klienta</span>
+                    <p class="sr-fact-value">
+                        <span class="sr-fact-pref">${escapeHtml(prefLabels[sr.client_package_preference] || '—')}</span>
+                        ${sr.client_notes ? escapeHtml(sr.client_notes) : '<span class="sr-fact-muted">bez uwag</span>'}
+                    </p>
+                </div>
+                <div class="sr-fact sr-fact--orders">
+                    <span class="sr-fact-label">Zamówienia (${sr.orders.length})</span>
+                    <ul class="sr-fact-orders">${ordersFact}</ul>
+                </div>
+            </section>
+
+            <section class="sr-settings">
+                <h3 class="sr-settings-title">Ustawienia wysyłki</h3>
+                <div class="sr-settings-grid">
                     <div class="form-group">
                         <label class="form-label" for="srTotalCost">Koszt całkowity</label>
                         <div class="sr-cost-input">
                             <input type="number" id="srTotalCost" class="form-control" step="0.01" min="0"
                                    placeholder="0.00" value="">
                             <span class="currency">PLN</span>
-                            <button type="button" class="btn btn-sm btn-secondary" id="srDistribute">Rozłóż</button>
+                            ${manyOrders ? '<button type="button" class="btn btn-sm btn-secondary" id="srDistribute">Rozłóż</button>' : ''}
                         </div>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="srDeadlineDate">Termin płatności</label>
-                        <div class="sr-inline-fields">
-                            <input type="date" id="srDeadlineDate" class="form-control" value="${edits.deadlineDate}">
-                            <input type="time" id="srDeadlineTime" class="form-control" value="${edits.deadlineTime}">
-                        </div>
+                        <label class="form-label" for="srDeadline">Termin płatności</label>
+                        <input type="datetime-local" id="srDeadline" class="form-control" value="${edits.deadline}">
                     </div>
-                </div>
-            </section>
-
-            <section class="sr-detail-section">
-                <h3>Zamówienia (${sr.orders.length})</h3>
-                <table class="sr-orders-table">
-                    <thead><tr><th>Zamówienie</th><th class="text-right">Wartość</th><th>Koszt wysyłki</th></tr></thead>
-                    <tbody>${ordersRows}</tbody>
-                </table>
-            </section>
-
-            <section class="sr-detail-section">
-                <h3>Opakowanie</h3>
-                <div class="sr-detail-grid">
                     <div class="form-group">
                         <label class="form-label" for="srPackagingMaterial">Materiał / cennik</label>
                         <select id="srPackagingMaterial" class="form-control"></select>
-                        <small class="input-hint">Wybór podstawia cenę i gabaryt — można nadpisać ręcznie.</small>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="srParcelSize">Gabaryt</label>
@@ -399,22 +406,6 @@
                             ${parcelOptions}
                         </select>
                     </div>
-                </div>
-                <div class="sr-client-panel">
-                    <span class="sr-client-panel-title">Od klienta</span>
-                    <span class="sr-client-hint">Opakowanie: ${escapeHtml(prefLabels[sr.client_package_preference] || '—')}</span>
-                    <span class="sr-client-hint">Uwagi: ${escapeHtml(sr.client_notes || '—')}</span>
-                </div>
-            </section>
-
-            <section class="sr-detail-section">
-                <h3>Adres dostawy</h3>
-                <div class="sr-address-preview">${addressHtml(sr)}</div>
-            </section>
-
-            <section class="sr-detail-section">
-                <h3>Dane wysyłki</h3>
-                <div class="sr-detail-grid">
                     <div class="form-group">
                         <label class="form-label" for="srCourier">Kurier</label>
                         <select id="srCourier" class="form-control">
@@ -423,11 +414,15 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label" for="srTracking">Numer tracking</label>
-                        <input type="text" id="srTracking" class="form-control" placeholder="Numer przesyłki"
-                               value="">
+                        <label class="form-label" for="srTracking">Numer przesyłki</label>
+                        <input type="text" id="srTracking" class="form-control" placeholder="Numer przesyłki" value="">
                     </div>
                 </div>
+                ${manyOrders ? `
+                <div class="sr-split">
+                    <span class="sr-split-title">Podział kosztu na zamówienia</span>
+                    <div class="sr-split-rows">${splitRows}</div>
+                </div>` : ''}
             </section>
         `;
 
@@ -463,22 +458,27 @@
         select.value = edits.packagingMaterialId || '';
     }
 
-    function addressHtml(sr) {
+    /** Adres w jednym wierszu — w panelu liczy sie pion, nie ozdobny blok. */
+    function addressLine(sr) {
         if (sr.address_type === 'pickup_point') {
-            return [
-                `<div class="address-type-badge pickup">Paczkomat / Punkt odbioru</div>`,
-                sr.pickup_courier ? `<div><strong>${escapeHtml(sr.pickup_courier)}</strong></div>` : '',
-                sr.pickup_point_id ? `<div class="pickup-id">${escapeHtml(sr.pickup_point_id)}</div>` : '',
-                sr.pickup_address ? `<div>${escapeHtml(sr.pickup_address)}</div>` : '',
-                `<div>${escapeHtml(sr.pickup_postal_code || '')} ${escapeHtml(sr.pickup_city || '')}</div>`,
-            ].join('');
+            const point = [sr.pickup_courier, sr.pickup_point_id].filter(Boolean).join(' ');
+            const rest = [sr.pickup_address, [sr.pickup_postal_code, sr.pickup_city].filter(Boolean).join(' ')]
+                .filter(Boolean).join(', ');
+            const parts = [
+                point ? `<span class="sr-fact-strong">${escapeHtml(point)}</span>` : '',
+                rest ? escapeHtml(rest) : '',
+            ].filter(Boolean);
+            return parts.length ? parts.join(' · ') : '<span class="sr-fact-muted">Brak adresu</span>';
         }
-        return [
-            sr.shipping_name ? `<div><strong>${escapeHtml(sr.shipping_name)}</strong></div>` : '',
-            sr.shipping_address ? `<div>${escapeHtml(sr.shipping_address)}</div>` : '',
-            `<div>${escapeHtml(sr.shipping_postal_code || '')} ${escapeHtml(sr.shipping_city || '')}</div>`,
-            sr.shipping_voivodeship ? `<div class="text-muted">woj. ${escapeHtml(sr.shipping_voivodeship)}</div>` : '',
-        ].join('') || '<span class="text-muted">Brak adresu</span>';
+
+        const line = [
+            sr.shipping_address,
+            [sr.shipping_postal_code, sr.shipping_city].filter(Boolean).join(' '),
+            sr.shipping_voivodeship ? `woj. ${sr.shipping_voivodeship}` : '',
+        ].filter(Boolean).join(', ');
+        return line
+            ? `<span class="sr-fact-strong">Kurier</span> · ${escapeHtml(line)}`
+            : '<span class="sr-fact-muted">Brak adresu</span>';
     }
 
     function bindDetailEvents() {
@@ -501,9 +501,8 @@
 
             if (e.target.id === 'srTotalCost') { edits.totalDraft = e.target.value; return; }
             if (e.target.id === 'srTracking') { edits.trackingNumber = e.target.value; return; }
-            if (e.target.id === 'srDeadlineDate' || e.target.id === 'srDeadlineTime') {
-                if (e.target.id === 'srDeadlineDate') edits.deadlineDate = e.target.value;
-                else edits.deadlineTime = e.target.value;
+            if (e.target.id === 'srDeadline') {
+                edits.deadline = e.target.value;
                 refreshStatus();
                 clearFixedFieldErrors(state.activeId);
                 return;
@@ -610,8 +609,7 @@
         });
 
         document.getElementById('srBulkApply').addEventListener('click', () => {
-            const date = document.getElementById('srBulkDeadlineDate').value;
-            const time = document.getElementById('srBulkDeadlineTime').value;
+            const deadline = document.getElementById('srBulkDeadline').value;
             const materialSelect = document.getElementById('srBulkMaterial');
             const parcelSize = document.getElementById('srBulkParcelSize').value;
 
@@ -620,7 +618,7 @@
                 ? materialSelect.options[materialSelect.selectedIndex]
                 : null;
 
-            if (!date && !selectedMaterial && !parcelSize) {
+            if (!deadline && !selectedMaterial && !parcelSize) {
                 notify('Wypełnij choć jedno pole, żeby ustawić je we wszystkich zleceniach', 'error');
                 return;
             }
@@ -628,7 +626,7 @@
             state.ids.forEach(id => {
                 const edits = state.edits.get(id);
                 if (!edits) return;
-                if (date) { edits.deadlineDate = date; edits.deadlineTime = time || '23:59'; }
+                if (deadline) edits.deadline = deadline;
                 if (selectedMaterial) applyMaterial(id, selectedMaterial);
                 if (parcelSize) edits.parcelSize = parcelSize;   // jawny gabaryt wygrywa z materiałem
             });
@@ -660,8 +658,8 @@
             courier: edits.courier,
             tracking_number: edits.trackingNumber,
         };
-        if (edits.deadlineDate && edits.deadlineTime) {
-            payload.payment_deadline = `${edits.deadlineDate}T${edits.deadlineTime}`;
+        if (edits.deadline) {
+            payload.payment_deadline = edits.deadline;
         }
         // Klucz obecny = "ustaw albo wyczyść", więc pusty wybór nie może zerować przypisania.
         if (edits.packagingMaterialId) {
