@@ -460,10 +460,41 @@
         });
     }
 
+    function bindBulkBarEvents() {
+        document.getElementById('srBulkApply').addEventListener('click', () => {
+            const date = document.getElementById('srBulkDeadlineDate').value;
+            const time = document.getElementById('srBulkDeadlineTime').value;
+            const materialSelect = document.getElementById('srBulkMaterial');
+            const parcelSize = document.getElementById('srBulkParcelSize').value;
+
+            const materialOption = materialSelect.value
+                ? materialSelect.options[materialSelect.selectedIndex]
+                : null;
+
+            if (!date && !materialOption && !parcelSize) {
+                notify('Wypełnij choć jedno pole, żeby ustawić je we wszystkich zleceniach', 'error');
+                return;
+            }
+
+            state.ids.forEach(id => {
+                const edits = state.edits.get(id);
+                if (!edits) return;
+                if (date) { edits.deadlineDate = date; edits.deadlineTime = time || '23:59'; }
+                if (materialOption) applyMaterial(id, materialOption);
+                if (parcelSize) edits.parcelSize = parcelSize;   // jawny gabaryt wygrywa z materiałem
+            });
+
+            renderDetail();
+            refreshStatus();
+            notify(`Ustawiono w ${state.ids.length} zleceniach`, 'success');
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('editShippingRequestModal')) return;
         bindDetailEvents();
         bindListEvents();
+        bindBulkBarEvents();
         document.getElementById('srModalCloseX').addEventListener('click', closeModal);
         document.getElementById('srModalCloseBtn').addEventListener('click', closeModal);
         document.getElementById('editShippingRequestModal').addEventListener('click', (e) => {
