@@ -571,12 +571,41 @@
         notify(`Nie zapisano: ${numbers}`, 'error');
     }
 
+    async function cancelRequest() {
+        const sr = state.data.get(state.activeId);
+        if (!sr) return;
+
+        const confirmed = confirm(
+            `Czy na pewno anulować zlecenie ${sr.request_number}?\n\n` +
+            'Wszystkie zamówienia zostaną odłączone od tego zlecenia i wrócą do puli dostępnych zamówień klienta.'
+        );
+        if (!confirmed) return;
+
+        try {
+            const resp = await fetch(`/admin/orders/shipping-requests/${sr.id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
+            });
+            const data = await resp.json();
+            if (data.success) {
+                closeModal();
+                window.location.reload();
+            } else {
+                notify(data.message || data.error || 'Nie udało się anulować zlecenia', 'error');
+            }
+        } catch (error) {
+            console.error('Błąd anulowania zlecenia:', error);
+            notify('Nie udało się anulować zlecenia', 'error');
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (!document.getElementById('editShippingRequestModal')) return;
         bindDetailEvents();
         bindListEvents();
         bindBulkBarEvents();
         document.getElementById('srModalSaveBtn').addEventListener('click', saveAll);
+        document.getElementById('srCancelRequestBtn').addEventListener('click', cancelRequest);
         document.getElementById('srModalCloseX').addEventListener('click', closeModal);
         document.getElementById('srModalCloseBtn').addEventListener('click', closeModal);
         document.getElementById('editShippingRequestModal').addEventListener('click', (e) => {
