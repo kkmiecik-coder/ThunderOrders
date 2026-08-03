@@ -748,6 +748,37 @@ function handleImageDrop(productId, slot, event) {
     if (files.length === 0) return;
 
     assignImageFile(productId, slot, files[0]);
+
+    if (files.length > 1) {
+        distributeExtraImages(productId, slot, files.slice(1));
+    }
+}
+
+function distributeExtraImages(productId, droppedSlot, files) {
+    const imageSlots = selectedColumns
+        .filter(c => c.type === 'image' && c.slot !== droppedSlot)
+        .map(c => c.slot)
+        .sort((a, b) => a - b);
+
+    const freeSlots = imageSlots.filter(s => {
+        const slotDiv = document.getElementById(`slot-${productId}-${s}`);
+        return slotDiv && slotDiv.classList.contains('empty');
+    });
+
+    let assigned = 0;
+    for (const s of freeSlots) {
+        if (assigned >= files.length) break;
+        assignImageFile(productId, s, files[assigned]);
+        assigned++;
+    }
+
+    const skipped = files.length - assigned;
+    if (skipped > 0 && typeof window.showToast === 'function') {
+        window.showToast(
+            `Pominięto ${skipped} ${skipped === 1 ? 'zdjęcie' : 'zdjęć'} — brak wolnych kolumn "Zdjęcie" w tym wierszu.`,
+            'warning'
+        );
+    }
 }
 
 function removeImage(productId, slot, event) {
