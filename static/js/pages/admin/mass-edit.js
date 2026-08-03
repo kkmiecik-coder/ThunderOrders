@@ -523,10 +523,11 @@ function renderImageCell(product, slot) {
     const pid = product.id;
     const imgData = product.images && product.images[String(slot)];
     const fileInputId = `img-${pid}-${slot}`;
+    const slotId = `slot-${pid}-${slot}`;
 
     if (imgData) {
         const imgSrc = imgData.path_compressed.startsWith('static/') ? '/' + imgData.path_compressed : '/static/' + imgData.path_compressed;
-        return `<div class="image-slot has-image">
+        return `<div class="image-slot has-image" id="${slotId}">
             <img src="${imgSrc}" alt="" onclick="document.getElementById('${fileInputId}').click()">
             <span class="image-remove" onclick="removeImage(${pid}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
             <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
@@ -534,7 +535,7 @@ function renderImageCell(product, slot) {
         </div>`;
     }
 
-    return `<div class="image-slot empty" onclick="document.getElementById('${fileInputId}').click()">
+    return `<div class="image-slot empty" id="${slotId}" onclick="document.getElementById('${fileInputId}').click()">
         +
         <input type="file" id="${fileInputId}" accept="image/*" style="display:none"
                onchange="handleImageSelect(${pid}, ${slot}, this)">
@@ -706,10 +707,8 @@ function revertAutoCreate(input) {
 // IMAGE HANDLING
 // =============================================
 
-function handleImageSelect(productId, slot, input) {
-    if (!input.files || !input.files[0]) return;
-
-    const file = input.files[0];
+function assignImageFile(productId, slot, file) {
+    if (!file) return;
 
     if (!pendingImageUploads[productId]) pendingImageUploads[productId] = {};
     pendingImageUploads[productId][slot] = file;
@@ -721,7 +720,8 @@ function handleImageSelect(productId, slot, input) {
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        const slotDiv = input.parentNode;
+        const slotDiv = document.getElementById(`slot-${productId}-${slot}`);
+        if (!slotDiv) return;
         slotDiv.className = 'image-slot has-image';
         slotDiv.innerHTML = `<img src="${e.target.result}" alt="" onclick="document.getElementById('img-${productId}-${slot}').click()">
             <span class="image-remove" onclick="removeImage(${productId}, ${slot}, event)" title="Usuń zdjęcie">&times;</span>
@@ -729,6 +729,11 @@ function handleImageSelect(productId, slot, input) {
                    onchange="handleImageSelect(${productId}, ${slot}, this)">`;
     };
     reader.readAsDataURL(file);
+}
+
+function handleImageSelect(productId, slot, input) {
+    if (!input.files || !input.files[0]) return;
+    assignImageFile(productId, slot, input.files[0]);
 }
 
 function removeImage(productId, slot, event) {
