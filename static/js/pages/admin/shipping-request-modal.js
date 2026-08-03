@@ -325,11 +325,16 @@
                     <div class="form-group">
                         <label class="form-label" for="srTracking">Numer tracking</label>
                         <input type="text" id="srTracking" class="form-control" placeholder="Numer przesyłki"
-                               value="${escapeHtml(edits.trackingNumber)}">
+                               value="">
                     </div>
                 </div>
             </section>
         `;
+
+        // Wartość tracking ustawiamy właściwością, nie w atrybucie — escapeHtml nie
+        // escapuje cudzysłowu, więc numer z " rozbiłby atrybut value.
+        const trackingEl = document.getElementById('srTracking');
+        if (trackingEl) trackingEl.value = edits.trackingNumber || '';
 
         renderDetailMaterials(sr, edits);
     }

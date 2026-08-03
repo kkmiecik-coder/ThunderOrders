@@ -4444,9 +4444,22 @@
 .sr-detail-section h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #666666; margin-bottom: 10px; }
 .sr-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 
-.sr-cost-input { display: flex; align-items: center; gap: 8px; }
-.sr-cost-input .form-control { max-width: 140px; }
-.sr-cost-input .currency { font-size: 13px; color: #666666; }
+/* Scopowane do .sr-modal — starszy blok .sr-cost-input (ok. l. 1118) wymusza
+   justify-content: flex-end oraz input { width: 100px; text-align: right }. */
+.sr-modal .sr-cost-input {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+.sr-modal .sr-cost-input .form-control {
+    width: auto;
+    max-width: 140px;
+    text-align: left;
+}
+
+.sr-modal .sr-cost-input .currency { font-size: 13px; color: #666666; }
 
 /* Tabela zamówień w scalonym modalu (markup bez wrappera) */
 .sr-modal .sr-orders-table { width: 100%; border-collapse: collapse; }
@@ -4469,6 +4482,8 @@
 .sr-modal-loading { padding: 40px 20px; text-align: center; color: #666666; }
 .sr-modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sr-modal-footer-actions { display: flex; gap: 8px; margin-left: auto; }
+/* .btn ma display: inline-flex/inline-block — bije regułę UA [hidden] { display: none } */
+.sr-modal-footer-actions .btn[hidden] { display: none; }
 .sr-modal-progress { font-size: 13px; color: #666666; }
 
 .sr-modal .input-error { border-color: #ef4444 !important; }
@@ -4501,6 +4516,7 @@
 [data-theme="dark"] .sr-modal-progress,
 [data-theme="dark"] .sr-modal-loading,
 [data-theme="dark"] .sr-cost-input .currency,
+[data-theme="dark"] .sr-modal .sr-cost-input .currency,
 [data-theme="dark"] .sr-client-panel-title { color: rgba(255, 255, 255, 0.6); }
 
 [data-theme="dark"] .sr-client-panel {
