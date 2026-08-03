@@ -80,13 +80,52 @@ def get_order_overdue_stages(order, now=None):
 
 
 def get_overdue_orders_summary():
-    """Zwraca aktywne zamówienia z >=1 zaległym etapem, najdłużej zalegające pierwsze."""
-    from modules.orders.models import Order
+    """Zwraca aktywne zamówienia z >=1 zaległym etapem, najdłużej zalegające pierwsze.
+
+    Dociąga relacje (offer_page, shipping_request_orders, PolandOrderItem,
+    PaymentConfirmation) zbiorczo przed pętlą, zamiast per-zamówienie —
+    inaczej to N+1 zapytań (2000+ zamówień x kilka lazy-loadów w
+    get_order_overdue_stages = kilkanaście tysięcy zapytań, kilkanaście
+    sekund na dashboardzie admina).
+    """
+    from sqlalchemy.orm import joinedload, selectinload
+    from modules.orders.models import Order, ShippingRequestOrder, PaymentConfirmation
+    from modules.products.models import PolandOrderItem
 
     now = get_local_now()
     results = []
 
-    for order in Order.query.filter(Order.status != 'anulowane').all():
+    orders = Order.query.filter(Order.status != 'anulowane').options(
+        joinedload(Order.offer_page),
+        selectinload(Order.shipping_request_orders).joinedload(ShippingRequestOrder.shipping_request),
+    ).all()
+
+    order_ids = [order.id for order in orders]
+    poland_item_by_order_id = {}
+    confirmations_by_order_id = {}
+    if order_ids:
+        poland_items = (
+            PolandOrderItem.query
+            .filter(PolandOrderItem.order_id.in_(order_ids))
+            .options(joinedload(PolandOrderItem.poland_order))
+            .order_by(PolandOrderItem.id)
+            .all()
+        )
+        for item in poland_items:
+            poland_item_by_order_id.setdefault(item.order_id, item)
+
+        confirmations = (
+            PaymentConfirmation.query
+            .filter(PaymentConfirmation.order_id.in_(order_ids))
+            .order_by(PaymentConfirmation.id)
+            .all()
+        )
+        for conf in confirmations:
+            confirmations_by_order_id.setdefault(conf.order_id, {}).setdefault(conf.payment_stage, conf)
+
+    for order in orders:
+        order._cached_poland_item = poland_item_by_order_id.get(order.id)
+        order._cached_payment_confirmations = confirmations_by_order_id.get(order.id, {})
         stages = get_order_overdue_stages(order, now=now)
         if not stages:
             continue

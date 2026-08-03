@@ -795,9 +795,18 @@ class Order(db.Model):
 
     # === PAYMENT CONFIRMATIONS PROPERTIES ===
 
+    def _get_cached_confirmation(self, stage):
+        """Zwraca PaymentConfirmation dla etapu z `_cached_payment_confirmations`,
+        jeśli batch preload je ustawił (get_overdue_orders_summary), inaczej None."""
+        if hasattr(self, '_cached_payment_confirmations'):
+            return self._cached_payment_confirmations.get(stage)
+        return None
+
     @property
     def product_payment_confirmation(self):
         """Zwraca obiekt PaymentConfirmation dla etapu 'product' (jeśli istnieje)."""
+        if hasattr(self, '_cached_payment_confirmations'):
+            return self._get_cached_confirmation('product')
         return self.payment_confirmations.filter_by(payment_stage='product').first()
 
     @property
@@ -853,12 +862,14 @@ class Order(db.Model):
     @property
     def stage_2_confirmation(self):
         """E2: Wysyłka KR — tylko dla payment_stages == 4"""
-        if self.payment_stages == 4:
-            return PaymentConfirmation.query.filter_by(
-                order_id=self.id,
-                payment_stage='korean_shipping'
-            ).first()
-        return None
+        if self.payment_stages != 4:
+            return None
+        if hasattr(self, '_cached_payment_confirmations'):
+            return self._get_cached_confirmation('korean_shipping')
+        return PaymentConfirmation.query.filter_by(
+            order_id=self.id,
+            payment_stage='korean_shipping'
+        ).first()
 
     @property
     def stage_2_name(self):
@@ -882,6 +893,8 @@ class Order(db.Model):
     @property
     def stage_3_confirmation(self):
         """E3: Cło/VAT — dla obu typów zamówień"""
+        if hasattr(self, '_cached_payment_confirmations'):
+            return self._get_cached_confirmation('customs_vat')
         return PaymentConfirmation.query.filter_by(
             order_id=self.id,
             payment_stage='customs_vat'
@@ -905,6 +918,8 @@ class Order(db.Model):
     @property
     def stage_4_confirmation(self):
         """E4: Wysyłka lokalna PL — dla obu typów zamówień"""
+        if hasattr(self, '_cached_payment_confirmations'):
+            return self._get_cached_confirmation('domestic_shipping')
         return PaymentConfirmation.query.filter_by(
             order_id=self.id,
             payment_stage='domestic_shipping'
@@ -1017,18 +1032,28 @@ class Order(db.Model):
             return self.offer_page.payment_deadline
         return None
 
+    def _get_poland_item(self):
+        """Zwraca PolandOrderItem dla tego zamówienia.
+
+        Jeśli `_cached_poland_item` zostało wcześniej ustawione (batch preload
+        w get_overdue_orders_summary, żeby uniknąć N+1 zapytań), używa go
+        zamiast odpytywać bazę ponownie.
+        """
+        if hasattr(self, '_cached_poland_item'):
+            return self._cached_poland_item
+        from modules.products.models import PolandOrderItem
+        return PolandOrderItem.query.filter_by(order_id=self.id).first()
+
     def get_shipping_kr_deadline(self):
         """Get payment deadline for E2 (Korean shipping) from PolandOrder."""
-        from modules.products.models import PolandOrderItem
-        poland_item = PolandOrderItem.query.filter_by(order_id=self.id).first()
+        poland_item = self._get_poland_item()
         if poland_item and poland_item.poland_order:
             return poland_item.poland_order.payment_deadline
         return None
 
     def get_customs_vat_deadline(self):
         """Get payment deadline for E3 (Customs/VAT) from PolandOrder."""
-        from modules.products.models import PolandOrderItem
-        poland_item = PolandOrderItem.query.filter_by(order_id=self.id).first()
+        poland_item = self._get_poland_item()
         if poland_item and poland_item.poland_order:
             return poland_item.poland_order.customs_payment_deadline
         return None
