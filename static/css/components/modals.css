@@ -4380,7 +4380,14 @@
     gap: 8px;
     max-height: 60vh;
     overflow-y: auto;
+    min-width: 0;
 }
+
+/* Bez min-width: 0 kolumna nie kurczy sie ponizej szerokosci tabeli
+   zamowien i panel wylewa sie poza modal. */
+.sr-modal-detail { min-width: 0; }
+
+.sr-modal .sr-detail-section:has(.sr-orders-table) { overflow-x: auto; }
 
 .sr-modal-list[hidden] { display: none; }
 
@@ -4457,7 +4464,22 @@
 }
 
 .sr-bulk-bar[hidden] { display: none; }
-.sr-bulk-bar-title { font-size: 13px; font-weight: 600; color: #333333; }
+.sr-bulk-bar-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333333;
+    background: none;
+    border: none;
+    cursor: default;
+}
+
+/* Strzalka tylko na mobile — tam pasek sie zwija */
+.sr-bulk-bar-chevron { display: none; }
 .sr-bulk-bar-fields { display: flex; flex-wrap: wrap; gap: 12px; flex: 1; }
 .sr-inline-fields { display: flex; gap: 8px; }
 
@@ -4583,6 +4605,9 @@
     .sr-modal-body {
         display: flex;
         flex-direction: column;
+        /* align-items: start z desktopu dawaloby dzieciom szerokosc
+           zawartosci (tabela zamowien) zamiast szerokosci modala */
+        align-items: stretch;
     }
 
     .sr-modal-list {
@@ -4595,7 +4620,26 @@
 
     .sr-list-item { flex: 0 0 auto; min-width: 160px; }
     .sr-bulk-bar { padding: 12px 16px; }
-    .sr-bulk-bar-fields { flex-direction: column; }
+    .sr-bulk-bar-fields { flex-direction: column; width: 100%; }
+
+    /* Pasek zwiniety do jednego wiersza; rozwija go tapniecie w tytul */
+    .sr-bulk-bar-title {
+        width: 100%;
+        justify-content: space-between;
+        min-height: 44px;
+        cursor: pointer;
+    }
+
+    .sr-bulk-bar-chevron {
+        display: inline-flex;
+        flex: 0 0 auto;
+        transition: transform 0.2s;
+    }
+
+    .sr-bulk-bar.expanded .sr-bulk-bar-chevron { transform: rotate(180deg); }
+
+    .sr-bulk-bar:not(.expanded) .sr-bulk-bar-fields,
+    .sr-bulk-bar:not(.expanded) #srBulkApply { display: none; }
     .sr-inline-fields .form-control,
     .sr-detail-grid .form-control { min-height: 44px; }
     .sr-modal-footer { flex-direction: column; align-items: stretch; }

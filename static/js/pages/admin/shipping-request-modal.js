@@ -520,6 +520,18 @@
                 clearFixedFieldErrors(state.activeId);
                 return;
             }
+            // Zatwierdzona kwota calkowita od razu rozklada sie na zamowienia —
+            // inaczej do bazy szla suma pozycji, a nie to, co widac w polu.
+            if (e.target.id === 'srTotalCost') {
+                const total = parseFloat(e.target.value) || 0;
+                if (total > 0) {
+                    spreadCost(state.activeId, total);
+                    renderDetail();
+                    refreshStatus();
+                    clearFixedFieldErrors(state.activeId);
+                }
+                return;
+            }
             if (e.target.id === 'srCourier') { edits.courier = e.target.value; return; }
             if (e.target.id === 'srPackagingMaterial') {
                 applyMaterial(state.activeId, e.target.options[e.target.selectedIndex]);
@@ -588,6 +600,15 @@
     }
 
     function bindBulkBarEvents() {
+        // Na waskich ekranach pasek startuje zwiniety (CSS chowa pola);
+        // na desktopie klasa nic nie zmienia, bo pola sa widoczne zawsze.
+        const toggle = document.getElementById('srBulkBarToggle');
+        toggle.addEventListener('click', () => {
+            const bar = document.getElementById('srBulkBar');
+            const expanded = bar.classList.toggle('expanded');
+            toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+
         document.getElementById('srBulkApply').addEventListener('click', () => {
             const date = document.getElementById('srBulkDeadlineDate').value;
             const time = document.getElementById('srBulkDeadlineTime').value;
