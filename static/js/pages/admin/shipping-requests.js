@@ -310,6 +310,91 @@ async function createWmsSession(shippingRequestIds) {
 }
 
 // ============================================
+// EKSPORT INPOST
+// ============================================
+
+/**
+ * Buduje plik CSV do masowego nadania w panelu InPost i pobiera go.
+ * Ostrzeżenia (pominięte zlecenia, braki telefonu) pokazujemy osobnym toastem,
+ * bo plik i tak powstaje — admin musi wiedzieć, czego w nim nie ma.
+ */
+async function exportSelectedToInpost() {
+    const ids = getSelectedRequestIds();
+    if (!ids.length) return;
+
+    try {
+        const response = await fetch('/admin/orders/shipping-requests/export-inpost', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ ids })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            window.showToast(data.error || 'Nie udało się przygotować pliku', 'error');
+            return;
+        }
+
+        if (data.exported > 0) {
+            downloadCsv(data.csv, data.filename);
+            window.showToast(
+                `Plik gotowy: ${data.exported} ${pluralizeShipments(data.exported)}`,
+                'success'
+            );
+        } else {
+            window.showToast('Żadne z zaznaczonych zleceń nie nadaje się do eksportu', 'error');
+        }
+
+        if (data.warnings && data.warnings.length) {
+            window.showToast(formatExportWarnings(data.warnings), 'warning', 12000);
+        }
+    } catch (error) {
+        console.error('Error exporting to InPost:', error);
+        window.showToast('Błąd podczas przygotowania pliku', 'error');
+    }
+}
+
+/** BOM pozwala Excelowi poprawnie odczytać polskie znaki. */
+function downloadCsv(csvText, filename) {
+    const blob = new Blob(['﻿' + csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function pluralizeShipments(count) {
+    if (count === 1) return 'przesyłka';
+    const rest = count % 10;
+    const teens = count % 100;
+    if (rest >= 2 && rest <= 4 && (teens < 12 || teens > 14)) return 'przesyłki';
+    return 'przesyłek';
+}
+
+/** Przy dużym zaznaczeniu lista ostrzeżeń bywa długa — skracamy do 5 pozycji. */
+function formatExportWarnings(warnings) {
+    const escape = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
+
+    const shown = warnings.slice(0, 5).map(escape);
+    if (warnings.length > shown.length) {
+        shown.push(`…i ${warnings.length - shown.length} więcej`);
+    }
+    return shown.join('<br>');
+}
+
+// ============================================
 // PRODUCTS TOGGLE
 // ============================================
 
@@ -368,6 +453,7 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             'merge': bulkMergeRequests,
             'wms': bulkGoToWMS,
+            'export-inpost': exportSelectedToInpost,
             'delete': bulkDeleteRequests,
         };
 

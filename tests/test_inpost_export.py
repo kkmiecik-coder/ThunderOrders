@@ -1,0 +1,199 @@
+"""Eksport zleceń wysyłki do pliku masowego nadania InPost."""
+
+import pytest
+
+
+HEADER = ('e-mail;telefon;rozmiar;paczkomat;numer_referencyjny;dodatkowa_ochrona;'
+          'za_pobraniem;imie_i_nazwisko;nazwa_firmy;ulica;kod_pocztowy;miejscowosc;'
+          'typ_przesylki;paczka_w_weekend')
+
+
+def _sr(db, user, **kwargs):
+    from modules.orders.models import ShippingRequest
+    defaults = dict(
+        request_number=ShippingRequest.generate_request_number(),
+        user_id=user.id,
+        status='oplacone',
+        address_type='pickup_point',
+        pickup_courier='InPost',
+        pickup_point_id='KRA128',
+        parcel_size='A',
+    )
+    defaults.update(kwargs)
+    sr = ShippingRequest(**defaults)
+    db.session.add(sr)
+    db.session.commit()
+    return sr
+
+
+def _rows(csv_text):
+    """Wiersze danych bez nagłówka."""
+    return [line for line in csv_text.splitlines()[1:] if line]
+
+
+def test_header_matches_inpost_template(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    csv_text, _ = build_inpost_csv([_sr(db, make_user(phone='+48500300100'))])
+    assert csv_text.splitlines()[0] == HEADER
+
+
+def test_pickup_point_row(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(email='klient@example.com', phone='+48500300100')
+    sr = _sr(db, user, pickup_point_id='WAW350', parcel_size='B')
+
+    csv_text, warnings = build_inpost_csv([sr])
+    row = _rows(csv_text)[0].split(';')
+
+    assert row[0] == 'klient@example.com'
+    assert row[1] == '+48500300100'
+    assert row[2] == 'B'
+    assert row[3] == 'WAW350'
+    assert row[4] == sr.request_number
+    assert row[12] == 'paczkomat'
+    # dla paczkomatu pola adresowe zostają puste
+    assert row[7:12] == ['', '', '', '', '']
+    assert warnings == []
+
+
+def test_courier_row_carries_address(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(email='kurier@example.com', phone='+48111222333')
+    sr = _sr(db, user, address_type='home', pickup_point_id=None,
+             pickup_courier=None, shipping_name='Jan Kowalski',
+             shipping_address='ul. Klonowa 5', shipping_postal_code='43-300',
+             shipping_city='Bielsko-Biała', parcel_size='C')
+
+    csv_text, warnings = build_inpost_csv([sr])
+    row = _rows(csv_text)[0].split(';')
+
+    assert row[2] == 'C'
+    assert row[3] == ''                     # kurier nie ma paczkomatu
+    assert row[7] == 'Jan Kowalski'
+    assert row[9] == 'ul. Klonowa 5'
+    assert row[10] == '43-300'
+    assert row[11] == 'Bielsko-Biała'
+    assert row[12] == 'kurier'
+    assert warnings == []
+
+
+def test_optional_columns_stay_empty(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    csv_text, _ = build_inpost_csv([_sr(db, make_user(phone='+48500300100'))])
+    row = _rows(csv_text)[0].split(';')
+
+    assert row[5] == ''      # dodatkowa_ochrona
+    assert row[6] == ''      # za_pobraniem
+    assert row[8] == ''      # nazwa_firmy
+    assert row[13] == 'NIE'  # paczka_w_weekend
+
+
+def test_mini_parcel_is_excluded_with_warning(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    ok = _sr(db, user, parcel_size='A')
+    mini = _sr(db, user, parcel_size='mini')
+
+    csv_text, warnings = build_inpost_csv([ok, mini])
+
+    assert len(_rows(csv_text)) == 1
+    assert mini.request_number in ' '.join(warnings)
+    assert 'mini' in ' '.join(warnings).lower()
+
+
+def test_missing_parcel_size_is_excluded_with_warning(db, make_user):
+    from modules.orders.inpost_export import build_inpost_csv
+    user = make_user(phone='+48500300100')
+    bez = _sr(db, user, parcel_size=None)
+
+    csv_text, warnings = build_inpost_csv([bez])
+
+    assert _rows(csv_text) == []
+    assert bez.request_number in ' '.join(warnings)
+
+
+def test_missing_phone_exports_but_warns(db, make_user):
+    """Braki telefonu to niedokończone rejestracje — wiersz zostaje, admin dostaje ostrzeżenie."""
+    from modules.orders.inpost_export import build_inpost_csv
+    sr = _sr(db, make_user(phone=None))
+
+    csv_text, warnings = build_inpost_csv([sr])
+    row = _rows(csv_text)[0].split(';')
+
+    assert row[1] == ''
+    assert sr.request_number in ' '.join(warnings)
+    assert 'telefon' in ' '.join(warnings).lower()
+
+
+def test_pickup_point_id_is_trimmed(db, make_user):
+    """W bazie zdarzają się kody z wiodącą spacją (' POZ282M')."""
+    from modules.orders.inpost_export import build_inpost_csv
+    sr = _sr(db, make_user(phone='+48500300100'), pickup_point_id=' POZ282M ')
+
+    csv_text, _ = build_inpost_csv([sr])
+    assert _rows(csv_text)[0].split(';')[3] == 'POZ282M'
+
+
+def test_phone_kept_verbatim(db, make_user):
+    """Numery zagraniczne i bez prefiksu przepisujemy bez normalizacji."""
+    from modules.orders.inpost_export import build_inpost_csv
+    user_pl = make_user(phone=' 500300100 ')
+    user_de = make_user(phone='+49517905240')
+
+    csv_text, _ = build_inpost_csv([_sr(db, user_pl), _sr(db, user_de)])
+    rows = [r.split(';')[1] for r in _rows(csv_text)]
+
+    assert rows == ['500300100', '+49517905240']
+
+
+def test_semicolon_in_data_does_not_break_columns(db, make_user):
+    """Średnik jest separatorem — dane muszą zostać zacytowane."""
+    from modules.orders.inpost_export import build_inpost_csv
+    sr = _sr(db, make_user(phone='+48500300100'), address_type='home',
+             pickup_point_id=None, shipping_name='Kowalski; Jan',
+             shipping_address='ul. Testowa 1', shipping_postal_code='00-001',
+             shipping_city='Warszawa')
+
+    csv_text, _ = build_inpost_csv([sr])
+    import csv as csv_module
+    from io import StringIO
+    rows = list(csv_module.reader(StringIO(csv_text), delimiter=';'))
+
+    assert len(rows[1]) == 14
+    assert rows[1][7] == 'Kowalski; Jan'
+
+
+def test_export_endpoint_returns_csv_and_warnings(client, db, make_user, login):
+    from modules.orders.inpost_export import build_inpost_csv  # noqa: F401
+    admin = make_user(role='admin', email='admin@example.com', profile_completed=True)
+    login(admin)
+    user = make_user(phone='+48500300100')
+    ok = _sr(db, user, parcel_size='A')
+    mini = _sr(db, user, parcel_size='mini')
+
+    resp = client.post('/admin/orders/shipping-requests/export-inpost',
+                       json={'ids': [ok.id, mini.id]})
+    assert resp.status_code == 200
+    data = resp.get_json()
+
+    assert data['success'] is True
+    assert data['filename'].startswith('inpost_')
+    assert data['filename'].endswith('.csv')
+    assert data['exported'] == 1
+    assert ok.request_number in data['csv']
+    assert mini.request_number not in data['csv']
+    assert any(mini.request_number in w for w in data['warnings'])
+
+
+def test_export_endpoint_requires_ids(client, make_user, login):
+    login(make_user(role='admin', email='admin2@example.com', profile_completed=True))
+    resp = client.post('/admin/orders/shipping-requests/export-inpost', json={'ids': []})
+    assert resp.status_code == 400
+
+
+def test_export_endpoint_rejects_client(client, db, make_user, login):
+    user = make_user(phone='+48500300100')
+    sr = _sr(db, user)
+    login(user)
+    resp = client.post('/admin/orders/shipping-requests/export-inpost', json={'ids': [sr.id]})
+    assert resp.status_code in (302, 403)
