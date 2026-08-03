@@ -1665,53 +1665,73 @@
     }
 
     function submitShipping(srId, panelEl) {
-        var tracking = panelEl.querySelector('#shipTracking').value.trim();
-        if (!tracking) {
-            showToast('Numer tracking jest wymagany', 'error');
-            return;
-        }
-
-        var courier = panelEl.querySelector('#shipCourier').value;
-        var parcelSize = panelEl.querySelector('#shipParcelSize');
-        parcelSize = parcelSize ? parcelSize.value : '';
-        var cost = parseFloat(panelEl.querySelector('#shipCost').value) || null;
-
-        var orderCosts = [];
-        panelEl.querySelectorAll('.shipping-panel-order-cost').forEach(function(inp) {
-            var oid = parseInt(inp.getAttribute('data-order-id'));
-            var c = parseFloat(inp.value) || 0;
-            if (oid && c > 0) {
-                orderCosts.push({ order_id: oid, shipping_cost: c });
-            }
-        });
-
         var submitBtn = panelEl.querySelector('.shipping-panel-submit-btn');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Wysyłanie...';
 
-        postJSON('/admin/orders/wms/' + sessionId + '/ship-sr', {
-            shipping_request_id: srId,
-            courier: courier,
-            tracking_number: tracking,
-            parcel_size: parcelSize,
-            shipping_cost: cost,
-            order_costs: orderCosts
-        }).then(function(result) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Oznacz jako wysłane';
-
-            if (result.success) {
-                showToast(result.message || 'Zlecenie oznaczone jako wysłane', 'success');
-                panelEl.remove();
-                activeShippingPanel = null;
-            } else {
-                showToast(result.message || 'Błąd', 'error');
+        try {
+            var trackingInput = panelEl.querySelector('#shipTracking');
+            var tracking = trackingInput ? trackingInput.value.trim() : '';
+            if (!tracking) {
+                showToast('Numer tracking jest wymagany', 'error');
+                return;
             }
-        }).catch(function() {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Oznacz jako wysłane';
-            showToast('Błąd połączenia', 'error');
-        });
+
+            var courierSelect = panelEl.querySelector('#shipCourier');
+            var courier = courierSelect ? courierSelect.value : '';
+            var parcelSize = panelEl.querySelector('#shipParcelSize');
+            parcelSize = parcelSize ? parcelSize.value : '';
+            var costInput = panelEl.querySelector('#shipCost');
+            var cost = costInput ? (parseFloat(costInput.value) || null) : null;
+
+            var orderCosts = [];
+            panelEl.querySelectorAll('.shipping-panel-order-cost').forEach(function(inp) {
+                var oid = parseInt(inp.getAttribute('data-order-id'));
+                var c = parseFloat(inp.value) || 0;
+                if (oid && c > 0) {
+                    orderCosts.push({ order_id: oid, shipping_cost: c });
+                }
+            });
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Wysyłanie...';
+            }
+
+            postJSON('/admin/orders/wms/' + sessionId + '/ship-sr', {
+                shipping_request_id: srId,
+                courier: courier,
+                tracking_number: tracking,
+                parcel_size: parcelSize,
+                shipping_cost: cost,
+                order_costs: orderCosts
+            }).then(function(result) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Oznacz jako wysłane';
+                }
+
+                if (result.success) {
+                    showToast(result.message || 'Zlecenie oznaczone jako wysłane', 'success');
+                    panelEl.remove();
+                    activeShippingPanel = null;
+                } else {
+                    showToast(result.message || 'Błąd', 'error');
+                }
+            }).catch(function(err) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Oznacz jako wysłane';
+                }
+                console.error('WMS submitShipping request failed:', err);
+                showToast('Błąd połączenia. Spróbuj ponownie.', 'error');
+            });
+        } catch (err) {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Oznacz jako wysłane';
+            }
+            console.error('WMS submitShipping error:', err);
+            showToast('Wystąpił nieoczekiwany błąd. Spróbuj ponownie.', 'error');
+        }
     }
 
     function skipShipping(panelEl) {
