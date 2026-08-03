@@ -163,6 +163,102 @@ function getSelectedRequestIds() {
 }
 
 // ============================================
+// MENU ZAZNACZANIA
+// ============================================
+
+/** Odświeża checkboxy widocznych kart według stanu zaznaczenia. */
+function syncCheckboxesWithSelection() {
+    document.querySelectorAll('.sr-checkbox').forEach(checkbox => {
+        const isSelected = selectedRequests.has(checkbox.dataset.id);
+        checkbox.checked = isSelected;
+        const card = checkbox.closest('.sr-card');
+        if (card) card.classList.toggle('selected', isSelected);
+    });
+}
+
+function selectAllOnPage(shouldSelect) {
+    document.querySelectorAll('.sr-checkbox').forEach(checkbox => {
+        if (checkbox.checked !== shouldSelect) {
+            checkbox.checked = shouldSelect;
+            handleCheckboxChange(checkbox);
+        }
+    });
+}
+
+/** Filtry z adresu — zaznaczenie ma objąć to, co admin faktycznie widzi. */
+function currentListFilters() {
+    const params = new URLSearchParams(window.location.search);
+    return new URLSearchParams({
+        status: params.get('status') || '',
+        order_type: params.get('order_type') || '',
+        search: params.get('search') || '',
+    });
+}
+
+async function selectAllPages() {
+    try {
+        const response = await fetch(
+            `/api/orders/shipping-requests/filtered-ids?${currentListFilters()}`
+        );
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            window.showToast('Nie udało się pobrać listy zleceń', 'error');
+            return;
+        }
+
+        selectedRequests.clear();
+        selectedRequestClients.clear();
+        data.requests.forEach(row => {
+            const id = String(row.id);
+            selectedRequests.add(id);
+            selectedRequestClients.set(id, row.client_id ? String(row.client_id) : '');
+        });
+
+        syncCheckboxesWithSelection();
+        updateBulkToolbar();
+        window.showToast(
+            `Zaznaczono ${data.requests.length} ${pluralizeRequests(data.requests.length)}`,
+            'success'
+        );
+    } catch (error) {
+        console.error('Error selecting all pages:', error);
+        window.showToast('Nie udało się pobrać listy zleceń', 'error');
+    }
+}
+
+function pluralizeRequests(count) {
+    if (count === 1) return 'zlecenie';
+    const rest = count % 10;
+    const teens = count % 100;
+    if (rest >= 2 && rest <= 4 && (teens < 12 || teens > 14)) return 'zlecenia';
+    return 'zleceń';
+}
+
+function toggleSelectMenu() {
+    const menu = document.getElementById('srSelectMenu');
+    const toggle = document.getElementById('srSelectToggle');
+    const list = document.getElementById('srSelectMenuList');
+    if (!menu || !toggle || !list) return;
+
+    const willOpen = list.hidden;
+    list.hidden = !willOpen;
+    menu.classList.toggle('open', willOpen);
+    toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+}
+
+function closeSelectMenu() {
+    const menu = document.getElementById('srSelectMenu');
+    const toggle = document.getElementById('srSelectToggle');
+    const list = document.getElementById('srSelectMenuList');
+    if (!menu || !toggle || !list || list.hidden) return;
+
+    list.hidden = true;
+    menu.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+}
+
+// ============================================
 // BULK ACTIONS
 // ============================================
 
@@ -466,12 +562,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ============================================
+    // MENU ZAZNACZANIA
+    // ============================================
+
+    const selectToggle = document.getElementById('srSelectToggle');
+    if (selectToggle) {
+        selectToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleSelectMenu();
+        });
+    }
+
+    const selectList = document.getElementById('srSelectMenuList');
+    if (selectList) {
+        const selectHandlers = {
+            'page-all': () => selectAllOnPage(true),
+            'page-none': () => selectAllOnPage(false),
+            'all-all': selectAllPages,
+            'all-none': clearSelection,
+        };
+
+        selectList.addEventListener('click', (e) => {
+            const item = e.target.closest('.sr-select-item');
+            if (!item) return;
+            closeSelectMenu();
+            const handler = selectHandlers[item.dataset.selectAction];
+            if (handler) handler();
+        });
+    }
+
     // Zamykanie menu: klik poza paskiem i Escape
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#bulkMenu')) closeBulkMenu();
+        if (!e.target.closest('#srSelectMenu')) closeSelectMenu();
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeBulkMenu();
+        if (e.key === 'Escape') {
+            closeBulkMenu();
+            closeSelectMenu();
+        }
     });
 });

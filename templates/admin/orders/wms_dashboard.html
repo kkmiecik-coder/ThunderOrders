@@ -139,8 +139,40 @@
 
         <!-- Right column: search + results -->
         <div class="sr-right-column">
-            <!-- Toolbar: inline stats (left) + search (right) -->
+            <!-- Toolbar: zaznaczanie (lewo) + statystyki (środek) + szukanie i paginacja (prawo) -->
             <div class="sr-toolbar">
+                <div class="sr-select-menu" id="srSelectMenu">
+                    <button type="button" class="btn btn-secondary btn-sm sr-select-toggle" id="srSelectToggle"
+                            aria-expanded="false" aria-haspopup="true" aria-controls="srSelectMenuList">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M9 11l3 3L22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        Zaznacz
+                        <svg class="sr-select-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                            <path d="M6 9l6 6 6-6"/>
+                        </svg>
+                    </button>
+
+                    <div class="sr-select-list" id="srSelectMenuList" role="menu" hidden>
+                        <span class="sr-select-group">Na tej stronie</span>
+                        <button type="button" class="sr-select-item" data-select-action="page-all" role="menuitem">
+                            Zaznacz wszystkie
+                        </button>
+                        <button type="button" class="sr-select-item" data-select-action="page-none" role="menuitem">
+                            Odznacz wszystkie
+                        </button>
+
+                        <span class="sr-select-group">Na wszystkich stronach</span>
+                        <button type="button" class="sr-select-item" data-select-action="all-all" role="menuitem">
+                            Zaznacz wszystkie
+                        </button>
+                        <button type="button" class="sr-select-item" data-select-action="all-none" role="menuitem">
+                            Odznacz wszystkie
+                        </button>
+                    </div>
+                </div>
+
                 <div class="wms-inline-stats">
                     <div class="wms-inline-stat">
                         <span class="wms-inline-stat-value">{{ today_packed }}</span>
