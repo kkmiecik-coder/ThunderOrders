@@ -4187,6 +4187,55 @@ def admin_bulk_status_shipping_requests():
     })
 
 
+@orders_bp.route('/admin/orders/shipping-requests/export-inpost', methods=['POST'])
+@login_required
+@role_required('admin', 'mod')
+def admin_export_shipping_requests_inpost():
+    """Buduje plik CSV do masowego nadania przesyłek w panelu InPost.
+
+    Zwraca treść pliku w JSON (front sam tworzy plik do pobrania), żeby razem
+    z nim przekazać ostrzeżenia o zleceniach pominiętych lub niekompletnych.
+    """
+    from modules.orders.inpost_export import build_inpost_csv, count_exported_rows
+
+    data = request.get_json() or {}
+    ids = data.get('ids', [])
+
+    if not ids:
+        return jsonify({'error': 'Nie wybrano żadnych zleceń'}), 400
+
+    shipping_requests = ShippingRequest.query.filter(
+        ShippingRequest.id.in_(ids)
+    ).order_by(ShippingRequest.request_number).all()
+
+    if not shipping_requests:
+        return jsonify({'error': 'Nie znaleziono zaznaczonych zleceń'}), 404
+
+    csv_text, warnings = build_inpost_csv(shipping_requests)
+    exported = count_exported_rows(csv_text)
+    from modules.orders.models import get_local_now
+    filename = f'inpost_{get_local_now().strftime("%Y-%m-%d_%H%M")}.csv'
+
+    log_activity(
+        user=current_user,
+        action='shipping_requests_exported_inpost',
+        entity_type='shipping_request',
+        new_value=json.dumps({
+            'ids': ids,
+            'exported': exported,
+            'skipped': len(shipping_requests) - exported,
+        })
+    )
+
+    return jsonify({
+        'success': True,
+        'csv': csv_text,
+        'filename': filename,
+        'exported': exported,
+        'warnings': warnings,
+    })
+
+
 @orders_bp.route('/admin/orders/shipping-request-statuses/list', methods=['GET'])
 @login_required
 @role_required('admin', 'mod')

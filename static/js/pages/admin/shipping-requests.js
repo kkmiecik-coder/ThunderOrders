@@ -88,12 +88,14 @@ function updateBulkToolbar() {
         const canMerge = count >= 2 && sameClient;
         mergeBtn.disabled = !canMerge;
 
-        // Update tooltip message based on reason for disabled state
+        // Powód blokady widoczny w menu pod etykietą pozycji
         if (mergeTooltip) {
             if (count < 2) {
-                mergeTooltip.textContent = 'Zaznacz co najmniej 2 zlecenia do scalenia';
+                mergeTooltip.textContent = 'Zaznacz co najmniej 2 zlecenia';
             } else if (!sameClient) {
-                mergeTooltip.textContent = 'Zaznaczone zlecenia pochodzą od różnych klientów';
+                mergeTooltip.textContent = 'Zlecenia od różnych klientów';
+            } else {
+                mergeTooltip.textContent = '';
             }
         }
     }
@@ -102,7 +104,34 @@ function updateBulkToolbar() {
         bulkToolbar.classList.remove('hidden');
     } else {
         bulkToolbar.classList.add('hidden');
+        closeBulkMenu();   // pasek znika razem z rozwiniętym menu
     }
+}
+
+/**
+ * Rozwijane menu akcji masowych
+ */
+function toggleBulkMenu() {
+    const menu = document.getElementById('bulkMenu');
+    const toggle = document.getElementById('bulkMenuToggle');
+    const list = document.getElementById('bulkMenuList');
+    if (!menu || !toggle || !list) return;
+
+    const willOpen = list.hidden;
+    list.hidden = !willOpen;
+    menu.classList.toggle('open', willOpen);
+    toggle.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+}
+
+function closeBulkMenu() {
+    const menu = document.getElementById('bulkMenu');
+    const toggle = document.getElementById('bulkMenuToggle');
+    const list = document.getElementById('bulkMenuList');
+    if (!menu || !toggle || !list || list.hidden) return;
+
+    list.hidden = true;
+    menu.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
 }
 
 /**
@@ -136,182 +165,6 @@ function getSelectedRequestIds() {
 // ============================================
 // BULK ACTIONS
 // ============================================
-
-/**
- * Open bulk cost modal for selected shipping requests
- */
-async function openBulkCostModal() {
-    const ids = getSelectedRequestIds();
-    if (ids.length === 0) return;
-
-    const container = document.getElementById('bulkCostEntries');
-    if (!container) return;
-
-    container.innerHTML = '<div class="bulk-cost-loading">Ładowanie danych...</div>';
-
-    const modal = document.getElementById('bulkCostModal');
-    if (modal) modal.classList.add('active');
-
-    try {
-        // Fetch all selected SRs in parallel
-        const responses = await Promise.all(
-            ids.map(id => fetch(`/admin/orders/shipping-requests/${id}`).then(r => r.json()))
-        );
-
-        container.innerHTML = '';
-
-        responses.forEach(sr => {
-            const totalCost = sr.calculated_shipping_cost || 0;
-            const ordersHtml = sr.orders.map(o => `
-                <tr>
-                    <td><a href="/admin/orders/${o.id}" target="_blank" class="sr-order-link">${o.order_number}</a></td>
-                    <td class="text-right">${parseFloat(o.total_amount).toFixed(2)} PLN</td>
-                    <td>
-                        <div class="sr-cost-input">
-                            <input type="number" class="form-input bulk-order-cost"
-                                data-sr-id="${sr.id}" data-order-id="${o.id}"
-                                value="${o.shipping_cost > 0 ? parseFloat(o.shipping_cost).toFixed(2) : ''}"
-                                step="0.01" min="0" placeholder="0.00">
-                            <span class="currency">PLN</span>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-
-            const entry = document.createElement('div');
-            entry.className = 'bulk-cost-entry';
-            entry.dataset.srId = sr.id;
-            entry.innerHTML = `
-                <div class="bulk-cost-entry-header">
-                    <span class="bulk-cost-sr-number">${sr.request_number}</span>
-                    <span class="bulk-cost-sr-status badge">${sr.status_display_name || sr.status}</span>
-                    <div class="bulk-cost-total-group">
-                        <input type="number" class="form-input bulk-total-cost" data-sr-id="${sr.id}"
-                            value="${totalCost > 0 ? totalCost.toFixed(2) : ''}"
-                            step="0.01" min="0" placeholder="0.00">
-                        <span class="currency">PLN</span>
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="distributeBulkCost(${sr.id})" title="Rozłóż równo">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M16 3h5v5M8 3H3v5M3 16v5h5M21 16v5h-5M12 8v8M8 12h8"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <table class="sr-orders-table bulk-cost-orders-table">
-                    <thead>
-                        <tr>
-                            <th>Zamówienie</th>
-                            <th class="text-right">Wartość</th>
-                            <th>Koszt wysyłki</th>
-                        </tr>
-                    </thead>
-                    <tbody>${ordersHtml}</tbody>
-                </table>
-            `;
-            container.appendChild(entry);
-        });
-
-    } catch (error) {
-        console.error('Error loading bulk cost data:', error);
-        container.innerHTML = '<div class="bulk-cost-loading">Błąd ładowania danych</div>';
-    }
-}
-
-/**
- * Distribute total cost evenly for a specific SR in bulk modal
- */
-function distributeBulkCost(srId) {
-    const totalInput = document.querySelector(`.bulk-total-cost[data-sr-id="${srId}"]`);
-    const costInputs = document.querySelectorAll(`.bulk-order-cost[data-sr-id="${srId}"]`);
-    if (!totalInput || costInputs.length === 0) return;
-
-    const total = parseFloat(totalInput.value) || 0;
-    const perOrder = total / costInputs.length;
-    const rounded = Math.floor(perOrder * 100) / 100;
-    const remainder = Math.round((total - rounded * costInputs.length) * 100) / 100;
-
-    costInputs.forEach((input, i) => {
-        input.value = (i === 0 ? (rounded + remainder) : rounded).toFixed(2);
-    });
-}
-
-/**
- * Close bulk cost modal
- */
-function closeBulkCostModal() {
-    const modal = document.getElementById('bulkCostModal');
-    if (!modal || !modal.classList.contains('active')) return;
-    modal.classList.add('closing');
-    setTimeout(() => {
-        modal.classList.remove('active', 'closing');
-    }, 350);
-}
-
-/**
- * Submit bulk cost form — sends PUT for each SR
- */
-async function submitBulkCosts(e) {
-    e.preventDefault();
-
-    const entries = document.querySelectorAll('.bulk-cost-entry');
-    if (entries.length === 0) return;
-
-    const submitBtn = document.querySelector('#bulkCostForm .sr-save-btn');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Zapisywanie...';
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const entry of entries) {
-        const srId = entry.dataset.srId;
-        const costInputs = entry.querySelectorAll('.bulk-order-cost');
-
-        const orderCosts = [];
-        costInputs.forEach(input => {
-            orderCosts.push({
-                order_id: parseInt(input.dataset.orderId),
-                shipping_cost: parseFloat(input.value) || 0
-            });
-        });
-
-        try {
-            const response = await fetch(`/admin/orders/shipping-requests/${srId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken()
-                },
-                body: JSON.stringify({ order_costs: orderCosts })
-            });
-
-            if (response.ok) {
-                successCount++;
-                entry.classList.add('bulk-cost-entry-saved');
-            } else {
-                errorCount++;
-                entry.classList.add('bulk-cost-entry-error');
-            }
-        } catch (error) {
-            errorCount++;
-            entry.classList.add('bulk-cost-entry-error');
-        }
-    }
-
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Zapisz wszystkie';
-    }
-
-    if (errorCount === 0) {
-        closeBulkCostModal();
-        window.location.reload();
-    } else {
-        alert(`Zapisano ${successCount}/${successCount + errorCount} zleceń. ${errorCount} z błędem.`);
-    }
-}
 
 /**
  * Bulk delete requests
@@ -457,6 +310,91 @@ async function createWmsSession(shippingRequestIds) {
 }
 
 // ============================================
+// EKSPORT INPOST
+// ============================================
+
+/**
+ * Buduje plik CSV do masowego nadania w panelu InPost i pobiera go.
+ * Ostrzeżenia (pominięte zlecenia, braki telefonu) pokazujemy osobnym toastem,
+ * bo plik i tak powstaje — admin musi wiedzieć, czego w nim nie ma.
+ */
+async function exportSelectedToInpost() {
+    const ids = getSelectedRequestIds();
+    if (!ids.length) return;
+
+    try {
+        const response = await fetch('/admin/orders/shipping-requests/export-inpost', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ ids })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            window.showToast(data.error || 'Nie udało się przygotować pliku', 'error');
+            return;
+        }
+
+        if (data.exported > 0) {
+            downloadCsv(data.csv, data.filename);
+            window.showToast(
+                `Plik gotowy: ${data.exported} ${pluralizeShipments(data.exported)}`,
+                'success'
+            );
+        } else {
+            window.showToast('Żadne z zaznaczonych zleceń nie nadaje się do eksportu', 'error');
+        }
+
+        if (data.warnings && data.warnings.length) {
+            window.showToast(formatExportWarnings(data.warnings), 'warning', 12000);
+        }
+    } catch (error) {
+        console.error('Error exporting to InPost:', error);
+        window.showToast('Błąd podczas przygotowania pliku', 'error');
+    }
+}
+
+/** BOM pozwala Excelowi poprawnie odczytać polskie znaki. */
+function downloadCsv(csvText, filename) {
+    const blob = new Blob(['﻿' + csvText], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function pluralizeShipments(count) {
+    if (count === 1) return 'przesyłka';
+    const rest = count % 10;
+    const teens = count % 100;
+    if (rest >= 2 && rest <= 4 && (teens < 12 || teens > 14)) return 'przesyłki';
+    return 'przesyłek';
+}
+
+/** Przy dużym zaznaczeniu lista ostrzeżeń bywa długa — skracamy do 5 pozycji. */
+function formatExportWarnings(warnings) {
+    const escape = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
+
+    const shown = warnings.slice(0, 5).map(escape);
+    if (warnings.length > shown.length) {
+        shown.push(`…i ${warnings.length - shown.length} więcej`);
+    }
+    return shown.join('<br>');
+}
+
+// ============================================
 // PRODUCTS TOGGLE
 // ============================================
 
@@ -491,518 +429,49 @@ function getCSRFToken() {
            document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 }
 
-// Current shipping request data
-let currentShippingRequest = null;
-
-/**
- * Open shipping request edit modal
- * @param {number} shippingRequestId - ShippingRequest ID
- */
-async function openShippingRequestModal(shippingRequestId) {
-    const modal = document.getElementById('editShippingRequestModal');
-    if (!modal) return;
-
-    try {
-        // Load shipping request data
-        const response = await fetch(`/admin/orders/shipping-requests/${shippingRequestId}`);
-        if (!response.ok) {
-            throw new Error('Nie udało się załadować danych zlecenia');
-        }
-
-        const data = await response.json();
-        currentShippingRequest = data;
-
-        // Fill modal with data
-        document.getElementById('srModalId').value = data.id;
-        document.getElementById('srModalNumber').textContent = data.request_number;
-
-        // Podgląd pól klienta (read-only)
-        const prefMap = { karton: 'Karton', koperta: 'Koperta' };
-        document.getElementById('srClientPreference').textContent =
-            prefMap[data.client_package_preference] || '—';
-        document.getElementById('srClientNotes').textContent = data.client_notes || '—';
-
-        // Załaduj listę materiałów do selecta i zaznacz aktualny.
-        // Błąd tego fetcha NIE może zablokować otwarcia modalu (osobny try/catch).
-        const matSelect = document.getElementById('srPackagingMaterial');
-        if (matSelect) {
-            matSelect.innerHTML = '<option value="">-- Wybierz materiał --</option>';
-            try {
-                const matResp = await fetch('/api/orders/packaging-materials');
-                const matData = await matResp.json();
-                (matData.materials || []).forEach(m => {
-                    const price = m.sale_price != null ? ` — ${m.sale_price.toFixed(2)} zł` : '';
-                    const size = m.size_display ? ` (${m.size_display})` : '';
-                    const opt = document.createElement('option');
-                    opt.value = m.id;
-                    opt.textContent = `${m.type_display} ${m.name}${size}${price}`;
-                    opt.dataset.salePrice = m.sale_price != null ? m.sale_price : '';
-                    opt.dataset.sizeCategory = m.size_category || '';
-                    matSelect.appendChild(opt);
-                });
-
-                // Jeśli przypisany materiał został zdezaktywowany (nie ma go wśród
-                // aktywnych opcji), dołóż go ręcznie, żeby nie zgubić przypisania.
-                const pm = data.packaging_material;
-                if (pm && !(matData.materials || []).some(m => m.id === pm.id)) {
-                    const price = pm.sale_price != null ? ` — ${pm.sale_price.toFixed(2)} zł` : '';
-                    const size = pm.size_display ? ` (${pm.size_display})` : '';
-                    const opt = document.createElement('option');
-                    opt.value = pm.id;
-                    opt.textContent = `${pm.type_display} ${pm.name}${size}${price} (nieaktywny)`;
-                    opt.dataset.salePrice = pm.sale_price != null ? pm.sale_price : '';
-                    opt.dataset.sizeCategory = pm.size_category || '';
-                    matSelect.appendChild(opt);
-                }
-
-                matSelect.value = data.packaging_material_id || '';
-            } catch (matError) {
-                console.error('Error loading packaging materials:', matError);
-                // Fallback: select zostaje z samą opcją "-- Wybierz materiał --"
-            }
-        }
-
-        // Set total cost
-        const totalCost = data.calculated_shipping_cost || 0;
-        document.getElementById('srTotalCost').value = totalCost > 0 ? totalCost.toFixed(2) : '';
-
-        // Render orders table
-        renderOrdersTable(data.orders);
-
-        // Render address preview
-        renderAddressPreview(data);
-
-        // Shipping section: show only if courier or tracking exist
-        const shippingSection = document.getElementById('srShippingSection');
-        const shippingReadMode = document.getElementById('srShippingReadMode');
-        const shippingEditMode = document.getElementById('srShippingEditMode');
-        const hasCourier = !!data.courier;
-        const hasTracking = !!data.tracking_number;
-        const courierNames = {
-            'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'ups': 'UPS',
-            'fedex': 'FedEx', 'gls': 'GLS', 'pocztex': 'Pocztex',
-            'orlen': 'Orlen Paczka', 'other': 'Inny'
-        };
-        const parcelNames = { 'mini': 'Mini', 'A': 'A - Mały', 'B': 'B - Średni', 'C': 'C - Duży' };
-
-        if (shippingSection) {
-            if (hasCourier || hasTracking) {
-                shippingSection.style.display = '';
-                // Fill read mode texts
-                document.getElementById('srShippingCourierText').textContent = courierNames[data.courier] || data.courier || '—';
-                document.getElementById('srShippingTrackingText').textContent = data.tracking_number || '—';
-                // Parcel size
-                const parcelRow = document.getElementById('srShippingParcelRow');
-                if (data.parcel_size) {
-                    parcelRow.style.display = '';
-                    document.getElementById('srShippingParcelText').textContent = parcelNames[data.parcel_size] || data.parcel_size;
-                } else {
-                    parcelRow.style.display = 'none';
-                }
-                // Show read mode, hide edit mode
-                shippingReadMode.style.display = '';
-                shippingEditMode.style.display = 'none';
-            } else {
-                shippingSection.style.display = 'none';
-            }
-        }
-
-        // Fill edit mode fields (courier, tracking, parcel_size)
-        const courierSelect = document.getElementById('srCourier');
-        if (courierSelect) courierSelect.value = data.courier || '';
-        const trackingInput = document.getElementById('srTracking');
-        if (trackingInput) trackingInput.value = data.tracking_number || '';
-
-        // Handle parcel size field visibility and value
-        const parcelSizeGroup = document.getElementById('srParcelSizeGroup');
-        const parcelSizeSelect = document.getElementById('srParcelSize');
-        if (parcelSizeGroup && parcelSizeSelect) {
-            if (data.address_type === 'pickup_point') {
-                parcelSizeGroup.style.display = 'block';
-                parcelSizeSelect.value = data.parcel_size || '';
-            } else {
-                parcelSizeGroup.style.display = 'none';
-                parcelSizeSelect.value = '';
-            }
-        }
-
-        // Payment deadline
-        const srDeadlineDate = document.getElementById('srPaymentDeadlineDate');
-        const srDeadlineTime = document.getElementById('srPaymentDeadlineTime');
-        if (srDeadlineDate && srDeadlineTime) {
-            if (data.payment_deadline) {
-                const dl = new Date(data.payment_deadline);
-                srDeadlineDate.value = dl.toISOString().split('T')[0];
-                srDeadlineTime.value = dl.toTimeString().slice(0, 5);
-            } else {
-                srDeadlineDate.value = '';
-                srDeadlineTime.value = '23:59';
-            }
-        }
-
-        // Show modal
-        modal.classList.add('active');
-
-    } catch (error) {
-        console.error('Error loading shipping request:', error);
-        alert('Błąd podczas ładowania danych zlecenia');
-    }
-}
-
-/**
- * Close shipping request modal with animation
- */
-function closeShippingRequestModal() {
-    const modal = document.getElementById('editShippingRequestModal');
-    if (!modal || !modal.classList.contains('active')) return;
-
-    // Add closing class to trigger exit animation
-    modal.classList.add('closing');
-
-    // Wait for animation to complete (350ms as defined in modals.css)
-    setTimeout(() => {
-        modal.classList.remove('active', 'closing');
-        currentShippingRequest = null;
-    }, 350);
-}
-
-/**
- * Toggle shipping details between read and edit mode
- */
-function toggleShippingEdit() {
-    const readMode = document.getElementById('srShippingReadMode');
-    const editMode = document.getElementById('srShippingEditMode');
-    const editBtn = document.getElementById('srShippingEditBtn');
-    if (!readMode || !editMode) return;
-
-    const isEditing = editMode.style.display !== 'none';
-    if (isEditing) {
-        // Switch to read mode
-        readMode.style.display = '';
-        editMode.style.display = 'none';
-        if (editBtn) editBtn.classList.remove('active');
-    } else {
-        // Switch to edit mode
-        readMode.style.display = 'none';
-        editMode.style.display = '';
-        if (editBtn) editBtn.classList.add('active');
-    }
-}
-
-/**
- * Render orders table in modal
- */
-function renderOrdersTable(orders) {
-    const tbody = document.getElementById('srOrdersTableBody');
-    if (!tbody) return;
-
-    tbody.innerHTML = '';
-
-    orders.forEach(order => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>
-                <a href="/admin/orders/${order.id}" target="_blank" class="sr-order-link">
-                    ${order.order_number}
-                </a>
-            </td>
-            <td class="text-right">${order.total_amount.toFixed(2)} PLN</td>
-            <td>
-                <div class="sr-cost-input">
-                    <input type="number"
-                           class="form-input order-shipping-cost"
-                           data-order-id="${order.id}"
-                           step="0.01"
-                           min="0"
-                           value="${order.shipping_cost ? order.shipping_cost.toFixed(2) : ''}"
-                           placeholder="0.00"
-                           oninput="updateTotalShippingCost()">
-                    <span class="currency">PLN</span>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-/**
- * Update total shipping cost when individual order costs change
- */
-function updateTotalShippingCost() {
-    const orderInputs = document.querySelectorAll('.order-shipping-cost');
-    let total = 0;
-
-    orderInputs.forEach(input => {
-        const value = parseFloat(input.value) || 0;
-        total += value;
-    });
-
-    const totalCostInput = document.getElementById('srTotalCost');
-    if (totalCostInput) {
-        totalCostInput.value = total > 0 ? total.toFixed(2) : '';
-    }
-}
-
-/**
- * Render address preview
- */
-function renderAddressPreview(data) {
-    const container = document.getElementById('srAddressPreview');
-    if (!container) return;
-
-    let html = '';
-
-    if (data.address_type === 'pickup_point') {
-        html = `
-            <div class="address-type-badge pickup">
-                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                </svg>
-                Paczkomat / Punkt odbioru
-            </div>
-        `;
-        if (data.pickup_courier) html += `<div><strong>${data.pickup_courier}</strong></div>`;
-        if (data.pickup_point_id) html += `<div class="pickup-id">${data.pickup_point_id}</div>`;
-        if (data.pickup_address) html += `<div>${data.pickup_address}</div>`;
-        if (data.pickup_postal_code || data.pickup_city) {
-            html += `<div>${data.pickup_postal_code || ''} ${data.pickup_city || ''}</div>`;
-        }
-    } else {
-        if (data.shipping_name) html += `<div><strong>${data.shipping_name}</strong></div>`;
-        if (data.shipping_address) html += `<div>${data.shipping_address}</div>`;
-        if (data.shipping_postal_code || data.shipping_city) {
-            html += `<div>${data.shipping_postal_code || ''} ${data.shipping_city || ''}</div>`;
-        }
-        if (data.shipping_voivodeship) {
-            html += `<div class="text-muted">woj. ${data.shipping_voivodeship}</div>`;
-        }
-    }
-
-    container.innerHTML = html || '<span class="text-muted">Brak adresu</span>';
-}
-
-/**
- * Distribute total shipping cost equally among orders
- */
-function distributeShippingCost() {
-    const totalCostInput = document.getElementById('srTotalCost');
-    const totalCost = parseFloat(totalCostInput.value) || 0;
-
-    if (totalCost <= 0) {
-        alert('Wprowadź całkowity koszt wysyłki');
-        return;
-    }
-
-    const orderInputs = document.querySelectorAll('.order-shipping-cost');
-    const ordersCount = orderInputs.length;
-
-    if (ordersCount === 0) return;
-
-    // Calculate base cost per order (rounded down to 2 decimal places)
-    const baseCost = Math.floor((totalCost / ordersCount) * 100) / 100;
-
-    // Calculate remainder
-    const remainder = Math.round((totalCost - (baseCost * ordersCount)) * 100) / 100;
-
-    orderInputs.forEach((input, index) => {
-        // Add remainder to the last order
-        const cost = index === ordersCount - 1 ? baseCost + remainder : baseCost;
-        input.value = cost.toFixed(2);
-    });
-}
-
-/**
- * Cancel shipping request
- */
-async function cancelShippingRequest() {
-    if (!currentShippingRequest) return;
-
-    if (!confirm(`Czy na pewno anulować zlecenie ${currentShippingRequest.request_number}?\n\nWszystkie zamówienia zostaną odłączone od tego zlecenia i wrócą do puli dostępnych zamówień klienta.`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/admin/orders/shipping-requests/${currentShippingRequest.id}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            }
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            closeShippingRequestModal();
-            window.location.reload();
-        } else {
-            alert(data.message || data.error || 'Błąd podczas anulowania zlecenia');
-        }
-    } catch (error) {
-        console.error('Error canceling shipping request:', error);
-        alert('Błąd podczas anulowania zlecenia');
-    }
-}
-
-// Form submit handler and event listeners
+// Event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-podstawianie ceny i gabarytu po wyborze materiału opakowaniowego
-    const matSelectEl = document.getElementById('srPackagingMaterial');
-    if (matSelectEl) {
-        matSelectEl.addEventListener('change', function() {
-            const opt = this.options[this.selectedIndex];
-            const salePrice = parseFloat(opt.dataset.salePrice);
-            const size = opt.dataset.sizeCategory;
-            if (!isNaN(salePrice) && salePrice > 0) {
-                document.getElementById('srTotalCost').value = salePrice.toFixed(2);
-                distributeShippingCost();   // rozłóż na zamówienia (istniejąca funkcja)
-            }
-            const parcel = document.getElementById('srParcelSize');
-            if (parcel && size) parcel.value = size;
-        });
-    }
-
-    const form = document.getElementById('editShippingRequestForm');
-    if (form) {
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-
-            if (!currentShippingRequest) return;
-
-            // Collect order shipping costs
-            const orderCosts = [];
-            document.querySelectorAll('.order-shipping-cost').forEach(input => {
-                orderCosts.push({
-                    order_id: parseInt(input.dataset.orderId),
-                    shipping_cost: parseFloat(input.value) || 0
-                });
-            });
-
-            // Payment deadline (required)
-            const srDdEl = document.getElementById('srPaymentDeadlineDate');
-            const srDtEl = document.getElementById('srPaymentDeadlineTime');
-            const srDd = srDdEl.value;
-            const srDt = srDtEl.value;
-
-            if (!srDd || !srDt) {
-                if (!srDd) srDdEl.classList.add('input-error');
-                if (!srDt) srDtEl.classList.add('input-error');
-                alert('Termin płatności za wysyłkę jest wymagany.');
-                return;
-            }
-            srDdEl.classList.remove('input-error');
-            srDtEl.classList.remove('input-error');
-
-            const srDeadlineDt = new Date(`${srDd}T${srDt}`);
-            if (srDeadlineDt <= new Date()) {
-                srDdEl.classList.add('input-error');
-                alert('Termin płatności musi być w przyszłości.');
-                return;
-            }
-
-            const formData = {
-                order_costs: orderCosts,
-                payment_deadline: `${srDd}T${srDt}`
-            };
-
-            // Dołącz packaging_material_id TYLKO gdy select istnieje i ma wybraną
-            // wartość — backend traktuje obecność klucza jako "ustaw/wyczyść", więc
-            // pusty wybór nie może cicho zerować istniejącego przypisania.
-            const packagingMaterialValue = document.getElementById('srPackagingMaterial')?.value;
-            if (packagingMaterialValue) {
-                formData.packaging_material_id = parseInt(packagingMaterialValue) || null;
-            }
-
-            // Only include shipping fields if edit mode is active
-            const shippingEditMode = document.getElementById('srShippingEditMode');
-            if (shippingEditMode && shippingEditMode.style.display !== 'none') {
-                formData.courier = document.getElementById('srCourier').value;
-                formData.tracking_number = document.getElementById('srTracking').value;
-                formData.parcel_size = document.getElementById('srParcelSize')?.value || null;
-            }
-
-            try {
-                const response = await fetch(`/admin/orders/shipping-requests/${currentShippingRequest.id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                if (response.ok) {
-                    closeShippingRequestModal();
-                    window.location.reload();
-                } else {
-                    const data = await response.json();
-                    alert(data.error || 'Błąd podczas zapisywania zmian');
-                }
-            } catch (error) {
-                console.error('Error saving shipping request:', error);
-                alert('Błąd podczas zapisywania zmian');
-            }
-        });
-    }
-
-    // Close modal on Escape
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeShippingRequestModal();
-            closeBulkCostModal();
-        }
-    });
-
-    // Close modal when clicking outside
-    const modal = document.getElementById('editShippingRequestModal');
-    if (modal) {
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeShippingRequestModal();
-            }
-        });
-    }
-
     // ============================================
     // BULK TOOLBAR EVENT LISTENERS
     // ============================================
 
-    // Bulk cost button
-    const bulkCostBtn = document.querySelector('.btn-bulk[data-action="bulk-cost"]');
-    if (bulkCostBtn) {
-        bulkCostBtn.addEventListener('click', openBulkCostModal);
-    }
-
-    // Bulk cost form submit
-    const bulkCostForm = document.getElementById('bulkCostForm');
-    if (bulkCostForm) {
-        bulkCostForm.addEventListener('submit', submitBulkCosts);
-    }
-
-    // Merge button
-    const mergeBtn = document.querySelector('.btn-bulk[data-action="merge"]');
-    if (mergeBtn) {
-        mergeBtn.addEventListener('click', bulkMergeRequests);
-    }
-
-    // WMS button
-    const wmsBtn = document.querySelector('.btn-bulk[data-action="wms"]');
-    if (wmsBtn) {
-        wmsBtn.addEventListener('click', bulkGoToWMS);
-    }
-
-    // Delete button
-    const deleteBtn = document.querySelector('.btn-bulk[data-action="delete"]');
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', bulkDeleteRequests);
-    }
-
-    // Close bulk cost modal when clicking outside
-    const bulkCostModal = document.getElementById('bulkCostModal');
-    if (bulkCostModal) {
-        bulkCostModal.addEventListener('click', function(e) {
-            if (e.target === bulkCostModal) {
-                closeBulkCostModal();
-            }
+    const menuToggle = document.getElementById('bulkMenuToggle');
+    if (menuToggle) {
+        menuToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleBulkMenu();
         });
     }
+
+    // Akcje siedzą w rozwijanym menu; delegacja trzyma je w jednym miejscu.
+    const menuList = document.getElementById('bulkMenuList');
+    if (menuList) {
+        const handlers = {
+            'bulk-cost': () => {
+                const ids = getSelectedRequestIds();
+                if (ids.length) window.openShippingRequestsModal(ids);
+            },
+            'merge': bulkMergeRequests,
+            'wms': bulkGoToWMS,
+            'export-inpost': exportSelectedToInpost,
+            'delete': bulkDeleteRequests,
+        };
+
+        menuList.addEventListener('click', (e) => {
+            const item = e.target.closest('.bulk-menu-item');
+            if (!item || item.disabled) return;
+            closeBulkMenu();
+            const handler = handlers[item.dataset.action];
+            if (handler) handler();
+        });
+    }
+
+    // Zamykanie menu: klik poza paskiem i Escape
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#bulkMenu')) closeBulkMenu();
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeBulkMenu();
+    });
 });

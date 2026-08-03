@@ -1493,11 +1493,17 @@
 }
 
 
-/* ================================================ */
-/* PASEK AKCJI MASOWYCH (pływający na dole ekranu)  */
-/* Element jest w HTML poza .wms-dashboard-page,     */
-/* żeby uniknąć problemów z backdrop-filter i fixed  */
-/* ================================================ */
+/* ================================================================
+   PASEK AKCJI MASOWYCH (pływający na dole ekranu)
+   Element jest w HTML poza .wms-dashboard-page, żeby uniknąć
+   problemów z backdrop-filter i position: fixed.
+
+   To jedyne style paska działające na tej stronie — wms_dashboard.html
+   NIE ładuje css/components/bulk-toolbar.css. Wygląd celowo różni się
+   od tamtego komponentu (mobile: kolumna z pełnymi etykietami zamiast
+   rzędu ikon; dark: jaśniejsze przyciski). Edytując pasek na
+   /admin/orders pamiętaj, że tutaj trzeba zmienić go osobno.
+   ================================================================ */
 
 #bulkToolbar.bulk-toolbar {
     position: fixed;
@@ -1571,57 +1577,6 @@
     background: rgba(244, 67, 54, 0.3);
 }
 
-/* Dropdown statusów w pasku akcji masowych */
-#bulkToolbar .bulk-status-wrapper {
-    position: relative;
-    display: inline-block;
-}
-
-#bulkToolbar .bulk-status-wrapper .dropdown-arrow {
-    margin-left: 0.25rem;
-    transition: transform 0.2s ease;
-}
-
-#bulkToolbar .bulk-status-dropdown {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--card-bg, #fff);
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    padding: 8px;
-    display: none;
-    min-width: 200px;
-    z-index: 1001;
-}
-
-#bulkToolbar .bulk-status-dropdown.show {
-    display: block;
-}
-
-#bulkToolbar .bulk-status-option {
-    padding: 8px 12px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.15s ease;
-    display: flex;
-    align-items: center;
-}
-
-#bulkToolbar .bulk-status-option:hover {
-    background: #f3f4f6;
-}
-
-#bulkToolbar .bulk-status-option .badge {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.75rem;
-    border-radius: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
 /* Przycisk scalania — wyłączony gdy różni klienci */
 #btnBulkMerge:disabled {
     opacity: 0.5;
@@ -1635,16 +1590,6 @@
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(240, 147, 251, 0.2);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(240, 147, 251, 0.1);
-}
-
-[data-theme="dark"] #bulkToolbar .bulk-status-dropdown {
-    background: rgba(30, 30, 40, 0.98);
-    border: 1px solid rgba(240, 147, 251, 0.2);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-}
-
-[data-theme="dark"] #bulkToolbar .bulk-status-option:hover {
-    background: rgba(255, 255, 255, 0.08);
 }
 
 /* Responsive — pasek akcji masowych */
@@ -1995,5 +1940,146 @@
     .sr-search-form .form-input-icon {
         min-width: auto;
         width: 100%;
+    }
+}
+
+/* ====================================================================
+   MENU AKCJI MASOWYCH (pasek zlecen wysylki)
+   Akcje zwiniete pod jeden przycisk "Akcje"; menu otwiera sie W GORE,
+   bo pasek stoi przy dolnej krawedzi ekranu.
+   ==================================================================== */
+
+#bulkToolbar .bulk-menu {
+    position: relative;
+}
+
+#bulkToolbar .bulk-menu-chevron {
+    transition: transform 0.2s;
+}
+
+#bulkToolbar .bulk-menu.open .bulk-menu-chevron {
+    transform: rotate(180deg);
+}
+
+#bulkToolbar .bulk-menu-list {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 250px;
+    padding: 6px;
+    background: #2d0b52;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    animation: bulkMenuIn 0.16s ease-out;
+}
+
+#bulkToolbar .bulk-menu-list[hidden] {
+    display: none;
+}
+
+@keyframes bulkMenuIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#bulkToolbar .bulk-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+#bulkToolbar .bulk-menu-item:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+#bulkToolbar .bulk-menu-item svg {
+    flex: 0 0 auto;
+}
+
+#bulkToolbar .bulk-menu-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+/* Powod blokady widoczny tylko wtedy, gdy akcja jest niedostepna */
+#bulkToolbar .bulk-menu-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+#bulkToolbar .bulk-menu-item:not(:disabled) .bulk-menu-hint {
+    display: none;
+}
+
+#bulkToolbar .bulk-menu-item:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+#bulkToolbar .bulk-menu-item--danger {
+    color: #ffb4b4;
+}
+
+#bulkToolbar .bulk-menu-item--danger:hover:not(:disabled) {
+    background: rgba(244, 67, 54, 0.25);
+}
+
+/* Dark mode */
+[data-theme="dark"] #bulkToolbar .bulk-menu-list {
+    background: rgba(20, 16, 45, 0.98);
+    border-color: rgba(240, 147, 251, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] #bulkToolbar .bulk-menu-item:hover:not(:disabled) {
+    background: rgba(240, 147, 251, 0.18);
+}
+
+[data-theme="dark"] #bulkToolbar .bulk-menu-item--danger:hover:not(:disabled) {
+    background: rgba(248, 113, 113, 0.25);
+}
+
+@media (max-width: 768px) {
+    /* Menu kotwiczymy do paska, nie do przycisku "Akcje" — inaczej
+       dziedziczylo jego szerokosc i etykiety lamaly sie po jednym slowie. */
+    #bulkToolbar .bulk-menu {
+        position: static;
+    }
+
+    #bulkToolbar .bulk-menu-list {
+        left: 0;
+        right: 0;
+        bottom: calc(100% + 8px);
+        min-width: 0;
+    }
+
+    #bulkToolbar .bulk-menu-item {
+        min-height: 44px;
+    }
+
+    #bulkToolbar .bulk-menu-label {
+        min-width: 0;
     }
 }
