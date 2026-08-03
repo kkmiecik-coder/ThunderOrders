@@ -990,6 +990,33 @@ window.handleSlotImageSelect = function(slotNumber, event) {
     reader.readAsDataURL(file);
 };
 
+function assignFileToSlot(slotNumber, file) {
+    const input = document.getElementById(`imageInput${slotNumber}`);
+    if (!input) return;
+
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+
+    handleSlotImageSelect(slotNumber, { target: input });
+
+    if (typeof pendingSlotRemovals !== 'undefined') {
+        pendingSlotRemovals = pendingSlotRemovals.filter(r => r.slot !== slotNumber);
+    }
+}
+
+window.handleSlotImageDrop = function(slotNumber, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.classList.remove('drag-over');
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const files = Array.from(event.dataTransfer.files).filter(f => allowedTypes.includes(f.type));
+    if (files.length === 0) return;
+
+    assignFileToSlot(slotNumber, files[0]);
+};
+
 window.removeSlotImage = function(slotNumber, imageId) {
     const input = document.getElementById(`imageInput${slotNumber}`);
     const uploadLabel = document.getElementById(`uploadLabel${slotNumber}`);

@@ -1075,6 +1075,12 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.image-slot.drag-over {
+  border-color: var(--primary-color);
+  border-style: solid;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
 .slot-number {
   position: absolute;
   top: 8px;
@@ -1539,6 +1545,12 @@
 [data-theme="dark"] .image-slot:hover {
   border-color: #f093fb;
   box-shadow: 0 4px 20px rgba(240, 147, 251, 0.2);
+}
+
+[data-theme="dark"] .image-slot.drag-over {
+  border-color: #f093fb;
+  border-style: solid;
+  box-shadow: 0 4px 20px rgba(240, 147, 251, 0.35);
 }
 
 [data-theme="dark"] .slot-number {
