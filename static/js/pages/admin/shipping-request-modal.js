@@ -368,6 +368,112 @@
         ].join('') || '<span class="text-muted">Brak adresu</span>';
     }
 
+    function bindDetailEvents() {
+        const detail = document.getElementById('srModalDetail');
+
+        detail.addEventListener('input', (e) => {
+            const edits = state.edits.get(state.activeId);
+            if (!edits) return;
+
+            if (e.target.classList.contains('sr-order-cost')) {
+                const orderId = parseInt(e.target.dataset.orderId, 10);
+                edits.orderCosts.set(orderId, parseFloat(e.target.value) || 0);
+                const total = document.getElementById('srTotalCost');
+                if (total) total.value = totalCost(state.activeId) > 0 ? money(totalCost(state.activeId)) : '';
+                refreshStatus();
+                return;
+            }
+
+            if (e.target.id === 'srTracking') { edits.trackingNumber = e.target.value; return; }
+            if (e.target.id === 'srDeadlineDate') { edits.deadlineDate = e.target.value; refreshStatus(); return; }
+            if (e.target.id === 'srDeadlineTime') { edits.deadlineTime = e.target.value; refreshStatus(); return; }
+        });
+
+        detail.addEventListener('change', (e) => {
+            const edits = state.edits.get(state.activeId);
+            if (!edits) return;
+
+            if (e.target.id === 'srParcelSize') { edits.parcelSize = e.target.value; refreshStatus(); return; }
+            if (e.target.id === 'srCourier') { edits.courier = e.target.value; return; }
+            if (e.target.id === 'srPackagingMaterial') {
+                applyMaterial(state.activeId, e.target.options[e.target.selectedIndex]);
+                renderDetail();
+                refreshStatus();
+            }
+        });
+
+        detail.addEventListener('click', (e) => {
+            if (e.target.closest('#srDistribute')) distributeCost(state.activeId);
+        });
+    }
+
+    /** Materiał podstawia cenę (z rozłożeniem) i gabaryt — obie wartości można potem nadpisać. */
+    function applyMaterial(id, option) {
+        const edits = state.edits.get(id);
+        if (!edits || !option) return;
+
+        edits.packagingMaterialId = option.value || '';
+        const size = option.dataset.sizeCategory;
+        if (size) edits.parcelSize = size;
+
+        const price = parseFloat(option.dataset.salePrice);
+        if (!isNaN(price) && price > 0) spreadCost(id, price);
+    }
+
+    /** Rozkłada kwotę równo na zamówienia; resztę z zaokrąglenia dostaje pierwsze. */
+    function spreadCost(id, total) {
+        const edits = state.edits.get(id);
+        const orderIds = Array.from(edits.orderCosts.keys());
+        if (!orderIds.length) return;
+
+        const base = Math.floor((total / orderIds.length) * 100) / 100;
+        const remainder = Math.round((total - base * orderIds.length) * 100) / 100;
+        orderIds.forEach((orderId, index) => {
+            edits.orderCosts.set(orderId, index === 0 ? base + remainder : base);
+        });
+    }
+
+    function distributeCost(id) {
+        const input = document.getElementById('srTotalCost');
+        const total = parseFloat(input.value) || 0;
+        if (total <= 0) {
+            notify('Wpisz koszt całkowity, zanim go rozłożysz', 'error');
+            return;
+        }
+        spreadCost(id, total);
+        renderDetail();
+        refreshStatus();
+    }
+
+    function refreshStatus() {
+        renderList();
+        renderProgress();
+    }
+
+    function bindListEvents() {
+        document.getElementById('srModalList').addEventListener('click', (e) => {
+            const item = e.target.closest('.sr-list-item');
+            if (!item) return;
+            state.activeId = item.dataset.srId;
+            renderList();
+            renderDetail();
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!document.getElementById('editShippingRequestModal')) return;
+        bindDetailEvents();
+        bindListEvents();
+        document.getElementById('srModalCloseX').addEventListener('click', closeModal);
+        document.getElementById('srModalCloseBtn').addEventListener('click', closeModal);
+        document.getElementById('editShippingRequestModal').addEventListener('click', (e) => {
+            if (e.target.id === 'editShippingRequestModal') closeModal();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    });
+
     window.openShippingRequestsModal = openShippingRequestsModal;
     window.openShippingRequestModal = (id) => openShippingRequestsModal([id]);
     window.closeShippingRequestModal = closeModal;
