@@ -1015,7 +1015,40 @@ window.handleSlotImageDrop = function(slotNumber, event) {
     if (files.length === 0) return;
 
     assignFileToSlot(slotNumber, files[0]);
+
+    if (files.length > 1) {
+        distributeExtraSlotImages(slotNumber, files.slice(1));
+    }
 };
+
+function distributeExtraSlotImages(droppedSlot, files) {
+    const grid = document.querySelector('.image-slots-grid');
+    if (!grid) return;
+
+    const freeSlots = Array.from(grid.querySelectorAll('.image-slot'))
+        .map(el => parseInt(el.dataset.slot, 10))
+        .filter(s => s !== droppedSlot)
+        .sort((a, b) => a - b)
+        .filter(s => {
+            const uploadLabel = document.getElementById(`uploadLabel${s}`);
+            return uploadLabel && uploadLabel.style.display !== 'none';
+        });
+
+    let assigned = 0;
+    for (const s of freeSlots) {
+        if (assigned >= files.length) break;
+        assignFileToSlot(s, files[assigned]);
+        assigned++;
+    }
+
+    const skipped = files.length - assigned;
+    if (skipped > 0 && typeof window.showToast === 'function') {
+        window.showToast(
+            `Pominięto ${skipped} ${skipped === 1 ? 'zdjęcie' : 'zdjęć'} — brak wolnych slotów na zdjęcia.`,
+            'warning'
+        );
+    }
+}
 
 window.removeSlotImage = function(slotNumber, imageId) {
     const input = document.getElementById(`imageInput${slotNumber}`);
