@@ -1780,14 +1780,29 @@
     border-left: 3px solid #10B981;
 }
 
+/* Wyszukiwarka i paginacja trzymają się razem po prawej stronie paska */
+.sr-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 /* Pagination */
 .pagination-wrapper {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
     gap: var(--space-3);
     margin-top: var(--space-5);
     padding: var(--space-3) 0;
+}
+
+/* Wariant w pasku nad listą — bez własnych marginesów */
+.pagination-wrapper-compact {
+    margin-top: 0;
+    padding: 0;
 }
 
 .pagination {
