@@ -15,9 +15,20 @@
         ids: [],
         data: new Map(),      // id -> odpowiedź GET
         edits: new Map(),     // id -> zmiany użytkownika
+        saveResults: new Map(), // id -> 'saved' | 'save-failed' (po próbie zapisu)
         materials: [],
         activeId: null,
     };
+
+    // Pola podświetlane klasą input-error dla poszczególnych braków.
+    const ISSUE_FIELDS = {
+        parcelSize: ['srParcelSize'],
+        cost: ['srTotalCost'],
+        deadline: ['srDeadlineDate', 'srDeadlineTime'],
+    };
+
+    let closeTimer = null;   // timeout sprzątający po animacji zamknięcia
+    let loadToken = 0;       // rozpoznaje, czy trwające pobieranie dotyczy jeszcze otwartego modala
 
     function csrfToken() {
         const meta = document.querySelector('meta[name="csrf-token"]');
@@ -62,7 +73,15 @@
             packagingMaterialId: sr.packaging_material_id || '',
             courier: sr.courier || '',
             trackingNumber: sr.tracking_number || '',
+            // Ręcznie wpisana kwota całkowita; null = pole pochodne (suma kosztów zamówień).
+            totalDraft: null,
         };
+    }
+
+    /** Numer zlecenia do komunikatów — dane mogą już nie być w pamięci. */
+    function requestNumber(id) {
+        const sr = state.data.get(id);
+        return (sr && sr.request_number) || `#${id}`;
     }
 
     function totalCost(id) {
@@ -88,9 +107,19 @@
         const modal = document.getElementById('editShippingRequestModal');
         if (!modal || !ids || !ids.length) return;
 
-        state.ids = ids.map(String);
+        // Zaległe sprzątanie po zamknięciu nie może zamknąć świeżo otwartego modala.
+        if (closeTimer) {
+            clearTimeout(closeTimer);
+            closeTimer = null;
+        }
+        modal.classList.remove('closing');
+
+        const token = ++loadToken;
+        const requested = ids.map(String);
+        state.ids = requested;
         state.data.clear();
         state.edits.clear();
+        state.saveResults.clear();
         state.activeId = null;
 
         const detail = document.getElementById('srModalDetail');
@@ -99,17 +128,39 @@
 
         const [materials, responses] = await Promise.all([
             fetchMaterials(),
-            Promise.all(state.ids.map(id =>
-                fetch(`/admin/orders/shipping-requests/${id}`).then(r => r.json())
+            Promise.all(requested.map(id =>
+                fetch(`/admin/orders/shipping-requests/${id}`)
+                    .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+                    .catch(error => {
+                        console.error('Nie udało się pobrać zlecenia', id, error);
+                        return null;   // zlecenie odpada, reszta modala działa dalej
+                    })
             )),
         ]);
 
+        // Modal zamknięty albo otwarty ponownie z innym zestawem — porzuć wynik.
+        if (token !== loadToken) return;
+
         state.materials = materials;
+        const loaded = [];
         responses.forEach(sr => {
-            state.data.set(String(sr.id), sr);
-            state.edits.set(String(sr.id), initEdits(sr));
+            if (!sr || sr.id == null) return;
+            const id = String(sr.id);
+            state.data.set(id, sr);
+            state.edits.set(id, initEdits(sr));
+            loaded.push(id);
         });
 
+        if (!loaded.length) {
+            notify('Nie udało się pobrać danych zlecenia', 'error');
+            closeModal();
+            return;
+        }
+        if (loaded.length < requested.length) {
+            notify(`Nie udało się pobrać ${requested.length - loaded.length} z ${requested.length} zleceń`, 'error');
+        }
+
+        state.ids = loaded;
         state.activeId = state.ids[0];
         renderHeader();
         renderList();
@@ -118,13 +169,16 @@
 
     function closeModal() {
         const modal = document.getElementById('editShippingRequestModal');
-        if (!modal || !modal.classList.contains('active')) return;
+        if (!modal || !modal.classList.contains('active') || closeTimer) return;
+        loadToken++;   // trwające pobieranie nie wypełni już zamykanego modala
         modal.classList.add('closing');
-        setTimeout(() => {
+        closeTimer = setTimeout(() => {
+            closeTimer = null;
             modal.classList.remove('active', 'closing');
             state.ids = [];
             state.data.clear();
             state.edits.clear();
+            state.saveResults.clear();
             state.activeId = null;
         }, 350);
     }
@@ -172,7 +226,13 @@
 
     function renderList() {
         const list = document.getElementById('srModalList');
-        if (list.hidden) return;
+        if (!list) return;
+        // Licznik żyje w stopce, więc musi być odświeżony także w trybie jednego zlecenia.
+        renderProgress();
+        if (list.hidden) {
+            list.innerHTML = '';
+            return;
+        }
 
         list.innerHTML = state.ids.map(id => {
             const sr = state.data.get(id);
@@ -183,8 +243,9 @@
             const client = sr.shipping_name || sr.pickup_city || '';
             const parcel = edits.parcelSize ? PARCEL_LABELS[edits.parcelSize] : 'brak gabarytu';
             const cost = totalCost(id);
+            const saveResult = state.saveResults.get(id);
             return `
-                <button type="button" class="sr-list-item${id === state.activeId ? ' active' : ''}${ready ? ' ready' : ' incomplete'}"
+                <button type="button" class="sr-list-item${id === state.activeId ? ' active' : ''}${ready ? ' ready' : ' incomplete'}${saveResult ? ' ' + saveResult : ''}"
                         data-sr-id="${id}">
                     <span class="sr-list-mark" aria-hidden="true">${ready ? '✓' : '!'}</span>
                     <span class="sr-list-body">
@@ -195,27 +256,66 @@
                 </button>
             `;
         }).join('');
-
-        renderProgress();
     }
 
     function renderProgress() {
         const progress = document.getElementById('srModalProgress');
+        if (!progress) return;
         const ready = state.ids.filter(isReady).length;
         progress.textContent = state.ids.length > 1
             ? `Gotowe ${ready} z ${state.ids.length}`
             : '';
     }
 
-    /** Zlecenie gotowe = gabaryt + koszt > 0 + termin (poza już opłaconymi). */
-    function isReady(id) {
+    /**
+     * Braki blokujące zapis jednego zlecenia — jedno źródło prawdy dla znacznika
+     * na liście i dla walidacji zapisu. Zwraca null, gdy zlecenia nie ma w pamięci.
+     */
+    function requestIssues(id) {
         const sr = state.data.get(id);
         const edits = state.edits.get(id);
-        if (!sr || !edits) return false;
-        if (!edits.parcelSize) return false;
-        if (totalCost(id) <= 0) return false;
-        if (sr.status !== 'oplacone' && !(edits.deadlineDate && edits.deadlineTime)) return false;
-        return true;
+        if (!sr || !edits) return null;
+
+        const issues = [];
+        if (!edits.parcelSize) issues.push('parcelSize');
+        if (totalCost(id) <= 0) issues.push('cost');
+
+        if (sr.status !== 'oplacone') {   // opłacone zlecenie nie potrzebuje już terminu
+            const hasDeadline = edits.deadlineDate && edits.deadlineTime;
+            const past = hasDeadline
+                && new Date(`${edits.deadlineDate}T${edits.deadlineTime}`) <= new Date();
+            if (!hasDeadline || past) issues.push('deadline');
+        }
+        return issues;
+    }
+
+    /** Zlecenie gotowe = gabaryt + koszt > 0 + termin w przyszłości (poza już opłaconymi). */
+    function isReady(id) {
+        const issues = requestIssues(id);
+        return !!issues && issues.length === 0;
+    }
+
+    /** Podświetla pola z brakami w panelu szczegółów aktywnego zlecenia. */
+    function markInvalidFields(id) {
+        const issues = requestIssues(id) || [];
+        issues.forEach(issue => {
+            (ISSUE_FIELDS[issue] || []).forEach(fieldId => {
+                const el = document.getElementById(fieldId);
+                if (el) el.classList.add('input-error');
+            });
+        });
+    }
+
+    /** Zdejmuje podświetlenie z pól, których brak użytkownik już usunął (nigdy go nie dodaje). */
+    function clearFixedFieldErrors(id) {
+        const issues = requestIssues(id) || [];
+        Object.keys(ISSUE_FIELDS).forEach(issue => {
+            if (issues.indexOf(issue) !== -1) return;
+            ISSUE_FIELDS[issue].forEach(fieldId => {
+                const el = document.getElementById(fieldId);
+                if (el) el.classList.remove('input-error');
+            });
+        });
     }
 
     function renderDetail() {
@@ -261,7 +361,7 @@
                         <label class="form-label" for="srTotalCost">Koszt całkowity</label>
                         <div class="sr-cost-input">
                             <input type="number" id="srTotalCost" class="form-control" step="0.01" min="0"
-                                   placeholder="0.00" value="${totalCost(id) > 0 ? money(totalCost(id)) : ''}">
+                                   placeholder="0.00" value="">
                             <span class="currency">PLN</span>
                             <button type="button" class="btn btn-sm btn-secondary" id="srDistribute">Rozłóż</button>
                         </div>
@@ -331,10 +431,18 @@
             </section>
         `;
 
-        // Wartość tracking ustawiamy właściwością, nie w atrybucie — escapeHtml nie
+        // Wartości ustawiamy właściwością, nie w atrybucie — escapeHtml nie
         // escapuje cudzysłowu, więc numer z " rozbiłby atrybut value.
         const trackingEl = document.getElementById('srTracking');
         if (trackingEl) trackingEl.value = edits.trackingNumber || '';
+
+        // Ręcznie wpisana kwota przeżywa przerysowanie; bez niej pole jest pochodne.
+        const totalEl = document.getElementById('srTotalCost');
+        if (totalEl) {
+            totalEl.value = edits.totalDraft != null
+                ? edits.totalDraft
+                : (totalCost(id) > 0 ? money(totalCost(id)) : '');
+        }
 
         renderDetailMaterials(sr, edits);
     }
@@ -383,22 +491,35 @@
             if (e.target.classList.contains('sr-order-cost')) {
                 const orderId = parseInt(e.target.dataset.orderId, 10);
                 edits.orderCosts.set(orderId, parseFloat(e.target.value) || 0);
+                edits.totalDraft = null;   // ręczny koszt zamówienia wraca pole całkowite do roli pochodnej
                 const total = document.getElementById('srTotalCost');
                 if (total) total.value = totalCost(state.activeId) > 0 ? money(totalCost(state.activeId)) : '';
                 refreshStatus();
+                clearFixedFieldErrors(state.activeId);
                 return;
             }
 
+            if (e.target.id === 'srTotalCost') { edits.totalDraft = e.target.value; return; }
             if (e.target.id === 'srTracking') { edits.trackingNumber = e.target.value; return; }
-            if (e.target.id === 'srDeadlineDate') { edits.deadlineDate = e.target.value; refreshStatus(); return; }
-            if (e.target.id === 'srDeadlineTime') { edits.deadlineTime = e.target.value; refreshStatus(); return; }
+            if (e.target.id === 'srDeadlineDate' || e.target.id === 'srDeadlineTime') {
+                if (e.target.id === 'srDeadlineDate') edits.deadlineDate = e.target.value;
+                else edits.deadlineTime = e.target.value;
+                refreshStatus();
+                clearFixedFieldErrors(state.activeId);
+                return;
+            }
         });
 
         detail.addEventListener('change', (e) => {
             const edits = state.edits.get(state.activeId);
             if (!edits) return;
 
-            if (e.target.id === 'srParcelSize') { edits.parcelSize = e.target.value; refreshStatus(); return; }
+            if (e.target.id === 'srParcelSize') {
+                edits.parcelSize = e.target.value;
+                refreshStatus();
+                clearFixedFieldErrors(state.activeId);
+                return;
+            }
             if (e.target.id === 'srCourier') { edits.courier = e.target.value; return; }
             if (e.target.id === 'srPackagingMaterial') {
                 applyMaterial(state.activeId, e.target.options[e.target.selectedIndex]);
@@ -436,11 +557,13 @@
         orderIds.forEach((orderId, index) => {
             edits.orderCosts.set(orderId, index === 0 ? base + remainder : base);
         });
+        // Po rozłożeniu (Rozłóż, materiał, pasek zbiorczy) kwota całkowita znów jest pochodna.
+        edits.totalDraft = null;
     }
 
     function distributeCost(id) {
         const input = document.getElementById('srTotalCost');
-        const total = parseFloat(input.value) || 0;
+        const total = parseFloat(input ? input.value : '') || 0;
         if (total <= 0) {
             notify('Wpisz koszt całkowity, zanim go rozłożysz', 'error');
             return;
@@ -451,8 +574,7 @@
     }
 
     function refreshStatus() {
-        renderList();
-        renderProgress();
+        renderList();   // renderList odświeża też licznik w stopce
     }
 
     function bindListEvents() {
@@ -472,11 +594,12 @@
             const materialSelect = document.getElementById('srBulkMaterial');
             const parcelSize = document.getElementById('srBulkParcelSize').value;
 
-            const materialOption = materialSelect.value
+            // Nazwa lokalna nie może przysłaniać modułowej funkcji materialOption().
+            const selectedMaterial = materialSelect.value
                 ? materialSelect.options[materialSelect.selectedIndex]
                 : null;
 
-            if (!date && !materialOption && !parcelSize) {
+            if (!date && !selectedMaterial && !parcelSize) {
                 notify('Wypełnij choć jedno pole, żeby ustawić je we wszystkich zleceniach', 'error');
                 return;
             }
@@ -485,7 +608,7 @@
                 const edits = state.edits.get(id);
                 if (!edits) return;
                 if (date) { edits.deadlineDate = date; edits.deadlineTime = time || '23:59'; }
-                if (materialOption) applyMaterial(id, materialOption);
+                if (selectedMaterial) applyMaterial(id, selectedMaterial);
                 if (parcelSize) edits.parcelSize = parcelSize;   // jawny gabaryt wygrywa z materiałem
             });
 
@@ -495,28 +618,20 @@
         });
     }
 
-    /** Zwraca listę numerów zleceń, które blokują zapis. */
+    /** Zwraca listę id zleceń, które blokują zapis (ten sam warunek co znacznik na liście). */
     function validate() {
         const blocking = [];
         state.ids.forEach(id => {
-            const sr = state.data.get(id);
-            const edits = state.edits.get(id);
-            if (!sr || !edits) return;
-
-            const needsDeadline = sr.status !== 'oplacone';
-            const hasDeadline = edits.deadlineDate && edits.deadlineTime;
-            let invalid = !edits.parcelSize || totalCost(id) <= 0 || (needsDeadline && !hasDeadline);
-
-            if (!invalid && needsDeadline && new Date(`${edits.deadlineDate}T${edits.deadlineTime}`) <= new Date()) {
-                invalid = true;
-            }
-            if (invalid) blocking.push(id);
+            const issues = requestIssues(id);
+            if (!issues) return;   // brak danych = nie ma czego zapisywać
+            if (issues.length) blocking.push(id);
         });
         return { ok: blocking.length === 0, blocking };
     }
 
     function payloadFor(id) {
         const edits = state.edits.get(id);
+        if (!edits) return null;   // modal zamknięty w trakcie zapisu
         const payload = {
             order_costs: Array.from(edits.orderCosts.entries())
                 .map(([orderId, cost]) => ({ order_id: orderId, shipping_cost: parseFloat(cost) || 0 })),
@@ -540,7 +655,8 @@
             state.activeId = blocking[0];
             renderList();
             renderDetail();
-            const numbers = blocking.map(id => state.data.get(id).request_number).join(', ');
+            markInvalidFields(state.activeId);
+            const numbers = blocking.map(requestNumber).join(', ');
             notify(`Uzupełnij gabaryt i termin płatności: ${numbers}`, 'error');
             return;
         }
@@ -550,17 +666,26 @@
         saveBtn.textContent = 'Zapisywanie…';
 
         const failed = [];
+        state.saveResults.clear();
         for (const id of state.ids) {
+            const payload = payloadFor(id);
+            if (!payload) {
+                failed.push(id);
+                state.saveResults.set(id, 'save-failed');
+                continue;
+            }
             try {
                 const resp = await fetch(`/admin/orders/shipping-requests/${id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() },
-                    body: JSON.stringify(payloadFor(id)),
+                    body: JSON.stringify(payload),
                 });
                 if (!resp.ok) failed.push(id);
+                state.saveResults.set(id, resp.ok ? 'saved' : 'save-failed');
             } catch (error) {
                 console.error('Błąd zapisu zlecenia', id, error);
                 failed.push(id);
+                state.saveResults.set(id, 'save-failed');
             }
         }
 
@@ -572,7 +697,8 @@
             window.location.reload();
             return;
         }
-        const numbers = failed.map(id => state.data.get(id).request_number).join(', ');
+        renderList();   // pozycje dostają klasy saved / save-failed
+        const numbers = failed.map(requestNumber).join(', ');
         notify(`Nie zapisano: ${numbers}`, 'error');
     }
 
