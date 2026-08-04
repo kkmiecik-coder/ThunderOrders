@@ -596,6 +596,50 @@
 </script>
 {% endif %}
 
+{% if current_user.role == 'admin' %}
+<!-- ===== Modal masowego anulowania zamówień ===== -->
+<div id="cancelOrdersModal" class="modal-overlay">
+    <div class="modal-content cancel-orders-modal">
+        <div class="modal-header">
+            <h2>Anulowanie zamówień</h2>
+            <button type="button" class="modal-close" data-close-cancel-orders aria-label="Zamknij">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="cancel-orders-lead">
+                Anulujesz <strong id="cancelTotalCount">0</strong> <span id="cancelTotalLabel">zamówień</span>:
+            </p>
+            <ul class="cancel-orders-breakdown">
+                <li>
+                    <strong id="cancelUnpaidCount">0</strong> nieopłaconych &rarr;
+                    <span class="cancel-status-pill cancel-status-cancelled">Anulowane</span>
+                </li>
+                <li>
+                    <strong id="cancelPaidCount">0</strong> opłaconych &rarr;
+                    <span class="cancel-status-pill cancel-status-refund">Do Zwrotu</span>
+                </li>
+            </ul>
+            <div id="cancelShippedWarning" class="cancel-orders-warning" style="display: none;"></div>
+            <label class="cancel-orders-label" for="cancelReason">Powód anulowania</label>
+            <textarea id="cancelReason" class="cancel-orders-reason" rows="3" maxlength="500"
+                      placeholder="np. Produkt wyprzedany u dostawcy"></textarea>
+            <div id="cancelReasonError" class="cancel-orders-error" style="display: none;"></div>
+            <label class="cancel-orders-checkbox">
+                <input type="checkbox" id="cancelNotify" checked>
+                <span>Powiadom klientów mailem i powiadomieniem</span>
+            </label>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-close-cancel-orders>Anuluj operację</button>
+            <button type="button" id="cancelOrdersSubmit" class="btn btn-danger">Potwierdzam</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.CANCEL_ORDERS_URL = "{{ url_for('admin.offers_cancel_orders', page_id=page.id) }}";
+</script>
+{% endif %}
+
 <script>
     window.SUMMARY_ORDERS = {{ orders_json|safe }};
     window.INCLUDE_FINANCIALS = {{ include_financials|tojson }};
@@ -612,5 +656,8 @@
 <script src="{{ url_for('static', filename='js/pages/admin/offer-summary.js') }}"></script>
 {% if page.page_type == 'preorder' and page.is_fully_closed and current_user.role in ['admin', 'mod'] %}
 <script src="{{ url_for('static', filename='js/pages/admin/offer-extra-order.js') }}"></script>
+{% endif %}
+{% if current_user.role == 'admin' %}
+<script src="{{ url_for('static', filename='js/pages/admin/offer-cancel-orders.js') }}"></script>
 {% endif %}
 {% endblock %}
