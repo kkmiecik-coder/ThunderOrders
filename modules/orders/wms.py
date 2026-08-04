@@ -516,7 +516,20 @@ def wms_create_session():
         # Powrót spakowanego zlecenia — cofnięcie musi się wydarzyć przed założeniem sesji,
         # żeby sesja widziała zamówienia już w stanie roboczym.
         if reopen_mode:
-            reopen_orders_for_wms(valid_orders, reopen_mode, sr_objects)
+            # sr_objects zawiera tylko zlecenia przekazane wprost przez shipping_request_ids.
+            # Jeśli żądanie cofa zamówienia podane samymi order_ids (bez shipping_request_ids),
+            # musimy doszukać ich zleceń przez Order.shipping_request — inaczej zlecenie
+            # zostałoby w statusie "spakowane", mimo że jego zamówienia wróciły do zbierania.
+            # Nie "upraszczać" z powrotem do samego sr_objects.
+            reopen_sr_objects = list(sr_objects)
+            reopen_sr_ids = {sr.id for sr in reopen_sr_objects}
+            for order in valid_orders:
+                order_sr = order.shipping_request
+                if order_sr and order_sr.id not in reopen_sr_ids:
+                    reopen_sr_objects.append(order_sr)
+                    reopen_sr_ids.add(order_sr.id)
+
+            reopen_orders_for_wms(valid_orders, reopen_mode, reopen_sr_objects)
             log_activity(
                 user=current_user,
                 action='wms_session_reopened',

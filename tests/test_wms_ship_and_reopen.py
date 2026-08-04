@@ -272,3 +272,20 @@ def test_reopen_rejects_unknown_mode(client, db, make_user, make_order, login):
     assert r.status_code == 400
     db.session.refresh(orders[0])
     assert orders[0].status == 'spakowane'
+
+
+def test_reopen_by_order_ids_also_resets_shipping_request(client, db, make_user, make_order, login):
+    """Cofnięcie przez same order_ids (bez shipping_request_ids) musi też cofnąć
+    status zlecenia wysyłki — inaczej zlecenie zostaje 'spakowane', mimo że jego
+    zamówienia wróciły do zbierania."""
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+
+    r = client.post('/admin/orders/wms/create-session',
+                    json={'order_ids': [orders[0].id], 'reopen_mode': 'full'})
+
+    assert r.status_code == 200
+    db.session.refresh(sr); db.session.refresh(orders[0])
+    assert orders[0].status == 'dostarczone_gom'
+    assert sr.status == 'oplacone'
