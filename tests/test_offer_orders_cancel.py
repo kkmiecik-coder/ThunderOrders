@@ -236,3 +236,109 @@ def test_mieszana_paczka_zamowien(db, make_user, make_order, make_page, make_con
     assert nieoplacone_2.status == 'anulowane'
     assert oplacone.status == 'do_zwrotu'
     assert juz_anulowane.status == 'anulowane'
+
+
+def _przechwyc_wysylke(monkeypatch):
+    """Podmienia batch mailowy i push — zwraca listę przechwyconych paczek maili."""
+    from utils.push_manager import PushManager
+
+    wyslane = []
+    monkeypatch.setattr('utils.email_sender.send_email_batch', lambda msgs: wyslane.append(msgs))
+    monkeypatch.setattr(
+        PushManager, 'notify_order_cancelled',
+        lambda order, refund_pending=False: None,
+        raising=False,
+    )
+    return wyslane
+
+
+def test_notify_false_nie_wysyla_nic(db, make_user, make_order, make_page, monkeypatch):
+    from utils.offer_closure import cancel_offer_orders
+
+    wyslane = _przechwyc_wysylke(monkeypatch)
+
+    admin = make_user(role='admin')
+    page = make_page()
+    order = make_order(make_user(), status='oczekujace', offer_page_id=page.id)
+
+    result = cancel_offer_orders(page.id, [order.id], 'Wyprzedane', admin.id, notify=False)
+
+    assert wyslane == []
+    assert result['notified'] == 0
+
+
+def test_notify_true_wysyla_jeden_batch(app, db, make_user, make_order, make_page, monkeypatch):
+    """Wszystkie maile idą jedną paczką — jedno połączenie SMTP."""
+    from utils.offer_closure import cancel_offer_orders
+
+    wyslane = _przechwyc_wysylke(monkeypatch)
+
+    admin = make_user(role='admin')
+    page = make_page()
+    o1 = make_order(make_user(email='a@example.com'), status='oczekujace', offer_page_id=page.id)
+    o2 = make_order(make_user(email='b@example.com'), status='oczekujace', offer_page_id=page.id)
+
+    # Szablony maili renderują się w kontekście żądania (tak jak w produkcji,
+    # gdzie anulowanie leci z endpointu).
+    with app.test_request_context():
+        result = cancel_offer_orders(page.id, [o1.id, o2.id], 'Wyprzedane', admin.id, notify=True)
+
+    assert len(wyslane) == 1
+    assert len(wyslane[0]) == 2
+    assert result['notified'] == 2
+
+
+def test_mail_o_zwrocie_ma_inny_temat_i_tresc(
+    app, db, make_user, make_order, make_page, make_confirmation, monkeypatch
+):
+    from utils.offer_closure import cancel_offer_orders
+
+    wyslane = _przechwyc_wysylke(monkeypatch)
+
+    admin = make_user(role='admin')
+    page = make_page()
+    order = make_order(make_user(email='c@example.com'), status='oczekujace', offer_page_id=page.id)
+    make_confirmation(order, status='approved')
+
+    with app.test_request_context():
+        cancel_offer_orders(page.id, [order.id], 'Wyprzedane', admin.id, notify=True)
+
+    msg = wyslane[0][0]
+    assert 'zwrot' in msg.subject.lower()
+    assert 'zwrócona' in msg.html or 'zwrotu' in msg.html
+
+
+def test_mail_o_anulowaniu_bez_wplaty_nie_obiecuje_zwrotu(
+    app, db, make_user, make_order, make_page, monkeypatch
+):
+    from utils.offer_closure import cancel_offer_orders
+
+    wyslane = _przechwyc_wysylke(monkeypatch)
+
+    admin = make_user(role='admin')
+    page = make_page()
+    order = make_order(make_user(email='d@example.com'), status='oczekujace', offer_page_id=page.id)
+
+    with app.test_request_context():
+        cancel_offer_orders(page.id, [order.id], 'Wyprzedane', admin.id, notify=True)
+
+    msg = wyslane[0][0]
+    assert 'zwrot' not in msg.subject.lower()
+    assert 'Wyprzedane' in msg.html
+
+
+def test_pominiete_zamowienia_nie_dostaja_maila(db, make_user, make_order, make_page, monkeypatch):
+    from utils.offer_closure import cancel_offer_orders
+
+    wyslane = _przechwyc_wysylke(monkeypatch)
+
+    admin = make_user(role='admin')
+    page = make_page()
+    juz_anulowane = make_order(
+        make_user(email='e@example.com'), status='anulowane', offer_page_id=page.id
+    )
+
+    result = cancel_offer_orders(page.id, [juz_anulowane.id], 'Wyprzedane', admin.id, notify=True)
+
+    assert wyslane == []
+    assert result['notified'] == 0

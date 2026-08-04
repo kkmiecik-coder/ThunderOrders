@@ -548,6 +548,28 @@ class PushManager:
         )
 
     @staticmethod
+    def notify_order_cancelled(order, refund_pending=False):
+        """Push: zamówienie anulowane z podsumowania zbiórki."""
+        user_id = order.user_id
+        if not user_id:
+            return
+
+        from flask import url_for
+        body = (
+            'Zamówienie anulowane. Twoja wpłata zostanie zwrócona.'
+            if refund_pending
+            else 'Zamówienie anulowane. Nie masz nic do zapłaty.'
+        )
+        PushManager._fire_and_forget(
+            user_id=user_id,
+            title=f'Anulowano: {order.order_number}',
+            body=body,
+            url=url_for('orders.client_detail', order_id=order.id, _external=True),
+            tag=f'order-cancelled-{order.id}',
+            notification_type='order_status_changes'
+        )
+
+    @staticmethod
     def notify_supplier_ordered(order):
         """Push: zam\u00f3wienie zosta\u0142o zam\u00f3wione u dostawcy."""
         user_id = order.user_id
