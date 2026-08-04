@@ -274,6 +274,52 @@ def test_reopen_rejects_unknown_mode(client, db, make_user, make_order, login):
     assert orders[0].status == 'spakowane'
 
 
+def test_ship_with_tracking_without_courier(client, db, make_user, make_order, login, notifications):
+    """Numer przesyłki bez kuriera — nie wolno wywalić się na NOT NULL, dostaje
+    kuriera zastępczego 'other', widoczny zarówno na zleceniu jak i na przesyłce."""
+    from modules.orders.models import OrderShipment
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'tracking_number': 'NOCOURIER1'})
+
+    assert r.status_code == 200
+    db.session.refresh(sr)
+    assert sr.courier == 'other'
+    shipments = OrderShipment.query.filter_by(tracking_number='NOCOURIER1').all()
+    assert len(shipments) == len(orders)
+    assert all(s.courier == 'other' for s in shipments)
+    assert sorted(notifications['tracking']) == sorted(o.id for o in orders)
+
+
+def test_ship_failure_leaves_nothing_changed(client, db, make_user, make_order, login,
+                                             notifications, monkeypatch):
+    """Gdy zapis wpisu przesyłki się wywali, statusy nie mogą zostać w połowie
+    zmienione — albo wszystko wchodzi razem, albo nic."""
+    from modules.orders.models import OrderShipment
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+
+    def boom(self, *args, **kwargs):
+        raise RuntimeError('symulowany blad zapisu')
+
+    monkeypatch.setattr(OrderShipment, '__init__', boom)
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'tracking_number': 'WILLFAIL'})
+
+    assert r.status_code == 500
+    db.session.refresh(sr)
+    assert sr.status == 'spakowane'
+    for o in orders:
+        db.session.refresh(o)
+        assert o.status != 'wyslane'
+    assert OrderShipment.query.count() == 0
+
+
 def test_reopen_by_order_ids_also_resets_shipping_request(client, db, make_user, make_order, login):
     """Cofnięcie przez same order_ids (bez shipping_request_ids) musi też cofnąć
     status zlecenia wysyłki — inaczej zlecenie zostaje 'spakowane', mimo że jego

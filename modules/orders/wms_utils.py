@@ -201,6 +201,14 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
     Numer przesyłki jest nieobowiązkowy. Gdy go nie ma, nie powstaje OrderShipment
     (wpis bez numeru niczego nie wnosi), a klient dostaje powiadomienie o zmianie
     statusu zamiast powiadomienia o trackingu.
+
+    Numer przesyłki bez wybranego kuriera dostaje kuriera zastępczego 'other'
+    ("Inny") — zarówno na zleceniu, jak i we wpisie przesyłki — żeby nie próbować
+    zapisać pustego kuriera (kolumna jest NOT NULL).
+
+    Statusy zleceń/zamówień i wpis przesyłki lądują w jednym commicie: albo
+    wszystko, albo nic. Powiadomienia idą dopiero po commicie i błąd maila/pusha
+    nie cofa już zapisanej wysyłki.
     """
     from flask import current_app
 
@@ -221,6 +229,8 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
         sr.courier = courier
     if tracking_number:
         sr.tracking_number = tracking_number
+        if not sr.courier:
+            sr.courier = 'other'
     if parcel_size:
         sr.parcel_size = parcel_size
     sr.status = 'wyslane'
@@ -251,12 +261,10 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
             if o.status != 'wyslane':
                 o.status = 'wyslane'
 
-    db.session.commit()
-
     courier_name = COURIER_NAMES.get(sr.courier, sr.courier or 'Kurier')
 
-    for order in sr.orders:
-        if tracking_number:
+    if tracking_number:
+        for order in sr.orders:
             existing = OrderShipment.query.filter_by(
                 order_id=order.id, tracking_number=tracking_number
             ).first()
@@ -270,6 +278,10 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
                     created_by=user.id if user else None,
                 ))
 
+    # Jeden commit na wszystkie dane — statusy i wpis przesyłki razem albo wcale.
+    db.session.commit()
+
+    for order in sr.orders:
         try:
             if tracking_number:
                 EmailManager.notify_tracking_added(
@@ -284,8 +296,6 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
         except Exception as err:
             current_app.logger.error(
                 f'Powiadomienie o wysyłce {sr.request_number}, zam. {order.order_number}: {err}')
-
-    db.session.commit()
 
     log_activity(
         user=user,

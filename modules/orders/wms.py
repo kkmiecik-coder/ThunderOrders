@@ -965,7 +965,7 @@ def wms_ship_sr(session_id):
         current_app.logger.error(f'WMS ship SR error: {e}')
         return jsonify({
             'success': False,
-            'message': f'Błąd: {str(e)}'
+            'message': 'Nie udało się oznaczyć zlecenia jako wysłane — szczegóły w logach.'
         }), 500
 
 
@@ -1019,7 +1019,10 @@ def admin_ship_shipping_request(sr_id):
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'Ship SR from list error: {e}')
-        return jsonify({'success': False, 'message': f'Błąd: {str(e)}'}), 500
+        return jsonify({
+            'success': False,
+            'message': 'Nie udało się oznaczyć zlecenia jako wysłane — szczegóły w logach.'
+        }), 500
 
     return jsonify({
         'success': True,

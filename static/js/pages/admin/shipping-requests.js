@@ -467,7 +467,7 @@ function bulkMarkShipped() {
     });
 
     if (skipped.length) {
-        const msg = `Pominięto ${skipped.length} zleceń — oznaczyć jako wysłane można tylko spakowane`;
+        const msg = `Pominięto ${skipped.length} ${pluralizeRequests(skipped.length)} — oznaczyć jako wysłane można tylko spakowane`;
         if (typeof window.showToast === 'function') window.showToast(msg, 'warning');
         else alert(msg);
     }
