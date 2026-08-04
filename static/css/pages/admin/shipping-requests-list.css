@@ -575,6 +575,7 @@
 /* Card Footer */
 .sr-card-footer {
     display: flex;
+    flex-wrap: wrap;   /* trzeci przycisk schodzi do drugiej linii zamiast ściskać napisy */
     gap: 8px;
     padding: 16px 20px;
     background: #fafafa;
@@ -582,13 +583,16 @@
     margin-top: auto;
 }
 
+/* Przyciski dzielą wolne miejsce, ale nie kurczą się poniżej własnego napisu —
+   inaczej przy trzech akcjach tekst łamie się na kilka linii i karta puchnie. */
 .sr-card-footer .btn {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
     font-size: 13px;
+    white-space: nowrap;
 }
 
 /* Client link */
