@@ -540,6 +540,7 @@ function buildOrderCardHTML(order) {
     }
 
     var cardClass = 'order-card';
+    if (selectionMode) cardClass += ' order-card-selecting';
     if (selectionMode && !selectable) cardClass += ' order-card-locked';
     if (selectionMode && isChecked) cardClass += ' order-card-selected';
 

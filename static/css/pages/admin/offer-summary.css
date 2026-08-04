@@ -1120,6 +1120,12 @@
     cursor: not-allowed;
 }
 
+/* Checkbox siedzi w prawym górnym rogu — zrób mu miejsce, żeby nie
+   przykrywał plakietki płatności. */
+.order-card-selecting .order-card-header {
+    padding-right: 44px;
+}
+
 .order-card-selected {
     border-color: var(--error);
     box-shadow: 0 0 0 1px var(--error);
