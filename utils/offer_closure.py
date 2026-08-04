@@ -830,6 +830,10 @@ def get_page_summary(page_id, include_financials=True):
             'order_items': items_details,
             'created_by_admin_id': order.created_by_admin_id,
             'payment_badge': order.payment_badge,
+            # Dla masowego anulowania: status decyduje, czy zamówienie da się
+            # zaznaczyć, is_paid — do której grupy trafi (anulowane / do zwrotu).
+            'status': order.status,
+            'is_paid': order_has_payment(order),
         }
         orders_list.append(order_data)
 
