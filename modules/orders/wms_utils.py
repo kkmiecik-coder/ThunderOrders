@@ -173,3 +173,138 @@ def suggest_packaging(order):
         'total_weight': round(total_weight, 2),
         'total_volume': round(needed_volume, 2),
     }
+
+
+# ====================
+# WYSYŁKA ZLECENIA
+# ====================
+
+
+COURIER_NAMES = {
+    'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
+    'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
+    'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny',
+}
+
+
+class ShippingRequestAlreadyShipped(Exception):
+    """Zlecenie ma już status 'wyslane' — drugi raz go nie wysyłamy."""
+
+
+def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size=None,
+                          shipping_cost=None, order_costs=None, user=None, wms_session=None):
+    """Oznacza zlecenie wysyłki jako wysłane.
+
+    Wspólne dla panelu w sesji WMS i dla listy zleceń — jedno miejsce, w którym
+    zmieniają się statusy, powstaje wpis przesyłki i idą powiadomienia do klienta.
+
+    Numer przesyłki jest nieobowiązkowy. Gdy go nie ma, nie powstaje OrderShipment
+    (wpis bez numeru niczego nie wnosi), a klient dostaje powiadomienie o zmianie
+    statusu zamiast powiadomienia o trackingu.
+    """
+    from flask import current_app
+
+    from extensions import db
+    from modules.orders.models import Order, OrderShipment, OrderStatus
+    from utils.activity_logger import log_activity
+    from utils.email_manager import EmailManager
+    from utils.push_manager import PushManager
+
+    if sr.status == 'wyslane':
+        raise ShippingRequestAlreadyShipped(f'Zlecenie {sr.request_number} jest już wysłane')
+
+    old_status = sr.status
+    tracking_number = (tracking_number or '').strip()
+
+    # Puste pole nie kasuje tego, co już jest na zleceniu.
+    if courier:
+        sr.courier = courier
+    if tracking_number:
+        sr.tracking_number = tracking_number
+    if parcel_size:
+        sr.parcel_size = parcel_size
+    sr.status = 'wyslane'
+
+    if shipping_cost:
+        try:
+            sr.total_shipping_cost = float(shipping_cost)
+        except (ValueError, TypeError):
+            pass
+
+    for cost_data in (order_costs or []):
+        oid = cost_data.get('order_id')
+        cost = cost_data.get('shipping_cost')
+        if oid and cost:
+            order = db.session.get(Order, oid)
+            if order:
+                try:
+                    order.shipping_cost = float(cost)
+                except (ValueError, TypeError):
+                    pass
+
+    # Nazwy starych statusów potrzebne do maila — zbierane przed podmianą.
+    old_order_status_names = {o.id: o.status_display_name for o in sr.orders}
+
+    order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
+    if order_status:
+        for o in sr.orders:
+            if o.status != 'wyslane':
+                o.status = 'wyslane'
+
+    db.session.commit()
+
+    courier_name = COURIER_NAMES.get(sr.courier, sr.courier or 'Kurier')
+
+    for order in sr.orders:
+        if tracking_number:
+            existing = OrderShipment.query.filter_by(
+                order_id=order.id, tracking_number=tracking_number
+            ).first()
+            if not existing:
+                db.session.add(OrderShipment(
+                    order_id=order.id,
+                    tracking_number=tracking_number,
+                    courier=sr.courier,
+                    notes=(f'Z sesji WMS #{wms_session.id}, zlecenie {sr.request_number}'
+                           if wms_session else f'Zlecenie {sr.request_number}'),
+                    created_by=user.id if user else None,
+                ))
+
+        try:
+            if tracking_number:
+                EmailManager.notify_tracking_added(
+                    order, tracking_number=tracking_number, courier=sr.courier,
+                    courier_name=courier_name, tracking_url=sr.tracking_url)
+                PushManager.notify_tracking_added(
+                    order, tracking_number=tracking_number, courier_name=courier_name)
+            elif order_status:
+                old_name = old_order_status_names.get(order.id, '')
+                EmailManager.notify_status_change(order, old_name, order_status.name)
+                PushManager.notify_status_change(order, old_name, order_status.name)
+        except Exception as err:
+            current_app.logger.error(
+                f'Powiadomienie o wysyłce {sr.request_number}, zam. {order.order_number}: {err}')
+
+    db.session.commit()
+
+    log_activity(
+        user=user,
+        action='shipping_request_shipped',
+        entity_type='shipping_request',
+        entity_id=sr.id,
+        old_value={'status': old_status},
+        new_value={
+            'status': 'wyslane',
+            'tracking_number': tracking_number or None,
+            'courier': sr.courier,
+            'wms_session_id': wms_session.id if wms_session else None,
+            'source': 'wms_session' if wms_session else 'lista_zlecen',
+        },
+    )
+
+    return {
+        'id': sr.id,
+        'request_number': sr.request_number,
+        'status': 'wyslane',
+        'tracking_number': sr.tracking_number,
+    }

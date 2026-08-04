@@ -27,7 +27,9 @@ from modules.orders.models import (
 from modules.orders.wms_models import (
     WmsSession, WmsSessionOrder, WmsSessionShippingRequest, PackagingMaterial
 )
-from modules.orders.wms_utils import suggest_packaging
+from modules.orders.wms_utils import (
+    suggest_packaging, ship_shipping_request, ShippingRequestAlreadyShipped,
+)
 from extensions import db, socketio
 from utils.decorators import role_required
 from utils.activity_logger import log_activity
@@ -880,9 +882,8 @@ def wms_pack_order(session_id):
 @role_required('admin', 'mod')
 def wms_ship_sr(session_id):
     """
-    Mark a ShippingRequest as shipped from within a WMS session.
-    Sets courier, tracking_number, parcel_size, status='wyslane'.
-    Creates OrderShipment records and sends emails.
+    Oznacza zlecenie wysyłki jako wysłane z poziomu sesji WMS.
+    Logika wspólna z listą zleceń — patrz wms_utils.ship_shipping_request().
     """
     try:
         session = WmsSession.query.get_or_404(session_id)
@@ -896,121 +897,25 @@ def wms_ship_sr(session_id):
         if not sr:
             return jsonify({'success': False, 'message': 'Zlecenie wysyłki nie istnieje'}), 404
 
-        courier = data.get('courier')
-        tracking_number = data.get('tracking_number', '').strip()
-        parcel_size = data.get('parcel_size')
-        shipping_cost = data.get('shipping_cost')
-        order_costs = data.get('order_costs', [])
-
-        if not tracking_number:
-            return jsonify({'success': False, 'message': 'Numer tracking jest wymagany'}), 400
-
-        old_status = sr.status
-
-        # Update SR fields
-        sr.courier = courier or sr.courier
-        sr.tracking_number = tracking_number
-        sr.parcel_size = parcel_size or sr.parcel_size
-        sr.status = 'wyslane'
-
-        if shipping_cost:
-            try:
-                sr.total_shipping_cost = float(shipping_cost)
-            except (ValueError, TypeError):
-                pass
-
-        # Update individual order shipping costs
-        for cost_data in order_costs:
-            oid = cost_data.get('order_id')
-            cost = cost_data.get('shipping_cost')
-            if oid and cost:
-                order = db.session.get(Order, oid)
-                if order:
-                    try:
-                        order.shipping_cost = float(cost)
-                    except (ValueError, TypeError):
-                        pass
-
-        # Change order statuses to 'wyslane'
-        from modules.orders.models import OrderStatus, OrderShipment
-        order_status = OrderStatus.query.filter_by(slug='wyslane', is_active=True).first()
-        if order_status:
-            for o in sr.orders:
-                if o.status != 'wyslane':
-                    o.status = 'wyslane'
-
-        db.session.commit()
-
-        # Create OrderShipment records and send tracking emails
-        from utils.email_manager import EmailManager
-        courier_names = {
-            'inpost': 'InPost', 'dpd': 'DPD', 'dhl': 'DHL', 'gls': 'GLS',
-            'poczta_polska': 'Poczta Polska', 'orlen': 'Orlen Paczka',
-            'ups': 'UPS', 'fedex': 'FedEx', 'pocztex': 'Pocztex', 'other': 'Inny'
-        }
-
-        for order in sr.orders:
-            # Auto-create OrderShipment record
-            existing = OrderShipment.query.filter_by(
-                order_id=order.id,
-                tracking_number=tracking_number
-            ).first()
-            if not existing:
-                shipment = OrderShipment(
-                    order_id=order.id,
-                    tracking_number=tracking_number,
-                    courier=sr.courier,
-                    notes=f'Z sesji WMS #{session.id}, zlecenie {sr.request_number}',
-                    created_by=current_user.id
-                )
-                db.session.add(shipment)
-
-            # Send tracking email + push
-            try:
-                EmailManager.notify_tracking_added(
-                    order,
-                    tracking_number=tracking_number,
-                    courier=sr.courier,
-                    courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier'),
-                    tracking_url=sr.tracking_url
-                )
-                from utils.push_manager import PushManager
-                PushManager.notify_tracking_added(
-                    order,
-                    tracking_number=tracking_number,
-                    courier_name=courier_names.get(sr.courier, sr.courier or 'Kurier')
-                )
-            except Exception as email_err:
-                current_app.logger.error(f'WMS ship SR email error: {email_err}')
-
-        db.session.commit()
-
-        # Activity log
-        log_activity(
+        result = ship_shipping_request(
+            sr,
+            courier=data.get('courier'),
+            tracking_number=data.get('tracking_number'),
+            parcel_size=data.get('parcel_size'),
+            shipping_cost=data.get('shipping_cost'),
+            order_costs=data.get('order_costs', []),
             user=current_user,
-            action='shipping_request_shipped_from_wms',
-            entity_type='shipping_request',
-            entity_id=sr.id,
-            old_value={'status': old_status},
-            new_value={
-                'status': 'wyslane',
-                'tracking_number': tracking_number,
-                'courier': sr.courier,
-                'wms_session_id': session.id,
-            }
+            wms_session=session,
         )
 
         return jsonify({
             'success': True,
             'message': f'Zlecenie {sr.request_number} oznaczone jako wysłane',
-            'shipping_request': {
-                'id': sr.id,
-                'request_number': sr.request_number,
-                'status': 'wyslane',
-                'tracking_number': tracking_number,
-            }
+            'shipping_request': result,
         })
 
+    except ShippingRequestAlreadyShipped as e:
+        return jsonify({'success': False, 'message': str(e)}), 409
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f'WMS ship SR error: {e}')
