@@ -191,6 +191,20 @@ class ShippingRequestAlreadyShipped(Exception):
     """Zlecenie ma już status 'wyslane' — drugi raz go nie wysyłamy."""
 
 
+class ShippingRequestUnpaid(Exception):
+    """Zlecenie jest w statusie przedpłatnym (klient jeszcze nie zapłacił) —
+    nie da się go wysłać, niezależnie od tego, którą drogą (lista zleceń
+    czy panel w sesji WMS)."""
+
+
+# Statusy przedpłatne — zanim za zlecenie zapłacono, nie wolno go wysłać.
+# Celowo NIE blokujemy tu wszystkiego poza 'spakowane': część zamówień
+# zlecenia może pakować się w innej, wciąż otwartej sesji WMS, więc samo
+# zlecenie nie ma jeszcze statusu 'spakowane' — twardy warunek "tylko
+# spakowane" zablokowałby wysyłkę takiego (już opłaconego) zlecenia całkowicie.
+UNPAID_SR_STATUSES = ('czeka_na_wycene', 'czeka_na_oplacenie')
+
+
 def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size=None,
                           shipping_cost=None, order_costs=None, user=None, wms_session=None):
     """Oznacza zlecenie wysyłki jako wysłane.
@@ -220,6 +234,12 @@ def ship_shipping_request(sr, *, courier=None, tracking_number=None, parcel_size
 
     if sr.status == 'wyslane':
         raise ShippingRequestAlreadyShipped(f'Zlecenie {sr.request_number} jest już wysłane')
+
+    if sr.status in UNPAID_SR_STATUSES:
+        raise ShippingRequestUnpaid(
+            f'Zlecenie {sr.request_number} nie zostało jeszcze opłacone '
+            f'(status: „{sr.status_display_name}") — nie można go wysłać'
+        )
 
     old_status = sr.status
     tracking_number = (tracking_number or '').strip()

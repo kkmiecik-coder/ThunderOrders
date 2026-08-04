@@ -29,7 +29,7 @@ from modules.orders.wms_models import (
 )
 from modules.orders.wms_utils import (
     suggest_packaging, ship_shipping_request, ShippingRequestAlreadyShipped,
-    reopen_orders_for_wms, REOPEN_MODES,
+    ShippingRequestUnpaid, reopen_orders_for_wms, REOPEN_MODES,
 )
 from extensions import db, socketio
 from utils.decorators import role_required
@@ -976,7 +976,7 @@ def wms_ship_sr(session_id):
             'shipping_request': result,
         })
 
-    except ShippingRequestAlreadyShipped as e:
+    except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as e:
         return jsonify({'success': False, 'message': str(e)}), 409
     except Exception as e:
         db.session.rollback()
@@ -1032,7 +1032,7 @@ def admin_ship_shipping_request(sr_id):
             order_costs=data.get('order_costs', []),
             user=current_user,
         )
-    except ShippingRequestAlreadyShipped as e:
+    except (ShippingRequestAlreadyShipped, ShippingRequestUnpaid) as e:
         return jsonify({'success': False, 'message': str(e)}), 409
     except Exception as e:
         db.session.rollback()

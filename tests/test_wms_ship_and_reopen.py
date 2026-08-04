@@ -349,6 +349,58 @@ def test_ship_does_not_resend_tracking_when_shipment_exists(client, db, make_use
     assert OrderShipment.query.filter_by(tracking_number='PREEXIST1').count() == 1
 
 
+# ---------- Decyzja 2: nie da się wysłać nieopłaconego zlecenia z sesji WMS ----------
+
+def test_session_ship_rejects_unpaid_request(client, db, make_user, make_order, login,
+                                             notifications):
+    """Zlecenie czekające na opłacenie nie może zostać wysłane nawet z sesji WMS —
+    wspólna funkcja ship_shipping_request() blokuje statusy przedpłatne."""
+    from modules.orders.models import OrderShipment
+    admin = make_user(role='admin')
+    login(admin)
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+    sr.status = 'czeka_na_oplacenie'
+    for o in orders:
+        o.status = 'spakowane'
+    db.session.commit()
+    session = _wms_session(db, admin)
+
+    r = client.post(f'/admin/orders/wms/{session.id}/ship-sr',
+                    json={'shipping_request_id': sr.id, 'tracking_number': 'UNPAID1'})
+
+    assert r.status_code == 409
+    db.session.refresh(sr)
+    assert sr.status == 'czeka_na_oplacenie'
+    for o in orders:
+        db.session.refresh(o)
+        assert o.status != 'wyslane'
+    assert OrderShipment.query.count() == 0
+    assert notifications['tracking'] == []
+    assert notifications['status'] == []
+
+
+def test_session_ship_allows_partially_packed_request(client, db, make_user, make_order, login,
+                                                       notifications):
+    """Zlecenie w statusie 'oplacone' (jeszcze nie 'spakowane', bo część zamówień
+    pakuje się w innej sesji) musi dać się wysłać z sesji WMS — blokada dotyczy
+    wyłącznie statusów przedpłatnych, nie ma twardego wymogu 'tylko spakowane'."""
+    admin = make_user(role='admin')
+    login(admin)
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+    sr.status = 'oplacone'
+    db.session.commit()
+    session = _wms_session(db, admin)
+
+    r = client.post(f'/admin/orders/wms/{session.id}/ship-sr',
+                    json={'shipping_request_id': sr.id})
+
+    assert r.status_code == 200
+    db.session.refresh(sr)
+    assert sr.status == 'wyslane'
+
+
 def test_reopen_by_order_ids_also_resets_shipping_request(client, db, make_user, make_order, login):
     """Cofnięcie przez same order_ids (bez shipping_request_ids) musi też cofnąć
     status zlecenia wysyłki — inaczej zlecenie zostaje 'spakowane', mimo że jego
