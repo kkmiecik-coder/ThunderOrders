@@ -1,8 +1,10 @@
 {% extends "admin/base_admin.html" %}
+{% from "components/_bulk_toolbar.html" import bulk_toolbar %}
 
 {% block title %}Produkty - Magazyn{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/products-list.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/product-form.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/variant-groups.css') }}">
@@ -544,53 +546,48 @@
 </div>
 
 <!-- Bulk Actions Toolbar (floating, shows when checkboxes checked) -->
-<div id="productsBulkToolbar" class="bulk-toolbar hidden">
-    <div class="bulk-toolbar-content">
-        <span class="selected-count" id="productsSelectedCount">0 zaznaczonych</span>
-        <div class="bulk-actions">
+{% call bulk_toolbar('productsBulkToolbar', count_id='productsSelectedCount') %}
             <button class="btn-bulk" onclick="massEditProducts()" title="Edytuj masowo">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5z"/>
                 </svg>
-                Edytuj masowo
+                <span class="btn-bulk-text">Edytuj masowo</span>
             </button>
             <button class="btn-bulk" onclick="activateProducts()" title="Aktywuj produkty">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                     <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
                 </svg>
-                Aktywuj
+                <span class="btn-bulk-text">Aktywuj</span>
             </button>
             <button class="btn-bulk" onclick="deactivateProducts()" title="Dezaktywuj produkty">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                     <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                 </svg>
-                Dezaktywuj
+                <span class="btn-bulk-text">Dezaktywuj</span>
             </button>
             <button class="btn-bulk" onclick="duplicateProducts()" title="Duplikuj produkty">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H6zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1H2z"/>
                 </svg>
-                Duplikuj
+                <span class="btn-bulk-text">Duplikuj</span>
             </button>
             <button class="btn-bulk" onclick="exportProductsCsv()" title="Eksportuj do CSV">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                     <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                 </svg>
-                Eksportuj CSV
+                <span class="btn-bulk-text">Eksportuj CSV</span>
             </button>
             <button class="btn-bulk btn-bulk-danger" onclick="deleteProducts()" title="Usuń produkty">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                     <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                 </svg>
-                Usuń
+                <span class="btn-bulk-text">Usuń</span>
             </button>
-        </div>
-    </div>
-</div>
+{% endcall %}
 
 <!-- Product Modal -->
 <div id="productModal" class="modal-overlay">
@@ -628,6 +625,7 @@
     </div>
 </div>
 
+<script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
 <script>
 // Get CSRF Token
 function getCsrfToken() {
@@ -673,23 +671,21 @@ function initializeEventListeners() {
     console.log('[PRODUCTS LIST] Event listeners initialized');
 }
 
+// Wspólny komponent paska akcji masowych (static/js/components/bulk-toolbar.js).
+// Pasek leży POZA .products-page, więc przeładowanie listy AJAX-em go nie podmienia
+// — inicjalizujemy raz, instancja przeżywa odświeżenia.
+var productsBulkToolbarInstance = BulkToolbar.init('productsBulkToolbar');
+
 // Update floating bulk toolbar visibility
 function updateProductsBulkToolbar() {
+    if (!productsBulkToolbarInstance) return;
+
+    // Gdy aktywny jest tryb "zaznacz wszystkie strony", liczy się długość
+    // allProductIds, a nie liczba checkboxów widocznych na bieżącej stronie.
     const checkedBoxes = document.querySelectorAll('.product-checkbox:checked');
-    const count = checkedBoxes.length + (allProductIds ? allProductIds.length - checkedBoxes.length : 0);
-    const toolbar = document.getElementById('productsBulkToolbar');
-    const countSpan = document.getElementById('productsSelectedCount');
-
-    if (!toolbar) return;
-
     const effectiveCount = allProductIds ? allProductIds.length : checkedBoxes.length;
 
-    if (effectiveCount > 0) {
-        toolbar.classList.remove('hidden');
-        countSpan.textContent = `${effectiveCount} zaznaczonych`;
-    } else {
-        toolbar.classList.add('hidden');
-    }
+    productsBulkToolbarInstance.update(effectiveCount);
 }
 
 // Initialize on page load

@@ -1,0 +1,50 @@
+{# ====================================================================
+   BULK TOOLBAR — pływający pasek akcji dla zaznaczonych elementów
+
+   JEDNO ŹRÓDŁO PRAWDY dla markupu paska. Wcześniej każda strona miała
+   własną kopię tej skorupy; jeśli dodajesz pasek gdzieś indziej, użyj
+   tego makra zamiast kopiować HTML.
+
+   Wymaga na stronie:
+     <link rel="stylesheet" href="css/components/bulk-toolbar.css">
+     <script src="js/components/bulk-toolbar.js"></script>
+
+   Użycie:
+     {% from "components/_bulk_toolbar.html" import bulk_toolbar %}
+
+     {% call bulk_toolbar('productsBulkToolbar') %}
+         <button class="btn-bulk" data-action="edit">
+             <span class="btn-bulk-text">Edytuj</span>
+         </button>
+     {% endcall %}
+
+   Parametry:
+     id        — id kontenera paska (wymagane, unikalne na stronie)
+     count_id  — id elementu z licznikiem; domyślnie "<id>Count"
+     total_id  — id drugiej linii (np. suma kwot). Podaj tylko, jeśli
+                 strona jej używa — pusty element i tak się nie pokazuje.
+     classes   — dodatkowe klasy na kontenerze (rzadko potrzebne)
+
+   Treść przekazana w {% call %} trafia do .bulk-actions — czyli same
+   przyciski akcji, bez skorupy.
+
+   UWAGA: pasek musi być renderowany POZA kontenerami z backdrop-filter,
+   bo inaczej position:fixed przestaje działać względem okna. W praktyce:
+   wstawiaj go na końcu {% block content %}, obok głównego wrappera strony.
+   ==================================================================== #}
+
+{% macro bulk_toolbar(id, count_id=None, total_id=None, classes='') %}
+<div id="{{ id }}" class="bulk-toolbar hidden {{ classes }}" data-bulk-toolbar>
+    <div class="bulk-toolbar-content">
+        <div class="selected-info">
+            <span class="selected-count" id="{{ count_id or (id ~ 'Count') }}" data-bulk-count>0 zaznaczonych</span>
+            {% if total_id %}
+            <span class="selected-total" id="{{ total_id }}" data-bulk-total></span>
+            {% endif %}
+        </div>
+        <div class="bulk-actions">
+            {{ caller() }}
+        </div>
+    </div>
+</div>
+{% endmacro %}

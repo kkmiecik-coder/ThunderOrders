@@ -1,8 +1,10 @@
 {% extends "admin/base_admin.html" %}
+{% from "components/_bulk_toolbar.html" import bulk_toolbar %}
 
 {% block title %}Podsumowanie: {{ page.name }}{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/offer-summary.css') }}">
 {% endblock %}
 
@@ -484,19 +486,6 @@
                 {% endif %}
             </div>
 
-            {% if current_user.role == 'admin' %}
-            <div id="ordersSelectionBar" class="orders-selection-bar" style="display: none;">
-                <div class="orders-selection-info">
-                    Zaznaczono <strong id="selectionCount">0</strong> z <span id="selectionTotal">0</span>
-                    <button type="button" id="selectAllOrdersBtn" class="orders-selection-link">Zaznacz wszystkie</button>
-                    <button type="button" id="clearSelectionBtn" class="orders-selection-link">Wyczyść</button>
-                </div>
-                <button type="button" id="cancelOrdersBtn" class="btn btn-danger" disabled>
-                    Anuluj zaznaczone
-                </button>
-            </div>
-            {% endif %}
-
             <div id="ordersGrid" class="orders-grid"></div>
 
             <div id="ordersPagination" class="orders-pagination"></div>
@@ -597,6 +586,28 @@
 {% endif %}
 
 {% if current_user.role == 'admin' %}
+{% call bulk_toolbar('ordersSelectionBar', count_id='selectionCount', total_id='selectionTotal') %}
+    <button type="button" id="selectAllOrdersBtn" class="btn-bulk">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022z"/>
+        </svg>
+        <span class="btn-bulk-text">Zaznacz wszystkie</span>
+    </button>
+    <button type="button" id="clearSelectionBtn" class="btn-bulk">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+        </svg>
+        <span class="btn-bulk-text">Wyczyść</span>
+    </button>
+    <button type="button" id="cancelOrdersBtn" class="btn-bulk btn-bulk-danger" disabled>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="M4.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708z"/>
+        </svg>
+        <span class="btn-bulk-text">Anuluj zaznaczone</span>
+    </button>
+{% endcall %}
+
 <!-- ===== Modal masowego anulowania zamówień ===== -->
 <div id="cancelOrdersModal" class="modal-overlay">
     <div class="modal-content cancel-orders-modal">
@@ -653,6 +664,7 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/offer-summary.js') }}"></script>
 {% if page.page_type == 'preorder' and page.is_fully_closed and current_user.role in ['admin', 'mod'] %}
 <script src="{{ url_for('static', filename='js/pages/admin/offer-extra-order.js') }}"></script>

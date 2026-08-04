@@ -4,8 +4,11 @@
 
 {% block extra_css %}
 {{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/client/payment-confirmations.css') }}">
 {% endblock %}
+
+{% from "components/_bulk_toolbar.html" import bulk_toolbar %}
 
 {% block content %}
 <div class="payment-confirmations-page client-view" data-user-id="{{ current_user.id }}">
@@ -344,24 +347,16 @@
 </div>
 
 <!-- Sticky Bulk Toolbar -->
-<div id="pcBulkToolbar" class="bulk-toolbar hidden">
-    <div class="bulk-toolbar-content">
-        <div class="selected-info">
-            <span class="selected-count" id="pcSelectedCount">0 zaznaczonych</span>
-            <span class="selected-total" id="pcSelectedTotal"></span>
-        </div>
-        <div class="bulk-actions">
-            <button class="btn-bulk btn-bulk-primary" id="bulk-execute-payment-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                    <polyline points="17 8 12 3 7 8"/>
-                    <line x1="12" y1="3" x2="12" y2="15"/>
-                </svg>
-                Wykonaj płatność
-            </button>
-        </div>
-    </div>
-</div>
+{% call bulk_toolbar('pcBulkToolbar', count_id='pcSelectedCount', total_id='pcSelectedTotal') %}
+    <button class="btn-bulk btn-bulk-primary" id="bulk-execute-payment-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Wykonaj płatność
+    </button>
+{% endcall %}
 
 <!-- Modal płatności -->
 <div id="payment-modal" class="modal-overlay">
@@ -490,5 +485,6 @@
 
 {% block extra_js %}
 <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/client/payment-confirmations.js') }}"></script>
 {% endblock %}

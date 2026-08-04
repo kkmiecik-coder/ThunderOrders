@@ -300,6 +300,7 @@ var ordersRendered = false;
 // Tryb zaznaczania zamówień do masowego anulowania (tylko admin).
 var selectionMode = false;
 var selectedOrderIds = new Set();
+var pasekZaznaczania = null;
 
 // Zamówienia w tych statusach są już załatwione — nie da się ich zaznaczyć.
 var CLOSED_STATUSES = ['anulowane', 'do_zwrotu', 'zwrocone', 'czesciowo_zwrocone'];
@@ -350,15 +351,16 @@ function selectableFilteredOrders() {
 }
 
 function updateSelectionBar() {
-    var bar = document.getElementById('ordersSelectionBar');
-    if (!bar) return;
+    if (!pasekZaznaczania) return;
 
-    var countEl = document.getElementById('selectionCount');
-    var totalEl = document.getElementById('selectionTotal');
+    // Pasek zostaje widoczny także przy zerze zaznaczonych — trzyma przycisk
+    // „Zaznacz wszystkie", bez którego nie dałoby się niczego zaznaczyć.
+    pasekZaznaczania.setCount(
+        selectedOrderIds.size,
+        'z ' + selectableFilteredOrders().length + ' możliwych'
+    );
+
     var cancelBtn = document.getElementById('cancelOrdersBtn');
-
-    if (countEl) countEl.textContent = selectedOrderIds.size;
-    if (totalEl) totalEl.textContent = selectableFilteredOrders().length;
     if (cancelBtn) cancelBtn.disabled = selectedOrderIds.size === 0;
 }
 
@@ -366,11 +368,16 @@ function setSelectionMode(on) {
     selectionMode = on;
     if (!on) selectedOrderIds.clear();
 
-    var bar = document.getElementById('ordersSelectionBar');
     var btn = document.getElementById('selectOrdersBtn');
     var label = document.getElementById('selectOrdersBtnLabel');
 
-    if (bar) bar.style.display = on ? 'flex' : 'none';
+    if (pasekZaznaczania) {
+        if (on) {
+            pasekZaznaczania.show();
+        } else {
+            pasekZaznaczania.hide();
+        }
+    }
     if (btn) btn.classList.toggle('is-active', on);
     if (label) label.textContent = on ? 'Zakończ zaznaczanie' : 'Zaznacz zamówienia';
 
@@ -381,6 +388,8 @@ function setSelectionMode(on) {
 function initializeOrdersSelection() {
     var selectBtn = document.getElementById('selectOrdersBtn');
     if (!selectBtn) return; // mod nie widzi tych przycisków
+
+    pasekZaznaczania = window.BulkToolbar ? window.BulkToolbar.init('ordersSelectionBar') : null;
 
     selectBtn.addEventListener('click', function () {
         setSelectionMode(!selectionMode);

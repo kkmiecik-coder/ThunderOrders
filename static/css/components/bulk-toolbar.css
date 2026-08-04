@@ -1,11 +1,20 @@
 /* ====================================================================
-   BULK TOOLBAR (Floating)
-   Ładowany przez: templates/admin/orders/list.html, templates/admin/offers/list.html
+   BULK TOOLBAR (pływający pasek akcji dla zaznaczonych elementów)
 
-   UWAGA: strona WMS (/admin/orders/wms) NIE ładuje tego pliku — ma własny
-   zestaw stylów paska w css/pages/admin/wms-dashboard.css, świadomie inny
-   (na mobile pasek układa się w kolumnę z pełnymi etykietami, tutaj w rząd
-   z samymi ikonami). Zmiany tutaj nie działają na WMS i odwrotnie.
+   JEDNO ŹRÓDŁO PRAWDY dla wszystkich pasków w aplikacji. Jeśli dodajesz
+   pasek na nowej stronie: załaduj ten plik, użyj makra z
+   templates/components/_bulk_toolbar.html i modułu
+   static/js/components/bulk-toolbar.js. Nie kopiuj tych stylów do CSS
+   strony — od tego zaczął się bałagan, który ten plik posprzątał.
+
+   WSZYSTKIE selektory są oparte o KLASY, nie o ID. Wcześniej reguła
+   ukrywania brzmiała `#bulkToolbar.bulk-toolbar.hidden`, przez co paski
+   o innym ID nie dostawały animacji i każda strona dopisywała własną
+   kopię. Nie przypinaj tu niczego do ID.
+
+   Warianty przycisków: .btn-bulk (bazowy), .btn-bulk-primary,
+   .btn-bulk-danger. Opcjonalne części: .selected-total (druga linia
+   licznika, np. suma kwot), .bulk-menu (rozwijane menu akcji).
    ==================================================================== */
 
 .bulk-toolbar {
@@ -18,7 +27,10 @@
     padding: 1rem 2rem;
     border-radius: 50px;
     box-shadow: 0 8px 24px rgba(36, 0, 70, 0.4);
-    z-index: 1000;
+    /* 1002, nie 1000 — dolny pasek PWA u klienta ma 1000 i jest renderowany
+       później w DOM, więc przy remisie przykrywałby pasek akcji na telefonie.
+       Modale mają 10000+, więc dalej są nad wszystkim. */
+    z-index: 1002;
     opacity: 1;
     filter: blur(0);
     transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -26,7 +38,9 @@
                 filter 0.3s ease-out;
 }
 
-#bulkToolbar.bulk-toolbar.hidden {
+/* display/visibility z !important przebijają globalne .hidden { display: none }
+   z main.css — inaczej pasek znikałby skokowo, bez animacji wyjazdu. */
+.bulk-toolbar.hidden {
     display: block !important;
     visibility: visible !important;
     opacity: 0;
@@ -41,10 +55,28 @@
     gap: 2rem;
 }
 
+/* Lewa strona paska: licznik, opcjonalnie z drugą linią (suma kwot itp.) */
+.bulk-toolbar .selected-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
 .selected-count {
     font-weight: 600;
     font-size: 0.875rem;
     white-space: nowrap;
+}
+
+.bulk-toolbar .selected-total {
+    font-size: 0.8125rem;
+    opacity: 0.7;
+    white-space: nowrap;
+}
+
+/* Pusty (np. strona bez sum) nie ma zajmować miejsca w kolumnie. */
+.bulk-toolbar .selected-total:empty {
+    display: none;
 }
 
 .bulk-actions {
@@ -61,6 +93,7 @@
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 6px;
     color: white;
+    font-family: inherit;
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -71,6 +104,17 @@
 .btn-bulk:hover {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-bulk-primary {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(255, 255, 255, 0.9);
+    color: #240046;
+}
+
+.btn-bulk-primary:hover {
+    background: #ffffff;
+    border-color: #ffffff;
 }
 
 .btn-bulk-danger {
@@ -91,7 +135,109 @@
     cursor: not-allowed;
 }
 
-/* Responsywność */
+/* ====================================================================
+   ROZWIJANE MENU AKCJI (opcjonalne — dla pasków z wieloma akcjami)
+   ==================================================================== */
+
+.bulk-toolbar .bulk-menu {
+    position: relative;
+}
+
+.bulk-toolbar .bulk-menu-chevron {
+    transition: transform 0.2s;
+}
+
+.bulk-toolbar .bulk-menu.open .bulk-menu-chevron {
+    transform: rotate(180deg);
+}
+
+.bulk-toolbar .bulk-menu-list {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 250px;
+    padding: 6px;
+    background: #2d0b52;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    animation: bulkMenuIn 0.16s ease-out;
+}
+
+.bulk-toolbar .bulk-menu-list[hidden] {
+    display: none;
+}
+
+@keyframes bulkMenuIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.bulk-toolbar .bulk-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.bulk-toolbar .bulk-menu-item:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.bulk-toolbar .bulk-menu-item svg {
+    flex: 0 0 auto;
+}
+
+.bulk-toolbar .bulk-menu-label {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+/* Powód blokady widoczny tylko wtedy, gdy akcja jest niedostępna */
+.bulk-toolbar .bulk-menu-hint {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.bulk-toolbar .bulk-menu-item:not(:disabled) .bulk-menu-hint {
+    display: none;
+}
+
+.bulk-toolbar .bulk-menu-item:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.bulk-toolbar .bulk-menu-item--danger {
+    color: #ffb4b4;
+}
+
+.bulk-toolbar .bulk-menu-item--danger:hover:not(:disabled) {
+    background: rgba(244, 67, 54, 0.25);
+}
+
+/* ====================================================================
+   RESPONSYWNOŚĆ
+   ==================================================================== */
+
 @media (max-width: 768px) {
     .bulk-toolbar {
         left: 1rem;
@@ -102,7 +248,7 @@
         padding: 0.75rem 1rem;
     }
 
-    #bulkToolbar.bulk-toolbar.hidden {
+    .bulk-toolbar.hidden {
         transform: translateY(100px);
     }
 
@@ -110,12 +256,17 @@
         flex-direction: row;
         gap: 1rem;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
+    }
+
+    .bulk-toolbar .selected-info {
+        flex: 1;
+        min-width: 0;
     }
 
     .bulk-actions {
         flex-wrap: nowrap;
-        justify-content: center;
+        justify-content: flex-end;
         gap: 0.375rem;
     }
 
@@ -140,9 +291,37 @@
         font-size: 0.75rem;
         white-space: nowrap;
     }
+
+    .bulk-toolbar .selected-total {
+        font-size: 0.6875rem;
+    }
+
+    /* Menu kotwiczymy do paska, nie do przycisku — inaczej dziedziczyło
+       jego szerokość i etykiety łamały się po jednym słowie. */
+    .bulk-toolbar .bulk-menu {
+        position: static;
+    }
+
+    .bulk-toolbar .bulk-menu-list {
+        left: 0;
+        right: 0;
+        bottom: calc(100% + 8px);
+        min-width: 0;
+    }
+
+    .bulk-toolbar .bulk-menu-item {
+        min-height: 44px;
+    }
+
+    .bulk-toolbar .bulk-menu-label {
+        min-width: 0;
+    }
 }
 
-/* Dark mode */
+/* ====================================================================
+   TRYB CIEMNY
+   ==================================================================== */
+
 [data-theme="dark"] .bulk-toolbar {
     background: linear-gradient(135deg, rgba(15, 12, 41, 0.98) 0%, rgba(48, 43, 99, 0.98) 100%);
     backdrop-filter: blur(20px);
@@ -161,6 +340,17 @@
     border-color: rgba(240, 147, 251, 0.5);
 }
 
+[data-theme="dark"] .btn-bulk-primary {
+    background: rgba(240, 147, 251, 0.9);
+    border-color: rgba(240, 147, 251, 0.9);
+    color: #16032e;
+}
+
+[data-theme="dark"] .btn-bulk-primary:hover {
+    background: #f093fb;
+    border-color: #f093fb;
+}
+
 [data-theme="dark"] .btn-bulk-danger {
     background: rgba(248, 113, 113, 0.2);
     border-color: rgba(248, 113, 113, 0.4);
@@ -168,4 +358,20 @@
 
 [data-theme="dark"] .btn-bulk-danger:hover {
     background: rgba(248, 113, 113, 0.3);
+}
+
+[data-theme="dark"] .bulk-toolbar .bulk-menu-list {
+    background: rgba(20, 16, 45, 0.98);
+    border-color: rgba(240, 147, 251, 0.25);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 40px rgba(240, 147, 251, 0.08);
+}
+
+[data-theme="dark"] .bulk-toolbar .bulk-menu-item:hover:not(:disabled) {
+    background: rgba(240, 147, 251, 0.18);
+}
+
+[data-theme="dark"] .bulk-toolbar .bulk-menu-item--danger:hover:not(:disabled) {
+    background: rgba(248, 113, 113, 0.25);
 }

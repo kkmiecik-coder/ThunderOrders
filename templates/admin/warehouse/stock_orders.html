@@ -1,9 +1,11 @@
 {% extends "admin/base_admin.html" %}
 {% from "admin/warehouse/macros/stock_orders_macros.html" import order_filters, status_dropdown, product_thumbnail_compact %}
+{% from "components/_bulk_toolbar.html" import bulk_toolbar %}
 
 {% block title %}Zamówienia produktów - ThunderOrders{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/components/bulk-toolbar.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/warehouse-settings.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/admin/stock-orders.css') }}">
 {% endblock %}
@@ -633,97 +635,82 @@
 
     <!-- Bulk Actions Toolbar for "Do zamówienia" tab (floating, shows when checkboxes checked) -->
     <!-- Placed outside tab-pane to avoid backdrop-filter stacking context issues -->
-    <div id="toOrderBulkToolbar" class="bulk-toolbar hidden">
-        <div class="bulk-toolbar-content">
-            <span class="selected-count"><span id="toOrderSelectedCount">0</span> zaznaczonych</span>
-            <div class="bulk-actions">
-                <button type="button" class="btn-bulk" onclick="openOrderProductsModal()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <path d="M16 10a4 4 0 01-8 0"></path>
-                    </svg>
-                    Zamów produkty
-                </button>
-                <button type="button" class="btn-bulk" onclick="clearToOrderSelection()">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
-                    Anuluj
-                </button>
-            </div>
-        </div>
-    </div>
+    {% call bulk_toolbar('toOrderBulkToolbar', count_id='toOrderSelectedCount') %}
+        <button type="button" class="btn-bulk" onclick="openOrderProductsModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <path d="M16 10a4 4 0 01-8 0"></path>
+            </svg>
+            <span class="btn-bulk-text">Zamów produkty</span>
+        </button>
+        <button type="button" class="btn-bulk" onclick="clearToOrderSelection()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <span class="btn-bulk-text">Anuluj</span>
+        </button>
+    {% endcall %}
 </div>
 
 <!-- Bulk Actions Toolbar for PROXY/POLSKA tabs (floating pill, same style as DO ZAMÓWIENIA) -->
-<div id="bulkActionsModal" class="bulk-toolbar hidden">
-    <div class="bulk-toolbar-content">
-        <span class="selected-count"><span id="selectedCount">0</span> zaznaczonych</span>
-        <div class="bulk-actions">
-            {% if active_tab == 'proxy' %}
-            <button type="button" class="btn-bulk" id="btnOrderToPoland" onclick="openPolandOrderModal()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <path d="M16 10a4 4 0 01-8 0"></path>
-                </svg>
-                Zamów do Polska
-            </button>
-            {% endif %}
-            {% if active_tab == 'polska' %}
-            <button type="button" class="btn-bulk" onclick="openBulkCustomsVatModal()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-                </svg>
-                Dodaj Cło/VAT
-            </button>
-            <button type="button" class="btn-bulk" onclick="bulkArchivePolandOrders()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 8v13H3V8"></path>
-                    <path d="M1 3h22v5H1z"></path>
-                    <path d="M10 12h4"></path>
-                </svg>
-                Archiwizuj
-            </button>
-            {% endif %}
-            <button type="button" class="btn-bulk" onclick="openBulkStatusChange()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                    <path d="M12 6v6l4 2"/>
-                </svg>
-                Zmień status
-            </button>
-            {% if current_user.role == 'admin' %}
-            <button type="button" class="btn-bulk" onclick="{% if active_tab == 'polska' %}bulkDeletePolandOrders(){% else %}bulkDeleteOrders(){% endif %}">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-                Usuń
-            </button>
-            {% endif %}
-        </div>
-    </div>
-</div>
+{% call bulk_toolbar('bulkActionsModal', count_id='selectedCount') %}
+    {% if active_tab == 'proxy' %}
+    <button type="button" class="btn-bulk" id="btnOrderToPoland" onclick="openPolandOrderModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"></path>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <path d="M16 10a4 4 0 01-8 0"></path>
+        </svg>
+        <span class="btn-bulk-text">Zamów do Polska</span>
+    </button>
+    {% endif %}
+    {% if active_tab == 'polska' %}
+    <button type="button" class="btn-bulk" onclick="openBulkCustomsVatModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+        </svg>
+        <span class="btn-bulk-text">Dodaj Cło/VAT</span>
+    </button>
+    <button type="button" class="btn-bulk" onclick="bulkArchivePolandOrders()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 8v13H3V8"></path>
+            <path d="M1 3h22v5H1z"></path>
+            <path d="M10 12h4"></path>
+        </svg>
+        <span class="btn-bulk-text">Archiwizuj</span>
+    </button>
+    {% endif %}
+    <button type="button" class="btn-bulk" onclick="openBulkStatusChange()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+            <path d="M12 6v6l4 2"/>
+        </svg>
+        <span class="btn-bulk-text">Zmień status</span>
+    </button>
+    {% if current_user.role == 'admin' %}
+    <button type="button" class="btn-bulk" onclick="{% if active_tab == 'polska' %}bulkDeletePolandOrders(){% else %}bulkDeleteOrders(){% endif %}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span class="btn-bulk-text">Usuń</span>
+    </button>
+    {% endif %}
+{% endcall %}
 
 <!-- Bulk Actions Toolbar for ARCHIWUM tab -->
 {% if active_tab == 'archiwum' %}
-<div id="archiwumBulkToolbar" class="bulk-toolbar hidden">
-    <div class="bulk-toolbar-content">
-        <span class="selected-count"><span id="archiwumSelectedCount">0</span> zaznaczonych</span>
-        <div class="bulk-actions">
-            <button type="button" class="btn-bulk" onclick="bulkUnarchivePolandOrders()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="1 4 1 10 7 10"></polyline>
-                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
-                </svg>
-                Przywróć z archiwum
-            </button>
-        </div>
-    </div>
-</div>
+{% call bulk_toolbar('archiwumBulkToolbar', count_id='archiwumSelectedCount') %}
+    <button type="button" class="btn-bulk" onclick="bulkUnarchivePolandOrders()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="1 4 1 10 7 10"></polyline>
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+        </svg>
+        <span class="btn-bulk-text">Przywróć z archiwum</span>
+    </button>
+{% endcall %}
 {% endif %}
 
 <!-- Bulk Status Change Dropdown -->
@@ -968,6 +955,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/components/bulk-toolbar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/pages/admin/stock-orders.js') }}"></script>
 <script>
 // Jinja2 data bridge - server-side data that JS needs

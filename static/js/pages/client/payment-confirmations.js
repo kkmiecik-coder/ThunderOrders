@@ -85,9 +85,7 @@ window.toggleOrderItems = function(orderId, totalItems) {
     }
 
     // === DOM REFERENCES ===
-    var bulkToolbar = document.getElementById('pcBulkToolbar');
-    var bulkSelectedCount = document.getElementById('pcSelectedCount');
-    var bulkSelectedTotal = document.getElementById('pcSelectedTotal');
+    var bulkToolbar = BulkToolbar.init('pcBulkToolbar');
     var bulkExecuteBtn = document.getElementById('bulk-execute-payment-btn');
     var paymentModal = document.getElementById('payment-modal');
     var modalCloseBtn = document.getElementById('modal-close-btn');
@@ -573,36 +571,27 @@ window.toggleOrderItems = function(orderId, totalItems) {
         var count = selectedOrders.size;
 
         if (bulkToolbar) {
-            if (count > 0) {
-                bulkToolbar.classList.remove('hidden');
-                bulkSelectedCount.textContent = count + ' zaznaczonych';
-
-                var total = 0;
-                selectedOrders.forEach(function(data) {
-                    // E1: Produkt - do zapłaty jeśli nie approved i nie pending
-                    var ps = data.productStatus;
-                    if (ps !== 'approved' && ps !== 'pending') {
-                        total += data.amount;
-                    }
-                    // E2: Wysyłka KR (tylko 4-etapowe)
-                    if (data.canUploadStage2) {
-                        total += data.proxyShippingAmount;
-                    }
-                    // E3: Cło/VAT
-                    if (data.canUploadStage3) {
-                        total += data.customsVatAmount;
-                    }
-                    // E4: Wysyłka PL
-                    if (data.canUploadStage4) {
-                        total += data.shippingCostAmount;
-                    }
-                });
-                if (bulkSelectedTotal) {
-                    bulkSelectedTotal.textContent = total.toFixed(2) + ' zł';
+            var total = 0;
+            selectedOrders.forEach(function(data) {
+                // E1: Produkt - do zapłaty jeśli nie approved i nie pending
+                var ps = data.productStatus;
+                if (ps !== 'approved' && ps !== 'pending') {
+                    total += data.amount;
                 }
-            } else {
-                bulkToolbar.classList.add('hidden');
-            }
+                // E2: Wysyłka KR (tylko 4-etapowe)
+                if (data.canUploadStage2) {
+                    total += data.proxyShippingAmount;
+                }
+                // E3: Cło/VAT
+                if (data.canUploadStage3) {
+                    total += data.customsVatAmount;
+                }
+                // E4: Wysyłka PL
+                if (data.canUploadStage4) {
+                    total += data.shippingCostAmount;
+                }
+            });
+            bulkToolbar.update(count, total.toFixed(2) + ' zł');
         }
 
         var selectAllToggle = document.getElementById('select-all-toggle');

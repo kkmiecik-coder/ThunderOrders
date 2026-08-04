@@ -11,8 +11,9 @@
     // ====================
 
     const selectAllCheckbox = document.getElementById('selectAll');
-    const bulkToolbar = document.getElementById('bulkToolbar');
-    const selectedCountSpan = document.getElementById('selectedCount');
+    // Wspólny komponent paska akcji (static/js/components/bulk-toolbar.js).
+    // init() zwraca null, gdy paska nie ma w DOM — wtedy po prostu nic nie robimy.
+    const pasek = BulkToolbar.init('bulkToolbar');
 
     /**
      * Get only the visible order checkboxes (table or cards, not both).
@@ -39,15 +40,13 @@
      * Update bulk toolbar visibility and count
      */
     function updateBulkToolbar() {
+        if (!pasek) return;
+
         const visibleCheckboxes = getVisibleOrderCheckboxes();
         const count = Array.from(visibleCheckboxes).filter(cb => cb.checked).length;
 
-        if (count > 0) {
-            bulkToolbar.classList.remove('hidden');
-            selectedCountSpan.textContent = `${count} zaznaczonych`;
-        } else {
-            bulkToolbar.classList.add('hidden');
-        }
+        // Komponent sam ustawia tekst licznika (z odmianą) i pokazuje/ukrywa pasek.
+        pasek.update(count);
     }
 
     /**
