@@ -320,6 +320,35 @@ def test_ship_failure_leaves_nothing_changed(client, db, make_user, make_order, 
     assert OrderShipment.query.count() == 0
 
 
+# ---------- C1: brak duplikatu powiadomienia o trackingu ----------
+
+def test_ship_does_not_resend_tracking_when_shipment_exists(client, db, make_user, make_order,
+                                                             login, notifications):
+    """Numer przesyłki wpisany wcześniej w oknie "Dodaj koszty" już wysłał maila
+    i utworzył OrderShipment. "Oznacz jako wysłane" z tym samym numerem nie może
+    wysłać identycznego maila/pusha drugi raz."""
+    from modules.orders.models import OrderShipment
+    login(make_user(role='admin'))
+    _seed_statuses(db)
+    sr, orders = _sr_packed(db, make_user, make_order)
+    db.session.add(OrderShipment(
+        order_id=orders[0].id,
+        tracking_number='PREEXIST1',
+        courier='dpd',
+        notes='Dodano z okna kosztow',
+    ))
+    db.session.commit()
+
+    r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
+                    json={'courier': 'dpd', 'tracking_number': 'PREEXIST1'})
+
+    assert r.status_code == 200
+    db.session.refresh(sr)
+    assert sr.status == 'wyslane'
+    assert notifications['tracking'] == []            # brak drugiego maila o trackingu
+    assert OrderShipment.query.filter_by(tracking_number='PREEXIST1').count() == 1
+
+
 def test_reopen_by_order_ids_also_resets_shipping_request(client, db, make_user, make_order, login):
     """Cofnięcie przez same order_ids (bez shipping_request_ids) musi też cofnąć
     status zlecenia wysyłki — inaczej zlecenie zostaje 'spakowane', mimo że jego
