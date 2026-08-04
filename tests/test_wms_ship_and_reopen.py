@@ -165,7 +165,7 @@ def test_ship_from_list_rejects_already_shipped(client, db, make_user, make_orde
     r = client.post(f'/admin/orders/shipping-requests/{sr.id}/ship',
                     json={'tracking_number': 'BBB'})
 
-    assert r.status_code in (400, 409)
+    assert r.status_code == 409
     assert notifications['tracking'] == []   # klient nie dostaje drugiego trackingu
 
 

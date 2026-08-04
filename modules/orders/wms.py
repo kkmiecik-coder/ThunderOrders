@@ -945,13 +945,7 @@ def admin_ship_shipping_request(sr_id):
     sr = ShippingRequest.query.get_or_404(sr_id)
     data = request.get_json(silent=True) or {}
 
-    if sr.status == 'wyslane':
-        return jsonify({
-            'success': False,
-            'message': f'Zlecenie {sr.request_number} jest już wysłane',
-        }), 409
-
-    if sr.status != 'spakowane':
+    if sr.status not in ('spakowane', 'wyslane'):
         return jsonify({
             'success': False,
             'message': (f'Zlecenie {sr.request_number} nie jest spakowane '
