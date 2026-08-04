@@ -1670,10 +1670,6 @@
         try {
             var trackingInput = panelEl.querySelector('#shipTracking');
             var tracking = trackingInput ? trackingInput.value.trim() : '';
-            if (!tracking) {
-                showToast('Numer tracking jest wymagany', 'error');
-                return;
-            }
 
             var courierSelect = panelEl.querySelector('#shipCourier');
             var courier = courierSelect ? courierSelect.value : '';
